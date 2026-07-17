@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.no_dusk.phase3",
+  "traceSha256": "6130325debdeab638b52132b25e05b5067535186f575a52b4a3d4b2c05b3de80",
+  "sourceDurationMs": 10800,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 150,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 772,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 772,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5400,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10100,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10380,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10800,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--no_dusk--phase3.gif",
+    "apng": "boss--no_dusk--phase3.apng",
+    "timeline": "boss--no_dusk--phase3.timeline.json"
+  }
+}

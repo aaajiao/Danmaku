@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit.runtime-contract.v4",
+  "authority": {
+    "gameplayClock": "monotonic-fixed-step-simulation",
+    "fixedStepMs": 16.6666666667,
+    "visualClock": "derived-read-only",
+    "audioClock": "derived-read-only",
+    "hapticClock": "derived-read-only",
+    "largeDeltaPolicy": "traverse-every-crossed-authoritative-boundary",
+    "maximumBoundariesPerAdvance": 1024
+  },
+  "sameTimestampOrdering": [
+    "collision-disable",
+    "state-or-damage-commit",
+    "collision-enable",
+    "entity-spawn",
+    "feedback-dispatch"
+  ],
+  "playerDamage": {
+    "authority": "PlayerDamageMachine",
+    "branchSelection": "atomic-before-events",
+    "branches": ["ignored", "non-fatal", "fatal"],
+    "mutuallyExclusive": true,
+    "collisionPolicy": "enabled-only-when-no-active-blocker-leases",
+    "directCollisionToggleForbidden": true,
+    "blockerLeaseOwners": ["damage", "respawn", "room-transition", "cutscene", "system-handoff"],
+    "fatalCancelsNonFatalTimelineCompetition": true
+  },
+  "projectileLifecycle": {
+    "states": ["dormant", "arming", "flight", "residue", "complete"],
+    "sequence": "spawn/arm -> entity-owned-flight -> explicit-impact-or-cancel -> residue -> cleanup",
+    "flightOwner": "projectile-entity",
+    "flightDurationMs": null,
+    "fixedFlightTimeoutForbidden": true,
+    "collisionDerivedFromVisualAlpha": false,
+    "residueCollision": false,
+    "grazeAwardKey": "projectileInstanceId:projectileGeneration:playerId",
+    "grazeAwardMaximumPerKey": 1
+  },
+  "flowerPriority": ["override", "gaze", "focus", "signal"],
+  "override": {
+    "mode": "directional-local-void",
+    "globalInvulnerability": false,
+    "consumes": "evidence",
+    "geometry": "forward-sector",
+    "digitalOutcome": "local-rule-tear",
+    "materialOutcome": "typed-overrideScar-at-world-coordinate",
+    "scarTypeMustNotEqualDeathTrace": true
+  },
+  "snapshotSeparation": {
+    "snapshotResponsibility": "observe-serialize-present-current-run",
+    "archiveResponsibility": "persist-immutable-record",
+    "restoreResponsibility": "hydrate-next-run",
+    "snapshotMayRestoreNextRun": false,
+    "restoreOrder": ["overrideScar", "deathTrace", "burnIn", "actual-ghost-route", "ghostResidue", "witnessOrientation", "returnInput"],
+    "materialTypesAreDisjoint": true,
+    "routeDurationAuthority": "last-authoritative-ghostRoute-point-tMs"
+  },
+  "canonicalTimingMs": {
+    "snapshot": {
+      "serialize": 410,
+      "present": 810,
+      "complete": 1630
+    },
+    "crossRunRestore": {
+      "materialRehydrate": 0,
+      "ghostReplayBegin": 420,
+      "ghostReplayComplete": "routeDurationMs+420",
+      "ghostResidueWrite": "routeDurationMs+421",
+      "witnessTurn": "routeDurationMs+700",
+      "inputReturn": "routeDurationMs+1140"
+    },
+    "roomTransition": {
+      "worldSwap": 240,
+      "roomReady": 500,
+      "complete": 650
+    }
+  },
+  "roomIdentity": {
+    "canonicalIds": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"],
+    "migrationReadAliases": {"INFO_OVERFLOW":"INFORMATION"},
+    "writePolicy": "canonical-only"
+  },
+  "accessibilityInvariant": {
+    "gameplayAuthorityUnaffected": true,
+    "axesAreOrthogonal": true,
+    "requiredParityProfiles": ["full", "reducedMotion", "flashOff"],
+    "parityDefinition": "same-event-id-same-simulation-time-same-payload-same-order",
+    "collisionMayDependOnAccessibility": false,
+    "rngMayDependOnAccessibility": false,
+    "bossOrPatternTimingMayDependOnAccessibility": false
+  },
+  "feedbackInvariant": {
+    "direction": "gameplay-event-to-feedback-sink-only",
+    "feedbackMayEmitGameplay": false,
+    "gameplayCriticalConditionalCueRequiresFallback": true,
+    "visualFeedbackMayDetermineCollision": false
+  },
+  "worldviewInvariant": {
+    "behaviorBeforeIcon": true,
+    "digitalActionHasMaterialConsequence": true,
+    "snapshotIsObservationalNotJudgmental": true,
+    "bossResolutionMayBeHpSurvivalOrWorldFact": true,
+    "roomsAreSampledMentalStatesNotLinearLevels": true
+  }
+}

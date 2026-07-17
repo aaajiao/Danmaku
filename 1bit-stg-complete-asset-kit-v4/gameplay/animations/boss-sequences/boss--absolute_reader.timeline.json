@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.absolute_reader",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.absolute_reader",
+    "narrativeAlias": "absolute_reader",
+    "resolutionId": "ABSOLUTE_READER_INCOMPLETE",
+    "metric": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+    "condition": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+    "fact": "The Eye's read ledger closed with at least one interval remaining unclassified.",
+    "terminal": "boss.eye.readLedgerClose",
+    "terminalEvent": "boss.eye.readLedgerClose",
+    "materialRemainder": "broken read ring with one blank interval",
+    "playerPossibilities": [
+      "alternate expression and focus",
+      "use directional scar occlusion",
+      "inhabit stable middle band"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.absolute_reader.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "814b5b66622e1bf3e990e4e57fc9211a4b6c795334b618da68c0b1b7bda51fa5"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.absolute_reader.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "ed8d133928a34f6e5e97bf23df737e9dbb6b4e7d99b480e682a498cbb4b8ffb4"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.absolute_reader.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "abcd20713e31b236b2080d90ccbf9efad6e435f7ee9755917ed5e4deb0fdd671"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--absolute_reader.gif",
+    "apng": "boss--absolute_reader.apng",
+    "timeline": "boss--absolute_reader.timeline.json"
+  }
+}

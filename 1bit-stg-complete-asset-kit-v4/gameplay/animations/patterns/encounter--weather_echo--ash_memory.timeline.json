@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "encounter.weather_echo.ash_memory",
+  "traceSha256": "b7f7ef27613264f2846ab8e9a9da40d187be1bd40d182b8a397bedbda1a0fea2",
+  "sourceDurationMs": 10200,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 142,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 759,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 759,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5100,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 9500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 9780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "encounter--weather_echo--ash_memory.gif",
+    "apng": "encounter--weather_echo--ash_memory.apng",
+    "timeline": "encounter--weather_echo--ash_memory.timeline.json"
+  }
+}

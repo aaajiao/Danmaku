@@ -1,0 +1,243 @@
+{
+  "schemaVersion": "1bit-background-system-v3.0.0",
+  "coordinateSystem": {
+    "origin": "top-left",
+    "x": "right",
+    "y": "down",
+    "logicalViewportPx": [
+      360,
+      640
+    ],
+    "texturePx": [
+      360,
+      1280
+    ],
+    "authoredRepeatPeriodPx": 640
+  },
+  "renderContract": {
+    "magFilter": "THREE.NearestFilter",
+    "minFilter": "THREE.NearestFilter",
+    "wrapS": "THREE.ClampToEdgeWrapping",
+    "wrapT": "THREE.RepeatWrapping",
+    "colorSpace": "THREE.SRGBColorSpace",
+    "generateMipmaps": false,
+    "premultiplyAlpha": false,
+    "pixelSnap": true,
+    "recommendedLayerOrder": [
+      "far",
+      "mid",
+      "trace",
+      "mask"
+    ],
+    "gameplayVeil": {
+      "sourceLayer": "mid",
+      "bossRecommendedOpacity": 0.42,
+      "stressRecommendedOpacity": 0.32
+    }
+  },
+  "palette": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "rooms": {
+    "information": {
+      "label": "INFORMATION",
+      "roomColor": "INFO_CYAN",
+      "seed": 1701,
+      "fieldSemantics": "断裂信息束：不同步刷新、丢包、重复尝试、旧路径烧屏；没有稳定中心。",
+      "doubleHelix": {
+        "digital": "packet loss / retry / stale route",
+        "material": "被反复压印又中断的热敏纸带"
+      },
+      "layers": {
+        "far": {
+          "role": "room identity / low-contrast material field",
+          "scrollPxPerSec": 4,
+          "alphaContract": "opaque",
+          "runtimeOpacity": 1.0,
+          "file": "layers/information/far.png",
+          "sha256": "d13341483e54b6a6ae8fb569c0ae4d0c246fee5cec8ddf37a047132a6e2b9d61"
+        },
+        "mid": {
+          "role": "protocol movement / gameplay-veil target",
+          "scrollPxPerSec": 13,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.72,
+          "file": "layers/information/mid.png",
+          "sha256": "feccd0e6ee5cefb05fab9888730436ca64e49da6a8fad7d7745f8a96791e86f9"
+        },
+        "trace": {
+          "role": "sample player-history residue / replaceable at runtime",
+          "scrollPxPerSec": 7,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.48,
+          "file": "layers/information/trace.png",
+          "sha256": "aa69e38ab5f34710f89cb65e5a5ec595efb441a913c0db7ffdd4eb7495a23a36"
+        },
+        "mask": {
+          "role": "binary field mask read from alpha",
+          "scrollPxPerSec": 21,
+          "alphaContract": "binary",
+          "runtimeOpacity": 1.0,
+          "file": "layers/information/mask.png",
+          "sha256": "eb42e0a159055458d1dac511be338ff157cf4db477b944a15693ca22a6a40f4f"
+        }
+      },
+      "compositePreview": "composites/information-gameplay.png",
+      "layerPreview": "previews/information-layers.png"
+    },
+    "forced_choice": {
+      "label": "FORCED CHOICE",
+      "roomColor": "FORCED_AMBER",
+      "seed": 1702,
+      "fieldSemantics": "同源镜像差异：左右共享 seed，但缺口、损耗与治理结果不同；seam 不是安全区。",
+      "doubleHelix": {
+        "digital": "one seed / two governed outcomes",
+        "material": "同一模具脱出的两块不等量余料"
+      },
+      "layers": {
+        "far": {
+          "role": "room identity / low-contrast material field",
+          "scrollPxPerSec": 4,
+          "alphaContract": "opaque",
+          "runtimeOpacity": 1.0,
+          "file": "layers/forced_choice/far.png",
+          "sha256": "26b87a7e87fe5e7347cfd8e6ebbb593f34ab060362afd30a48eec0d66d10af5e"
+        },
+        "mid": {
+          "role": "protocol movement / gameplay-veil target",
+          "scrollPxPerSec": 13,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.72,
+          "file": "layers/forced_choice/mid.png",
+          "sha256": "9596cbeb1bef18b05c36180b89dca5b238a9db0f9f4508b922fa418c13ff538a"
+        },
+        "trace": {
+          "role": "sample player-history residue / replaceable at runtime",
+          "scrollPxPerSec": 7,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.48,
+          "file": "layers/forced_choice/trace.png",
+          "sha256": "6d9dedcb5f586178463b9ca5e24193ecfb43739492910139ae2e1f70450176af"
+        },
+        "mask": {
+          "role": "binary field mask read from alpha",
+          "scrollPxPerSec": 21,
+          "alphaContract": "binary",
+          "runtimeOpacity": 1.0,
+          "file": "layers/forced_choice/mask.png",
+          "sha256": "4ae2b80085e6b87555f6bae3aba65962b48b65011844df358d6cc21a9d0f2dd7"
+        }
+      },
+      "compositePreview": "composites/forced_choice-gameplay.png",
+      "layerPreview": "previews/forced_choice-layers.png"
+    },
+    "in_between": {
+      "label": "IN-BETWEEN",
+      "roomColor": "BETWEEN_VIOLET",
+      "seed": 1703,
+      "fieldSemantics": "双系统交错：正交层与斜向层独立运行，稳定交集可学习，其他位置保持冲突。",
+      "doubleHelix": {
+        "digital": "independent A/B clocks / stable intersection",
+        "material": "两张不同纹理方向的板材叠压"
+      },
+      "layers": {
+        "far": {
+          "role": "room identity / low-contrast material field",
+          "scrollPxPerSec": 4,
+          "alphaContract": "opaque",
+          "runtimeOpacity": 1.0,
+          "file": "layers/in_between/far.png",
+          "sha256": "3c91a101a0adb33fe01189afebf8fa8b2f9f0265765c13dca430bded8ba125fe"
+        },
+        "mid": {
+          "role": "protocol movement / gameplay-veil target",
+          "scrollPxPerSec": 13,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.72,
+          "file": "layers/in_between/mid.png",
+          "sha256": "cb6d1075344d82e3c0c35b5cbdf72f1e7c3b1a5dc52eb78c93b43e7f5bba95bd"
+        },
+        "trace": {
+          "role": "sample player-history residue / replaceable at runtime",
+          "scrollPxPerSec": 7,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.48,
+          "file": "layers/in_between/trace.png",
+          "sha256": "713b6852bed60155a423438bb5343615977e94ed931445ea7c37c361a5d7fc21"
+        },
+        "mask": {
+          "role": "binary field mask read from alpha",
+          "scrollPxPerSec": 21,
+          "alphaContract": "binary",
+          "runtimeOpacity": 1.0,
+          "file": "layers/in_between/mask.png",
+          "sha256": "5ee3b32fba333eef58917725c70bcfb149af89fc5423e136576210e2c3e7d652"
+        }
+      },
+      "compositePreview": "composites/in_between-gameplay.png",
+      "layerPreview": "previews/in_between-layers.png"
+    },
+    "polarized": {
+      "label": "POLARIZED",
+      "roomColor": "POLAR_RED",
+      "seed": 1704,
+      "fieldSemantics": "红黑骨白硬切割：只有开/关，零渐变；只有玩家历史 scar 破坏镜像。",
+      "doubleHelix": {
+        "digital": "binary threshold / enforced symmetry",
+        "material": "红色切片、黑色断面与骨白芯材"
+      },
+      "layers": {
+        "far": {
+          "role": "room identity / low-contrast material field",
+          "scrollPxPerSec": 4,
+          "alphaContract": "opaque",
+          "runtimeOpacity": 1.0,
+          "file": "layers/polarized/far.png",
+          "sha256": "1bff71400fbf99d7555976247436137e595d9add9b5e0512323c39960cb36474"
+        },
+        "mid": {
+          "role": "protocol movement / gameplay-veil target",
+          "scrollPxPerSec": 13,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.72,
+          "file": "layers/polarized/mid.png",
+          "sha256": "aaa1fa49fc32cce4d2e99e9d8c336dd6cab1a03d995974dcd3294693084d904b"
+        },
+        "trace": {
+          "role": "sample player-history residue / replaceable at runtime",
+          "scrollPxPerSec": 7,
+          "alphaContract": "binary",
+          "runtimeOpacity": 0.48,
+          "file": "layers/polarized/trace.png",
+          "sha256": "653c4fdf97c3bd8d98e0a356dafc121637c583ae40bc20ac3248ca1c1a9ab996"
+        },
+        "mask": {
+          "role": "binary field mask read from alpha",
+          "scrollPxPerSec": 21,
+          "alphaContract": "binary",
+          "runtimeOpacity": 1.0,
+          "file": "layers/polarized/mask.png",
+          "sha256": "25097cb6e85aa8ba08d18f23eb9777966f9f990a6d5b8b2b30125a12f295bd65"
+        }
+      },
+      "compositePreview": "composites/polarized-gameplay.png",
+      "layerPreview": "previews/polarized-layers.png"
+    }
+  },
+  "validation": {
+    "status": "PASS",
+    "report": "reports/validation-report.json"
+  },
+  "stressPreviews": {
+    "40": "previews/stress-040.png",
+    "120": "previews/stress-120.png",
+    "240": "previews/stress-240.png"
+  }
+}

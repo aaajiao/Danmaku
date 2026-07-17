@@ -1,0 +1,14 @@
+{
+  "size": [
+    360,
+    640
+  ],
+  "bulletCount": 240,
+  "seed": 3301,
+  "background": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/backgrounds/composites/information-gameplay.png",
+  "playerFrame": null,
+  "enemyFrame": null,
+  "bossFrame": "boss.absent_receiver.attack",
+  "animationFrames": 12,
+  "fps": 10
+}

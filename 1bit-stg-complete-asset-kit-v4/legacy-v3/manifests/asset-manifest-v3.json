@@ -1,0 +1,460 @@
+{
+  "schemaVersion": "3.0.0",
+  "description": "Production runtime atlases. Background and UI entries are merged by the final packaging step.",
+  "atlases": {
+    "core-grammar-v3": {
+      "id": "core-grammar-v3",
+      "image": "atlases/core-grammar-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3"
+      ],
+      "sha256": "4d638b0f29632e3f52d1fb8f077ce3ba14300054e943dc9554a0b55524086b94"
+    },
+    "boss-topologies-v3": {
+      "id": "boss-topologies-v3",
+      "image": "atlases/boss-topologies-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3",
+        "boss"
+      ],
+      "sha256": "a5c3c230f1090ec581dcce1f956a989f8d1313591eddbd3d029b9dc35baa117a"
+    },
+    "combat-causality-v3": {
+      "id": "combat-causality-v3",
+      "image": "atlases/combat-causality-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3",
+        "combat",
+        "animation"
+      ],
+      "sha256": "f17108f5ba61441753bd28860c77e3682bf950a595854a2c8e6b9664a06c5524"
+    },
+    "narrative-behavior-v3": {
+      "id": "narrative-behavior-v3",
+      "image": "atlases/narrative-behavior-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3",
+        "narrative",
+        "weather"
+      ],
+      "sha256": "588d0de0220ed818d242eafc77cf8b62ccec6cb67e64eceb743989cfe95c07ee"
+    },
+    "core-projectile-v3": {
+      "id": "core-projectile-v3",
+      "image": "atlases/core-grammar-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "bullet",
+        "projectile",
+        "danmaku",
+        "v3"
+      ],
+      "sha256": "4d638b0f29632e3f52d1fb8f077ce3ba14300054e943dc9554a0b55524086b94",
+      "aliasOf": "core-grammar-v3"
+    },
+    "combat-projectile-v3": {
+      "id": "combat-projectile-v3",
+      "image": "atlases/combat-causality-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "bullet",
+        "projectile",
+        "laser",
+        "v3"
+      ],
+      "sha256": "f17108f5ba61441753bd28860c77e3682bf950a595854a2c8e6b9664a06c5524",
+      "aliasOf": "combat-causality-v3"
+    }
+  },
+  "backgrounds": [
+    {
+      "id": "background.information.gameplay",
+      "room": "INFORMATION",
+      "file": "backgrounds/composites/information-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "role": "gameplay-composite-preview"
+    },
+    {
+      "id": "background.forced_choice.gameplay",
+      "room": "FORCED CHOICE",
+      "file": "backgrounds/composites/forced_choice-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "role": "gameplay-composite-preview"
+    },
+    {
+      "id": "background.in_between.gameplay",
+      "room": "IN-BETWEEN",
+      "file": "backgrounds/composites/in_between-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "role": "gameplay-composite-preview"
+    },
+    {
+      "id": "background.polarized.gameplay",
+      "room": "POLARIZED",
+      "file": "backgrounds/composites/polarized-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "role": "gameplay-composite-preview"
+    }
+  ],
+  "gameplayVisualArchetypes": "manifests/v3/gameplay-visual-archetypes.json",
+  "statistics": {
+    "atlasFiles": 4,
+    "atlasAliases": 2,
+    "semanticFrames": 256,
+    "projectileArchetypes": 24,
+    "enemyArchetypes": 16,
+    "danmakuPatternTemplates": 12
+  },
+  "backgroundLayers": [
+    {
+      "id": "background.information.far",
+      "room": "INFORMATION",
+      "layer": "far",
+      "file": "backgrounds/layers/information/far.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 4,
+      "runtimeOpacity": 1.0,
+      "sha256": "d13341483e54b6a6ae8fb569c0ae4d0c246fee5cec8ddf37a047132a6e2b9d61"
+    },
+    {
+      "id": "background.information.mid",
+      "room": "INFORMATION",
+      "layer": "mid",
+      "file": "backgrounds/layers/information/mid.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 13,
+      "runtimeOpacity": 0.72,
+      "sha256": "feccd0e6ee5cefb05fab9888730436ca64e49da6a8fad7d7745f8a96791e86f9"
+    },
+    {
+      "id": "background.information.trace",
+      "room": "INFORMATION",
+      "layer": "trace",
+      "file": "backgrounds/layers/information/trace.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 7,
+      "runtimeOpacity": 0.48,
+      "sha256": "aa69e38ab5f34710f89cb65e5a5ec595efb441a913c0db7ffdd4eb7495a23a36"
+    },
+    {
+      "id": "background.information.mask",
+      "room": "INFORMATION",
+      "layer": "mask",
+      "file": "backgrounds/layers/information/mask.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 21,
+      "runtimeOpacity": 1.0,
+      "sha256": "eb42e0a159055458d1dac511be338ff157cf4db477b944a15693ca22a6a40f4f"
+    },
+    {
+      "id": "background.forced_choice.far",
+      "room": "FORCED CHOICE",
+      "layer": "far",
+      "file": "backgrounds/layers/forced_choice/far.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 4,
+      "runtimeOpacity": 1.0,
+      "sha256": "26b87a7e87fe5e7347cfd8e6ebbb593f34ab060362afd30a48eec0d66d10af5e"
+    },
+    {
+      "id": "background.forced_choice.mid",
+      "room": "FORCED CHOICE",
+      "layer": "mid",
+      "file": "backgrounds/layers/forced_choice/mid.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 13,
+      "runtimeOpacity": 0.72,
+      "sha256": "9596cbeb1bef18b05c36180b89dca5b238a9db0f9f4508b922fa418c13ff538a"
+    },
+    {
+      "id": "background.forced_choice.trace",
+      "room": "FORCED CHOICE",
+      "layer": "trace",
+      "file": "backgrounds/layers/forced_choice/trace.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 7,
+      "runtimeOpacity": 0.48,
+      "sha256": "6d9dedcb5f586178463b9ca5e24193ecfb43739492910139ae2e1f70450176af"
+    },
+    {
+      "id": "background.forced_choice.mask",
+      "room": "FORCED CHOICE",
+      "layer": "mask",
+      "file": "backgrounds/layers/forced_choice/mask.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 21,
+      "runtimeOpacity": 1.0,
+      "sha256": "4ae2b80085e6b87555f6bae3aba65962b48b65011844df358d6cc21a9d0f2dd7"
+    },
+    {
+      "id": "background.in_between.far",
+      "room": "IN-BETWEEN",
+      "layer": "far",
+      "file": "backgrounds/layers/in_between/far.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 4,
+      "runtimeOpacity": 1.0,
+      "sha256": "3c91a101a0adb33fe01189afebf8fa8b2f9f0265765c13dca430bded8ba125fe"
+    },
+    {
+      "id": "background.in_between.mid",
+      "room": "IN-BETWEEN",
+      "layer": "mid",
+      "file": "backgrounds/layers/in_between/mid.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 13,
+      "runtimeOpacity": 0.72,
+      "sha256": "cb6d1075344d82e3c0c35b5cbdf72f1e7c3b1a5dc52eb78c93b43e7f5bba95bd"
+    },
+    {
+      "id": "background.in_between.trace",
+      "room": "IN-BETWEEN",
+      "layer": "trace",
+      "file": "backgrounds/layers/in_between/trace.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 7,
+      "runtimeOpacity": 0.48,
+      "sha256": "713b6852bed60155a423438bb5343615977e94ed931445ea7c37c361a5d7fc21"
+    },
+    {
+      "id": "background.in_between.mask",
+      "room": "IN-BETWEEN",
+      "layer": "mask",
+      "file": "backgrounds/layers/in_between/mask.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 21,
+      "runtimeOpacity": 1.0,
+      "sha256": "5ee3b32fba333eef58917725c70bcfb149af89fc5423e136576210e2c3e7d652"
+    },
+    {
+      "id": "background.polarized.far",
+      "room": "POLARIZED",
+      "layer": "far",
+      "file": "backgrounds/layers/polarized/far.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 4,
+      "runtimeOpacity": 1.0,
+      "sha256": "1bff71400fbf99d7555976247436137e595d9add9b5e0512323c39960cb36474"
+    },
+    {
+      "id": "background.polarized.mid",
+      "room": "POLARIZED",
+      "layer": "mid",
+      "file": "backgrounds/layers/polarized/mid.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 13,
+      "runtimeOpacity": 0.72,
+      "sha256": "aaa1fa49fc32cce4d2e99e9d8c336dd6cab1a03d995974dcd3294693084d904b"
+    },
+    {
+      "id": "background.polarized.trace",
+      "room": "POLARIZED",
+      "layer": "trace",
+      "file": "backgrounds/layers/polarized/trace.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 7,
+      "runtimeOpacity": 0.48,
+      "sha256": "653c4fdf97c3bd8d98e0a356dafc121637c583ae40bc20ac3248ca1c1a9ab996"
+    },
+    {
+      "id": "background.polarized.mask",
+      "room": "POLARIZED",
+      "layer": "mask",
+      "file": "backgrounds/layers/polarized/mask.png",
+      "size": [
+        360,
+        1280
+      ],
+      "repeatPeriodPx": 640,
+      "scrollPxPerSec": 21,
+      "runtimeOpacity": 1.0,
+      "sha256": "25097cb6e85aa8ba08d18f23eb9777966f9f990a6d5b8b2b30125a12f295bd65"
+    }
+  ],
+  "ui": {
+    "atlas": "ui/atlas/ui-atlas.png",
+    "atlasManifest": "manifests/v3/ui-atlas.json",
+    "layouts": "manifests/v3/ui-layouts.json",
+    "copy": "manifests/v3/ui-copy.json",
+    "stateSnapshotExample": "manifests/v3/sample-run-state.json",
+    "mockups": 10
+  },
+  "fonts": [
+    {
+      "id": "noto-sans-sc-variable",
+      "file": "fonts/NotoSansSC-Variable.ttf",
+      "license": "fonts/OFL.txt",
+      "source": "fonts/FONT_SOURCE_ZH.md"
+    }
+  ],
+  "runtime": {
+    "contract": "manifests/v3/runtime-contract.json",
+    "bindingGraph": "manifests/v3/binding-graph.json",
+    "bossLaserStateMachine": "manifests/v3/boss-laser-state-machine.json",
+    "referenceImplementation": "runtime/runtime.ts"
+  }
+}

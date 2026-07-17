@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "4.0.0-world-reaction-graph",
+  "id": "world.reaction.graph.v4",
+  "authority": "derived-presentation",
+  "description": "One-way graph from recorded behavior to digital response and then to material remainder. No reaction node can alter the fact that caused it.",
+  "sourceNodes": [
+    "player.signal",
+    "player.focus",
+    "player.gaze",
+    "player.graze",
+    "player.override",
+    "player.route",
+    "room.threshold",
+    "weather.lifecycle",
+    "run.memory"
+  ],
+  "reactionNodes": {
+    "Flower": {
+      "digital": ["quietBreath", "midResonance", "loudExposure", "forcedClamp", "delayedRecovery"],
+      "material": ["petalOffset", "coreNotch", "damageFiber"],
+      "inputs": ["player.signal", "player.focus", "player.gaze"]
+    },
+    "Eye": {
+      "digital": ["horizonPresence", "acquire", "clamp", "scarOcclusion", "incompleteRead"],
+      "material": ["brokenReadRing", "occludedApertureResidue"],
+      "inputs": ["player.gaze", "player.signal", "player.override", "run.memory"]
+    },
+    "Witness": {
+      "digital": ["isolated", "resonant", "headDown", "faceEye", "faceScar", "faceGhostEnd", "resistanceTransmission"],
+      "material": ["standingCluster", "chestPulse", "turnedSilhouette"],
+      "inputs": ["player.signal", "player.override", "player.route", "weather.lifecycle", "run.memory"]
+    },
+    "Ghost": {
+      "digital": ["actualRouteReplay", "singleUseBurnout"],
+      "material": ["ghostResidueAtFinalPoint"],
+      "inputs": ["run.memory"]
+    },
+    "Cable": {
+      "digital": ["idle", "uploadTowardEye", "disconnect", "packetLoss"],
+      "material": ["burnInFork", "hangingSlack", "heatMark"],
+      "inputs": ["player.signal", "player.override", "weather.lifecycle"]
+    },
+    "SnapshotEcho": {
+      "digital": ["draftFingerprint", "partialMetricLeak", "facadeHardFlash"],
+      "material": ["lowResolutionImprint"],
+      "inputs": ["player.route", "player.gaze", "player.override", "run.memory"]
+    },
+    "Seam": {
+      "digital": ["sideBorrow", "claimSwap", "unclaimedCrossing", "fallReset"],
+      "material": ["directionalScuff", "resetDust", "nonMirroredScar"],
+      "inputs": ["player.route", "player.override", "room.threshold"]
+    },
+    "RoomSky": {
+      "digital": ["infoPointFlicker", "forcedLedger", "betweenDoubleClock", "polarBinarySplit"],
+      "material": ["weatherAfterimage", "eclipseOcclusion"],
+      "inputs": ["room.threshold", "weather.lifecycle", "player.signal"]
+    },
+    "ShadowCorrection": {
+      "digital": ["oneRuleAlignment", "scarCorrectionFailure", "windDisplacement"],
+      "material": ["misalignedHardShadow", "returningShadowScuff"],
+      "inputs": ["room.threshold", "player.override", "weather.lifecycle"]
+    },
+    "DataWaterfall": {
+      "digital": ["signalRate", "retryLoop", "stalePacket", "dropout"],
+      "material": ["characterPuddle", "erasedFacadeStripe"],
+      "inputs": ["player.signal", "player.gaze", "weather.lifecycle"]
+    },
+    "ViewmodelEcho": {
+      "digital": ["systemARead", "systemBRead", "intersectionAgreement", "misregistration"],
+      "material": ["doubleEdgeResidue", "stableIntersectionMark"],
+      "inputs": ["player.route", "player.focus", "room.threshold"]
+    },
+    "BurnIn": {
+      "digital": ["gazeStillCapture", "pixelExtinguish", "memoryRehydrate"],
+      "material": ["hardInkDotField"],
+      "inputs": ["player.gaze", "run.memory"]
+    },
+    "NoDusk": {
+      "digital": ["binaryTimeCut", "continuousAudioDescent", "protocolWithdrawal"],
+      "material": ["timeWallResidue", "halfChangedCable"],
+      "inputs": ["room.threshold", "weather.lifecycle", "run.memory"]
+    }
+  },
+  "edges": [
+    {"from": "player.signal", "to": "Flower", "event": "flower.intensityTarget"},
+    {"from": "player.signal", "to": "Cable", "event": "cable.uploadRate"},
+    {"from": "player.signal", "to": "DataWaterfall", "event": "waterfall.scrollRate"},
+    {"from": "player.signal", "to": "Witness", "event": "witness.lightRelation"},
+    {"from": "player.gaze", "to": "Eye", "event": "gaze.readPressure"},
+    {"from": "player.gaze", "to": "Flower", "event": "gaze.clamp"},
+    {"from": "player.gaze", "to": "BurnIn", "event": "burnIn.captureCandidate"},
+    {"from": "player.focus", "to": "Flower", "event": "flower.voluntaryDim"},
+    {"from": "player.focus", "to": "ViewmodelEcho", "event": "echo.intersectionNarrow"},
+    {"from": "player.override", "to": "Eye", "event": "eye.localReadOccluded"},
+    {"from": "player.override", "to": "Seam", "event": "seam.localRuleVoid"},
+    {"from": "player.override", "to": "Witness", "event": "witness.resistanceTransmission"},
+    {"from": "player.override", "to": "ShadowCorrection", "event": "shadow.correctionFailure"},
+    {"from": "player.route", "to": "Ghost", "event": "ghost.routeCapture"},
+    {"from": "player.route", "to": "SnapshotEcho", "event": "snapshotEcho.routeDigest"},
+    {"from": "player.route", "to": "Seam", "event": "seam.proximity"},
+    {"from": "room.threshold", "to": "RoomSky", "event": "sky.roomSignature"},
+    {"from": "room.threshold", "to": "ViewmodelEcho", "event": "echo.roomGate"},
+    {"from": "room.threshold", "to": "NoDusk", "event": "noDusk.roomGate"},
+    {"from": "weather.lifecycle", "to": "RoomSky", "event": "sky.weatherPhase"},
+    {"from": "weather.lifecycle", "to": "Cable", "event": "cable.weatherBody"},
+    {"from": "weather.lifecycle", "to": "ShadowCorrection", "event": "shadow.weatherDisplacement"},
+    {"from": "run.memory", "to": "Ghost", "event": "ghost.rehydrate"},
+    {"from": "run.memory", "to": "Witness", "event": "witness.rehydrateCondition"},
+    {"from": "run.memory", "to": "BurnIn", "event": "burnIn.rehydrate"},
+    {"from": "run.memory", "to": "SnapshotEcho", "event": "snapshotEcho.previousFingerprint"}
+  ],
+  "materialRemainderClasses": {
+    "overrideScar": "A player-created directional interruption of a rule.",
+    "deathTrace": "A bodily interruption at the point of damage or collapse.",
+    "burnIn": "A perceptual remainder produced by sustained looking.",
+    "ghostResidue": "The material endpoint left after one replay of an actual route.",
+    "weatherResidue": "Temporary matter produced by weather, never serialized as player intent."
+  },
+  "invariants": [
+    "No two remainder classes share a persistence key.",
+    "Witness response is derived from facts and cannot award evidence.",
+    "Digital deletion must have a material counterpart; material erosion must expose its digital cause.",
+    "Reaction diversity comes from time, relation and residue rather than adding decorative icons."
+  ]
+}

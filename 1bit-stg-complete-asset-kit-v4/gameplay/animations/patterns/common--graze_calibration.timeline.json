@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "common.graze_calibration",
+  "traceSha256": "81e027e76e4f5207736a946e47285c86957d28160682e8a3fccc18c282b26bc1",
+  "sourceDurationMs": 7200,
+  "previewFrameCount": 58,
+  "previewFrameDurationMs": 124,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 602,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 602,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 3600,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 6500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 6780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 7200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "common--graze_calibration.gif",
+    "apng": "common--graze_calibration.apng",
+    "timeline": "common--graze_calibration.timeline.json"
+  }
+}

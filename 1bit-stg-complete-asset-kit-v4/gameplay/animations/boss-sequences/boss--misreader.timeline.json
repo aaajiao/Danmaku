@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.misreader",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.misreader",
+    "narrativeAlias": "misreader",
+    "resolutionId": "READING_FAILED",
+    "metric": "completedReads >= 3 && predictionMismatchStreak >= 3",
+    "condition": "completedReads >= 3 && predictionMismatchStreak >= 3",
+    "fact": "Three completed reads disagreed with the player's following movement.",
+    "terminal": "boss.reader.releaseTarget",
+    "terminalEvent": "boss.reader.releaseTarget",
+    "materialRemainder": "misprinted route fragment",
+    "playerPossibilities": [
+      "change after snapshot lock",
+      "remain unreadably still",
+      "rupture aperture"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.misreader.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "de90a33aad7092433b1742e8de68c9c010eab24e97aad21eec9e251ce8aa4538"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.misreader.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "1bf752941f36d4d47cf0c56acf72ab10714433a17538f331e924fd2910f4c27a"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.misreader.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "1e2551127159d16012ae359ccb21da8060e792974a4659dea827ace1dea03383"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--misreader.gif",
+    "apng": "boss--misreader.apng",
+    "timeline": "boss--misreader.timeline.json"
+  }
+}

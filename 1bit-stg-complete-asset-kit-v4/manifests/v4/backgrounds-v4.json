@@ -1,0 +1,274 @@
+{
+  "schemaVersion": "4.0.0-backgrounds",
+  "baseComposites": [
+    {
+      "room": "INFORMATION",
+      "file": "backgrounds/composites/information-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "sha256": "366713e178bd2ee001b37bc1110d83fd38421279d7ddeea70f1bc8ea9298e947"
+    },
+    {
+      "room": "FORCED_ALIGNMENT",
+      "file": "backgrounds/composites/forced_choice-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "sha256": "6770d776454452cb6675aecd33859368eb23a532aa4577cd4fc6aaad0ddbadbe"
+    },
+    {
+      "room": "IN_BETWEEN",
+      "file": "backgrounds/composites/in_between-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "sha256": "86416453f9489b3b9f92f9e83ea37ab098f4b65f7bc2681b9d69d358768dffaf"
+    },
+    {
+      "room": "POLARIZED",
+      "file": "backgrounds/composites/polarized-gameplay.png",
+      "size": [
+        360,
+        640
+      ],
+      "sha256": "387f0490ae009f0285ebabafe6ab504f0eccfd3382b647916c5d63c5d987a749"
+    }
+  ],
+  "reactionStates": [
+    "threshold",
+    "dusk",
+    "aftermath",
+    "memory"
+  ],
+  "reactionOverlays": [
+    {
+      "id": "reaction.information.threshold",
+      "room": "information",
+      "state": "threshold",
+      "file": "backgrounds/reactions/information/threshold.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 7648,
+      "sha256": "584f05fa8c247d38f900bdf611c6f2c5008dbb949ffa3d8c63b9e8a67fa2b4ed"
+    },
+    {
+      "id": "reaction.information.dusk",
+      "room": "information",
+      "state": "dusk",
+      "file": "backgrounds/reactions/information/dusk.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 6764,
+      "sha256": "f3acbb36310ff722ed05d9f3cfd77545973fbc1fd9dec2845837623a6c239ec2"
+    },
+    {
+      "id": "reaction.information.aftermath",
+      "room": "information",
+      "state": "aftermath",
+      "file": "backgrounds/reactions/information/aftermath.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 1213,
+      "sha256": "0146f0265a332f9e8cc0aaa4d27c16940358d3c832dad58097f96001209a3a5f"
+    },
+    {
+      "id": "reaction.information.memory",
+      "room": "information",
+      "state": "memory",
+      "file": "backgrounds/reactions/information/memory.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 1710,
+      "sha256": "057bc0b6d2c2de36d9d3b88c04d5f8ef4431ed1230bff7630e5c34f24d91ce9f"
+    },
+    {
+      "id": "reaction.forced_choice.threshold",
+      "room": "forced_choice",
+      "state": "threshold",
+      "file": "backgrounds/reactions/forced_choice/threshold.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 11608,
+      "sha256": "4c5c56a88079985c508af75bfc00ad0a2c9033f3c97190a688c2bbcd744f5126"
+    },
+    {
+      "id": "reaction.forced_choice.dusk",
+      "room": "forced_choice",
+      "state": "dusk",
+      "file": "backgrounds/reactions/forced_choice/dusk.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 66560,
+      "sha256": "489c8325b9933db4349a321f14594b0cae344d359560e02ebd51c2cd5d2481f5"
+    },
+    {
+      "id": "reaction.forced_choice.aftermath",
+      "room": "forced_choice",
+      "state": "aftermath",
+      "file": "backgrounds/reactions/forced_choice/aftermath.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 12599,
+      "sha256": "75e970e182c06bf54fc888fc8c74505f96f0389e7fc8ac4d151df2a6014b03b6"
+    },
+    {
+      "id": "reaction.forced_choice.memory",
+      "room": "forced_choice",
+      "state": "memory",
+      "file": "backgrounds/reactions/forced_choice/memory.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 9425,
+      "sha256": "1b045ab8051a8206f7fee56d84cac323ec1ad5006a05030274c9b2c9f1a42a68"
+    },
+    {
+      "id": "reaction.in_between.threshold",
+      "room": "in_between",
+      "state": "threshold",
+      "file": "backgrounds/reactions/in_between/threshold.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 28803,
+      "sha256": "865a371b877c2678b7534c91ea1ed181d8c7ec76263bf9852a002f0ec17d82d5"
+    },
+    {
+      "id": "reaction.in_between.dusk",
+      "room": "in_between",
+      "state": "dusk",
+      "file": "backgrounds/reactions/in_between/dusk.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 5036,
+      "sha256": "7839fe7ae80e49324bd925a9cc1b44b52e2be2ccaaa04759bf4a52771b272e8b"
+    },
+    {
+      "id": "reaction.in_between.aftermath",
+      "room": "in_between",
+      "state": "aftermath",
+      "file": "backgrounds/reactions/in_between/aftermath.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 1961,
+      "sha256": "7cf6d7de6f814d2136c9059394a5fad5d07cb440012f33232e3348bb0f5710f5"
+    },
+    {
+      "id": "reaction.in_between.memory",
+      "room": "in_between",
+      "state": "memory",
+      "file": "backgrounds/reactions/in_between/memory.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 1683,
+      "sha256": "707cb856a93a641d2f0a263dbc5f5beed55a124f0677c41e821ae57ef10b5453"
+    },
+    {
+      "id": "reaction.polarized.threshold",
+      "room": "polarized",
+      "state": "threshold",
+      "file": "backgrounds/reactions/polarized/threshold.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 110745,
+      "sha256": "592caa313a73b50dd576ebbb617368c4ad4b20e1bb7bf76b5612ccd74a1d5c61"
+    },
+    {
+      "id": "reaction.polarized.dusk",
+      "room": "polarized",
+      "state": "dusk",
+      "file": "backgrounds/reactions/polarized/dusk.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 230400,
+      "sha256": "726382f83555366adac9899f712d636dbf7f2492a845c78ff3e7e3f939fd5ca5"
+    },
+    {
+      "id": "reaction.polarized.aftermath",
+      "room": "polarized",
+      "state": "aftermath",
+      "file": "backgrounds/reactions/polarized/aftermath.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 11888,
+      "sha256": "01c4bd5ea743ca909deeba446ed21c27f61b85c67853d67fb6c55db8aec8ece2"
+    },
+    {
+      "id": "reaction.polarized.memory",
+      "room": "polarized",
+      "state": "memory",
+      "file": "backgrounds/reactions/polarized/memory.png",
+      "size": [
+        360,
+        640
+      ],
+      "collision": false,
+      "authority": "visual-subscriber",
+      "visiblePixels": 4482,
+      "sha256": "4cd633da7dac327b9f2c23238ce66f8f1f075f6d4d43139b1fbc2545687e13b6"
+    }
+  ],
+  "authority": "visual subscriber; never changes collision or pattern safe gaps"
+}

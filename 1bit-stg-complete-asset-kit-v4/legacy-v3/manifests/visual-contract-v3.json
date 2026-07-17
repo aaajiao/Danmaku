@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "3.0.0",
+  "palette": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "spriteContract": {
+    "cell": [128, 128],
+    "alphaValues": [0, 255],
+    "minimumSafetyMarginPx": 8,
+    "maximumVisibleColorsPerOrdinaryCell": 4,
+    "logicalSizes": [16, 32, 64],
+    "requiredMetadata": [
+      "semanticId",
+      "kind",
+      "room",
+      "pivot",
+      "logicalSize",
+      "collisionClass",
+      "threatRole"
+    ]
+  },
+  "silhouetteClasses": {
+    "player": "off-center paper core plus incomplete material shell",
+    "enemyBullet": "solid hazard weight plus directional void notch",
+    "enemy": "material body plus one-sided protocol clamp and readable emitter",
+    "pickup": "open contour without attack direction and distinct inner void",
+    "memory": "low-luminance path-derived trace without centered emblem"
+  },
+  "bossTopologies": {
+    "absent_receiver": "off-center empty slot",
+    "unanswering_feed": "vertical feed around an unfilled void",
+    "one_sun_one_rule": "single horizontal shadow ruler",
+    "two_claims": "unequal bilateral slabs across a seam",
+    "misreader": "two one-pixel-offset rectangular readers",
+    "misregistered_twin_moons": "two open crescents with a displaced corridor",
+    "no_dusk": "binary rectangular time wall",
+    "absolute_reader": "the only broken concentric eye"
+  },
+  "timingMs": {
+    "focus": [180, 240, 130],
+    "eyeClamp": 120,
+    "smallResidueMinimum": 160,
+    "enemyResidueMinimum": 300,
+    "bossResidueMinimum": 750
+  },
+  "forbiddenMotifs": [
+    "generic-concentric-ring",
+    "four-corner-reticle",
+    "mandala",
+    "magic-circle",
+    "circuit-board-city",
+    "matrix-rain",
+    "vhs-rgb-glitch",
+    "soft-glow",
+    "gradient-shading"
+  ]
+}

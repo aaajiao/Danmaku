@@ -1,0 +1,38 @@
+{
+  "clip": "boss.no_dusk.terminal_material",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1260,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "boss.no_dusk.break",
+      "startMs": 0,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "boss.no_dusk.death",
+      "startMs": 180,
+      "durationMs": 260,
+      "events": [
+        "digital_delete"
+      ]
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "boss.no_dusk.residue",
+      "startMs": 440,
+      "durationMs": 820,
+      "events": [
+        "material_residue"
+      ]
+    }
+  ]
+}

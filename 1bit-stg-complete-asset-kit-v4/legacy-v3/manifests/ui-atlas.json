@@ -1,0 +1,1248 @@
+{
+  "schemaVersion": "3.0.0-ui",
+  "image": "../atlas/ui-atlas.png",
+  "size": {
+    "w": 512,
+    "h": 512
+  },
+  "grid": {
+    "columns": 8,
+    "rows": 8,
+    "cell": 64
+  },
+  "sampling": "nearest",
+  "premultiplyAlpha": false,
+  "palette": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "frames": {
+    "frame_corner_nw": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "frame_corner_ne": {
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "frame_corner_sw": {
+      "frame": {
+        "x": 128,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "frame_corner_se": {
+      "frame": {
+        "x": 192,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "open_panel_left": {
+      "frame": {
+        "x": 256,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "open_panel_right": {
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "seam_vertical": {
+      "frame": {
+        "x": 384,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "seam_horizontal": {
+      "frame": {
+        "x": 448,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "frame",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "bar_empty": {
+      "frame": {
+        "x": 0,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "bar_25": {
+      "frame": {
+        "x": 64,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "bar_50": {
+      "frame": {
+        "x": 128,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "bar_75": {
+      "frame": {
+        "x": 192,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "bar_full": {
+      "frame": {
+        "x": 256,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "phase_tick": {
+      "frame": {
+        "x": 320,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "threshold_marker": {
+      "frame": {
+        "x": 384,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "void_gap": {
+      "frame": {
+        "x": 448,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "meter",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "behavior_signal": {
+      "frame": {
+        "x": 0,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_focus": {
+      "frame": {
+        "x": 64,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_gaze": {
+      "frame": {
+        "x": 128,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_override": {
+      "frame": {
+        "x": 192,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_scar": {
+      "frame": {
+        "x": 256,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_ghost": {
+      "frame": {
+        "x": 320,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_witness": {
+      "frame": {
+        "x": 384,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "behavior_snapshot": {
+      "frame": {
+        "x": 448,
+        "y": 128,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "behavior",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "room_info": {
+      "frame": {
+        "x": 0,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "room_forced": {
+      "frame": {
+        "x": 64,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "room_between": {
+      "frame": {
+        "x": 128,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "room_polar": {
+      "frame": {
+        "x": 192,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "state_free": {
+      "frame": {
+        "x": 256,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "state_suppressed": {
+      "frame": {
+        "x": 320,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "state_void": {
+      "frame": {
+        "x": 384,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "state_residue": {
+      "frame": {
+        "x": 448,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "room_state",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "control_up": {
+      "frame": {
+        "x": 0,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_down": {
+      "frame": {
+        "x": 64,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_left": {
+      "frame": {
+        "x": 128,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_right": {
+      "frame": {
+        "x": 192,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_z": {
+      "frame": {
+        "x": 256,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_shift": {
+      "frame": {
+        "x": 320,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_x": {
+      "frame": {
+        "x": 384,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "control_confirm": {
+      "frame": {
+        "x": 448,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "control",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "divider_solid": {
+      "frame": {
+        "x": 0,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "divider_broken": {
+      "frame": {
+        "x": 64,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "chevron": {
+      "frame": {
+        "x": 128,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "cursor": {
+      "frame": {
+        "x": 192,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "toggle_off": {
+      "frame": {
+        "x": 256,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "toggle_on": {
+      "frame": {
+        "x": 320,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "slider_knob": {
+      "frame": {
+        "x": 384,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "scroll_marker": {
+      "frame": {
+        "x": 448,
+        "y": 320,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "navigation",
+      "roomTintable": true,
+      "alpha": "binary"
+    },
+    "fingerprint_sparse": {
+      "frame": {
+        "x": 0,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_banded": {
+      "frame": {
+        "x": 64,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_seam": {
+      "frame": {
+        "x": 128,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_resist": {
+      "frame": {
+        "x": 192,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_focus": {
+      "frame": {
+        "x": 256,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_gaze": {
+      "frame": {
+        "x": 320,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_ghost": {
+      "frame": {
+        "x": 384,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "fingerprint_mixed": {
+      "frame": {
+        "x": 448,
+        "y": 384,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "fingerprint",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "scar_1": {
+      "frame": {
+        "x": 0,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "scar_2": {
+      "frame": {
+        "x": 64,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "scar_3": {
+      "frame": {
+        "x": 128,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "ghost_dot": {
+      "frame": {
+        "x": 192,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "ghost_segment": {
+      "frame": {
+        "x": 256,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "witness_pair": {
+      "frame": {
+        "x": 320,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "memory_aperture": {
+      "frame": {
+        "x": 384,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    },
+    "run_bridge": {
+      "frame": {
+        "x": 448,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "category": "memory",
+      "roomTintable": false,
+      "alpha": "binary"
+    }
+  },
+  "notes": [
+    "UI atlas is separate from 128x128 gameplay atlases.",
+    "All transparent pixels have alpha 0; visible pixels have alpha 255.",
+    "No ring, reticle, circuit or magic-circle component is present."
+  ]
+}

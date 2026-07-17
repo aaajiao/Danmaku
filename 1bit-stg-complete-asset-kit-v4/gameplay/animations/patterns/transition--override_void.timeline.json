@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "transition.override_void",
+  "traceSha256": "ec886f7e105b9a7833a786526f67cbe584de07a334d7a79872e8f3ac15ac4097",
+  "sourceDurationMs": 7600,
+  "previewFrameCount": 61,
+  "previewFrameDurationMs": 125,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 694,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 694,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 3800,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 6900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 7180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 7600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "transition--override_void.gif",
+    "apng": "transition--override_void.apng",
+    "timeline": "transition--override_void.timeline.json"
+  }
+}

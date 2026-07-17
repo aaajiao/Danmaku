@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit.state-machines.v4",
+  "machines": [
+    {
+      "id": "playerDamage",
+      "implementation": "PlayerDamageMachine",
+      "type": "atomic-branch-fsm",
+      "states": ["alive", "dead", "respawning", "run-ended"],
+      "initialState": "alive",
+      "invariants": [
+        "takeDamage chooses exactly one of ignored/non-fatal/fatal",
+        "collision enabled iff alive and collision blocker lease set is empty",
+        "all collision blockers release only their own lease",
+        "fatal branch never starts a non-fatal recovery"
+      ],
+      "transitions": [
+        {"from":"alive","to":"alive","trigger":"damage.non-fatal","events":["player.collision.off","player.damage.commit","player.invulnerability.begin"]},
+        {"from":"alive","to":"dead","trigger":"damage.fatal-and-lives-remain","events":["player.collision.off","player.death.commit","player.life.consume"]},
+        {"from":"alive","to":"run-ended","trigger":"damage.fatal-and-lives-exhausted","events":["player.collision.off","player.death.commit","player.life.consume","run.end.commit"]},
+        {"from":"dead","to":"respawning","trigger":"respawn-place-deadline","events":["player.respawn.place","player.invulnerability.begin"]},
+        {"from":"respawning","to":"alive","trigger":"respawn-invulnerability-deadline","events":["player.invulnerability.end","player.collision.on","player.respawn.complete"]},
+        {"from":"alive","to":"alive","trigger":"non-fatal-invulnerability-deadline","events":["player.invulnerability.end","player.collision.on"]}
+      ]
+    },
+    {
+      "id": "projectileLifecycle",
+      "implementation": "ProjectileLifecycle",
+      "type": "entity-owned-lifecycle",
+      "states": ["dormant", "arming", "flight", "residue", "complete"],
+      "initialState": "dormant",
+      "flightDurationMs": null,
+      "invariants": [
+        "flight has no runtime-owned timeout",
+        "impact and cancel are explicit mutually exclusive entity outcomes",
+        "collision-off precedes outcome commit",
+        "residue has no collision"
+      ],
+      "transitions": [
+        {"from":"dormant|complete","to":"arming","trigger":"entity.spawn","events":["projectile.spawn.commit","projectile.arm.begin"]},
+        {"from":"arming","to":"flight","trigger":"arm-deadline","events":["projectile.armed","projectile.collision.on","projectile.flight.begin"]},
+        {"from":"flight","to":"residue","trigger":"entity.impact","events":["projectile.collision.off","projectile.impact.commit","projectile.residue.begin"]},
+        {"from":"arming|flight","to":"residue","trigger":"entity.cancel","events":["projectile.collision.off","projectile.cancel.commit","projectile.residue.begin"]},
+        {"from":"residue","to":"complete","trigger":"residue-cleanup-deadline","events":["projectile.residue.remove","projectile.lifecycle.complete"]}
+      ]
+    },
+    {
+      "id": "grazeAward",
+      "implementation": "GrazeAwardRegistry",
+      "type": "generation-scoped-once-gate",
+      "states": ["unseen", "awarded"],
+      "initialState": "unseen",
+      "idempotencyKey": "projectileInstanceId:projectileGeneration:playerId",
+      "transitions": [
+        {"from":"unseen","to":"awarded","trigger":"valid-graze-overlap","events":["projectile.graze.commit","evidence.gain.commit"]}
+      ]
+    },
+    {
+      "id": "gaze",
+      "implementation": "GazeMachine",
+      "type": "sustained-relation-fsm",
+      "states": ["idle", "acquiring", "clamped", "release-delay"],
+      "initialState": "idle",
+      "parameters": {"pitchThresholdDegrees":45,"alignmentThreshold":0.72,"acquireMs":500,"releaseDelayMs":450},
+      "transitions": [
+        {"from":"idle","to":"acquiring","trigger":"qualified-sky-eye-sample","events":["gaze.acquire.begin"]},
+        {"from":"acquiring","to":"idle","trigger":"qualification-lost-before-deadline","events":["gaze.acquire.cancel"]},
+        {"from":"acquiring","to":"clamped","trigger":"acquire-deadline","events":["gaze.clamp.commit"]},
+        {"from":"clamped","to":"release-delay","trigger":"qualification-lost","events":["gaze.release.begin"]},
+        {"from":"release-delay","to":"clamped","trigger":"qualification-restored","events":["gaze.release.cancel"]},
+        {"from":"release-delay","to":"idle","trigger":"release-deadline","events":["gaze.clamp.release"]}
+      ]
+    },
+    {
+      "id": "flowerIntensity",
+      "implementation": "FlowerIntensityResolver",
+      "type": "priority-resolver",
+      "states": ["signal", "focus", "gaze", "override"],
+      "initialState": "signal",
+      "priorityHighToLow": ["override", "gaze", "focus", "signal"],
+      "transitions": [
+        {"from":"any","to":"highest-active-source","trigger":"source-set-changed","events":["flower.intensity.commit"]}
+      ]
+    },
+    {
+      "id": "directionalOverride",
+      "implementation": "DirectionalOverrideMachine",
+      "type": "evidence-funded-local-rule-fsm",
+      "states": ["idle", "charging", "active", "sediment", "cooldown"],
+      "initialState": "idle",
+      "geometry": "forward-sector",
+      "globalInvulnerability": false,
+      "transitions": [
+        {"from":"idle","to":"charging","trigger":"override-press","events":["player.override.charge.begin"]},
+        {"from":"charging","to":"idle","trigger":"release-before-commit","events":["player.override.charge.cancel"]},
+        {"from":"charging","to":"idle","trigger":"commit-deadline-without-evidence","events":["player.override.denied"]},
+        {"from":"charging","to":"active","trigger":"commit-deadline-with-evidence","events":["evidence.consume.commit","player.override.commit","player.override.local_void.open"]},
+        {"from":"active","to":"sediment","trigger":"local-void-deadline","events":["player.override.local_void.close","cross_run.scar.write.commit","player.override.material_sediment.begin"]},
+        {"from":"sediment","to":"cooldown","trigger":"sediment-deadline","events":["player.override.cooldown.begin"]},
+        {"from":"cooldown","to":"idle","trigger":"cooldown-deadline","events":["player.override.ready"]}
+      ]
+    },
+    {
+      "id": "bossPhase",
+      "implementation": "BossPhaseMachine",
+      "type": "data-driven-phase-fsm",
+      "states": ["idle", "active:phase[i]", "resolved"],
+      "initialState": "idle",
+      "exitKinds": ["hp-ratio-lte", "survive-ms", "fact"],
+      "transitions": [
+        {"from":"idle","to":"active:phase[0]","trigger":"encounter-start","events":["boss.encounter.begin","boss.phase.enter","boss.phase.attack_plan.commit"]},
+        {"from":"active:phase[i]","to":"active:phase[i+1]","trigger":"declared-exit-condition","events":["boss.phase.exit","boss.phase.swap","boss.phase.enter","boss.phase.attack_plan.commit"]},
+        {"from":"active:final-phase","to":"resolved","trigger":"declared-final-exit-condition","events":["boss.phase.exit","boss.encounter.resolve"]}
+      ]
+    },
+    {
+      "id": "weather",
+      "implementation": "WeatherMachine",
+      "type": "world-weather-fsm",
+      "states": ["clear", "omen", "active", "aftermath", "cooldown"],
+      "initialState": "clear",
+      "weatherTypes": ["STATIC", "RAIN", "GLITCH", "ASH", "WIND", "ECLIPSE"],
+      "transitions": [
+        {"from":"clear","to":"omen","trigger":"weighted-weather-request","events":["weather.omen.begin"]},
+        {"from":"omen","to":"active","trigger":"omen-deadline","events":["weather.active.begin"]},
+        {"from":"active","to":"aftermath","trigger":"active-deadline","events":["weather.aftermath.begin"]},
+        {"from":"aftermath","to":"cooldown","trigger":"aftermath-deadline","events":["weather.cooldown.begin"]},
+        {"from":"cooldown","to":"clear","trigger":"cooldown-deadline","events":["weather.complete"]}
+      ]
+    },
+    {
+      "id": "snapshot",
+      "implementation": "SnapshotMachine",
+      "type": "current-run-observation-fsm",
+      "states": ["idle", "capturing", "serialized", "presenting", "complete"],
+      "initialState": "idle",
+      "mayEmitCrossRunEvents": false,
+      "transitions": [
+        {"from":"idle","to":"capturing","trigger":"run-end-observation","events":["snapshot.begin"]},
+        {"from":"capturing","to":"serialized","trigger":"410ms","events":["snapshot.serialize.commit"]},
+        {"from":"serialized","to":"presenting","trigger":"810ms","events":["snapshot.present.begin"]},
+        {"from":"presenting","to":"complete","trigger":"1630ms","events":["snapshot.complete"]}
+      ]
+    },
+    {
+      "id": "crossRunArchive",
+      "implementation": "CrossRunArchive",
+      "type": "immutable-idempotent-store",
+      "states": ["absent", "persisted"],
+      "initialState": "absent",
+      "transitions": [
+        {"from":"absent","to":"persisted","trigger":"explicit-persist-serialized-record","events":["cross_run.record.persist.commit"]}
+      ]
+    },
+    {
+      "id": "crossRunRestore",
+      "implementation": "CrossRunRestoreMachine",
+      "type": "next-run-hydration-fsm",
+      "states": ["idle", "waiting-ghost", "replaying-ghost", "materializing-residue", "waiting-witness", "orienting-witnesses", "ready"],
+      "initialState": "idle",
+      "orderedSteps": ["overrideScar", "deathTrace", "burnIn", "actual-ghost-route", "ghostResidue", "witnessOrientation", "returnInput"],
+      "routeDurationAuthority": "last actual ghostRoute point tMs",
+      "transitions": [
+        {"from":"idle","to":"waiting-ghost","trigger":"next-run-start@0ms","events":["player.input.off","cross_run.restore.begin","overrideScar.rehydrate","deathTrace.rehydrate","burnIn.rehydrate"]},
+        {"from":"waiting-ghost","to":"replaying-ghost","trigger":"420ms","events":["ghost.replay.begin"]},
+        {"from":"replaying-ghost","to":"materializing-residue","trigger":"routeDuration+420ms","events":["ghost.replay.complete"]},
+        {"from":"materializing-residue","to":"waiting-witness","trigger":"routeDuration+421ms","events":["ghost.residue.write"]},
+        {"from":"waiting-witness","to":"orienting-witnesses","trigger":"routeDuration+700ms","events":["witness.turn"]},
+        {"from":"orienting-witnesses","to":"ready","trigger":"routeDuration+1140ms","events":["returnInput","cross_run.restore.complete"]}
+      ]
+    },
+    {
+      "id": "roomTransition",
+      "implementation": "RoomTransitionMachine",
+      "type": "atomic-world-swap-fsm",
+      "states": ["idle", "preparing", "swapping", "stabilizing"],
+      "initialState": "idle",
+      "transitions": [
+        {"from":"idle","to":"preparing","trigger":"accepted-room-request","events":["room.transition.begin"]},
+        {"from":"preparing","to":"swapping","trigger":"240ms","events":["room.transition.world_swap.commit"]},
+        {"from":"swapping","to":"stabilizing","trigger":"500ms","events":["room.transition.room_ready"]},
+        {"from":"stabilizing","to":"idle","trigger":"650ms","events":["room.transition.complete"]}
+      ]
+    }
+  ]
+}

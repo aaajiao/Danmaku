@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "room": "in_between",
+  "states": [
+    {
+      "id": "threshold",
+      "durationMs": 720,
+      "collision": false,
+      "source": "backgrounds/reactions/in_between/threshold.png"
+    },
+    {
+      "id": "dusk",
+      "durationMs": 900,
+      "collision": false,
+      "source": "backgrounds/reactions/in_between/dusk.png"
+    },
+    {
+      "id": "aftermath",
+      "durationMs": 760,
+      "collision": false,
+      "source": "backgrounds/reactions/in_between/aftermath.png"
+    },
+    {
+      "id": "memory",
+      "durationMs": 1100,
+      "collision": false,
+      "source": "backgrounds/reactions/in_between/memory.png"
+    }
+  ],
+  "authority": "visual-preview-only"
+}

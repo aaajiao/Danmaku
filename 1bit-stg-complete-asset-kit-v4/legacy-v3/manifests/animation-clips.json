@@ -1,0 +1,1940 @@
+{
+  "schemaVersion": "3.0.0",
+  "description": "Semantic, variable-duration clips. Gameplay events remain authoritative in runtime/runtime-contract.json.",
+  "atlases": {
+    "core-grammar-v3": {
+      "id": "core-grammar-v3",
+      "image": "atlases/core-grammar-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3"
+      ],
+      "sha256": "4d638b0f29632e3f52d1fb8f077ce3ba14300054e943dc9554a0b55524086b94"
+    },
+    "boss-topologies-v3": {
+      "id": "boss-topologies-v3",
+      "image": "atlases/boss-topologies-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3",
+        "boss"
+      ],
+      "sha256": "a5c3c230f1090ec581dcce1f956a989f8d1313591eddbd3d029b9dc35baa117a"
+    },
+    "combat-causality-v3": {
+      "id": "combat-causality-v3",
+      "image": "atlases/combat-causality-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3",
+        "combat",
+        "animation"
+      ],
+      "sha256": "f17108f5ba61441753bd28860c77e3682bf950a595854a2c8e6b9664a06c5524"
+    },
+    "narrative-behavior-v3": {
+      "id": "narrative-behavior-v3",
+      "image": "atlases/narrative-behavior-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "pixel",
+        "v3",
+        "narrative",
+        "weather"
+      ],
+      "sha256": "588d0de0220ed818d242eafc77cf8b62ccec6cb67e64eceb743989cfe95c07ee"
+    },
+    "core-projectile-v3": {
+      "id": "core-projectile-v3",
+      "image": "atlases/core-grammar-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "bullet",
+        "projectile",
+        "danmaku",
+        "v3"
+      ],
+      "sha256": "4d638b0f29632e3f52d1fb8f077ce3ba14300054e943dc9554a0b55524086b94",
+      "aliasOf": "core-grammar-v3"
+    },
+    "combat-projectile-v3": {
+      "id": "combat-projectile-v3",
+      "image": "atlases/combat-causality-v3.png",
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "size": [
+        1024,
+        1024
+      ],
+      "alphaMode": "straight-binary",
+      "filter": "nearest",
+      "tags": [
+        "runtime",
+        "bullet",
+        "projectile",
+        "laser",
+        "v3"
+      ],
+      "sha256": "f17108f5ba61441753bd28860c77e3682bf950a595854a2c8e6b9664a06c5524",
+      "aliasOf": "combat-causality-v3"
+    }
+  },
+  "clips": {
+    "player.focus": {
+      "id": "player.focus",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "player.focus.frame_00",
+          "durationMs": 90
+        },
+        {
+          "frameId": "player.focus.frame_01",
+          "durationMs": 90
+        },
+        {
+          "frameId": "player.focus.frame_02",
+          "durationMs": 180
+        },
+        {
+          "frameId": "player.focus.frame_03",
+          "durationMs": 240
+        },
+        {
+          "frameId": "player.focus.frame_04",
+          "durationMs": 70
+        },
+        {
+          "frameId": "player.focus.frame_05",
+          "durationMs": 60
+        },
+        {
+          "frameId": "player.focus.frame_06",
+          "durationMs": 130
+        },
+        {
+          "frameId": "player.focus.frame_07",
+          "durationMs": 180
+        }
+      ],
+      "events": [
+        {
+          "frame": 3,
+          "name": "focus_hold"
+        },
+        {
+          "frame": 6,
+          "name": "focus_confirm"
+        }
+      ],
+      "reducedMotionFrame": "player.focus.frame_06",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "focus_hold",
+        "focus_confirm"
+      ]
+    },
+    "system.eye_clamp": {
+      "id": "system.eye_clamp",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "system.eye_clamp.frame_00",
+          "durationMs": 40
+        },
+        {
+          "frameId": "system.eye_clamp.frame_01",
+          "durationMs": 40
+        },
+        {
+          "frameId": "system.eye_clamp.frame_02",
+          "durationMs": 40
+        },
+        {
+          "frameId": "system.eye_clamp.frame_03",
+          "durationMs": 120
+        },
+        {
+          "frameId": "system.eye_clamp.frame_04",
+          "durationMs": 120
+        },
+        {
+          "frameId": "system.eye_clamp.frame_05",
+          "durationMs": 180
+        },
+        {
+          "frameId": "system.eye_clamp.frame_06",
+          "durationMs": 210
+        },
+        {
+          "frameId": "system.eye_clamp.frame_07",
+          "durationMs": 260
+        }
+      ],
+      "events": [
+        {
+          "frame": 3,
+          "name": "clamp_closed"
+        },
+        {
+          "frame": 7,
+          "name": "recovery_allowed"
+        }
+      ],
+      "reducedMotionFrame": "system.eye_clamp.frame_07",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "clamp_closed",
+        "recovery_allowed"
+      ]
+    },
+    "system.override.directional": {
+      "id": "system.override.directional",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "system.override.directional.frame_00",
+          "durationMs": 110
+        },
+        {
+          "frameId": "system.override.directional.frame_01",
+          "durationMs": 90
+        },
+        {
+          "frameId": "system.override.directional.frame_02",
+          "durationMs": 80
+        },
+        {
+          "frameId": "system.override.directional.frame_03",
+          "durationMs": 100
+        },
+        {
+          "frameId": "system.override.directional.frame_04",
+          "durationMs": 120
+        },
+        {
+          "frameId": "system.override.directional.frame_05",
+          "durationMs": 150
+        },
+        {
+          "frameId": "system.override.directional.frame_06",
+          "durationMs": 240
+        },
+        {
+          "frameId": "system.override.directional.frame_07",
+          "durationMs": 360
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "charge"
+        },
+        {
+          "frame": 2,
+          "name": "directional_tear"
+        },
+        {
+          "frame": 3,
+          "name": "local_void"
+        },
+        {
+          "frame": 4,
+          "name": "collision_off"
+        },
+        {
+          "frame": 5,
+          "name": "scar_write"
+        },
+        {
+          "frame": 7,
+          "name": "material_sediment"
+        }
+      ],
+      "reducedMotionFrame": "system.override.directional.frame_07",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "charge",
+        "directional_tear",
+        "local_void",
+        "collision_off",
+        "scar_write",
+        "material_sediment"
+      ]
+    },
+    "player.causality.damage_to_trace": {
+      "id": "player.causality.damage_to_trace",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "player.hit",
+          "durationMs": 60
+        },
+        {
+          "frameId": "player.core_break",
+          "durationMs": 70
+        },
+        {
+          "frameId": "player.shard",
+          "durationMs": 80
+        },
+        {
+          "frameId": "player.digital_delete",
+          "durationMs": 90
+        },
+        {
+          "frameId": "player.void_hold",
+          "durationMs": 110
+        },
+        {
+          "frameId": "player.residue_appear",
+          "durationMs": 160
+        },
+        {
+          "frameId": "player.residue_hold",
+          "durationMs": 300
+        },
+        {
+          "frameId": "player.residue_fade",
+          "durationMs": 220
+        }
+      ],
+      "events": [
+        {
+          "frame": 3,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 5,
+          "name": "residue_created"
+        }
+      ],
+      "reducedMotionFrame": "player.residue_appear",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "collision_removed",
+        "residue_created"
+      ]
+    },
+    "player.return_with_history": {
+      "id": "player.return_with_history",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "player.respawn_asymmetric.frame_00",
+          "durationMs": 180
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_01",
+          "durationMs": 120
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_02",
+          "durationMs": 100
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_03",
+          "durationMs": 120
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_04",
+          "durationMs": 150
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_05",
+          "durationMs": 160
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_06",
+          "durationMs": 190
+        },
+        {
+          "frameId": "player.respawn_asymmetric.frame_07",
+          "durationMs": 220
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "read_previous_scar"
+        },
+        {
+          "frame": 5,
+          "name": "collision_restored"
+        }
+      ],
+      "reducedMotionFrame": "player.respawn_asymmetric.frame_05",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "read_previous_scar",
+        "collision_restored"
+      ]
+    },
+    "enemy.causality.damage_to_trace": {
+      "id": "enemy.causality.damage_to_trace",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "enemy.hit",
+          "durationMs": 60
+        },
+        {
+          "frameId": "enemy.fracture",
+          "durationMs": 80
+        },
+        {
+          "frameId": "enemy.split",
+          "durationMs": 90
+        },
+        {
+          "frameId": "enemy.digital_delete",
+          "durationMs": 110
+        },
+        {
+          "frameId": "enemy.rupture",
+          "durationMs": 140
+        },
+        {
+          "frameId": "enemy.residue",
+          "durationMs": 300
+        },
+        {
+          "frameId": "enemy.ash",
+          "durationMs": 240
+        },
+        {
+          "frameId": "enemy.clear",
+          "durationMs": 160
+        }
+      ],
+      "events": [
+        {
+          "frame": 3,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 5,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "enemy.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "collision_removed",
+        "material_residue"
+      ]
+    },
+    "bullet.lifecycle": {
+      "id": "bullet.lifecycle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "bullet.birth_0",
+          "durationMs": 45
+        },
+        {
+          "frameId": "bullet.birth_1",
+          "durationMs": 45
+        },
+        {
+          "frameId": "bullet.live",
+          "durationMs": 90
+        },
+        {
+          "frameId": "bullet.travel",
+          "durationMs": 90
+        },
+        {
+          "frameId": "bullet.impact_0",
+          "durationMs": 50
+        },
+        {
+          "frameId": "bullet.impact_1",
+          "durationMs": 70
+        },
+        {
+          "frameId": "bullet.afterimage",
+          "durationMs": 100
+        },
+        {
+          "frameId": "bullet.clear",
+          "durationMs": 120
+        }
+      ],
+      "events": [
+        {
+          "frame": 2,
+          "name": "collision_live"
+        },
+        {
+          "frame": 4,
+          "name": "collision_removed"
+        }
+      ],
+      "reducedMotionFrame": "bullet.impact_0",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "collision_live",
+        "collision_removed"
+      ]
+    },
+    "boss.laser.lifecycle": {
+      "id": "boss.laser.lifecycle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.laser.off",
+          "durationMs": 100
+        },
+        {
+          "frameId": "boss.laser.telegraph_0",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.laser.telegraph_1",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.laser.charge",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.laser.active",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.laser.decay",
+          "durationMs": 140
+        },
+        {
+          "frameId": "boss.laser.residue",
+          "durationMs": 360
+        },
+        {
+          "frameId": "boss.laser.cancel",
+          "durationMs": 160
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "telegraph_on"
+        },
+        {
+          "frame": 3,
+          "name": "charge_commit"
+        },
+        {
+          "frame": 4,
+          "name": "collision_live"
+        },
+        {
+          "frame": 5,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 6,
+          "name": "residue_created"
+        }
+      ],
+      "reducedMotionFrame": "boss.laser.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_on",
+        "charge_commit",
+        "collision_live",
+        "collision_removed",
+        "residue_created"
+      ]
+    },
+    "narrative.witness.rebel": {
+      "id": "narrative.witness.rebel",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "witness.idle_a",
+          "durationMs": 240
+        },
+        {
+          "frameId": "witness.idle_b",
+          "durationMs": 260
+        },
+        {
+          "frameId": "witness.turn_0",
+          "durationMs": 120
+        },
+        {
+          "frameId": "witness.turn_1",
+          "durationMs": 160
+        },
+        {
+          "frameId": "witness.face_player",
+          "durationMs": 220
+        },
+        {
+          "frameId": "witness.rebel_mark",
+          "durationMs": 140
+        },
+        {
+          "frameId": "witness.rebel_hold",
+          "durationMs": 340
+        },
+        {
+          "frameId": "witness.rebel_exit",
+          "durationMs": 220
+        }
+      ],
+      "events": [
+        {
+          "frame": 4,
+          "name": "witness_choice"
+        },
+        {
+          "frame": 5,
+          "name": "rebel_committed"
+        }
+      ],
+      "reducedMotionFrame": "witness.rebel_mark",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "witness_choice",
+        "rebel_committed"
+      ]
+    },
+    "narrative.ghost.burnout": {
+      "id": "narrative.ghost.burnout",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "ghost.walk_0",
+          "durationMs": 180
+        },
+        {
+          "frameId": "ghost.walk_1",
+          "durationMs": 180
+        },
+        {
+          "frameId": "ghost.hesitate_0",
+          "durationMs": 260
+        },
+        {
+          "frameId": "ghost.hesitate_1",
+          "durationMs": 340
+        },
+        {
+          "frameId": "ghost.stumble",
+          "durationMs": 180
+        },
+        {
+          "frameId": "ghost.burnout_0",
+          "durationMs": 210
+        },
+        {
+          "frameId": "ghost.burnout_1",
+          "durationMs": 280
+        },
+        {
+          "frameId": "ghost.residue",
+          "durationMs": 420
+        }
+      ],
+      "events": [
+        {
+          "frame": 2,
+          "name": "hesitation"
+        },
+        {
+          "frame": 5,
+          "name": "burnout"
+        }
+      ],
+      "reducedMotionFrame": "ghost.burnout_0",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "hesitation",
+        "burnout"
+      ]
+    },
+    "narrative.cable.upload_or_burnin": {
+      "id": "narrative.cable.upload_or_burnin",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "cable.idle",
+          "durationMs": 180
+        },
+        {
+          "frameId": "cable.attach",
+          "durationMs": 130
+        },
+        {
+          "frameId": "cable.upload_0",
+          "durationMs": 120
+        },
+        {
+          "frameId": "cable.upload_1",
+          "durationMs": 170
+        },
+        {
+          "frameId": "cable.burnin_0",
+          "durationMs": 170
+        },
+        {
+          "frameId": "cable.burnin_1",
+          "durationMs": 240
+        },
+        {
+          "frameId": "cable.disconnect",
+          "durationMs": 160
+        },
+        {
+          "frameId": "cable.residue",
+          "durationMs": 360
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "branch_open"
+        },
+        {
+          "frame": 3,
+          "name": "upload"
+        },
+        {
+          "frame": 5,
+          "name": "burn_in"
+        }
+      ],
+      "reducedMotionFrame": "cable.burnin_1",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "branch_open",
+        "upload",
+        "burn_in"
+      ]
+    },
+    "memory.directional_write": {
+      "id": "memory.directional_write",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "scar.seed",
+          "durationMs": 90
+        },
+        {
+          "frameId": "scar.extend_0",
+          "durationMs": 110
+        },
+        {
+          "frameId": "scar.extend_1",
+          "durationMs": 120
+        },
+        {
+          "frameId": "scar.branch",
+          "durationMs": 140
+        },
+        {
+          "frameId": "scar.commit",
+          "durationMs": 160
+        },
+        {
+          "frameId": "scar.hold",
+          "durationMs": 240
+        },
+        {
+          "frameId": "scar.burn",
+          "durationMs": 320
+        },
+        {
+          "frameId": "scar.permanent",
+          "durationMs": 520
+        }
+      ],
+      "events": [
+        {
+          "frame": 4,
+          "name": "scar_write"
+        },
+        {
+          "frame": 7,
+          "name": "snapshot_ready"
+        }
+      ],
+      "reducedMotionFrame": "scar.permanent",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "scar_write",
+        "snapshot_ready"
+      ]
+    },
+    "weather.static_dropout": {
+      "id": "weather.static_dropout",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "weather.static.calm",
+          "durationMs": 220
+        },
+        {
+          "frameId": "weather.static.noise_0",
+          "durationMs": 80
+        },
+        {
+          "frameId": "weather.static.noise_1",
+          "durationMs": 70
+        },
+        {
+          "frameId": "weather.static.burst",
+          "durationMs": 60
+        },
+        {
+          "frameId": "weather.static.tear",
+          "durationMs": 80
+        },
+        {
+          "frameId": "weather.static.dropout",
+          "durationMs": 180
+        },
+        {
+          "frameId": "weather.static.recover",
+          "durationMs": 120
+        },
+        {
+          "frameId": "weather.static.after",
+          "durationMs": 260
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "weather.static.calm",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "weather.rain_ash": {
+      "id": "weather.rain_ash",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "weather.rain_0",
+          "durationMs": 120
+        },
+        {
+          "frameId": "weather.rain_1",
+          "durationMs": 120
+        },
+        {
+          "frameId": "weather.rain_2",
+          "durationMs": 120
+        },
+        {
+          "frameId": "weather.ash_0",
+          "durationMs": 180
+        },
+        {
+          "frameId": "weather.ash_1",
+          "durationMs": 190
+        },
+        {
+          "frameId": "weather.ash_2",
+          "durationMs": 200
+        },
+        {
+          "frameId": "weather.rain_ash_mix",
+          "durationMs": 240
+        },
+        {
+          "frameId": "weather.rain_ash_clear",
+          "durationMs": 300
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "weather.rain_0",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "weather.wind_eclipse": {
+      "id": "weather.wind_eclipse",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "weather.wind_0",
+          "durationMs": 120
+        },
+        {
+          "frameId": "weather.wind_1",
+          "durationMs": 130
+        },
+        {
+          "frameId": "weather.wind_2",
+          "durationMs": 140
+        },
+        {
+          "frameId": "weather.eclipse_0",
+          "durationMs": 180
+        },
+        {
+          "frameId": "weather.eclipse_1",
+          "durationMs": 200
+        },
+        {
+          "frameId": "weather.eclipse_2",
+          "durationMs": 240
+        },
+        {
+          "frameId": "weather.eclipse_hold",
+          "durationMs": 360
+        },
+        {
+          "frameId": "weather.eclipse_release",
+          "durationMs": 220
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "weather.wind_0",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "state.snapshot_handoff": {
+      "id": "state.snapshot_handoff",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "snapshot.collect",
+          "durationMs": 160
+        },
+        {
+          "frameId": "snapshot.compress",
+          "durationMs": 130
+        },
+        {
+          "frameId": "snapshot.label",
+          "durationMs": 120
+        },
+        {
+          "frameId": "snapshot.store",
+          "durationMs": 180
+        },
+        {
+          "frameId": "snapshot.handoff",
+          "durationMs": 220
+        },
+        {
+          "frameId": "snapshot.next_seed",
+          "durationMs": 160
+        },
+        {
+          "frameId": "snapshot.next_scar",
+          "durationMs": 240
+        },
+        {
+          "frameId": "snapshot.next_active",
+          "durationMs": 420
+        }
+      ],
+      "events": [
+        {
+          "frame": 3,
+          "name": "snapshot_serialized"
+        },
+        {
+          "frame": 5,
+          "name": "next_run_seeded"
+        },
+        {
+          "frame": 6,
+          "name": "scar_restored"
+        }
+      ],
+      "reducedMotionFrame": "snapshot.next_scar",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "snapshot_serialized",
+        "next_run_seeded",
+        "scar_restored"
+      ]
+    },
+    "bullet.cancel": {
+      "id": "bullet.cancel",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "bullet.impact_0",
+          "durationMs": 50
+        },
+        {
+          "frameId": "bullet.impact_1",
+          "durationMs": 70
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 1,
+          "name": "impact_complete"
+        }
+      ],
+      "reducedMotionFrame": "bullet.impact_1",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "collision_removed",
+        "impact_complete"
+      ]
+    },
+    "boss.absent_receiver.idle": {
+      "id": "boss.absent_receiver.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.absent_receiver.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.absent_receiver.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.absent_receiver.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.absent_receiver.attack": {
+      "id": "boss.absent_receiver.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.absent_receiver.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.absent_receiver.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.absent_receiver.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.absent_receiver.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.absent_receiver.terminal_material": {
+      "id": "boss.absent_receiver.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.absent_receiver.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.absent_receiver.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.absent_receiver.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.absent_receiver.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.unanswering_feed.idle": {
+      "id": "boss.unanswering_feed.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.unanswering_feed.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.unanswering_feed.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.unanswering_feed.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.unanswering_feed.attack": {
+      "id": "boss.unanswering_feed.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.unanswering_feed.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.unanswering_feed.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.unanswering_feed.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.unanswering_feed.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.unanswering_feed.terminal_material": {
+      "id": "boss.unanswering_feed.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.unanswering_feed.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.unanswering_feed.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.unanswering_feed.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.unanswering_feed.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.one_sun_one_rule.idle": {
+      "id": "boss.one_sun_one_rule.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.one_sun_one_rule.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.one_sun_one_rule.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.one_sun_one_rule.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.one_sun_one_rule.attack": {
+      "id": "boss.one_sun_one_rule.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.one_sun_one_rule.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.one_sun_one_rule.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.one_sun_one_rule.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.one_sun_one_rule.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.one_sun_one_rule.terminal_material": {
+      "id": "boss.one_sun_one_rule.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.one_sun_one_rule.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.one_sun_one_rule.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.one_sun_one_rule.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.one_sun_one_rule.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.two_claims.idle": {
+      "id": "boss.two_claims.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.two_claims.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.two_claims.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.two_claims.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.two_claims.attack": {
+      "id": "boss.two_claims.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.two_claims.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.two_claims.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.two_claims.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.two_claims.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.two_claims.terminal_material": {
+      "id": "boss.two_claims.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.two_claims.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.two_claims.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.two_claims.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.two_claims.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.misreader.idle": {
+      "id": "boss.misreader.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.misreader.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.misreader.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.misreader.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.misreader.attack": {
+      "id": "boss.misreader.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.misreader.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.misreader.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.misreader.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.misreader.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.misreader.terminal_material": {
+      "id": "boss.misreader.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.misreader.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.misreader.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.misreader.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.misreader.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.misregistered_twin_moons.idle": {
+      "id": "boss.misregistered_twin_moons.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.misregistered_twin_moons.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.misregistered_twin_moons.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.misregistered_twin_moons.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.misregistered_twin_moons.attack": {
+      "id": "boss.misregistered_twin_moons.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.misregistered_twin_moons.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.misregistered_twin_moons.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.misregistered_twin_moons.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.misregistered_twin_moons.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.misregistered_twin_moons.terminal_material": {
+      "id": "boss.misregistered_twin_moons.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.misregistered_twin_moons.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.misregistered_twin_moons.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.misregistered_twin_moons.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.misregistered_twin_moons.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.no_dusk.idle": {
+      "id": "boss.no_dusk.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.no_dusk.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.no_dusk.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.no_dusk.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.no_dusk.attack": {
+      "id": "boss.no_dusk.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.no_dusk.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.no_dusk.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.no_dusk.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.no_dusk.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.no_dusk.terminal_material": {
+      "id": "boss.no_dusk.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.no_dusk.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.no_dusk.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.no_dusk.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.no_dusk.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    },
+    "boss.absolute_reader.idle": {
+      "id": "boss.absolute_reader.idle",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": true,
+      "loopMode": "repeat",
+      "frames": [
+        {
+          "frameId": "boss.absolute_reader.idle_a",
+          "durationMs": 190
+        },
+        {
+          "frameId": "boss.absolute_reader.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [],
+      "reducedMotionFrame": "boss.absolute_reader.idle_a",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": []
+    },
+    "boss.absolute_reader.attack": {
+      "id": "boss.absolute_reader.attack",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.absolute_reader.telegraph",
+          "durationMs": 120
+        },
+        {
+          "frameId": "boss.absolute_reader.attack",
+          "durationMs": 150
+        },
+        {
+          "frameId": "boss.absolute_reader.idle_b",
+          "durationMs": 230
+        }
+      ],
+      "events": [
+        {
+          "frame": 0,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 1,
+          "name": "attack_live"
+        }
+      ],
+      "reducedMotionFrame": "boss.absolute_reader.attack",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "telegraph_commit",
+        "attack_live"
+      ]
+    },
+    "boss.absolute_reader.terminal_material": {
+      "id": "boss.absolute_reader.terminal_material",
+      "atlas": "semantic-frame-index",
+      "fps": 12,
+      "loop": false,
+      "loopMode": "once",
+      "frames": [
+        {
+          "frameId": "boss.absolute_reader.break",
+          "durationMs": 180
+        },
+        {
+          "frameId": "boss.absolute_reader.death",
+          "durationMs": 260
+        },
+        {
+          "frameId": "boss.absolute_reader.residue",
+          "durationMs": 820
+        }
+      ],
+      "events": [
+        {
+          "frame": 1,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 2,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotionFrame": "boss.absolute_reader.residue",
+      "reducedMotionPreservesEvents": true,
+      "reducedMotionEvents": [
+        "digital_delete",
+        "material_residue"
+      ]
+    }
+  },
+  "proceduralMotions": {
+    "enemy.hover": {
+      "transform": "integer-y",
+      "keyframes": [
+        0,
+        -1,
+        -1,
+        0,
+        1,
+        0
+      ],
+      "durationsMs": [
+        180,
+        110,
+        240,
+        130,
+        170,
+        220
+      ]
+    },
+    "enemy.recoil": {
+      "transform": "opposite-emitter-direction",
+      "keyframes": [
+        0,
+        2,
+        1,
+        0
+      ],
+      "durationsMs": [
+        40,
+        60,
+        80,
+        120
+      ]
+    },
+    "pickup.drift": {
+      "transform": "integer-xy",
+      "keyframes": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          -1,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "durationsMs": [
+        220,
+        280,
+        180,
+        260
+      ]
+    }
+  }
+}

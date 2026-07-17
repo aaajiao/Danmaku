@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "4.0.0-witness-conditions",
+  "evaluation": {
+    "when": ["room.enter", "flower.band.changed", "override.success", "weather.phase.changed", "crossRun.rehydration"],
+    "authority": "derived-presentation",
+    "tieBreak": "highest priority, then nearest eligible source, then stable witness id",
+    "hysteresisMs": 1400,
+    "forbidden": "Witness state cannot change metrics, difficulty, evidence or collision."
+  },
+  "states": [
+    {
+      "id": "FACING_SCAR",
+      "priority": 100,
+      "condition": "nearestOverrideScar.distancePx <= 96",
+      "facingTarget": "nearestOverrideScar.id",
+      "body": "stand around the scar without entering its local void"
+    },
+    {
+      "id": "FACING_GHOST_END",
+      "priority": 95,
+      "condition": "crossRun.ghostReplayComplete && ghostFinalPoint.distancePx <= 128",
+      "facingTarget": "ghostFinalPoint",
+      "body": "turn after the ghost burns out, never before"
+    },
+    {
+      "id": "RESISTANCE_TRANSMISSION",
+      "priority": 90,
+      "condition": "run.msSinceLastOverride <= 180000 && deterministicWitnessRoll < transmissionProbability",
+      "probability": "clamp(0.06 + overrideCount * 0.04, 0.06, 0.34)",
+      "facingTarget": "lastOverrideScar",
+      "body": "a brief non-synchronous posture change; never a cheering crowd"
+    },
+    {
+      "id": "FACING_EYE",
+      "priority": 80,
+      "condition": "weather.type == 'ECLIPSE' && weather.phase in ['OMEN','BURST'] && flower.intensity < 0.68",
+      "facingTarget": "SkyEye",
+      "body": "look upward with a delayed one-by-one turn"
+    },
+    {
+      "id": "RESONANT",
+      "priority": 70,
+      "condition": "flower.intensity between 0.38 and 0.58 for >= 3200ms && witness.distancePx <= 120",
+      "facingTarget": "player",
+      "body": "chest aperture follows the flower at half frequency"
+    },
+    {
+      "id": "HEAD_DOWN",
+      "priority": 60,
+      "condition": "flower.intensity >= 0.78 || gaze.clampActive",
+      "facingTarget": null,
+      "body": "lower aperture; do not flee"
+    },
+    {
+      "id": "ISOLATED",
+      "priority": 10,
+      "condition": "default",
+      "facingTarget": null,
+      "body": "small asynchronous idle with no synchronized group loop"
+    }
+  ],
+  "eclipseException": {
+    "condition": "weather.type == 'ECLIPSE' && flower.intensity >= 0.68",
+    "effect": "eligible witnesses face the player instead of the Eye",
+    "priorityOverride": 85,
+    "snapshotFact": "witnessesTurnedDuringEclipse"
+  },
+  "crossRunCommit": {
+    "store": ["witnessId", "room", "state", "facingTarget", "sourceFactIds"],
+    "doNotStore": ["animationFrame", "screenPosition", "randomPhase"],
+    "rehydrateAfter": "ghost.replay.complete"
+  }
+}

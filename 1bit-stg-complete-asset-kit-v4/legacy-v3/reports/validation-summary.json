@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "3.0.0",
+  "date": "2026-07-17",
+  "status": "PASS",
+  "errors": 0,
+  "warnings": 0,
+  "visual": {
+    "atlasFiles": 4,
+    "semanticFrames": 256,
+    "maximumColorsPerCell": 4,
+    "offPaletteCells": 0,
+    "duplicateFrameGroups": 0,
+    "duplicateClipGroups": 0
+  },
+  "motion": {
+    "clips": 41,
+    "bossRigs": 8,
+    "laserModules": 8,
+    "bindingNodes": 34,
+    "bindingEdges": 20,
+    "eventCycles": 0,
+    "runtimeTestsPassed": 10,
+    "runtimeTestsTotal": 10
+  },
+  "backgrounds": {
+    "rooms": 4,
+    "layers": 16,
+    "checksPassed": 131,
+    "checksTotal": 131,
+    "stressCounts": [40, 120, 240]
+  },
+  "ui": {
+    "atlasComponents": 64,
+    "pageMockups": 10,
+    "validation": "pass"
+  },
+  "gameplayVisualArchetypes": {
+    "playerRigs": 1,
+    "projectiles": 24,
+    "enemies": 16,
+    "danmakuPatterns": 12
+  },
+  "previews": {
+    "renderGroups": 58,
+    "motionOverviews": 2
+  }
+}

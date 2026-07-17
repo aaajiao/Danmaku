@@ -1,0 +1,78 @@
+{
+  "clip": "system.eye_clamp",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1010,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "system.eye_clamp.frame_00",
+      "startMs": 0,
+      "durationMs": 40,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "system.eye_clamp.frame_01",
+      "startMs": 40,
+      "durationMs": 40,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "system.eye_clamp.frame_02",
+      "startMs": 80,
+      "durationMs": 40,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "system.eye_clamp.frame_03",
+      "startMs": 120,
+      "durationMs": 120,
+      "events": [
+        "clamp_closed"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "system.eye_clamp.frame_04",
+      "startMs": 240,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "system.eye_clamp.frame_05",
+      "startMs": 360,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "system.eye_clamp.frame_06",
+      "startMs": 540,
+      "durationMs": 210,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "system.eye_clamp.frame_07",
+      "startMs": 750,
+      "durationMs": 260,
+      "events": [
+        "recovery_allowed"
+      ]
+    }
+  ]
+}

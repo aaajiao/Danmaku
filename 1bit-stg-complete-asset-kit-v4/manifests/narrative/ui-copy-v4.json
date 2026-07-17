@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "4.0.0-ui-copy",
+  "localeFallback": "en",
+  "copy": {
+    "hud.flower":{"zh-CN":"花","en":"FLOWER"},
+    "hud.gaze":{"zh-CN":"读取","en":"READ"},
+    "hud.evidence":{"zh-CN":"证据","en":"EVIDENCE"},
+    "hud.memory":{"zh-CN":"留痕","en":"MEMORY"},
+    "hud.room":{"zh-CN":"精神状态","en":"MENTAL STATE"},
+    "prompt.signal":{"zh-CN":"[发出信号]","en":"[SIGNAL]"},
+    "prompt.override":{"zh-CN":"[按住，使这一处规则缺席]","en":"[HOLD: MAKE THIS RULE ABSENT HERE]"},
+    "prompt.trace":{"zh-CN":"[查看这句话来自哪些事实]","en":"[SEE WHICH FACTS PRODUCED THIS LINE]"},
+    "snapshot.title":{"zh-CN":"状态快照","en":"STATE SNAPSHOT"},
+    "snapshot.facts":{"zh-CN":"可追溯事实","en":"TRACEABLE FACTS"},
+    "snapshot.material":{"zh-CN":"下一局仍在场的材料","en":"MATTER PRESENT NEXT RUN"},
+    "continue.note":{"zh-CN":"继续会带回痕迹、残像和上一条真实路径。","en":"CONTINUE RETURNS TRACES, AFTERIMAGES, AND THE ACTUAL PREVIOUS ROUTE."},
+    "continue.withMemory":{"zh-CN":"带着这些材料继续","en":"CONTINUE WITH THIS MATTER"},
+    "continue.withoutMemory":{"zh-CN":"从没有留痕的条件开始","en":"BEGIN WITHOUT RETAINED MATTER"},
+    "run.interrupted":{"zh-CN":"这一路在这里中断","en":"THIS ROUTE ENDED HERE"},
+    "resolution.protocolWithdrawal":{"zh-CN":"协议撤回","en":"PROTOCOL WITHDRAWAL"},
+    "resolution.bodyCollapse":{"zh-CN":"身体在此停下","en":"BODY STOPPED HERE"},
+    "resolution.readingFailed":{"zh-CN":"读取未能完成分类","en":"READING LEFT AN UNCLASSIFIED INTERVAL"},
+    "resolution.stableIntersection":{"zh-CN":"交集保持了一段时间","en":"THE INTERSECTION HELD FOR AN INTERVAL"},
+    "resolution.noDusk":{"zh-CN":"画面拒绝黄昏，声音完成下降","en":"THE IMAGE REFUSED DUSK; THE SOUND COMPLETED ITS DESCENT"},
+    "weather.STATIC.OMEN":{"zh-CN":"刷新开始漏掉部分表面","en":"REFRESH IS OMITTING PARTS OF SURFACES"},
+    "weather.RAIN.OMEN":{"zh-CN":"短线出现在你与建筑之间","en":"SHORT LINES APPEAR BETWEEN YOU AND THE BUILDINGS"},
+    "weather.ASH.OMEN":{"zh-CN":"有东西正在逆着重力落下","en":"SOMETHING IS FALLING AGAINST GRAVITY"},
+    "weather.WIND.OMEN":{"zh-CN":"电缆先绷紧了","en":"THE CABLES TIGHTENED FIRST"},
+    "weather.ECLIPSE.OMEN":{"zh-CN":"远处的身体正在抬头","en":"DISTANT BODIES ARE LOOKING UP"}
+  },
+  "forbiddenTokensCaseInsensitive": ["score","rank","perfect","high score","good end","bad end","得分","排名","完美","最佳结局","失败结局"],
+  "migration": {
+    "pickup.score":"pickup.evidence",
+    "hud.score":"hud.evidence",
+    "run.score":"run.grazeEvidenceCount",
+    "highScore":null,
+    "rank":null
+  }
+}

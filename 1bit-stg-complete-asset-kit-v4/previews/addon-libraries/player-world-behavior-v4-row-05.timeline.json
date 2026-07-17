@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 5,
+  "states": [
+    {
+      "semanticId": "cable.idle",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cable.attach",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cable.upload_eye",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cable.sever",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cable.thermal_burnin",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "snapshot_echo.seed",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "snapshot_echo.reveal",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "snapshot_echo.fade",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

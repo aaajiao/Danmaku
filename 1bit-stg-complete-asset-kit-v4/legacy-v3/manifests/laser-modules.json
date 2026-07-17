@@ -1,0 +1,356 @@
+{
+  "schemaVersion": "3.0.0",
+  "stateMachine": "../../runtime/boss-laser-state-machine.json",
+  "defaults": {
+    "axis": "local-x",
+    "warning": {
+      "durationMs": 700,
+      "collisionEnabled": false
+    },
+    "fire": {
+      "chargeMs": 180,
+      "growMs": 140,
+      "minimumLiveMs": 480
+    },
+    "shutdown": {
+      "clip": "boss.laser.lifecycle",
+      "durationMs": 180
+    },
+    "collision": {
+      "enableState": "live",
+      "disableState": "shutdown"
+    },
+    "render": {
+      "blendMode": "normal",
+      "alphaTest": 0.5,
+      "depthWrite": false,
+      "toneMapped": false
+    },
+    "reducedMotion": {
+      "disableBodyScroll": true,
+      "gameplayTimingUnchanged": true
+    }
+  },
+  "modules": {
+    "laser.absent_receiver": {
+      "id": "laser.absent_receiver",
+      "room": "INFORMATION",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 6,
+        "paletteRole": "INFO_CYAN",
+        "paletteRemap": {
+          "FRICTION_GRAY": "INFO_CYAN"
+        },
+        "pattern": "packet-gap"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 620,
+        "chargeMs": 150,
+        "growMs": 120,
+        "minimumLiveMs": 420,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 3,
+        "endpointInsetLogicalPx": 4
+      }
+    },
+    "laser.unanswering_feed": {
+      "id": "laser.unanswering_feed",
+      "room": "INFORMATION",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 7,
+        "paletteRole": "INFO_CYAN",
+        "paletteRemap": {
+          "FRICTION_GRAY": "INFO_CYAN"
+        },
+        "pattern": "vertical-feed"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 675,
+        "chargeMs": 165,
+        "growMs": 130,
+        "minimumLiveMs": 460,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 3,
+        "endpointInsetLogicalPx": 4
+      }
+    },
+    "laser.one_sun_one_rule": {
+      "id": "laser.one_sun_one_rule",
+      "room": "FORCED_CHOICE",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 8,
+        "paletteRole": "FORCED_AMBER",
+        "paletteRemap": {
+          "FRICTION_GRAY": "FORCED_AMBER"
+        },
+        "pattern": "single-rule"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 730,
+        "chargeMs": 180,
+        "growMs": 140,
+        "minimumLiveMs": 500,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 4,
+        "endpointInsetLogicalPx": 5
+      }
+    },
+    "laser.two_claims": {
+      "id": "laser.two_claims",
+      "room": "FORCED_CHOICE",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 9,
+        "paletteRole": "FORCED_AMBER",
+        "paletteRemap": {
+          "FRICTION_GRAY": "FORCED_AMBER"
+        },
+        "pattern": "unequal-seam"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 785,
+        "chargeMs": 195,
+        "growMs": 150,
+        "minimumLiveMs": 540,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 4,
+        "endpointInsetLogicalPx": 5
+      }
+    },
+    "laser.misreader": {
+      "id": "laser.misreader",
+      "room": "IN_BETWEEN",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 10,
+        "paletteRole": "BETWEEN_VIOLET",
+        "paletteRemap": {
+          "FRICTION_GRAY": "BETWEEN_VIOLET"
+        },
+        "pattern": "double-read"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 840,
+        "chargeMs": 210,
+        "growMs": 160,
+        "minimumLiveMs": 580,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 5,
+        "endpointInsetLogicalPx": 6
+      }
+    },
+    "laser.misregistered_twin_moons": {
+      "id": "laser.misregistered_twin_moons",
+      "room": "IN_BETWEEN",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 11,
+        "paletteRole": "BETWEEN_VIOLET",
+        "paletteRemap": {
+          "FRICTION_GRAY": "BETWEEN_VIOLET"
+        },
+        "pattern": "offset-crescents"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 895,
+        "chargeMs": 225,
+        "growMs": 170,
+        "minimumLiveMs": 620,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 5,
+        "endpointInsetLogicalPx": 6
+      }
+    },
+    "laser.no_dusk": {
+      "id": "laser.no_dusk",
+      "room": "POLARIZED",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 12,
+        "paletteRole": "POLAR_RED",
+        "paletteRemap": {
+          "FRICTION_GRAY": "POLAR_RED"
+        },
+        "pattern": "binary-wall"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 950,
+        "chargeMs": 240,
+        "growMs": 180,
+        "minimumLiveMs": 660,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 6,
+        "endpointInsetLogicalPx": 7
+      }
+    },
+    "laser.absolute_reader": {
+      "id": "laser.absolute_reader",
+      "room": "POLARIZED",
+      "frames": {
+        "warning": "boss.laser.telegraph_1",
+        "emitter": "boss.laser.charge",
+        "body": "boss.laser.active",
+        "end": "boss.laser.decay"
+      },
+      "display": {
+        "widthLogicalPx": 13,
+        "paletteRole": "POLAR_RED",
+        "paletteRemap": {
+          "FRICTION_GRAY": "POLAR_RED"
+        },
+        "pattern": "scarred-eye"
+      },
+      "bodySlice": {
+        "mode": "stretch-center",
+        "sampleRangeNormalized": [
+          0.47,
+          0.53
+        ],
+        "repeat": false,
+        "capOverlapLogicalPx": 1
+      },
+      "timing": {
+        "warningMs": 1005,
+        "chargeMs": 255,
+        "growMs": 190,
+        "minimumLiveMs": 700,
+        "shutdownMs": 180,
+        "residueMs": 240
+      },
+      "collision": {
+        "type": "segment",
+        "radiusLogicalPx": 6,
+        "endpointInsetLogicalPx": 7
+      }
+    }
+  }
+}

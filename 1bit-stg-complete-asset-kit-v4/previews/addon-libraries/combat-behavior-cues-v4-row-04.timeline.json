@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 4,
+  "states": [
+    {
+      "semanticId": "boss_node.reading_aperture",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.weakpoint_shutter",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.single_emitter",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.unequal_twin_emitters",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.ab_clock",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.phase_divider",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.rupture_joint",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss_node.material_anchor",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

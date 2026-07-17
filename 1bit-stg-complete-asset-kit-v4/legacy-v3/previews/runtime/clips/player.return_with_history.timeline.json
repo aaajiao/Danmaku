@@ -1,0 +1,78 @@
+{
+  "clip": "player.return_with_history",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1240,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "player.respawn_asymmetric.frame_00",
+      "startMs": 0,
+      "durationMs": 180,
+      "events": [
+        "read_previous_scar"
+      ]
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "player.respawn_asymmetric.frame_01",
+      "startMs": 180,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "player.respawn_asymmetric.frame_02",
+      "startMs": 300,
+      "durationMs": 100,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "player.respawn_asymmetric.frame_03",
+      "startMs": 400,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "player.respawn_asymmetric.frame_04",
+      "startMs": 520,
+      "durationMs": 150,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "player.respawn_asymmetric.frame_05",
+      "startMs": 670,
+      "durationMs": 160,
+      "events": [
+        "collision_restored"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "player.respawn_asymmetric.frame_06",
+      "startMs": 830,
+      "durationMs": 190,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "player.respawn_asymmetric.frame_07",
+      "startMs": 1020,
+      "durationMs": 220,
+      "events": []
+    }
+  ]
+}

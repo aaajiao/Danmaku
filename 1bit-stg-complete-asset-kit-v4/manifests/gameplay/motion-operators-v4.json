@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/motion-operators-v4.schema.json",
+  "operators": [
+    {
+      "id": "op.linear",
+      "name": {
+        "zh": "直线漂移",
+        "en": "Linear drift"
+      },
+      "category": "kinematic",
+      "metadata": "最小运动事实；不暗示意志。",
+      "parameters": {
+        "headingDeg": "number",
+        "speedPxPerSec": "number"
+      },
+      "update": "p(t+dt)=p(t)+unit(heading)*speed*dt",
+      "determinism": "pure; no random input",
+      "collisionNote": "continuous swept circle"
+    },
+    {
+      "id": "op.speed_envelope",
+      "name": {
+        "zh": "速度包络",
+        "en": "Speed envelope"
+      },
+      "category": "kinematic",
+      "metadata": "同一条轨迹上的加速、减速、停顿和重新释放。",
+      "parameters": {
+        "keys": "[{atMs,multiplier}]",
+        "interpolation": "step|linear"
+      },
+      "update": "speed(t)=baseSpeed*sample(keys,t)",
+      "determinism": "piecewise keys on gameplay clock",
+      "collisionNote": "sweep subdivides at every envelope key"
+    },
+    {
+      "id": "op.aim_lock",
+      "name": {
+        "zh": "取样瞄准",
+        "en": "Sampled aim lock"
+      },
+      "category": "perception",
+      "metadata": "系统读取的是某个时刻的玩家，不是持续拥有玩家。",
+      "parameters": {
+        "lockAtMs": "number",
+        "leadMs": "number",
+        "maxTurnDeg": "number"
+      },
+      "update": "heading=angle(position,targetSample(lockAt+lead)) once",
+      "determinism": "target comes from authoritative sampled player trace",
+      "collisionNote": "telegraph must expose lock instant and cone"
+    },
+    {
+      "id": "op.turn_once",
+      "name": {
+        "zh": "单次改判",
+        "en": "One-shot turn"
+      },
+      "category": "governance",
+      "metadata": "规则只改口一次，因此玩家可以记住它。",
+      "parameters": {
+        "atMs": "number",
+        "deltaDeg": "number"
+      },
+      "update": "if crossed(atMs) heading+=deltaDeg exactly once",
+      "determinism": "crossed-frame idempotent event",
+      "collisionNote": "warning includes pre/post-turn swept union"
+    },
+    {
+      "id": "op.orbit_release",
+      "name": {
+        "zh": "环绕后释放",
+        "en": "Orbit then release"
+      },
+      "category": "kinematic",
+      "metadata": "归属感是暂时的；释放后才成为威胁。",
+      "parameters": {
+        "radiusPx": "number",
+        "angularDegPerSec": "number",
+        "releaseAtMs": "number",
+        "releaseHeadingDeg": "number"
+      },
+      "update": "orbit emitter until release; inherit tangent plus release heading",
+      "determinism": "phase derives from spawn ordinal and seed",
+      "collisionNote": "orbit and released segments are separate swept primitives"
+    },
+    {
+      "id": "op.limited_homing",
+      "name": {
+        "zh": "限幅追踪",
+        "en": "Limited homing"
+      },
+      "category": "perception",
+      "metadata": "凝视会追随，但其算力和转向能力并不无限。",
+      "parameters": {
+        "startMs": "number",
+        "endMs": "number",
+        "maxDegPerSec": "number",
+        "sampleEveryMs": "number"
+      },
+      "update": "turnToward(sampledTarget) clamped by maxDegPerSec",
+      "determinism": "fixed-rate target samples; no render-frame dependence",
+      "collisionNote": "warning cone expands by maximum turn budget"
+    },
+    {
+      "id": "op.split_generation",
+      "name": {
+        "zh": "分裂代际",
+        "en": "Split generation"
+      },
+      "category": "causality",
+      "metadata": "一个信号复制成多条责任链，子代继承来源。",
+      "parameters": {
+        "atMs": "number",
+        "children": "integer",
+        "spreadDeg": "number",
+        "speedMultiplier": "number",
+        "maxGeneration": "integer"
+      },
+      "update": "parent cancels; spawn symmetric children with inherited sourceId",
+      "determinism": "child order is clockwise and stable",
+      "collisionNote": "parent collision disables before children arm"
+    },
+    {
+      "id": "op.lateral_wall",
+      "name": {
+        "zh": "横向墙列",
+        "en": "Lateral wall"
+      },
+      "category": "formation",
+      "metadata": "空间被制度化为可通过与不可通过的列。",
+      "parameters": {
+        "laneCount": "integer",
+        "openLane": "integer",
+        "driftPxPerSec": "number"
+      },
+      "update": "spawn lane lattice excluding declared opening; apply lateral drift",
+      "determinism": "lane indexing is left-to-right",
+      "collisionNote": "opening width is measured after projectile radius"
+    },
+    {
+      "id": "op.seam_transform",
+      "name": {
+        "zh": "缝隙变换",
+        "en": "Seam transform"
+      },
+      "category": "topology",
+      "metadata": "穿过边界时，同一对象被另一套规则重新解释。",
+      "parameters": {
+        "seamX": "number",
+        "mode": "mirror|offset|swap_velocity",
+        "offsetPx": "number"
+      },
+      "update": "on first seam crossing apply transform and mark transformed",
+      "determinism": "one idempotent crossing per generation",
+      "collisionNote": "both sides of discontinuity are sampled on crossing tick"
+    },
+    {
+      "id": "op.history_replay",
+      "name": {
+        "zh": "历史路径回放",
+        "en": "History replay"
+      },
+      "category": "memory",
+      "metadata": "旧路径不是装饰，而是下一次危险的输入。",
+      "parameters": {
+        "points": "[[x,y,atMs]]",
+        "delayMs": "number",
+        "mode": "follow|reverse|echo"
+      },
+      "update": "sample deterministic polyline after delay",
+      "determinism": "points are serialized gameplay data, never inferred from animation",
+      "collisionNote": "polyline uses capsule segments"
+    },
+    {
+      "id": "op.dual_clock_gate",
+      "name": {
+        "zh": "双时钟闸门",
+        "en": "Dual-clock gate"
+      },
+      "category": "time",
+      "metadata": "两个系统共享空间却不同意现在是什么时候。",
+      "parameters": {
+        "periodAMs": "integer",
+        "periodBMs": "integer",
+        "dutyA": "number",
+        "dutyB": "number",
+        "phaseOffsetMs": "integer"
+      },
+      "update": "active when xor(gateA(t),gateB(t)); intersection when both",
+      "determinism": "both clocks derive from integer gameplay ticks",
+      "collisionNote": "collision state changes only on crossed tick boundaries"
+    },
+    {
+      "id": "op.local_vector_bias",
+      "name": {
+        "zh": "局部向量偏置",
+        "en": "Local vector bias"
+      },
+      "category": "kinematic",
+      "metadata": "偏置由 pattern 自己声明；天气事件绝不能移动弹体。",
+      "parameters": {
+        "vectorPxPerSec": "[x,y]",
+        "pulsePeriodMs": "integer",
+        "pulseAmount": "number"
+      },
+      "update": "velocity+=fieldVector*(1+pulse(t))*dt",
+      "determinism": "pattern-local vector is sampled on fixed gameplay ticks; weather RNG is forbidden",
+      "collisionNote": "telegraph uses maximum field displacement"
+    }
+  ]
+}

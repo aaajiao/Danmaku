@@ -1,0 +1,1170 @@
+{
+  "schemaVersion": "1bit-background-validation-v3.0.0",
+  "status": "PASS",
+  "summary": {
+    "checks": 131,
+    "passed": 131,
+    "errors": 0,
+    "warnings": 0
+  },
+  "contract": {
+    "size": [
+      360,
+      1280
+    ],
+    "periodPx": 640,
+    "palette": {
+      "SYSTEM_INK": "#08090D",
+      "SELF_PAPER": "#EFE9DA",
+      "FRICTION_GRAY": "#7D8087",
+      "INFO_CYAN": "#17A7CA",
+      "FORCED_AMBER": "#D6982B",
+      "BETWEEN_VIOLET": "#7851B7",
+      "POLAR_RED": "#B7463C",
+      "OVERRIDE_MAGENTA": "#F02A92"
+    },
+    "alphaValues": [
+      0,
+      255
+    ],
+    "highLuminanceLimit": 0.16,
+    "roomAccentLimit": 0.18,
+    "twoToneContrastFloor": 0.4,
+    "stressMinimumVisiblePixelRatio": 0.12
+  },
+  "rooms": {
+    "information": {
+      "layers": {
+        "far": {
+          "path": "layers/information/far.png",
+          "sha256": "d13341483e54b6a6ae8fb569c0ae4d0c246fee5cec8ddf37a047132a6e2b9d61",
+          "colors": {
+            "SYSTEM_INK": 306834,
+            "FRICTION_GRAY": 109512,
+            "INFO_CYAN": 44454
+          },
+          "alphaValues": [
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mid": {
+          "path": "layers/information/mid.png",
+          "sha256": "feccd0e6ee5cefb05fab9888730436ca64e49da6a8fad7d7745f8a96791e86f9",
+          "colors": {
+            "INFO_CYAN": 47152
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "trace": {
+          "path": "layers/information/trace.png",
+          "sha256": "aa69e38ab5f34710f89cb65e5a5ec595efb441a913c0db7ffdd4eb7495a23a36",
+          "colors": {
+            "FRICTION_GRAY": 6988
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mask": {
+          "path": "layers/information/mask.png",
+          "sha256": "eb42e0a159055458d1dac511be338ff157cf4db477b944a15693ca22a6a40f4f",
+          "colors": {
+            "SYSTEM_INK": 52288
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        }
+      },
+      "compositeMetrics": {
+        "accentOccupancy": 0.163854,
+        "paperOccupancy": 0.0,
+        "highLuminanceOccupancy": 0.0,
+        "inkPaperTwoToneContrastFloor": 0.465849,
+        "bakedBulletSizedHighlightComponents": 0,
+        "dynamicMaskFragmentComponents": 7
+      },
+      "stressMetrics": {
+        "40": {
+          "density": 40,
+          "minimumVisiblePixelRatio": 0.255814,
+          "meanVisiblePixelRatio": 0.649066,
+          "belowTwelvePercent": 0
+        },
+        "120": {
+          "density": 120,
+          "minimumVisiblePixelRatio": 0.186047,
+          "meanVisiblePixelRatio": 0.639424,
+          "belowTwelvePercent": 0
+        },
+        "240": {
+          "density": 240,
+          "minimumVisiblePixelRatio": 0.141079,
+          "meanVisiblePixelRatio": 0.629672,
+          "belowTwelvePercent": 0
+        }
+      }
+    },
+    "forced_choice": {
+      "layers": {
+        "far": {
+          "path": "layers/forced_choice/far.png",
+          "sha256": "26b87a7e87fe5e7347cfd8e6ebbb593f34ab060362afd30a48eec0d66d10af5e",
+          "colors": {
+            "SYSTEM_INK": 392726,
+            "FORCED_AMBER": 31318,
+            "FRICTION_GRAY": 36756
+          },
+          "alphaValues": [
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mid": {
+          "path": "layers/forced_choice/mid.png",
+          "sha256": "9596cbeb1bef18b05c36180b89dca5b238a9db0f9f4508b922fa418c13ff538a",
+          "colors": {
+            "FORCED_AMBER": 23040
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "trace": {
+          "path": "layers/forced_choice/trace.png",
+          "sha256": "6d9dedcb5f586178463b9ca5e24193ecfb43739492910139ae2e1f70450176af",
+          "colors": {
+            "FRICTION_GRAY": 10524
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mask": {
+          "path": "layers/forced_choice/mask.png",
+          "sha256": "4ae2b80085e6b87555f6bae3aba65962b48b65011844df358d6cc21a9d0f2dd7",
+          "colors": {
+            "SYSTEM_INK": 20520
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        }
+      },
+      "compositeMetrics": {
+        "accentOccupancy": 0.106411,
+        "paperOccupancy": 0.0,
+        "highLuminanceOccupancy": 0.0,
+        "inkPaperTwoToneContrastFloor": 0.465849,
+        "bakedBulletSizedHighlightComponents": 0,
+        "dynamicMaskFragmentComponents": 4
+      },
+      "stressMetrics": {
+        "40": {
+          "density": 40,
+          "minimumVisiblePixelRatio": 0.255814,
+          "meanVisiblePixelRatio": 0.768189,
+          "belowTwelvePercent": 0
+        },
+        "120": {
+          "density": 120,
+          "minimumVisiblePixelRatio": 0.186047,
+          "meanVisiblePixelRatio": 0.725101,
+          "belowTwelvePercent": 0
+        },
+        "240": {
+          "density": 240,
+          "minimumVisiblePixelRatio": 0.186047,
+          "meanVisiblePixelRatio": 0.702704,
+          "belowTwelvePercent": 0
+        }
+      }
+    },
+    "in_between": {
+      "layers": {
+        "far": {
+          "path": "layers/in_between/far.png",
+          "sha256": "3c91a101a0adb33fe01189afebf8fa8b2f9f0265765c13dca430bded8ba125fe",
+          "colors": {
+            "SYSTEM_INK": 312570,
+            "BETWEEN_VIOLET": 37434,
+            "FRICTION_GRAY": 110796
+          },
+          "alphaValues": [
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mid": {
+          "path": "layers/in_between/mid.png",
+          "sha256": "cb6d1075344d82e3c0c35b5cbdf72f1e7c3b1a5dc52eb78c93b43e7f5bba95bd",
+          "colors": {
+            "FRICTION_GRAY": 12390,
+            "BETWEEN_VIOLET": 11912
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "trace": {
+          "path": "layers/in_between/trace.png",
+          "sha256": "713b6852bed60155a423438bb5343615977e94ed931445ea7c37c361a5d7fc21",
+          "colors": {
+            "FRICTION_GRAY": 5702,
+            "BETWEEN_VIOLET": 912
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mask": {
+          "path": "layers/in_between/mask.png",
+          "sha256": "5ee3b32fba333eef58917725c70bcfb149af89fc5423e136576210e2c3e7d652",
+          "colors": {
+            "SYSTEM_INK": 43716
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        }
+      },
+      "compositeMetrics": {
+        "accentOccupancy": 0.091094,
+        "paperOccupancy": 0.0,
+        "highLuminanceOccupancy": 0.0,
+        "inkPaperTwoToneContrastFloor": 0.465849,
+        "bakedBulletSizedHighlightComponents": 0,
+        "dynamicMaskFragmentComponents": 3
+      },
+      "stressMetrics": {
+        "40": {
+          "density": 40,
+          "minimumVisiblePixelRatio": 0.162791,
+          "meanVisiblePixelRatio": 0.687569,
+          "belowTwelvePercent": 0
+        },
+        "120": {
+          "density": 120,
+          "minimumVisiblePixelRatio": 0.255814,
+          "meanVisiblePixelRatio": 0.624058,
+          "belowTwelvePercent": 0
+        },
+        "240": {
+          "density": 240,
+          "minimumVisiblePixelRatio": 0.189189,
+          "meanVisiblePixelRatio": 0.624125,
+          "belowTwelvePercent": 0
+        }
+      }
+    },
+    "polarized": {
+      "layers": {
+        "far": {
+          "path": "layers/polarized/far.png",
+          "sha256": "1bff71400fbf99d7555976247436137e595d9add9b5e0512323c39960cb36474",
+          "colors": {
+            "SYSTEM_INK": 371352,
+            "POLAR_RED": 61480,
+            "SELF_PAPER": 27968
+          },
+          "alphaValues": [
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mid": {
+          "path": "layers/polarized/mid.png",
+          "sha256": "aaa1fa49fc32cce4d2e99e9d8c336dd6cab1a03d995974dcd3294693084d904b",
+          "colors": {
+            "POLAR_RED": 22288,
+            "SELF_PAPER": 13944
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "trace": {
+          "path": "layers/polarized/trace.png",
+          "sha256": "653c4fdf97c3bd8d98e0a356dafc121637c583ae40bc20ac3248ca1c1a9ab996",
+          "colors": {
+            "SELF_PAPER": 5758
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        },
+        "mask": {
+          "path": "layers/polarized/mask.png",
+          "sha256": "25097cb6e85aa8ba08d18f23eb9777966f9f990a6d5b8b2b30125a12f295bd65",
+          "colors": {
+            "SYSTEM_INK": 51872
+          },
+          "alphaValues": [
+            0,
+            255
+          ],
+          "outerSeamExact": true,
+          "periodJoinExact": true
+        }
+      },
+      "compositeMetrics": {
+        "accentOccupancy": 0.171428,
+        "paperOccupancy": 0.076215,
+        "highLuminanceOccupancy": 0.076215,
+        "inkPaperTwoToneContrastFloor": 0.548591,
+        "bakedBulletSizedHighlightComponents": 0,
+        "dynamicMaskFragmentComponents": 0
+      },
+      "stressMetrics": {
+        "40": {
+          "density": 40,
+          "minimumVisiblePixelRatio": 0.255814,
+          "meanVisiblePixelRatio": 0.701936,
+          "belowTwelvePercent": 0
+        },
+        "120": {
+          "density": 120,
+          "minimumVisiblePixelRatio": 0.195021,
+          "meanVisiblePixelRatio": 0.759802,
+          "belowTwelvePercent": 0
+        },
+        "240": {
+          "density": 240,
+          "minimumVisiblePixelRatio": 0.198198,
+          "meanVisiblePixelRatio": 0.72915,
+          "belowTwelvePercent": 0
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "name": "information.far.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "information.far.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "information.far.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[255]",
+      "severity": "error"
+    },
+    {
+      "name": "information.far.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "information.far.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "information.mid.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "information.mid.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "information.mid.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "information.mid.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "information.mid.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "information.trace.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "information.trace.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "information.trace.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "information.trace.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "information.trace.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "information.mask.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "information.mask.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "information.mask.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "information.mask.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "information.mask.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "information.accent_occupancy",
+      "passed": true,
+      "detail": "0.1639 <= 0.18",
+      "severity": "error"
+    },
+    {
+      "name": "information.high_luminance",
+      "passed": true,
+      "detail": "0.0000 <= 0.16",
+      "severity": "error"
+    },
+    {
+      "name": "information.two_tone_contrast_floor",
+      "passed": true,
+      "detail": "0.4658 >= 0.40",
+      "severity": "error"
+    },
+    {
+      "name": "information.no_baked_bullet_sized_highlights",
+      "passed": true,
+      "detail": "layers={'far': [], 'mid': [], 'trace': []}",
+      "severity": "error"
+    },
+    {
+      "name": "information.no_privileged_center",
+      "passed": true,
+      "detail": "centre activity 0.0387",
+      "severity": "error"
+    },
+    {
+      "name": "information.stress_40.minimum_visibility",
+      "passed": true,
+      "detail": "0.2558 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "information.stress_40.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "information.stress_120.minimum_visibility",
+      "passed": true,
+      "detail": "0.1860 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "information.stress_120.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "information.stress_240.minimum_visibility",
+      "passed": true,
+      "detail": "0.1411 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "information.stress_240.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.far.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.far.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.far.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[255]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.far.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.far.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mid.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mid.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mid.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mid.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mid.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.trace.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.trace.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.trace.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.trace.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.trace.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mask.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mask.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mask.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mask.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.mask.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.accent_occupancy",
+      "passed": true,
+      "detail": "0.1064 <= 0.18",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.high_luminance",
+      "passed": true,
+      "detail": "0.0000 <= 0.16",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.two_tone_contrast_floor",
+      "passed": true,
+      "detail": "0.4658 >= 0.40",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.no_baked_bullet_sized_highlights",
+      "passed": true,
+      "detail": "layers={'far': [], 'mid': [], 'trace': []}",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.seam_is_active",
+      "passed": true,
+      "detail": "0.2060 >= 0.07",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.stress_40.minimum_visibility",
+      "passed": true,
+      "detail": "0.2558 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.stress_40.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.stress_120.minimum_visibility",
+      "passed": true,
+      "detail": "0.1860 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.stress_120.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.stress_240.minimum_visibility",
+      "passed": true,
+      "detail": "0.1860 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "forced_choice.stress_240.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.far.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.far.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.far.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[255]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.far.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.far.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mid.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mid.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mid.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mid.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mid.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.trace.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.trace.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.trace.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.trace.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.trace.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mask.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mask.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mask.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mask.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.mask.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.accent_occupancy",
+      "passed": true,
+      "detail": "0.0911 <= 0.18",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.high_luminance",
+      "passed": true,
+      "detail": "0.0000 <= 0.16",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.two_tone_contrast_floor",
+      "passed": true,
+      "detail": "0.4658 >= 0.40",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.no_baked_bullet_sized_highlights",
+      "passed": true,
+      "detail": "layers={'far': [], 'mid': [], 'trace': []}",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.dual_system_present",
+      "passed": true,
+      "detail": "colors=['BETWEEN_VIOLET', 'FRICTION_GRAY', 'SYSTEM_INK']",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.stress_40.minimum_visibility",
+      "passed": true,
+      "detail": "0.1628 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.stress_40.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.stress_120.minimum_visibility",
+      "passed": true,
+      "detail": "0.2558 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.stress_120.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.stress_240.minimum_visibility",
+      "passed": true,
+      "detail": "0.1892 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "in_between.stress_240.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.far.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.far.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.far.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[255]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.far.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.far.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mid.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mid.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mid.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mid.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mid.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.trace.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.trace.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.trace.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.trace.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.trace.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mask.dimensions",
+      "passed": true,
+      "detail": "(360, 1280)",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mask.palette",
+      "passed": true,
+      "detail": "unknown=[]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mask.hard_alpha",
+      "passed": true,
+      "detail": "alpha=[0, 255]",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mask.outer_seam",
+      "passed": true,
+      "detail": "edge=True, guard=True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mask.period_join",
+      "passed": true,
+      "detail": "row639==row640: True",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.accent_occupancy",
+      "passed": true,
+      "detail": "0.1714 <= 0.18",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.high_luminance",
+      "passed": true,
+      "detail": "0.0762 <= 0.16",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.two_tone_contrast_floor",
+      "passed": true,
+      "detail": "0.5486 >= 0.40",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.no_baked_bullet_sized_highlights",
+      "passed": true,
+      "detail": "layers={'far': [], 'mid': [], 'trace': []}",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.no_gray",
+      "passed": true,
+      "detail": "colors=['POLAR_RED', 'SELF_PAPER', 'SYSTEM_INK']",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.binary_room_palette",
+      "passed": true,
+      "detail": "colors=['POLAR_RED', 'SELF_PAPER', 'SYSTEM_INK']",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.paper_budget",
+      "passed": true,
+      "detail": "0.0762 <= 0.14",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.far.mirror",
+      "passed": true,
+      "detail": "bilateral exactness",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mid.mirror",
+      "passed": true,
+      "detail": "bilateral exactness",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.mask.mirror",
+      "passed": true,
+      "detail": "bilateral exactness",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.trace.breaks_mirror",
+      "passed": true,
+      "detail": "scar must be asymmetric",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.stress_40.minimum_visibility",
+      "passed": true,
+      "detail": "0.2558 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.stress_40.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.stress_120.minimum_visibility",
+      "passed": true,
+      "detail": "0.1950 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.stress_120.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.stress_240.minimum_visibility",
+      "passed": true,
+      "detail": "0.1982 >= 0.12",
+      "severity": "error"
+    },
+    {
+      "name": "polarized.stress_240.no_lost_bullets",
+      "passed": true,
+      "detail": "lost=0",
+      "severity": "error"
+    },
+    {
+      "name": "manual.forbidden_motifs",
+      "passed": true,
+      "detail": "Procedural primitives and overview visually reviewed; absent: generic concentric rings, four-corner reticles, mandalas / magic circles, circuit-board cities, browser window walls, Matrix character rain, VHS/RGB glitch, gradients / bloom / soft glow",
+      "severity": "manual"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

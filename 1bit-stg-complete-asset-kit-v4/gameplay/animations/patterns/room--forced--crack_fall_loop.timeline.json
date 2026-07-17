@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.forced.crack_fall_loop",
+  "traceSha256": "6a5513089c2d6904b5a216e55debf744fecd14318fe2d55c2f08350a7a617171",
+  "sourceDurationMs": 11000,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 153,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 699,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 699,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5500,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10300,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10580,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11000,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--forced--crack_fall_loop.gif",
+    "apng": "room--forced--crack_fall_loop.apng",
+    "timeline": "room--forced--crack_fall_loop.timeline.json"
+  }
+}

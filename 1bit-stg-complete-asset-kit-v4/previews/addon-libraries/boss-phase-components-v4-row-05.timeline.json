@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "boss-phase-components-v4",
+  "row": 5,
+  "states": [
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase1_establish",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase1_live",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase2_adapt",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase2_live",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase3_incomplete",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.aperture_open",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.protocol_interrupted",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.material_residue",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

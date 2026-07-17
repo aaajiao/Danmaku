@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "3.0.0",
+  "palette": {
+    "targetColors": [
+      "#08090D",
+      "#EFE9DA",
+      "#7D8087",
+      "#17A7CA",
+      "#D6982B",
+      "#7851B7",
+      "#B7463C",
+      "#F02A92"
+    ],
+    "maxColorsPerCell": 4,
+    "channelTolerance": 0
+  },
+  "pivotDriftTolerance": 0.02,
+  "monotonicAreaTolerance": 0.03,
+  "contrast": {
+    "minimumMedianContrastRatio": 3.0,
+    "minimumPassingProjectileFraction": 0.9
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.polarized.clock_decree",
+  "traceSha256": "a19233258eda2478fb1f38600a861698595cc74f8a869cde30a2fdc7e75c5bc2",
+  "sourceDurationMs": 10000,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 139,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 576,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 576,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5000,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 9300,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 9580,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10000,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--polarized--clock_decree.gif",
+    "apng": "room--polarized--clock_decree.apng",
+    "timeline": "room--polarized--clock_decree.timeline.json"
+  }
+}

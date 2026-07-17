@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.absent_receiver.phase2",
+  "traceSha256": "f7423722f79c007aec48ba8e185e98aeba5f94433deb11ccd761bed396c292fa",
+  "sourceDurationMs": 11500,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 160,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 627,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 627,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5750,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10800,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11080,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11500,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--absent_receiver--phase2.gif",
+    "apng": "boss--absent_receiver--phase2.apng",
+    "timeline": "boss--absent_receiver--phase2.timeline.json"
+  }
+}

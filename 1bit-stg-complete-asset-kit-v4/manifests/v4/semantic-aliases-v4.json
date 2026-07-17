@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "4.0.0-semantic-aliases",
+  "readAliases": {
+    "pickup.score.open_bit": "pickup.evidence.open_bit",
+    "pickup.power.fork": "pickup.expression.fork",
+    "pickup.life.fragment": "pickup.continuity.fragment"
+  },
+  "deprecatedPhysicalFrames": {
+    "legacy.v3.cable.idle": "cable.idle",
+    "legacy.v3.cable.attach": "cable.attach",
+    "legacy.v3.witness.rebel_exit": "witness.rebel_exit"
+  },
+  "writePolicy": "write canonical V4 semantic IDs only"
+}

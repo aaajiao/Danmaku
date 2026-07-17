@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "3.0.0",
+  "description": "Visual subscribers only; no effect can emit or gate a gameplay event.",
+  "effects": {
+    "sprite.damage_flash": {
+      "id": "sprite.damage_flash",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "bullet.cancel_dither": {
+      "id": "bullet.cancel_dither",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "laser.warning_pulse": {
+      "id": "laser.warning_pulse",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "laser.grow": {
+      "id": "laser.grow",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "laser.body_scroll": {
+      "id": "laser.body_scroll",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "laser.shutdown": {
+      "id": "laser.shutdown",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "room.transition_mask": {
+      "id": "room.transition_mask",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    },
+    "boss.phase_swap": {
+      "id": "boss.phase_swap",
+      "authority": "visual-only",
+      "integerPixelMotion": true,
+      "reducedMotion": {
+        "mode": "representative-frame",
+        "gameplayEventsUnchanged": true
+      }
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit.gameplay.v4",
+  "description": "Canonical executable STG choreography: behavior, time, safe gaps, causal residue, enemies, bosses, lasers and directors.",
+  "canonicalPatternManifest": "executable-patterns-v4.json",
+  "externalAuthorities": [
+    {
+      "path": "../../narrative/boss-resolutions-v4.json",
+      "role": "canonical boss resolution facts",
+      "sha256": "67f70e0163745ccbc92cccc9dc78bf59f23a1490a2f10dc37c3484055e40969b"
+    }
+  ],
+  "counts": {
+    "motionOperators": 12,
+    "patterns": 48,
+    "roomPatterns": 16,
+    "commonTransitionWeatherEchoPatterns": 8,
+    "bossPatterns": 24,
+    "enemies": 16,
+    "mechanicalEnemyRoles": 8,
+    "bosses": 8,
+    "bossPhases": 24,
+    "laserGeometries": 8,
+    "roomComposers": 4
+  },
+  "files": [
+    {
+      "path": "boss-rigs-v4.json",
+      "sha256": "f860327912bd374cbe3106990e1c2ac0dedd0193e971fe98cd0e8854ecab3add",
+      "bytes": 27259
+    },
+    {
+      "path": "encounter-director-v4.json",
+      "sha256": "af12493701eef1c21d845ad460ddb89eba23b9c33109b985c10891303f1b3c0c",
+      "bytes": 2264
+    },
+    {
+      "path": "enemy-archetypes-v4.json",
+      "sha256": "dfe5bdaae368aef2c10a788344fdddbe1adb5ccf0a6d99c70e225a28ed7415a5",
+      "bytes": 29430
+    },
+    {
+      "path": "executable-patterns-v4.json",
+      "sha256": "38224009f8ddb3ccd1b4a3d05351d4a37429188cb72da939fb340ea897b56614",
+      "bytes": 274043
+    },
+    {
+      "path": "laser-geometries-v4.json",
+      "sha256": "b79da551580da5be62e08ca97430079ac4a766f78b494a33baf6d770d883cc6d",
+      "bytes": 14930
+    },
+    {
+      "path": "motion-operators-v4.json",
+      "sha256": "858799a51a433d26cab91ff999a2d7d664a7fae2189659e050e645107bccc43f",
+      "bytes": 7192
+    },
+    {
+      "path": "projectile-lifecycle-v4.json",
+      "sha256": "e4a5d11f6c36831f055a0398a6098324cd6f039f274797814fd50086cb572d78",
+      "bytes": 2227
+    },
+    {
+      "path": "room-composers-v4.json",
+      "sha256": "5fb7a8ffa7a77553682f0644f2857fbd4e5f135e55ed5a9dc749640b5fa0e7e9",
+      "bytes": 8198
+    },
+    {
+      "path": "run-director-v4.json",
+      "sha256": "2dd2529478c11ac214ca4046fac93f40c479e9357b30f9be8d44a44bd09422b6",
+      "bytes": 2121
+    }
+  ]
+}

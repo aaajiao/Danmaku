@@ -1,0 +1,38 @@
+{
+  "clip": "boss.unanswering_feed.attack",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 500,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "boss.unanswering_feed.telegraph",
+      "startMs": 0,
+      "durationMs": 120,
+      "events": [
+        "telegraph_commit"
+      ]
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "boss.unanswering_feed.attack",
+      "startMs": 120,
+      "durationMs": 150,
+      "events": [
+        "attack_live"
+      ]
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "boss.unanswering_feed.idle_b",
+      "startMs": 270,
+      "durationMs": 230,
+      "events": []
+    }
+  ]
+}

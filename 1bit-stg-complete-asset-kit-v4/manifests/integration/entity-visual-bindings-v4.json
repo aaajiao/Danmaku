@@ -1,0 +1,429 @@
+{
+  "schemaVersion": "4.0.0-entity-visual-bindings",
+  "player": {
+    "bodyFrame": "player.core.idle",
+    "hitboxFrame": "player.hitbox.offset_core",
+    "shotsByFlowerBand": {
+      "QUIET": "player_shot.quiet",
+      "MIDDLE": "player_shot.medium_twin",
+      "LOUD": "player_shot.loud_open",
+      "FOCUS": "player_shot.focus_needle"
+    },
+    "optionFrames": [
+      "player_shot.option_left",
+      "player_shot.option_right"
+    ],
+    "impactFrame": "player_shot.impact",
+    "expressionResidueFrame": "player_shot.expression_residue"
+  },
+  "enemies": [
+    {
+      "entityId": "enemy.packet_sprayer.orphan_packet",
+      "bodyFrame": "enemy.courier",
+      "entryCueFrame": "enemy_move.packet_entry",
+      "movementCueFrame": "enemy_move.formation_lock",
+      "attackCueFrame": "enemy_attack.cadence_tick",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.thermal_dropout",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.packet_sprayer.retry_node",
+      "bodyFrame": "enemy.packet_moth",
+      "entryCueFrame": "enemy_move.packet_entry",
+      "movementCueFrame": "enemy_move.formation_lock",
+      "attackCueFrame": "enemy_attack.cadence_tick",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.thermal_dropout",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.seam_warden.left_gate",
+      "bodyFrame": "enemy.seam_walker",
+      "entryCueFrame": "enemy_move.side_sweep",
+      "movementCueFrame": "enemy_move.seam_climb",
+      "attackCueFrame": "enemy_attack.warning_strip",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.crossed_fiber",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.seam_warden.right_gate",
+      "bodyFrame": "enemy.warden",
+      "entryCueFrame": "enemy_move.side_sweep",
+      "movementCueFrame": "enemy_move.seam_climb",
+      "attackCueFrame": "enemy_attack.warning_strip",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.crossed_fiber",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.clock_divider.phase_a",
+      "bodyFrame": "enemy.comparator",
+      "entryCueFrame": "enemy_move.seam_climb",
+      "movementCueFrame": "enemy_move.formation_lock",
+      "attackCueFrame": "enemy_attack.dual_emitter",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.red_hardcut",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.clock_divider.phase_b",
+      "bodyFrame": "enemy.asymmetric_twin",
+      "entryCueFrame": "enemy_move.seam_climb",
+      "movementCueFrame": "enemy_move.formation_lock",
+      "attackCueFrame": "enemy_attack.dual_emitter",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.red_hardcut",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.context_misreader.system_a",
+      "bodyFrame": "enemy.echo_frame",
+      "entryCueFrame": "enemy_move.mirror_pair",
+      "movementCueFrame": "enemy_move.path_replay",
+      "attackCueFrame": "enemy_attack.aim_sample",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.misaligned_mold",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.context_misreader.system_b",
+      "bodyFrame": "enemy.archive_leecher",
+      "entryCueFrame": "enemy_move.mirror_pair",
+      "movementCueFrame": "enemy_move.path_replay",
+      "attackCueFrame": "enemy_attack.aim_sample",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.misaligned_mold",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.gaze_proxy.probe",
+      "bodyFrame": "enemy.witness_drone",
+      "entryCueFrame": "enemy_move.orbit_anchor",
+      "movementCueFrame": "enemy_move.retreat",
+      "attackCueFrame": "enemy_attack.attack_lock",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.bone_core",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.gaze_proxy.clamp_relay",
+      "bodyFrame": "enemy.clamp",
+      "entryCueFrame": "enemy_move.orbit_anchor",
+      "movementCueFrame": "enemy_move.retreat",
+      "attackCueFrame": "enemy_attack.attack_lock",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.bone_core",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.residue_hauler.cable_carrier",
+      "bodyFrame": "enemy.cable_biter",
+      "entryCueFrame": "enemy_move.packet_entry",
+      "movementCueFrame": "enemy_move.path_replay",
+      "attackCueFrame": "enemy_attack.material_shutdown",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.thermal_curl",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.residue_hauler.ash_maker",
+      "bodyFrame": "enemy.residue_hound",
+      "entryCueFrame": "enemy_move.packet_entry",
+      "movementCueFrame": "enemy_move.path_replay",
+      "attackCueFrame": "enemy_attack.material_shutdown",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.thermal_curl",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.orbit_broker.twin_orbit",
+      "bodyFrame": "enemy.seed_carrier",
+      "entryCueFrame": "enemy_move.orbit_anchor",
+      "movementCueFrame": "enemy_move.side_sweep",
+      "attackCueFrame": "enemy_attack.emitter_open",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.acrylic_offcut",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.orbit_broker.release_broker",
+      "bodyFrame": "enemy.fork_crab",
+      "entryCueFrame": "enemy_move.orbit_anchor",
+      "movementCueFrame": "enemy_move.side_sweep",
+      "attackCueFrame": "enemy_attack.emitter_open",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.acrylic_offcut",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.scar_examiner.trace_reader",
+      "bodyFrame": "enemy.burnin_ghost",
+      "entryCueFrame": "enemy_move.path_replay",
+      "movementCueFrame": "enemy_move.retreat",
+      "attackCueFrame": "enemy_attack.weakpoint_reveal",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.delamination",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    },
+    {
+      "entityId": "enemy.scar_examiner.void_filler",
+      "bodyFrame": "enemy.link_sentry",
+      "entryCueFrame": "enemy_move.path_replay",
+      "movementCueFrame": "enemy_move.retreat",
+      "attackCueFrame": "enemy_attack.weakpoint_reveal",
+      "shutdownCueFrame": "enemy_attack.material_shutdown",
+      "residueFrame": "residue.delamination",
+      "transformMotionAuthority": "gameplay enemy movement manifest",
+      "spriteAnimationMayMoveCollision": false
+    }
+  ],
+  "bosses": [
+    {
+      "entityId": "boss.absent_receiver",
+      "baseFrames": [
+        "boss.absent_receiver.silhouette",
+        "boss.absent_receiver.idle_a",
+        "boss.absent_receiver.idle_b",
+        "boss.absent_receiver.telegraph",
+        "boss.absent_receiver.attack",
+        "boss.absent_receiver.break",
+        "boss.absent_receiver.residue"
+      ],
+      "phaseFrames": [
+        "boss.absent_receiver.phase1_establish",
+        "boss.absent_receiver.phase1_live",
+        "boss.absent_receiver.phase2_adapt",
+        "boss.absent_receiver.phase2_live",
+        "boss.absent_receiver.phase3_incomplete",
+        "boss.absent_receiver.aperture_open",
+        "boss.absent_receiver.protocol_interrupted",
+        "boss.absent_receiver.material_residue"
+      ],
+      "laserGeometryId": "laser.broken_packet_polyline",
+      "audioSignalId": "boss.absent_receiver.signal",
+      "forbiddenLegacyTerminalFrame": "boss.absent_receiver.death",
+      "terminalFrame": "boss.absent_receiver.protocol_interrupted",
+      "materialFrame": "boss.absent_receiver.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.absent_receiver"
+    },
+    {
+      "entityId": "boss.unanswering_feed",
+      "baseFrames": [
+        "boss.unanswering_feed.silhouette",
+        "boss.unanswering_feed.idle_a",
+        "boss.unanswering_feed.idle_b",
+        "boss.unanswering_feed.telegraph",
+        "boss.unanswering_feed.attack",
+        "boss.unanswering_feed.break",
+        "boss.unanswering_feed.residue"
+      ],
+      "phaseFrames": [
+        "boss.unanswering_feed.phase1_establish",
+        "boss.unanswering_feed.phase1_live",
+        "boss.unanswering_feed.phase2_adapt",
+        "boss.unanswering_feed.phase2_live",
+        "boss.unanswering_feed.phase3_incomplete",
+        "boss.unanswering_feed.aperture_open",
+        "boss.unanswering_feed.protocol_interrupted",
+        "boss.unanswering_feed.material_residue"
+      ],
+      "laserGeometryId": "laser.scrolling_comb",
+      "audioSignalId": "boss.unanswering_feed.signal",
+      "forbiddenLegacyTerminalFrame": "boss.unanswering_feed.death",
+      "terminalFrame": "boss.unanswering_feed.protocol_interrupted",
+      "materialFrame": "boss.unanswering_feed.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.unanswering_feed"
+    },
+    {
+      "entityId": "boss.one_sun_one_rule",
+      "baseFrames": [
+        "boss.one_sun_one_rule.silhouette",
+        "boss.one_sun_one_rule.idle_a",
+        "boss.one_sun_one_rule.idle_b",
+        "boss.one_sun_one_rule.telegraph",
+        "boss.one_sun_one_rule.attack",
+        "boss.one_sun_one_rule.break",
+        "boss.one_sun_one_rule.residue"
+      ],
+      "phaseFrames": [
+        "boss.one_sun_one_rule.phase1_establish",
+        "boss.one_sun_one_rule.phase1_live",
+        "boss.one_sun_one_rule.phase2_adapt",
+        "boss.one_sun_one_rule.phase2_live",
+        "boss.one_sun_one_rule.phase3_incomplete",
+        "boss.one_sun_one_rule.aperture_open",
+        "boss.one_sun_one_rule.protocol_interrupted",
+        "boss.one_sun_one_rule.material_residue"
+      ],
+      "laserGeometryId": "laser.single_decree_sweep",
+      "audioSignalId": "boss.one_sun_one_rule.signal",
+      "forbiddenLegacyTerminalFrame": "boss.one_sun_one_rule.death",
+      "terminalFrame": "boss.one_sun_one_rule.protocol_interrupted",
+      "materialFrame": "boss.one_sun_one_rule.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.one_sun_one_rule"
+    },
+    {
+      "entityId": "boss.two_claims",
+      "baseFrames": [
+        "boss.two_claims.silhouette",
+        "boss.two_claims.idle_a",
+        "boss.two_claims.idle_b",
+        "boss.two_claims.telegraph",
+        "boss.two_claims.attack",
+        "boss.two_claims.break",
+        "boss.two_claims.residue"
+      ],
+      "phaseFrames": [
+        "boss.two_claims.phase1_establish",
+        "boss.two_claims.phase1_live",
+        "boss.two_claims.phase2_adapt",
+        "boss.two_claims.phase2_live",
+        "boss.two_claims.phase3_incomplete",
+        "boss.two_claims.aperture_open",
+        "boss.two_claims.protocol_interrupted",
+        "boss.two_claims.material_residue"
+      ],
+      "laserGeometryId": "laser.bifurcating_seam",
+      "audioSignalId": "boss.two_claims.signal",
+      "forbiddenLegacyTerminalFrame": "boss.two_claims.death",
+      "terminalFrame": "boss.two_claims.protocol_interrupted",
+      "materialFrame": "boss.two_claims.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.two_claims"
+    },
+    {
+      "entityId": "boss.misreader",
+      "baseFrames": [
+        "boss.misreader.silhouette",
+        "boss.misreader.idle_a",
+        "boss.misreader.idle_b",
+        "boss.misreader.telegraph",
+        "boss.misreader.attack",
+        "boss.misreader.break",
+        "boss.misreader.residue"
+      ],
+      "phaseFrames": [
+        "boss.misreader.phase1_establish",
+        "boss.misreader.phase1_live",
+        "boss.misreader.phase2_adapt",
+        "boss.misreader.phase2_live",
+        "boss.misreader.phase3_incomplete",
+        "boss.misreader.aperture_open",
+        "boss.misreader.protocol_interrupted",
+        "boss.misreader.material_residue"
+      ],
+      "laserGeometryId": "laser.misread_bezier",
+      "audioSignalId": "boss.misreader.signal",
+      "forbiddenLegacyTerminalFrame": "boss.misreader.death",
+      "terminalFrame": "boss.misreader.protocol_interrupted",
+      "materialFrame": "boss.misreader.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.misreader"
+    },
+    {
+      "entityId": "boss.misregistered_twin_moons",
+      "baseFrames": [
+        "boss.misregistered_twin_moons.silhouette",
+        "boss.misregistered_twin_moons.idle_a",
+        "boss.misregistered_twin_moons.idle_b",
+        "boss.misregistered_twin_moons.telegraph",
+        "boss.misregistered_twin_moons.attack",
+        "boss.misregistered_twin_moons.break",
+        "boss.misregistered_twin_moons.residue"
+      ],
+      "phaseFrames": [
+        "boss.misregistered_twin_moons.phase1_establish",
+        "boss.misregistered_twin_moons.phase1_live",
+        "boss.misregistered_twin_moons.phase2_adapt",
+        "boss.misregistered_twin_moons.phase2_live",
+        "boss.misregistered_twin_moons.phase3_incomplete",
+        "boss.misregistered_twin_moons.aperture_open",
+        "boss.misregistered_twin_moons.protocol_interrupted",
+        "boss.misregistered_twin_moons.material_residue"
+      ],
+      "laserGeometryId": "laser.twin_offset_arcs",
+      "audioSignalId": "boss.misregistered_twin_moons.signal",
+      "forbiddenLegacyTerminalFrame": "boss.misregistered_twin_moons.death",
+      "terminalFrame": "boss.misregistered_twin_moons.protocol_interrupted",
+      "materialFrame": "boss.misregistered_twin_moons.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.misregistered_twin_moons"
+    },
+    {
+      "entityId": "boss.no_dusk",
+      "baseFrames": [
+        "boss.no_dusk.silhouette",
+        "boss.no_dusk.idle_a",
+        "boss.no_dusk.idle_b",
+        "boss.no_dusk.telegraph",
+        "boss.no_dusk.attack",
+        "boss.no_dusk.break",
+        "boss.no_dusk.residue"
+      ],
+      "phaseFrames": [
+        "boss.no_dusk.phase1_establish",
+        "boss.no_dusk.phase1_live",
+        "boss.no_dusk.phase2_adapt",
+        "boss.no_dusk.phase2_live",
+        "boss.no_dusk.phase3_incomplete",
+        "boss.no_dusk.aperture_open",
+        "boss.no_dusk.protocol_interrupted",
+        "boss.no_dusk.material_residue"
+      ],
+      "laserGeometryId": "laser.binary_shutter_grid",
+      "audioSignalId": "boss.no_dusk.signal",
+      "forbiddenLegacyTerminalFrame": "boss.no_dusk.death",
+      "terminalFrame": "boss.no_dusk.protocol_interrupted",
+      "materialFrame": "boss.no_dusk.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.no_dusk"
+    },
+    {
+      "entityId": "boss.absolute_reader",
+      "baseFrames": [
+        "boss.absolute_reader.silhouette",
+        "boss.absolute_reader.idle_a",
+        "boss.absolute_reader.idle_b",
+        "boss.absolute_reader.telegraph",
+        "boss.absolute_reader.attack",
+        "boss.absolute_reader.break",
+        "boss.absolute_reader.residue"
+      ],
+      "phaseFrames": [
+        "boss.absolute_reader.phase1_establish",
+        "boss.absolute_reader.phase1_live",
+        "boss.absolute_reader.phase2_adapt",
+        "boss.absolute_reader.phase2_live",
+        "boss.absolute_reader.phase3_incomplete",
+        "boss.absolute_reader.aperture_open",
+        "boss.absolute_reader.protocol_interrupted",
+        "boss.absolute_reader.material_residue"
+      ],
+      "laserGeometryId": "laser.broken_iris_cone",
+      "audioSignalId": "boss.absolute_reader.signal",
+      "forbiddenLegacyTerminalFrame": "boss.absolute_reader.death",
+      "terminalFrame": "boss.absolute_reader.protocol_interrupted",
+      "materialFrame": "boss.absolute_reader.material_residue",
+      "gameplayRig": "manifests/gameplay/boss-rigs-v4.json#boss.absolute_reader"
+    }
+  ],
+  "contract": [
+    "entity transforms and collision are gameplay-owned",
+    "body sprite frames never move collision",
+    "boss legacy .death frames are forbidden in V4 terminal flow",
+    "protocol_interrupted and material_residue replace victory/death presentation"
+  ]
+}

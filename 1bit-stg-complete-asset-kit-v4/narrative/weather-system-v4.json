@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "4.0.0-weather",
+  "authority": "world-presentation",
+  "selection": {
+    "baseCooldownMs": [70000, 150000],
+    "behaviorBiasClamp": 0.3,
+    "deterministicSeed": "hash(run.seed, room.visitIndex, weather.ordinal)",
+    "rule": "Behavior may bias probability by at most ±30%; it never selects weather directly."
+  },
+  "weather": {
+    "STATIC": {
+      "roomsWeight": {"INFORMATION": 1.0, "FORCED_ALIGNMENT": 0.35, "IN_BETWEEN": 0.65, "POLARIZED": 0.15},
+      "behaviorBias": {"meanLight": 0.22, "signalHoldRatio": 0.18, "gazeStillTime": 0.10},
+      "omen": {"durationMs": 1600, "visual": "Packet lines pause in place; three distant points fail to refresh.", "audio": "Sparse unreadable notification chirps lose their high partials."},
+      "burst": {"durationMs": [5500, 9000], "visual": "Short horizontal dropouts delete portions of façades without moving collision.", "audio": "Band-limited digital grain with irregular missing blocks."},
+      "aftermath": {"durationMs": 6000, "visual": "Stale packets remain one refresh behind.", "materialResidue": "characterPuddle", "decay": "pixel-by-pixel, deterministic"}
+    },
+    "RAIN": {
+      "roomsWeight": {"INFORMATION": 0.65, "FORCED_ALIGNMENT": 0.55, "IN_BETWEEN": 0.8, "POLARIZED": 0.25},
+      "behaviorBias": {"focusDwellRatio": 0.14, "quietLightRatio": 0.08},
+      "omen": {"durationMs": 2200, "visual": "A few short vertical lines appear between player and architecture.", "audio": "Three dry ticks with widening stereo distance."},
+      "burst": {"durationMs": [9000, 15000], "visual": "World-space rain lines cross depth planes; no screen overlay.", "audio": "Sparse impulse rain, no naturalistic field recording."},
+      "aftermath": {"durationMs": 9000, "visual": "Small binary puddles repeat the room's last characters.", "materialResidue": "binaryPuddle", "decay": "edge evaporation"}
+    },
+    "ASH": {
+      "roomsWeight": {"INFORMATION": 0.25, "FORCED_ALIGNMENT": 0.6, "IN_BETWEEN": 0.75, "POLARIZED": 0.55},
+      "behaviorBias": {"damageCount": 0.12, "overrideCount": 0.18, "deathTraceCount": 0.12},
+      "omen": {"durationMs": 2800, "visual": "One heavy fleck falls upward before gravity is established.", "audio": "A low granular exhale with no attack transient."},
+      "burst": {"durationMs": [11000, 18000], "visual": "Irregular square flecks settle on geometry and player route.", "audio": "Soft low-passed grains derived from acrylic scrape impulses."},
+      "aftermath": {"durationMs": 14000, "visual": "Deposits outline recent movement before dissolving.", "materialResidue": "routeAsh", "decay": "oldest route point first"}
+    },
+    "WIND": {
+      "roomsWeight": {"INFORMATION": 0.35, "FORCED_ALIGNMENT": 0.9, "IN_BETWEEN": 0.7, "POLARIZED": 0.45},
+      "behaviorBias": {"routeWidth": 0.14, "seamCrossings": 0.18, "directionChanges": 0.10},
+      "omen": {"durationMs": 1800, "visual": "Cables tense one beat before particles move.", "audio": "A narrow filtered band pans in the future wind direction."},
+      "burst": {"durationMs": [6500, 12000], "visual": "Cables, witnesses, characters and hard shadows displace at different response rates.", "audio": "Two asynchronous filtered noise bands; no continuous whoosh."},
+      "aftermath": {"durationMs": 8000, "visual": "One shadow and one cable return late, proving different material inertia.", "materialResidue": "misalignedShadowScuff", "decay": "snap-back in two steps"}
+    },
+    "ECLIPSE": {
+      "roomsWeight": {"INFORMATION": 0.08, "FORCED_ALIGNMENT": 0.1, "IN_BETWEEN": 0.16, "POLARIZED": 0.22},
+      "behaviorBias": {"loudLightRatio": 0.12, "gazeRatio": 0.08, "witnessResonanceCount": 0.10},
+      "rarityGate": "run.elapsedMs >= 180000 && weather.completedCount >= 1",
+      "omen": {"durationMs": 5000, "visual": "Witnesses face upward; a hard ink disk enters outside the Eye's center.", "audio": "Room fundamentals descend continuously by a minor third."},
+      "burst": {"durationMs": [7000, 10000], "visual": "Day collapses toward ink. If flower intensity is high enough, witnesses face the player instead of the Eye.", "audio": "Room bed is retained at half speed beneath a dry two-tone clock."},
+      "aftermath": {"durationMs": 12000, "visual": "One building retains inverted material and one witness keeps its last facing.", "materialResidue": "eclipseInversion", "decay": "persists until room exit"}
+    }
+  },
+  "accessibility": {
+    "reducedMotion": "Use phase boundary poses; keep gameplayClock durations and all event times.",
+    "reduceFlash": "STATIC dropout uses spatial deletion without luminance inversion; ECLIPSE hard cut uses a 400ms non-flashing threshold crawl.",
+    "audio": "Every omen has a spatial visual counterpart; every visual-only phase is reflected by UI weather state text when descriptions are enabled."
+  },
+  "invariants": [
+    "Weather cannot move bullets, hitboxes, safe lanes or player collision.",
+    "Each type has a distinct omen, burst, aftermath and material residue.",
+    "No weather type is selected as a reward or punishment."
+  ]
+}

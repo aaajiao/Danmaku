@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.information.unanswered_fan",
+  "traceSha256": "b7208c32164c21408d4ed56b7b247f5155e2d0d81aaec9266236931d860909e2",
+  "sourceDurationMs": 10400,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 144,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 626,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 626,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5200,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 9700,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 9980,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10400,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--information--unanswered_fan.gif",
+    "apng": "room--information--unanswered_fan.apng",
+    "timeline": "room--information--unanswered_fan.timeline.json"
+  }
+}

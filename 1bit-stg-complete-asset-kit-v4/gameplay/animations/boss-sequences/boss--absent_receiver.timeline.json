@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.absent_receiver",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.absent_receiver",
+    "narrativeAlias": "absent_receiver",
+    "resolutionId": "RECEIVER_TIMED_OUT",
+    "metric": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+    "condition": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+    "fact": "No valid acknowledgement returned during three signal windows.",
+    "terminal": "boss.protocol.withdraw",
+    "terminalEvent": "boss.protocol.withdraw",
+    "materialRemainder": "three unlit receiver slots",
+    "playerPossibilities": [
+      "quiet passage",
+      "unanswered expression",
+      "mixed signal"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.absent_receiver.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "09c96d7253561b5068d1dd5da182fc39d9746f6c7bae732d72ed7082e0b6a6ac"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.absent_receiver.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "7a49f3e97244070017b6fa6e54b215c8f6f045edf3eb24847e844fc116c4f387"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.absent_receiver.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "be36405df5c1e023a0aed85460da743a2ee6aa26a5678d7a57f154bb598fc39f"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--absent_receiver.gif",
+    "apng": "boss--absent_receiver.apng",
+    "timeline": "boss--absent_receiver.timeline.json"
+  }
+}

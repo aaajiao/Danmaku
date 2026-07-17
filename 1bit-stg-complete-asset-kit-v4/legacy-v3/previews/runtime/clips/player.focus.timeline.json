@@ -1,0 +1,78 @@
+{
+  "clip": "player.focus",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1040,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "player.focus.frame_00",
+      "startMs": 0,
+      "durationMs": 90,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "player.focus.frame_01",
+      "startMs": 90,
+      "durationMs": 90,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "player.focus.frame_02",
+      "startMs": 180,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "player.focus.frame_03",
+      "startMs": 360,
+      "durationMs": 240,
+      "events": [
+        "focus_hold"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "player.focus.frame_04",
+      "startMs": 600,
+      "durationMs": 70,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "player.focus.frame_05",
+      "startMs": 670,
+      "durationMs": 60,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "player.focus.frame_06",
+      "startMs": 730,
+      "durationMs": 130,
+      "events": [
+        "focus_confirm"
+      ]
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "player.focus.frame_07",
+      "startMs": 860,
+      "durationMs": 180,
+      "events": []
+    }
+  ]
+}

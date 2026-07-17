@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 3,
+  "states": [
+    {
+      "semanticId": "enemy_attack.aim_sample",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.warning_strip",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.emitter_open",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.cadence_tick",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.dual_emitter",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.weakpoint_reveal",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.attack_lock",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_attack.material_shutdown",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

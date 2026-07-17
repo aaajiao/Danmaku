@@ -1,0 +1,7282 @@
+{
+  "schemaVersion": "3.0.0",
+  "contract": "../visual-contract-v3.json",
+  "palette": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "atlasSize": [
+    1024,
+    1024
+  ],
+  "cell": [
+    128,
+    128
+  ],
+  "atlases": [
+    {
+      "id": "core-grammar-v3",
+      "atlasId": "core-grammar-v3",
+      "image": "atlases/core-grammar-v3.png",
+      "file": "atlases/core-grammar-v3.png",
+      "description": "Curated runtime primitives replacing the untyped 656-cell library.",
+      "sourceSketch": "source-boards/core-grammar-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "4d638b0f29632e3f52d1fb8f077ce3ba14300054e943dc9554a0b55524086b94"
+    },
+    {
+      "id": "boss-topologies-v3",
+      "atlasId": "boss-topologies-v3",
+      "image": "atlases/boss-topologies-v3.png",
+      "file": "atlases/boss-topologies-v3.png",
+      "description": "Eight bosses with eight non-interchangeable void topologies.",
+      "sourceSketch": "source-boards/boss-topologies-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "a5c3c230f1090ec581dcce1f956a989f8d1313591eddbd3d029b9dc35baa117a"
+    },
+    {
+      "id": "combat-causality-v3",
+      "atlasId": "combat-causality-v3",
+      "image": "atlases/combat-causality-v3.png",
+      "file": "atlases/combat-causality-v3.png",
+      "description": "Focus, clamp, Override, death, respawn, projectile and laser causality.",
+      "sourceSketch": "source-boards/combat-causality-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "f17108f5ba61441753bd28860c77e3682bf950a595854a2c8e6b9664a06c5524"
+    },
+    {
+      "id": "narrative-behavior-v3",
+      "atlasId": "narrative-behavior-v3",
+      "image": "atlases/narrative-behavior-v3.png",
+      "file": "atlases/narrative-behavior-v3.png",
+      "description": "Witness, ghost, cable, scar, weather and cross-run behavior.",
+      "sourceSketch": "source-boards/narrative-behavior-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "588d0de0220ed818d242eafc77cf8b62ccec6cb67e64eceb743989cfe95c07ee"
+    }
+  ],
+  "frames": [
+    {
+      "id": "bullet.micro.notch_e",
+      "semanticId": "bullet.micro.notch_e",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 0,
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.notch_ne",
+      "semanticId": "bullet.micro.notch_ne",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 1,
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.split",
+      "semanticId": "bullet.micro.split",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 2,
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.dash",
+      "semanticId": "bullet.micro.dash",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 3,
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.thorn",
+      "semanticId": "bullet.micro.thorn",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 4,
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.shard",
+      "semanticId": "bullet.micro.shard",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 5,
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.seed",
+      "semanticId": "bullet.micro.seed",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 6,
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.micro.bit",
+      "semanticId": "bullet.micro.bit",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 7,
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.blade",
+      "semanticId": "bullet.medium.blade",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 8,
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.droplet",
+      "semanticId": "bullet.medium.droplet",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 9,
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.packet",
+      "semanticId": "bullet.medium.packet",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 10,
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.capsule",
+      "semanticId": "bullet.medium.capsule",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 11,
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.fork",
+      "semanticId": "bullet.medium.fork",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 12,
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.leaf",
+      "semanticId": "bullet.medium.leaf",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 13,
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.bar",
+      "semanticId": "bullet.medium.bar",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 14,
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.medium.diamond_void",
+      "semanticId": "bullet.medium.diamond_void",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 15,
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "kind": "enemyBullet",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_projectile_medium",
+      "threatRole": "pattern_carrier",
+      "durationMs": 105,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.wall_chunk",
+      "semanticId": "hazard.heavy.wall_chunk",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 16,
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.long_lance",
+      "semanticId": "hazard.heavy.long_lance",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 17,
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.twin_block",
+      "semanticId": "hazard.heavy.twin_block",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 18,
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.blade_mass",
+      "semanticId": "hazard.heavy.blade_mass",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 19,
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.slash_bar",
+      "semanticId": "hazard.heavy.slash_bar",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 20,
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.gate",
+      "semanticId": "hazard.heavy.gate",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 21,
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.column",
+      "semanticId": "hazard.heavy.column",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 22,
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "hazard.heavy.pressure_plate",
+      "semanticId": "hazard.heavy.pressure_plate",
+      "atlas": "core-projectile-v3",
+      "frameIndex": 23,
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "kind": "hazard",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_hazard_heavy",
+      "threatRole": "space_denial",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.core.idle",
+      "semanticId": "player.core.idle",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 24,
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.confirm_tick",
+      "semanticId": "player.focus.confirm_tick",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 25,
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.option.left",
+      "semanticId": "player.option.left",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 26,
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.option.right",
+      "semanticId": "player.option.right",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 27,
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.shot.tap",
+      "semanticId": "player.shot.tap",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 28,
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 70,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.shot.hold",
+      "semanticId": "player.shot.hold",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 29,
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.guard.incomplete_shell",
+      "semanticId": "player.guard.incomplete_shell",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 30,
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.hitbox.offset_core",
+      "semanticId": "player.hitbox.offset_core",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 31,
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_or_player_system",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.score.open_bit",
+      "semanticId": "pickup.score.open_bit",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 32,
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.power.fork",
+      "semanticId": "pickup.power.fork",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 33,
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.life.fragment",
+      "semanticId": "pickup.life.fragment",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 34,
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.memory.node",
+      "semanticId": "pickup.memory.node",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 35,
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.witness.fragment",
+      "semanticId": "pickup.witness.fragment",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 36,
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.option.gain",
+      "semanticId": "pickup.option.gain",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 37,
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.snapshot.seed",
+      "semanticId": "pickup.snapshot.seed",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 38,
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "pickup.polarity.key",
+      "semanticId": "pickup.polarity.key",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 39,
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "kind": "pickup",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "pickup",
+      "threatRole": "permission",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.courier",
+      "semanticId": "enemy.courier",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 40,
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.clamp",
+      "semanticId": "enemy.clamp",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 41,
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.comparator",
+      "semanticId": "enemy.comparator",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 42,
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.warden",
+      "semanticId": "enemy.warden",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 43,
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.witness_drone",
+      "semanticId": "enemy.witness_drone",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 44,
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.cable_biter",
+      "semanticId": "enemy.cable_biter",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 45,
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.echo_frame",
+      "semanticId": "enemy.echo_frame",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 46,
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.seed_carrier",
+      "semanticId": "enemy.seed_carrier",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 47,
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "enemy_body_medium",
+      "threatRole": "governor",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.seam_walker",
+      "semanticId": "enemy.seam_walker",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 48,
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.packet_moth",
+      "semanticId": "enemy.packet_moth",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 49,
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.fork_crab",
+      "semanticId": "enemy.fork_crab",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 50,
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.residue_hound",
+      "semanticId": "enemy.residue_hound",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 51,
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.link_sentry",
+      "semanticId": "enemy.link_sentry",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 52,
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.asymmetric_twin",
+      "semanticId": "enemy.asymmetric_twin",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 53,
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.burnin_ghost",
+      "semanticId": "enemy.burnin_ghost",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 54,
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.archive_leecher",
+      "semanticId": "enemy.archive_leecher",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 55,
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemy",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "enemy_body_large",
+      "threatRole": "governor",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.spawn.marker",
+      "semanticId": "utility.spawn.marker",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 56,
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.path.node",
+      "semanticId": "utility.path.node",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 57,
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.warning.strip",
+      "semanticId": "utility.warning.strip",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 58,
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.hit.spark",
+      "semanticId": "utility.hit.spark",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 59,
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.graze.tick",
+      "semanticId": "utility.graze.tick",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 60,
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.delete.mark",
+      "semanticId": "utility.delete.mark",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 61,
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.residue.patch",
+      "semanticId": "utility.residue.patch",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 62,
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "utility.offscreen.arrow",
+      "semanticId": "utility.offscreen.arrow",
+      "atlas": "core-grammar-v3",
+      "frameIndex": 63,
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "kind": "utility",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "none",
+      "threatRole": "readability",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.silhouette",
+      "semanticId": "boss.absent_receiver.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 0,
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.idle_a",
+      "semanticId": "boss.absent_receiver.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 1,
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.idle_b",
+      "semanticId": "boss.absent_receiver.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 2,
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.telegraph",
+      "semanticId": "boss.absent_receiver.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 3,
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.attack",
+      "semanticId": "boss.absent_receiver.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 4,
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.break",
+      "semanticId": "boss.absent_receiver.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 5,
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.death",
+      "semanticId": "boss.absent_receiver.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 6,
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absent_receiver.residue",
+      "semanticId": "boss.absent_receiver.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 7,
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.silhouette",
+      "semanticId": "boss.unanswering_feed.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 8,
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.idle_a",
+      "semanticId": "boss.unanswering_feed.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 9,
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.idle_b",
+      "semanticId": "boss.unanswering_feed.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 10,
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.telegraph",
+      "semanticId": "boss.unanswering_feed.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 11,
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.attack",
+      "semanticId": "boss.unanswering_feed.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 12,
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.break",
+      "semanticId": "boss.unanswering_feed.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 13,
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.death",
+      "semanticId": "boss.unanswering_feed.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 14,
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.unanswering_feed.residue",
+      "semanticId": "boss.unanswering_feed.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 15,
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.silhouette",
+      "semanticId": "boss.one_sun_one_rule.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 16,
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.idle_a",
+      "semanticId": "boss.one_sun_one_rule.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 17,
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.idle_b",
+      "semanticId": "boss.one_sun_one_rule.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 18,
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.telegraph",
+      "semanticId": "boss.one_sun_one_rule.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 19,
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.attack",
+      "semanticId": "boss.one_sun_one_rule.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 20,
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.break",
+      "semanticId": "boss.one_sun_one_rule.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 21,
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.death",
+      "semanticId": "boss.one_sun_one_rule.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 22,
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.one_sun_one_rule.residue",
+      "semanticId": "boss.one_sun_one_rule.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 23,
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.silhouette",
+      "semanticId": "boss.two_claims.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 24,
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.idle_a",
+      "semanticId": "boss.two_claims.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 25,
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.idle_b",
+      "semanticId": "boss.two_claims.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 26,
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.telegraph",
+      "semanticId": "boss.two_claims.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 27,
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.attack",
+      "semanticId": "boss.two_claims.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 28,
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.break",
+      "semanticId": "boss.two_claims.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 29,
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.death",
+      "semanticId": "boss.two_claims.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 30,
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.two_claims.residue",
+      "semanticId": "boss.two_claims.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 31,
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "FORCED_CHOICE",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.silhouette",
+      "semanticId": "boss.misreader.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 32,
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.idle_a",
+      "semanticId": "boss.misreader.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 33,
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.idle_b",
+      "semanticId": "boss.misreader.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 34,
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.telegraph",
+      "semanticId": "boss.misreader.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 35,
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.attack",
+      "semanticId": "boss.misreader.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 36,
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.break",
+      "semanticId": "boss.misreader.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 37,
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.death",
+      "semanticId": "boss.misreader.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 38,
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misreader.residue",
+      "semanticId": "boss.misreader.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 39,
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.silhouette",
+      "semanticId": "boss.misregistered_twin_moons.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 40,
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.idle_a",
+      "semanticId": "boss.misregistered_twin_moons.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 41,
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.idle_b",
+      "semanticId": "boss.misregistered_twin_moons.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 42,
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.telegraph",
+      "semanticId": "boss.misregistered_twin_moons.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 43,
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.attack",
+      "semanticId": "boss.misregistered_twin_moons.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 44,
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.break",
+      "semanticId": "boss.misregistered_twin_moons.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 45,
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.death",
+      "semanticId": "boss.misregistered_twin_moons.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 46,
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.misregistered_twin_moons.residue",
+      "semanticId": "boss.misregistered_twin_moons.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 47,
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "IN_BETWEEN",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.silhouette",
+      "semanticId": "boss.no_dusk.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 48,
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.idle_a",
+      "semanticId": "boss.no_dusk.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 49,
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.idle_b",
+      "semanticId": "boss.no_dusk.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 50,
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.telegraph",
+      "semanticId": "boss.no_dusk.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 51,
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.attack",
+      "semanticId": "boss.no_dusk.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 52,
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.break",
+      "semanticId": "boss.no_dusk.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 53,
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.death",
+      "semanticId": "boss.no_dusk.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 54,
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.no_dusk.residue",
+      "semanticId": "boss.no_dusk.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 55,
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.silhouette",
+      "semanticId": "boss.absolute_reader.silhouette",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 56,
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.idle_a",
+      "semanticId": "boss.absolute_reader.idle_a",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 57,
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.idle_b",
+      "semanticId": "boss.absolute_reader.idle_b",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 58,
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 230,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.telegraph",
+      "semanticId": "boss.absolute_reader.telegraph",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 59,
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.attack",
+      "semanticId": "boss.absolute_reader.attack",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 60,
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.break",
+      "semanticId": "boss.absolute_reader.break",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 61,
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.death",
+      "semanticId": "boss.absolute_reader.death",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 62,
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.absolute_reader.residue",
+      "semanticId": "boss.absolute_reader.residue",
+      "atlas": "boss-topologies-v3",
+      "frameIndex": 63,
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "kind": "boss",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_body",
+      "threatRole": "governor_apex",
+      "durationMs": 820,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_00",
+      "semanticId": "player.focus.frame_00",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 0,
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_01",
+      "semanticId": "player.focus.frame_01",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 1,
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_02",
+      "semanticId": "player.focus.frame_02",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 2,
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_03",
+      "semanticId": "player.focus.frame_03",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 3,
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_04",
+      "semanticId": "player.focus.frame_04",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 4,
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 70,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_05",
+      "semanticId": "player.focus.frame_05",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 5,
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 60,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_06",
+      "semanticId": "player.focus.frame_06",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 6,
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.focus.frame_07",
+      "semanticId": "player.focus.frame_07",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 7,
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "kind": "player",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "player_body",
+      "threatRole": "self_control",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_00",
+      "semanticId": "system.eye_clamp.frame_00",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 8,
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 40,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_01",
+      "semanticId": "system.eye_clamp.frame_01",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 9,
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 40,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_02",
+      "semanticId": "system.eye_clamp.frame_02",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 10,
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 40,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_03",
+      "semanticId": "system.eye_clamp.frame_03",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 11,
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_04",
+      "semanticId": "system.eye_clamp.frame_04",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 12,
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_05",
+      "semanticId": "system.eye_clamp.frame_05",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 13,
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_06",
+      "semanticId": "system.eye_clamp.frame_06",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 14,
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.eye_clamp.frame_07",
+      "semanticId": "system.eye_clamp.frame_07",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 15,
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "kind": "systemOverlay",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "regulation_feedback",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_00",
+      "semanticId": "system.override.directional.frame_00",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 16,
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 110,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_01",
+      "semanticId": "system.override.directional.frame_01",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 17,
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_02",
+      "semanticId": "system.override.directional.frame_02",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 18,
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 80,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_03",
+      "semanticId": "system.override.directional.frame_03",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 19,
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 100,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_04",
+      "semanticId": "system.override.directional.frame_04",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 20,
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_05",
+      "semanticId": "system.override.directional.frame_05",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 21,
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_06",
+      "semanticId": "system.override.directional.frame_06",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 22,
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "system.override.directional.frame_07",
+      "semanticId": "system.override.directional.frame_07",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 23,
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "override_field",
+      "threatRole": "local_rule_rewrite",
+      "durationMs": 360,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.hit",
+      "semanticId": "player.hit",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 24,
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 60,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.core_break",
+      "semanticId": "player.core_break",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 25,
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 70,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.shard",
+      "semanticId": "player.shard",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 26,
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 80,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.digital_delete",
+      "semanticId": "player.digital_delete",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 27,
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.void_hold",
+      "semanticId": "player.void_hold",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 28,
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 110,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.residue_appear",
+      "semanticId": "player.residue_appear",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 29,
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.residue_hold",
+      "semanticId": "player.residue_hold",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 30,
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 300,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.residue_fade",
+      "semanticId": "player.residue_fade",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 31,
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_00",
+      "semanticId": "player.respawn_asymmetric.frame_00",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 32,
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_01",
+      "semanticId": "player.respawn_asymmetric.frame_01",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 33,
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_02",
+      "semanticId": "player.respawn_asymmetric.frame_02",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 34,
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 100,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_03",
+      "semanticId": "player.respawn_asymmetric.frame_03",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 35,
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_04",
+      "semanticId": "player.respawn_asymmetric.frame_04",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 36,
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 150,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_05",
+      "semanticId": "player.respawn_asymmetric.frame_05",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 37,
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_06",
+      "semanticId": "player.respawn_asymmetric.frame_06",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 38,
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "player.respawn_asymmetric.frame_07",
+      "semanticId": "player.respawn_asymmetric.frame_07",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 39,
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "kind": "playerFx",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "return_with_history",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.hit",
+      "semanticId": "enemy.hit",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 40,
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 60,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.fracture",
+      "semanticId": "enemy.fracture",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 41,
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 80,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.split",
+      "semanticId": "enemy.split",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 42,
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.digital_delete",
+      "semanticId": "enemy.digital_delete",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 43,
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 110,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.rupture",
+      "semanticId": "enemy.rupture",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 44,
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 140,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.residue",
+      "semanticId": "enemy.residue",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 45,
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 300,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.ash",
+      "semanticId": "enemy.ash",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 46,
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "enemy.clear",
+      "semanticId": "enemy.clear",
+      "atlas": "combat-causality-v3",
+      "frameIndex": 47,
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "kind": "enemyFx",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "death_causality",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.birth_0",
+      "semanticId": "bullet.birth_0",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 48,
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 45,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.birth_1",
+      "semanticId": "bullet.birth_1",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 49,
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 45,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.live",
+      "semanticId": "bullet.live",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 50,
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.travel",
+      "semanticId": "bullet.travel",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 51,
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.impact_0",
+      "semanticId": "bullet.impact_0",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 52,
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 50,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.impact_1",
+      "semanticId": "bullet.impact_1",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 53,
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 70,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.afterimage",
+      "semanticId": "bullet.afterimage",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 54,
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 100,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "bullet.clear",
+      "semanticId": "bullet.clear",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 55,
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "kind": "enemyBulletFx",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 16,
+      "collisionClass": "enemy_projectile_small",
+      "threatRole": "moving_prohibition",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.off",
+      "semanticId": "boss.laser.off",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 56,
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 100,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.telegraph_0",
+      "semanticId": "boss.laser.telegraph_0",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 57,
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.telegraph_1",
+      "semanticId": "boss.laser.telegraph_1",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 58,
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.charge",
+      "semanticId": "boss.laser.charge",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 59,
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.active",
+      "semanticId": "boss.laser.active",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 60,
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.decay",
+      "semanticId": "boss.laser.decay",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 61,
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 140,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.residue",
+      "semanticId": "boss.laser.residue",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 62,
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 360,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "boss.laser.cancel",
+      "semanticId": "boss.laser.cancel",
+      "atlas": "combat-projectile-v3",
+      "frameIndex": 63,
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "kind": "bossLaser",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "boss_laser",
+      "threatRole": "space_denial",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.idle_a",
+      "semanticId": "witness.idle_a",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 0,
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.idle_b",
+      "semanticId": "witness.idle_b",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 1,
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.turn_0",
+      "semanticId": "witness.turn_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 2,
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.turn_1",
+      "semanticId": "witness.turn_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 3,
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.face_player",
+      "semanticId": "witness.face_player",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 4,
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.rebel_mark",
+      "semanticId": "witness.rebel_mark",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 5,
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 140,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.rebel_hold",
+      "semanticId": "witness.rebel_hold",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 6,
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 340,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "witness.rebel_exit",
+      "semanticId": "witness.rebel_exit",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 7,
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "witness_behavior",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.walk_0",
+      "semanticId": "ghost.walk_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 8,
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.walk_1",
+      "semanticId": "ghost.walk_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 9,
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.hesitate_0",
+      "semanticId": "ghost.hesitate_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 10,
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.hesitate_1",
+      "semanticId": "ghost.hesitate_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 11,
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 340,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.stumble",
+      "semanticId": "ghost.stumble",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 12,
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.burnout_0",
+      "semanticId": "ghost.burnout_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 13,
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 210,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.burnout_1",
+      "semanticId": "ghost.burnout_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 14,
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 280,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "ghost.residue",
+      "semanticId": "ghost.residue",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 15,
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "kind": "narrativeActor",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "burnout_behavior",
+      "durationMs": 420,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.idle",
+      "semanticId": "cable.idle",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 16,
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.attach",
+      "semanticId": "cable.attach",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 17,
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.upload_0",
+      "semanticId": "cable.upload_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 18,
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.upload_1",
+      "semanticId": "cable.upload_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 19,
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 170,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.burnin_0",
+      "semanticId": "cable.burnin_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 20,
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 170,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.burnin_1",
+      "semanticId": "cable.burnin_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 21,
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.disconnect",
+      "semanticId": "cable.disconnect",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 22,
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "cable.residue",
+      "semanticId": "cable.residue",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 23,
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "kind": "narrativeProp",
+      "room": "ANY",
+      "paletteRole": "FORCED_AMBER",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "digital_material_choice",
+      "durationMs": 360,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.seed",
+      "semanticId": "scar.seed",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 24,
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 90,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.extend_0",
+      "semanticId": "scar.extend_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 25,
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 110,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.extend_1",
+      "semanticId": "scar.extend_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 26,
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.branch",
+      "semanticId": "scar.branch",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 27,
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 140,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.commit",
+      "semanticId": "scar.commit",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 28,
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.hold",
+      "semanticId": "scar.hold",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 29,
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.burn",
+      "semanticId": "scar.burn",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 30,
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 320,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "scar.permanent",
+      "semanticId": "scar.permanent",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 31,
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "persistent_consequence",
+      "durationMs": 520,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.calm",
+      "semanticId": "weather.static.calm",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 32,
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.noise_0",
+      "semanticId": "weather.static.noise_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 33,
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 80,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.noise_1",
+      "semanticId": "weather.static.noise_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 34,
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 70,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.burst",
+      "semanticId": "weather.static.burst",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 35,
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 60,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.tear",
+      "semanticId": "weather.static.tear",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 36,
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 80,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.dropout",
+      "semanticId": "weather.static.dropout",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 37,
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.recover",
+      "semanticId": "weather.static.recover",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 38,
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.static.after",
+      "semanticId": "weather.static.after",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 39,
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "INFORMATION",
+      "paletteRole": "INFO_CYAN",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "visibility_pressure",
+      "durationMs": 260,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.rain_0",
+      "semanticId": "weather.rain_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 40,
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.rain_1",
+      "semanticId": "weather.rain_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 41,
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.rain_2",
+      "semanticId": "weather.rain_2",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 42,
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.ash_0",
+      "semanticId": "weather.ash_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 43,
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.ash_1",
+      "semanticId": "weather.ash_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 44,
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 190,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.ash_2",
+      "semanticId": "weather.ash_2",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 45,
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 200,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.rain_ash_mix",
+      "semanticId": "weather.rain_ash_mix",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 46,
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.rain_ash_clear",
+      "semanticId": "weather.rain_ash_clear",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 47,
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "paletteRole": "FRICTION_GRAY",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 32,
+      "collisionClass": "none",
+      "threatRole": "material_atmosphere",
+      "durationMs": 300,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.wind_0",
+      "semanticId": "weather.wind_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 48,
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.wind_1",
+      "semanticId": "weather.wind_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 49,
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.wind_2",
+      "semanticId": "weather.wind_2",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 50,
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 140,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.eclipse_0",
+      "semanticId": "weather.eclipse_0",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 51,
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.eclipse_1",
+      "semanticId": "weather.eclipse_1",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 52,
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 200,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.eclipse_2",
+      "semanticId": "weather.eclipse_2",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 53,
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.eclipse_hold",
+      "semanticId": "weather.eclipse_hold",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 54,
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 360,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "weather.eclipse_release",
+      "semanticId": "weather.eclipse_release",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 55,
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "kind": "weather",
+      "room": "POLARIZED",
+      "paletteRole": "POLAR_RED",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "temporal_visibility",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.collect",
+      "semanticId": "snapshot.collect",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 56,
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.compress",
+      "semanticId": "snapshot.compress",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 57,
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 130,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.label",
+      "semanticId": "snapshot.label",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 58,
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 120,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.store",
+      "semanticId": "snapshot.store",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 59,
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 180,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.handoff",
+      "semanticId": "snapshot.handoff",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 60,
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 220,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.next_seed",
+      "semanticId": "snapshot.next_seed",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 61,
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 160,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.next_scar",
+      "semanticId": "snapshot.next_scar",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 62,
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 240,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    },
+    {
+      "id": "snapshot.next_active",
+      "semanticId": "snapshot.next_active",
+      "atlas": "narrative-behavior-v3",
+      "frameIndex": 63,
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "paletteRole": "BETWEEN_VIOLET",
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "logicalSize": 64,
+      "collisionClass": "none",
+      "threatRole": "cross_run_memory",
+      "durationMs": 420,
+      "alphaMode": "binary",
+      "safeMarginPx": 8
+    }
+  ]
+}

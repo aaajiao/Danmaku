@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.unanswering_feed",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.unanswering_feed",
+    "narrativeAlias": "unanswering_feed",
+    "resolutionId": "QUEUE_EXHAUSTED",
+    "metric": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+    "condition": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+    "fact": "The feed emitted its queue and received no reciprocal channel.",
+    "terminal": "boss.feed.drain",
+    "terminalEvent": "boss.feed.drain",
+    "materialRemainder": "stale packet column",
+    "playerPossibilities": [
+      "survive queue",
+      "cancel local packets",
+      "leave packets untouched"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.unanswering_feed.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "550e5cf96195f5f2604027d4b756a72dc653a84cd01e4a8db140c12dd64bf2d2"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.unanswering_feed.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "9c57c4c531b4066160e0683d5d7028a85ecaf7cf6183b0c1bad504e296c2ef7a"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.unanswering_feed.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "cfdef69cd0bbd6d7b02a8c64a5964fa42c592b8d6f7a49548d736bfacdb7cf79"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--unanswering_feed.gif",
+    "apng": "boss--unanswering_feed.apng",
+    "timeline": "boss--unanswering_feed.timeline.json"
+  }
+}

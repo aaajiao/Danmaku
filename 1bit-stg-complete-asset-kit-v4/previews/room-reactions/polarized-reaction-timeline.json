@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "room": "polarized",
+  "states": [
+    {
+      "id": "threshold",
+      "durationMs": 720,
+      "collision": false,
+      "source": "backgrounds/reactions/polarized/threshold.png"
+    },
+    {
+      "id": "dusk",
+      "durationMs": 900,
+      "collision": false,
+      "source": "backgrounds/reactions/polarized/dusk.png"
+    },
+    {
+      "id": "aftermath",
+      "durationMs": 760,
+      "collision": false,
+      "source": "backgrounds/reactions/polarized/aftermath.png"
+    },
+    {
+      "id": "memory",
+      "durationMs": 1100,
+      "collision": false,
+      "source": "backgrounds/reactions/polarized/memory.png"
+    }
+  ],
+  "authority": "visual-preview-only"
+}

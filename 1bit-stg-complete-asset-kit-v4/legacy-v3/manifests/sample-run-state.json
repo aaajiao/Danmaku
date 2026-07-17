@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "3.0.0-run-memory",
+  "runId": "run-0008",
+  "nextRunId": "run-0009",
+  "durationMs": 462000,
+  "roomsVisited": [
+    "INFO_OVERFLOW",
+    "FORCED_ALIGNMENT",
+    "IN_BETWEEN"
+  ],
+  "fingerprint": {
+    "seed": 8,
+    "width": 81,
+    "height": 45,
+    "bitDepth": 1,
+    "generator": "light×gaze×route×seam×scar"
+  },
+  "metrics": {
+    "meanLight": 0.42,
+    "gazePressure": 0.61,
+    "seamDwell": 0.34,
+    "routeWidth": 0.72,
+    "overrideCount": 2,
+    "focusDwell": 0.29,
+    "grazeEvidence": 0.68
+  },
+  "behaviorTags": [
+    "MEDIUM_LIGHT",
+    "HIGH_GAZE",
+    "CRACK_WALKER",
+    "RESISTER"
+  ],
+  "observation": {
+    "zh-CN": "你有一次把画面弄坏了。它恢复了，但已经不太一样。",
+    "en": "You broke the image once. It recovered, but not unchanged."
+  },
+  "scars": [
+    {
+      "scarId": "scar-08-01",
+      "room": "FORCED_ALIGNMENT",
+      "xNorm": 0.63,
+      "yNorm": 0.41,
+      "direction8": "SW",
+      "bossPhase": 2,
+      "source": "OVERRIDE",
+      "rehydrateOnNextRun": true
+    },
+    {
+      "scarId": "scar-08-02",
+      "room": "IN_BETWEEN",
+      "xNorm": 0.38,
+      "yNorm": 0.72,
+      "direction8": "N",
+      "bossPhase": null,
+      "source": "DEATH",
+      "rehydrateOnNextRun": true
+    }
+  ],
+  "ghostPath": {
+    "sampleIntervalMs": 120,
+    "collisionClass": "NONE",
+    "rewardClass": "NONE",
+    "replayCount": 1,
+    "points": [
+      [0.14, 0.82, 0],
+      [0.22, 0.76, 120],
+      [0.31, 0.78, 240],
+      [0.40, 0.65, 360],
+      [0.49, 0.68, 480],
+      [0.57, 0.59, 600],
+      [0.66, 0.62, 720],
+      [0.76, 0.49, 840],
+      [0.86, 0.53, 960]
+    ]
+  },
+  "witnesses": [
+    {
+      "witnessId": "wit-info-03",
+      "rememberedState": "MEDIUM_LIGHT",
+      "nextRunFacing": "PLAYER_SPAWN"
+    },
+    {
+      "witnessId": "wit-forced-01",
+      "rememberedState": "OVERRIDE_SEEN",
+      "nextRunFacing": "SCAR_08_01"
+    },
+    {
+      "witnessId": "wit-between-04",
+      "rememberedState": "SEAM_CROSSING",
+      "nextRunFacing": "GHOST_FINAL_POINT"
+    }
+  ],
+  "transition": {
+    "scarRehydrateAtMs": 0,
+    "ghostReplayAtMs": 420,
+    "witnessTurnAtMs": 980,
+    "returnInputAtMs": 1420
+  }
+}
+

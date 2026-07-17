@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "boss-phase-components-v4",
+  "row": 2,
+  "states": [
+    {
+      "semanticId": "boss.one_sun_one_rule.phase1_establish",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase1_live",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase2_adapt",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase2_live",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase3_incomplete",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.aperture_open",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.protocol_interrupted",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.material_residue",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

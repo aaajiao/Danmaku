@@ -1,0 +1,2717 @@
+{
+  "schemaVersion": "4.0.0",
+  "normalizationExcludes": [
+    "id",
+    "name",
+    "room color",
+    "intent",
+    "seed",
+    "geometry variant label"
+  ],
+  "uniqueSignatureCount": 48,
+  "duplicateGroups": [],
+  "patterns": [
+    {
+      "patternId": "room.information.stale_packet_retry",
+      "sha256": "91d256107f732146e717dcf33856d2d513496a902a0bcbf629e4803131d02ec5",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "line",
+            "countBand": 3,
+            "spreadBand": 0,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 2,
+            "speedDirection": "rise",
+            "operators": [
+              "op.linear",
+              "op.speed_envelope"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "interpolation",
+                "keys"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "static_void",
+          "spawn_omission",
+          8
+        ],
+        "warning": "broken_packet_columns",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.information.unanswered_fan",
+      "sha256": "88b6b2e7b0cc78946f3e08be2144153b87e71797978462f107ab183724c3d284",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 4,
+            "spreadBand": 4,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "fan",
+            "countBand": 2,
+            "spreadBand": 1,
+            "cadenceBand": 9,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "sine_corridor",
+          "angular_omission",
+          8
+        ],
+        "warning": "sampled_aim_cones",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.information.notification_overflow",
+      "sha256": "a866789dfc8fd7d72e94d40deaf1a6097cf9c5b72c35712cec41d9544147dcbb",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "grid",
+            "countBand": 5,
+            "spreadBand": 0,
+            "cadenceBand": 3,
+            "burstBand": 5,
+            "speedKeyCount": 2,
+            "speedDirection": "rise",
+            "operators": [
+              "op.lateral_wall",
+              "op.local_vector_bias",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "driftPxPerSec",
+                "laneCount",
+                "openLane"
+              ],
+              [
+                "pulseAmount",
+                "pulsePeriodMs",
+                "vectorPxPerSec"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "moving_window",
+          "lane_omission",
+          9
+        ],
+        "warning": "falling_lane_projection",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.information.missing_ack",
+      "sha256": "8cff381b8818072681a34e9b7767796023c65787610318aa69b538d7cee5b4d5",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 3,
+            "spreadBand": 4,
+            "cadenceBand": 7,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.split_generation"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "atMs",
+                "children",
+                "maxGeneration",
+                "speedMultiplier",
+                "spreadDeg"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "pulse_gate",
+          "phase_gate",
+          9
+        ],
+        "warning": "branching_causal_tree",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.forced.left_right_gate",
+      "sha256": "63a9b1632848f28de8844b31e64186c4c3bdca60c3dca77d55cbf57acb5404ce",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "wall",
+            "countBand": 2,
+            "spreadBand": 0,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.lateral_wall",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "driftPxPerSec",
+                "laneCount",
+                "openLane"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "wall",
+            "countBand": 2,
+            "spreadBand": 0,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.lateral_wall",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "driftPxPerSec",
+                "laneCount",
+                "openLane"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "seam_corridor",
+          "lane_omission",
+          7
+        ],
+        "warning": "alternating_half_planes",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.forced.unstable_middle",
+      "sha256": "25a9e2a958bc2f0090782fc658a9dd37b5c19e575d1dd70f69317ebf400219b2",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "paired_fan",
+            "countBand": 3,
+            "spreadBand": 2,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.turn_once"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "atMs",
+                "deltaDeg"
+              ]
+            ]
+          },
+          {
+            "geometry": "paired_fan",
+            "countBand": 3,
+            "spreadBand": 2,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.turn_once"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "atMs",
+                "deltaDeg"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "breathing_seam",
+          "angular_omission",
+          7
+        ],
+        "warning": "mirrored_turn_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.forced.ballot_shift",
+      "sha256": "d1933db61e15286c7a69b0a5f43b0b229729d0005f588a2041bebafb9f95406d",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "line",
+            "countBand": 3,
+            "spreadBand": 0,
+            "cadenceBand": 4,
+            "burstBand": 5,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 3,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "lane_switch",
+          "phase_gate",
+          10
+        ],
+        "warning": "two_clock_lane_preview",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.forced.crack_fall_loop",
+      "sha256": "d48957bcda9feb37499a8c0391df163b318c942e6abed2df6fa2930bee6100d6",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 4,
+            "spreadBand": 5,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.seam_transform"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "mode",
+                "offsetPx",
+                "seamX"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "serpentine_seam",
+          "seam_redirect",
+          8
+        ],
+        "warning": "mirrored_seam_trajectory",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.in_between.context_switch",
+      "sha256": "1d70950fed7e77de55fb87f2f25cc71df7861aea9a8e447ab739e9b548f9d8c3",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.turn_once"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "atMs",
+                "deltaDeg"
+              ]
+            ]
+          },
+          {
+            "geometry": "fan",
+            "countBand": 3,
+            "spreadBand": 3,
+            "cadenceBand": 7,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.speed_envelope",
+              "op.turn_once",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "interpolation",
+                "keys"
+              ],
+              [
+                "atMs",
+                "deltaDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "intersection_track",
+          "operator_constraint",
+          8
+        ],
+        "warning": "incompatible_turn_fields",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.in_between.stable_intersection",
+      "sha256": "5c55c7976d83c708f4fc7c7ca3051f958aff87dacb1030054dfaae2633ced1c9",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "lattice",
+            "countBand": 4,
+            "spreadBand": 0,
+            "cadenceBand": 4,
+            "burstBand": 5,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "lattice",
+            "countBand": 3,
+            "spreadBand": 1,
+            "cadenceBand": 6,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "dual_clock_intersection",
+          "phase_gate",
+          11
+        ],
+        "warning": "clock_intersection_cells",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.in_between.misregistration_corridor",
+      "sha256": "67499bae237c2b86bc320754a9357ffee4cc17cc41bcb87f316e335a44b56888",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "spiral",
+            "countBand": 2,
+            "spreadBand": 7,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.orbit_release",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "angularDegPerSec",
+                "radiusPx",
+                "releaseAtMs",
+                "releaseHeadingDeg"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "spiral",
+            "countBand": 2,
+            "spreadBand": 7,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.orbit_release",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "angularDegPerSec",
+                "radiusPx",
+                "releaseAtMs",
+                "releaseHeadingDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "offset_corridor",
+          "spawn_omission",
+          7
+        ],
+        "warning": "offset_orbit_capsules",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.in_between.borrowed_rule",
+      "sha256": "89e066ad9e3c8490a00fc814221302d547d2ef0b3fc89c09f5a77167d888979c",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "history_chain",
+            "countBand": 4,
+            "spreadBand": 0,
+            "cadenceBand": 10,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.history_replay"
+            ],
+            "parameterShapes": [
+              [
+                "delayMs",
+                "mode",
+                "points"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "history_counterpath",
+          "operator_constraint",
+          9
+        ],
+        "warning": "future_history_polyline",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.polarized.clock_decree",
+      "sha256": "6ee303ef957c6f47f9d5d36e88ca3b7673950335c9f0715c9a5a18e8fcb8b343",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "shutter",
+            "countBand": 4,
+            "spreadBand": 0,
+            "cadenceBand": 3,
+            "burstBand": 6,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "quantized_step",
+          "phase_gate",
+          8
+        ],
+        "warning": "four_beat_shutter",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.polarized.hard_cut_corridor",
+      "sha256": "c5c296650607d0fcdba53a8018d730bbbfb6cfb88389f72fcb4d9677206598f9",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "wall",
+            "countBand": 4,
+            "spreadBand": 0,
+            "cadenceBand": 5,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.lateral_wall",
+              "op.speed_envelope",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "driftPxPerSec",
+                "laneCount",
+                "openLane"
+              ],
+              [
+                "interpolation",
+                "keys"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "hard_lane_swap",
+          "lane_omission",
+          10
+        ],
+        "warning": "hard_edge_lane_map",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.polarized.alternating_verdict",
+      "sha256": "6e75089fd632e5c78b62959eeee245ed3ca9fe5c39fda4414e7dacfc21d06e1a",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 3,
+            "spreadBand": 3,
+            "cadenceBand": 7,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.turn_once"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "atMs",
+                "deltaDeg"
+              ]
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 3,
+            "spreadBand": 3,
+            "cadenceBand": 7,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.turn_once"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "atMs",
+                "deltaDeg"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "alternating_wedge",
+          "angular_omission",
+          8
+        ],
+        "warning": "alternating_turn_wedges",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "room.polarized.no_dusk_grid",
+      "sha256": "f503184555f52aecbd6511bc2aa7041b8a1c43e3ac9a935d63ec469f0da85c62",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "grid",
+            "countBand": 3,
+            "spreadBand": 0,
+            "cadenceBand": 4,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "cross",
+            "countBand": 2,
+            "spreadBand": 1,
+            "cadenceBand": 9,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "binary_cross",
+          "phase_gate",
+          10
+        ],
+        "warning": "binary_grid_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "common.graze_calibration",
+      "sha256": "ef929268f5516d8dc8f440596626c9ad72740cc5284f4b9a3fbeaffc9ec9fefd",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 5,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "training_sine",
+          "spawn_omission",
+          12
+        ],
+        "warning": "sparse_path_ticks",
+        "timelineRatios": [
+          0.0,
+          0.08,
+          0.08,
+          0.5,
+          0.9,
+          0.94,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "common.eye_acquisition",
+      "sha256": "34537477a48b0e10d046040358cae2451f6b06906aad622daa09ccba8d30a7b0",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 3,
+            "cadenceBand": 7,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.limited_homing",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              [
+                "endMs",
+                "maxDegPerSec",
+                "sampleEveryMs",
+                "startMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "gaze_shadow",
+          "angular_omission",
+          10
+        ],
+        "warning": "gaze_reading_cone",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.92,
+          0.95,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "transition.room_threshold",
+      "sha256": "de88365e1c85d565eec9997191f184ecfc057a3d2744e3185aa44b8e685529a5",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "line",
+            "countBand": 2,
+            "spreadBand": 0,
+            "cadenceBand": 6,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.speed_envelope",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "interpolation",
+                "keys"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "fan",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 6,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.speed_envelope",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "interpolation",
+                "keys"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "threshold_bridge",
+          "phase_gate",
+          11
+        ],
+        "warning": "overlap_threshold_map",
+        "timelineRatios": [
+          0.0,
+          0.09,
+          0.09,
+          0.5,
+          0.91,
+          0.95,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "encounter.weather_echo.rain_packets",
+      "sha256": "bf666827d204a9318315a907c2e95307579930b2e791ad1ea746416816871b03",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "grid",
+            "countBand": 4,
+            "spreadBand": 0,
+            "cadenceBand": 3,
+            "burstBand": 5,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.local_vector_bias",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "pulseAmount",
+                "pulsePeriodMs",
+                "vectorPxPerSec"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "rain_lee",
+          "lane_omission",
+          9
+        ],
+        "warning": "rainfall_projection",
+        "timelineRatios": [
+          0.0,
+          0.08,
+          0.08,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "encounter.weather_echo.ash_memory",
+      "sha256": "992daefaac793bab220f7ce0dc3e88d4a6a6b57aca2eddff20de6e9bff7dcc9d",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "history_chain",
+            "countBand": 3,
+            "spreadBand": 0,
+            "cadenceBand": 10,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.history_replay"
+            ],
+            "parameterShapes": [
+              [
+                "delayMs",
+                "mode",
+                "points"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "ash_wake",
+          "operator_constraint",
+          11
+        ],
+        "warning": "reverse_trace_preview",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "encounter.weather_echo.wind_bias",
+      "sha256": "d7271afdb6cafdc0b2591c7ccda2df8d9caeac398063a01ce7beaf0776ec2b0c",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 3,
+            "spreadBand": 4,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.local_vector_bias",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "pulseAmount",
+                "pulsePeriodMs",
+                "vectorPxPerSec"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "wind_lee",
+          "spawn_omission",
+          9
+        ],
+        "warning": "maximum_advection_envelope",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.93,
+          0.96,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "transition.dusk_settle",
+      "sha256": "ff065bea8515461c667e093eb4fe0a828834fb46ef34587890f5c46beb7ba36a",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "grid",
+            "countBand": 4,
+            "spreadBand": 0,
+            "cadenceBand": 5,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.speed_envelope",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "interpolation",
+                "keys"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "settling_center",
+          "rule_clip_with_residue",
+          13
+        ],
+        "warning": "descending_settlement_band",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.91,
+          0.95,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "transition.override_void",
+      "sha256": "ce47edc8717d27133414deececb407582875d2cefe25f5ba7d3ea2755df32771",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "ring",
+            "countBand": 5,
+            "spreadBand": 10,
+            "cadenceBand": 10,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.seam_transform"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "mode",
+                "offsetPx",
+                "seamX"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "directional_override",
+          "rule_clip_with_residue",
+          12
+        ],
+        "warning": "directional_void_wedge",
+        "timelineRatios": [
+          0.0,
+          0.09,
+          0.09,
+          0.5,
+          0.91,
+          0.94,
+          1.0
+        ],
+        "hasLaser": false
+      }
+    },
+    {
+      "patternId": "boss.absent_receiver.phase1",
+      "sha256": "82542a634d464ed5d91db17366b2cb83e6ff6ec814d9f2597211eed704dd3e4a",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 4,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear",
+              "op.speed_envelope"
+            ],
+            "parameterShapes": [
+              [],
+              [
+                "interpolation",
+                "keys"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "static_void",
+          "spawn_omission",
+          7
+        ],
+        "warning": "outbound-retry_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.absent_receiver.phase2",
+      "sha256": "93a45c20a49ea077cc0c9e47adcfd738d1566cc331facafcba556ed1c9a8b8f2",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "history_chain",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 4,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.history_replay"
+            ],
+            "parameterShapes": [
+              [
+                "delayMs",
+                "mode",
+                "points"
+              ]
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 1,
+            "spreadBand": 2,
+            "cadenceBand": 9,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "history_counterpath",
+          "phase_gate",
+          8
+        ],
+        "warning": "retry-history_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.absent_receiver.phase3",
+      "sha256": "01c9af0931bc9caa69187e6ac3a9325dcf8c5e9bc03c5e0cff5814b929f3e90c",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "ring",
+            "countBand": 3,
+            "spreadBand": 3,
+            "cadenceBand": 5,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.split_generation",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "atMs",
+                "children",
+                "maxGeneration",
+                "speedMultiplier",
+                "spreadDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "pulse_gate",
+          "operator_constraint",
+          9
+        ],
+        "warning": "terminal-branch_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.unanswering_feed.phase1",
+      "sha256": "88c4d3e5e5dd11312248d820ef74105dd2ac60b0cced6eeffb329eb8314673da",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "wall",
+            "countBand": 3,
+            "spreadBand": 4,
+            "cadenceBand": 5,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.lateral_wall",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "driftPxPerSec",
+                "laneCount",
+                "openLane"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 1,
+            "spreadBand": 3,
+            "cadenceBand": 11,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "moving_window",
+          "rule_clip_with_residue",
+          9
+        ],
+        "warning": "feed-columns_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.unanswering_feed.phase2",
+      "sha256": "1f10b500dc232e0cb7a35861aeb7a2d01ccc442184e1b1603435934bf966ccbe",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "grid",
+            "countBand": 3,
+            "spreadBand": 4,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.local_vector_bias",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "pulseAmount",
+                "pulsePeriodMs",
+                "vectorPxPerSec"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "rain_lee",
+          "spawn_omission",
+          10
+        ],
+        "warning": "scroll-drift_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.unanswering_feed.phase3",
+      "sha256": "5ee955757aee8bca18cba2793be4fb234544e4a0cec3b812578544ae630558e3",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 4,
+            "spreadBand": 5,
+            "cadenceBand": 6,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.limited_homing",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              [
+                "endMs",
+                "maxDegPerSec",
+                "sampleEveryMs",
+                "startMs"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 13,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "gaze_shadow",
+          "phase_gate",
+          7
+        ],
+        "warning": "feed-lock_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.one_sun_one_rule.phase1",
+      "sha256": "5bb51cfd4f648285093269bc12bc3a006533da09c4c1b1da82215a8cea512643",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 4,
+            "spreadBand": 5,
+            "cadenceBand": 7,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.turn_once",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "atMs",
+                "deltaDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "alternating_wedge",
+          "operator_constraint",
+          8
+        ],
+        "warning": "single-decree_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.one_sun_one_rule.phase2",
+      "sha256": "93429d316d7bbadea22ebdab18f5ba9b9fb223655c4e5cd87eb2d44543e066a9",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "shutter",
+            "countBand": 4,
+            "spreadBand": 6,
+            "cadenceBand": 7,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 3,
+            "cadenceBand": 15,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "quantized_step",
+          "rule_clip_with_residue",
+          9
+        ],
+        "warning": "rule-clock_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.one_sun_one_rule.phase3",
+      "sha256": "5e3b615a7224f0b849467e0bf88b694f488e2d95a31984899c7633ac6f78b998",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 6,
+            "cadenceBand": 8,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.speed_envelope",
+              "op.turn_once",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "interpolation",
+                "keys"
+              ],
+              [
+                "atMs",
+                "deltaDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "hard_lane_swap",
+          "spawn_omission",
+          9
+        ],
+        "warning": "rule-shadow_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.04,
+          0.04,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.two_claims.phase1",
+      "sha256": "2169ed6763e6f0929fdce72bd81e4ee0ddb39f9496a9dfa320d05a142da60480",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "paired_fan",
+            "countBand": 2,
+            "spreadBand": 7,
+            "cadenceBand": 4,
+            "burstBand": 5,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.seam_transform",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "mode",
+                "offsetPx",
+                "seamX"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 1,
+            "spreadBand": 2,
+            "cadenceBand": 9,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "seam_corridor",
+          "phase_gate",
+          10
+        ],
+        "warning": "competing-claims_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.two_claims.phase2",
+      "sha256": "23d0a7f5b0f57bbf0485874c31393e5f7d6da40f0e40af8b52fa77e6461ab280",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "lattice",
+            "countBand": 3,
+            "spreadBand": 2,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.turn_once",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              [
+                "atMs",
+                "deltaDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "breathing_seam",
+          "operator_constraint",
+          7
+        ],
+        "warning": "seam-tax_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.two_claims.phase3",
+      "sha256": "d961aff01b77773ced8a2998f3f8739a1322fde73e77a45f14b3fbebef11ecd5",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "cross",
+            "countBand": 3,
+            "spreadBand": 2,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.seam_transform",
+              "op.speed_envelope",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "mode",
+                "offsetPx",
+                "seamX"
+              ],
+              [
+                "interpolation",
+                "keys"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 1,
+            "spreadBand": 3,
+            "cadenceBand": 11,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "serpentine_seam",
+          "rule_clip_with_residue",
+          8
+        ],
+        "warning": "abstention-route_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.misreader.phase1",
+      "sha256": "5a35b1df4164bbf6fb1b744a731fb661b6ac13cf8eb2771f48e3b9d4ded61316",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "fan",
+            "countBand": 3,
+            "spreadBand": 3,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "offset_corridor",
+          "spawn_omission",
+          9
+        ],
+        "warning": "false-read_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.misreader.phase2",
+      "sha256": "62172069ed09ece042846a1f113b8f8437b38f0d4006b815dcb121d84c5f0245",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 4,
+            "spreadBand": 4,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.turn_once",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              [
+                "atMs",
+                "deltaDeg"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "line",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 13,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "intersection_track",
+          "phase_gate",
+          9
+        ],
+        "warning": "late-correction_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.misreader.phase3",
+      "sha256": "369d9829fd2db3dd97f776d19caa8f661b5b83e23c5304a9d8a9ca8a5d0963db",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "lattice",
+            "countBand": 4,
+            "spreadBand": 4,
+            "cadenceBand": 7,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "dual_clock_intersection",
+          "operator_constraint",
+          10
+        ],
+        "warning": "stable-read-window_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.misregistered_twin_moons.phase1",
+      "sha256": "2065bafa7cabe14f68927109aa466ab564913a002fb1aff9566a05246b900ee5",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "spiral",
+            "countBand": 4,
+            "spreadBand": 5,
+            "cadenceBand": 7,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.orbit_release",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "angularDegPerSec",
+                "radiusPx",
+                "releaseAtMs",
+                "releaseHeadingDeg"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 3,
+            "cadenceBand": 14,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "offset_corridor",
+          "rule_clip_with_residue",
+          7
+        ],
+        "warning": "moon-a_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.misregistered_twin_moons.phase2",
+      "sha256": "54b822e6443249ec0784be70e69221adb974690af7dd570e0a280ac2f1325281",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "paired_fan",
+            "countBand": 2,
+            "spreadBand": 5,
+            "cadenceBand": 7,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.orbit_release",
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "angularDegPerSec",
+                "radiusPx",
+                "releaseAtMs",
+                "releaseHeadingDeg"
+              ],
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "dual_clock_intersection",
+          "spawn_omission",
+          8
+        ],
+        "warning": "moon-phase-drift_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.06,
+          0.06,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.misregistered_twin_moons.phase3",
+      "sha256": "182d8e3f44a3996f836198d791e94f2c221bfbc285dd4dee3dc244e899330162",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "ring",
+            "countBand": 2,
+            "spreadBand": 6,
+            "cadenceBand": 4,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.orbit_release",
+              "op.seam_transform",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "angularDegPerSec",
+                "radiusPx",
+                "releaseAtMs",
+                "releaseHeadingDeg"
+              ],
+              [
+                "mode",
+                "offsetPx",
+                "seamX"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 1,
+            "spreadBand": 2,
+            "cadenceBand": 9,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "binary_cross",
+          "phase_gate",
+          9
+        ],
+        "warning": "common-interval_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.no_dusk.phase1",
+      "sha256": "d31a3452124969aa70b6f4f74a849981a78b1a1f7b290f9a7635dd34f46f34d9",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "grid",
+            "countBand": 3,
+            "spreadBand": 6,
+            "cadenceBand": 4,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "quantized_step",
+          "operator_constraint",
+          9
+        ],
+        "warning": "hard-clock_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.04,
+          0.04,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.no_dusk.phase2",
+      "sha256": "0bc9a7de069524f30507e7dd985ec47c3aac18d6165623f30ffa597726fa2709",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "wall",
+            "countBand": 3,
+            "spreadBand": 7,
+            "cadenceBand": 5,
+            "burstBand": 4,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.lateral_wall",
+              "op.speed_envelope",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "driftPxPerSec",
+                "laneCount",
+                "openLane"
+              ],
+              [
+                "interpolation",
+                "keys"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 1,
+            "spreadBand": 3,
+            "cadenceBand": 10,
+            "burstBand": 2,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "hard_lane_swap",
+          "rule_clip_with_residue",
+          10
+        ],
+        "warning": "sunset-denied_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.no_dusk.phase3",
+      "sha256": "aa44e4e19b7a254885e30789de3c5878b821949dc487224e1f8747b34063da4c",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "shutter",
+            "countBand": 3,
+            "spreadBand": 2,
+            "cadenceBand": 5,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.dual_clock_gate",
+              "op.split_generation",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "dutyA",
+                "dutyB",
+                "periodAMs",
+                "periodBMs",
+                "phaseOffsetMs"
+              ],
+              [
+                "atMs",
+                "children",
+                "maxGeneration",
+                "speedMultiplier",
+                "spreadDeg"
+              ],
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "binary_cross",
+          "spawn_omission",
+          7
+        ],
+        "warning": "count-without-evening_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.07,
+          0.07,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.absolute_reader.phase1",
+      "sha256": "6e5f33f6c31e6db523d3459e67e81682a8df4bf9ddc866f763350c7d47690b1b",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "arc",
+            "countBand": 4,
+            "spreadBand": 2,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.aim_lock",
+              "op.limited_homing",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "leadMs",
+                "lockAtMs",
+                "maxTurnDeg"
+              ],
+              [
+                "endMs",
+                "maxDegPerSec",
+                "sampleEveryMs",
+                "startMs"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "line",
+            "countBand": 2,
+            "spreadBand": 2,
+            "cadenceBand": 12,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "gaze_shadow",
+          "phase_gate",
+          8
+        ],
+        "warning": "field-scan_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.96,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.absolute_reader.phase2",
+      "sha256": "080d8bec273fae1d74c13372a67d0c193c9c6308da67ad1184ac85a782a634a9",
+      "normalized": {
+        "emitterCount": 1,
+        "emitters": [
+          {
+            "geometry": "history_chain",
+            "countBand": 4,
+            "spreadBand": 3,
+            "cadenceBand": 6,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.history_replay",
+              "op.split_generation"
+            ],
+            "parameterShapes": [
+              [
+                "delayMs",
+                "mode",
+                "points"
+              ],
+              [
+                "atMs",
+                "children",
+                "maxGeneration",
+                "speedMultiplier",
+                "spreadDeg"
+              ]
+            ]
+          }
+        ],
+        "gap": [
+          "history_counterpath",
+          "operator_constraint",
+          9
+        ],
+        "warning": "flower-clamp-net_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.94,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    },
+    {
+      "patternId": "boss.absolute_reader.phase3",
+      "sha256": "d9aff421ac42cc736d831ead2ea555b2a518e93bf0203e794f5aa47f8b8ccf63",
+      "normalized": {
+        "emitterCount": 2,
+        "emitters": [
+          {
+            "geometry": "broken_ring",
+            "countBand": 4,
+            "spreadBand": 4,
+            "cadenceBand": 7,
+            "burstBand": 3,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.seam_transform",
+              "op.local_vector_bias",
+              "op.linear"
+            ],
+            "parameterShapes": [
+              [
+                "mode",
+                "offsetPx",
+                "seamX"
+              ],
+              [
+                "pulseAmount",
+                "pulsePeriodMs",
+                "vectorPxPerSec"
+              ],
+              []
+            ]
+          },
+          {
+            "geometry": "arc",
+            "countBand": 2,
+            "spreadBand": 3,
+            "cadenceBand": 14,
+            "burstBand": 1,
+            "speedKeyCount": 1,
+            "speedDirection": "flat",
+            "operators": [
+              "op.linear"
+            ],
+            "parameterShapes": [
+              []
+            ]
+          }
+        ],
+        "gap": [
+          "directional_override",
+          "rule_clip_with_residue",
+          9
+        ],
+        "warning": "incomplete-iris_swept_union",
+        "timelineRatios": [
+          0.0,
+          0.05,
+          0.05,
+          0.5,
+          0.95,
+          0.97,
+          1.0
+        ],
+        "hasLaser": true
+      }
+    }
+  ]
+}

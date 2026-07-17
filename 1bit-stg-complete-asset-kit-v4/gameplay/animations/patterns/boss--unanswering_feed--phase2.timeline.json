@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.unanswering_feed.phase2",
+  "traceSha256": "bf159e174843fafd5d89aa861a7a0d43e479ba6d51575867ca2dc4ec2d05ad71",
+  "sourceDurationMs": 13600,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 189,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 639,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 639,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6800,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 12900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 13180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 13600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--unanswering_feed--phase2.gif",
+    "apng": "boss--unanswering_feed--phase2.apng",
+    "timeline": "boss--unanswering_feed--phase2.timeline.json"
+  }
+}

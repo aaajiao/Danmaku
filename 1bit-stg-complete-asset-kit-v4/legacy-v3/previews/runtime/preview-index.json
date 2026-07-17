@@ -1,0 +1,604 @@
+{
+  "schemaVersion": "3.0.0-preview-index",
+  "kitRoot": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3",
+  "format": "both",
+  "records": [
+    {
+      "type": "clip",
+      "id": "boss.absent_receiver.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.absent_receiver.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.absent_receiver.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absent_receiver.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.absolute_reader.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.absolute_reader.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.absolute_reader.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.absolute_reader.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.laser.lifecycle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.laser.lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.laser.lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.laser.lifecycle.timeline.json"
+      ],
+      "periodMs": 1440
+    },
+    {
+      "type": "clip",
+      "id": "boss.misreader.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.misreader.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.misreader.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misreader.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.misregistered_twin_moons.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.misregistered_twin_moons.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.misregistered_twin_moons.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.misregistered_twin_moons.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.no_dusk.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.no_dusk.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.no_dusk.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.no_dusk.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.one_sun_one_rule.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.one_sun_one_rule.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.one_sun_one_rule.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.one_sun_one_rule.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.two_claims.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.two_claims.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.two_claims.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.two_claims.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "boss.unanswering_feed.attack",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.attack.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.attack.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.attack.timeline.json"
+      ],
+      "periodMs": 500
+    },
+    {
+      "type": "clip",
+      "id": "boss.unanswering_feed.idle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.idle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.idle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.idle.timeline.json"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "clip",
+      "id": "boss.unanswering_feed.terminal_material",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.terminal_material.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.terminal_material.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/boss.unanswering_feed.terminal_material.timeline.json"
+      ],
+      "periodMs": 1260
+    },
+    {
+      "type": "clip",
+      "id": "bullet.cancel",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/bullet.cancel.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/bullet.cancel.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/bullet.cancel.timeline.json"
+      ],
+      "periodMs": 120
+    },
+    {
+      "type": "clip",
+      "id": "bullet.lifecycle",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/bullet.lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/bullet.lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/bullet.lifecycle.timeline.json"
+      ],
+      "periodMs": 610
+    },
+    {
+      "type": "clip",
+      "id": "enemy.causality.damage_to_trace",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/enemy.causality.damage_to_trace.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/enemy.causality.damage_to_trace.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/enemy.causality.damage_to_trace.timeline.json"
+      ],
+      "periodMs": 1180
+    },
+    {
+      "type": "clip",
+      "id": "memory.directional_write",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/memory.directional_write.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/memory.directional_write.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/memory.directional_write.timeline.json"
+      ],
+      "periodMs": 1700
+    },
+    {
+      "type": "clip",
+      "id": "narrative.cable.upload_or_burnin",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.cable.upload_or_burnin.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.cable.upload_or_burnin.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.cable.upload_or_burnin.timeline.json"
+      ],
+      "periodMs": 1530
+    },
+    {
+      "type": "clip",
+      "id": "narrative.ghost.burnout",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.ghost.burnout.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.ghost.burnout.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.ghost.burnout.timeline.json"
+      ],
+      "periodMs": 2050
+    },
+    {
+      "type": "clip",
+      "id": "narrative.witness.rebel",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.witness.rebel.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.witness.rebel.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/narrative.witness.rebel.timeline.json"
+      ],
+      "periodMs": 1700
+    },
+    {
+      "type": "clip",
+      "id": "player.causality.damage_to_trace",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.causality.damage_to_trace.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.causality.damage_to_trace.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.causality.damage_to_trace.timeline.json"
+      ],
+      "periodMs": 1090
+    },
+    {
+      "type": "clip",
+      "id": "player.focus",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.focus.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.focus.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.focus.timeline.json"
+      ],
+      "periodMs": 1040
+    },
+    {
+      "type": "clip",
+      "id": "player.return_with_history",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.return_with_history.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.return_with_history.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/player.return_with_history.timeline.json"
+      ],
+      "periodMs": 1240
+    },
+    {
+      "type": "clip",
+      "id": "state.snapshot_handoff",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/state.snapshot_handoff.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/state.snapshot_handoff.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/state.snapshot_handoff.timeline.json"
+      ],
+      "periodMs": 1630
+    },
+    {
+      "type": "clip",
+      "id": "system.eye_clamp",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/system.eye_clamp.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/system.eye_clamp.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/system.eye_clamp.timeline.json"
+      ],
+      "periodMs": 1010
+    },
+    {
+      "type": "clip",
+      "id": "system.override.directional",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/system.override.directional.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/system.override.directional.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/system.override.directional.timeline.json"
+      ],
+      "periodMs": 1250
+    },
+    {
+      "type": "clip",
+      "id": "weather.rain_ash",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.rain_ash.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.rain_ash.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.rain_ash.timeline.json"
+      ],
+      "periodMs": 1470
+    },
+    {
+      "type": "clip",
+      "id": "weather.static_dropout",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.static_dropout.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.static_dropout.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.static_dropout.timeline.json"
+      ],
+      "periodMs": 1070
+    },
+    {
+      "type": "clip",
+      "id": "weather.wind_eclipse",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.wind_eclipse.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.wind_eclipse.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/clips/weather.wind_eclipse.timeline.json"
+      ],
+      "periodMs": 1590
+    },
+    {
+      "type": "boss",
+      "id": "absent_receiver",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/absent_receiver-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/absent_receiver-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/absent_receiver-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "absolute_reader",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/absolute_reader-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/absolute_reader-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/absolute_reader-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "misreader",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/misreader-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/misreader-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/misreader-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "misregistered_twin_moons",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/misregistered_twin_moons-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/misregistered_twin_moons-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/misregistered_twin_moons-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "no_dusk",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/no_dusk-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/no_dusk-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/no_dusk-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "one_sun_one_rule",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/one_sun_one_rule-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/one_sun_one_rule-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/one_sun_one_rule-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "two_claims",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/two_claims-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/two_claims-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/two_claims-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "boss",
+      "id": "unanswering_feed",
+      "phase": "phase1",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/unanswering_feed-phase1-assembled.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/unanswering_feed-phase1-assembled.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/boss/unanswering_feed-phase1-assembled.png"
+      ],
+      "periodMs": 420
+    },
+    {
+      "type": "laser",
+      "id": "laser.absent_receiver",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absent_receiver-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absent_receiver-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absent_receiver-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absent_receiver-lifecycle.timeline.json"
+      ],
+      "periodMs": 1490
+    },
+    {
+      "type": "laser",
+      "id": "laser.absolute_reader",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absolute_reader-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absolute_reader-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absolute_reader-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.absolute_reader-lifecycle.timeline.json"
+      ],
+      "periodMs": 2330
+    },
+    {
+      "type": "laser",
+      "id": "laser.misreader",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misreader-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misreader-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misreader-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misreader-lifecycle.timeline.json"
+      ],
+      "periodMs": 1970
+    },
+    {
+      "type": "laser",
+      "id": "laser.misregistered_twin_moons",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misregistered_twin_moons-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misregistered_twin_moons-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misregistered_twin_moons-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.misregistered_twin_moons-lifecycle.timeline.json"
+      ],
+      "periodMs": 2090
+    },
+    {
+      "type": "laser",
+      "id": "laser.no_dusk",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.no_dusk-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.no_dusk-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.no_dusk-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.no_dusk-lifecycle.timeline.json"
+      ],
+      "periodMs": 2210
+    },
+    {
+      "type": "laser",
+      "id": "laser.one_sun_one_rule",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.one_sun_one_rule-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.one_sun_one_rule-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.one_sun_one_rule-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.one_sun_one_rule-lifecycle.timeline.json"
+      ],
+      "periodMs": 1730
+    },
+    {
+      "type": "laser",
+      "id": "laser.two_claims",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.two_claims-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.two_claims-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.two_claims-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.two_claims-lifecycle.timeline.json"
+      ],
+      "periodMs": 1850
+    },
+    {
+      "type": "laser",
+      "id": "laser.unanswering_feed",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.unanswering_feed-lifecycle.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.unanswering_feed-lifecycle.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.unanswering_feed-lifecycle-contact-sheet.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/lasers/laser.unanswering_feed-lifecycle.timeline.json"
+      ],
+      "periodMs": 1610
+    },
+    {
+      "type": "stress",
+      "id": "360x640-240",
+      "files": [
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/stress/stress-360x640-240-bullets.png",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/stress/stress-360x640-240-bullets.gif",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/stress/stress-360x640-240-bullets.apng",
+        "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/qa/final-previews/stress/stress-360x640-240-bullets.json"
+      ],
+      "periodMs": 1200
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/composers-v4.schema.json",
+  "composers": [
+    {
+      "id": "composer.information",
+      "room": "INFORMATION",
+      "algorithm": "seeded_weighted_without_replacement_with_behavior_bias",
+      "patternPool": [
+        {
+          "patternId": "room.information.stale_packet_retry",
+          "baseWeight": 1.0,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.information.unanswered_fan",
+          "baseWeight": 1.08,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.information.notification_overflow",
+          "baseWeight": 1.16,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.information.missing_ack",
+          "baseWeight": 1.24,
+          "cooldownEncounters": 2
+        }
+      ],
+      "behaviorMetricWeights": {
+        "avgFlower": 0.3,
+        "gazeRatio": 0.18,
+        "recentInputDensity": 0.34,
+        "unansweredActions": 0.18
+      },
+      "intensityTiers": [
+        {
+          "id": "listen",
+          "budget": {
+            "maxProjectiles": 80,
+            "maxEmitters": 2,
+            "restMs": 1600
+          },
+          "difficulty": "EASY"
+        },
+        {
+          "id": "read",
+          "budget": {
+            "maxProjectiles": 150,
+            "maxEmitters": 3,
+            "restMs": 1100
+          },
+          "difficulty": "NORMAL"
+        },
+        {
+          "id": "enforce",
+          "budget": {
+            "maxProjectiles": 240,
+            "maxEmitters": 4,
+            "restMs": 820
+          },
+          "difficulty": "HARD"
+        }
+      ],
+      "constraints": {
+        "samePatternConsecutive": false,
+        "sameStructuralSignatureWithin": 3,
+        "weatherVisualOverlayMaximum": 1,
+        "safeGapMustOverlapPreviousForMs": 520,
+        "restWindowCannotBeRemovedByDifficulty": true,
+        "scoreReward": null
+      },
+      "materialLedger": {
+        "recordCancelledProjectiles": true,
+        "recordEnemyResidue": true,
+        "roomSpecificResidue": "packet_dust"
+      }
+    },
+    {
+      "id": "composer.forced_alignment",
+      "room": "FORCED_ALIGNMENT",
+      "algorithm": "seeded_weighted_without_replacement_with_behavior_bias",
+      "patternPool": [
+        {
+          "patternId": "room.forced.left_right_gate",
+          "baseWeight": 1.0,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.forced.unstable_middle",
+          "baseWeight": 1.08,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.forced.ballot_shift",
+          "baseWeight": 1.16,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.forced.crack_fall_loop",
+          "baseWeight": 1.24,
+          "cooldownEncounters": 2
+        }
+      ],
+      "behaviorMetricWeights": {
+        "sideCommitment": 0.32,
+        "crackRatio": 0.34,
+        "sideSwitches": 0.22,
+        "avgFlower": 0.12
+      },
+      "intensityTiers": [
+        {
+          "id": "listen",
+          "budget": {
+            "maxProjectiles": 80,
+            "maxEmitters": 2,
+            "restMs": 1600
+          },
+          "difficulty": "EASY"
+        },
+        {
+          "id": "read",
+          "budget": {
+            "maxProjectiles": 150,
+            "maxEmitters": 3,
+            "restMs": 1100
+          },
+          "difficulty": "NORMAL"
+        },
+        {
+          "id": "enforce",
+          "budget": {
+            "maxProjectiles": 240,
+            "maxEmitters": 4,
+            "restMs": 820
+          },
+          "difficulty": "HARD"
+        }
+      ],
+      "constraints": {
+        "samePatternConsecutive": false,
+        "sameStructuralSignatureWithin": 3,
+        "weatherVisualOverlayMaximum": 1,
+        "safeGapMustOverlapPreviousForMs": 520,
+        "restWindowCannotBeRemovedByDifficulty": true,
+        "scoreReward": null
+      },
+      "materialLedger": {
+        "recordCancelledProjectiles": true,
+        "recordEnemyResidue": true,
+        "roomSpecificResidue": "seam_filament"
+      }
+    },
+    {
+      "id": "composer.in_between",
+      "room": "IN_BETWEEN",
+      "algorithm": "seeded_weighted_without_replacement_with_behavior_bias",
+      "patternPool": [
+        {
+          "patternId": "room.in_between.context_switch",
+          "baseWeight": 1.0,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.in_between.stable_intersection",
+          "baseWeight": 1.08,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.in_between.misregistration_corridor",
+          "baseWeight": 1.16,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.in_between.borrowed_rule",
+          "baseWeight": 1.24,
+          "cooldownEncounters": 2
+        }
+      ],
+      "behaviorMetricWeights": {
+        "contextSwitches": 0.28,
+        "intersectionHold": 0.3,
+        "correctionLatency": 0.2,
+        "gazeRatio": 0.22
+      },
+      "intensityTiers": [
+        {
+          "id": "listen",
+          "budget": {
+            "maxProjectiles": 80,
+            "maxEmitters": 2,
+            "restMs": 1600
+          },
+          "difficulty": "EASY"
+        },
+        {
+          "id": "read",
+          "budget": {
+            "maxProjectiles": 150,
+            "maxEmitters": 3,
+            "restMs": 1100
+          },
+          "difficulty": "NORMAL"
+        },
+        {
+          "id": "enforce",
+          "budget": {
+            "maxProjectiles": 240,
+            "maxEmitters": 4,
+            "restMs": 820
+          },
+          "difficulty": "HARD"
+        }
+      ],
+      "constraints": {
+        "samePatternConsecutive": false,
+        "sameStructuralSignatureWithin": 3,
+        "weatherVisualOverlayMaximum": 1,
+        "safeGapMustOverlapPreviousForMs": 520,
+        "restWindowCannotBeRemovedByDifficulty": true,
+        "scoreReward": null
+      },
+      "materialLedger": {
+        "recordCancelledProjectiles": true,
+        "recordEnemyResidue": true,
+        "roomSpecificResidue": "misregistration_flake"
+      }
+    },
+    {
+      "id": "composer.polarized",
+      "room": "POLARIZED",
+      "algorithm": "seeded_weighted_without_replacement_with_behavior_bias",
+      "patternPool": [
+        {
+          "patternId": "room.polarized.clock_decree",
+          "baseWeight": 1.0,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.polarized.hard_cut_corridor",
+          "baseWeight": 1.08,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.polarized.alternating_verdict",
+          "baseWeight": 1.16,
+          "cooldownEncounters": 2
+        },
+        {
+          "patternId": "room.polarized.no_dusk_grid",
+          "baseWeight": 1.24,
+          "cooldownEncounters": 2
+        }
+      ],
+      "behaviorMetricWeights": {
+        "overrideRatio": 0.3,
+        "binarySwitches": 0.24,
+        "highLightRatio": 0.24,
+        "noDuskTicks": 0.22
+      },
+      "intensityTiers": [
+        {
+          "id": "listen",
+          "budget": {
+            "maxProjectiles": 80,
+            "maxEmitters": 2,
+            "restMs": 1600
+          },
+          "difficulty": "EASY"
+        },
+        {
+          "id": "read",
+          "budget": {
+            "maxProjectiles": 150,
+            "maxEmitters": 3,
+            "restMs": 1100
+          },
+          "difficulty": "NORMAL"
+        },
+        {
+          "id": "enforce",
+          "budget": {
+            "maxProjectiles": 240,
+            "maxEmitters": 4,
+            "restMs": 820
+          },
+          "difficulty": "HARD"
+        }
+      ],
+      "constraints": {
+        "samePatternConsecutive": false,
+        "sameStructuralSignatureWithin": 3,
+        "weatherVisualOverlayMaximum": 1,
+        "safeGapMustOverlapPreviousForMs": 520,
+        "restWindowCannotBeRemovedByDifficulty": true,
+        "scoreReward": null
+      },
+      "materialLedger": {
+        "recordCancelledProjectiles": true,
+        "recordEnemyResidue": true,
+        "roomSpecificResidue": "binary_chip"
+      }
+    }
+  ]
+}

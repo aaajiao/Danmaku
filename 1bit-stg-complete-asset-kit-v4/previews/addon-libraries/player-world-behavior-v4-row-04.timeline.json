@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 4,
+  "states": [
+    {
+      "semanticId": "ghost.walk_a",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.walk_b",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.pause",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.turn",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.retrace",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.path_endpoint",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.burnout",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "ghost.material_residue",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

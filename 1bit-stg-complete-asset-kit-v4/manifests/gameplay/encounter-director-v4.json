@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/director-v4.schema.json",
+  "id": "director.encounter.v4",
+  "coordinateSystem": {
+    "logicalViewport": [
+      360,
+      640
+    ],
+    "playerBandY": 570,
+    "units": "logical-px"
+  },
+  "segments": [
+    {
+      "id": "telegraph",
+      "durationMs": [
+        520,
+        900
+      ],
+      "collision": false
+    },
+    {
+      "id": "entry",
+      "durationMs": [
+        800,
+        1600
+      ],
+      "maxEnemies": 4
+    },
+    {
+      "id": "read",
+      "durationMs": [
+        7000,
+        14000
+      ],
+      "patternSlots": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": "material_settle",
+      "durationMs": [
+        900,
+        1800
+      ],
+      "newSpawns": false
+    },
+    {
+      "id": "rest",
+      "durationMs": [
+        820,
+        1800
+      ],
+      "newSpawns": false,
+      "required": true
+    }
+  ],
+  "scheduling": {
+    "seed": "runSeed xor roomOrdinal xor encounterOrdinal",
+    "forbiddenSeedInputs": [
+      "weatherEvent",
+      "weatherSeed",
+      "weatherRng"
+    ],
+    "maxProjectileBudget": {
+      "EASY": 120,
+      "NORMAL": 200,
+      "HARD": 280
+    },
+    "maxLaserAndDenseWallOverlapMs": 0,
+    "safeGapHandoffMs": 520,
+    "enemyPatternStartsOnlyAfterTelegraph": true,
+    "crossedFrameEventsExactlyOnce": true
+  },
+  "parallelEncounterPools": {
+    "weatherEcho": {
+      "patternIds": [
+        "encounter.weather_echo.rain_packets",
+        "encounter.weather_echo.ash_memory",
+        "encounter.weather_echo.wind_bias"
+      ],
+      "selectionSeed": "runSeed xor encounterOrdinal xor 0xEC40",
+      "maximumConcurrent": 1,
+      "requiresWeatherState": false,
+      "mayCoincideWithWeatherVisual": true
+    }
+  },
+  "weatherDecoupling": {
+    "weatherAuthority": "visual/audio environment only",
+    "weatherEventCanTriggerPattern": false,
+    "weatherEventCanSpawnProjectile": false,
+    "weatherEventCanAlterProjectileMotion": false,
+    "weatherEventCanAlterCollision": false,
+    "weatherEventCanAlterSafeGap": false,
+    "weatherRngEntersPatternSeed": false
+  },
+  "failurePolicy": {
+    "noUntelegraphedSpawnWithinPxOfPlayer": 96,
+    "noForcedHitAtMaximumSpeed": true,
+    "collisionNeverFromAlpha": true
+  }
+}

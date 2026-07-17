@@ -1,0 +1,30 @@
+{
+  "clip": "bullet.cancel",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 120,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "bullet.impact_0",
+      "startMs": 0,
+      "durationMs": 50,
+      "events": [
+        "collision_removed"
+      ]
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "bullet.impact_1",
+      "startMs": 50,
+      "durationMs": 70,
+      "events": [
+        "impact_complete"
+      ]
+    }
+  ]
+}

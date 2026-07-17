@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "4.0.0-ui-mockups",
+  "canvas": [
+    360,
+    640
+  ],
+  "palette": [
+    "#08090D",
+    "#EFE9DA",
+    "#7D8087",
+    "#17A7CA",
+    "#D6982B",
+    "#7851B7",
+    "#B7463C",
+    "#F02A92"
+  ],
+  "screens": [
+    {
+      "id": "01-gameplay-hud-v4",
+      "file": "ui/mockups/01-gameplay-hud-v4.png",
+      "purpose": "Gameplay HUD"
+    },
+    {
+      "id": "02-boss-hud-v4",
+      "file": "ui/mockups/02-boss-hud-v4.png",
+      "purpose": "Boss protocol HUD"
+    },
+    {
+      "id": "03-discovery-prompts-v4",
+      "file": "ui/mockups/03-discovery-prompts-v4.png",
+      "purpose": "Progressive discovery"
+    },
+    {
+      "id": "04-state-snapshot-v4",
+      "file": "ui/mockups/04-state-snapshot-v4.png",
+      "purpose": "State snapshot"
+    },
+    {
+      "id": "05-cross-run-transition-v4",
+      "file": "ui/mockups/05-cross-run-transition-v4.png",
+      "purpose": "Cross-run transition"
+    },
+    {
+      "id": "06-accessibility-v4",
+      "file": "ui/mockups/06-accessibility-v4.png",
+      "purpose": "Accessibility invariants"
+    },
+    {
+      "id": "07-continue-with-memory-v4",
+      "file": "ui/mockups/07-continue-with-memory-v4.png",
+      "purpose": "Continue with memory"
+    },
+    {
+      "id": "08-route-interruption-v4",
+      "file": "ui/mockups/08-route-interruption-v4.png",
+      "purpose": "Route interruption"
+    },
+    {
+      "id": "09-feedback-channels-v4",
+      "file": "ui/mockups/09-feedback-channels-v4.png",
+      "purpose": "Feedback channels"
+    }
+  ],
+  "overview": "ui/mockups/00-ui-overview-v4.png",
+  "semanticRules": [
+    "score is evidence; never leaderboard currency",
+    "boss bar is protocol interval; never life",
+    "discovery follows first encounter",
+    "cross-run presentation never changes authoritative event timing",
+    "critical feedback uses at least two perceptual channels"
+  ]
+}

@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:1bit:v4:run-memory",
+  "title": "1bit V4 Run Memory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "run", "metrics", "resolution", "fingerprint", "materialMemory", "ghostRoute", "witnessMemory", "rehydrationOrder"],
+  "properties": {
+    "schemaVersion": {"const": "4.0.0-run-memory"},
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "seed", "startedAtTick", "endedAtTick", "durationMs", "roomsVisited"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "seed": {"type": "integer", "minimum": 0},
+        "startedAtTick": {"type": "integer", "minimum": 0},
+        "endedAtTick": {"type": "integer", "minimum": 0},
+        "durationMs": {"type": "integer", "minimum": 0},
+        "roomsVisited": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]}}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meanLight", "quietLightRatio", "middleLightRatio", "loudLightRatio", "lightBandChanges",
+        "gazeRatio", "gazeClampCount", "gazeAcquireCount", "gazeStillMaxMs", "incompleteReads", "readPredictionMismatchStreak",
+        "focusDwellRatio", "focusEntryCount", "focusReleaseBeforeImpactCount",
+        "grazeEvidenceCount", "grazeEvidenceSpent", "uniqueBulletsGrazed",
+        "overrideCount", "overrideDirectionUniqueCount", "overrideDuringGazeCount", "overrideScarRuleIntersections", "witnessResistanceTransmissionCount",
+        "damageCount", "seamDwellRatio", "seamCrossings", "fallResetCount", "stableIntersectionDwellMs", "routeWidth",
+        "distinctRoomsVisited", "roomReentries", "roomThresholdCrossings", "dominantRoom",
+        "cableUploadEvents", "snapshotEchoCount", "witnessesTurnedDuringEclipse", "noDuskCycles",
+        "roomTimeMs", "weatherExposureMs"
+      ],
+      "properties": {
+        "meanLight": {"$ref": "#/$defs/ratio"},
+        "quietLightRatio": {"$ref": "#/$defs/ratio"},
+        "middleLightRatio": {"$ref": "#/$defs/ratio"},
+        "loudLightRatio": {"$ref": "#/$defs/ratio"},
+        "gazeRatio": {"$ref": "#/$defs/ratio"},
+        "gazeClampCount": {"type": "integer", "minimum": 0},
+        "gazeAcquireCount": {"type": "integer", "minimum": 0},
+        "gazeStillMaxMs": {"type": "integer", "minimum": 0},
+        "incompleteReads": {"type": "integer", "minimum": 0},
+        "readPredictionMismatchStreak": {"type": "integer", "minimum": 0},
+        "focusDwellRatio": {"$ref": "#/$defs/ratio"},
+        "focusEntryCount": {"type": "integer", "minimum": 0},
+        "focusReleaseBeforeImpactCount": {"type": "integer", "minimum": 0},
+        "grazeEvidenceCount": {"type": "integer", "minimum": 0},
+        "grazeEvidenceSpent": {"type": "integer", "minimum": 0},
+        "uniqueBulletsGrazed": {"type": "integer", "minimum": 0},
+        "overrideCount": {"type": "integer", "minimum": 0},
+        "overrideDirectionUniqueCount": {"type": "integer", "minimum": 0, "maximum": 8},
+        "overrideDuringGazeCount": {"type": "integer", "minimum": 0},
+        "overrideScarRuleIntersections": {"type": "integer", "minimum": 0},
+        "witnessResistanceTransmissionCount": {"type": "integer", "minimum": 0},
+        "damageCount": {"type": "integer", "minimum": 0},
+        "seamDwellRatio": {"$ref": "#/$defs/ratio"},
+        "seamCrossings": {"type": "integer", "minimum": 0},
+        "fallResetCount": {"type": "integer", "minimum": 0},
+        "stableIntersectionDwellMs": {"type": "integer", "minimum": 0},
+        "routeWidth": {"$ref": "#/$defs/ratio"},
+        "lightBandChanges": {"type": "integer", "minimum": 0},
+        "distinctRoomsVisited": {"type": "integer", "minimum": 1, "maximum": 4},
+        "roomReentries": {"type": "integer", "minimum": 0},
+        "roomThresholdCrossings": {"type": "integer", "minimum": 0},
+        "dominantRoom": {"enum": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]},
+        "cableUploadEvents": {"type": "integer", "minimum": 0},
+        "snapshotEchoCount": {"type": "integer", "minimum": 0},
+        "witnessesTurnedDuringEclipse": {"type": "integer", "minimum": 0},
+        "noDuskCycles": {"type": "integer", "minimum": 0},
+        "roomTimeMs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"],
+          "properties": {
+            "INFORMATION": {"type": "integer", "minimum": 0},
+            "FORCED_ALIGNMENT": {"type": "integer", "minimum": 0},
+            "IN_BETWEEN": {"type": "integer", "minimum": 0},
+            "POLARIZED": {"type": "integer", "minimum": 0}
+          }
+        },
+        "weatherExposureMs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["STATIC", "RAIN", "ASH", "WIND", "ECLIPSE"],
+          "properties": {
+            "STATIC": {"type": "integer", "minimum": 0},
+            "RAIN": {"type": "integer", "minimum": 0},
+            "ASH": {"type": "integer", "minimum": 0},
+            "WIND": {"type": "integer", "minimum": 0},
+            "ECLIPSE": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "bossId", "factEventId"],
+      "properties": {
+        "reason": {"enum": ["BODY_COLLAPSE", "PROTOCOL_WITHDRAWAL", "READING_FAILED", "STABLE_INTERSECTION", "SEAM_CROSSED_UNCLAIMED", "RULE_INTERRUPTED_BY_SCAR", "NO_DUSK_WITHDRAWAL", "ABSOLUTE_READER_INCOMPLETE", "RECEIVER_TIMED_OUT", "QUEUE_EXHAUSTED", "STRUCTURAL_RUPTURE"]},
+        "bossId": {"type": ["string", "null"]},
+        "factEventId": {"type": "string", "minLength": 1}
+      }
+    },
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "generator", "digestSha256", "bitDepth"],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0},
+        "generator": {"const": "route×light×gaze×seam×weather×four-remainders"},
+        "digestSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "bitDepth": {"const": 1}
+      }
+    },
+    "materialMemory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overrideScars", "deathTraces", "burnIns", "ghostResidues"],
+      "properties": {
+        "overrideScars": {"type": "array", "items": {"$ref": "#/$defs/overrideScar"}},
+        "deathTraces": {"type": "array", "items": {"$ref": "#/$defs/deathTrace"}},
+        "burnIns": {"type": "array", "items": {"$ref": "#/$defs/burnIn"}},
+        "ghostResidues": {"type": "array", "items": {"$ref": "#/$defs/ghostResidue"}}
+      }
+    },
+    "ghostRoute": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/ghostRoute"}]},
+    "witnessMemory": {"type": "array", "items": {"$ref": "#/$defs/witness"}},
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationIds", "behaviorTags"],
+      "properties": {
+        "observationIds": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"type": "string"}},
+        "behaviorTags": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "rehydrationOrder": {
+      "const": ["overrideScars", "deathTraces", "burnIns", "ghostRoute", "ghostResidues", "witnessOrientation", "returnInput"]
+    }
+  },
+  "$defs": {
+    "ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["room", "xNorm", "yNorm"],
+      "properties": {
+        "room": {"enum": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]},
+        "xNorm": {"$ref": "#/$defs/ratio"},
+        "yNorm": {"$ref": "#/$defs/ratio"}
+      }
+    },
+    "overrideScar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position", "direction8", "localVoidRadiusPx", "createdAtTick", "persistenceRuns"],
+      "properties": {
+        "id": {"type": "string"},
+        "position": {"$ref": "#/$defs/position"},
+        "direction8": {"enum": ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]},
+        "localVoidRadiusPx": {"type": "number", "exclusiveMinimum": 0},
+        "createdAtTick": {"type": "integer", "minimum": 0},
+        "persistenceRuns": {"type": "integer", "minimum": 1, "maximum": 4}
+      }
+    },
+    "deathTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position", "damageVector", "createdAtTick", "causeArchetype"],
+      "properties": {
+        "id": {"type": "string"},
+        "position": {"$ref": "#/$defs/position"},
+        "damageVector": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "minItems": 2, "maxItems": 2},
+        "createdAtTick": {"type": "integer", "minimum": 0},
+        "causeArchetype": {"type": "string"}
+      }
+    },
+    "burnIn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "room", "captureDigest", "gazeStillMs", "decayTicks"],
+      "properties": {
+        "id": {"type": "string"},
+        "room": {"enum": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]},
+        "captureDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "gazeStillMs": {"type": "integer", "minimum": 0},
+        "decayTicks": {"type": "integer", "minimum": 1}
+      }
+    },
+    "ghostResidue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position", "sourceRouteDigest", "createdAfterReplay", "persistenceRuns"],
+      "properties": {
+        "id": {"type": "string"},
+        "position": {"$ref": "#/$defs/position"},
+        "sourceRouteDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "createdAfterReplay": {"const": true},
+        "persistenceRuns": {"type": "integer", "minimum": 1, "maximum": 2}
+      }
+    },
+    "ghostPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tMs", "xNorm", "yNorm", "room", "flower", "focus", "flags"],
+      "properties": {
+        "tMs": {"type": "integer", "minimum": 0},
+        "xNorm": {"$ref": "#/$defs/ratio"},
+        "yNorm": {"$ref": "#/$defs/ratio"},
+        "room": {"enum": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]},
+        "flower": {"$ref": "#/$defs/ratio"},
+        "focus": {"type": "boolean"},
+        "flags": {"type": "array", "uniqueItems": true, "items": {"enum": ["GAZE", "GRAZE", "DAMAGE", "OVERRIDE", "ROOM_ENTER", "SEAM_CROSS"]}}
+      }
+    },
+    "ghostRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "sampleIntervalMs", "quantization", "routeDigest", "replayCount", "collisionClass", "rewardClass", "points"],
+      "properties": {
+        "source": {"const": "ACTUAL_PLAYER_ROUTE"},
+        "sampleIntervalMs": {"const": 120},
+        "quantization": {"const": "1/1024 logical extent"},
+        "routeDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "replayCount": {"const": 1},
+        "collisionClass": {"const": "NONE"},
+        "rewardClass": {"const": "NONE"},
+        "points": {"type": "array", "minItems": 2, "maxItems": 4096, "items": {"$ref": "#/$defs/ghostPoint"}}
+      }
+    },
+    "witness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "room", "state", "facingTarget", "sourceFactIds"],
+      "properties": {
+        "id": {"type": "string"},
+        "room": {"enum": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]},
+        "state": {"enum": ["ISOLATED", "RESONANT", "HEAD_DOWN", "FACING_EYE", "FACING_SCAR", "FACING_GHOST_END", "RESISTANCE_TRANSMISSION"]},
+        "facingTarget": {"type": ["string", "null"]},
+        "sourceFactIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+      }
+    }
+  }
+}

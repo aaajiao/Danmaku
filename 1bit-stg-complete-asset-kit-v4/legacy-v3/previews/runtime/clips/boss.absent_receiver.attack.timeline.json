@@ -1,0 +1,38 @@
+{
+  "clip": "boss.absent_receiver.attack",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 500,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "boss.absent_receiver.telegraph",
+      "startMs": 0,
+      "durationMs": 120,
+      "events": [
+        "telegraph_commit"
+      ]
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "boss.absent_receiver.attack",
+      "startMs": 120,
+      "durationMs": 150,
+      "events": [
+        "attack_live"
+      ]
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "boss.absent_receiver.idle_b",
+      "startMs": 270,
+      "durationMs": 230,
+      "events": []
+    }
+  ]
+}

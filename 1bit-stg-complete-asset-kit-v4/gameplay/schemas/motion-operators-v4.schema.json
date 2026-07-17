@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "$id": "motion-operators-v4.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "operators"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "4.0.0"
+    },
+    "operators": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "parameters",
+          "update",
+          "determinism",
+          "collisionNote"
+        ]
+      }
+    }
+  }
+}

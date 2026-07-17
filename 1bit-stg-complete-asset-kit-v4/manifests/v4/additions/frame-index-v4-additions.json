@@ -1,0 +1,4422 @@
+{
+  "schemaVersion": "4.0.0",
+  "coordinateSystem": "top-left-origin",
+  "frames": [
+    {
+      "semanticId": "flower.dark",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "flower.breathe",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "flower.resonance",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "flower.expression",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "flower.clamp",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "flower.recover_delay",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "flower.focus",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "flower.trance_echo",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "flower",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "eye.absent_fragment",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "eye.reveal",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "eye.acquire",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "eye.read",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "eye.clamp",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "eye.pressure_hold",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "eye.scar_interrupt",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "eye.withdraw",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "eye",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "graze.near_miss",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "evidence.grain",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "override.charge",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "override.directional_tear",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "override.local_void",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "override.scar_commit",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "override.sediment",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "override.recover",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "override",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "witness.distant",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.isolated",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.resonance",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.lower_head",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.look_eye",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.turn_player",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.gather_scar",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "witness.rebel_exit",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "witness",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.walk_a",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.walk_b",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.pause",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.turn",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.retrace",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.path_endpoint",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.burnout",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "ghost.material_residue",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "ghost",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "cable.idle",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "cable.attach",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "cable.upload_eye",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "cable.sever",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "cable.thermal_burnin",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "snapshot_echo.seed",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "snapshot_echo.reveal",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "snapshot_echo.fade",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "infrastructure",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "threshold.information",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "threshold.forced_choice",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "threshold.in_between",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "threshold.polarized",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "dusk.warning",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "dusk.settle",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "dusk.no_dusk_cut",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "snapshot.capture",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "threshold",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.override_scar",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.death_trace",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.burnin",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.ghost_residue",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.scar_rehydrate",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.witness_turn",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.input_return_gap",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "memory.material_archive",
+      "board": "player-world-behavior-v4",
+      "atlas": "atlases/player-world-behavior-v4.png",
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "memory",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "cue.projectile.dormant",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "cue.projectile.armed",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "cue.projectile.delayed_lock",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "cue.projectile.turn_once",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "cue.projectile.stop_release",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "cue.projectile.split",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "cue.projectile.reflect",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "cue.projectile.history_replay",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "projectileCue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "player_shot.quiet",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "player_shot.medium_twin",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "player_shot.loud_open",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "player_shot.focus_needle",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "player_shot.option_left",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "player_shot.option_right",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "player_shot.impact",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "player_shot.expression_residue",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "playerShot",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_move.packet_entry",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "enemy_move.side_sweep",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "enemy_move.seam_climb",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "enemy_move.mirror_pair",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_move.orbit_anchor",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_move.path_replay",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_move.formation_lock",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_move.retreat",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyMovement",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "enemy_attack.aim_sample",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_attack.warning_strip",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_attack.emitter_open",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "enemy_attack.cadence_tick",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "enemy_attack.dual_emitter",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "enemy_attack.weakpoint_reveal",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "enemy_attack.attack_lock",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "enemy_attack.material_shutdown",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "enemyAttack",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss_node.reading_aperture",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss_node.weakpoint_shutter",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss_node.single_emitter",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss_node.unequal_twin_emitters",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss_node.ab_clock",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss_node.phase_divider",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss_node.rupture_joint",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss_node.material_anchor",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossNode",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.packet_gap_cap",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.scanning_hinge",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.unequal_double_cap",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.shutter_segment",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.ab_intersection",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.binary_wall_edge",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.scar_break",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "laser_piece.incomplete_arc_cap",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "laserPiece",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "residue.thermal_curl",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "residue.thermal_dropout",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "residue.acrylic_offcut",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "residue.misaligned_mold",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "residue.crossed_fiber",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "residue.delamination",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "residue.red_hardcut",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "residue.bone_core",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "materialResidue",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "weather.static_warning",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "weather.static_dropout",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "weather.rain_onset",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "weather.ash_settle",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "weather.wind_vector",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 2
+    },
+    {
+      "semanticId": "weather.eclipse_occlusion",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "weather.puddle_trace",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "weather.shadow_failure",
+      "board": "combat-behavior-cues-v4",
+      "atlas": "atlases/combat-behavior-cues-v4.png",
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "weather",
+      "room": "ANY",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.absent_receiver.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.absent_receiver.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absent_receiver.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absent_receiver.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 3,
+      "row": 0,
+      "column": 3,
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absent_receiver.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 4,
+      "row": 0,
+      "column": 4,
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absent_receiver.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 5,
+      "row": 0,
+      "column": 5,
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absent_receiver.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 6,
+      "row": 0,
+      "column": 6,
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absent_receiver.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 7,
+      "row": 0,
+      "column": 7,
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.unanswering_feed.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 8,
+      "row": 1,
+      "column": 0,
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.unanswering_feed.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 9,
+      "row": 1,
+      "column": 1,
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.unanswering_feed.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 10,
+      "row": 1,
+      "column": 2,
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.unanswering_feed.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 11,
+      "row": 1,
+      "column": 3,
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.unanswering_feed.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 12,
+      "row": 1,
+      "column": 4,
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.unanswering_feed.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 13,
+      "row": 1,
+      "column": 5,
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.unanswering_feed.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 14,
+      "row": 1,
+      "column": 6,
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.unanswering_feed.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 15,
+      "row": 1,
+      "column": 7,
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "INFORMATION",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 16,
+      "row": 2,
+      "column": 0,
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 17,
+      "row": 2,
+      "column": 1,
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 18,
+      "row": 2,
+      "column": 2,
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 19,
+      "row": 2,
+      "column": 3,
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 20,
+      "row": 2,
+      "column": 4,
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 21,
+      "row": 2,
+      "column": 5,
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 22,
+      "row": 2,
+      "column": 6,
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.one_sun_one_rule.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 23,
+      "row": 2,
+      "column": 7,
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.two_claims.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 24,
+      "row": 3,
+      "column": 0,
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 25,
+      "row": 3,
+      "column": 1,
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 26,
+      "row": 3,
+      "column": 2,
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 27,
+      "row": 3,
+      "column": 3,
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 28,
+      "row": 3,
+      "column": 4,
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 29,
+      "row": 3,
+      "column": 5,
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 30,
+      "row": 3,
+      "column": 6,
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.two_claims.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 31,
+      "row": 3,
+      "column": 7,
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "FORCED_CHOICE",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.misreader.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 32,
+      "row": 4,
+      "column": 0,
+      "rect": [
+        0,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 33,
+      "row": 4,
+      "column": 1,
+      "rect": [
+        128,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 34,
+      "row": 4,
+      "column": 2,
+      "rect": [
+        256,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 35,
+      "row": 4,
+      "column": 3,
+      "rect": [
+        384,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 36,
+      "row": 4,
+      "column": 4,
+      "rect": [
+        512,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 37,
+      "row": 4,
+      "column": 5,
+      "rect": [
+        640,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 38,
+      "row": 4,
+      "column": 6,
+      "rect": [
+        768,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misreader.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 39,
+      "row": 4,
+      "column": 7,
+      "rect": [
+        896,
+        512,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 40,
+      "row": 5,
+      "column": 0,
+      "rect": [
+        0,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 41,
+      "row": 5,
+      "column": 1,
+      "rect": [
+        128,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 42,
+      "row": 5,
+      "column": 2,
+      "rect": [
+        256,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 43,
+      "row": 5,
+      "column": 3,
+      "rect": [
+        384,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 44,
+      "row": 5,
+      "column": 4,
+      "rect": [
+        512,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 45,
+      "row": 5,
+      "column": 5,
+      "rect": [
+        640,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 46,
+      "row": 5,
+      "column": 6,
+      "rect": [
+        768,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.misregistered_twin_moons.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 47,
+      "row": 5,
+      "column": 7,
+      "rect": [
+        896,
+        640,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "IN_BETWEEN",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 48,
+      "row": 6,
+      "column": 0,
+      "rect": [
+        0,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 49,
+      "row": 6,
+      "column": 1,
+      "rect": [
+        128,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 50,
+      "row": 6,
+      "column": 2,
+      "rect": [
+        256,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 51,
+      "row": 6,
+      "column": 3,
+      "rect": [
+        384,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 52,
+      "row": 6,
+      "column": 4,
+      "rect": [
+        512,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 53,
+      "row": 6,
+      "column": 5,
+      "rect": [
+        640,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 54,
+      "row": 6,
+      "column": 6,
+      "rect": [
+        768,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.no_dusk.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 55,
+      "row": 6,
+      "column": 7,
+      "rect": [
+        896,
+        768,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absolute_reader.phase1_establish",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 56,
+      "row": 7,
+      "column": 0,
+      "rect": [
+        0,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absolute_reader.phase1_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 57,
+      "row": 7,
+      "column": 1,
+      "rect": [
+        128,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absolute_reader.phase2_adapt",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 58,
+      "row": 7,
+      "column": 2,
+      "rect": [
+        256,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.absolute_reader.phase2_live",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 59,
+      "row": 7,
+      "column": 3,
+      "rect": [
+        384,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 4
+    },
+    {
+      "semanticId": "boss.absolute_reader.phase3_incomplete",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 60,
+      "row": 7,
+      "column": 4,
+      "rect": [
+        512,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.absolute_reader.aperture_open",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 61,
+      "row": 7,
+      "column": 5,
+      "rect": [
+        640,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.absolute_reader.protocol_interrupted",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 62,
+      "row": 7,
+      "column": 6,
+      "rect": [
+        768,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    },
+    {
+      "semanticId": "boss.absolute_reader.material_residue",
+      "board": "boss-phase-components-v4",
+      "atlas": "atlases/boss-phase-components-v4.png",
+      "index": 63,
+      "row": 7,
+      "column": 7,
+      "rect": [
+        896,
+        896,
+        128,
+        128
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "kind": "bossPhase",
+      "room": "POLARIZED",
+      "collisionClass": "NONE",
+      "authority": "visual-subscriber",
+      "visibleColorCount": 3
+    }
+  ]
+}

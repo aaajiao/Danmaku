@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "4.0.0-boss-resolutions",
+  "description": "Bosses are protocols that can withdraw, fail to read, lose a rule, or leave a stable interval. HP depletion is allowed as rupture evidence but never the only completion condition.",
+  "bosses": [
+    {
+      "id": "absent_receiver",
+      "resolutionId": "RECEIVER_TIMED_OUT",
+      "fact": "No valid acknowledgement returned during three signal windows.",
+      "condition": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+      "playerPossibilities": ["quiet passage", "unanswered expression", "mixed signal"],
+      "terminalEvent": "boss.protocol.withdraw",
+      "materialRemainder": "three unlit receiver slots"
+    },
+    {
+      "id": "unanswering_feed",
+      "resolutionId": "QUEUE_EXHAUSTED",
+      "fact": "The feed emitted its queue and received no reciprocal channel.",
+      "condition": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+      "playerPossibilities": ["survive queue", "cancel local packets", "leave packets untouched"],
+      "terminalEvent": "boss.feed.drain",
+      "materialRemainder": "stale packet column"
+    },
+    {
+      "id": "one_sun_one_rule",
+      "resolutionId": "RULE_INTERRUPTED_BY_SCAR",
+      "fact": "A directional override scar crossed the single shadow correction line.",
+      "condition": "overrideScar.intersects(ruleShadowLine) == true",
+      "playerPossibilities": ["write scar", "endure until withdrawal"],
+      "terminalEvent": "boss.rule.correctionFailed",
+      "materialRemainder": "one hard shadow that no longer aligns"
+    },
+    {
+      "id": "two_claims",
+      "resolutionId": "STABLE_INTERSECTION",
+      "fact": "The player occupied the overlap while both claims remained active.",
+      "condition": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+      "playerPossibilities": ["hold overlap", "alternate claims", "rupture one claim"],
+      "terminalEvent": "boss.claims.holdOpen",
+      "materialRemainder": "two edges sharing a small unclaimed notch"
+    },
+    {
+      "id": "misreader",
+      "resolutionId": "READING_FAILED",
+      "fact": "Three completed reads disagreed with the player's following movement.",
+      "condition": "completedReads >= 3 && predictionMismatchStreak >= 3",
+      "playerPossibilities": ["change after snapshot lock", "remain unreadably still", "rupture aperture"],
+      "terminalEvent": "boss.reader.releaseTarget",
+      "materialRemainder": "misprinted route fragment"
+    },
+    {
+      "id": "misregistered_twin_moons",
+      "resolutionId": "SEAM_CROSSED_UNCLAIMED",
+      "fact": "The seam was crossed during clock disagreement without either claim reaching authority.",
+      "condition": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+      "playerPossibilities": ["cross during disagreement", "stabilize overlap", "survive withdrawal"],
+      "terminalEvent": "boss.moons.desynchronize",
+      "materialRemainder": "offset double edge at crossing point"
+    },
+    {
+      "id": "no_dusk",
+      "resolutionId": "NO_DUSK_WITHDRAWAL",
+      "fact": "The binary clock completed its witness window and withdrew without representing twilight.",
+      "condition": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+      "playerPossibilities": ["persist through on/off time", "hold middle light", "interrupt one time wall"],
+      "terminalEvent": "boss.noDusk.protocolRetracted",
+      "materialRemainder": "half-changed cable and rectangular time wall residue"
+    },
+    {
+      "id": "absolute_reader",
+      "resolutionId": "ABSOLUTE_READER_INCOMPLETE",
+      "fact": "The Eye's read ledger closed with at least one interval remaining unclassified.",
+      "condition": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+      "playerPossibilities": ["alternate expression and focus", "use directional scar occlusion", "inhabit stable middle band"],
+      "terminalEvent": "boss.eye.readLedgerClose",
+      "materialRemainder": "broken read ring with one blank interval"
+    }
+  ],
+  "sharedFallbackResolution": {
+    "id": "PROTOCOL_WITHDRAWAL",
+    "condition": "encounter.authoritativeDurationElapsed && player.alive",
+    "fact": "The protocol ended its allotted interval.",
+    "terminalEvent": "boss.protocol.withdraw"
+  },
+  "ruptureContract": {
+    "hpZeroMeans": "STRUCTURAL_RUPTURE",
+    "notEquivalentTo": ["victory", "moral success", "best ending"],
+    "requiredResidue": true
+  }
+}

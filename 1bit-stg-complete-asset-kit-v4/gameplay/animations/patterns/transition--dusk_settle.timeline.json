@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "transition.dusk_settle",
+  "traceSha256": "a43cfb4d9d4abf90dcdf6f4f2600130ea553b86cea0d6124862f6f7fd19cc2c7",
+  "sourceDurationMs": 8200,
+  "previewFrameCount": 66,
+  "previewFrameDurationMs": 124,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 554,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 554,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 4100,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 7500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 7780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 8200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "transition--dusk_settle.gif",
+    "apng": "transition--dusk_settle.apng",
+    "timeline": "transition--dusk_settle.timeline.json"
+  }
+}

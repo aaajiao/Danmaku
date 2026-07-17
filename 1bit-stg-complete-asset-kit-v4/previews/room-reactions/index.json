@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "4.0.0",
+  "previews": [
+    {
+      "room": "information",
+      "gif": "information-reaction-lifecycle.gif",
+      "apng": "information-reaction-lifecycle.apng",
+      "contact": "information-reaction-contact.png",
+      "timeline": "information-reaction-timeline.json"
+    },
+    {
+      "room": "forced_choice",
+      "gif": "forced_choice-reaction-lifecycle.gif",
+      "apng": "forced_choice-reaction-lifecycle.apng",
+      "contact": "forced_choice-reaction-contact.png",
+      "timeline": "forced_choice-reaction-timeline.json"
+    },
+    {
+      "room": "in_between",
+      "gif": "in_between-reaction-lifecycle.gif",
+      "apng": "in_between-reaction-lifecycle.apng",
+      "contact": "in_between-reaction-contact.png",
+      "timeline": "in_between-reaction-timeline.json"
+    },
+    {
+      "room": "polarized",
+      "gif": "polarized-reaction-lifecycle.gif",
+      "apng": "polarized-reaction-lifecycle.apng",
+      "contact": "polarized-reaction-contact.png",
+      "timeline": "polarized-reaction-timeline.json"
+    }
+  ]
+}

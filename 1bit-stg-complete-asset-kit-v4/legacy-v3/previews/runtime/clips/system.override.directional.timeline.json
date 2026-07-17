@@ -1,0 +1,86 @@
+{
+  "clip": "system.override.directional",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1250,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "system.override.directional.frame_00",
+      "startMs": 0,
+      "durationMs": 110,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "system.override.directional.frame_01",
+      "startMs": 110,
+      "durationMs": 90,
+      "events": [
+        "charge"
+      ]
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "system.override.directional.frame_02",
+      "startMs": 200,
+      "durationMs": 80,
+      "events": [
+        "directional_tear"
+      ]
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "system.override.directional.frame_03",
+      "startMs": 280,
+      "durationMs": 100,
+      "events": [
+        "local_void"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "system.override.directional.frame_04",
+      "startMs": 380,
+      "durationMs": 120,
+      "events": [
+        "collision_off"
+      ]
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "system.override.directional.frame_05",
+      "startMs": 500,
+      "durationMs": 150,
+      "events": [
+        "scar_write"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "system.override.directional.frame_06",
+      "startMs": 650,
+      "durationMs": 240,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "system.override.directional.frame_07",
+      "startMs": 890,
+      "durationMs": 360,
+      "events": [
+        "material_sediment"
+      ]
+    }
+  ]
+}

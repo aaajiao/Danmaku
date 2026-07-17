@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "4.0.0-audio-validation",
+  "summary": {
+    "checks": 6,
+    "passed": 6,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "audio-room-bed-count",
+      "status": "PASS",
+      "detail": "4 room beds"
+    },
+    {
+      "name": "audio-boss-signal-count",
+      "status": "PASS",
+      "detail": "8 boss signals"
+    },
+    {
+      "name": "audio-sfx-count",
+      "status": "PASS",
+      "detail": "36 SFX"
+    },
+    {
+      "name": "feedback-audio-references",
+      "status": "PASS",
+      "detail": "missing=[]"
+    },
+    {
+      "name": "audio-files-and-hashes",
+      "status": "PASS",
+      "detail": "errors=[]"
+    },
+    {
+      "name": "audio-loop-boundaries",
+      "status": "PASS",
+      "detail": "discontinuity=[]"
+    }
+  ]
+}

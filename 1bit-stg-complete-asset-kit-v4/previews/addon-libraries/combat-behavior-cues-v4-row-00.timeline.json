@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 0,
+  "states": [
+    {
+      "semanticId": "cue.projectile.dormant",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.armed",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.delayed_lock",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.turn_once",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.stop_release",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.split",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.reflect",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "cue.projectile.history_replay",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

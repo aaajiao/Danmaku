@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.one_sun_one_rule.phase1",
+  "traceSha256": "7597dcb8e2b9fc3c334c0d25158c10bb0106f45a4647064ccec80732c54676e7",
+  "sourceDurationMs": 11500,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 160,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 669,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 669,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5750,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10800,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11080,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11500,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--one_sun_one_rule--phase1.gif",
+    "apng": "boss--one_sun_one_rule--phase1.apng",
+    "timeline": "boss--one_sun_one_rule--phase1.timeline.json"
+  }
+}

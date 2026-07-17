@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 5,
+  "states": [
+    {
+      "semanticId": "laser_piece.packet_gap_cap",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.scanning_hinge",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.unequal_double_cap",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.shutter_segment",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.ab_intersection",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.binary_wall_edge",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.scar_break",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "laser_piece.incomplete_arc_cap",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

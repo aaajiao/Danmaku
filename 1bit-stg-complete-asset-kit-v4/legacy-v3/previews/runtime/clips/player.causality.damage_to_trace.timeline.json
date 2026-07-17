@@ -1,0 +1,78 @@
+{
+  "clip": "player.causality.damage_to_trace",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1090,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "player.hit",
+      "startMs": 0,
+      "durationMs": 60,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "player.core_break",
+      "startMs": 60,
+      "durationMs": 70,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "player.shard",
+      "startMs": 130,
+      "durationMs": 80,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "player.digital_delete",
+      "startMs": 210,
+      "durationMs": 90,
+      "events": [
+        "collision_removed"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "player.void_hold",
+      "startMs": 300,
+      "durationMs": 110,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "player.residue_appear",
+      "startMs": 410,
+      "durationMs": 160,
+      "events": [
+        "residue_created"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "player.residue_hold",
+      "startMs": 570,
+      "durationMs": 300,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "player.residue_fade",
+      "startMs": 870,
+      "durationMs": 220,
+      "events": []
+    }
+  ]
+}

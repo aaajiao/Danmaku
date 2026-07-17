@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "4.0.0-narrative-state-machine",
+  "id": "narrative.run-cycle.v4",
+  "authority": "gameplay",
+  "description": "A run is not a victory ladder. It is a sequence in which expression is read, constrained, locally resisted, summarized, and returned as matter.",
+  "clockContract": {
+    "authoritativeClock": "gameplayClock",
+    "presentationClock": "visualClock",
+    "snapshotClock": "gameplayClock",
+    "rule": "Presentation may shorten, hold, or replace frames, but cannot advance a narrative transition or return input.",
+    "crossedEventDispatch": "exactly-once"
+  },
+  "initialState": "BOOT_REHYDRATE",
+  "terminalState": "RUN_CYCLE_COMPLETE",
+  "states": {
+    "BOOT_REHYDRATE": {
+      "meaning": "Previous digital records are converted into present material conditions before the player can act.",
+      "inputPolicy": "held",
+      "enterEvents": ["memory.load", "overrideScar.rehydrate", "deathTrace.rehydrate", "burnIn.rehydrate"],
+      "exitGuard": "memory.rehydrationSettled == true",
+      "next": "GHOST_REPLAY"
+    },
+    "GHOST_REPLAY": {
+      "meaning": "The actual sampled route from the preceding run is replayed once; it is evidence, not a guide.",
+      "inputPolicy": "held",
+      "enterEvents": ["ghost.replay.begin"],
+      "exitGuard": "ghost.replayComplete == true || previousRun.ghostRoute == null",
+      "exitEvents": ["ghost.residue.write"],
+      "next": "WITNESS_ORIENTATION"
+    },
+    "WITNESS_ORIENTATION": {
+      "meaning": "Witnesses orient toward real scars, the ghost endpoint, the Eye, or the player according to recorded conditions.",
+      "inputPolicy": "held",
+      "enterEvents": ["witness.evaluate", "witness.turn"],
+      "exitGuard": "witness.orientationCommitted == true",
+      "exitEvents": ["returnInput"],
+      "next": "AWAKENING"
+    },
+    "AWAKENING": {
+      "meaning": "A quiet loop: low flower, no command text, no incoming fire for the first observation window.",
+      "inputPolicy": "movement-and-signal",
+      "minimumDurationMs": 6000,
+      "enterEvents": ["run.begin", "flower.band.enter.quiet", "room.enter.awakening"],
+      "discovery": {
+        "primary": "The flower breathes between 0.30 and 0.50 and the world answers its intensity.",
+        "fallback": "After 60 seconds without signal input, show only the currently bound signal input glyph."
+      },
+      "exitGuard": "run.elapsedMs >= 6000 && player.meaningfulInputCount >= 2",
+      "next": "FIRST_EYE"
+    },
+    "FIRST_EYE": {
+      "meaning": "Authority becomes spatially unavoidable before it becomes mechanically explained.",
+      "inputPolicy": "full",
+      "enterEvents": ["eye.horizon.appear"],
+      "transitions": [
+        {
+          "guard": "gaze.pitchDeg > 45 && gaze.directness >= 0.55",
+          "events": ["gaze.acquire", "gaze.clamp.begin", "flower.forcedDim", "audio.gazeLowPass.begin"],
+          "next": "FIRST_CLAMP_RECOVERY"
+        },
+        {
+          "guard": "run.elapsedMs >= 30000 && gaze.eventCount == 0",
+          "events": ["eye.horizon.shift", "gaze.thresholdLine.pulseOnce"],
+          "next": "FIRST_EYE"
+        }
+      ]
+    },
+    "FIRST_CLAMP_RECOVERY": {
+      "meaning": "The first lesson is bodily: the flower recovers later than the Eye releases it.",
+      "inputPolicy": "full",
+      "enterEvents": ["flower.recovery.delay.begin"],
+      "exitGuard": "gaze.clampReleased == true && flower.recoveryComplete == true",
+      "exitEvents": ["firstEye.complete"],
+      "next": "ROOM_SAMPLING"
+    },
+    "ROOM_SAMPLING": {
+      "meaning": "Mental-state rooms are sampled and reordered by behavior; none is a level to conquer.",
+      "inputPolicy": "full",
+      "enterEvents": ["room.ledger.sample", "room.threshold.arm"],
+      "exitGuard": "room.distinctVisited >= 2 || run.elapsedMs >= 150000",
+      "exitEvents": ["worldResponse.enable"],
+      "next": "WORLD_RESPONSE"
+    },
+    "WORLD_RESPONSE": {
+      "meaning": "Witnesses, cables, weather, sky, shadow, seams and façades begin answering recorded behavior.",
+      "inputPolicy": "full",
+      "enterEvents": ["reactionGraph.enable", "snapshotEcho.schedule"],
+      "transitions": [
+        {
+          "guard": "override.eligibility == true",
+          "events": ["override.discovery.arm"],
+          "next": "LOCAL_RESISTANCE_AVAILABLE"
+        },
+        {
+          "guard": "runEnd.eligible == true",
+          "next": "DUSK_APPROACH"
+        }
+      ]
+    },
+    "LOCAL_RESISTANCE_AVAILABLE": {
+      "meaning": "Override is a directional local absence in the governing rule, never a global bomb or invulnerability state.",
+      "inputPolicy": "full",
+      "enterEvents": ["override.prompt.diegetic"],
+      "transitions": [
+        {
+          "guard": "override.activated == true",
+          "events": ["localVoid.open", "overrideScar.write", "witness.resistanceTransmission.bump"],
+          "next": "LOCAL_RESISTANCE_DECAY"
+        },
+        {
+          "guard": "runEnd.eligible == true",
+          "next": "DUSK_APPROACH"
+        }
+      ]
+    },
+    "LOCAL_RESISTANCE_DECAY": {
+      "meaning": "The digital exception closes; a material scar remains at the actual coordinates.",
+      "inputPolicy": "full",
+      "enterEvents": ["localVoid.decay.begin"],
+      "exitGuard": "localVoid.active == false",
+      "exitEvents": ["overrideScar.materialize", "worldResponse.enable"],
+      "next": "WORLD_RESPONSE"
+    },
+    "DUSK_APPROACH": {
+      "meaning": "The run approaches an end without announcing a score or success state.",
+      "inputPolicy": "full",
+      "enterEvents": ["dusk.omen.begin", "audio.dusk.descent"],
+      "transitions": [
+        {
+          "guard": "room.id == 'POLARIZED'",
+          "events": ["noDusk.arm"],
+          "next": "NO_DUSK"
+        },
+        {
+          "guard": "room.id != 'POLARIZED' && dusk.omenComplete == true",
+          "events": ["run.inputReturnLatch.close"],
+          "next": "RUN_END_COMMIT"
+        }
+      ]
+    },
+    "NO_DUSK": {
+      "meaning": "Visual time is forced into on/off states while the continuous audio descent proves that an interval still occurred.",
+      "inputPolicy": "full",
+      "enterEvents": ["noDusk.binaryCut.begin"],
+      "exitGuard": "noDusk.protocolRetracted == true || noDusk.witnessWindowComplete == true",
+      "exitEvents": ["noDusk.residue.write", "run.inputReturnLatch.close"],
+      "next": "RUN_END_COMMIT"
+    },
+    "RUN_END_COMMIT": {
+      "meaning": "A run may end by bodily collapse, protocol withdrawal, failed reading, stable intersection, seam crossing, scar interruption or time withdrawal.",
+      "inputPolicy": "held",
+      "enterEvents": ["run.endReason.commit", "ghost.capture.close", "memory.commit.atomic"],
+      "exitGuard": "memory.commitVerified == true",
+      "next": "STATE_SNAPSHOT"
+    },
+    "STATE_SNAPSHOT": {
+      "meaning": "The interface states traceable facts. It does not grade, rank or diagnose the player.",
+      "inputPolicy": "snapshot-navigation",
+      "enterEvents": ["snapshot.collect", "snapshot.fingerprint.render", "snapshot.observation.select"],
+      "exitGuard": "snapshot.continueRequested == true || snapshot.titleRequested == true",
+      "exitEvents": ["snapshot.handoff"],
+      "next": "CROSS_RUN_MATERIALIZATION"
+    },
+    "CROSS_RUN_MATERIALIZATION": {
+      "meaning": "The snapshot is not an archive page: selected traces become the next room's physical conditions.",
+      "inputPolicy": "held",
+      "enterEvents": ["nextRun.seed.derive", "memory.queueForRehydrate"],
+      "exitGuard": "nextRun.queueVerified == true",
+      "next": "RUN_CYCLE_COMPLETE"
+    },
+    "RUN_CYCLE_COMPLETE": {
+      "meaning": "Terminal handoff state. A new cycle begins at BOOT_REHYDRATE.",
+      "inputPolicy": "held"
+    }
+  },
+  "runEndEligibility": {
+    "minimumRunMs": 240000,
+    "minimumDistinctRooms": 2,
+    "acceptedReasons": [
+      "BODY_COLLAPSE",
+      "PROTOCOL_WITHDRAWAL",
+      "READING_FAILED",
+      "STABLE_INTERSECTION",
+      "SEAM_CROSSED_UNCLAIMED",
+      "RULE_INTERRUPTED_BY_SCAR",
+      "NO_DUSK_WITHDRAWAL",
+      "ABSOLUTE_READER_INCOMPLETE"
+    ],
+    "forbiddenReasons": ["VICTORY", "DEFEAT", "GOOD_END", "BAD_END", "SCORE_THRESHOLD"]
+  },
+  "invariants": [
+    "A feedback subscriber cannot emit a gameplay or narrative transition.",
+    "Scar rehydration precedes ghost replay; ghost replay precedes witness orientation; witness orientation precedes input return.",
+    "Full, reduced-motion and flash-off modes return input on the same gameplayClock tick.",
+    "A run end is a committed fact, never a value judgement.",
+    "No tutorial page may reveal an undiscovered causal link."
+  ]
+}

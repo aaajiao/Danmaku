@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.no_dusk",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.no_dusk",
+    "narrativeAlias": "no_dusk",
+    "resolutionId": "NO_DUSK_WITHDRAWAL",
+    "metric": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+    "condition": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+    "fact": "The binary clock completed its witness window and withdrew without representing twilight.",
+    "terminal": "boss.noDusk.protocolRetracted",
+    "terminalEvent": "boss.noDusk.protocolRetracted",
+    "materialRemainder": "half-changed cable and rectangular time wall residue",
+    "playerPossibilities": [
+      "persist through on/off time",
+      "hold middle light",
+      "interrupt one time wall"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.no_dusk.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "a98967729649181c7667ee0bdffd0f2032926cb93580666c8db79d92f1f0db19"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.no_dusk.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "67cdc0878bf44195dc9378fed3e1eaad60b050cd78a21972ab227f8faa57d98b"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.no_dusk.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "66ba7483beeeb77733cd79466796cd8012270a2b5ee57e4c5e98376e6e112d67"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--no_dusk.gif",
+    "apng": "boss--no_dusk.apng",
+    "timeline": "boss--no_dusk.timeline.json"
+  }
+}

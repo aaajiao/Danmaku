@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 1,
+  "states": [
+    {
+      "semanticId": "eye.absent_fragment",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.reveal",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.acquire",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.read",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.clamp",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.pressure_hold",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.scar_interrupt",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "eye.withdraw",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

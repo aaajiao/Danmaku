@@ -1,0 +1,483 @@
+{
+  "schemaVersion": "4.0.0",
+  "algorithm": "seeded weighted sampling without replacement",
+  "sameSeedSameSchedule": true,
+  "sampleMetrics": {
+    "avgFlower": 0.62,
+    "gazeRatio": 0.28,
+    "overrideRatio": 0.08,
+    "recentInputDensity": 0.74,
+    "unansweredActions": 0.52,
+    "sideCommitment": 0.34,
+    "crackRatio": 0.46,
+    "sideSwitches": 0.41,
+    "contextSwitches": 0.58,
+    "intersectionHold": 0.37,
+    "correctionLatency": 0.44,
+    "binarySwitches": 0.22,
+    "highLightRatio": 0.54,
+    "noDuskTicks": 0.3
+  },
+  "runs": [
+    {
+      "runSeed": 1775360,
+      "traceSha256": "73b81127480de045329e0930f4f75526688774d0d21b44314f783c8e60527066",
+      "repeatSha256": "73b81127480de045329e0930f4f75526688774d0d21b44314f783c8e60527066",
+      "rooms": [
+        "FORCED_ALIGNMENT",
+        "INFORMATION",
+        "POLARIZED"
+      ],
+      "bossId": "boss.no_dusk",
+      "durationMs": 173400,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775361,
+      "traceSha256": "a917c70866e197a3e373a185f09fcabe8c71bb0307b1faec9e6ccbb06d1c1ea3",
+      "repeatSha256": "a917c70866e197a3e373a185f09fcabe8c71bb0307b1faec9e6ccbb06d1c1ea3",
+      "rooms": [
+        "INFORMATION",
+        "POLARIZED",
+        "IN_BETWEEN"
+      ],
+      "bossId": "boss.misreader",
+      "durationMs": 176400,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775362,
+      "traceSha256": "348f87337004c786d3e447fbb3cc502ed4705235f91503c9d96e4481d4429eae",
+      "repeatSha256": "348f87337004c786d3e447fbb3cc502ed4705235f91503c9d96e4481d4429eae",
+      "rooms": [
+        "IN_BETWEEN",
+        "INFORMATION",
+        "FORCED_ALIGNMENT"
+      ],
+      "bossId": "boss.one_sun_one_rule",
+      "durationMs": 175700,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775363,
+      "traceSha256": "48e123594b1cee06d9bc29c9db68891cb8a43406cb448e75a9bd5536895dc376",
+      "repeatSha256": "48e123594b1cee06d9bc29c9db68891cb8a43406cb448e75a9bd5536895dc376",
+      "rooms": [
+        "POLARIZED",
+        "FORCED_ALIGNMENT",
+        "INFORMATION"
+      ],
+      "bossId": "boss.unanswering_feed",
+      "durationMs": 175400,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775364,
+      "traceSha256": "023d333f71f38781b5637f7375f32356562ea03a7c5d6c3c6659db2e9202fe06",
+      "repeatSha256": "023d333f71f38781b5637f7375f32356562ea03a7c5d6c3c6659db2e9202fe06",
+      "rooms": [
+        "FORCED_ALIGNMENT",
+        "INFORMATION",
+        "POLARIZED"
+      ],
+      "bossId": "boss.absolute_reader",
+      "durationMs": 173700,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775365,
+      "traceSha256": "e7c51d953e4c5ab1053781661f88d58bd2f82ba71e6b0a38b420aa17a1ec5a9f",
+      "repeatSha256": "e7c51d953e4c5ab1053781661f88d58bd2f82ba71e6b0a38b420aa17a1ec5a9f",
+      "rooms": [
+        "POLARIZED",
+        "INFORMATION",
+        "IN_BETWEEN"
+      ],
+      "bossId": "boss.misregistered_twin_moons",
+      "durationMs": 171800,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775366,
+      "traceSha256": "b57e074d821b7b08675354c0911caf8d5d3f4ac29988814cdf523bac8039d947",
+      "repeatSha256": "b57e074d821b7b08675354c0911caf8d5d3f4ac29988814cdf523bac8039d947",
+      "rooms": [
+        "POLARIZED",
+        "FORCED_ALIGNMENT",
+        "INFORMATION"
+      ],
+      "bossId": "boss.absent_receiver",
+      "durationMs": 170400,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775367,
+      "traceSha256": "3e8d1ba2c4f2944444e626adcb2dd4e35cda77d24940fdaf0fdf7c85f4ebae46",
+      "repeatSha256": "3e8d1ba2c4f2944444e626adcb2dd4e35cda77d24940fdaf0fdf7c85f4ebae46",
+      "rooms": [
+        "POLARIZED",
+        "FORCED_ALIGNMENT",
+        "INFORMATION"
+      ],
+      "bossId": "boss.absent_receiver",
+      "durationMs": 171200,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775368,
+      "traceSha256": "c2753a96cea33d3b2bce5e3dd8cc86101a1df696405aaed89ff645f4c0fa1191",
+      "repeatSha256": "c2753a96cea33d3b2bce5e3dd8cc86101a1df696405aaed89ff645f4c0fa1191",
+      "rooms": [
+        "IN_BETWEEN",
+        "INFORMATION",
+        "FORCED_ALIGNMENT"
+      ],
+      "bossId": "boss.one_sun_one_rule",
+      "durationMs": 172700,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775369,
+      "traceSha256": "1dfa8a235f29cbc66cf2c3541511a7793cbd033c0028cb49004bcfc8189ae125",
+      "repeatSha256": "1dfa8a235f29cbc66cf2c3541511a7793cbd033c0028cb49004bcfc8189ae125",
+      "rooms": [
+        "INFORMATION",
+        "FORCED_ALIGNMENT",
+        "IN_BETWEEN"
+      ],
+      "bossId": "boss.misregistered_twin_moons",
+      "durationMs": 169400,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775370,
+      "traceSha256": "a0f43cf153ee0b4d136ce265854a21035c58e23410df1a05933ab82f7daffb23",
+      "repeatSha256": "a0f43cf153ee0b4d136ce265854a21035c58e23410df1a05933ab82f7daffb23",
+      "rooms": [
+        "POLARIZED",
+        "IN_BETWEEN",
+        "INFORMATION"
+      ],
+      "bossId": "boss.unanswering_feed",
+      "durationMs": 175000,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775371,
+      "traceSha256": "607617a99b24c1cfa9e358d529097c3246e08bf31b91b0bd30b34761ea9a55e8",
+      "repeatSha256": "607617a99b24c1cfa9e358d529097c3246e08bf31b91b0bd30b34761ea9a55e8",
+      "rooms": [
+        "FORCED_ALIGNMENT",
+        "INFORMATION",
+        "POLARIZED"
+      ],
+      "bossId": "boss.absolute_reader",
+      "durationMs": 172500,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775372,
+      "traceSha256": "5041865d63b071f81bcba9d8822f84b07eca6a680b14c19586dcc6ae02c9ffc8",
+      "repeatSha256": "5041865d63b071f81bcba9d8822f84b07eca6a680b14c19586dcc6ae02c9ffc8",
+      "rooms": [
+        "FORCED_ALIGNMENT",
+        "IN_BETWEEN",
+        "POLARIZED"
+      ],
+      "bossId": "boss.absolute_reader",
+      "durationMs": 174900,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775373,
+      "traceSha256": "17121862d28b3f66fd4f91154be9b3833f56e76809777ad1122c62510982895e",
+      "repeatSha256": "17121862d28b3f66fd4f91154be9b3833f56e76809777ad1122c62510982895e",
+      "rooms": [
+        "INFORMATION",
+        "FORCED_ALIGNMENT",
+        "IN_BETWEEN"
+      ],
+      "bossId": "boss.misregistered_twin_moons",
+      "durationMs": 172400,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775374,
+      "traceSha256": "9ff3d281f65c253dc3c02553f75cab7742dfdb0bc4125fff0252a1f7d27cc2dd",
+      "repeatSha256": "9ff3d281f65c253dc3c02553f75cab7742dfdb0bc4125fff0252a1f7d27cc2dd",
+      "rooms": [
+        "POLARIZED",
+        "INFORMATION",
+        "IN_BETWEEN"
+      ],
+      "bossId": "boss.misreader",
+      "durationMs": 175200,
+      "events": 33,
+      "pass": true
+    },
+    {
+      "runSeed": 1775375,
+      "traceSha256": "b87deea4bfe47b94a66471faefc6cf9897ae03ba50d145d8edf8cedff6cfc0a5",
+      "repeatSha256": "b87deea4bfe47b94a66471faefc6cf9897ae03ba50d145d8edf8cedff6cfc0a5",
+      "rooms": [
+        "POLARIZED",
+        "INFORMATION",
+        "FORCED_ALIGNMENT"
+      ],
+      "bossId": "boss.two_claims",
+      "durationMs": 172400,
+      "events": 33,
+      "pass": true
+    }
+  ],
+  "exampleSchedule": {
+    "runSeed": 6935,
+    "metrics": {
+      "avgFlower": 0.62,
+      "gazeRatio": 0.28,
+      "overrideRatio": 0.08,
+      "recentInputDensity": 0.74,
+      "unansweredActions": 0.52,
+      "sideCommitment": 0.34,
+      "crackRatio": 0.46,
+      "sideSwitches": 0.41,
+      "contextSwitches": 0.58,
+      "intersectionHold": 0.37,
+      "correctionLatency": 0.44,
+      "binarySwitches": 0.22,
+      "highLightRatio": 0.54,
+      "noDuskTicks": 0.3
+    },
+    "rooms": [
+      "POLARIZED",
+      "FORCED_ALIGNMENT",
+      "IN_BETWEEN"
+    ],
+    "bossId": "boss.misregistered_twin_moons",
+    "durationMs": 174400,
+    "schedule": [
+      {
+        "atMs": 0,
+        "event": "room.enter",
+        "room": "POLARIZED",
+        "roomOrdinal": 0
+      },
+      {
+        "atMs": 1200,
+        "event": "encounter.begin",
+        "patternId": "room.polarized.alternating_verdict",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 0,
+        "seed": 4224146603
+      },
+      {
+        "atMs": 12800,
+        "event": "material.settle",
+        "residue": "binary_chip"
+      },
+      {
+        "atMs": 13900,
+        "event": "encounter.begin",
+        "patternId": "room.polarized.no_dusk_grid",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 1,
+        "seed": 2541744054
+      },
+      {
+        "atMs": 26100,
+        "event": "material.settle",
+        "residue": "binary_chip"
+      },
+      {
+        "atMs": 27200,
+        "event": "encounter.begin",
+        "patternId": "room.polarized.clock_decree",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 2,
+        "seed": 1517218065
+      },
+      {
+        "atMs": 37200,
+        "event": "material.settle",
+        "residue": "binary_chip"
+      },
+      {
+        "atMs": 38300,
+        "event": "room.withdraw",
+        "room": "POLARIZED"
+      },
+      {
+        "atMs": 38300,
+        "event": "transition.begin",
+        "patternId": "transition.room_threshold",
+        "seed": 577554860
+      },
+      {
+        "atMs": 46100,
+        "event": "room.enter",
+        "room": "FORCED_ALIGNMENT",
+        "roomOrdinal": 1
+      },
+      {
+        "atMs": 47300,
+        "event": "encounter.begin",
+        "patternId": "room.forced.ballot_shift",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 0,
+        "seed": 1912173937
+      },
+      {
+        "atMs": 59300,
+        "event": "material.settle",
+        "residue": "seam_filament"
+      },
+      {
+        "atMs": 60400,
+        "event": "encounter.begin",
+        "patternId": "room.forced.crack_fall_loop",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 1,
+        "seed": 3074674482
+      },
+      {
+        "atMs": 71400,
+        "event": "material.settle",
+        "residue": "seam_filament"
+      },
+      {
+        "atMs": 72500,
+        "event": "encounter.begin",
+        "patternId": "room.forced.left_right_gate",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 2,
+        "seed": 1782737053
+      },
+      {
+        "atMs": 82700,
+        "event": "material.settle",
+        "residue": "seam_filament"
+      },
+      {
+        "atMs": 83800,
+        "event": "room.withdraw",
+        "room": "FORCED_ALIGNMENT"
+      },
+      {
+        "atMs": 83800,
+        "event": "transition.begin",
+        "patternId": "transition.room_threshold",
+        "seed": 577554861
+      },
+      {
+        "atMs": 91600,
+        "event": "room.enter",
+        "room": "IN_BETWEEN",
+        "roomOrdinal": 2
+      },
+      {
+        "atMs": 92800,
+        "event": "encounter.begin",
+        "patternId": "room.in_between.context_switch",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 0,
+        "seed": 2740011764
+      },
+      {
+        "atMs": 104200,
+        "event": "material.settle",
+        "residue": "misregistration_flake"
+      },
+      {
+        "atMs": 105300,
+        "event": "encounter.begin",
+        "patternId": "room.in_between.stable_intersection",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 1,
+        "seed": 3179523629
+      },
+      {
+        "atMs": 117700,
+        "event": "material.settle",
+        "residue": "misregistration_flake"
+      },
+      {
+        "atMs": 118800,
+        "event": "encounter.begin",
+        "patternId": "room.in_between.borrowed_rule",
+        "difficulty": "NORMAL",
+        "encounterOrdinal": 2,
+        "seed": 3089495853
+      },
+      {
+        "atMs": 130600,
+        "event": "material.settle",
+        "residue": "misregistration_flake"
+      },
+      {
+        "atMs": 131700,
+        "event": "room.withdraw",
+        "room": "IN_BETWEEN"
+      },
+      {
+        "atMs": 131700,
+        "event": "boss.protocol.begin",
+        "bossId": "boss.misregistered_twin_moons",
+        "resolution": "boss.moons.desynchronize"
+      },
+      {
+        "atMs": 131700,
+        "event": "boss.phase.begin",
+        "bossId": "boss.misregistered_twin_moons",
+        "phaseId": "observe",
+        "patternId": "boss.misregistered_twin_moons.phase1",
+        "seed": 3440243983
+      },
+      {
+        "atMs": 142500,
+        "event": "boss.phase.begin",
+        "bossId": "boss.misregistered_twin_moons",
+        "phaseId": "enforce",
+        "patternId": "boss.misregistered_twin_moons.phase2",
+        "seed": 4178711120
+      },
+      {
+        "atMs": 154000,
+        "event": "boss.phase.begin",
+        "bossId": "boss.misregistered_twin_moons",
+        "phaseId": "fail_to_totalize",
+        "patternId": "boss.misregistered_twin_moons.phase3",
+        "seed": 2452377432
+      },
+      {
+        "atMs": 166200,
+        "event": "boss.moons.desynchronize",
+        "bossId": "boss.misregistered_twin_moons"
+      },
+      {
+        "atMs": 166200,
+        "event": "dusk.begin",
+        "patternId": "transition.dusk_settle",
+        "seed": 924053607
+      },
+      {
+        "atMs": 174400,
+        "event": "snapshot.capture"
+      }
+    ],
+    "traceSha256": "e9f4db707b262a086d438769ba5e474fa55140be84543a1a5547eb816a020b12"
+  }
+}

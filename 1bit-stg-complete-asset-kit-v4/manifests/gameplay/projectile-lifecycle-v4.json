@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/projectile-lifecycle-v4.schema.json",
+  "id": "projectile.lifecycle.v4",
+  "authority": "entity-owned gameplay state; never animation duration or sprite alpha",
+  "states": [
+    {
+      "id": "spawn",
+      "collision": false,
+      "exit": "spawn_commit"
+    },
+    {
+      "id": "arm",
+      "collision": false,
+      "exit": "arm_delay_elapsed"
+    },
+    {
+      "id": "flight",
+      "collision": true,
+      "exit": "impact | cancel | source_withdrawn | out_of_bounds | room_transition"
+    },
+    {
+      "id": "impact",
+      "collision": false,
+      "exit": "impact_visual_complete"
+    },
+    {
+      "id": "cancel",
+      "collision": false,
+      "exit": "residue_commit"
+    },
+    {
+      "id": "residue",
+      "collision": false,
+      "exit": "material_lifetime_elapsed"
+    },
+    {
+      "id": "cleanup",
+      "collision": false,
+      "exit": "pool_return"
+    }
+  ],
+  "invariants": [
+    "flight has no fixed default timeout",
+    "collision disable is committed before impact/cancel visuals",
+    "large delta dispatches every crossed state event once",
+    "reduced motion and flash-off produce identical gameplay transitions",
+    "visual alpha and atlas frame never author collision"
+  ],
+  "grazeEvidence": {
+    "maximumPerProjectile": 1,
+    "key": "projectileUid+playerLifeOrdinal",
+    "armState": "flight",
+    "consumedOn": "first_valid_graze",
+    "score": null,
+    "output": "evidence.grain"
+  },
+  "collision": {
+    "integration": "continuous swept circle/capsule",
+    "playerNormalRadiusPx": 3,
+    "playerFocusRadiusPx": 2,
+    "projectileRadiusFromArchetype": true,
+    "alphaIgnored": true
+  },
+  "poolBudgets": {
+    "micro": 2048,
+    "medium": 768,
+    "heavy": 192,
+    "splitChildren": 1024,
+    "residueVisualOnly": 1536,
+    "overflowPolicy": "reject_new_spawn_and_log; never recycle a live collider"
+  },
+  "cancelConsequences": {
+    "pattern_end": "room-specific material residue",
+    "override_void": "override scar at exact cancellation coordinate",
+    "source_withdrawn": "source-specific sediment",
+    "room_transition": "threshold sediment",
+    "impact": "impact trace; not override scar"
+  }
+}

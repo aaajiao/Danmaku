@@ -1,0 +1,846 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/boss-rigs-v4.schema.json",
+  "canonicalResolutionSource": "../../narrative/boss-resolutions-v4.json",
+  "sharedFallbackResolution": {
+    "id": "PROTOCOL_WITHDRAWAL",
+    "condition": "encounter.authoritativeDurationElapsed && player.alive",
+    "fact": "The protocol ended its allotted interval.",
+    "terminalEvent": "boss.protocol.withdraw"
+  },
+  "ruptureContract": {
+    "hpZeroMeans": "STRUCTURAL_RUPTURE",
+    "notEquivalentTo": [
+      "victory",
+      "moral success",
+      "best ending"
+    ],
+    "requiredResidue": true
+  },
+  "rigs": [
+    {
+      "id": "boss.absent_receiver",
+      "aliases": [
+        "absent_receiver"
+      ],
+      "narrativeAlias": "absent_receiver",
+      "name": {
+        "zh": "缺席的接收者",
+        "en": "Absent Receiver"
+      },
+      "room": "INFORMATION",
+      "weakpoint": {
+        "type": "absent_socket",
+        "anchor": [
+          0.42,
+          0.48
+        ],
+        "radiusPx": 9,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.5,
+            0.52
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.absent_receiver.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "absent_receiver.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "unreturned_packets"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.absent_receiver.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "absent_receiver.evidence>=2",
+          "laserGeometry": "laser.broken_packet_polyline",
+          "spatialLaw": "retry_old_direction"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.absent_receiver.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.protocol.withdraw",
+          "resolutionCondition": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+          "laserGeometry": "laser.broken_packet_polyline",
+          "spatialLaw": "three_signal_windows_close_without_acknowledgement"
+        }
+      ],
+      "rupture": {
+        "event": "boss.protocol.withdraw",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "three unlit receiver slots",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "absent_receiver_body_trace",
+        "canonicalRemainder": "three unlit receiver slots",
+        "persistsToSnapshot": true,
+        "crossRunEligible": false,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.absent_receiver",
+        "narrativeAlias": "absent_receiver",
+        "resolutionId": "RECEIVER_TIMED_OUT",
+        "metric": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+        "condition": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+        "fact": "No valid acknowledgement returned during three signal windows.",
+        "terminal": "boss.protocol.withdraw",
+        "terminalEvent": "boss.protocol.withdraw",
+        "materialRemainder": "three unlit receiver slots",
+        "playerPossibilities": [
+          "quiet passage",
+          "unanswered expression",
+          "mixed signal"
+        ]
+      }
+    },
+    {
+      "id": "boss.unanswering_feed",
+      "aliases": [
+        "unanswering_feed"
+      ],
+      "narrativeAlias": "unanswering_feed",
+      "name": {
+        "zh": "无回应的信息流",
+        "en": "Unanswering Feed"
+      },
+      "room": "INFORMATION",
+      "weakpoint": {
+        "type": "feed_break",
+        "anchor": [
+          0.5,
+          0.55
+        ],
+        "radiusPx": 10,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.32,
+            0.48
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.68,
+            0.48
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.unanswering_feed.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "unanswering_feed.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "scroll_only_down"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.unanswering_feed.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "unanswering_feed.evidence>=2",
+          "laserGeometry": "laser.scrolling_comb",
+          "spatialLaw": "feed_has_no_reply"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.unanswering_feed.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.feed.drain",
+          "resolutionCondition": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+          "laserGeometry": "laser.scrolling_comb",
+          "spatialLaw": "feed_queue_exhausts_without_reciprocal_channel"
+        }
+      ],
+      "rupture": {
+        "event": "boss.feed.drain",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "stale packet column",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "unanswering_feed_body_trace",
+        "canonicalRemainder": "stale packet column",
+        "persistsToSnapshot": true,
+        "crossRunEligible": false,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.unanswering_feed",
+        "narrativeAlias": "unanswering_feed",
+        "resolutionId": "QUEUE_EXHAUSTED",
+        "metric": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+        "condition": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+        "fact": "The feed emitted its queue and received no reciprocal channel.",
+        "terminal": "boss.feed.drain",
+        "terminalEvent": "boss.feed.drain",
+        "materialRemainder": "stale packet column",
+        "playerPossibilities": [
+          "survive queue",
+          "cancel local packets",
+          "leave packets untouched"
+        ]
+      }
+    },
+    {
+      "id": "boss.one_sun_one_rule",
+      "aliases": [
+        "one_sun_one_rule"
+      ],
+      "narrativeAlias": "one_sun_one_rule",
+      "name": {
+        "zh": "一个太阳一种规则",
+        "en": "One Sun, One Rule"
+      },
+      "room": "FORCED_ALIGNMENT",
+      "weakpoint": {
+        "type": "single_aperture",
+        "anchor": [
+          0.58,
+          0.48
+        ],
+        "radiusPx": 11,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.5,
+            0.42
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.22,
+            0.58
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.one_sun_one_rule.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "one_sun_one_rule.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "one_open_half"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.one_sun_one_rule.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "one_sun_one_rule.evidence>=2",
+          "laserGeometry": "laser.single_decree_sweep",
+          "spatialLaw": "middle_is_unclassified"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.one_sun_one_rule.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.rule.correctionFailed",
+          "resolutionCondition": "overrideScar.intersects(ruleShadowLine) == true",
+          "laserGeometry": "laser.single_decree_sweep",
+          "spatialLaw": "override_scar_crosses_single_shadow_correction_line"
+        }
+      ],
+      "rupture": {
+        "event": "boss.rule.correctionFailed",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "one hard shadow that no longer aligns",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "one_sun_one_rule_body_trace",
+        "canonicalRemainder": "one hard shadow that no longer aligns",
+        "persistsToSnapshot": true,
+        "crossRunEligible": false,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.one_sun_one_rule",
+        "narrativeAlias": "one_sun_one_rule",
+        "resolutionId": "RULE_INTERRUPTED_BY_SCAR",
+        "metric": "overrideScar.intersects(ruleShadowLine) == true",
+        "condition": "overrideScar.intersects(ruleShadowLine) == true",
+        "fact": "A directional override scar crossed the single shadow correction line.",
+        "terminal": "boss.rule.correctionFailed",
+        "terminalEvent": "boss.rule.correctionFailed",
+        "materialRemainder": "one hard shadow that no longer aligns",
+        "playerPossibilities": [
+          "write scar",
+          "endure until withdrawal"
+        ]
+      }
+    },
+    {
+      "id": "boss.two_claims",
+      "aliases": [
+        "two_claims"
+      ],
+      "narrativeAlias": "two_claims",
+      "name": {
+        "zh": "两份宣称",
+        "en": "Two Claims"
+      },
+      "room": "FORCED_ALIGNMENT",
+      "weakpoint": {
+        "type": "seam_joint",
+        "anchor": [
+          0.42,
+          0.55
+        ],
+        "radiusPx": 12,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.24,
+            0.48
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.76,
+            0.48
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-3",
+          "anchor": [
+            0.5,
+            0.64
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.two_claims.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "two_claims.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "two_claimed_halves"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.two_claims.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "two_claims.evidence>=2",
+          "laserGeometry": "laser.bifurcating_seam",
+          "spatialLaw": "seam_is_contested"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.two_claims.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.claims.holdOpen",
+          "resolutionCondition": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+          "laserGeometry": "laser.bifurcating_seam",
+          "spatialLaw": "player_holds_overlap_while_both_claims_remain_active"
+        }
+      ],
+      "rupture": {
+        "event": "boss.claims.holdOpen",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "two edges sharing a small unclaimed notch",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "two_claims_body_trace",
+        "canonicalRemainder": "two edges sharing a small unclaimed notch",
+        "persistsToSnapshot": true,
+        "crossRunEligible": true,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.two_claims",
+        "narrativeAlias": "two_claims",
+        "resolutionId": "STABLE_INTERSECTION",
+        "metric": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+        "condition": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+        "fact": "The player occupied the overlap while both claims remained active.",
+        "terminal": "boss.claims.holdOpen",
+        "terminalEvent": "boss.claims.holdOpen",
+        "materialRemainder": "two edges sharing a small unclaimed notch",
+        "playerPossibilities": [
+          "hold overlap",
+          "alternate claims",
+          "rupture one claim"
+        ]
+      }
+    },
+    {
+      "id": "boss.misreader",
+      "aliases": [
+        "misreader"
+      ],
+      "narrativeAlias": "misreader",
+      "name": {
+        "zh": "误读者",
+        "en": "Misreader"
+      },
+      "room": "IN_BETWEEN",
+      "weakpoint": {
+        "type": "reading_cursor",
+        "anchor": [
+          0.5,
+          0.48
+        ],
+        "radiusPx": 9,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.42,
+            0.44
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.64,
+            0.58
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.misreader.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "misreader.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "sample_then_misread"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.misreader.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "misreader.evidence>=2",
+          "laserGeometry": "laser.misread_bezier",
+          "spatialLaw": "correction_is_late"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.misreader.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.reader.releaseTarget",
+          "resolutionCondition": "completedReads >= 3 && predictionMismatchStreak >= 3",
+          "laserGeometry": "laser.misread_bezier",
+          "spatialLaw": "three_read_predictions_disagree_with_following_movement"
+        }
+      ],
+      "rupture": {
+        "event": "boss.reader.releaseTarget",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "misprinted route fragment",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "misreader_body_trace",
+        "canonicalRemainder": "misprinted route fragment",
+        "persistsToSnapshot": true,
+        "crossRunEligible": false,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.misreader",
+        "narrativeAlias": "misreader",
+        "resolutionId": "READING_FAILED",
+        "metric": "completedReads >= 3 && predictionMismatchStreak >= 3",
+        "condition": "completedReads >= 3 && predictionMismatchStreak >= 3",
+        "fact": "Three completed reads disagreed with the player's following movement.",
+        "terminal": "boss.reader.releaseTarget",
+        "terminalEvent": "boss.reader.releaseTarget",
+        "materialRemainder": "misprinted route fragment",
+        "playerPossibilities": [
+          "change after snapshot lock",
+          "remain unreadably still",
+          "rupture aperture"
+        ]
+      }
+    },
+    {
+      "id": "boss.misregistered_twin_moons",
+      "aliases": [
+        "misregistered_twin_moons"
+      ],
+      "narrativeAlias": "misregistered_twin_moons",
+      "name": {
+        "zh": "套印错位的双月",
+        "en": "Misregistered Twin Moons"
+      },
+      "room": "IN_BETWEEN",
+      "weakpoint": {
+        "type": "shared_overlap",
+        "anchor": [
+          0.58,
+          0.55
+        ],
+        "radiusPx": 10,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.3,
+            0.52
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.7,
+            0.52
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.misregistered_twin_moons.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "misregistered_twin_moons.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "offset_orbits"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.misregistered_twin_moons.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "misregistered_twin_moons.evidence>=2",
+          "laserGeometry": "laser.twin_offset_arcs",
+          "spatialLaw": "clocks_disagree"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.misregistered_twin_moons.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.moons.desynchronize",
+          "resolutionCondition": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+          "laserGeometry": "laser.twin_offset_arcs",
+          "spatialLaw": "seam_crossed_during_clock_disagreement_without_authority"
+        }
+      ],
+      "rupture": {
+        "event": "boss.moons.desynchronize",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "offset double edge at crossing point",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "misregistered_twin_moons_body_trace",
+        "canonicalRemainder": "offset double edge at crossing point",
+        "persistsToSnapshot": true,
+        "crossRunEligible": false,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.misregistered_twin_moons",
+        "narrativeAlias": "misregistered_twin_moons",
+        "resolutionId": "SEAM_CROSSED_UNCLAIMED",
+        "metric": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+        "condition": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+        "fact": "The seam was crossed during clock disagreement without either claim reaching authority.",
+        "terminal": "boss.moons.desynchronize",
+        "terminalEvent": "boss.moons.desynchronize",
+        "materialRemainder": "offset double edge at crossing point",
+        "playerPossibilities": [
+          "cross during disagreement",
+          "stabilize overlap",
+          "survive withdrawal"
+        ]
+      }
+    },
+    {
+      "id": "boss.no_dusk",
+      "aliases": [
+        "no_dusk"
+      ],
+      "narrativeAlias": "no_dusk",
+      "name": {
+        "zh": "没有黄昏",
+        "en": "No Dusk"
+      },
+      "room": "POLARIZED",
+      "weakpoint": {
+        "type": "clock_gap",
+        "anchor": [
+          0.42,
+          0.48
+        ],
+        "radiusPx": 11,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.5,
+            0.38
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.18,
+            0.62
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-3",
+          "anchor": [
+            0.82,
+            0.62
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.no_dusk.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "no_dusk.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "binary_ticks"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.no_dusk.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "no_dusk.evidence>=2",
+          "laserGeometry": "laser.binary_shutter_grid",
+          "spatialLaw": "no_interpolation"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.no_dusk.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.noDusk.protocolRetracted",
+          "resolutionCondition": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+          "laserGeometry": "laser.binary_shutter_grid",
+          "spatialLaw": "binary_witness_window_closes_without_twilight"
+        }
+      ],
+      "rupture": {
+        "event": "boss.noDusk.protocolRetracted",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "half-changed cable and rectangular time wall residue",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "no_dusk_body_trace",
+        "canonicalRemainder": "half-changed cable and rectangular time wall residue",
+        "persistsToSnapshot": true,
+        "crossRunEligible": false,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.no_dusk",
+        "narrativeAlias": "no_dusk",
+        "resolutionId": "NO_DUSK_WITHDRAWAL",
+        "metric": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+        "condition": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+        "fact": "The binary clock completed its witness window and withdrew without representing twilight.",
+        "terminal": "boss.noDusk.protocolRetracted",
+        "terminalEvent": "boss.noDusk.protocolRetracted",
+        "materialRemainder": "half-changed cable and rectangular time wall residue",
+        "playerPossibilities": [
+          "persist through on/off time",
+          "hold middle light",
+          "interrupt one time wall"
+        ]
+      }
+    },
+    {
+      "id": "boss.absolute_reader",
+      "aliases": [
+        "absolute_reader"
+      ],
+      "narrativeAlias": "absolute_reader",
+      "name": {
+        "zh": "绝对读取者",
+        "en": "Absolute Reader"
+      },
+      "room": "POLARIZED",
+      "weakpoint": {
+        "type": "broken_iris",
+        "anchor": [
+          0.5,
+          0.55
+        ],
+        "radiusPx": 12,
+        "openConditions": [
+          "telegraph_complete",
+          "phase_rule_exposed"
+        ],
+        "damageIsOptionalForResolution": true
+      },
+      "emitters": [
+        {
+          "id": "emitter-1",
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-2",
+          "anchor": [
+            0.34,
+            0.66
+          ],
+          "rotationAuthority": "gameplay"
+        },
+        {
+          "id": "emitter-3",
+          "anchor": [
+            0.66,
+            0.66
+          ],
+          "rotationAuthority": "gameplay"
+        }
+      ],
+      "phases": [
+        {
+          "id": "observe",
+          "patternId": "boss.absolute_reader.phase1",
+          "entryCondition": "encounter.begin",
+          "exitCondition": "absolute_reader.evidence>=1",
+          "laserGeometry": null,
+          "spatialLaw": "reading_cone"
+        },
+        {
+          "id": "enforce",
+          "patternId": "boss.absolute_reader.phase2",
+          "entryCondition": "observe.exit",
+          "exitCondition": "absolute_reader.evidence>=2",
+          "laserGeometry": "laser.broken_iris_cone",
+          "spatialLaw": "gaze_clamps_flower"
+        },
+        {
+          "id": "fail_to_totalize",
+          "patternId": "boss.absolute_reader.phase3",
+          "entryCondition": "enforce.exit",
+          "exitCondition": "boss.eye.readLedgerClose",
+          "resolutionCondition": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+          "laserGeometry": "laser.broken_iris_cone",
+          "spatialLaw": "read_ledger_closes_with_unclassified_interval"
+        }
+      ],
+      "rupture": {
+        "event": "boss.eye.readLedgerClose",
+        "mode": "protocol_withdrawal_not_death",
+        "digital": "body rule layers disable in dependency order",
+        "material": "broken read ring with one blank interval",
+        "collisionOffBeforeVisual": true
+      },
+      "materialResidue": {
+        "type": "absolute_reader_body_trace",
+        "canonicalRemainder": "broken read ring with one blank interval",
+        "persistsToSnapshot": true,
+        "crossRunEligible": true,
+        "collision": false
+      },
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.absolute_reader",
+        "narrativeAlias": "absolute_reader",
+        "resolutionId": "ABSOLUTE_READER_INCOMPLETE",
+        "metric": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+        "condition": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+        "fact": "The Eye's read ledger closed with at least one interval remaining unclassified.",
+        "terminal": "boss.eye.readLedgerClose",
+        "terminalEvent": "boss.eye.readLedgerClose",
+        "materialRemainder": "broken read ring with one blank interval",
+        "playerPossibilities": [
+          "alternate expression and focus",
+          "use directional scar occlusion",
+          "inhabit stable middle band"
+        ]
+      }
+    }
+  ],
+  "canonicalResolutionSha256": "67f70e0163745ccbc92cccc9dc78bf59f23a1490a2f10dc37c3484055e40969b"
+}

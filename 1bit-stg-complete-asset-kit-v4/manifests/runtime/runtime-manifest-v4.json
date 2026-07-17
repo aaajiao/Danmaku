@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit.canonical-runtime-manifest.v4",
+  "canonical": true,
+  "worldviewSource": "docs/DESIGN_PHILOSOPHY_AND_ROADMAP_ZH.md",
+  "manifests": {
+    "contract": "manifests/runtime/runtime-contract-v4.json",
+    "events": "manifests/runtime/event-schema-v4.json",
+    "stateMachines": "manifests/runtime/state-machines-v4.json",
+    "accessibility": "manifests/runtime/accessibility-profiles-v4.json",
+    "feedbackBindings": "manifests/runtime/feedback-bindings-v4.json"
+  },
+  "referenceImplementation": {
+    "entry": "runtime/index.ts",
+    "events": "runtime/events.ts",
+    "player": "runtime/player.ts",
+    "projectile": "runtime/projectile.ts",
+    "perception": "runtime/perception.ts",
+    "world": "runtime/world.ts",
+    "feedback": "runtime/feedback.ts",
+    "tests": "runtime/runtime.test.ts",
+    "typescriptConfig": "runtime/tsconfig.json",
+    "validator": "runtime/validate_v4_runtime.py"
+  },
+  "qaArtifacts": {
+    "integrationGuide": "runtime/README_ZH.md",
+    "validationReport": "runtime/runtime-validation-report-v4.json"
+  },
+  "authoritativeSystems": [
+    "PlayerDamageMachine",
+    "ProjectileLifecycle",
+    "GrazeAwardRegistry",
+    "GazeMachine",
+    "FlowerIntensityResolver",
+    "DirectionalOverrideMachine",
+    "BossPhaseMachine",
+    "WeatherMachine",
+    "SnapshotMachine",
+    "CrossRunArchive",
+    "CrossRunRestoreMachine",
+    "RoomTransitionMachine"
+  ],
+  "nonAuthoritativeSystems": ["FeedbackRouter", "visual-clips", "audio-cues", "haptic-cues", "ui-cues"],
+  "fixedP0": [
+    "non-fatal and fatal damage no longer compete",
+    "collision blockers are owned leases",
+    "projectile flight no longer ends at a fixed visual timestamp",
+    "override is directional and local rather than global invulnerability",
+    "snapshot presentation and next-run restore have separate authorities",
+    "restore timing derives from the actual route duration rather than a fixed clip",
+    "overrideScar, deathTrace, burnIn and ghostResidue have distinct events and payloads",
+    "restore order is typed material then actual ghost route then residue then witnesses then input",
+    "runtime writes INFORMATION and accepts INFO_OVERFLOW only as a migration read alias",
+    "focus/gaze/override flower conflicts use one explicit priority resolver",
+    "accessibility choices cannot change gameplay event traces"
+  ],
+  "requiredQA": {
+    "typescriptStrict": true,
+    "manifestWarningsAllowed": 0,
+    "runtimeTestFailuresAllowed": 0,
+    "requiredTraceParity": ["full==reducedMotion", "full==flashOff"],
+    "projectileFlightTimeoutCount": 0,
+    "fixedCrossRunRestoreTimelineCount": 0,
+    "feedbackToGameplayEdgeCount": 0,
+    "orphanStateMachineEventCount": 0,
+    "legacyRoomIdWriteCount": 0
+  }
+}

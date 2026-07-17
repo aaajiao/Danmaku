@@ -1,0 +1,128 @@
+{
+  "module": "laser.absent_receiver",
+  "timing": {
+    "warning": 620,
+    "charge": 150,
+    "grow": 120,
+    "live": 420,
+    "shutdown": 180
+  },
+  "collisionEnablePhase": "grow:1.0",
+  "collisionDisablePhase": "shutdown:0.0",
+  "frames": [
+    {
+      "phase": "warning",
+      "amount": 0.25,
+      "collision": false,
+      "durationMs": 155
+    },
+    {
+      "phase": "warning",
+      "amount": 0.5,
+      "collision": false,
+      "durationMs": 155
+    },
+    {
+      "phase": "warning",
+      "amount": 0.75,
+      "collision": false,
+      "durationMs": 155
+    },
+    {
+      "phase": "warning",
+      "amount": 1.0,
+      "collision": false,
+      "durationMs": 155
+    },
+    {
+      "phase": "charge",
+      "amount": 0.05,
+      "collision": false,
+      "durationMs": 75
+    },
+    {
+      "phase": "charge",
+      "amount": 0.1,
+      "collision": false,
+      "durationMs": 75
+    },
+    {
+      "phase": "grow",
+      "amount": 0.2,
+      "collision": false,
+      "durationMs": 24
+    },
+    {
+      "phase": "grow",
+      "amount": 0.4,
+      "collision": false,
+      "durationMs": 24
+    },
+    {
+      "phase": "grow",
+      "amount": 0.6,
+      "collision": false,
+      "durationMs": 24
+    },
+    {
+      "phase": "grow",
+      "amount": 0.8,
+      "collision": false,
+      "durationMs": 24
+    },
+    {
+      "phase": "grow",
+      "amount": 1.0,
+      "collision": true,
+      "durationMs": 24
+    },
+    {
+      "phase": "live",
+      "amount": 1.0,
+      "collision": true,
+      "durationMs": 105
+    },
+    {
+      "phase": "live",
+      "amount": 1.0,
+      "collision": true,
+      "durationMs": 105
+    },
+    {
+      "phase": "live",
+      "amount": 1.0,
+      "collision": true,
+      "durationMs": 105
+    },
+    {
+      "phase": "live",
+      "amount": 1.0,
+      "collision": true,
+      "durationMs": 105
+    },
+    {
+      "phase": "shutdown",
+      "amount": 0.75,
+      "collision": false,
+      "durationMs": 45
+    },
+    {
+      "phase": "shutdown",
+      "amount": 0.5,
+      "collision": false,
+      "durationMs": 45
+    },
+    {
+      "phase": "shutdown",
+      "amount": 0.25,
+      "collision": false,
+      "durationMs": 45
+    },
+    {
+      "phase": "shutdown",
+      "amount": 0.0,
+      "collision": false,
+      "durationMs": 45
+    }
+  ]
+}

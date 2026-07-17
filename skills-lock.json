@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "aaajiao": {
+      "source": "aaajiao/aaajiao.md",
+      "sourceType": "github",
+      "skillPath": "skills/aaajiao/SKILL.md",
+      "computedHash": "723015a90b32570be11bb57904f8e752533717d9f3bdccdb3b2bbdf61a195dae"
+    }
+  }
+}
