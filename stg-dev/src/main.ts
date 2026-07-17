@@ -4,6 +4,11 @@ import composersManifest from "../../1bit-stg-complete-asset-kit-v4/manifests/ga
 import bossesManifest from "../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/boss-rigs-v4.json";
 import frameIndex from "../../1bit-stg-complete-asset-kit-v4/manifests/v4/frame-index-v4.json";
 import {registerSW} from "virtual:pwa-register";
+import {
+  AuthorityClock,
+  MASTER_TICK_HZ,
+  type Tick120Boundary,
+} from "./authority/clock";
 import {AudioTrace} from "./game/audio";
 import {InputManager, type InputFrame} from "./game/input";
 import {GameView} from "./game/renderer";
@@ -285,55 +290,92 @@ window.addEventListener("resize", () => view.resize());
 await view.initialize();
 
 let previousTime = performance.now();
-let accumulator = 0;
 let meaningfulHeld = false;
-let pendingMeaningfulInput = false;
-let pendingOverride = false;
-let pendingPause = false;
-const fixedStepMs = 1000 / 120;
+const fixedStepMs = 1000 / MASTER_TICK_HZ;
+
+interface AuthorityInputSample {
+  readonly controls: InputFrame;
+  readonly meaningfulEdge: boolean;
+}
+
+let authorityControls: InputFrame = {
+  move: {x: 0, y: 0},
+  shoot: false,
+  focus: false,
+  overridePressed: false,
+  pausePressed: false,
+};
+
+function advanceAuthorityBoundary(boundary: Tick120Boundary<AuthorityInputSample>): void {
+  let overridePressed = false;
+  let meaningfulInput = false;
+  for (const stamped of boundary.inputs) {
+    authorityControls = stamped.value.controls;
+    overridePressed ||= stamped.value.controls.overridePressed;
+    meaningfulInput ||= stamped.value.meaningfulEdge;
+  }
+
+  simulation.step(fixedStepMs, {
+    ...authorityControls,
+    overridePressed,
+    pausePressed: false,
+  });
+  // Edge facts are consumed by exactly one master boundary. Held axes and
+  // buttons remain authoritative until a later sampled input replaces them.
+  authorityControls = {
+    ...authorityControls,
+    overridePressed: false,
+    pausePressed: false,
+  };
+
+  const afterSimulation = simulation.snapshot();
+  if (runDirector && !afterSimulation.paused) {
+    const run = runDirector.step(fixedStepMs, {
+      evidence: afterSimulation.player.evidence,
+      meaningfulInput,
+    });
+    applyRunSegment(run);
+  }
+}
+
+const authorityClock = new AuthorityClock<AuthorityInputSample>({
+  onTick120: advanceAuthorityBoundary,
+});
 
 function frame(time: number): void {
   const elapsed = Math.min(100, time - previousTime);
   previousTime = time;
   const controls = input.poll();
   const isMeaningful = meaningfulAction(controls);
-  if (started && isMeaningful && !meaningfulHeld) pendingMeaningfulInput = true;
-  if (started) {
-    pendingOverride ||= controls.overridePressed;
-    pendingPause ||= controls.pausePressed;
-  }
+  const meaningfulEdge = started && isMeaningful && !meaningfulHeld;
   meaningfulHeld = isMeaningful;
 
   const before = simulation.snapshot();
   input.setPlayerPosition(before.player.position);
   if (started) {
-    accumulator += elapsed;
-    let firstFixedStep = true;
-    while (accumulator >= fixedStepMs) {
-      const overridePressed = firstFixedStep && pendingOverride;
-      const pausePressed = firstFixedStep && pendingPause;
-      simulation.step(fixedStepMs, {
-        ...controls,
-        overridePressed,
-        pausePressed,
-      });
-
-      const afterSimulation = simulation.snapshot();
-      if (runDirector && !afterSimulation.paused) {
-        const run = runDirector.step(fixedStepMs, {
-          evidence: afterSimulation.player.evidence,
-          meaningfulInput: firstFixedStep && pendingMeaningfulInput,
-        });
-        applyRunSegment(run);
+    if (controls.pausePressed) {
+      simulation.togglePause();
+      const paused = simulation.snapshot().paused;
+      authorityClock.setPaused(paused);
+      if (paused) {
+        authorityClock.clearQueuedInputs();
+        authorityControls = {
+          move: {x: 0, y: 0},
+          shoot: false,
+          focus: false,
+          overridePressed: false,
+          pausePressed: false,
+        };
       }
-      if (firstFixedStep) {
-        pendingOverride = false;
-        pendingPause = false;
-        if (!runDirector || !afterSimulation.paused) pendingMeaningfulInput = false;
-      }
-      accumulator -= fixedStepMs;
-      firstFixedStep = false;
     }
+
+    if (!simulation.snapshot().paused) {
+      authorityClock.enqueueInput({
+        controls: {...controls, pausePressed: false},
+        meaningfulEdge,
+      });
+    }
+    authorityClock.advance(elapsed);
   }
 
   const snapshot = simulation.snapshot();
