@@ -1,0 +1,84 @@
+{
+  "clip": "boss.laser.lifecycle",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1440,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "boss.laser.off",
+      "startMs": 0,
+      "durationMs": 100,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "boss.laser.telegraph_0",
+      "startMs": 100,
+      "durationMs": 120,
+      "events": [
+        "telegraph_on"
+      ]
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "boss.laser.telegraph_1",
+      "startMs": 220,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "boss.laser.charge",
+      "startMs": 340,
+      "durationMs": 180,
+      "events": [
+        "charge_commit"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "boss.laser.active",
+      "startMs": 520,
+      "durationMs": 260,
+      "events": [
+        "collision_live"
+      ]
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "boss.laser.decay",
+      "startMs": 780,
+      "durationMs": 140,
+      "events": [
+        "collision_removed"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "boss.laser.residue",
+      "startMs": 920,
+      "durationMs": 360,
+      "events": [
+        "residue_created"
+      ]
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "boss.laser.cancel",
+      "startMs": 1280,
+      "durationMs": 160,
+      "events": []
+    }
+  ]
+}

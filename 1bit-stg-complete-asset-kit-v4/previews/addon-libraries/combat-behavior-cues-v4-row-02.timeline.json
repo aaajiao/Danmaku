@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 2,
+  "states": [
+    {
+      "semanticId": "enemy_move.packet_entry",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.side_sweep",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.seam_climb",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.mirror_pair",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.orbit_anchor",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.path_replay",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.formation_lock",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "enemy_move.retreat",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

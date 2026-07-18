@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit-stg-complete-asset-kit-v4",
+  "title": "1bit STG Complete Asset Kit V4",
+  "authorityOrder": [
+    "runtime",
+    "gameplay",
+    "narrative",
+    "integration",
+    "visual-audio-ui"
+  ],
+  "entrypoints": {
+    "frames": "manifests/v4/frame-index-v4.json",
+    "atlases": "manifests/v4/atlas-index-v4.json",
+    "backgrounds": "manifests/v4/backgrounds-v4.json",
+    "animations": "manifests/v4/animation-clips-v4.json",
+    "runtime": "manifests/runtime/runtime-manifest-v4.json",
+    "gameplay": "manifests/gameplay/gameplay-index-v4.json",
+    "narrative": "manifests/narrative/narrative-manifest-v4.json",
+    "assetBindings": "manifests/integration/asset-bindings-v4.json",
+    "eventProjections": "manifests/integration/event-projections-v4.json",
+    "entityVisualBindings": "manifests/integration/entity-visual-bindings-v4.json",
+    "audio": "manifests/narrative/audio-manifest-v4.json",
+    "ui": "manifests/narrative/ui-layouts-v4.json",
+    "semanticAliases": "manifests/v4/semantic-aliases-v4.json"
+  },
+  "counts": {
+    "atlases": 7,
+    "physicalFrames": 448,
+    "motionOperators": 12,
+    "executablePatterns": 48,
+    "enemyArchetypes": 16,
+    "bosses": 8,
+    "bossPhases": 24,
+    "laserTopologies": 8,
+    "patternAnimations": 48,
+    "bossSequenceAnimations": 8,
+    "baseBackgrounds": 4,
+    "reactionOverlays": 16,
+    "weatherTypes": 5,
+    "snapshotObservations": 64,
+    "audioAssets": 48,
+    "runtimeEvents": 72,
+    "runtimeStateSystems": 12,
+    "runtimeFeedbackBindings": 34,
+    "narrativeFeedbackCues": 37,
+    "accessibilityCombinations": 216,
+    "v4UiScreens": 9,
+    "legacyVisualClips": 41,
+    "v4StateLibraries": 24
+  },
+  "invariants": [
+    "gameplay time is authoritative",
+    "visual/audio/haptic/UI are one-way subscribers",
+    "Full, Reduced Motion and Flash-Off share gameplay traces",
+    "Override is directional local void, never global invulnerability",
+    "Snapshot is observational and non-evaluative"
+  ]
+}

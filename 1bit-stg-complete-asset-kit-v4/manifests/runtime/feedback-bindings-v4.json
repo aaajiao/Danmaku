@@ -1,0 +1,291 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit.feedback-bindings.v4",
+  "policy": {
+    "sourceKind": "gameplay-event",
+    "sinkKinds": ["visual", "audio", "haptic", "ui"],
+    "sinkMayEmitGameplay": false,
+    "acyclic": true,
+    "dedupeKey": "bindingId:eventOccurrenceKey",
+    "criticalConditionalCueRequiresFallback": true
+  },
+  "requiredCriticalEvents": [
+    "player.collision.off",
+    "player.collision.on",
+    "projectile.arm.begin",
+    "projectile.collision.on",
+    "projectile.graze.commit",
+    "gaze.clamp.commit",
+    "gaze.clamp.release",
+    "player.override.local_void.open",
+    "player.override.local_void.close",
+    "boss.phase.swap",
+    "boss.encounter.resolve",
+    "weather.omen.begin",
+    "weather.active.begin",
+    "snapshot.begin",
+    "cross_run.restore.begin",
+    "overrideScar.rehydrate",
+    "deathTrace.rehydrate",
+    "burnIn.rehydrate",
+    "ghost.replay.begin",
+    "ghost.replay.complete",
+    "ghost.residue.write",
+    "witness.turn",
+    "returnInput",
+    "room.transition.begin",
+    "room.transition.world_swap.commit"
+  ],
+  "bindings": [
+    {
+      "id": "player-collision-off-visual",
+      "eventId": "player.collision.off",
+      "sink": {"kind":"visual","cueId":"player.hitbox-disabled-steady"},
+      "gameplayCritical": true,
+      "modifiers": {}
+    },
+    {
+      "id": "player-collision-on-visual",
+      "eventId": "player.collision.on",
+      "sink": {"kind":"visual","cueId":"player.hitbox-ready-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"notchAware":true}
+    },
+    {
+      "id": "player-damage-audio",
+      "eventId": "player.damage.commit",
+      "sink": {"kind":"audio","cueId":"player.damage-material-click"},
+      "gameplayCritical": false,
+      "modifiers": {}
+    },
+    {
+      "id": "projectile-arm-visual",
+      "eventId": "projectile.arm.begin",
+      "sink": {"kind":"visual","cueId":"projectile.telegraph.motion"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"notchAware":true},
+      "fallback": {"cueId":"projectile.telegraph.steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "projectile-live-visual",
+      "eventId": "projectile.collision.on",
+      "sink": {"kind":"visual","cueId":"projectile.live-notch-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"notchAware":true,"contrastAware":true}
+    },
+    {
+      "id": "graze-visual",
+      "eventId": "projectile.graze.commit",
+      "sink": {"kind":"visual","cueId":"graze.notch-pulse"},
+      "gameplayCritical": true,
+      "modifiers": {"usesFlashing":true,"notchAware":true},
+      "fallback": {"cueId":"graze.notch-steady","when":["flashing:off"]}
+    },
+    {
+      "id": "graze-audio",
+      "eventId": "projectile.graze.commit",
+      "sink": {"kind":"audio","cueId":"graze.evidence-tick"},
+      "gameplayCritical": false,
+      "modifiers": {}
+    },
+    {
+      "id": "gaze-acquire-visual",
+      "eventId": "gaze.acquire.begin",
+      "sink": {"kind":"visual","cueId":"gaze.horizon-threshold-steady"},
+      "gameplayCritical": false,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "gaze-clamp-visual",
+      "eventId": "gaze.clamp.commit",
+      "sink": {"kind":"visual","cueId":"gaze.contrast-clamp.animated"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"contrastAware":true},
+      "fallback": {"cueId":"gaze.contrast-clamp.steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "gaze-clamp-audio",
+      "eventId": "gaze.clamp.commit",
+      "sink": {"kind":"audio","cueId":"gaze.lowpass.commit"},
+      "gameplayCritical": false,
+      "modifiers": {}
+    },
+    {
+      "id": "gaze-clamp-haptic",
+      "eventId": "gaze.clamp.commit",
+      "sink": {"kind":"haptic","cueId":"gaze.single-pulse"},
+      "gameplayCritical": false,
+      "modifiers": {"hapticsAware":true}
+    },
+    {
+      "id": "gaze-release-visual",
+      "eventId": "gaze.clamp.release",
+      "sink": {"kind":"visual","cueId":"gaze.release-boundary-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "override-open-visual",
+      "eventId": "player.override.local_void.open",
+      "sink": {"kind":"visual","cueId":"override.directional-tear.flash"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"usesFlashing":true,"contrastAware":true},
+      "fallback": {"cueId":"override.directional-tear.steady","when":["motion:reduced","flashing:off"]}
+    },
+    {
+      "id": "override-open-audio",
+      "eventId": "player.override.local_void.open",
+      "sink": {"kind":"audio","cueId":"override.digital-tear"},
+      "gameplayCritical": false,
+      "modifiers": {}
+    },
+    {
+      "id": "override-open-haptic",
+      "eventId": "player.override.local_void.open",
+      "sink": {"kind":"haptic","cueId":"override.directional-double-pulse"},
+      "gameplayCritical": false,
+      "modifiers": {"hapticsAware":true}
+    },
+    {
+      "id": "override-close-visual",
+      "eventId": "player.override.local_void.close",
+      "sink": {"kind":"visual","cueId":"override.boundary-collapse-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"notchAware":true}
+    },
+    {
+      "id": "scar-write-visual",
+      "eventId": "cross_run.scar.write.commit",
+      "sink": {"kind":"visual","cueId":"material.override-scar-write"},
+      "gameplayCritical": false,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "boss-phase-visual",
+      "eventId": "boss.phase.swap",
+      "sink": {"kind":"visual","cueId":"boss.topology-phase-boundary"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"contrastAware":true},
+      "fallback": {"cueId":"boss.topology-phase-boundary.steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "boss-resolve-ui",
+      "eventId": "boss.encounter.resolve",
+      "sink": {"kind":"ui","cueId":"boss.resolution-fact"},
+      "gameplayCritical": true,
+      "modifiers": {}
+    },
+    {
+      "id": "weather-omen-visual",
+      "eventId": "weather.omen.begin",
+      "sink": {"kind":"visual","cueId":"weather.omen-world-space"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"contrastAware":true},
+      "fallback": {"cueId":"weather.omen-boundary-steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "weather-active-visual",
+      "eventId": "weather.active.begin",
+      "sink": {"kind":"visual","cueId":"weather.body-world-space"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"usesFlashing":true,"contrastAware":true},
+      "fallback": {"cueId":"weather.body-steady-mask","when":["motion:reduced","flashing:off"]}
+    },
+    {
+      "id": "snapshot-begin-ui",
+      "eventId": "snapshot.begin",
+      "sink": {"kind":"ui","cueId":"snapshot.observational-frame"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "cross-run-restore-ui",
+      "eventId": "cross_run.restore.begin",
+      "sink": {"kind":"ui","cueId":"cross-run.restore-order-marker"},
+      "gameplayCritical": true,
+      "modifiers": {}
+    },
+    {
+      "id": "override-scar-rehydrate-visual",
+      "eventId": "overrideScar.rehydrate",
+      "sink": {"kind":"visual","cueId":"material.override-scar-rehydrate-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "death-trace-rehydrate-visual",
+      "eventId": "deathTrace.rehydrate",
+      "sink": {"kind":"visual","cueId":"material.death-trace-rehydrate-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "burn-in-rehydrate-visual",
+      "eventId": "burnIn.rehydrate",
+      "sink": {"kind":"visual","cueId":"material.burn-in-rehydrate-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "ghost-replay-begin-visual",
+      "eventId": "ghost.replay.begin",
+      "sink": {"kind":"visual","cueId":"ghost.actual-route-linear"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"contrastAware":true},
+      "fallback": {"cueId":"ghost.actual-route-event-pins","when":["motion:reduced"]}
+    },
+    {
+      "id": "ghost-replay-complete-visual",
+      "eventId": "ghost.replay.complete",
+      "sink": {"kind":"visual","cueId":"ghost.burnout-oldest-to-newest"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true},
+      "fallback": {"cueId":"ghost.burnout-final-point-steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "ghost-residue-write-visual",
+      "eventId": "ghost.residue.write",
+      "sink": {"kind":"visual","cueId":"material.ghost-residue-write-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    },
+    {
+      "id": "witness-turn-visual",
+      "eventId": "witness.turn",
+      "sink": {"kind":"visual","cueId":"witness.fact-directed-turn"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true},
+      "fallback": {"cueId":"witness.fact-directed-facing-steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "cross-run-input-ui",
+      "eventId": "returnInput",
+      "sink": {"kind":"ui","cueId":"cross-run.input-return-marker"},
+      "gameplayCritical": true,
+      "modifiers": {}
+    },
+    {
+      "id": "room-transition-visual",
+      "eventId": "room.transition.begin",
+      "sink": {"kind":"visual","cueId":"room.threshold-motion"},
+      "gameplayCritical": true,
+      "modifiers": {"motionSensitive":true,"contrastAware":true},
+      "fallback": {"cueId":"room.threshold-steady","when":["motion:reduced"]}
+    },
+    {
+      "id": "room-transition-audio",
+      "eventId": "room.transition.begin",
+      "sink": {"kind":"audio","cueId":"room.crossfade-spatial"},
+      "gameplayCritical": false,
+      "modifiers": {"binaural":true},
+      "fallback": {"cueId":"room.crossfade-mono","when":["binaural:mono"]}
+    },
+    {
+      "id": "room-world-swap-visual",
+      "eventId": "room.transition.world_swap.commit",
+      "sink": {"kind":"visual","cueId":"room.world-swap-boundary-steady"},
+      "gameplayCritical": true,
+      "modifiers": {"contrastAware":true}
+    }
+  ]
+}

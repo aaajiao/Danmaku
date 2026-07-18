@@ -1,0 +1,38 @@
+# macOS / editors
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+*.swp
+*.tsbuildinfo
+
+# JavaScript
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+dev-dist/
+**/dev-dist/
+coverage/
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
+blob-report/
+**/blob-report/
+
+# Python validation caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+
+# Codex-local generated state (project skills remain tracked)
+.codex/

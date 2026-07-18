@@ -1,0 +1,398 @@
+{
+  "schemaVersion": "4.0.0-integration-qa",
+  "validator": "tools/qa/validate_v4_integration.py",
+  "result": "PASS",
+  "strictWarnings": true,
+  "summary": {
+    "checks": 40,
+    "passed": 40,
+    "errors": 0,
+    "warnings": 0
+  },
+  "metrics": {
+    "jsonFiles": 229,
+    "gameplay": {
+      "motionOperators": 12,
+      "patterns": 48,
+      "enemies": 16,
+      "enemyRoles": 8,
+      "bosses": 8,
+      "bossPhases": 24,
+      "lasers": 8,
+      "laserTopologies": 8
+    },
+    "runtime": {
+      "events": 72,
+      "machines": 12,
+      "feedbackBindings": 34,
+      "accessibilityAxes": 6,
+      "accessibilityCombinations": 216
+    },
+    "narrative": {
+      "states": 16,
+      "worldReactionNodes": 13,
+      "roomThresholds": 16,
+      "weatherTypes": 5,
+      "bossResolutions": 8,
+      "snapshotObservations": 64,
+      "witnessStates": 7,
+      "feedbackCues": 37
+    },
+    "audio": {
+      "assets": 48,
+      "roomBeds": 4,
+      "bossSignals": 8,
+      "sfx": 36
+    },
+    "art": {
+      "atlases": 3,
+      "frames": 192,
+      "paletteColors": 8
+    },
+    "ui": {
+      "screens": 9,
+      "overview": 1,
+      "files": 10
+    },
+    "backgrounds": {
+      "reactionOverlays": 16,
+      "rooms": 4,
+      "states": 4
+    },
+    "animations": {
+      "patternAnimations": 48,
+      "patternArtifacts": 144,
+      "bossAnimations": 8,
+      "bossArtifacts": 24
+    },
+    "compositePackage": {
+      "present": true,
+      "enforced": true,
+      "entrypoints": 13,
+      "atlases": 7,
+      "frames": 448,
+      "semanticAliases": 3
+    }
+  },
+  "checks": [
+    {
+      "id": "json.syntax.all",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "229 个 JSON 全部可解析",
+      "metrics": {
+        "files": 229,
+        "failures": 0
+      }
+    },
+    {
+      "id": "json.local-schema-references",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "9 个本地 schema 引用全部存在",
+      "metrics": {
+        "references": 9,
+        "missing": 0
+      }
+    },
+    {
+      "id": "gameplay.required-counts",
+      "subsystem": "gameplay",
+      "status": "PASS",
+      "detail": "12 operators / 48 patterns / 16 enemies（8 roles）/ 8 Boss × 3 phases / 8 unique lasers",
+      "metrics": {
+        "motionOperators": 12,
+        "patterns": 48,
+        "enemies": 16,
+        "enemyRoles": 8,
+        "bosses": 8,
+        "bossPhases": 24,
+        "lasers": 8,
+        "laserTopologies": 8
+      }
+    },
+    {
+      "id": "gameplay.definition-id-uniqueness",
+      "subsystem": "gameplay",
+      "status": "PASS",
+      "detail": "玩法权威定义 ID 全部唯一"
+    },
+    {
+      "id": "gameplay.cross-manifest-references",
+      "subsystem": "gameplay",
+      "status": "PASS",
+      "detail": "operator / pattern / enemy / boss / laser / director 引用闭合",
+      "metrics": {
+        "brokenReferences": 0
+      }
+    },
+    {
+      "id": "gameplay.canonical-index-checksums",
+      "subsystem": "gameplay",
+      "status": "PASS",
+      "detail": "gameplay index 的 9 个文件尺寸与 SHA-256 一致"
+    },
+    {
+      "id": "runtime.required-counts",
+      "subsystem": "runtime",
+      "status": "PASS",
+      "detail": "72 events / 12 machines / 34 feedback bindings / 216 accessibility combinations",
+      "metrics": {
+        "events": 72,
+        "machines": 12,
+        "feedbackBindings": 34,
+        "accessibilityAxes": 6,
+        "accessibilityCombinations": 216
+      }
+    },
+    {
+      "id": "runtime.definition-id-uniqueness",
+      "subsystem": "runtime",
+      "status": "PASS",
+      "detail": "runtime event / machine / binding ID 全部唯一"
+    },
+    {
+      "id": "runtime.event-graph-closure",
+      "subsystem": "runtime",
+      "status": "PASS",
+      "detail": "72 个事件全部由状态机定义使用；binding 引用与 critical coverage 完整"
+    },
+    {
+      "id": "runtime.accessibility-orthogonality",
+      "subsystem": "runtime",
+      "status": "PASS",
+      "detail": "6 个轴正交组合；full / reducedMotion / flashOff 强制事件轨迹一致"
+    },
+    {
+      "id": "runtime.declared-file-references",
+      "subsystem": "runtime",
+      "status": "PASS",
+      "detail": "runtime manifest 的 17 个可部署文件引用全部存在"
+    },
+    {
+      "id": "narrative.required-counts",
+      "subsystem": "narrative",
+      "status": "PASS",
+      "detail": "16 states / 13 reaction nodes / 16 thresholds / 5 weather / 8 Boss resolutions / 64 observations / 7 witness / 37 cues",
+      "metrics": {
+        "states": 16,
+        "worldReactionNodes": 13,
+        "roomThresholds": 16,
+        "weatherTypes": 5,
+        "bossResolutions": 8,
+        "snapshotObservations": 64,
+        "witnessStates": 7,
+        "feedbackCues": 37
+      }
+    },
+    {
+      "id": "narrative.semantic-id-uniqueness",
+      "subsystem": "narrative",
+      "status": "PASS",
+      "detail": "叙事状态、观察、Witness、反馈 cue 与阈值语义 ID 全部唯一"
+    },
+    {
+      "id": "narrative.reaction-graph-closure",
+      "subsystem": "narrative",
+      "status": "PASS",
+      "detail": "世界反应图的 source / reaction node / edge 引用闭合"
+    },
+    {
+      "id": "narrative.canonical-file-references",
+      "subsystem": "narrative",
+      "status": "PASS",
+      "detail": "14 个 narrative canonical file 引用全部存在"
+    },
+    {
+      "id": "ui.forbidden-copy-tokens",
+      "subsystem": "ui",
+      "status": "PASS",
+      "detail": "实际 UI copy 不含 Score / Rank / Perfect / 道德化结局禁词"
+    },
+    {
+      "id": "ui.layout-copy-references",
+      "subsystem": "ui",
+      "status": "PASS",
+      "detail": "UI layout 的 9 个 copy key 全部可解析"
+    },
+    {
+      "id": "audio.required-counts",
+      "subsystem": "audio",
+      "status": "PASS",
+      "detail": "48 WAV：4 room beds / 8 Boss signals / 36 SFX",
+      "metrics": {
+        "assets": 48,
+        "roomBeds": 4,
+        "bossSignals": 8,
+        "sfx": 36
+      }
+    },
+    {
+      "id": "audio.asset-id-uniqueness",
+      "subsystem": "audio",
+      "status": "PASS",
+      "detail": "48 个音频 asset ID 全部唯一"
+    },
+    {
+      "id": "audio.files-hashes-wave-format",
+      "subsystem": "audio",
+      "status": "PASS",
+      "detail": "48 个 WAV 的文件、尺寸、SHA-256、48kHz / stereo / 16-bit / duration 全部一致"
+    },
+    {
+      "id": "audio.feedback-cue-references",
+      "subsystem": "audio",
+      "status": "PASS",
+      "detail": "37 个 narrative feedback cue 的音频引用全部可解析"
+    },
+    {
+      "id": "art.required-counts",
+      "subsystem": "art",
+      "status": "PASS",
+      "detail": "3 个 V4 atlas / 192 semantic frames / exact 8-color palette",
+      "metrics": {
+        "atlases": 3,
+        "frames": 192,
+        "paletteColors": 8
+      }
+    },
+    {
+      "id": "art.semantic-id-uniqueness",
+      "subsystem": "art",
+      "status": "PASS",
+      "detail": "192 个 atlas semanticId 全部唯一"
+    },
+    {
+      "id": "art.atlas-palette-alpha-rects-hashes",
+      "subsystem": "art",
+      "status": "PASS",
+      "detail": "3 个 atlas 通过 SHA-256、尺寸、hard alpha、8 色、每格≤4色、64 rect 与 source 检查"
+    },
+    {
+      "id": "ui.mockup-files-palette-alpha",
+      "subsystem": "ui",
+      "status": "PASS",
+      "detail": "9 个 360×640 UI screen + 1 overview；文件唯一、声明 8 色语义系统、hard alpha",
+      "metrics": {
+        "screens": 9,
+        "overview": 1,
+        "files": 10
+      }
+    },
+    {
+      "id": "background.reaction-overlay-matrix",
+      "subsystem": "backgrounds",
+      "status": "PASS",
+      "detail": "4 rooms × 4 states = 16 overlays；ID、文件、SHA-256、8 色、hard alpha 完整",
+      "metrics": {
+        "reactionOverlays": 16,
+        "rooms": 4,
+        "states": 4
+      }
+    },
+    {
+      "id": "animations.pattern-and-boss-completeness",
+      "subsystem": "animations",
+      "status": "PASS",
+      "detail": "48 pattern × (GIF/APNG/timeline) + 8 Boss × (GIF/APNG/timeline)；一对一、帧数、identity、内容哈希完整",
+      "metrics": {
+        "patternAnimations": 48,
+        "patternArtifacts": 144,
+        "bossAnimations": 8,
+        "bossArtifacts": 24
+      }
+    },
+    {
+      "id": "integration.room-identity",
+      "subsystem": "integration",
+      "status": "PASS",
+      "detail": "三套系统统一写入 INFORMATION / FORCED_ALIGNMENT / IN_BETWEEN / POLARIZED；INFO_OVERFLOW 仅为迁移读别名"
+    },
+    {
+      "id": "integration.cross-run-dynamic-timeline",
+      "subsystem": "integration",
+      "status": "PASS",
+      "detail": "narrative UI / ghost contract / runtime contract / restore machine 统一使用真实 routeDuration：0, 420, +420, +421, +700, +1140"
+    },
+    {
+      "id": "integration.disjoint-material-memory",
+      "subsystem": "integration",
+      "status": "PASS",
+      "detail": "overrideScar / deathTrace / burnIn / ghostResidue 四类材料独立定义并按序恢复"
+    },
+    {
+      "id": "integration.boss-resolution-worldview",
+      "subsystem": "integration",
+      "status": "PASS",
+      "detail": "8 个 Boss 的 ID / resolutionId / condition / terminalEvent / materialRemainder 与世界观权威表一致"
+    },
+    {
+      "id": "integration.weather-gameplay-decoupling",
+      "subsystem": "integration",
+      "status": "PASS",
+      "detail": "5 类叙事天气仅属 world-presentation；3 个 WEATHER_ECHO 弹幕由 encounter director 独立调度，不读写天气 phase/seed"
+    },
+    {
+      "id": "integration.asset-bindings",
+      "subsystem": "integration",
+      "status": "PASS",
+      "detail": "37 narrative cues / 34 runtime bindings 已绑定到 48 audio 与完整 frame universe"
+    },
+    {
+      "id": "package.v4-entrypoints",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "V4 package manifest 的 13 个入口全部存在"
+    },
+    {
+      "id": "package.v4-composite-counts",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "组合包为 7 atlases / 448 physical frames，且所有 V4 汇总数量与权威 manifests 一致",
+      "metrics": {
+        "present": true,
+        "enforced": true,
+        "entrypoints": 13,
+        "atlases": 7,
+        "frames": 448,
+        "semanticAliases": 3
+      }
+    },
+    {
+      "id": "package.v4-atlas-files",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "7 个 atlas 的 ID、文件、尺寸与 SHA-256 全部一致"
+    },
+    {
+      "id": "package.v4-frame-atlas-closure",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "448 个 physical frame 的 semanticId 唯一；每个 atlas 恰有 64 格且 atlas ID 全部闭合"
+    },
+    {
+      "id": "package.v4-semantic-aliases",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "旧 Score / Power / Life 语义仅作读别名；所有 alias target 都是 448-frame canonical semanticId"
+    },
+    {
+      "id": "subsystem.reports-strict-pass",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "8 份子系统报告全部 PASS，且各自 0 errors / 0 warnings",
+      "metrics": {
+        "reports": 8,
+        "expected": 8
+      }
+    },
+    {
+      "id": "package.no-junk-artifacts",
+      "subsystem": "package",
+      "status": "PASS",
+      "detail": "无 .DS_Store / __pycache__ / .pyc / .pyo"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

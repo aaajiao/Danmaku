@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 6,
+  "states": [
+    {
+      "semanticId": "threshold.information",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "threshold.forced_choice",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "threshold.in_between",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "threshold.polarized",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "dusk.warning",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "dusk.settle",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "dusk.no_dusk_cut",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "snapshot.capture",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

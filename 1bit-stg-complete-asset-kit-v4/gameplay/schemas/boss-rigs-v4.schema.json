@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "$id": "boss-rigs-v4.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "canonicalResolutionSource",
+    "canonicalResolutionSha256",
+    "sharedFallbackResolution",
+    "ruptureContract",
+    "rigs"
+  ],
+  "properties": {
+    "rigs": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "aliases",
+          "narrativeAlias",
+          "weakpoint",
+          "emitters",
+          "phases",
+          "rupture",
+          "materialResidue",
+          "resolution"
+        ],
+        "properties": {
+          "emitters": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3
+          },
+          "phases": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "aliases": {
+            "type": "array",
+            "minItems": 1
+          },
+          "resolution": {
+            "type": "object",
+            "required": [
+              "source",
+              "canonicalBossId",
+              "narrativeAlias",
+              "resolutionId",
+              "metric",
+              "condition",
+              "fact",
+              "terminal",
+              "terminalEvent",
+              "materialRemainder",
+              "playerPossibilities"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.polarized.no_dusk_grid",
+  "traceSha256": "46e9b3e3f7ea6a0151a6542e1c49d5014b6ed9ac396bdc88d2669b508704be9b",
+  "sourceDurationMs": 12200,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 169,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 551,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 551,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6100,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 11500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 12200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--polarized--no_dusk_grid.gif",
+    "apng": "room--polarized--no_dusk_grid.apng",
+    "timeline": "room--polarized--no_dusk_grid.timeline.json"
+  }
+}

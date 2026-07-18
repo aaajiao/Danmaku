@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "4.0.0-binding-qa",
+  "status": "PASS",
+  "narrativeCues": 37,
+  "runtimeBindings": 34,
+  "eventProjections": 37,
+  "enemyVisualBindings": 16,
+  "bossVisualBindings": 8,
+  "frameUniverse": 445,
+  "audioUniverse": 48,
+  "errors": []
+}

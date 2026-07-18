@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.misregistered_twin_moons",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.misregistered_twin_moons",
+    "narrativeAlias": "misregistered_twin_moons",
+    "resolutionId": "SEAM_CROSSED_UNCLAIMED",
+    "metric": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+    "condition": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+    "fact": "The seam was crossed during clock disagreement without either claim reaching authority.",
+    "terminal": "boss.moons.desynchronize",
+    "terminalEvent": "boss.moons.desynchronize",
+    "materialRemainder": "offset double edge at crossing point",
+    "playerPossibilities": [
+      "cross during disagreement",
+      "stabilize overlap",
+      "survive withdrawal"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.misregistered_twin_moons.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "ef4e877219ff441ff159a7a92379bfd45943640a1fa7309c09ad87d8b669ff54"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.misregistered_twin_moons.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "75a382eaa5af4566695c18749869431885468d863e3faeb670dcd3d5b9e41a29"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.misregistered_twin_moons.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "74b85d8733b0ee5059f9f0fe3a4b1b28baa15bc3051cc8da455d43c70891f8b5"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--misregistered_twin_moons.gif",
+    "apng": "boss--misregistered_twin_moons.apng",
+    "timeline": "boss--misregistered_twin_moons.timeline.json"
+  }
+}

@@ -1,0 +1,320 @@
+{
+  "schemaVersion": "4.0.0-event-projections",
+  "purpose": "Narrative cue names are read-only projections of canonical runtime events, never a second gameplay clock.",
+  "projectionCount": 37,
+  "rules": [
+    {
+      "narrativeEvent": "flower.band.enter.quiet",
+      "canonicalSources": [
+        "flower.intensity.commit"
+      ],
+      "predicate": "crossed into QUIET band",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "flower.band.enter.middle",
+      "canonicalSources": [
+        "flower.intensity.commit"
+      ],
+      "predicate": "crossed into MIDDLE band",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "flower.band.enter.loud",
+      "canonicalSources": [
+        "flower.intensity.commit"
+      ],
+      "predicate": "crossed into LOUD band",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "gaze.acquire",
+      "canonicalSources": [
+        "gaze.acquire.begin"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "gaze.clamp.begin",
+      "canonicalSources": [
+        "gaze.clamp.commit"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "gaze.clamp.pulse",
+      "canonicalSources": [
+        "gaze.clamp.commit",
+        "gaze.clamp.release"
+      ],
+      "predicate": "presentation pulse every >=700ms while clamped; emits no gameplay fact",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "gaze.clamp.release",
+      "canonicalSources": [
+        "gaze.clamp.release"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "flower.recovery.complete",
+      "canonicalSources": [
+        "flower.intensity.commit"
+      ],
+      "predicate": "source=GAZE_RECOVERY and target band reached",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "graze.evidence.accepted",
+      "canonicalSources": [
+        "projectile.graze.commit",
+        "evidence.gain.commit"
+      ],
+      "predicate": "same projectile evidence key committed once",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "evidence.threshold.ready",
+      "canonicalSources": [
+        "evidence.gain.commit"
+      ],
+      "predicate": "available evidence crossed current Override cost",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "override.charge.begin",
+      "canonicalSources": [
+        "player.override.charge.begin"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "localVoid.open",
+      "canonicalSources": [
+        "player.override.local_void.open"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "localVoid.decay.begin",
+      "canonicalSources": [
+        "player.override.local_void.close"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "overrideScar.materialize",
+      "canonicalSources": [
+        "cross_run.scar.write.commit"
+      ],
+      "predicate": "scarType=overrideScar",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "projectile.armed",
+      "canonicalSources": [
+        "projectile.armed"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "projectile.cancel",
+      "canonicalSources": [
+        "projectile.cancel.commit"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "projectile.impact",
+      "canonicalSources": [
+        "projectile.impact.commit"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "player.damage",
+      "canonicalSources": [
+        "player.damage.commit"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "player.collapse",
+      "canonicalSources": [
+        "player.death.commit"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "player.returnInput",
+      "canonicalSources": [
+        "returnInput"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "boss.protocol.phaseChanged",
+      "canonicalSources": [
+        "boss.phase.swap"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "boss.resolution.commit",
+      "canonicalSources": [
+        "boss.encounter.resolve"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "room.threshold.commit",
+      "canonicalSources": [
+        "flower.intensity.commit",
+        "gaze.clamp.commit",
+        "evidence.gain.commit"
+      ],
+      "predicate": "evaluate narrative/room-thresholds-v4.json after canonical metric commit",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "cable.upload.begin",
+      "canonicalSources": [
+        "flower.intensity.commit"
+      ],
+      "predicate": "evaluate Cable node in narrative/world-reaction-graph-v4.json",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "cable.burnIn.write",
+      "canonicalSources": [
+        "gaze.clamp.commit",
+        "player.override.local_void.close"
+      ],
+      "predicate": "evaluate Cable/Burn-in nodes after canonical fact",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "burnIn.capture",
+      "canonicalSources": [
+        "snapshot.serialize.commit"
+      ],
+      "predicate": "serialize qualified burnIn material record",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "ghost.replay.begin",
+      "canonicalSources": [
+        "ghost.replay.begin"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "ghost.replay.complete",
+      "canonicalSources": [
+        "ghost.replay.complete"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "witness.turn",
+      "canonicalSources": [
+        "flower.intensity.commit",
+        "witness.turn"
+      ],
+      "predicate": "evaluate witness conditions; cross-run orientation is identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "snapshot.collect",
+      "canonicalSources": [
+        "snapshot.begin"
+      ],
+      "predicate": "identity",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "snapshot.handoff",
+      "canonicalSources": [
+        "cross_run.record.persist.commit"
+      ],
+      "predicate": "archive accepted immutable Snapshot record",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "noDusk.binaryTimeCut.begin",
+      "canonicalSources": [
+        "boss.phase.swap",
+        "weather.active.begin"
+      ],
+      "predicate": "bossId=boss.no_dusk or weatherType=ECLIPSE and No-Dusk guard true",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "weather.STATIC.phase",
+      "canonicalSources": [
+        "weather.omen.begin",
+        "weather.active.begin",
+        "weather.aftermath.begin"
+      ],
+      "predicate": "weatherType=STATIC",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "weather.RAIN.phase",
+      "canonicalSources": [
+        "weather.omen.begin",
+        "weather.active.begin",
+        "weather.aftermath.begin"
+      ],
+      "predicate": "weatherType=RAIN",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "weather.ASH.phase",
+      "canonicalSources": [
+        "weather.omen.begin",
+        "weather.active.begin",
+        "weather.aftermath.begin"
+      ],
+      "predicate": "weatherType=ASH",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "weather.WIND.phase",
+      "canonicalSources": [
+        "weather.omen.begin",
+        "weather.active.begin",
+        "weather.aftermath.begin"
+      ],
+      "predicate": "weatherType=WIND",
+      "authority": "read-only projection"
+    },
+    {
+      "narrativeEvent": "weather.ECLIPSE.phase",
+      "canonicalSources": [
+        "weather.omen.begin",
+        "weather.active.begin",
+        "weather.aftermath.begin"
+      ],
+      "predicate": "weatherType=ECLIPSE",
+      "authority": "read-only projection"
+    }
+  ]
+}

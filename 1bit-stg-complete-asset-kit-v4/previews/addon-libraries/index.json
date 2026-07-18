@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "4.0.0",
+  "libraries": [
+    {
+      "id": "boss-phase-components-v4-row-00",
+      "board": "boss-phase-components-v4",
+      "row": 0,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-01",
+      "board": "boss-phase-components-v4",
+      "row": 1,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-02",
+      "board": "boss-phase-components-v4",
+      "row": 2,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-03",
+      "board": "boss-phase-components-v4",
+      "row": 3,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-04",
+      "board": "boss-phase-components-v4",
+      "row": 4,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-05",
+      "board": "boss-phase-components-v4",
+      "row": 5,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-06",
+      "board": "boss-phase-components-v4",
+      "row": 6,
+      "frames": 8
+    },
+    {
+      "id": "boss-phase-components-v4-row-07",
+      "board": "boss-phase-components-v4",
+      "row": 7,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-00",
+      "board": "combat-behavior-cues-v4",
+      "row": 0,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-01",
+      "board": "combat-behavior-cues-v4",
+      "row": 1,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-02",
+      "board": "combat-behavior-cues-v4",
+      "row": 2,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-03",
+      "board": "combat-behavior-cues-v4",
+      "row": 3,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-04",
+      "board": "combat-behavior-cues-v4",
+      "row": 4,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-05",
+      "board": "combat-behavior-cues-v4",
+      "row": 5,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-06",
+      "board": "combat-behavior-cues-v4",
+      "row": 6,
+      "frames": 8
+    },
+    {
+      "id": "combat-behavior-cues-v4-row-07",
+      "board": "combat-behavior-cues-v4",
+      "row": 7,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-00",
+      "board": "player-world-behavior-v4",
+      "row": 0,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-01",
+      "board": "player-world-behavior-v4",
+      "row": 1,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-02",
+      "board": "player-world-behavior-v4",
+      "row": 2,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-03",
+      "board": "player-world-behavior-v4",
+      "row": 3,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-04",
+      "board": "player-world-behavior-v4",
+      "row": 4,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-05",
+      "board": "player-world-behavior-v4",
+      "row": 5,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-06",
+      "board": "player-world-behavior-v4",
+      "row": 6,
+      "frames": 8
+    },
+    {
+      "id": "player-world-behavior-v4-row-07",
+      "board": "player-world-behavior-v4",
+      "row": 7,
+      "frames": 8
+    }
+  ]
+}

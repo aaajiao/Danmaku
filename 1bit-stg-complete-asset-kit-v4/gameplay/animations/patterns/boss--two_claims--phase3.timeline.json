@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.two_claims.phase3",
+  "traceSha256": "49995092410129e0669cf0f1293798a822faa1530532a9c891dcea6f8d9b1070",
+  "sourceDurationMs": 11500,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 160,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 705,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 705,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5750,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10800,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11080,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11500,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--two_claims--phase3.gif",
+    "apng": "boss--two_claims--phase3.apng",
+    "timeline": "boss--two_claims--phase3.timeline.json"
+  }
+}

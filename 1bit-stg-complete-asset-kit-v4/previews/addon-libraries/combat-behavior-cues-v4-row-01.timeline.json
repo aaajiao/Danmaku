@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 1,
+  "states": [
+    {
+      "semanticId": "player_shot.quiet",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.medium_twin",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.loud_open",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.focus_needle",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.option_left",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.option_right",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.impact",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "player_shot.expression_residue",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

@@ -1,0 +1,614 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/lasers-v4.schema.json",
+  "lasers": [
+    {
+      "id": "laser.broken_packet_polyline",
+      "bossId": "boss.absent_receiver",
+      "aliases": [
+        "absent_receiver"
+      ],
+      "narrativeAlias": "absent_receiver",
+      "geometry": {
+        "type": "broken_polyline",
+        "parameters": {
+          "points": [
+            [
+              0.5,
+              0.14
+            ],
+            [
+              0.3,
+              0.34
+            ],
+            [
+              0.58,
+              0.52
+            ],
+            [
+              0.42,
+              0.78
+            ],
+            [
+              0.54,
+              1.02
+            ]
+          ],
+          "missingSegment": 2
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 680,
+          "charge": 180,
+          "grow": 140,
+          "live": 720,
+          "shutdown": 180,
+          "residue": 520
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "polyline_capsules",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 680,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "packet_gap",
+        "minimumWidthPx": 22,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "absent_receiver_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.scrolling_comb",
+      "bossId": "boss.unanswering_feed",
+      "aliases": [
+        "unanswering_feed"
+      ],
+      "narrativeAlias": "unanswering_feed",
+      "geometry": {
+        "type": "scrolling_comb",
+        "parameters": {
+          "spine": [
+            [
+              0.18,
+              0.0
+            ],
+            [
+              0.18,
+              1.0
+            ]
+          ],
+          "teeth": 7,
+          "toothLengthPx": 116,
+          "scrollPxPerSec": 42
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 725,
+          "charge": 190,
+          "grow": 148,
+          "live": 775,
+          "shutdown": 180,
+          "residue": 555
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "capsule_union",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 725,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "comb_slot",
+        "minimumWidthPx": 26,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "unanswering_feed_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.single_decree_sweep",
+      "bossId": "boss.one_sun_one_rule",
+      "aliases": [
+        "one_sun_one_rule"
+      ],
+      "narrativeAlias": "one_sun_one_rule",
+      "geometry": {
+        "type": "half_plane_sweep",
+        "parameters": {
+          "pivot": [
+            0.5,
+            0.15
+          ],
+          "startDeg": 42,
+          "endDeg": 138,
+          "beamWidthPx": 13
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 770,
+          "charge": 200,
+          "grow": 156,
+          "live": 830,
+          "shutdown": 180,
+          "residue": 590
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "swept_segment",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 770,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "counter_sweep_lane",
+        "minimumWidthPx": 30,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "one_sun_one_rule_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.bifurcating_seam",
+      "bossId": "boss.two_claims",
+      "aliases": [
+        "two_claims"
+      ],
+      "narrativeAlias": "two_claims",
+      "geometry": {
+        "type": "bifurcating_y",
+        "parameters": {
+          "root": [
+            0.5,
+            0.12
+          ],
+          "fork": [
+            0.5,
+            0.4
+          ],
+          "ends": [
+            [
+              0.12,
+              1.02
+            ],
+            [
+              0.88,
+              1.02
+            ]
+          ],
+          "branchWidthPx": 10
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 815,
+          "charge": 210,
+          "grow": 164,
+          "live": 885,
+          "shutdown": 180,
+          "residue": 625
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "branched_capsules",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 815,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "central_seam",
+        "minimumWidthPx": 34,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "two_claims_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.misread_bezier",
+      "bossId": "boss.misreader",
+      "aliases": [
+        "misreader"
+      ],
+      "narrativeAlias": "misreader",
+      "geometry": {
+        "type": "quadratic_bezier",
+        "parameters": {
+          "p0": [
+            0.18,
+            0.08
+          ],
+          "p1": [
+            0.86,
+            0.42
+          ],
+          "p2": [
+            0.28,
+            1.04
+          ],
+          "widthPx": 11
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 860,
+          "charge": 220,
+          "grow": 172,
+          "live": 940,
+          "shutdown": 180,
+          "residue": 660
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "sampled_bezier_capsules",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 860,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "curve_inside",
+        "minimumWidthPx": 22,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "misreader_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.twin_offset_arcs",
+      "bossId": "boss.misregistered_twin_moons",
+      "aliases": [
+        "misregistered_twin_moons"
+      ],
+      "narrativeAlias": "misregistered_twin_moons",
+      "geometry": {
+        "type": "twin_arcs",
+        "parameters": {
+          "centers": [
+            [
+              0.43,
+              0.38
+            ],
+            [
+              0.57,
+              0.42
+            ]
+          ],
+          "radiiPx": [
+            126,
+            148
+          ],
+          "startDeg": 18,
+          "endDeg": 162,
+          "widthPx": 9
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 905,
+          "charge": 230,
+          "grow": 180,
+          "live": 995,
+          "shutdown": 180,
+          "residue": 695
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "arc_capsule_union",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 905,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "arc_intersection",
+        "minimumWidthPx": 26,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "misregistered_twin_moons_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.binary_shutter_grid",
+      "bossId": "boss.no_dusk",
+      "aliases": [
+        "no_dusk"
+      ],
+      "narrativeAlias": "no_dusk",
+      "geometry": {
+        "type": "orthogonal_shutter_grid",
+        "parameters": {
+          "verticalX": [
+            0.22,
+            0.5,
+            0.78
+          ],
+          "horizontalY": [
+            0.36,
+            0.62
+          ],
+          "phasePeriodMs": 1200,
+          "widthPx": 8
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 950,
+          "charge": 240,
+          "grow": 188,
+          "live": 1050,
+          "shutdown": 180,
+          "residue": 730
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "timed_segment_grid",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 950,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "open_cell",
+        "minimumWidthPx": 30,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "no_dusk_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    },
+    {
+      "id": "laser.broken_iris_cone",
+      "bossId": "boss.absolute_reader",
+      "aliases": [
+        "absolute_reader"
+      ],
+      "narrativeAlias": "absolute_reader",
+      "geometry": {
+        "type": "broken_iris_cone",
+        "parameters": {
+          "origin": [
+            0.5,
+            0.1
+          ],
+          "innerRadiusPx": 36,
+          "outerRadiusPx": 620,
+          "startDeg": 58,
+          "endDeg": 122,
+          "missingSectorDeg": 18
+        },
+        "coordinateSpace": "viewport-normalized-plus-logical-px"
+      },
+      "lifecycle": {
+        "states": [
+          "idle",
+          "telegraph",
+          "charge",
+          "grow",
+          "live",
+          "shutdown",
+          "residue",
+          "idle"
+        ],
+        "timingMs": {
+          "telegraph": 995,
+          "charge": 250,
+          "grow": 196,
+          "live": 1105,
+          "shutdown": 180,
+          "residue": 765
+        },
+        "collisionEnable": "live.enter",
+        "collisionDisable": "shutdown.enter",
+        "largeDeltaDispatch": "all-crossed-events-once"
+      },
+      "collision": {
+        "primitive": "annular_sector_minus_wedge",
+        "sampleTolerancePx": 1.5,
+        "authority": "gameplay",
+        "visualAlphaIgnored": true
+      },
+      "warning": {
+        "geometry": "exact_swept_union",
+        "leadMs": 995,
+        "coversGrowth": true,
+        "flashIndependent": true
+      },
+      "safeOpening": {
+        "type": "scar_wedge",
+        "minimumWidthPx": 34,
+        "includedInWarning": true
+      },
+      "cancel": {
+        "collisionOffBeforeVisual": true,
+        "toResidue": "absolute_reader_laser_slag"
+      },
+      "reducedMotion": {
+        "gameplayTimingUnchanged": true,
+        "replaceScrollWithPhaseSteps": true
+      }
+    }
+  ]
+}

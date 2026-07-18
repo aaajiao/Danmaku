@@ -1,0 +1,2482 @@
+{
+  "schemaVersion": "4.0.0-motion-previews",
+  "source": "../../manifests/gameplay/gameplay-index-v4.json",
+  "authority": "QA preview only; gameplay geometry and time remain manifest-owned",
+  "patternCount": 48,
+  "bossSequenceCount": 8,
+  "patterns": [
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.information.stale_packet_retry",
+      "traceSha256": "d333c6345b0daf2a7edc079bb6a411b5393162df0831e3a7a65a40a53faf7822",
+      "sourceDurationMs": 9800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 136,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 689,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 689,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 4900,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 9100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 9380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 9800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--information--stale_packet_retry.gif",
+        "apng": "room--information--stale_packet_retry.apng",
+        "timeline": "room--information--stale_packet_retry.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.information.unanswered_fan",
+      "traceSha256": "b7208c32164c21408d4ed56b7b247f5155e2d0d81aaec9266236931d860909e2",
+      "sourceDurationMs": 10400,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 144,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 626,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 626,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5200,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 9700,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 9980,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10400,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--information--unanswered_fan.gif",
+        "apng": "room--information--unanswered_fan.apng",
+        "timeline": "room--information--unanswered_fan.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.information.notification_overflow",
+      "traceSha256": "d9ad3e8435e443a0316640e4dc1ec12b873876a1044aa0f6cca151293345d22d",
+      "sourceDurationMs": 11200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 156,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 566,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 566,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5600,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--information--notification_overflow.gif",
+        "apng": "room--information--notification_overflow.apng",
+        "timeline": "room--information--notification_overflow.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.information.missing_ack",
+      "traceSha256": "39f4bc403ede65ee740c192bf227083d2e540bd7c0241ea9aa02bb22d5bde632",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 729,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 729,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--information--missing_ack.gif",
+        "apng": "room--information--missing_ack.apng",
+        "timeline": "room--information--missing_ack.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.forced.left_right_gate",
+      "traceSha256": "206498146052977e8ef9b33eee70c30b90d3cc6e008a02dd151eaad901e370ab",
+      "sourceDurationMs": 10200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 142,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 729,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 729,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 9500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 9780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--forced--left_right_gate.gif",
+        "apng": "room--forced--left_right_gate.apng",
+        "timeline": "room--forced--left_right_gate.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.forced.unstable_middle",
+      "traceSha256": "81347bf9750e2eaa63b0022cd31f83ba7649176bdd6242af86b66a9900e4474a",
+      "sourceDurationMs": 11600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 161,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 594,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 594,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--forced--unstable_middle.gif",
+        "apng": "room--forced--unstable_middle.apng",
+        "timeline": "room--forced--unstable_middle.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.forced.ballot_shift",
+      "traceSha256": "379e1549676b8c5c05fc94dde57b3102b6bef483c90f16a3726b00c5cba68548",
+      "sourceDurationMs": 12000,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 167,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 591,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 591,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6000,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11300,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11580,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12000,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--forced--ballot_shift.gif",
+        "apng": "room--forced--ballot_shift.apng",
+        "timeline": "room--forced--ballot_shift.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.forced.crack_fall_loop",
+      "traceSha256": "6a5513089c2d6904b5a216e55debf744fecd14318fe2d55c2f08350a7a617171",
+      "sourceDurationMs": 11000,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 153,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 699,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 699,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5500,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10300,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10580,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11000,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--forced--crack_fall_loop.gif",
+        "apng": "room--forced--crack_fall_loop.apng",
+        "timeline": "room--forced--crack_fall_loop.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.in_between.context_switch",
+      "traceSha256": "7ab7e88069fc64a70ef35a97edc70fc8837fef4084c550de07f0b7abaf76a232",
+      "sourceDurationMs": 11400,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 158,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 726,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 726,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5700,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10700,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10980,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11400,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--in_between--context_switch.gif",
+        "apng": "room--in_between--context_switch.apng",
+        "timeline": "room--in_between--context_switch.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.in_between.stable_intersection",
+      "traceSha256": "1f67b04f8dd22d84e645b1d2ef34f5aa55d34d3660b24b09285fce76839afc13",
+      "sourceDurationMs": 12400,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 172,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 682,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 682,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6200,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11700,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11980,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12400,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--in_between--stable_intersection.gif",
+        "apng": "room--in_between--stable_intersection.apng",
+        "timeline": "room--in_between--stable_intersection.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.in_between.misregistration_corridor",
+      "traceSha256": "67d3fb82ff95bd7d44df46fa59a227bc98192a18657a05cb2f1fb0bf26d38974",
+      "sourceDurationMs": 10600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 147,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 747,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 747,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5300,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 9900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--in_between--misregistration_corridor.gif",
+        "apng": "room--in_between--misregistration_corridor.apng",
+        "timeline": "room--in_between--misregistration_corridor.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.in_between.borrowed_rule",
+      "traceSha256": "5fc64f716df0e0f6c86aa7c508499684bd3f8d059ed9d15c3cf24a82072193af",
+      "sourceDurationMs": 11800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 164,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 597,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 597,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5900,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--in_between--borrowed_rule.gif",
+        "apng": "room--in_between--borrowed_rule.apng",
+        "timeline": "room--in_between--borrowed_rule.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.polarized.clock_decree",
+      "traceSha256": "a19233258eda2478fb1f38600a861698595cc74f8a869cde30a2fdc7e75c5bc2",
+      "sourceDurationMs": 10000,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 139,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 576,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 576,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5000,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 9300,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 9580,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10000,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--polarized--clock_decree.gif",
+        "apng": "room--polarized--clock_decree.apng",
+        "timeline": "room--polarized--clock_decree.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.polarized.hard_cut_corridor",
+      "traceSha256": "ac16a9099aa00414bf3132c4de94b8c2291e30bff53b364b7d28648ed5adf7ab",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 693,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 693,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--polarized--hard_cut_corridor.gif",
+        "apng": "room--polarized--hard_cut_corridor.apng",
+        "timeline": "room--polarized--hard_cut_corridor.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.polarized.alternating_verdict",
+      "traceSha256": "e7150a16bcb550e98f4a1014197c706681511328c0694bcc4b60029a21ad4040",
+      "sourceDurationMs": 11600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 161,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 547,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 547,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--polarized--alternating_verdict.gif",
+        "apng": "room--polarized--alternating_verdict.apng",
+        "timeline": "room--polarized--alternating_verdict.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "room.polarized.no_dusk_grid",
+      "traceSha256": "46e9b3e3f7ea6a0151a6542e1c49d5014b6ed9ac396bdc88d2669b508704be9b",
+      "sourceDurationMs": 12200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 169,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 551,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 551,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "room--polarized--no_dusk_grid.gif",
+        "apng": "room--polarized--no_dusk_grid.apng",
+        "timeline": "room--polarized--no_dusk_grid.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "common.graze_calibration",
+      "traceSha256": "81e027e76e4f5207736a946e47285c86957d28160682e8a3fccc18c282b26bc1",
+      "sourceDurationMs": 7200,
+      "previewFrameCount": 58,
+      "previewFrameDurationMs": 124,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 602,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 602,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 3600,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 6500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 6780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 7200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "common--graze_calibration.gif",
+        "apng": "common--graze_calibration.apng",
+        "timeline": "common--graze_calibration.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "common.eye_acquisition",
+      "traceSha256": "403c020b34d297735054a23c916545d7087e7b5a8448eedadaf9244fd22998e8",
+      "sourceDurationMs": 8600,
+      "previewFrameCount": 69,
+      "previewFrameDurationMs": 125,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 601,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 601,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 4300,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 7900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 8180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 8600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "common--eye_acquisition.gif",
+        "apng": "common--eye_acquisition.apng",
+        "timeline": "common--eye_acquisition.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "transition.room_threshold",
+      "traceSha256": "6bec07f9bd99ab32a22b24ddc3430585a64efe5938a3a9ccdc08e78b935b56ce",
+      "sourceDurationMs": 7800,
+      "previewFrameCount": 63,
+      "previewFrameDurationMs": 124,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 737,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 737,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 3900,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 7100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 7380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 7800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "transition--room_threshold.gif",
+        "apng": "transition--room_threshold.apng",
+        "timeline": "transition--room_threshold.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "encounter.weather_echo.rain_packets",
+      "traceSha256": "7b06077a74f83e03cf323b757a7e7bd65fa4267b038ea036519d96e0bd8a2f2f",
+      "sourceDurationMs": 9400,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 131,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 742,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 742,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 4700,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 8700,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 8980,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 9400,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "encounter--weather_echo--rain_packets.gif",
+        "apng": "encounter--weather_echo--rain_packets.apng",
+        "timeline": "encounter--weather_echo--rain_packets.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "encounter.weather_echo.ash_memory",
+      "traceSha256": "b7f7ef27613264f2846ab8e9a9da40d187be1bd40d182b8a397bedbda1a0fea2",
+      "sourceDurationMs": 10200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 142,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 759,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 759,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 9500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 9780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "encounter--weather_echo--ash_memory.gif",
+        "apng": "encounter--weather_echo--ash_memory.apng",
+        "timeline": "encounter--weather_echo--ash_memory.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "encounter.weather_echo.wind_bias",
+      "traceSha256": "add7058e5fe702c450de862f1de165fbe7a1c18f377d41f905afca9193b8d4e8",
+      "sourceDurationMs": 9600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 133,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 578,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 578,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 4800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 8900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 9180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 9600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "encounter--weather_echo--wind_bias.gif",
+        "apng": "encounter--weather_echo--wind_bias.apng",
+        "timeline": "encounter--weather_echo--wind_bias.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "transition.dusk_settle",
+      "traceSha256": "a43cfb4d9d4abf90dcdf6f4f2600130ea553b86cea0d6124862f6f7fd19cc2c7",
+      "sourceDurationMs": 8200,
+      "previewFrameCount": 66,
+      "previewFrameDurationMs": 124,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 554,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 554,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 4100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 7500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 7780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 8200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "transition--dusk_settle.gif",
+        "apng": "transition--dusk_settle.apng",
+        "timeline": "transition--dusk_settle.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "transition.override_void",
+      "traceSha256": "ec886f7e105b9a7833a786526f67cbe584de07a334d7a79872e8f3ac15ac4097",
+      "sourceDurationMs": 7600,
+      "previewFrameCount": 61,
+      "previewFrameDurationMs": 125,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 694,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 694,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 3800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 6900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 7180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 7600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "transition--override_void.gif",
+        "apng": "transition--override_void.apng",
+        "timeline": "transition--override_void.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.absent_receiver.phase1",
+      "traceSha256": "2c2e6cfcc901f10b216433eb7f54a23508de458d4d28ee95dfe2b40d1cdadf59",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 773,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 773,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--absent_receiver--phase1.gif",
+        "apng": "boss--absent_receiver--phase1.apng",
+        "timeline": "boss--absent_receiver--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.absent_receiver.phase2",
+      "traceSha256": "f7423722f79c007aec48ba8e185e98aeba5f94433deb11ccd761bed396c292fa",
+      "sourceDurationMs": 11500,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 160,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 627,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 627,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5750,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10800,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11080,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11500,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--absent_receiver--phase2.gif",
+        "apng": "boss--absent_receiver--phase2.apng",
+        "timeline": "boss--absent_receiver--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.absent_receiver.phase3",
+      "traceSha256": "61c0c91a2ea40a88a836bf5ebcc90328afe75361d3a35e7f6175ca3dfecb06f5",
+      "sourceDurationMs": 12200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 169,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 699,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 699,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--absent_receiver--phase3.gif",
+        "apng": "boss--absent_receiver--phase3.apng",
+        "timeline": "boss--absent_receiver--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.unanswering_feed.phase1",
+      "traceSha256": "50a6f00ac5bfa85303926a10d866bff55f99229fd6214144d0116a2ed4a4578f",
+      "sourceDurationMs": 12900,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 179,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 670,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 670,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6450,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12200,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 12480,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12900,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--unanswering_feed--phase1.gif",
+        "apng": "boss--unanswering_feed--phase1.apng",
+        "timeline": "boss--unanswering_feed--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.unanswering_feed.phase2",
+      "traceSha256": "bf159e174843fafd5d89aa861a7a0d43e479ba6d51575867ca2dc4ec2d05ad71",
+      "sourceDurationMs": 13600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 189,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 639,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 639,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 13180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 13600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--unanswering_feed--phase2.gif",
+        "apng": "boss--unanswering_feed--phase2.apng",
+        "timeline": "boss--unanswering_feed--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.unanswering_feed.phase3",
+      "traceSha256": "f12b8f22c17a30d81b0eef6ffd8e21d912fa7cc88488bc426576bbab5bc47cf2",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 778,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 778,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--unanswering_feed--phase3.gif",
+        "apng": "boss--unanswering_feed--phase3.apng",
+        "timeline": "boss--unanswering_feed--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.one_sun_one_rule.phase1",
+      "traceSha256": "7597dcb8e2b9fc3c334c0d25158c10bb0106f45a4647064ccec80732c54676e7",
+      "sourceDurationMs": 11500,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 160,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 669,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 669,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5750,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10800,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11080,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11500,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--one_sun_one_rule--phase1.gif",
+        "apng": "boss--one_sun_one_rule--phase1.apng",
+        "timeline": "boss--one_sun_one_rule--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.one_sun_one_rule.phase2",
+      "traceSha256": "fc6b474a41a6b00b536cb565e7515dbbc30382d069efb4f8b02a531bcc2dac66",
+      "sourceDurationMs": 12200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 169,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 599,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 599,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--one_sun_one_rule--phase2.gif",
+        "apng": "boss--one_sun_one_rule--phase2.apng",
+        "timeline": "boss--one_sun_one_rule--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.one_sun_one_rule.phase3",
+      "traceSha256": "12565940ca7335735bc8c91e9f9e702ef2feb49226f07e31befd15df68bfbfdb",
+      "sourceDurationMs": 12900,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 179,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 555,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 555,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6450,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12200,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 12480,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12900,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--one_sun_one_rule--phase3.gif",
+        "apng": "boss--one_sun_one_rule--phase3.apng",
+        "timeline": "boss--one_sun_one_rule--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.two_claims.phase1",
+      "traceSha256": "0413d7a2e7af2c0c929f4e31a71a625b6160d49652c7f16b7b4b57db25a058d8",
+      "sourceDurationMs": 13600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 189,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 671,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 671,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 13180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 13600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--two_claims--phase1.gif",
+        "apng": "boss--two_claims--phase1.apng",
+        "timeline": "boss--two_claims--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.two_claims.phase2",
+      "traceSha256": "592a4e4fac397976d195907a02ae8b9dcf56c4464c2d8c98f1b1fa489a20284e",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 712,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 712,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--two_claims--phase2.gif",
+        "apng": "boss--two_claims--phase2.apng",
+        "timeline": "boss--two_claims--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.two_claims.phase3",
+      "traceSha256": "49995092410129e0669cf0f1293798a822faa1530532a9c891dcea6f8d9b1070",
+      "sourceDurationMs": 11500,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 160,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 705,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 705,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5750,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10800,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11080,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11500,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--two_claims--phase3.gif",
+        "apng": "boss--two_claims--phase3.apng",
+        "timeline": "boss--two_claims--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.misreader.phase1",
+      "traceSha256": "7ab76bc03573401f5f927c29d77d5c2a76ff4872408e9ddf795a376b9ec399b0",
+      "sourceDurationMs": 12200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 169,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 752,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 752,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--misreader--phase1.gif",
+        "apng": "boss--misreader--phase1.apng",
+        "timeline": "boss--misreader--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.misreader.phase2",
+      "traceSha256": "083b96c6f122b6b7d2945e32bedf40c67c185df111a31d6314df1c875a182ba8",
+      "sourceDurationMs": 12900,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 179,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 620,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 620,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6450,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12200,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 12480,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12900,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--misreader--phase2.gif",
+        "apng": "boss--misreader--phase2.apng",
+        "timeline": "boss--misreader--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.misreader.phase3",
+      "traceSha256": "98084bd9d619b2689a106be67048202e3d3ab672585c57321c73aa21024a6969",
+      "sourceDurationMs": 13600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 189,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 670,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 670,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 13180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 13600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--misreader--phase3.gif",
+        "apng": "boss--misreader--phase3.apng",
+        "timeline": "boss--misreader--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.misregistered_twin_moons.phase1",
+      "traceSha256": "dc62b07149ffe60f2cf3ec922379913373e47c6e03b34c3cab4adc7a1bb8cada",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 757,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 757,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--misregistered_twin_moons--phase1.gif",
+        "apng": "boss--misregistered_twin_moons--phase1.apng",
+        "timeline": "boss--misregistered_twin_moons--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.misregistered_twin_moons.phase2",
+      "traceSha256": "deb200be094b18ddfa5552439175f65f9fa7b703fac2ab785b78218a89b6cfb6",
+      "sourceDurationMs": 11500,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 160,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 707,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 707,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5750,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10800,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11080,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11500,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--misregistered_twin_moons--phase2.gif",
+        "apng": "boss--misregistered_twin_moons--phase2.apng",
+        "timeline": "boss--misregistered_twin_moons--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.misregistered_twin_moons.phase3",
+      "traceSha256": "02093fa501e15ecfb93c1d5f74ebc2c67f36344a778d3fe123b095c727080942",
+      "sourceDurationMs": 12200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 169,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 598,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 598,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--misregistered_twin_moons--phase3.gif",
+        "apng": "boss--misregistered_twin_moons--phase3.apng",
+        "timeline": "boss--misregistered_twin_moons--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.no_dusk.phase1",
+      "traceSha256": "bcbccf142ed2761e3fabae6c5251a33ff9533bd12efdca7f1fb3f46dcebc0eb7",
+      "sourceDurationMs": 12900,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 179,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 577,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 577,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6450,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12200,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 12480,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12900,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--no_dusk--phase1.gif",
+        "apng": "boss--no_dusk--phase1.apng",
+        "timeline": "boss--no_dusk--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.no_dusk.phase2",
+      "traceSha256": "be22e960e8d7e965095ab82e03fe0c21595f658e644fa8c159fe5c72cbfbf83d",
+      "sourceDurationMs": 13600,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 189,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 707,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 707,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6800,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12900,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 13180,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 13600,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--no_dusk--phase2.gif",
+        "apng": "boss--no_dusk--phase2.apng",
+        "timeline": "boss--no_dusk--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.no_dusk.phase3",
+      "traceSha256": "6130325debdeab638b52132b25e05b5067535186f575a52b4a3d4b2c05b3de80",
+      "sourceDurationMs": 10800,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 150,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 772,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 772,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5400,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10100,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 10380,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 10800,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--no_dusk--phase3.gif",
+        "apng": "boss--no_dusk--phase3.apng",
+        "timeline": "boss--no_dusk--phase3.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.absolute_reader.phase1",
+      "traceSha256": "3f9892a1b022f4f6675df8a522c9cf9b3a431e1f8d04450544a87a27d77eae1b",
+      "sourceDurationMs": 11500,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 160,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 543,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 543,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 5750,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 10800,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11080,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 11500,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--absolute_reader--phase1.gif",
+        "apng": "boss--absolute_reader--phase1.apng",
+        "timeline": "boss--absolute_reader--phase1.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.absolute_reader.phase2",
+      "traceSha256": "1cf97018fcb0ad27d85d13116a0facc23db6f8b44fd94323efecc9cfed0fe43b",
+      "sourceDurationMs": 12200,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 169,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 582,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 582,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6100,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 11500,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 11780,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12200,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--absolute_reader--phase2.gif",
+        "apng": "boss--absolute_reader--phase2.apng",
+        "timeline": "boss--absolute_reader--phase2.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-pattern-preview",
+      "patternId": "boss.absolute_reader.phase3",
+      "traceSha256": "fbbe440051424a9267119c8d47ec84f5baebf071888e715cacf0dc21953a6c9b",
+      "sourceDurationMs": 12900,
+      "previewFrameCount": 72,
+      "previewFrameDurationMs": 179,
+      "timeline": [
+        {
+          "atMs": 0,
+          "event": "warning.begin"
+        },
+        {
+          "atMs": 706,
+          "event": "collision.arm"
+        },
+        {
+          "atMs": 706,
+          "event": "emit.begin"
+        },
+        {
+          "atMs": 6450,
+          "event": "pattern.midpoint"
+        },
+        {
+          "atMs": 12200,
+          "event": "emit.end"
+        },
+        {
+          "atMs": 12480,
+          "event": "residue.commit"
+        },
+        {
+          "atMs": 12900,
+          "event": "pattern.complete"
+        }
+      ],
+      "files": {
+        "gif": "boss--absolute_reader--phase3.gif",
+        "apng": "boss--absolute_reader--phase3.apng",
+        "timeline": "boss--absolute_reader--phase3.timeline.json"
+      }
+    }
+  ],
+  "bossSequences": [
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.absent_receiver",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.absent_receiver",
+        "narrativeAlias": "absent_receiver",
+        "resolutionId": "RECEIVER_TIMED_OUT",
+        "metric": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+        "condition": "signalWindowsCompleted >= 3 && acknowledgements == 0",
+        "fact": "No valid acknowledgement returned during three signal windows.",
+        "terminal": "boss.protocol.withdraw",
+        "terminalEvent": "boss.protocol.withdraw",
+        "materialRemainder": "three unlit receiver slots",
+        "playerPossibilities": [
+          "quiet passage",
+          "unanswered expression",
+          "mixed signal"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.absent_receiver.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "09c96d7253561b5068d1dd5da182fc39d9746f6c7bae732d72ed7082e0b6a6ac"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.absent_receiver.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "7a49f3e97244070017b6fa6e54b215c8f6f045edf3eb24847e844fc116c4f387"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.absent_receiver.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "be36405df5c1e023a0aed85460da743a2ee6aa26a5678d7a57f154bb598fc39f"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--absent_receiver.gif",
+        "apng": "boss--absent_receiver.apng",
+        "timeline": "boss--absent_receiver.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.unanswering_feed",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.unanswering_feed",
+        "narrativeAlias": "unanswering_feed",
+        "resolutionId": "QUEUE_EXHAUSTED",
+        "metric": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+        "condition": "feedQueueRemaining == 0 && reciprocalChannelOpened == false",
+        "fact": "The feed emitted its queue and received no reciprocal channel.",
+        "terminal": "boss.feed.drain",
+        "terminalEvent": "boss.feed.drain",
+        "materialRemainder": "stale packet column",
+        "playerPossibilities": [
+          "survive queue",
+          "cancel local packets",
+          "leave packets untouched"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.unanswering_feed.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "550e5cf96195f5f2604027d4b756a72dc653a84cd01e4a8db140c12dd64bf2d2"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.unanswering_feed.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "9c57c4c531b4066160e0683d5d7028a85ecaf7cf6183b0c1bad504e296c2ef7a"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.unanswering_feed.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "cfdef69cd0bbd6d7b02a8c64a5964fa42c592b8d6f7a49548d736bfacdb7cf79"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--unanswering_feed.gif",
+        "apng": "boss--unanswering_feed.apng",
+        "timeline": "boss--unanswering_feed.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.one_sun_one_rule",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.one_sun_one_rule",
+        "narrativeAlias": "one_sun_one_rule",
+        "resolutionId": "RULE_INTERRUPTED_BY_SCAR",
+        "metric": "overrideScar.intersects(ruleShadowLine) == true",
+        "condition": "overrideScar.intersects(ruleShadowLine) == true",
+        "fact": "A directional override scar crossed the single shadow correction line.",
+        "terminal": "boss.rule.correctionFailed",
+        "terminalEvent": "boss.rule.correctionFailed",
+        "materialRemainder": "one hard shadow that no longer aligns",
+        "playerPossibilities": [
+          "write scar",
+          "endure until withdrawal"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.one_sun_one_rule.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "7d12b777f215531d721e8f78ff8a534d59f83a86f6a9360ce49da47bf94f20f8"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.one_sun_one_rule.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "f1f847f6beb2cfb5ccdcce080a7227d06eecb5996e979867a31e99e39ef86827"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.one_sun_one_rule.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "efea4c9fa6ce5147a595c0d3e471930f848d40750625f20e3606c6f4115a512e"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--one_sun_one_rule.gif",
+        "apng": "boss--one_sun_one_rule.apng",
+        "timeline": "boss--one_sun_one_rule.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.two_claims",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.two_claims",
+        "narrativeAlias": "two_claims",
+        "resolutionId": "STABLE_INTERSECTION",
+        "metric": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+        "condition": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+        "fact": "The player occupied the overlap while both claims remained active.",
+        "terminal": "boss.claims.holdOpen",
+        "terminalEvent": "boss.claims.holdOpen",
+        "materialRemainder": "two edges sharing a small unclaimed notch",
+        "playerPossibilities": [
+          "hold overlap",
+          "alternate claims",
+          "rupture one claim"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.two_claims.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "18a8f0b1a21c03a71521959af054ceafab005c65620e7ab06174e2d3b9e51ee9"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.two_claims.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "40da43d775fa951b55532631605e912963417cfb30c9462109745ca0640c9eec"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.two_claims.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "dc1dfa3fe281926e0272a1328d808c47d355f4ef8048727ade36c83cfd25d279"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--two_claims.gif",
+        "apng": "boss--two_claims.apng",
+        "timeline": "boss--two_claims.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.misreader",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.misreader",
+        "narrativeAlias": "misreader",
+        "resolutionId": "READING_FAILED",
+        "metric": "completedReads >= 3 && predictionMismatchStreak >= 3",
+        "condition": "completedReads >= 3 && predictionMismatchStreak >= 3",
+        "fact": "Three completed reads disagreed with the player's following movement.",
+        "terminal": "boss.reader.releaseTarget",
+        "terminalEvent": "boss.reader.releaseTarget",
+        "materialRemainder": "misprinted route fragment",
+        "playerPossibilities": [
+          "change after snapshot lock",
+          "remain unreadably still",
+          "rupture aperture"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.misreader.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "de90a33aad7092433b1742e8de68c9c010eab24e97aad21eec9e251ce8aa4538"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.misreader.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "1bf752941f36d4d47cf0c56acf72ab10714433a17538f331e924fd2910f4c27a"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.misreader.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "1e2551127159d16012ae359ccb21da8060e792974a4659dea827ace1dea03383"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--misreader.gif",
+        "apng": "boss--misreader.apng",
+        "timeline": "boss--misreader.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.misregistered_twin_moons",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.misregistered_twin_moons",
+        "narrativeAlias": "misregistered_twin_moons",
+        "resolutionId": "SEAM_CROSSED_UNCLAIMED",
+        "metric": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+        "condition": "seamCrossed && moonClockDisagreement >= 0.35 && max(claimA, claimB) < 0.6",
+        "fact": "The seam was crossed during clock disagreement without either claim reaching authority.",
+        "terminal": "boss.moons.desynchronize",
+        "terminalEvent": "boss.moons.desynchronize",
+        "materialRemainder": "offset double edge at crossing point",
+        "playerPossibilities": [
+          "cross during disagreement",
+          "stabilize overlap",
+          "survive withdrawal"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.misregistered_twin_moons.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "ef4e877219ff441ff159a7a92379bfd45943640a1fa7309c09ad87d8b669ff54"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.misregistered_twin_moons.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "75a382eaa5af4566695c18749869431885468d863e3faeb670dcd3d5b9e41a29"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.misregistered_twin_moons.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "74b85d8733b0ee5059f9f0fe3a4b1b28baa15bc3051cc8da455d43c70891f8b5"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--misregistered_twin_moons.gif",
+        "apng": "boss--misregistered_twin_moons.apng",
+        "timeline": "boss--misregistered_twin_moons.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.no_dusk",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.no_dusk",
+        "narrativeAlias": "no_dusk",
+        "resolutionId": "NO_DUSK_WITHDRAWAL",
+        "metric": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+        "condition": "binaryClockCycles >= 8 && witnessWindowMs >= 12000",
+        "fact": "The binary clock completed its witness window and withdrew without representing twilight.",
+        "terminal": "boss.noDusk.protocolRetracted",
+        "terminalEvent": "boss.noDusk.protocolRetracted",
+        "materialRemainder": "half-changed cable and rectangular time wall residue",
+        "playerPossibilities": [
+          "persist through on/off time",
+          "hold middle light",
+          "interrupt one time wall"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.no_dusk.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "a98967729649181c7667ee0bdffd0f2032926cb93580666c8db79d92f1f0db19"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.no_dusk.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "67cdc0878bf44195dc9378fed3e1eaad60b050cd78a21972ab227f8faa57d98b"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.no_dusk.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "66ba7483beeeb77733cd79466796cd8012270a2b5ee57e4c5e98376e6e112d67"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--no_dusk.gif",
+        "apng": "boss--no_dusk.apng",
+        "timeline": "boss--no_dusk.timeline.json"
+      }
+    },
+    {
+      "schemaVersion": "4.0.0-boss-sequence-preview",
+      "bossId": "boss.absolute_reader",
+      "resolution": {
+        "source": "../../narrative/boss-resolutions-v4.json",
+        "canonicalBossId": "boss.absolute_reader",
+        "narrativeAlias": "absolute_reader",
+        "resolutionId": "ABSOLUTE_READER_INCOMPLETE",
+        "metric": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+        "condition": "readLedger.closed && readLedger.unclassifiedIntervals >= 1",
+        "fact": "The Eye's read ledger closed with at least one interval remaining unclassified.",
+        "terminal": "boss.eye.readLedgerClose",
+        "terminalEvent": "boss.eye.readLedgerClose",
+        "materialRemainder": "broken read ring with one blank interval",
+        "playerPossibilities": [
+          "alternate expression and focus",
+          "use directional scar occlusion",
+          "inhabit stable middle band"
+        ]
+      },
+      "phaseRows": [
+        {
+          "phaseId": "observe",
+          "patternId": "boss.absolute_reader.phase1",
+          "startFrame": 0,
+          "frameCount": 32,
+          "traceSha256": "814b5b66622e1bf3e990e4e57fc9211a4b6c795334b618da68c0b1b7bda51fa5"
+        },
+        {
+          "phaseId": "enforce",
+          "patternId": "boss.absolute_reader.phase2",
+          "startFrame": 32,
+          "frameCount": 32,
+          "traceSha256": "ed8d133928a34f6e5e97bf23df737e9dbb6b4e7d99b480e682a498cbb4b8ffb4"
+        },
+        {
+          "phaseId": "fail_to_totalize",
+          "patternId": "boss.absolute_reader.phase3",
+          "startFrame": 64,
+          "frameCount": 32,
+          "traceSha256": "abcd20713e31b236b2080d90ccbf9efad6e435f7ee9755917ed5e4deb0fdd671"
+        }
+      ],
+      "previewFrameCount": 96,
+      "files": {
+        "gif": "boss--absolute_reader.gif",
+        "apng": "boss--absolute_reader.apng",
+        "timeline": "boss--absolute_reader.timeline.json"
+      }
+    }
+  ],
+  "artifactValidation": {
+    "status": "PASS",
+    "patternRows": 48,
+    "patternArtifacts": 144,
+    "bossRows": 8,
+    "bossArtifacts": 24,
+    "errors": []
+  }
+}

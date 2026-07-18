@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 7,
+  "states": [
+    {
+      "semanticId": "memory.override_scar",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.death_trace",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.burnin",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.ghost_residue",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.scar_rehydrate",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.witness_turn",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.input_return_gap",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "memory.material_archive",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

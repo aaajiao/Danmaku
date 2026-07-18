@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.polarized.alternating_verdict",
+  "traceSha256": "e7150a16bcb550e98f4a1014197c706681511328c0694bcc4b60029a21ad4040",
+  "sourceDurationMs": 11600,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 161,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 547,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 547,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5800,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--polarized--alternating_verdict.gif",
+    "apng": "room--polarized--alternating_verdict.apng",
+    "timeline": "room--polarized--alternating_verdict.timeline.json"
+  }
+}

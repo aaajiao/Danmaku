@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.misregistered_twin_moons.phase3",
+  "traceSha256": "02093fa501e15ecfb93c1d5f74ebc2c67f36344a778d3fe123b095c727080942",
+  "sourceDurationMs": 12200,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 169,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 598,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 598,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6100,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 11500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 12200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--misregistered_twin_moons--phase3.gif",
+    "apng": "boss--misregistered_twin_moons--phase3.apng",
+    "timeline": "boss--misregistered_twin_moons--phase3.timeline.json"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "4.0.0-narrative-manifest",
+  "id": "1bit.v4.narrative-world-feedback",
+  "philosophy": ["behavior-over-icon", "non-judgemental-observation", "digital-material-double-helix", "subtractive-interface", "no-monoculture-ending"],
+  "canonicalFiles": {
+    "stateMachine": "narrative/narrative-state-machine-v4.json",
+    "worldReactionGraph": "narrative/world-reaction-graph-v4.json",
+    "roomThresholds": "narrative/room-thresholds-v4.json",
+    "weather": "narrative/weather-system-v4.json",
+    "bossResolutions": "narrative/boss-resolutions-v4.json",
+    "snapshotObservations": "narrative/snapshot-observations-v4.json",
+    "runMemorySchema": "manifests/narrative/run-memory-v4.schema.json",
+    "runMemoryExample": "manifests/narrative/sample-run-memory-v4.json",
+    "ghostReplay": "manifests/narrative/ghost-replay-contract-v4.json",
+    "witnessConditions": "manifests/narrative/witness-conditions-v4.json",
+    "uiLayouts": "manifests/narrative/ui-layouts-v4.json",
+    "uiCopy": "manifests/narrative/ui-copy-v4.json",
+    "feedbackCues": "manifests/narrative/feedback-cues-v4.json",
+    "audio": "manifests/narrative/audio-manifest-v4.json"
+  },
+  "inventory": {
+    "narrativeStates": 16,
+    "worldReactionNodes": 13,
+    "roomThresholds": 16,
+    "weatherTypes": 5,
+    "bossResolutionContracts": 8,
+    "snapshotObservationsBilingual": 64,
+    "materialMemoryClasses": 4,
+    "witnessStates": 7,
+    "feedbackCues": 37,
+    "audioAssets": {"roomBeds": 4, "bossSignals": 8, "sfx": 36, "total": 48}
+  },
+  "integrationOrder": [
+    "run-memory-v4.schema.json",
+    "narrative-state-machine-v4.json",
+    "room-thresholds-v4.json",
+    "world-reaction-graph-v4.json",
+    "ghost-replay-contract-v4.json",
+    "witness-conditions-v4.json",
+    "boss-resolutions-v4.json",
+    "weather-system-v4.json",
+    "feedback-cues-v4.json",
+    "audio-manifest-v4.json",
+    "ui-layouts-v4.json",
+    "snapshot-observations-v4.json"
+  ],
+  "validation": {
+    "command": "python -B narrative/validate_narrative_v4.py",
+    "expected": "0 failures",
+    "report": "narrative/VALIDATION_REPORT_V4_ZH.md"
+  }
+}

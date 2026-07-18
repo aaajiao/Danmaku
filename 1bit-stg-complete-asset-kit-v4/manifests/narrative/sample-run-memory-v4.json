@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "4.0.0-run-memory",
+  "run": {
+    "id": "run-v4-0008",
+    "seed": 4088,
+    "startedAtTick": 0,
+    "endedAtTick": 27720,
+    "durationMs": 462000,
+    "roomsVisited": ["INFORMATION", "FORCED_ALIGNMENT", "IN_BETWEEN", "POLARIZED"]
+  },
+  "metrics": {
+    "meanLight": 0.47,
+    "quietLightRatio": 0.21,
+    "middleLightRatio": 0.58,
+    "loudLightRatio": 0.21,
+    "lightBandChanges": 21,
+    "gazeRatio": 0.34,
+    "gazeClampCount": 4,
+    "gazeAcquireCount": 11,
+    "gazeStillMaxMs": 2280,
+    "incompleteReads": 2,
+    "readPredictionMismatchStreak": 3,
+    "focusDwellRatio": 0.31,
+    "focusEntryCount": 15,
+    "focusReleaseBeforeImpactCount": 4,
+    "grazeEvidenceCount": 28,
+    "grazeEvidenceSpent": 28,
+    "uniqueBulletsGrazed": 28,
+    "overrideCount": 2,
+    "overrideDirectionUniqueCount": 2,
+    "overrideDuringGazeCount": 1,
+    "overrideScarRuleIntersections": 1,
+    "witnessResistanceTransmissionCount": 1,
+    "damageCount": 1,
+    "seamDwellRatio": 0.29,
+    "seamCrossings": 7,
+    "fallResetCount": 1,
+    "stableIntersectionDwellMs": 6420,
+    "routeWidth": 0.72,
+    "distinctRoomsVisited": 4,
+    "roomReentries": 3,
+    "roomThresholdCrossings": 23,
+    "dominantRoom": "FORCED_ALIGNMENT",
+    "cableUploadEvents": 5,
+    "snapshotEchoCount": 2,
+    "witnessesTurnedDuringEclipse": 3,
+    "noDuskCycles": 8,
+    "roomTimeMs": {
+      "INFORMATION": 118000,
+      "FORCED_ALIGNMENT": 147000,
+      "IN_BETWEEN": 109000,
+      "POLARIZED": 88000
+    },
+    "weatherExposureMs": {
+      "STATIC": 6200,
+      "RAIN": 0,
+      "ASH": 13400,
+      "WIND": 8100,
+      "ECLIPSE": 7600
+    }
+  },
+  "resolution": {
+    "reason": "RULE_INTERRUPTED_BY_SCAR",
+    "bossId": "one_sun_one_rule",
+    "factEventId": "event-27218-rule-line-intersection"
+  },
+  "fingerprint": {
+    "seed": 290184,
+    "generator": "route×light×gaze×seam×weather×four-remainders",
+    "digestSha256": "09bc735981e38290fa34c2581809ae33a4a131198b6852c8cf6210d537f4d2a1",
+    "bitDepth": 1
+  },
+  "materialMemory": {
+    "overrideScars": [
+      {
+        "id": "override-scar-08-01",
+        "position": {"room": "FORCED_ALIGNMENT", "xNorm": 0.63, "yNorm": 0.41},
+        "direction8": "SW",
+        "localVoidRadiusPx": 34,
+        "createdAtTick": 18120,
+        "persistenceRuns": 3
+      }
+    ],
+    "deathTraces": [
+      {
+        "id": "death-trace-08-01",
+        "position": {"room": "IN_BETWEEN", "xNorm": 0.38, "yNorm": 0.72},
+        "damageVector": [-0.58, 0.81],
+        "createdAtTick": 23140,
+        "causeArchetype": "projectile.misread.turn_once"
+      }
+    ],
+    "burnIns": [
+      {
+        "id": "burn-in-08-01",
+        "room": "INFORMATION",
+        "captureDigest": "aaef735981e38290fa34c2581809ae33a4a131198b6852c8cf6210d537f4d2a",
+        "gazeStillMs": 2280,
+        "decayTicks": 420
+      }
+    ],
+    "ghostResidues": [
+      {
+        "id": "ghost-residue-07-01",
+        "position": {"room": "POLARIZED", "xNorm": 0.79, "yNorm": 0.21},
+        "sourceRouteDigest": "21ef735981e38290fa34c2581809ae33a4a131198b6852c8cf6210d537f4d2a",
+        "createdAfterReplay": true,
+        "persistenceRuns": 1
+      }
+    ]
+  },
+  "ghostRoute": {
+    "source": "ACTUAL_PLAYER_ROUTE",
+    "sampleIntervalMs": 120,
+    "quantization": "1/1024 logical extent",
+    "routeDigest": "bbef735981e38290fa34c2581809ae33a4a131198b6852c8cf6210d537f4d2a",
+    "replayCount": 1,
+    "collisionClass": "NONE",
+    "rewardClass": "NONE",
+    "points": [
+      {"tMs":0,"xNorm":0.14,"yNorm":0.82,"room":"INFORMATION","flower":0.31,"focus":false,"flags":["ROOM_ENTER"]},
+      {"tMs":120,"xNorm":0.22,"yNorm":0.76,"room":"INFORMATION","flower":0.42,"focus":false,"flags":[]},
+      {"tMs":240,"xNorm":0.31,"yNorm":0.78,"room":"INFORMATION","flower":0.55,"focus":true,"flags":["GRAZE"]},
+      {"tMs":360,"xNorm":0.40,"yNorm":0.65,"room":"FORCED_ALIGNMENT","flower":0.48,"focus":true,"flags":["ROOM_ENTER"]},
+      {"tMs":480,"xNorm":0.49,"yNorm":0.68,"room":"FORCED_ALIGNMENT","flower":0.46,"focus":false,"flags":["SEAM_CROSS"]},
+      {"tMs":600,"xNorm":0.57,"yNorm":0.59,"room":"IN_BETWEEN","flower":0.71,"focus":false,"flags":["ROOM_ENTER","GAZE"]},
+      {"tMs":720,"xNorm":0.66,"yNorm":0.62,"room":"IN_BETWEEN","flower":0.64,"focus":true,"flags":["DAMAGE"]},
+      {"tMs":840,"xNorm":0.76,"yNorm":0.49,"room":"POLARIZED","flower":0.82,"focus":false,"flags":["ROOM_ENTER","OVERRIDE"]},
+      {"tMs":960,"xNorm":0.86,"yNorm":0.53,"room":"POLARIZED","flower":0.51,"focus":false,"flags":[]}
+    ]
+  },
+  "witnessMemory": [
+    {"id":"wit-info-03","room":"INFORMATION","state":"RESONANT","facingTarget":"player","sourceFactIds":["event-0420-middle-band-held"]},
+    {"id":"wit-forced-01","room":"FORCED_ALIGNMENT","state":"FACING_SCAR","facingTarget":"override-scar-08-01","sourceFactIds":["event-18120-override-scar"]},
+    {"id":"wit-between-04","room":"IN_BETWEEN","state":"FACING_GHOST_END","facingTarget":"ghostRoute.finalPoint","sourceFactIds":["event-crossrun-ghost-complete"]}
+  ],
+  "snapshot": {
+    "observationIds": ["light.04", "override.08", "ending.05"],
+    "behaviorTags": ["MIDDLE_LIGHT", "HIGH_GAZE", "CRACK_DWELL", "LOCAL_RESISTANCE"]
+  },
+  "rehydrationOrder": ["overrideScars", "deathTraces", "burnIns", "ghostRoute", "ghostResidues", "witnessOrientation", "returnInput"]
+}

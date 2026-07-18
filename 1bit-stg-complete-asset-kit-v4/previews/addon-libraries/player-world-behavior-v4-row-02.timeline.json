@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 2,
+  "states": [
+    {
+      "semanticId": "graze.near_miss",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "evidence.grain",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "override.charge",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "override.directional_tear",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "override.local_void",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "override.scar_commit",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "override.sediment",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "override.recover",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.in_between.context_switch",
+  "traceSha256": "7ab7e88069fc64a70ef35a97edc70fc8837fef4084c550de07f0b7abaf76a232",
+  "sourceDurationMs": 11400,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 158,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 726,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 726,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5700,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10700,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10980,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11400,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--in_between--context_switch.gif",
+    "apng": "room--in_between--context_switch.apng",
+    "timeline": "room--in_between--context_switch.timeline.json"
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "schemaVersion": "3.0.0-qa-report",
+  "kitRoot": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3",
+  "manifestPaths": {
+    "animation": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/animation-clips.json",
+    "frames": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/frame-index-v3.json",
+    "static_frames": null,
+    "asset": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/asset-manifest-v3.json",
+    "static_asset": null,
+    "palette": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/palette.json",
+    "rigs": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/boss-rigs.json",
+    "lasers": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/laser-modules.json",
+    "effects": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/runtime-effects.json",
+    "qa_config": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/qa-config.json",
+    "visual_contract": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/visual-contract-v3.json",
+    "binding_graph": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/binding-graph.json",
+    "runtime_contract": "/Users/aaajiao/Documents/Codex/2026-07-17/sprite-sheet-texture-atlas/work/v3/kit/1bit-stg-complete-asset-kit-v3/manifests/v3/runtime-contract.json"
+  },
+  "summary": {
+    "error": 0,
+    "warning": 0,
+    "info": 0
+  },
+  "displayedSummary": {
+    "error": 0,
+    "warning": 0,
+    "info": 0
+  },
+  "suppressedByCode": {},
+  "metrics": {
+    "contract": {
+      "required": [
+        "animation",
+        "frames",
+        "palette-or-visual-contract",
+        "rigs",
+        "lasers",
+        "effects-or-binding-graph"
+      ],
+      "missing": [],
+      "clipCount": 41,
+      "frameCount": 256,
+      "atlasCount": 6
+    },
+    "palette": {
+      "targetColors": [
+        "#08090D",
+        "#17A7CA",
+        "#7851B7",
+        "#7D8087",
+        "#B7463C",
+        "#D6982B",
+        "#EFE9DA",
+        "#F02A92"
+      ],
+      "channelTolerance": 0,
+      "maxColorsPerCell": 4,
+      "inspectedCells": 256,
+      "unreadableCells": 0,
+      "cellsOverColorLimit": 0,
+      "cellsOffPalette": 0,
+      "cellColorCount": {
+        "min": 1,
+        "median": 4.0,
+        "max": 4
+      }
+    },
+    "semanticsAndPivots": {
+      "frames": 256,
+      "semanticIds": 256,
+      "missingSemanticIds": 0,
+      "duplicateSemanticIds": 0,
+      "invalidPivots": 0,
+      "clipsWithPivotDrift": 0
+    },
+    "duplicates": {
+      "exactFrameGroups": 0,
+      "normalizedFrameGroups": 0,
+      "clipsWithRepeatedFrames": 0,
+      "duplicateClipGroups": 0
+    },
+    "monotonicLifecycles": {
+      "tolerance": 0.03,
+      "checkedClips": 1,
+      "failedClips": 0,
+      "clips": {
+        "bullet.cancel": {
+          "direction": "decrease",
+          "alphaAreas": [
+            988,
+            982
+          ],
+          "violations": []
+        }
+      }
+    },
+    "eventGraph": {
+      "source": "explicit-binding-graph",
+      "nodes": 34,
+      "edges": 20,
+      "invalidEdges": 0,
+      "duplicateNodes": 0,
+      "cycles": [],
+      "policy": {
+        "forbidVisualToGameplayEdges": true,
+        "requireAcyclic": true
+      }
+    },
+    "reducedMotion": {
+      "clips": 41,
+      "clipsMissingRepresentation": 0,
+      "clipsMissingEventParityDeclaration": 0,
+      "clipsWithEventMismatch": 0,
+      "clipsWithDurationMismatch": 0,
+      "gameplayTimelineAuthority": true,
+      "clipsCoveredByGameplayTimelineAuthority": 30,
+      "effects": 8,
+      "effectsMissingContract": 0
+    },
+    "backgroundContrast": {
+      "requiredRatio": 3.0,
+      "requiredPassingFraction": 0.9,
+      "projectileFrames": 40,
+      "backgrounds": [
+        {
+          "background": "backgrounds/composites/information-gameplay.png",
+          "backgroundLuminance": {
+            "p10": 0.00276,
+            "median": 0.00276,
+            "p90": 0.32084
+          },
+          "projectiles": 40,
+          "contrast": {
+            "minimum": 1.0,
+            "median": 16.431,
+            "passingFraction": 0.95,
+            "requiredRatio": 3.0
+          }
+        },
+        {
+          "background": "backgrounds/composites/forced_choice-gameplay.png",
+          "backgroundLuminance": {
+            "p10": 0.00276,
+            "median": 0.00276,
+            "p90": 0.36927
+          },
+          "projectiles": 40,
+          "contrast": {
+            "minimum": 1.0,
+            "median": 16.431,
+            "passingFraction": 0.95,
+            "requiredRatio": 3.0
+          }
+        },
+        {
+          "background": "backgrounds/composites/in_between-gameplay.png",
+          "backgroundLuminance": {
+            "p10": 0.00276,
+            "median": 0.00276,
+            "p90": 0.21548
+          },
+          "projectiles": 40,
+          "contrast": {
+            "minimum": 1.0,
+            "median": 16.431,
+            "passingFraction": 0.95,
+            "requiredRatio": 3.0
+          }
+        },
+        {
+          "background": "backgrounds/composites/polarized-gameplay.png",
+          "backgroundLuminance": {
+            "p10": 0.00276,
+            "median": 0.00276,
+            "p90": 0.14774
+          },
+          "projectiles": 40,
+          "contrast": {
+            "minimum": 1.0,
+            "median": 16.431,
+            "passingFraction": 0.95,
+            "requiredRatio": 3.0
+          }
+        }
+      ]
+    }
+  },
+  "findings": []
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.misreader.phase2",
+  "traceSha256": "083b96c6f122b6b7d2945e32bedf40c67c185df111a31d6314df1c875a182ba8",
+  "sourceDurationMs": 12900,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 179,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 620,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 620,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6450,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 12200,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 12480,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 12900,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--misreader--phase2.gif",
+    "apng": "boss--misreader--phase2.apng",
+    "timeline": "boss--misreader--phase2.timeline.json"
+  }
+}

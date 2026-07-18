@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.two_claims",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.two_claims",
+    "narrativeAlias": "two_claims",
+    "resolutionId": "STABLE_INTERSECTION",
+    "metric": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+    "condition": "intersectionDwellMs >= 6000 && claimA.active && claimB.active",
+    "fact": "The player occupied the overlap while both claims remained active.",
+    "terminal": "boss.claims.holdOpen",
+    "terminalEvent": "boss.claims.holdOpen",
+    "materialRemainder": "two edges sharing a small unclaimed notch",
+    "playerPossibilities": [
+      "hold overlap",
+      "alternate claims",
+      "rupture one claim"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.two_claims.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "18a8f0b1a21c03a71521959af054ceafab005c65620e7ab06174e2d3b9e51ee9"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.two_claims.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "40da43d775fa951b55532631605e912963417cfb30c9462109745ca0640c9eec"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.two_claims.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "dc1dfa3fe281926e0272a1328d808c47d355f4ef8048727ade36c83cfd25d279"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--two_claims.gif",
+    "apng": "boss--two_claims.apng",
+    "timeline": "boss--two_claims.timeline.json"
+  }
+}

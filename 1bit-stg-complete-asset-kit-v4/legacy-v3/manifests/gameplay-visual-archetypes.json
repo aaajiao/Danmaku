@@ -1,0 +1,1213 @@
+{
+  "schemaVersion": "3.0.0",
+  "description": "Production bindings from visual semantics to a traditional vertical STG. Values are starting contracts, not hidden art meaning.",
+  "playerRig": {
+    "id": "player.self",
+    "logicalSize": 32,
+    "nodes": {
+      "core": {
+        "frame": "player.core.idle",
+        "anchor": [
+          0.5,
+          0.5
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ]
+      },
+      "optionLeft": {
+        "frame": "player.option.left",
+        "anchor": [
+          0.22,
+          0.56
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ]
+      },
+      "optionRight": {
+        "frame": "player.option.right",
+        "anchor": [
+          0.78,
+          0.56
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ]
+      },
+      "hitbox": {
+        "frame": "player.hitbox.offset_core",
+        "anchor": [
+          0.52,
+          0.58
+        ],
+        "pivot": [
+          0.5,
+          0.5
+        ],
+        "visibleWhen": "focus-or-debug"
+      }
+    },
+    "states": {
+      "idle": {
+        "coreFrame": "player.core.idle",
+        "optionOffset": [
+          0,
+          0
+        ]
+      },
+      "moveLeft": {
+        "integerOffset": [
+          -1,
+          0
+        ],
+        "optionOffset": [
+          -1,
+          1
+        ],
+        "bank": "shell-only-left"
+      },
+      "moveRight": {
+        "integerOffset": [
+          1,
+          0
+        ],
+        "optionOffset": [
+          1,
+          1
+        ],
+        "bank": "shell-only-right"
+      },
+      "focus": {
+        "clip": "player.focus",
+        "hitboxRadiusLogicalPx": 2.0
+      },
+      "fireTap": {
+        "muzzleFrame": "player.shot.tap"
+      },
+      "fireHold": {
+        "muzzleFrame": "player.shot.hold"
+      },
+      "override": {
+        "clip": "system.override.directional"
+      },
+      "hit": {
+        "clip": "player.causality.damage_to_trace"
+      },
+      "respawn": {
+        "clip": "player.return_with_history"
+      }
+    },
+    "collision": {
+      "type": "circle",
+      "anchor": [
+        0.52,
+        0.58
+      ],
+      "radiusLogicalPx": 3.0,
+      "focusRadiusLogicalPx": 2.0
+    },
+    "shotHardpoints": [
+      {
+        "id": "left",
+        "anchor": [
+          0.38,
+          0.34
+        ]
+      },
+      {
+        "id": "right",
+        "anchor": [
+          0.62,
+          0.34
+        ]
+      }
+    ]
+  },
+  "projectiles": {
+    "bullet.micro.notch_e": {
+      "id": "bullet.micro.notch_e",
+      "frame": "bullet.micro.notch_e",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.notch_ne": {
+      "id": "bullet.micro.notch_ne",
+      "frame": "bullet.micro.notch_ne",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.split": {
+      "id": "bullet.micro.split",
+      "frame": "bullet.micro.split",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.dash": {
+      "id": "bullet.micro.dash",
+      "frame": "bullet.micro.dash",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.thorn": {
+      "id": "bullet.micro.thorn",
+      "frame": "bullet.micro.thorn",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.shard": {
+      "id": "bullet.micro.shard",
+      "frame": "bullet.micro.shard",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.seed": {
+      "id": "bullet.micro.seed",
+      "frame": "bullet.micro.seed",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.micro.bit": {
+      "id": "bullet.micro.bit",
+      "frame": "bullet.micro.bit",
+      "family": "micro",
+      "logicalSize": 16,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 2.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        110,
+        280
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-micro",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.blade": {
+      "id": "bullet.medium.blade",
+      "frame": "bullet.medium.blade",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "capsule",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.droplet": {
+      "id": "bullet.medium.droplet",
+      "frame": "bullet.medium.droplet",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.packet": {
+      "id": "bullet.medium.packet",
+      "frame": "bullet.medium.packet",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.capsule": {
+      "id": "bullet.medium.capsule",
+      "frame": "bullet.medium.capsule",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.fork": {
+      "id": "bullet.medium.fork",
+      "frame": "bullet.medium.fork",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.leaf": {
+      "id": "bullet.medium.leaf",
+      "frame": "bullet.medium.leaf",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "capsule",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.bar": {
+      "id": "bullet.medium.bar",
+      "frame": "bullet.medium.bar",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "capsule",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "bullet.medium.diamond_void": {
+      "id": "bullet.medium.diamond_void",
+      "frame": "bullet.medium.diamond_void",
+      "family": "medium",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 4.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        70,
+        210
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-medium",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.wall_chunk": {
+      "id": "hazard.heavy.wall_chunk",
+      "frame": "hazard.heavy.wall_chunk",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": false,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.long_lance": {
+      "id": "hazard.heavy.long_lance",
+      "frame": "hazard.heavy.long_lance",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.twin_block": {
+      "id": "hazard.heavy.twin_block",
+      "frame": "hazard.heavy.twin_block",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.blade_mass": {
+      "id": "hazard.heavy.blade_mass",
+      "frame": "hazard.heavy.blade_mass",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.slash_bar": {
+      "id": "hazard.heavy.slash_bar",
+      "frame": "hazard.heavy.slash_bar",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": true,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.gate": {
+      "id": "hazard.heavy.gate",
+      "frame": "hazard.heavy.gate",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": false,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.column": {
+      "id": "hazard.heavy.column",
+      "frame": "hazard.heavy.column",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": false,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    },
+    "hazard.heavy.pressure_plate": {
+      "id": "hazard.heavy.pressure_plate",
+      "frame": "hazard.heavy.pressure_plate",
+      "family": "heavy",
+      "logicalSize": 64,
+      "collision": {
+        "type": "oriented-box",
+        "radiusLogicalPx": 8.0,
+        "authority": "gameplay-timeline",
+        "visualAlphaIgnored": true
+      },
+      "speedRangeLogicalPxPerSec": [
+        28,
+        120
+      ],
+      "rotatesToVelocity": false,
+      "poolClass": "enemy-projectile-heavy",
+      "cancelClip": "bullet.cancel",
+      "residueFrame": "utility.residue.patch",
+      "difficultyScaling": "count-and-gap-only; never color-only"
+    }
+  },
+  "enemies": {
+    "enemy.courier": {
+      "id": "enemy.courier",
+      "frame": "enemy.courier",
+      "roomAffinity": "INFORMATION",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.notch_e",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.memory.node"
+      ]
+    },
+    "enemy.clamp": {
+      "id": "enemy.clamp",
+      "frame": "enemy.clamp",
+      "roomAffinity": "INFORMATION",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.notch_ne",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.comparator": {
+      "id": "enemy.comparator",
+      "frame": "enemy.comparator",
+      "roomAffinity": "FORCED_CHOICE",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.split",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.warden": {
+      "id": "enemy.warden",
+      "frame": "enemy.warden",
+      "roomAffinity": "FORCED_CHOICE",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.dash",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.memory.node"
+      ]
+    },
+    "enemy.witness_drone": {
+      "id": "enemy.witness_drone",
+      "frame": "enemy.witness_drone",
+      "roomAffinity": "IN_BETWEEN",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.thorn",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.cable_biter": {
+      "id": "enemy.cable_biter",
+      "frame": "enemy.cable_biter",
+      "roomAffinity": "IN_BETWEEN",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.shard",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.echo_frame": {
+      "id": "enemy.echo_frame",
+      "frame": "enemy.echo_frame",
+      "roomAffinity": "POLARIZED",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.seed",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.memory.node"
+      ]
+    },
+    "enemy.seed_carrier": {
+      "id": "enemy.seed_carrier",
+      "frame": "enemy.seed_carrier",
+      "roomAffinity": "POLARIZED",
+      "logicalSize": 32,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 7,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.micro.bit",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.seam_walker": {
+      "id": "enemy.seam_walker",
+      "frame": "enemy.seam_walker",
+      "roomAffinity": "INFORMATION",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.blade",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.packet_moth": {
+      "id": "enemy.packet_moth",
+      "frame": "enemy.packet_moth",
+      "roomAffinity": "INFORMATION",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.droplet",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.memory.node"
+      ]
+    },
+    "enemy.fork_crab": {
+      "id": "enemy.fork_crab",
+      "frame": "enemy.fork_crab",
+      "roomAffinity": "FORCED_CHOICE",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.packet",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.residue_hound": {
+      "id": "enemy.residue_hound",
+      "frame": "enemy.residue_hound",
+      "roomAffinity": "FORCED_CHOICE",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.capsule",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.link_sentry": {
+      "id": "enemy.link_sentry",
+      "frame": "enemy.link_sentry",
+      "roomAffinity": "IN_BETWEEN",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.fork",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.memory.node"
+      ]
+    },
+    "enemy.asymmetric_twin": {
+      "id": "enemy.asymmetric_twin",
+      "frame": "enemy.asymmetric_twin",
+      "roomAffinity": "IN_BETWEEN",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.leaf",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.burnin_ghost": {
+      "id": "enemy.burnin_ghost",
+      "frame": "enemy.burnin_ghost",
+      "roomAffinity": "POLARIZED",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.62,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.bar",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.score.open_bit",
+        "pickup.power.fork"
+      ]
+    },
+    "enemy.archive_leecher": {
+      "id": "enemy.archive_leecher",
+      "frame": "enemy.archive_leecher",
+      "roomAffinity": "POLARIZED",
+      "logicalSize": 64,
+      "collision": {
+        "type": "circle",
+        "radiusLogicalPx": 13,
+        "damageTarget": true
+      },
+      "emitterAnchor": [
+        0.38,
+        0.68
+      ],
+      "forceDirection": "away-from-emitter",
+      "proceduralMotions": [
+        "enemy.hover",
+        "enemy.recoil"
+      ],
+      "defaultProjectile": "bullet.medium.diamond_void",
+      "terminalClip": "enemy.causality.damage_to_trace",
+      "drops": [
+        "pickup.memory.node"
+      ]
+    }
+  },
+  "patternTemplates": {
+    "information.packet_retry": {
+      "room": "INFORMATION",
+      "verbs": [
+        "emit",
+        "drop-slot",
+        "pause",
+        "retry-offset"
+      ],
+      "projectileFamilies": [
+        "micro",
+        "medium"
+      ],
+      "readabilityRule": "the missing slot persists for the whole retry group"
+    },
+    "information.stale_route": {
+      "room": "INFORMATION",
+      "verbs": [
+        "trace-old-path",
+        "hold",
+        "reroute"
+      ],
+      "projectileFamilies": [
+        "micro"
+      ],
+      "readabilityRule": "afterimage is visual-only and never collidable"
+    },
+    "forced_choice.twin_governors": {
+      "room": "FORCED_CHOICE",
+      "verbs": [
+        "clone-seed",
+        "apply-left-rule",
+        "apply-right-rule"
+      ],
+      "projectileFamilies": [
+        "medium"
+      ],
+      "readabilityRule": "same seed; different gaps; seam remains active"
+    },
+    "forced_choice.seam_denial": {
+      "room": "FORCED_CHOICE",
+      "verbs": [
+        "open-seam",
+        "warn",
+        "close-from-both-sides"
+      ],
+      "projectileFamilies": [
+        "heavy"
+      ],
+      "readabilityRule": "never imply that center is a permanent safe lane"
+    },
+    "in_between.dual_clock": {
+      "room": "IN_BETWEEN",
+      "verbs": [
+        "emit-a",
+        "delay",
+        "emit-b",
+        "intersect"
+      ],
+      "projectileFamilies": [
+        "micro",
+        "medium"
+      ],
+      "readabilityRule": "A and B poses are quantized separately"
+    },
+    "in_between.stable_intersection": {
+      "room": "IN_BETWEEN",
+      "verbs": [
+        "sample-a",
+        "sample-b",
+        "collide-only-at-intersection"
+      ],
+      "projectileFamilies": [
+        "medium"
+      ],
+      "readabilityRule": "visual jitter cannot move the gameplay intersection"
+    },
+    "polarized.binary_wall": {
+      "room": "POLARIZED",
+      "verbs": [
+        "telegraph",
+        "switch-on",
+        "hold",
+        "switch-off"
+      ],
+      "projectileFamilies": [
+        "heavy"
+      ],
+      "readabilityRule": "hard states only; no opacity tween"
+    },
+    "polarized.no_dusk": {
+      "room": "POLARIZED",
+      "verbs": [
+        "mirror",
+        "commit",
+        "scar-break"
+      ],
+      "projectileFamilies": [
+        "micro",
+        "heavy"
+      ],
+      "readabilityRule": "only the persisted player scar may break bilateral symmetry"
+    },
+    "global.aimed_notch": {
+      "room": "ANY",
+      "verbs": [
+        "sample-player",
+        "lock-direction",
+        "emit"
+      ],
+      "projectileFamilies": [
+        "micro"
+      ],
+      "readabilityRule": "directional void notch faces velocity"
+    },
+    "global.delayed_fan": {
+      "room": "ANY",
+      "verbs": [
+        "telegraph-gap",
+        "fan",
+        "hold-center-empty"
+      ],
+      "projectileFamilies": [
+        "micro",
+        "medium"
+      ],
+      "readabilityRule": "danger increases by density and closure, not hue"
+    },
+    "global.memory_echo": {
+      "room": "ANY",
+      "verbs": [
+        "read-path",
+        "delay",
+        "emit-from-history"
+      ],
+      "projectileFamilies": [
+        "micro"
+      ],
+      "readabilityRule": "historical trace remains non-collidable until explicit emit"
+    },
+    "boss.override_scar": {
+      "room": "ANY",
+      "verbs": [
+        "charge",
+        "tear",
+        "local-void",
+        "collision-off",
+        "scar-write",
+        "sediment"
+      ],
+      "projectileFamilies": [
+        "medium",
+        "heavy"
+      ],
+      "readabilityRule": "collision-off is gameplay-authoritative and precedes magenta write"
+    }
+  },
+  "poolBudgets": {
+    "enemy-projectile-micro": 1400,
+    "enemy-projectile-medium": 480,
+    "enemy-projectile-heavy": 96,
+    "enemy": 96,
+    "pickup": 160,
+    "visual-residue": 320
+  }
+}

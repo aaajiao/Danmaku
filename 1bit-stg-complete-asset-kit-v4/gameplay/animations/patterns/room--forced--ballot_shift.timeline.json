@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.forced.ballot_shift",
+  "traceSha256": "379e1549676b8c5c05fc94dde57b3102b6bef483c90f16a3726b00c5cba68548",
+  "sourceDurationMs": 12000,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 167,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 591,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 591,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6000,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 11300,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11580,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 12000,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--forced--ballot_shift.gif",
+    "apng": "room--forced--ballot_shift.apng",
+    "timeline": "room--forced--ballot_shift.timeline.json"
+  }
+}

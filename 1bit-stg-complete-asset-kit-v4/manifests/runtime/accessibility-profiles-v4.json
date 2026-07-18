@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "4.0.0",
+  "id": "1bit.accessibility-profiles.v4",
+  "gameplayEventTraceInvariant": true,
+  "axesAreOrthogonal": true,
+  "cartesianCombinationCount": 216,
+  "axes": {
+    "motion": {
+      "values": ["full", "reduced"],
+      "affects": ["camera-motion", "temporal-jitter", "transition-animation", "sprite-interpolation"],
+      "neverAffects": ["simulation-time", "hitbox", "projectile-path", "event-order"]
+    },
+    "flashing": {
+      "values": ["full", "reduced", "off"],
+      "affects": ["inversion-flash", "strobe-rate", "hard-flash"],
+      "offFallback": "steady-shape-and-luminance-boundary",
+      "reducedRateCapHz": 2,
+      "neverAffects": ["telegraph-duration", "damage-window", "event-time"]
+    },
+    "contrast": {
+      "values": ["room-authored", "high-separation", "softened"],
+      "affects": ["ink-paper-separation", "background-suppression", "outline-weight"],
+      "neverAffects": ["collision", "room-rule", "pattern-density"]
+    },
+    "notch": {
+      "values": ["standard", "reinforced"],
+      "affects": ["directional-notch-size", "hazard-shape-redundancy"],
+      "neverAffects": ["hitbox", "projectile-speed", "projectile-angle"]
+    },
+    "binaural": {
+      "values": ["spatial", "mono"],
+      "affects": ["forced-alignment-beat-routing", "spatial-event-pan"],
+      "monoFallback": "centered-amplitude-modulated-cue",
+      "neverAffects": ["seam-position", "room-state", "enemy-state"]
+    },
+    "haptics": {
+      "values": ["full", "reduced", "off"],
+      "affects": ["pulse-amplitude", "pulse-count"],
+      "neverAffects": ["input-acceptance", "override-charge", "gaze-acquire"]
+    }
+  },
+  "presets": {
+    "full": {
+      "motion": "full",
+      "flashing": "full",
+      "contrast": "room-authored",
+      "notch": "standard",
+      "binaural": "spatial",
+      "haptics": "full"
+    },
+    "reducedMotion": {
+      "motion": "reduced",
+      "flashing": "full",
+      "contrast": "room-authored",
+      "notch": "standard",
+      "binaural": "spatial",
+      "haptics": "full"
+    },
+    "flashOff": {
+      "motion": "full",
+      "flashing": "off",
+      "contrast": "room-authored",
+      "notch": "standard",
+      "binaural": "spatial",
+      "haptics": "full"
+    },
+    "maximumLegibility": {
+      "motion": "reduced",
+      "flashing": "off",
+      "contrast": "high-separation",
+      "notch": "reinforced",
+      "binaural": "mono",
+      "haptics": "reduced"
+    }
+  },
+  "requiredTraceParity": [
+    ["full", "reducedMotion"],
+    ["full", "flashOff"]
+  ]
+}

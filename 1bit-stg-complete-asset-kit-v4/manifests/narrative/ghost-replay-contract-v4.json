@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0-ghost-replay",
+  "id": "ghost.actual-route.once",
+  "capture": {
+    "source": "actual player transform after authoritative movement resolution",
+    "sampleIntervalMs": 120,
+    "eventPins": ["ROOM_ENTER", "SEAM_CROSS", "GAZE", "GRAZE", "DAMAGE", "OVERRIDE"],
+    "fields": ["tMs", "xNorm", "yNorm", "room", "flower", "focus", "flags"],
+    "quantization": "1/1024 logical extent",
+    "compression": {"algorithm": "Ramer-Douglas-Peucker with event pins", "toleranceLogicalPx": 0.75, "maximumPoints": 4096},
+    "digest": "sha256(canonical CBOR of uncompressed quantized samples)",
+    "forbidden": ["authored replacement path", "random path", "prediction path", "enemy target path"]
+  },
+  "replay": {
+    "count": 1,
+    "clock": "gameplayClock",
+    "timeScale": 1.0,
+    "collisionClass": "NONE",
+    "rewardClass": "NONE",
+    "emitterClass": "NONE",
+    "inputPolicyDuringReplay": "held",
+    "visualInterpolation": "linear between captured authoritative points; never changes event pins",
+    "reducedMotion": "show event pins and final point at original gameplay timestamps",
+    "flashOff": "same as full motion, no luminance inversion"
+  },
+  "ordering": [
+    "overrideScar.rehydrate",
+    "deathTrace.rehydrate",
+    "burnIn.rehydrate",
+    "ghost.replay.begin",
+    "ghost.replay.complete",
+    "ghost.residue.write",
+    "witness.evaluate",
+    "witness.turn",
+    "returnInput"
+  ],
+  "burnout": {
+    "trigger": "ghost.replay.complete",
+    "digital": "route samples extinguish from oldest to newest",
+    "material": "one ghostResidue is written at the actual final point",
+    "persistenceRuns": 1,
+    "idempotencyKey": "previousRun.id + routeDigest"
+  },
+  "validation": [
+    "First and last replay positions equal captured endpoints after quantization.",
+    "Every event pin occurs at the same gameplay tick in all accessibility modes.",
+    "A consumed route cannot replay again for the same nextRunId.",
+    "No ghost point can collide, graze, score, collect evidence, trigger gaze or open Override."
+  ]
+}

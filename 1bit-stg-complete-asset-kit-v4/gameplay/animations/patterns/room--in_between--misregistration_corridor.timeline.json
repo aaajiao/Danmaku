@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.in_between.misregistration_corridor",
+  "traceSha256": "67d3fb82ff95bd7d44df46fa59a227bc98192a18657a05cb2f1fb0bf26d38974",
+  "sourceDurationMs": 10600,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 147,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 747,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 747,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5300,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 9900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--in_between--misregistration_corridor.gif",
+    "apng": "room--in_between--misregistration_corridor.apng",
+    "timeline": "room--in_between--misregistration_corridor.timeline.json"
+  }
+}

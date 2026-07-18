@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "4.0.0",
+  "generatedAt": "2026-07-17",
+  "validator": "runtime/validate_v4_runtime.py --run-code --strict-warnings",
+  "result": "PASS",
+  "errors": 0,
+  "warnings": 0,
+  "metrics": {
+    "authoritativeEvents": 72,
+    "stateSystems": 12,
+    "feedbackBindings": 34,
+    "accessibilityAxes": 6,
+    "accessibilityCartesianCombinations": 216,
+    "runtimeTestsPassed": 12,
+    "runtimeTestsTotal": 12,
+    "fixedProjectileFlightTimeouts": 0,
+    "feedbackToGameplayEdges": 0,
+    "orphanStateMachineEvents": 0,
+    "fixedCrossRunRestoreTimelines": 0,
+    "disjointMaterialMemoryTypes": 4,
+    "canonicalRoomId": "INFORMATION",
+    "legacyRoomIdsWritten": 0
+  },
+  "typeScript": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmitOnError": true,
+    "result": "PASS"
+  },
+  "traceParity": {
+    "fullVsReducedMotion": "PASS",
+    "fullVsFlashOff": "PASS",
+    "definition": "same event id, simulation time, payload and order"
+  },
+  "tests": [
+    "player damage authority and collision leases",
+    "fatal run end has no respawn race",
+    "entity-owned projectile and graze once",
+    "gaze sustained clamp and delayed release",
+    "flower priority",
+    "directional override is local and material",
+    "boss phase kinds",
+    "weather large delta",
+    "snapshot and cross-run are separate",
+    "room transition atomic swap",
+    "accessibility gameplay trace parity",
+    "feedback is read-only and axes independent"
+  ]
+}

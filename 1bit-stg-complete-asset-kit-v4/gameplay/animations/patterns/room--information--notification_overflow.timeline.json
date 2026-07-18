@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.information.notification_overflow",
+  "traceSha256": "d9ad3e8435e443a0316640e4dc1ec12b873876a1044aa0f6cca151293345d22d",
+  "sourceDurationMs": 11200,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 156,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 566,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 566,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5600,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--information--notification_overflow.gif",
+    "apng": "room--information--notification_overflow.apng",
+    "timeline": "room--information--notification_overflow.timeline.json"
+  }
+}

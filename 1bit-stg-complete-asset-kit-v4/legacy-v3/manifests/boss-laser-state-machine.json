@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "3.0.0",
+  "id": "boss-laser-v3",
+  "description": "Authoritative Boss laser lifecycle. Visual clips subscribe to state events and never advance gameplay state.",
+  "initialState": "idle",
+  "terminalBehavior": "return-to-idle-after-complete",
+  "parameters": {
+    "telegraphMs": {"default":700,"min":100},
+    "chargeMs": {"default":180,"min":0},
+    "growMs": {"default":140,"min":1},
+    "liveMs": {"default":900,"min":1},
+    "shutdownMs": {"default":180,"min":0},
+    "residueMs": {"default":220,"min":0}
+  },
+  "states": {
+    "idle": {
+      "duration": "infinite",
+      "collision": false,
+      "visual": {"emitterVisible":false,"bodyVisible":false,"residueVisible":false}
+    },
+    "telegraph": {
+      "durationParam": "telegraphMs",
+      "collision": false,
+      "entryEvents": [
+        {"id":"laser.telegraph.begin","channel":"gameplay","priority":10},
+        {"id":"visual.laser.warning.show","channel":"visual","priority":100}
+      ]
+    },
+    "charge": {
+      "durationParam": "chargeMs",
+      "collision": false,
+      "entryEvents": [
+        {"id":"laser.charge.begin","channel":"gameplay","priority":10},
+        {"id":"visual.laser.emitter.charge","channel":"visual","priority":100}
+      ]
+    },
+    "grow": {
+      "durationParam": "growMs",
+      "collision": false,
+      "entryEvents": [
+        {"id":"laser.grow.begin","channel":"gameplay","priority":10},
+        {"id":"visual.laser.body.grow","channel":"visual","priority":100}
+      ]
+    },
+    "live": {
+      "durationParam": "liveMs",
+      "collision": true,
+      "entryEvents": [
+        {"id":"laser.collision.on","channel":"gameplay","priority":20},
+        {"id":"laser.live.begin","channel":"gameplay","priority":30},
+        {"id":"visual.laser.body.live","channel":"visual","priority":100}
+      ]
+    },
+    "shutdown": {
+      "durationParam": "shutdownMs",
+      "collision": false,
+      "entryEvents": [
+        {"id":"laser.collision.off","channel":"gameplay","priority":0,"emitOnlyIfPreviouslyEnabled":true},
+        {"id":"laser.shutdown.begin","channel":"gameplay","priority":10},
+        {"id":"visual.laser.shutdown","channel":"visual","priority":100}
+      ]
+    },
+    "residue": {
+      "durationParam": "residueMs",
+      "collision": false,
+      "entryEvents": [
+        {"id":"laser.residue.begin","channel":"gameplay","priority":10},
+        {"id":"visual.laser.residue","channel":"visual","priority":100}
+      ]
+    }
+  },
+  "transitions": [
+    {"from":"idle","to":"telegraph","on":"trigger"},
+    {"from":"telegraph","to":"charge","on":"timer"},
+    {"from":"charge","to":"grow","on":"timer"},
+    {"from":"grow","to":"live","on":"timer"},
+    {"from":"live","to":"shutdown","on":"timer-or-stop"},
+    {"from":"shutdown","to":"residue","on":"timer"},
+    {"from":"residue","to":"idle","on":"timer","events":[{"id":"laser.complete","channel":"gameplay","priority":10}]}
+  ],
+  "cancelPolicy": {
+    "idle": "no-op",
+    "telegraph": "enter-shutdown",
+    "charge": "enter-shutdown",
+    "grow": "enter-shutdown",
+    "live": "collision-off-then-enter-shutdown",
+    "shutdown": "idempotent-no-op",
+    "residue": "idempotent-no-op",
+    "event": {"id":"laser.cancelled","channel":"gameplay","priority":10,"emitOncePerCycle":true}
+  },
+  "invariants": [
+    "collisionEnabled == (state == live)",
+    "laser.collision.off precedes visual.laser.shutdown at the same timestamp",
+    "a cancelled cycle never emits laser.collision.on after cancellation",
+    "laser.complete emits once per non-aborted or gracefully-shutdown cycle",
+    "large delta traverses every intermediate state and emits every entry event",
+    "reduced-motion changes only visual bindings, never state durations or gameplay events"
+  ],
+  "largeDelta": {
+    "maximumTransitionsPerAdvance": 16,
+    "overflowPolicy": "throw-no-silent-event-drop"
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "schemaVersion": "4.0.0",
+  "atlasCount": 7,
+  "frameCount": 448,
+  "atlases": [
+    {
+      "id": "core-grammar-v3",
+      "atlasId": "core-grammar-v3",
+      "image": "atlases/core-grammar-v3.png",
+      "file": "atlases/core-grammar-v3.png",
+      "description": "Curated runtime primitives replacing the untyped 656-cell library.",
+      "sourceSketch": "legacy-v3/sources/generated/core-grammar-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "4d638b0f29632e3f52d1fb8f077ce3ba14300054e943dc9554a0b55524086b94",
+      "sourceGeneration": "V3_BASE"
+    },
+    {
+      "id": "boss-topologies-v3",
+      "atlasId": "boss-topologies-v3",
+      "image": "atlases/boss-topologies-v3.png",
+      "file": "atlases/boss-topologies-v3.png",
+      "description": "Eight bosses with eight non-interchangeable void topologies.",
+      "sourceSketch": "legacy-v3/sources/generated/boss-topologies-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "a5c3c230f1090ec581dcce1f956a989f8d1313591eddbd3d029b9dc35baa117a",
+      "sourceGeneration": "V3_BASE"
+    },
+    {
+      "id": "combat-causality-v3",
+      "atlasId": "combat-causality-v3",
+      "image": "atlases/combat-causality-v3.png",
+      "file": "atlases/combat-causality-v3.png",
+      "description": "Focus, clamp, Override, death, respawn, projectile and laser causality.",
+      "sourceSketch": "legacy-v3/sources/generated/combat-causality-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "f17108f5ba61441753bd28860c77e3682bf950a595854a2c8e6b9664a06c5524",
+      "sourceGeneration": "V3_BASE"
+    },
+    {
+      "id": "narrative-behavior-v3",
+      "atlasId": "narrative-behavior-v3",
+      "image": "atlases/narrative-behavior-v3.png",
+      "file": "atlases/narrative-behavior-v3.png",
+      "description": "Witness, ghost, cable, scar, weather and cross-run behavior.",
+      "sourceSketch": "legacy-v3/sources/generated/narrative-behavior-v3-alpha.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "frameCount": 64,
+      "sha256": "588d0de0220ed818d242eafc77cf8b62ccec6cb67e64eceb743989cfe95c07ee",
+      "sourceGeneration": "V3_BASE"
+    },
+    {
+      "id": "player-world-behavior-v4",
+      "file": "atlases/player-world-behavior-v4.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "source": "sources/generated/player-world-v4-source.png",
+      "sha256": "839c06b7b1e0937f5c734b133fc2f0458d5014e8c79414b29d8a181e95c20eef",
+      "sourceGeneration": "V4_ADDITION"
+    },
+    {
+      "id": "combat-behavior-cues-v4",
+      "file": "atlases/combat-behavior-cues-v4.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "source": "sources/generated/combat-behavior-v4-source.png",
+      "sha256": "2288cb1d2fd71f5c201cf6fbef4f837abd43e5c611c1026e1a67d31f2e3fdf4b",
+      "sourceGeneration": "V4_ADDITION"
+    },
+    {
+      "id": "boss-phase-components-v4",
+      "file": "atlases/boss-phase-components-v4.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "source": "sources/generated/boss-phases-v4-source.png",
+      "sha256": "ab2d79d3361d8e1c8f126b890b271000d68f04da533b409554f4a0a100cafaad",
+      "sourceGeneration": "V4_ADDITION"
+    }
+  ]
+}

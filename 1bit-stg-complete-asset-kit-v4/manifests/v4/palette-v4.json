@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "4.0.0",
+  "colors": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "rules": {
+    "alphaValues": [
+      0,
+      255
+    ],
+    "maximumVisibleColorsPerOrdinaryCell": 4,
+    "polarizedAllowsGray": false,
+    "overrideMagentaUse": "scar-write-only"
+  }
+}

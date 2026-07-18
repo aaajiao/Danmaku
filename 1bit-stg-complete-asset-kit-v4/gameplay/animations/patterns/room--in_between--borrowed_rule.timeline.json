@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.in_between.borrowed_rule",
+  "traceSha256": "5fc64f716df0e0f6c86aa7c508499684bd3f8d059ed9d15c3cf24a82072193af",
+  "sourceDurationMs": 11800,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 164,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 597,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 597,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5900,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 11100,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11380,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11800,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--in_between--borrowed_rule.gif",
+    "apng": "room--in_between--borrowed_rule.apng",
+    "timeline": "room--in_between--borrowed_rule.timeline.json"
+  }
+}

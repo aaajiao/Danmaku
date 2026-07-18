@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/director-v4.schema.json",
+  "id": "director.run.v4",
+  "runIs": "behavioral sampling, not a linear stage ladder",
+  "phases": [
+    {
+      "id": "quiet_awakening",
+      "durationMs": [
+        6000,
+        10000
+      ],
+      "combat": false,
+      "unlocks": [
+        "move",
+        "flower_expression"
+      ]
+    },
+    {
+      "id": "first_eye",
+      "durationMs": [
+        7000,
+        12000
+      ],
+      "combat": "sparse",
+      "patterns": [
+        "common.eye_acquisition"
+      ],
+      "unlocks": [
+        "focus",
+        "graze_evidence"
+      ]
+    },
+    {
+      "id": "mental_room_sampling",
+      "roomsSampled": [
+        2,
+        4
+      ],
+      "selection": "seeded_by_behavior_ledger",
+      "roomOrderRepeat": false
+    },
+    {
+      "id": "local_override",
+      "entry": "evidence>=overrideCost",
+      "patterns": [
+        "transition.override_void"
+      ],
+      "optional": true
+    },
+    {
+      "id": "dusk_or_no_dusk",
+      "entry": "runClock>=targetDuration or terminalProtocol",
+      "patterns": [
+        "transition.dusk_settle"
+      ],
+      "combatSpawnsStop": true
+    },
+    {
+      "id": "state_snapshot",
+      "combat": false,
+      "judgement": null
+    },
+    {
+      "id": "cross_run_material_memory",
+      "combat": false,
+      "order": [
+        "scar",
+        "ghost",
+        "witness",
+        "input_return"
+      ]
+    }
+  ],
+  "roomSampling": {
+    "rooms": [
+      "INFORMATION",
+      "FORCED_ALIGNMENT",
+      "IN_BETWEEN",
+      "POLARIZED"
+    ],
+    "algorithm": "weighted_without_replacement",
+    "weightsFrom": [
+      "roomTime",
+      "flower",
+      "gaze",
+      "crack",
+      "override",
+      "contextSwitch"
+    ],
+    "neverTreatAsProgression": true
+  },
+  "bossPolicy": {
+    "maximumPerRun": 2,
+    "selection": "room_and_behavior_match",
+    "resolutionNeedNotUseDamage": true,
+    "hpZeroNeverRequiredGlobally": true
+  },
+  "determinism": {
+    "seedAlgorithm": "mulberry32-v1",
+    "eventLogHash": "sha256",
+    "sameSeedAndInputsSameTrace": true
+  }
+}

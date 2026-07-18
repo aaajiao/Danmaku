@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 7,
+  "states": [
+    {
+      "semanticId": "weather.static_warning",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.static_dropout",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.rain_onset",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.ash_settle",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.wind_vector",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.eclipse_occlusion",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.puddle_trace",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "weather.shadow_failure",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

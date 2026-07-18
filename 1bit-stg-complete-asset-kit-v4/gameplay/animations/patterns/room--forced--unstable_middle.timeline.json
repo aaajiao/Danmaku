@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.forced.unstable_middle",
+  "traceSha256": "81347bf9750e2eaa63b0022cd31f83ba7649176bdd6242af86b66a9900e4474a",
+  "sourceDurationMs": 11600,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 161,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 594,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 594,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5800,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 11600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--forced--unstable_middle.gif",
+    "apng": "room--forced--unstable_middle.apng",
+    "timeline": "room--forced--unstable_middle.timeline.json"
+  }
+}

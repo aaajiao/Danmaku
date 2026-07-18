@@ -1,0 +1,1585 @@
+{
+  "schemaVersion": "3.0.0",
+  "principle": "A semantic ID names an action or gameplay role, never a decorative icon.",
+  "palette": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "clips": [
+    {
+      "clipId": "library.bullet.micro",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "bullet.micro.notch_e",
+        "bullet.micro.notch_ne",
+        "bullet.micro.split",
+        "bullet.micro.dash",
+        "bullet.micro.thorn",
+        "bullet.micro.shard",
+        "bullet.micro.seed",
+        "bullet.micro.bit"
+      ],
+      "durationsMs": [
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.bullet.medium",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "bullet.medium.blade",
+        "bullet.medium.droplet",
+        "bullet.medium.packet",
+        "bullet.medium.capsule",
+        "bullet.medium.fork",
+        "bullet.medium.leaf",
+        "bullet.medium.bar",
+        "bullet.medium.diamond_void"
+      ],
+      "durationsMs": [
+        105,
+        105,
+        105,
+        105,
+        105,
+        105,
+        105,
+        105
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.hazard.heavy",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "hazard.heavy.wall_chunk",
+        "hazard.heavy.long_lance",
+        "hazard.heavy.twin_block",
+        "hazard.heavy.blade_mass",
+        "hazard.heavy.slash_bar",
+        "hazard.heavy.gate",
+        "hazard.heavy.column",
+        "hazard.heavy.pressure_plate"
+      ],
+      "durationsMs": [
+        130,
+        130,
+        130,
+        130,
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.player.system",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "player.core.idle",
+        "player.focus.confirm_tick",
+        "player.option.left",
+        "player.option.right",
+        "player.shot.tap",
+        "player.shot.hold",
+        "player.guard.incomplete_shell",
+        "player.hitbox.offset_core"
+      ],
+      "durationsMs": [
+        180,
+        130,
+        180,
+        180,
+        70,
+        90,
+        180,
+        180
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.pickup",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "pickup.score.open_bit",
+        "pickup.power.fork",
+        "pickup.life.fragment",
+        "pickup.memory.node",
+        "pickup.witness.fragment",
+        "pickup.option.gain",
+        "pickup.snapshot.seed",
+        "pickup.polarity.key"
+      ],
+      "durationsMs": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220
+      ],
+      "loop": true,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.enemy.governor_a",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "enemy.courier",
+        "enemy.clamp",
+        "enemy.comparator",
+        "enemy.warden",
+        "enemy.witness_drone",
+        "enemy.cable_biter",
+        "enemy.echo_frame",
+        "enemy.seed_carrier"
+      ],
+      "durationsMs": [
+        190,
+        190,
+        190,
+        190,
+        190,
+        190,
+        190,
+        190
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.enemy.governor_b",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "enemy.seam_walker",
+        "enemy.packet_moth",
+        "enemy.fork_crab",
+        "enemy.residue_hound",
+        "enemy.link_sentry",
+        "enemy.asymmetric_twin",
+        "enemy.burnin_ghost",
+        "enemy.archive_leecher"
+      ],
+      "durationsMs": [
+        210,
+        210,
+        210,
+        210,
+        210,
+        210,
+        210,
+        210
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "library.utility",
+      "atlas": "atlases/core-grammar-v3.png",
+      "frames": [
+        "utility.spawn.marker",
+        "utility.path.node",
+        "utility.warning.strip",
+        "utility.hit.spark",
+        "utility.graze.tick",
+        "utility.delete.mark",
+        "utility.residue.patch",
+        "utility.offscreen.arrow"
+      ],
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "loop": false,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.absent_receiver.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.absent_receiver.silhouette",
+        "boss.absent_receiver.idle_a",
+        "boss.absent_receiver.idle_b",
+        "boss.absent_receiver.telegraph",
+        "boss.absent_receiver.attack",
+        "boss.absent_receiver.break",
+        "boss.absent_receiver.death",
+        "boss.absent_receiver.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.unanswering_feed.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.unanswering_feed.silhouette",
+        "boss.unanswering_feed.idle_a",
+        "boss.unanswering_feed.idle_b",
+        "boss.unanswering_feed.telegraph",
+        "boss.unanswering_feed.attack",
+        "boss.unanswering_feed.break",
+        "boss.unanswering_feed.death",
+        "boss.unanswering_feed.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.one_sun_one_rule.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.one_sun_one_rule.silhouette",
+        "boss.one_sun_one_rule.idle_a",
+        "boss.one_sun_one_rule.idle_b",
+        "boss.one_sun_one_rule.telegraph",
+        "boss.one_sun_one_rule.attack",
+        "boss.one_sun_one_rule.break",
+        "boss.one_sun_one_rule.death",
+        "boss.one_sun_one_rule.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.two_claims.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.two_claims.silhouette",
+        "boss.two_claims.idle_a",
+        "boss.two_claims.idle_b",
+        "boss.two_claims.telegraph",
+        "boss.two_claims.attack",
+        "boss.two_claims.break",
+        "boss.two_claims.death",
+        "boss.two_claims.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.misreader.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.misreader.silhouette",
+        "boss.misreader.idle_a",
+        "boss.misreader.idle_b",
+        "boss.misreader.telegraph",
+        "boss.misreader.attack",
+        "boss.misreader.break",
+        "boss.misreader.death",
+        "boss.misreader.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.misregistered_twin_moons.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.misregistered_twin_moons.silhouette",
+        "boss.misregistered_twin_moons.idle_a",
+        "boss.misregistered_twin_moons.idle_b",
+        "boss.misregistered_twin_moons.telegraph",
+        "boss.misregistered_twin_moons.attack",
+        "boss.misregistered_twin_moons.break",
+        "boss.misregistered_twin_moons.death",
+        "boss.misregistered_twin_moons.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.no_dusk.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.no_dusk.silhouette",
+        "boss.no_dusk.idle_a",
+        "boss.no_dusk.idle_b",
+        "boss.no_dusk.telegraph",
+        "boss.no_dusk.attack",
+        "boss.no_dusk.break",
+        "boss.no_dusk.death",
+        "boss.no_dusk.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.absolute_reader.rig",
+      "atlas": "atlases/boss-topologies-v3.png",
+      "frames": [
+        "boss.absolute_reader.silhouette",
+        "boss.absolute_reader.idle_a",
+        "boss.absolute_reader.idle_b",
+        "boss.absolute_reader.telegraph",
+        "boss.absolute_reader.attack",
+        "boss.absolute_reader.break",
+        "boss.absolute_reader.death",
+        "boss.absolute_reader.residue"
+      ],
+      "durationsMs": [
+        220,
+        190,
+        230,
+        120,
+        150,
+        180,
+        260,
+        820
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "telegraph_commit"
+        },
+        {
+          "frame": 4,
+          "name": "attack_live"
+        },
+        {
+          "frame": 6,
+          "name": "digital_delete"
+        },
+        {
+          "frame": 7,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_commit",
+          "attack_live",
+          "digital_delete",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          4,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "player.focus",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "player.focus.frame_00",
+        "player.focus.frame_01",
+        "player.focus.frame_02",
+        "player.focus.frame_03",
+        "player.focus.frame_04",
+        "player.focus.frame_05",
+        "player.focus.frame_06",
+        "player.focus.frame_07"
+      ],
+      "durationsMs": [
+        90,
+        90,
+        180,
+        240,
+        70,
+        60,
+        130,
+        180
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "focus_hold"
+        },
+        {
+          "frame": 6,
+          "name": "focus_confirm"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "focus_hold",
+          "focus_confirm"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "system.eye_clamp",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "system.eye_clamp.frame_00",
+        "system.eye_clamp.frame_01",
+        "system.eye_clamp.frame_02",
+        "system.eye_clamp.frame_03",
+        "system.eye_clamp.frame_04",
+        "system.eye_clamp.frame_05",
+        "system.eye_clamp.frame_06",
+        "system.eye_clamp.frame_07"
+      ],
+      "durationsMs": [
+        40,
+        40,
+        40,
+        120,
+        120,
+        180,
+        210,
+        260
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "clamp_closed"
+        },
+        {
+          "frame": 7,
+          "name": "recovery_allowed"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "clamp_closed",
+          "recovery_allowed"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "system.override.directional",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "system.override.directional.frame_00",
+        "system.override.directional.frame_01",
+        "system.override.directional.frame_02",
+        "system.override.directional.frame_03",
+        "system.override.directional.frame_04",
+        "system.override.directional.frame_05",
+        "system.override.directional.frame_06",
+        "system.override.directional.frame_07"
+      ],
+      "durationsMs": [
+        110,
+        90,
+        80,
+        100,
+        120,
+        150,
+        240,
+        360
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 1,
+          "name": "charge"
+        },
+        {
+          "frame": 2,
+          "name": "directional_tear"
+        },
+        {
+          "frame": 3,
+          "name": "local_void"
+        },
+        {
+          "frame": 4,
+          "name": "collision_off"
+        },
+        {
+          "frame": 5,
+          "name": "scar_write"
+        },
+        {
+          "frame": 7,
+          "name": "material_sediment"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "charge",
+          "directional_tear",
+          "local_void",
+          "collision_off",
+          "scar_write",
+          "material_sediment"
+        ],
+        "recommendedFrames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "player.causality.damage_to_trace",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "player.hit",
+        "player.core_break",
+        "player.shard",
+        "player.digital_delete",
+        "player.void_hold",
+        "player.residue_appear",
+        "player.residue_hold",
+        "player.residue_fade"
+      ],
+      "durationsMs": [
+        60,
+        70,
+        80,
+        90,
+        110,
+        160,
+        300,
+        220
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 5,
+          "name": "residue_created"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "collision_removed",
+          "residue_created"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "player.return_with_history",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "player.respawn_asymmetric.frame_00",
+        "player.respawn_asymmetric.frame_01",
+        "player.respawn_asymmetric.frame_02",
+        "player.respawn_asymmetric.frame_03",
+        "player.respawn_asymmetric.frame_04",
+        "player.respawn_asymmetric.frame_05",
+        "player.respawn_asymmetric.frame_06",
+        "player.respawn_asymmetric.frame_07"
+      ],
+      "durationsMs": [
+        180,
+        120,
+        100,
+        120,
+        150,
+        160,
+        190,
+        220
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 0,
+          "name": "read_previous_scar"
+        },
+        {
+          "frame": 5,
+          "name": "collision_restored"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "read_previous_scar",
+          "collision_restored"
+        ],
+        "recommendedFrames": [
+          0,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "enemy.causality.damage_to_trace",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "enemy.hit",
+        "enemy.fracture",
+        "enemy.split",
+        "enemy.digital_delete",
+        "enemy.rupture",
+        "enemy.residue",
+        "enemy.ash",
+        "enemy.clear"
+      ],
+      "durationsMs": [
+        60,
+        80,
+        90,
+        110,
+        140,
+        300,
+        240,
+        160
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 5,
+          "name": "material_residue"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "collision_removed",
+          "material_residue"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "bullet.lifecycle",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "bullet.birth_0",
+        "bullet.birth_1",
+        "bullet.live",
+        "bullet.travel",
+        "bullet.impact_0",
+        "bullet.impact_1",
+        "bullet.afterimage",
+        "bullet.clear"
+      ],
+      "durationsMs": [
+        45,
+        45,
+        90,
+        90,
+        50,
+        70,
+        100,
+        120
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 2,
+          "name": "collision_live"
+        },
+        {
+          "frame": 4,
+          "name": "collision_removed"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "collision_live",
+          "collision_removed"
+        ],
+        "recommendedFrames": [
+          0,
+          2,
+          4,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "boss.laser.lifecycle",
+      "atlas": "atlases/combat-causality-v3.png",
+      "frames": [
+        "boss.laser.off",
+        "boss.laser.telegraph_0",
+        "boss.laser.telegraph_1",
+        "boss.laser.charge",
+        "boss.laser.active",
+        "boss.laser.decay",
+        "boss.laser.residue",
+        "boss.laser.cancel"
+      ],
+      "durationsMs": [
+        100,
+        120,
+        120,
+        180,
+        260,
+        140,
+        360,
+        160
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 1,
+          "name": "telegraph_on"
+        },
+        {
+          "frame": 3,
+          "name": "charge_commit"
+        },
+        {
+          "frame": 4,
+          "name": "collision_live"
+        },
+        {
+          "frame": 5,
+          "name": "collision_removed"
+        },
+        {
+          "frame": 6,
+          "name": "residue_created"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "telegraph_on",
+          "charge_commit",
+          "collision_live",
+          "collision_removed",
+          "residue_created"
+        ],
+        "recommendedFrames": [
+          0,
+          1,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "narrative.witness.rebel",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "witness.idle_a",
+        "witness.idle_b",
+        "witness.turn_0",
+        "witness.turn_1",
+        "witness.face_player",
+        "witness.rebel_mark",
+        "witness.rebel_hold",
+        "witness.rebel_exit"
+      ],
+      "durationsMs": [
+        240,
+        260,
+        120,
+        160,
+        220,
+        140,
+        340,
+        220
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 4,
+          "name": "witness_choice"
+        },
+        {
+          "frame": 5,
+          "name": "rebel_committed"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "witness_choice",
+          "rebel_committed"
+        ],
+        "recommendedFrames": [
+          0,
+          4,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "narrative.ghost.burnout",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "ghost.walk_0",
+        "ghost.walk_1",
+        "ghost.hesitate_0",
+        "ghost.hesitate_1",
+        "ghost.stumble",
+        "ghost.burnout_0",
+        "ghost.burnout_1",
+        "ghost.residue"
+      ],
+      "durationsMs": [
+        180,
+        180,
+        260,
+        340,
+        180,
+        210,
+        280,
+        420
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 2,
+          "name": "hesitation"
+        },
+        {
+          "frame": 5,
+          "name": "burnout"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "hesitation",
+          "burnout"
+        ],
+        "recommendedFrames": [
+          0,
+          2,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "narrative.cable.upload_or_burnin",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "cable.idle",
+        "cable.attach",
+        "cable.upload_0",
+        "cable.upload_1",
+        "cable.burnin_0",
+        "cable.burnin_1",
+        "cable.disconnect",
+        "cable.residue"
+      ],
+      "durationsMs": [
+        180,
+        130,
+        120,
+        170,
+        170,
+        240,
+        160,
+        360
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 1,
+          "name": "branch_open"
+        },
+        {
+          "frame": 3,
+          "name": "upload"
+        },
+        {
+          "frame": 5,
+          "name": "burn_in"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "branch_open",
+          "upload",
+          "burn_in"
+        ],
+        "recommendedFrames": [
+          0,
+          1,
+          3,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "memory.directional_write",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "scar.seed",
+        "scar.extend_0",
+        "scar.extend_1",
+        "scar.branch",
+        "scar.commit",
+        "scar.hold",
+        "scar.burn",
+        "scar.permanent"
+      ],
+      "durationsMs": [
+        90,
+        110,
+        120,
+        140,
+        160,
+        240,
+        320,
+        520
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 4,
+          "name": "scar_write"
+        },
+        {
+          "frame": 7,
+          "name": "snapshot_ready"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "scar_write",
+          "snapshot_ready"
+        ],
+        "recommendedFrames": [
+          0,
+          4,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "weather.static_dropout",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "weather.static.calm",
+        "weather.static.noise_0",
+        "weather.static.noise_1",
+        "weather.static.burst",
+        "weather.static.tear",
+        "weather.static.dropout",
+        "weather.static.recover",
+        "weather.static.after"
+      ],
+      "durationsMs": [
+        220,
+        80,
+        70,
+        60,
+        80,
+        180,
+        120,
+        260
+      ],
+      "loop": true,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "weather.rain_ash",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "weather.rain_0",
+        "weather.rain_1",
+        "weather.rain_2",
+        "weather.ash_0",
+        "weather.ash_1",
+        "weather.ash_2",
+        "weather.rain_ash_mix",
+        "weather.rain_ash_clear"
+      ],
+      "durationsMs": [
+        120,
+        120,
+        120,
+        180,
+        190,
+        200,
+        240,
+        300
+      ],
+      "loop": true,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "weather.wind_eclipse",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "weather.wind_0",
+        "weather.wind_1",
+        "weather.wind_2",
+        "weather.eclipse_0",
+        "weather.eclipse_1",
+        "weather.eclipse_2",
+        "weather.eclipse_hold",
+        "weather.eclipse_release"
+      ],
+      "durationsMs": [
+        120,
+        130,
+        140,
+        180,
+        200,
+        240,
+        360,
+        220
+      ],
+      "loop": true,
+      "events": [],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [],
+        "recommendedFrames": [
+          0,
+          7
+        ]
+      }
+    },
+    {
+      "clipId": "state.snapshot_handoff",
+      "atlas": "atlases/narrative-behavior-v3.png",
+      "frames": [
+        "snapshot.collect",
+        "snapshot.compress",
+        "snapshot.label",
+        "snapshot.store",
+        "snapshot.handoff",
+        "snapshot.next_seed",
+        "snapshot.next_scar",
+        "snapshot.next_active"
+      ],
+      "durationsMs": [
+        160,
+        130,
+        120,
+        180,
+        220,
+        160,
+        240,
+        420
+      ],
+      "loop": false,
+      "events": [
+        {
+          "frame": 3,
+          "name": "snapshot_serialized"
+        },
+        {
+          "frame": 5,
+          "name": "next_run_seeded"
+        },
+        {
+          "frame": 6,
+          "name": "scar_restored"
+        }
+      ],
+      "reducedMotion": {
+        "mode": "event-equivalent-keyframes",
+        "requiredEvents": [
+          "snapshot_serialized",
+          "next_run_seeded",
+          "scar_restored"
+        ],
+        "recommendedFrames": [
+          0,
+          3,
+          5,
+          6,
+          7
+        ]
+      }
+    }
+  ],
+  "bossRigs": [
+    "boss.absent_receiver.rig",
+    "boss.unanswering_feed.rig",
+    "boss.one_sun_one_rule.rig",
+    "boss.two_claims.rig",
+    "boss.misreader.rig",
+    "boss.misregistered_twin_moons.rig",
+    "boss.no_dusk.rig",
+    "boss.absolute_reader.rig"
+  ],
+  "causalChains": {
+    "override": [
+      "charge",
+      "directional_tear",
+      "local_void",
+      "collision_off",
+      "scar_write",
+      "material_sediment"
+    ],
+    "deletion": [
+      "digital_delete",
+      "collision_removed",
+      "material_residue"
+    ],
+    "respawn": [
+      "read_previous_scar",
+      "collision_restored"
+    ],
+    "laser": [
+      "telegraph_on",
+      "charge_commit",
+      "collision_live",
+      "collision_removed",
+      "residue_created"
+    ],
+    "crossRun": [
+      "snapshot_serialized",
+      "next_run_seeded",
+      "scar_restored"
+    ]
+  },
+  "runtimeRules": {
+    "filtering": "NearestFilter",
+    "colorSpace": "SRGBColorSpace",
+    "premultiplyAlpha": false,
+    "pixelSnap": true,
+    "collisionAuthority": "gameplay timeline; visual frame is never authoritative",
+    "eventDispatch": "dispatch all crossed events exactly once, including reduced motion and dropped frames"
+  }
+}

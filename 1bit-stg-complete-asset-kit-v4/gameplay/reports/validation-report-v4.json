@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "4.0.0",
+  "status": "PASS",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "motionOperators": 12,
+    "executablePatterns": 48,
+    "uniqueStructuralSignatures": 48,
+    "enemies": 16,
+    "mechanicalEnemyRoles": 8,
+    "bosses": 8,
+    "bossPhases": 24,
+    "bossCanonicalResolutions": 8,
+    "laserGeometries": 8,
+    "weatherEchoPatterns": 3,
+    "deterministicPatterns": 48,
+    "normalSolvablePatterns": 48,
+    "focusSolvablePatterns": 48,
+    "deterministicRunCompositions": 16
+  },
+  "checks": [
+    {
+      "id": "canonical-index-checksums",
+      "pass": true,
+      "files": 9,
+      "failures": []
+    },
+    {
+      "id": "external-authority-checksum",
+      "pass": true,
+      "path": "narrative/boss-resolutions-v4.json",
+      "sha256": "67f70e0163745ccbc92cccc9dc78bf59f23a1490a2f10dc37c3484055e40969b"
+    },
+    {
+      "id": "schemas",
+      "pass": true,
+      "issues": 0
+    },
+    {
+      "id": "weather-gameplay-decoupling",
+      "pass": true,
+      "weatherEchoPatterns": 3,
+      "errors": []
+    },
+    {
+      "id": "content-counts",
+      "pass": true,
+      "counts": {
+        "operators": 12,
+        "patterns": 48,
+        "categories": {
+          "ROOM": 16,
+          "COMMON": 2,
+          "TRANSITION": 3,
+          "WEATHER_ECHO": 3,
+          "BOSS": 24
+        },
+        "rooms": {
+          "INFORMATION": 4,
+          "FORCED_ALIGNMENT": 4,
+          "IN_BETWEEN": 4,
+          "POLARIZED": 4
+        }
+      }
+    },
+    {
+      "id": "operator-coverage",
+      "pass": true,
+      "usage": {
+        "op.aim_lock": 7,
+        "op.dual_clock_gate": 13,
+        "op.history_replay": 4,
+        "op.lateral_wall": 6,
+        "op.limited_homing": 3,
+        "op.linear": 66,
+        "op.local_vector_bias": 5,
+        "op.orbit_release": 5,
+        "op.seam_transform": 6,
+        "op.speed_envelope": 10,
+        "op.split_generation": 4,
+        "op.turn_once": 10
+      }
+    },
+    {
+      "id": "structural-deduplication",
+      "pass": true,
+      "unique": 48,
+      "duplicates": []
+    },
+    {
+      "id": "determinism",
+      "pass": true,
+      "patterns": 48,
+      "failures": []
+    },
+    {
+      "id": "safe-gap-solvability",
+      "pass": true,
+      "normal": 48,
+      "focus": 48,
+      "failures": []
+    },
+    {
+      "id": "boss-resolution-canonical-parity",
+      "pass": true,
+      "bosses": 8,
+      "canonicalSource": "narrative/boss-resolutions-v4.json",
+      "errors": []
+    },
+    {
+      "id": "weather-echo-director-decoupling",
+      "pass": true,
+      "poolPatterns": 3,
+      "errors": []
+    },
+    {
+      "id": "director-determinism",
+      "pass": true,
+      "seeds": 16,
+      "failures": []
+    },
+    {
+      "id": "gameplay-cross-references",
+      "pass": true,
+      "enemies": 16,
+      "enemyRoles": 8,
+      "bosses": 8,
+      "bossTerminalEvents": 8,
+      "laserGeometryTypes": 8,
+      "roomComposers": 4
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 0,
+  "states": [
+    {
+      "semanticId": "flower.dark",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.breathe",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.resonance",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.expression",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.clamp",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.recover_delay",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.focus",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "flower.trance_echo",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

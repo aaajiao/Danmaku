@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "4.0.0",
+  "source": "../../manifests/gameplay/gameplay-index-v4.json",
+  "note": "Geometry placeholders generated from canonical gameplay manifests; not final art.",
+  "files": [
+    {
+      "path": "patterns-room-v4.png",
+      "width": 720,
+      "height": 1332
+    },
+    {
+      "path": "patterns-common-transition-weather-v4.png",
+      "width": 720,
+      "height": 692
+    },
+    {
+      "path": "patterns-boss-v4.png",
+      "width": 720,
+      "height": 1972
+    },
+    {
+      "path": "laser-geometries-v4.png",
+      "width": 720,
+      "height": 692
+    },
+    {
+      "path": "run-director-v4.png",
+      "width": 1600,
+      "height": 520
+    }
+  ]
+}

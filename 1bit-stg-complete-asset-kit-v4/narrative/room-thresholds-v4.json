@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "4.0.0-room-thresholds",
+  "coordinateSystem": "logical 360x640; normalized world position where specified",
+  "rooms": {
+    "INFORMATION": {
+      "worldName": "INFO_OVERFLOW",
+      "entryOmen": {"distancePx": 96, "event": "facade.retryFlicker", "audioLeadMs": 700},
+      "thresholds": [
+        {"id": "info.signal-visible", "metric": "flower.intensity", "enter": 0.55, "exit": 0.48, "reaction": "DataWaterfall.signalRate"},
+        {"id": "info.upload", "metric": "flower.intensity", "enter": 0.72, "exit": 0.62, "reaction": "Cable.uploadTowardEye"},
+        {"id": "info.overflow", "metric": "flower.intensity", "enter": 0.9, "exit": 0.78, "minimumHoldMs": 1200, "reaction": "RoomSky.pointFlickerDense"},
+        {"id": "info.burn-in", "metric": "gaze.stillMs", "enter": 1800, "exit": 0, "cooldownMs": 18000, "reaction": "BurnIn.gazeStillCapture"}
+      ],
+      "stableBand": {"flowerIntensity": [0.3, 0.48], "meaning": "Tolerable, not optimal and not rewarded."}
+    },
+    "FORCED_ALIGNMENT": {
+      "worldName": "FORCED_ALIGNMENT",
+      "entryOmen": {"distancePx": 112, "event": "seam.becomesVisible", "audioLeadMs": 900},
+      "thresholds": [
+        {"id": "forced.left-claim", "metric": "player.xNorm", "enter": 0.38, "operator": "<", "exit": 0.43, "reaction": "Seam.leftClaim"},
+        {"id": "forced.right-claim", "metric": "player.xNorm", "enter": 0.62, "operator": ">", "exit": 0.57, "reaction": "Seam.rightClaim"},
+        {"id": "forced.crack-dwell", "metric": "seam.distanceNorm", "enter": 0.12, "operator": "<", "exit": 0.16, "minimumHoldMs": 1800, "reaction": "Seam.unclaimedDwell"},
+        {"id": "forced.fall", "metric": "player.yWorld", "enter": -150, "operator": "<", "reaction": "Seam.fallReset"}
+      ],
+      "stableBand": {"seamDistanceNorm": [0.0, 0.12], "meaning": "Sustained ambiguity is mechanically uncomfortable but possible."}
+    },
+    "IN_BETWEEN": {
+      "worldName": "IN_BETWEEN",
+      "entryOmen": {"distancePx": 88, "event": "viewmodel.echoOnePixel", "audioLeadMs": 600},
+      "thresholds": [
+        {"id": "between.system-a", "metric": "claim.fieldA", "enter": 0.62, "exit": 0.54, "reaction": "ViewmodelEcho.systemARead"},
+        {"id": "between.system-b", "metric": "claim.fieldB", "enter": 0.62, "exit": 0.54, "reaction": "ViewmodelEcho.systemBRead"},
+        {"id": "between.intersection", "metric": "claim.intersection", "enter": 0.68, "exit": 0.58, "minimumHoldMs": 2400, "reaction": "ViewmodelEcho.intersectionAgreement"},
+        {"id": "between.misregistration", "metric": "claim.disagreement", "enter": 0.42, "exit": 0.32, "reaction": "RoomSky.doubleClockSlip"}
+      ],
+      "stableBand": {"intersection": [0.68, 1.0], "meaning": "A learnable overlap, not an identity category."}
+    },
+    "POLARIZED": {
+      "worldName": "POLARIZED",
+      "entryOmen": {"distancePx": 128, "event": "dither.stopsAbruptly", "audioLeadMs": 1000},
+      "thresholds": [
+        {"id": "polar.gaze-acquire", "metric": "gaze.directness", "enter": 0.55, "exit": 0.42, "reaction": "Eye.acquire"},
+        {"id": "polar.gaze-clamp", "metric": "gaze.holdMs", "enter": 260, "exit": 0, "reaction": "Flower.forcedClamp"},
+        {"id": "polar.override-eligible", "all": [{"metric": "gaze.totalMs", "operator": ">=", "value": 5000}, {"metric": "flower.forcedDimCount", "operator": ">=", "value": 2}, {"metric": "evidence.available", "operator": ">=", "value": 1}], "reaction": "Override.promptDiegetic"},
+        {"id": "polar.no-dusk", "metric": "run.endEligibility", "enter": 1, "reaction": "NoDusk.binaryTimeCut"}
+      ],
+      "stableBand": {"flowerIntensity": [0.36, 0.56], "meaning": "A narrow interval the room cannot name but the player can inhabit."}
+    }
+  },
+  "transitionContract": {
+    "visualCrossfadeMs": 500,
+    "audioCrossfadeMs": 500,
+    "collisionSource": "destination room becomes authoritative only at thresholdCommit event",
+    "noMidpointAmbiguity": true
+  }
+}

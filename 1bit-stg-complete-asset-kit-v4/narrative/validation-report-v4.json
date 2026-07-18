@@ -1,0 +1,290 @@
+{
+  "schemaVersion": "4.0.0-narrative-validation",
+  "summary": {
+    "checks": 56,
+    "passed": 56,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "json:boss-resolutions-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:narrative-state-machine-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:room-thresholds-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:snapshot-observations-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:validation-report-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:weather-system-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:world-reaction-graph-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:audio-manifest-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:feedback-cues-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:ghost-replay-contract-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:narrative-manifest-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:run-memory-v4.schema.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:sample-run-memory-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:ui-copy-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:ui-layouts-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "json:witness-conditions-v4.json",
+      "status": "PASS",
+      "detail": "valid JSON"
+    },
+    {
+      "name": "narrative-state-coverage",
+      "status": "PASS",
+      "detail": "16 states"
+    },
+    {
+      "name": "cross-run-order-events",
+      "status": "PASS",
+      "detail": "scar -> ghost -> witness -> input"
+    },
+    {
+      "name": "non-judgemental-end-reasons",
+      "status": "PASS",
+      "detail": "forbidden=['BAD_END', 'DEFEAT', 'GOOD_END', 'SCORE_THRESHOLD', 'VICTORY']"
+    },
+    {
+      "name": "world-reaction-node-coverage",
+      "status": "PASS",
+      "detail": "13 required nodes"
+    },
+    {
+      "name": "world-reaction-edge-references",
+      "status": "PASS",
+      "detail": "26 one-way edges"
+    },
+    {
+      "name": "four-distinct-memory-classes",
+      "status": "PASS",
+      "detail": "burnIn, deathTrace, ghostResidue, overrideScar, weatherResidue"
+    },
+    {
+      "name": "five-weather-types",
+      "status": "PASS",
+      "detail": "5 types"
+    },
+    {
+      "name": "weather-three-phase-contract",
+      "status": "PASS",
+      "detail": "omen / burst / aftermath on all types"
+    },
+    {
+      "name": "weather-distinct-residue",
+      "status": "PASS",
+      "detail": "characterPuddle, binaryPuddle, routeAsh, misalignedShadowScuff, eclipseInversion"
+    },
+    {
+      "name": "four-room-thresholds",
+      "status": "PASS",
+      "detail": "4 rooms"
+    },
+    {
+      "name": "room-threshold-id-unique",
+      "status": "PASS",
+      "detail": "16 unique thresholds"
+    },
+    {
+      "name": "eight-boss-resolutions",
+      "status": "PASS",
+      "detail": "8 bosses"
+    },
+    {
+      "name": "boss-resolution-diversity",
+      "status": "PASS",
+      "detail": "8 distinct resolutions"
+    },
+    {
+      "name": "boss-resolution-not-hp-only",
+      "status": "PASS",
+      "detail": "all primary resolutions are behavioral/protocol conditions"
+    },
+    {
+      "name": "snapshot-observation-count",
+      "status": "PASS",
+      "detail": "64 bilingual observations"
+    },
+    {
+      "name": "snapshot-observation-ids",
+      "status": "PASS",
+      "detail": "64 unique ids"
+    },
+    {
+      "name": "snapshot-observation-traceability",
+      "status": "PASS",
+      "detail": "condition + metric paths + bilingual copy"
+    },
+    {
+      "name": "snapshot-traces-resolve-run-schema",
+      "status": "PASS",
+      "detail": "unknown metrics=[]"
+    },
+    {
+      "name": "snapshot-copy-non-evaluative",
+      "status": "PASS",
+      "detail": "forbidden terms found=[]"
+    },
+    {
+      "name": "run-memory-separated-remainders",
+      "status": "PASS",
+      "detail": "overrideScars, deathTraces, burnIns, ghostResidues"
+    },
+    {
+      "name": "sample-run-has-all-authoritative-metrics",
+      "status": "PASS",
+      "detail": "missing=[]"
+    },
+    {
+      "name": "sample-light-bands-sum-one",
+      "status": "PASS",
+      "detail": "sum=1.000000"
+    },
+    {
+      "name": "sample-room-time-equals-duration",
+      "status": "PASS",
+      "detail": "rooms=462000, run=462000"
+    },
+    {
+      "name": "sample-evidence-once-per-projectile",
+      "status": "PASS",
+      "detail": "spent <= accepted == unique bullets"
+    },
+    {
+      "name": "sample-material-ids-global-unique",
+      "status": "PASS",
+      "detail": "4 material records"
+    },
+    {
+      "name": "sample-run-rehydration-order",
+      "status": "PASS",
+      "detail": "four remainders -> witness -> input"
+    },
+    {
+      "name": "ghost-actual-route-only",
+      "status": "PASS",
+      "detail": "actual player transform after authoritative movement resolution"
+    },
+    {
+      "name": "ghost-single-replay",
+      "status": "PASS",
+      "detail": "replay count = 1"
+    },
+    {
+      "name": "ghost-no-gameplay-authority",
+      "status": "PASS",
+      "detail": "collision/reward = NONE"
+    },
+    {
+      "name": "witness-condition-coverage",
+      "status": "PASS",
+      "detail": "7 witness states"
+    },
+    {
+      "name": "ui-no-score-semantics",
+      "status": "PASS",
+      "detail": "visible forbidden tokens=[]"
+    },
+    {
+      "name": "score-migrated-to-evidence",
+      "status": "PASS",
+      "detail": "score pickups/HUD removed"
+    },
+    {
+      "name": "feedback-cue-ids",
+      "status": "PASS",
+      "detail": "37 unique cues"
+    },
+    {
+      "name": "feedback-four-modalities",
+      "status": "PASS",
+      "detail": "visual / UI / audio / haptic declared"
+    },
+    {
+      "name": "audio-room-bed-count",
+      "status": "PASS",
+      "detail": "4 room beds"
+    },
+    {
+      "name": "audio-boss-signal-count",
+      "status": "PASS",
+      "detail": "8 boss signals"
+    },
+    {
+      "name": "audio-sfx-count",
+      "status": "PASS",
+      "detail": "36 SFX"
+    },
+    {
+      "name": "feedback-audio-references",
+      "status": "PASS",
+      "detail": "missing=[]"
+    },
+    {
+      "name": "audio-files-and-hashes",
+      "status": "PASS",
+      "detail": "errors=[]"
+    },
+    {
+      "name": "audio-loop-boundaries",
+      "status": "PASS",
+      "detail": "discontinuity=[]"
+    }
+  ]
+}

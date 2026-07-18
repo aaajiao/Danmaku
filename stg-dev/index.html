@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08090d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/icons/favicon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta
+      name="description"
+      content="1bit STG V4 manifest-driven Three.js development environment"
+    />
+    <title>1bit / STG LAB 04</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="site-header">
+        <a class="brand" href="#" aria-label="1bit STG Lab 首页">
+          <span class="brand-mark">1<span>bit</span></span>
+          <span class="brand-copy">STG LAB <i>04</i></span>
+        </a>
+        <div class="system-state">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>MANIFEST ONLINE</span>
+          <span class="header-clock" id="header-clock">000.000</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="play-column" aria-label="游戏运行区">
+          <div class="screen-frame">
+            <div class="hud hud-top" aria-label="游戏状态">
+              <div class="hud-unit hud-flower">
+                <span class="hud-label">FLOWER / 表达</span>
+                <div class="meter"><i id="expression-meter"></i></div>
+              </div>
+              <div class="hud-unit hud-reading">
+                <span class="hud-label">READ / 读取</span>
+                <div class="meter"><i id="protocol-meter"></i></div>
+              </div>
+              <div class="hud-counter">
+                <span>EVIDENCE</span>
+                <strong id="evidence-value">00</strong>
+              </div>
+            </div>
+
+            <div id="game-stage" class="game-stage">
+              <canvas id="game-canvas" aria-label="1bit STG 可玩画面"></canvas>
+              <div id="warning" class="warning-card" aria-live="polite">
+                <span>EXACT WARNING</span>
+                <strong id="warning-shape">SPARSE PATH TICKS</strong>
+              </div>
+              <div id="toast" class="toast" aria-live="polite"></div>
+              <div id="boot-overlay" class="boot-overlay">
+                <div class="boot-index">04 / DEVELOPMENT TRACE</div>
+                <h1>先读取，<br />再穿过。</h1>
+                <p>
+                  弹幕不是装饰。每条轨迹都从 V4 manifest 编译，并在固定玩法时钟中发生。
+                </p>
+                <button id="boot-button" class="primary-button" type="button">
+                  <span>进入模拟</span><kbd>ENTER</kbd>
+                </button>
+                <div class="boot-meta">
+                  <span>120 HZ</span><span>48 PATTERNS</span><span>8 × 3 BOSS</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="hud hud-bottom">
+              <div>
+                <span class="hud-label">ROOM / 房间</span>
+                <strong id="room-value">INFORMATION</strong>
+              </div>
+              <div class="pattern-state">
+                <span id="pattern-sequence">01 / 48</span>
+                <i></i>
+                <span id="pattern-time">00.000</span>
+              </div>
+              <div class="right-align">
+                <span class="hud-label">BODY / 身体</span>
+                <strong id="health-value">● ● ●</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="controls-strip" aria-label="操作说明">
+            <span><kbd>WASD</kbd> 移动</span>
+            <span><kbd>SHIFT</kbd> Focus</span>
+            <span><kbd>Z</kbd> 表达</span>
+            <span><kbd>X</kbd> Override</span>
+            <span><kbd>SPACE</kbd> 暂停</span>
+            <span class="pad-map"><kbd>PAD</kbd> A 表达 · B Override · LB/RB Focus</span>
+            <span id="gamepad-status" class="gamepad-status">○ GAMEPAD</span>
+          </div>
+        </section>
+
+        <aside class="lab-panel" aria-label="弹幕开发控制台">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">PATTERN COMPILER</span>
+              <h2>弹幕试验台</h2>
+            </div>
+            <span class="build-tag">V4.0</span>
+          </div>
+
+          <section class="panel-section pattern-section">
+            <label for="pattern-select">权威 Pattern</label>
+            <div class="select-wrap">
+              <select id="pattern-select"></select>
+            </div>
+            <div class="pattern-title">
+              <strong id="pattern-name">擦边校准</strong>
+              <span id="pattern-name-en">GRAZE CALIBRATION</span>
+            </div>
+            <p id="pattern-intent" class="pattern-intent"></p>
+            <div class="button-row">
+              <button id="previous-pattern" type="button">← 上一组</button>
+              <button id="restart-pattern" type="button">重启</button>
+              <button id="next-pattern" type="button">下一组 →</button>
+            </div>
+          </section>
+
+          <section class="panel-section manifest-grid" aria-label="Pattern 参数">
+            <div><span>GEOMETRY</span><strong id="geometry-value">FAN</strong></div>
+            <div><span>EMITTERS</span><strong id="emitter-value">01</strong></div>
+            <div><span>TICK</span><strong id="tick-value">120 HZ</strong></div>
+            <div><span>SEED</span><strong id="seed-value">—</strong></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-title">
+              <span>DIFFICULTY / 密度</span>
+              <output id="difficulty-output">NORMAL</output>
+            </div>
+            <input id="difficulty" type="range" min="0" max="2" value="1" step="1" />
+            <div class="range-labels"><span>EASY</span><span>NORMAL</span><span>HARD</span></div>
+          </section>
+
+          <section class="panel-section switches">
+            <div class="section-title"><span>FEEDBACK ROUTER</span></div>
+            <label class="switch-row">
+              <span><strong>Reduced Motion</strong><small>只改变表现，不改变玩法时刻</small></span>
+              <input id="reduced-motion" type="checkbox" /><i></i>
+            </label>
+            <label class="switch-row">
+              <span><strong>Flash Off</strong><small>用稳定边界替代闪烁</small></span>
+              <input id="flash-off" type="checkbox" /><i></i>
+            </label>
+            <label class="switch-row">
+              <span><strong>Audio Trace</strong><small>房间声床与权威事件提示</small></span>
+              <input id="audio-enabled" type="checkbox" checked /><i></i>
+            </label>
+          </section>
+
+          <section class="panel-section event-section">
+            <div class="section-title">
+              <span>LOCAL OBSERVATION TRACE</span><button id="clear-events" type="button">CLEAR</button>
+            </div>
+            <ol id="event-log" class="event-log" aria-live="polite"></ol>
+          </section>
+
+          <footer class="panel-footer">
+            <span>7 ATLASES / 448 FRAMES</span>
+            <span class="status-pass">SYSTEM PASS</span>
+          </footer>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.information.missing_ack",
+  "traceSha256": "39f4bc403ede65ee740c192bf227083d2e540bd7c0241ea9aa02bb22d5bde632",
+  "sourceDurationMs": 10800,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 150,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 729,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 729,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5400,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10100,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10380,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10800,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--information--missing_ack.gif",
+    "apng": "room--information--missing_ack.apng",
+    "timeline": "room--information--missing_ack.timeline.json"
+  }
+}

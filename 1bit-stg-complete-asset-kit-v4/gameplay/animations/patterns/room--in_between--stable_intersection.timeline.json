@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.in_between.stable_intersection",
+  "traceSha256": "1f67b04f8dd22d84e645b1d2ef34f5aa55d34d3660b24b09285fce76839afc13",
+  "sourceDurationMs": 12400,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 172,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 682,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 682,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6200,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 11700,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 11980,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 12400,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--in_between--stable_intersection.gif",
+    "apng": "room--in_between--stable_intersection.apng",
+    "timeline": "room--in_between--stable_intersection.timeline.json"
+  }
+}

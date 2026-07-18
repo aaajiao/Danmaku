@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "4.0.0-ui-layout",
+  "inherits": "manifests/v3/ui-layouts.json",
+  "common": {
+    "logicalCanvas": [360, 640],
+    "safeArea": {"x": 12, "y": 8, "w": 336, "h": 620},
+    "pixelScale": "integer-only",
+    "typeface": "Noto Sans SC Variable",
+    "dataAuthority": "runMemoryV4",
+    "forbiddenSemantics": ["score", "rank", "grade", "comboRank", "goodEnding", "badEnding"]
+  },
+  "screens": {
+    "gameplay_hud": {
+      "patch": "replace-v3",
+      "layers": [
+        {"id":"flower","rect":[12,8,102,26],"bind":"player.flowerIntensity","labelCopy":"hud.flower","semantic":"expression-and-exposure"},
+        {"id":"gaze","rect":[310,8,38,74],"bind":"player.gazePressure","labelCopy":"hud.gaze","orientation":"vertical"},
+        {"id":"evidence","rect":[270,588,78,16],"bind":"player.grazeEvidenceAvailable","labelCopy":"hud.evidence","semantic":"unique-near-miss-facts"},
+        {"id":"memory","rect":[270,606,78,14],"bind":"run.materialMemoryCount","labelCopy":"hud.memory","semantic":"persistent-conditions-not-currency"},
+        {"id":"room","rect":[12,588,132,32],"bind":"room.id","labelCopy":"hud.room"},
+        {"id":"weather","rect":[150,604,112,16],"bind":"weather.phaseLabel","visibility":"weather.phase != NONE || accessibility.audioDescriptions"}
+      ]
+    },
+    "boss_hud": {
+      "patch": "replace-integrity-semantics",
+      "layers": [
+        {"id":"protocol_name","rect":[18,52,324,16],"bind":"boss.localizedName"},
+        {"id":"protocol_interval","rect":[18,70,324,5],"bind":"boss.protocolRemaining","semantic":"time-or-structure-not-life"},
+        {"id":"read_state","rect":[18,77,324,9],"bind":"boss.currentReadingFact"},
+        {"id":"resolution_condition","rect":[18,88,324,20],"bind":"boss.discoveredResolutionHint","visibility":"discovery.hasEncounteredConditionComponent"}
+      ]
+    },
+    "discovery_prompts": {
+      "replaces": "tutorial_behavior_map",
+      "rule": "Only show an input glyph after the world has already demonstrated the associated reaction, except the 60-second flower fallback.",
+      "prompts": [
+        {"id":"signal-fallback","guard":"run.elapsedMs >= 60000 && player.signalInputCount == 0","copy":"prompt.signal","dismiss":"first signal input"},
+        {"id":"gaze-threshold","guard":"firstEye.horizonVisible && !discovery.gazeThresholdCrossed","copy":null,"visual":"one-pixel horizon threshold pulse","dismiss":"gaze acquire"},
+        {"id":"override","guard":"override.eligibility","copy":"prompt.override","surface":"nearby building","dismiss":"override activate or room exit"},
+        {"id":"snapshot-trace","guard":"snapshot.open && !discovery.tracePanelOpened","copy":"prompt.trace","dismiss":"trace panel open"}
+      ],
+      "forbidden": ["complete causal map", "all controls on first launch", "prediction of undiscovered boss resolution"]
+    },
+    "state_snapshot": {
+      "patch": "replace-v3",
+      "layers": [
+        {"id":"fingerprint","rect":[18,72,324,168],"bind":"run.fingerprintBitmap","format":"1-bit"},
+        {"id":"observations","rect":[18,258,324,104],"bind":"snapshot.observationsLocalized","maximumLines":3},
+        {"id":"fact_traces","rect":[18,374,324,96],"bind":"snapshot.selectedObservationTraces","interaction":"expand-only"},
+        {"id":"material_memory","rect":[18,484,324,80],"bind":"run.materialMemory","groups":["overrideScars","deathTraces","burnIns","ghostResidues"]},
+        {"id":"resolution","rect":[18,576,228,28],"bind":"run.resolution.factLocalized"}
+      ],
+      "actions": ["continueWithMemory", "exportPng", "title"],
+      "forbidden": ["score total", "rank badge", "moral archetype", "comparison with other players"]
+    },
+    "continue": {
+      "patch": "replace-v3-requirements",
+      "requires": ["previousRun.materialMemory.overrideScars","previousRun.materialMemory.deathTraces","previousRun.materialMemory.burnIns","previousRun.ghostRoute","previousRun.witnessMemory"],
+      "actions": ["continueWithMemory","newRunWithoutMemory"],
+      "copyNote": "continue.note"
+    },
+    "failure": {
+      "renameSemantic": "run_interruption",
+      "readsSameStateAs": ["pause","continue","state_snapshot"],
+      "layers": [
+        {"id":"interruption_fact","bind":"run.resolution.factLocalized"},
+        {"id":"death_trace","bind":"run.materialMemory.deathTraces.last"},
+        {"id":"fingerprint","bind":"run.fingerprintBitmap"}
+      ],
+      "actions": ["openSnapshot","continueWithMemory","title"]
+    },
+    "cross_run_transition": {
+      "authoritativeTimeline": [
+        {"atGameplayMs":0,"event":"overrideScar.rehydrate"},
+        {"atGameplayMs":0,"event":"deathTrace.rehydrate"},
+        {"atGameplayMs":0,"event":"burnIn.rehydrate"},
+        {"atGameplayMs":420,"event":"ghost.replay.begin"},
+        {"atGameplayMs":"routeDuration+420","event":"ghost.replay.complete"},
+        {"atGameplayMs":"routeDuration+421","event":"ghost.residue.write"},
+        {"atGameplayMs":"routeDuration+700","event":"witness.turn"},
+        {"atGameplayMs":"routeDuration+1140","event":"returnInput"}
+      ],
+      "accessibilityInvariant":"Full, reduced-motion and flash-off use this same timeline."
+    }
+  }
+}

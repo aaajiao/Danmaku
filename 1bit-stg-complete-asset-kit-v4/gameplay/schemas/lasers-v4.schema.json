@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "$id": "lasers-v4.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "lasers"
+  ],
+  "properties": {
+    "lasers": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "bossId",
+          "aliases",
+          "narrativeAlias",
+          "geometry",
+          "lifecycle",
+          "collision",
+          "warning",
+          "safeOpening",
+          "cancel"
+        ]
+      }
+    }
+  }
+}

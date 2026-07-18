@@ -1,0 +1,34 @@
+{
+  "name": "1bit-stg-dev",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "content:check": "bun tools/content/validate-content.ts",
+    "dev": "bun run content:check && bun --bun vite --host 127.0.0.1",
+    "build": "bun run content:check && bun --bun tsc -b && bun --bun vite build",
+    "preview": "bun --bun vite preview --host 127.0.0.1",
+    "typecheck": "bun --bun tsc -b --pretty false",
+    "test": "bun --bun vitest run",
+    "test:unit": "bun --bun vitest run",
+    "test:e2e": "bun --bun playwright test --project=chromium",
+    "test:smoke": "bun --bun playwright test --project=smoke",
+    "test:all": "bun run typecheck && bun run test:unit && bun run build && bun run test:smoke && bun run test:e2e"
+  },
+  "engines": {
+    "bun": ">=1.3.14"
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "26.1.1",
+    "@types/three": "0.185.1",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vite-plugin-pwa": "1.3.0",
+    "vitest": "4.1.10"
+  }
+}

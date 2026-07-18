@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.information.stale_packet_retry",
+  "traceSha256": "d333c6345b0daf2a7edc079bb6a411b5393162df0831e3a7a65a40a53faf7822",
+  "sourceDurationMs": 9800,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 136,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 689,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 689,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 4900,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 9100,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 9380,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 9800,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--information--stale_packet_retry.gif",
+    "apng": "room--information--stale_packet_retry.apng",
+    "timeline": "room--information--stale_packet_retry.timeline.json"
+  }
+}

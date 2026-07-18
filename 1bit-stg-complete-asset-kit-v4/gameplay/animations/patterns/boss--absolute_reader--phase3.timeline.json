@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "boss.absolute_reader.phase3",
+  "traceSha256": "fbbe440051424a9267119c8d47ec84f5baebf071888e715cacf0dc21953a6c9b",
+  "sourceDurationMs": 12900,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 179,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 706,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 706,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 6450,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 12200,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 12480,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 12900,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "boss--absolute_reader--phase3.gif",
+    "apng": "boss--absolute_reader--phase3.apng",
+    "timeline": "boss--absolute_reader--phase3.timeline.json"
+  }
+}

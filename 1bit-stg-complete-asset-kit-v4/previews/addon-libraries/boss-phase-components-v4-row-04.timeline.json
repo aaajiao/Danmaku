@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "boss-phase-components-v4",
+  "row": 4,
+  "states": [
+    {
+      "semanticId": "boss.misreader.phase1_establish",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.phase1_live",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.phase2_adapt",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.phase2_live",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.phase3_incomplete",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.aperture_open",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.protocol_interrupted",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "boss.misreader.material_residue",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

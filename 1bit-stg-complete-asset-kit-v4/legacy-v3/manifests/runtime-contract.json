@@ -1,0 +1,327 @@
+{
+  "schemaVersion": "3.0.0",
+  "description": "Authoritative gameplay timing is independent from visual frame playback. Visual profiles may skip, freeze or replace frames without changing gameplay event traces.",
+  "sourceManifests": {
+    "animationClips": "animation-clips.json",
+    "bossRigs": "boss-rigs.json",
+    "laserModules": "laser-modules.json",
+    "runtimeEffects": "runtime-effects.json"
+  },
+  "clock": {
+    "gameplay": {
+      "authority": "monotonic-simulation-clock",
+      "fixedStepMs": 16.6666666667,
+      "maxCatchUpStepsPerRender": 12,
+      "overflowPolicy": "pause-and-report-never-drop-authoritative-events",
+      "intervalSemantics": "start emits t=0; advance emits events in (previousTime, nextTime]"
+    },
+    "visual": {
+      "authority": "derived-from-gameplay-clock",
+      "mayDropFrames": true,
+      "mayFreeze": true,
+      "mayUseRepresentativeFrame": true,
+      "mayEmitGameplayEvents": false
+    }
+  },
+  "eventOrdering": {
+    "sameTimestamp": "ascending-priority-then-declaration-order",
+    "priorities": {
+      "collisionDisable": 0,
+      "damageOrStateCommit": 10,
+      "collisionEnable": 20,
+      "spawnGameplayObject": 30,
+      "audio": 80,
+      "visual": 100
+    }
+  },
+  "timelinePolicy": {
+    "largeDelta": {
+      "traverseEveryCrossedBoundary": true,
+      "emitEveryCrossedEvent": true,
+      "maximumBoundariesPerAdvance": 1024,
+      "onLimit": "throw-no-silent-drop"
+    },
+    "loops": {
+      "eventOccurrenceKey": "instanceId:generation:loopIndex:eventIndex",
+      "resetPerLoop": true,
+      "completionAfterFinalLoopOnly": true
+    },
+    "holds": {
+      "representation": "included-in-frame-duration",
+      "affectsVisualCompletion": true,
+      "affectsGameplayOnlyWhenDeclaredInGameplayTimeline": true
+    },
+    "completion": {
+      "emitOnce": true,
+      "retainFinalVisualFrame": true
+    },
+    "cancel": {
+      "immediate": true,
+      "emitOnce": true,
+      "completionAfterCancel": false,
+      "collisionDisablePrecedesVisualCancel": true
+    }
+  },
+  "timelineSelection": {
+    "projectileArmPolicy": {
+      "chooseExactlyOne": ["projectile.normal-arm","projectile.heavy-arm","projectile.lifecycle"],
+      "default": "projectile.lifecycle",
+      "concurrentSelectionAllowed": false,
+      "cancelTimeline": "projectile.cancel"
+    }
+  },
+  "visualProfiles": {
+    "full": {
+      "frameSelection": "timeline",
+      "temporalJitter": true,
+      "shaderFlash": true,
+      "gameplayEventSource": "gameplay-timeline"
+    },
+    "reduced-motion": {
+      "frameSelection": "reducedMotionFrame",
+      "temporalJitter": false,
+      "shaderFlash": false,
+      "gameplayEventSource": "gameplay-timeline",
+      "requiredEventEquivalence": "same-event-id-same-simulation-time-same-order"
+    }
+  },
+  "gameplayTimelines": {
+    "player.focus": {
+      "timelineType": "fixed",
+      "durationMs": 1040,
+      "loop": false,
+      "events": [
+        {"id":"player.focus.begin","atMs":0,"priority":10},
+        {"id":"player.hitbox.focus.on","atMs":0,"priority":10},
+        {"id":"player.focus.hold","atMs":360,"priority":10},
+        {"id":"player.focus.confirm","atMs":730,"priority":10}
+      ],
+      "completionEvent": "player.focus.complete",
+      "completionPriority": 90,
+      "cancelEvent": "player.focus.cancelled",
+      "cancelPriority": 10
+    },
+    "player.hit": {
+      "timelineType": "fixed",
+      "durationMs": 1000,
+      "loop": false,
+      "events": [
+        {"id":"player.collision.off","atMs":0,"priority":0},
+        {"id":"player.damage.commit","atMs":0,"priority":10},
+        {"id":"player.invulnerability.begin","atMs":0,"priority":10},
+        {"id":"player.invulnerability.end","atMs":1000,"priority":10},
+        {"id":"player.collision.on","atMs":1000,"priority":20}
+      ],
+      "completionEvent": "player.hit.complete",
+      "completionPriority": 90,
+      "cancelEvent": "player.hit.cancelled",
+      "cancelPriority": 10
+    },
+    "player.death-respawn": {
+      "timelineType": "fixed",
+      "durationMs": 1800,
+      "loop": false,
+      "events": [
+        {"id":"player.collision.off","atMs":0,"priority":0},
+        {"id":"player.death.commit","atMs":0,"priority":10},
+        {"id":"player.life.consume","atMs":0,"priority":10},
+        {"id":"player.respawn.place","atMs":1100,"priority":10},
+        {"id":"player.invulnerability.begin","atMs":1100,"priority":10},
+        {"id":"player.collision.on","atMs":1500,"priority":20},
+        {"id":"player.invulnerability.end","atMs":1800,"priority":10}
+      ],
+      "completionEvent": "player.respawn.complete",
+      "completionPriority": 90,
+      "cancelEvent": "player.respawn.cancelled",
+      "cancelPriority": 10
+    },
+    "player.override.directional": {
+      "timelineType": "fixed",
+      "durationMs": 1250,
+      "loop": false,
+      "events": [
+        {"id":"player.override.begin","atMs":0,"priority":10},
+        {"id":"player.override.charge","atMs":110,"priority":10},
+        {"id":"player.override.directional-tear","atMs":200,"priority":10},
+        {"id":"player.override.local-void","atMs":280,"priority":10},
+        {"id":"player.collision.off","atMs":380,"priority":0},
+        {"id":"player.override.commit","atMs":380,"priority":10},
+        {"id":"cross_run.scar.write.commit","atMs":500,"priority":10},
+        {"id":"player.override.material-sediment","atMs":890,"priority":10},
+        {"id":"player.collision.on","atMs":1250,"priority":20}
+      ],
+      "completionEvent": "player.override.complete",
+      "completionPriority": 90,
+      "cancelEvent": "player.override.cancelled",
+      "cancelPriority": 10
+    },
+    "projectile.normal-arm": {
+      "timelineType": "fixed",
+      "durationMs": 1,
+      "loop": false,
+      "events": [
+        {"id":"projectile.collision.on","atMs":0,"priority":20}
+      ],
+      "completionEvent": "projectile.armed",
+      "completionPriority": 90
+    },
+    "projectile.heavy-arm": {
+      "timelineType": "fixed",
+      "durationMs": 220,
+      "loop": false,
+      "events": [
+        {"id":"projectile.telegraph.begin","atMs":0,"priority":10},
+        {"id":"projectile.collision.on","atMs":220,"priority":20}
+      ],
+      "completionEvent": "projectile.armed",
+      "completionPriority": 90
+    },
+    "projectile.lifecycle": {
+      "timelineType": "fixed",
+      "durationMs": 610,
+      "loop": false,
+      "events": [
+        {"id":"projectile.collision.off","atMs":0,"priority":0},
+        {"id":"projectile.lifecycle.begin","atMs":0,"priority":10},
+        {"id":"projectile.spawn.commit","atMs":0,"priority":30},
+        {"id":"projectile.collision.on","atMs":90,"priority":20},
+        {"id":"projectile.collision.off","atMs":270,"priority":0},
+        {"id":"projectile.impact.commit","atMs":270,"priority":10},
+        {"id":"projectile.residue.begin","atMs":390,"priority":10},
+        {"id":"projectile.residue.remove","atMs":610,"priority":10}
+      ],
+      "completionEvent": "projectile.lifecycle.complete",
+      "completionPriority": 90,
+      "cancelEvent": "projectile.lifecycle.cancelled",
+      "cancelPriority": 10
+    },
+    "projectile.cancel": {
+      "timelineType": "fixed",
+      "durationMs": 340,
+      "loop": false,
+      "events": [
+        {"id":"projectile.collision.off","atMs":0,"priority":0},
+        {"id":"projectile.cancel.commit","atMs":0,"priority":10},
+        {"id":"projectile.cancel.residue.begin","atMs":120,"priority":10},
+        {"id":"projectile.residue.remove","atMs":340,"priority":10}
+      ],
+      "completionEvent": "projectile.cancel.complete",
+      "completionPriority": 90
+    },
+    "boss.laser.lifecycle": {
+      "timelineType": "state-machine-adapter",
+      "authority": "boss-laser-state-machine.json",
+      "durationMs": "parameterized-by-laser-module",
+      "parameterSource": "laser-modules.json#modules.*.timing",
+      "parameterMapping": {
+        "telegraphMs": "warningMs",
+        "chargeMs": "chargeMs",
+        "growMs": "growMs",
+        "liveMs": "minimumLiveMs",
+        "shutdownMs": "shutdownMs",
+        "residueMs": "residueMs"
+      },
+      "loop": false,
+      "events": [
+        {"id":"laser.telegraph.begin","onStateEntry":"telegraph","priority":10},
+        {"id":"laser.charge.begin","onStateEntry":"charge","priority":10},
+        {"id":"laser.grow.begin","onStateEntry":"grow","priority":10},
+        {"id":"laser.collision.on","onStateEntry":"live","priority":20},
+        {"id":"laser.live.begin","onStateEntry":"live","priority":30},
+        {"id":"laser.collision.off","onStateEntry":"shutdown","priority":0},
+        {"id":"laser.shutdown.begin","onStateEntry":"shutdown","priority":10},
+        {"id":"laser.residue.begin","onStateEntry":"residue","priority":10},
+        {"id":"laser.complete","onTransition":"residue->idle","priority":10},
+        {"id":"laser.cancelled","on":"cancel","priority":10}
+      ]
+    },
+    "boss.phase": {
+      "timelineType": "event-adapter",
+      "authority": "authoritative-boss-hp-threshold-system",
+      "events": [
+        {"id":"boss.phase.swap","on":"hp-threshold-crossed","priority":10},
+        {"id":"boss.phase.attack-plan.commit","on":"after-phase-swap","priority":10}
+      ],
+      "idempotencyKey": "bossInstanceId:generation:phaseId"
+    },
+    "cross-run.snapshot": {
+      "timelineType": "fixed",
+      "durationMs": 1630,
+      "loop": false,
+      "events": [
+        {"id":"cross_run.snapshot.begin","atMs":0,"priority":10},
+        {"id":"cross_run.snapshot.serialize.commit","atMs":410,"priority":10},
+        {"id":"cross_run.next-run.seed.commit","atMs":810,"priority":10},
+        {"id":"cross_run.scar.restore.commit","atMs":970,"priority":10}
+      ],
+      "completionEvent": "cross_run.snapshot.complete",
+      "completionPriority": 90,
+      "cancelEvent": "cross_run.snapshot.cancelled",
+      "cancelPriority": 10,
+      "cancelPolicy": {
+        "beforeSerializeCommit": "rollback-current-generation",
+        "afterSerializeCommit": "finish-current-generation-no-visual-gating"
+      }
+    },
+    "room.transition": {
+      "timelineType": "event-adapter",
+      "authority": "scene-transition-controller",
+      "events": [
+        {"id":"room.transition.begin","on":"request-accepted","priority":10},
+        {"id":"room.transition.world-swap.commit","on":"atomic-world-swap","priority":10},
+        {"id":"room.transition.complete","on":"new-room-ready","priority":10}
+      ],
+      "idempotencyKey": "transitionInstanceId:generation"
+    }
+  },
+  "visualBindings": {
+    "player.focus": {"clip":"player.focus"},
+    "player.hit": {"clip":"player.causality.damage_to_trace","effect":"sprite.damage_flash"},
+    "player.death-respawn": {"clips":["player.causality.damage_to_trace","player.return_with_history"]},
+    "player.override.directional": {"clip":"system.override.directional","eventClips":{"cross_run.scar.write.commit":"memory.directional_write"}},
+    "projectile.normal-arm": {"clip":"bullet.lifecycle"},
+    "projectile.heavy-arm": {"clip":"bullet.lifecycle"},
+    "projectile.lifecycle": {"clip":"bullet.lifecycle"},
+    "projectile.cancel": {"clip":"bullet.cancel","effect":"bullet.cancel_dither","eventClipSegments":{"projectile.cancel.residue.begin":{"clip":"bullet.lifecycle","fromFrameId":"bullet.afterimage","toFrameId":"bullet.clear"}}},
+    "boss.laser.lifecycle": {"clip":"boss.laser.lifecycle","sampling":"state-driven-frame-selection","effects":["laser.warning_pulse","laser.grow","laser.body_scroll","laser.shutdown"]},
+    "boss.phase": {"effect":"boss.phase_swap"},
+    "cross-run.snapshot": {"clip":"state.snapshot_handoff"},
+    "room.transition": {"effect":"room.transition_mask"}
+  },
+  "collisionContract": {
+    "global": {
+      "authoritativeClock": "gameplay",
+      "neverDeriveFromAlphaOrGPUReadback": true,
+      "largeDeltaMotionTest": "swept-shape-not-endpoint-only",
+      "collisionOffPriority": 0
+    },
+    "player": {
+      "hit": "disable-at-hit-timestamp-before-damage-vfx",
+      "death": "disable-at-death-timestamp",
+      "respawn": "place-before-enable; enable-only-on-gameplay-event",
+      "focus": "hitbox-size-change-at-fixed-gameplay-step-not-visual-frame"
+    },
+    "projectile": {
+      "spawn": "arm-event-controls-collision",
+      "cancel": "disable-immediately-before-cancel-vfx",
+      "residue": "never-collidable"
+    },
+    "laser": {
+      "telegraph": false,
+      "charge": false,
+      "grow": false,
+      "live": true,
+      "shutdown": false,
+      "residue": false,
+      "shutdownEntry": "collision-off-at-same-timestamp-before-visual-state-change"
+    },
+    "inBetween": {
+      "mode": "stable-intersection",
+      "predicate": "primary.contains(point) && secondary.contains(point)",
+      "broadphase": "intersection-of-aabbs",
+      "poses": "quantized-gameplay-poses-frozen-until-explicit-gameplay-update",
+      "visualJitterAffectsCollision": false,
+      "emptyIntersection": "collision-disabled-and-diagnostic-event"
+    }
+  }
+}

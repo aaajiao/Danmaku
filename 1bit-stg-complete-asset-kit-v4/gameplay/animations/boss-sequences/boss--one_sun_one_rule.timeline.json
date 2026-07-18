@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "4.0.0-boss-sequence-preview",
+  "bossId": "boss.one_sun_one_rule",
+  "resolution": {
+    "source": "../../narrative/boss-resolutions-v4.json",
+    "canonicalBossId": "boss.one_sun_one_rule",
+    "narrativeAlias": "one_sun_one_rule",
+    "resolutionId": "RULE_INTERRUPTED_BY_SCAR",
+    "metric": "overrideScar.intersects(ruleShadowLine) == true",
+    "condition": "overrideScar.intersects(ruleShadowLine) == true",
+    "fact": "A directional override scar crossed the single shadow correction line.",
+    "terminal": "boss.rule.correctionFailed",
+    "terminalEvent": "boss.rule.correctionFailed",
+    "materialRemainder": "one hard shadow that no longer aligns",
+    "playerPossibilities": [
+      "write scar",
+      "endure until withdrawal"
+    ]
+  },
+  "phaseRows": [
+    {
+      "phaseId": "observe",
+      "patternId": "boss.one_sun_one_rule.phase1",
+      "startFrame": 0,
+      "frameCount": 32,
+      "traceSha256": "7d12b777f215531d721e8f78ff8a534d59f83a86f6a9360ce49da47bf94f20f8"
+    },
+    {
+      "phaseId": "enforce",
+      "patternId": "boss.one_sun_one_rule.phase2",
+      "startFrame": 32,
+      "frameCount": 32,
+      "traceSha256": "f1f847f6beb2cfb5ccdcce080a7227d06eecb5996e979867a31e99e39ef86827"
+    },
+    {
+      "phaseId": "fail_to_totalize",
+      "patternId": "boss.one_sun_one_rule.phase3",
+      "startFrame": 64,
+      "frameCount": 32,
+      "traceSha256": "efea4c9fa6ce5147a595c0d3e471930f848d40750625f20e3606c6f4115a512e"
+    }
+  ],
+  "previewFrameCount": 96,
+  "files": {
+    "gif": "boss--one_sun_one_rule.gif",
+    "apng": "boss--one_sun_one_rule.apng",
+    "timeline": "boss--one_sun_one_rule.timeline.json"
+  }
+}

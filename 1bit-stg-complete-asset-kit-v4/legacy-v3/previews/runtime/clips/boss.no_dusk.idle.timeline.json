@@ -1,0 +1,26 @@
+{
+  "clip": "boss.no_dusk.idle",
+  "fps": 12,
+  "loop": true,
+  "loopMode": "repeat",
+  "hold": {},
+  "periodMs": 420,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "boss.no_dusk.idle_a",
+      "startMs": 0,
+      "durationMs": 190,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "boss.no_dusk.idle_b",
+      "startMs": 190,
+      "durationMs": 230,
+      "events": []
+    }
+  ]
+}

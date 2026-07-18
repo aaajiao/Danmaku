@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "4.0.0",
+  "palette": {
+    "SYSTEM_INK": "#08090D",
+    "SELF_PAPER": "#EFE9DA",
+    "FRICTION_GRAY": "#7D8087",
+    "INFO_CYAN": "#17A7CA",
+    "FORCED_AMBER": "#D6982B",
+    "BETWEEN_VIOLET": "#7851B7",
+    "POLAR_RED": "#B7463C",
+    "OVERRIDE_MAGENTA": "#F02A92"
+  },
+  "atlases": [
+    {
+      "id": "player-world-behavior-v4",
+      "file": "atlases/player-world-behavior-v4.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "source": "sources/generated/player-world-v4-source.png",
+      "sha256": "839c06b7b1e0937f5c734b133fc2f0458d5014e8c79414b29d8a181e95c20eef"
+    },
+    {
+      "id": "combat-behavior-cues-v4",
+      "file": "atlases/combat-behavior-cues-v4.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "source": "sources/generated/combat-behavior-v4-source.png",
+      "sha256": "2288cb1d2fd71f5c201cf6fbef4f837abd43e5c611c1026e1a67d31f2e3fdf4b"
+    },
+    {
+      "id": "boss-phase-components-v4",
+      "file": "atlases/boss-phase-components-v4.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "grid": [
+        8,
+        8
+      ],
+      "cell": [
+        128,
+        128
+      ],
+      "source": "sources/generated/boss-phases-v4-source.png",
+      "sha256": "ab2d79d3361d8e1c8f126b890b271000d68f04da533b409554f4a0a100cafaad"
+    }
+  ]
+}

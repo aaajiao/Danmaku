@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.forced.left_right_gate",
+  "traceSha256": "206498146052977e8ef9b33eee70c30b90d3cc6e008a02dd151eaad901e370ab",
+  "sourceDurationMs": 10200,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 142,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 729,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 729,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5100,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 9500,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 9780,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10200,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--forced--left_right_gate.gif",
+    "apng": "room--forced--left_right_gate.apng",
+    "timeline": "room--forced--left_right_gate.timeline.json"
+  }
+}

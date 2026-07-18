@@ -1,0 +1,822 @@
+{
+  "schemaVersion": "3.0.0",
+  "description": "One whole-body topology per boss; animation swaps semantic states instead of stacking ornamental emblems.",
+  "coordinateSystem": {
+    "anchorSpace": "normalized-body-space-top-left-origin",
+    "logicalViewport": [
+      360,
+      640
+    ]
+  },
+  "defaults": {
+    "renderOrder": {
+      "body": 100
+    },
+    "bodyLogicalSize": [
+      128,
+      128
+    ],
+    "alphaTest": 0.5,
+    "depthWrite": false
+  },
+  "rigs": {
+    "absent_receiver": {
+      "id": "absent_receiver",
+      "room": "INFORMATION",
+      "topologyFrame": "boss.absent_receiver.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.absent_receiver.idle",
+          "phaseFrames": {
+            "phase1": "boss.absent_receiver.silhouette",
+            "phase2": "boss.absent_receiver.idle_b",
+            "rupture": "boss.absent_receiver.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.absent_receiver.silhouette",
+          "attackClip": "boss.absent_receiver.attack",
+          "laserModule": "laser.absent_receiver"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.absent_receiver.idle_b",
+          "attackClip": "boss.absent_receiver.attack",
+          "laserModule": "laser.absent_receiver"
+        }
+      ],
+      "terminalClip": "boss.absent_receiver.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "box",
+          "halfExtents": [
+            40,
+            40
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.absent_receiver.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.absent_receiver"
+          }
+        }
+      ]
+    },
+    "unanswering_feed": {
+      "id": "unanswering_feed",
+      "room": "INFORMATION",
+      "topologyFrame": "boss.unanswering_feed.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.unanswering_feed.idle",
+          "phaseFrames": {
+            "phase1": "boss.unanswering_feed.silhouette",
+            "phase2": "boss.unanswering_feed.idle_b",
+            "rupture": "boss.unanswering_feed.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.unanswering_feed.silhouette",
+          "attackClip": "boss.unanswering_feed.attack",
+          "laserModule": "laser.unanswering_feed"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.unanswering_feed.idle_b",
+          "attackClip": "boss.unanswering_feed.attack",
+          "laserModule": "laser.unanswering_feed"
+        }
+      ],
+      "terminalClip": "boss.unanswering_feed.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "ellipse",
+          "radius": [
+            42,
+            48
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.unanswering_feed.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.unanswering_feed"
+          }
+        }
+      ]
+    },
+    "one_sun_one_rule": {
+      "id": "one_sun_one_rule",
+      "room": "FORCED_CHOICE",
+      "topologyFrame": "boss.one_sun_one_rule.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.one_sun_one_rule.idle",
+          "phaseFrames": {
+            "phase1": "boss.one_sun_one_rule.silhouette",
+            "phase2": "boss.one_sun_one_rule.idle_b",
+            "rupture": "boss.one_sun_one_rule.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.one_sun_one_rule.silhouette",
+          "attackClip": "boss.one_sun_one_rule.attack",
+          "laserModule": "laser.one_sun_one_rule"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.one_sun_one_rule.idle_b",
+          "attackClip": "boss.one_sun_one_rule.attack",
+          "laserModule": "laser.one_sun_one_rule"
+        }
+      ],
+      "terminalClip": "boss.one_sun_one_rule.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "box",
+          "halfExtents": [
+            40,
+            40
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.one_sun_one_rule.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.one_sun_one_rule"
+          }
+        }
+      ]
+    },
+    "two_claims": {
+      "id": "two_claims",
+      "room": "FORCED_CHOICE",
+      "topologyFrame": "boss.two_claims.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.two_claims.idle",
+          "phaseFrames": {
+            "phase1": "boss.two_claims.silhouette",
+            "phase2": "boss.two_claims.idle_b",
+            "rupture": "boss.two_claims.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.two_claims.silhouette",
+          "attackClip": "boss.two_claims.attack",
+          "laserModule": "laser.two_claims"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.two_claims.idle_b",
+          "attackClip": "boss.two_claims.attack",
+          "laserModule": "laser.two_claims"
+        }
+      ],
+      "terminalClip": "boss.two_claims.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "compound",
+          "shapes": [
+            {
+              "type": "box",
+              "offset": [
+                -18,
+                0
+              ],
+              "halfExtents": [
+                17,
+                28
+              ]
+            },
+            {
+              "type": "box",
+              "offset": [
+                20,
+                1
+              ],
+              "halfExtents": [
+                15,
+                26
+              ]
+            }
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.two_claims.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.two_claims"
+          }
+        }
+      ]
+    },
+    "misreader": {
+      "id": "misreader",
+      "room": "IN_BETWEEN",
+      "topologyFrame": "boss.misreader.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.misreader.idle",
+          "phaseFrames": {
+            "phase1": "boss.misreader.silhouette",
+            "phase2": "boss.misreader.idle_b",
+            "rupture": "boss.misreader.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.misreader.silhouette",
+          "attackClip": "boss.misreader.attack",
+          "laserModule": "laser.misreader"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.misreader.idle_b",
+          "attackClip": "boss.misreader.attack",
+          "laserModule": "laser.misreader"
+        }
+      ],
+      "terminalClip": "boss.misreader.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "box",
+          "halfExtents": [
+            40,
+            40
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.misreader.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.misreader"
+          }
+        }
+      ]
+    },
+    "misregistered_twin_moons": {
+      "id": "misregistered_twin_moons",
+      "room": "IN_BETWEEN",
+      "topologyFrame": "boss.misregistered_twin_moons.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.misregistered_twin_moons.idle",
+          "phaseFrames": {
+            "phase1": "boss.misregistered_twin_moons.silhouette",
+            "phase2": "boss.misregistered_twin_moons.idle_b",
+            "rupture": "boss.misregistered_twin_moons.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.misregistered_twin_moons.silhouette",
+          "attackClip": "boss.misregistered_twin_moons.attack",
+          "laserModule": "laser.misregistered_twin_moons"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.misregistered_twin_moons.idle_b",
+          "attackClip": "boss.misregistered_twin_moons.attack",
+          "laserModule": "laser.misregistered_twin_moons"
+        }
+      ],
+      "terminalClip": "boss.misregistered_twin_moons.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "compound",
+          "shapes": [
+            {
+              "type": "box",
+              "offset": [
+                -18,
+                0
+              ],
+              "halfExtents": [
+                17,
+                28
+              ]
+            },
+            {
+              "type": "box",
+              "offset": [
+                20,
+                1
+              ],
+              "halfExtents": [
+                15,
+                26
+              ]
+            }
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.misregistered_twin_moons.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.misregistered_twin_moons"
+          }
+        }
+      ]
+    },
+    "no_dusk": {
+      "id": "no_dusk",
+      "room": "POLARIZED",
+      "topologyFrame": "boss.no_dusk.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.no_dusk.idle",
+          "phaseFrames": {
+            "phase1": "boss.no_dusk.silhouette",
+            "phase2": "boss.no_dusk.idle_b",
+            "rupture": "boss.no_dusk.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.no_dusk.silhouette",
+          "attackClip": "boss.no_dusk.attack",
+          "laserModule": "laser.no_dusk"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.no_dusk.idle_b",
+          "attackClip": "boss.no_dusk.attack",
+          "laserModule": "laser.no_dusk"
+        }
+      ],
+      "terminalClip": "boss.no_dusk.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "box",
+          "halfExtents": [
+            40,
+            40
+          ],
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.no_dusk.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.no_dusk"
+          }
+        }
+      ]
+    },
+    "absolute_reader": {
+      "id": "absolute_reader",
+      "room": "POLARIZED",
+      "topologyFrame": "boss.absolute_reader.silhouette",
+      "nodes": {
+        "root": {
+          "type": "transform",
+          "parent": null,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ]
+        },
+        "body": {
+          "type": "sprite",
+          "parent": "root",
+          "clip": "boss.absolute_reader.idle",
+          "phaseFrames": {
+            "phase1": "boss.absolute_reader.silhouette",
+            "phase2": "boss.absolute_reader.idle_b",
+            "rupture": "boss.absolute_reader.death"
+          },
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "pivot": [
+            0.5,
+            0.5
+          ],
+          "renderOrder": 100
+        }
+      },
+      "phases": [
+        {
+          "id": "phase1",
+          "hpRange": [
+            1.0,
+            0.5
+          ],
+          "bodyFrame": "boss.absolute_reader.silhouette",
+          "attackClip": "boss.absolute_reader.attack",
+          "laserModule": "laser.absolute_reader"
+        },
+        {
+          "id": "phase2",
+          "hpRange": [
+            0.5,
+            0.0
+          ],
+          "bodyFrame": "boss.absolute_reader.idle_b",
+          "attackClip": "boss.absolute_reader.attack",
+          "laserModule": "laser.absolute_reader"
+        }
+      ],
+      "terminalClip": "boss.absolute_reader.terminal_material",
+      "hitboxes": {
+        "body": {
+          "type": "ring",
+          "innerRadius": 18,
+          "outerRadius": 46,
+          "centerNode": "body",
+          "damageTarget": true
+        }
+      },
+      "eventBindings": [
+        {
+          "event": "boss.phase.swap",
+          "action": {
+            "type": "effect",
+            "id": "boss.phase_swap"
+          }
+        },
+        {
+          "event": "boss.attack",
+          "action": {
+            "type": "playClip",
+            "id": "boss.absolute_reader.attack"
+          }
+        },
+        {
+          "event": "boss.laser",
+          "action": {
+            "type": "spawnLaser",
+            "id": "laser.absolute_reader"
+          }
+        }
+      ]
+    }
+  }
+}

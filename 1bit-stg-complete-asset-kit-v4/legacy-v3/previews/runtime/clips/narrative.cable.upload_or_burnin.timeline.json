@@ -1,0 +1,80 @@
+{
+  "clip": "narrative.cable.upload_or_burnin",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1530,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "cable.idle",
+      "startMs": 0,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "cable.attach",
+      "startMs": 180,
+      "durationMs": 130,
+      "events": [
+        "branch_open"
+      ]
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "cable.upload_0",
+      "startMs": 310,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "cable.upload_1",
+      "startMs": 430,
+      "durationMs": 170,
+      "events": [
+        "upload"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "cable.burnin_0",
+      "startMs": 600,
+      "durationMs": 170,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "cable.burnin_1",
+      "startMs": 770,
+      "durationMs": 240,
+      "events": [
+        "burn_in"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "cable.disconnect",
+      "startMs": 1010,
+      "durationMs": 160,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "cable.residue",
+      "startMs": 1170,
+      "durationMs": 360,
+      "events": []
+    }
+  ]
+}

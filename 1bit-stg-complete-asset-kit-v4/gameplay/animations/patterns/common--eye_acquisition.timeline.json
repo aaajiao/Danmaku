@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "common.eye_acquisition",
+  "traceSha256": "403c020b34d297735054a23c916545d7087e7b5a8448eedadaf9244fd22998e8",
+  "sourceDurationMs": 8600,
+  "previewFrameCount": 69,
+  "previewFrameDurationMs": 125,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 601,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 601,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 4300,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 7900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 8180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 8600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "common--eye_acquisition.gif",
+    "apng": "common--eye_acquisition.apng",
+    "timeline": "common--eye_acquisition.timeline.json"
+  }
+}

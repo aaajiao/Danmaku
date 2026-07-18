@@ -1,0 +1,78 @@
+{
+  "clip": "narrative.ghost.burnout",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 2050,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "ghost.walk_0",
+      "startMs": 0,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "ghost.walk_1",
+      "startMs": 180,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "ghost.hesitate_0",
+      "startMs": 360,
+      "durationMs": 260,
+      "events": [
+        "hesitation"
+      ]
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "ghost.hesitate_1",
+      "startMs": 620,
+      "durationMs": 340,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "ghost.stumble",
+      "startMs": 960,
+      "durationMs": 180,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "ghost.burnout_0",
+      "startMs": 1140,
+      "durationMs": 210,
+      "events": [
+        "burnout"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "ghost.burnout_1",
+      "startMs": 1350,
+      "durationMs": 280,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "ghost.residue",
+      "startMs": 1630,
+      "durationMs": 420,
+      "events": []
+    }
+  ]
+}

@@ -1,0 +1,713 @@
+{
+  "schemaVersion": "4.0.0-asset-bindings",
+  "authorityFlow": "gameplay event -> feedback binding -> cue resolver -> passive asset subscriber",
+  "prohibitions": [
+    "assets cannot enable collision",
+    "animation completion cannot advance gameplay",
+    "audio and haptic cannot mutate authoritative state",
+    "accessibility fallbacks preserve event and collision timing"
+  ],
+  "narrativeCueResolvers": [
+    {
+      "cueId": "cue.flower.quiet",
+      "event": "flower.band.enter.quiet",
+      "frame": "flower.breathe",
+      "ui": "flower bar notch 1",
+      "audio": "sfx.flower_breathe",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.flower.middle",
+      "event": "flower.band.enter.middle",
+      "frame": "flower.resonance",
+      "ui": "flower bar middle gap",
+      "audio": "sfx.flower_resonance",
+      "haptic": "soft 18ms"
+    },
+    {
+      "cueId": "cue.flower.loud",
+      "event": "flower.band.enter.loud",
+      "frame": "flower.expression",
+      "ui": "flower bar exposed cap",
+      "audio": "sfx.flower_exposure",
+      "haptic": "soft 12ms"
+    },
+    {
+      "cueId": "cue.gaze.acquire",
+      "event": "gaze.acquire",
+      "frame": "eye.acquire",
+      "ui": "read bar appears",
+      "audio": "sfx.gaze_acquire",
+      "haptic": "medium 24ms"
+    },
+    {
+      "cueId": "cue.gaze.clamp",
+      "event": "gaze.clamp.begin",
+      "frame": "flower.clamp",
+      "ui": "forced marker on flower bar",
+      "audio": "sfx.flower_clamp",
+      "haptic": "medium 36ms"
+    },
+    {
+      "cueId": "cue.gaze.hold",
+      "event": "gaze.clamp.pulse",
+      "frame": "eye.pressure_hold",
+      "ui": "read pressure tick",
+      "audio": "sfx.gaze_hold_pulse",
+      "haptic": "soft 12ms, minimum interval 700ms"
+    },
+    {
+      "cueId": "cue.gaze.release",
+      "event": "gaze.clamp.release",
+      "frame": "eye.withdraw",
+      "ui": "read bar empties",
+      "audio": "sfx.gaze_release",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.flower.recover",
+      "event": "flower.recovery.complete",
+      "frame": "flower.recover_delay",
+      "ui": "forced marker clears",
+      "audio": "sfx.flower_recover",
+      "haptic": "soft 10ms"
+    },
+    {
+      "cueId": "cue.graze",
+      "event": "graze.evidence.accepted",
+      "frame": "graze.near_miss",
+      "ui": "evidence +1, never combo",
+      "audio": "sfx.graze_evidence",
+      "haptic": "soft 8ms"
+    },
+    {
+      "cueId": "cue.evidence.ready",
+      "event": "evidence.threshold.ready",
+      "frame": "evidence.grain",
+      "ui": "evidence cell becomes available",
+      "audio": "sfx.evidence_ready",
+      "haptic": "two soft 10ms pulses"
+    },
+    {
+      "cueId": "cue.override.charge",
+      "event": "override.charge.begin",
+      "frame": "override.charge",
+      "ui": "hold progress",
+      "audio": "sfx.override_charge",
+      "haptic": "ramp 15-35ms"
+    },
+    {
+      "cueId": "cue.override.open",
+      "event": "localVoid.open",
+      "frame": "override.directional_tear",
+      "ui": "evidence cell consumed",
+      "audio": "sfx.override_tear",
+      "haptic": "firm 45ms"
+    },
+    {
+      "cueId": "cue.override.decay",
+      "event": "localVoid.decay.begin",
+      "frame": "override.recover",
+      "ui": "none",
+      "audio": "sfx.override_void_decay",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.override.scar",
+      "event": "overrideScar.materialize",
+      "frame": "override.scar_commit",
+      "ui": "memory +1",
+      "audio": "sfx.scar_write",
+      "haptic": "soft 18ms"
+    },
+    {
+      "cueId": "cue.projectile.spawn",
+      "event": "projectile.armed",
+      "frame": "cue.projectile.armed",
+      "ui": "none",
+      "audio": "sfx.projectile_arm",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.projectile.cancel",
+      "event": "projectile.cancel",
+      "frame": "utility.delete.mark",
+      "ui": "none",
+      "audio": "sfx.projectile_cancel",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.projectile.impact",
+      "event": "projectile.impact",
+      "frame": "player_shot.impact",
+      "ui": "none",
+      "audio": "sfx.projectile_impact",
+      "haptic": "soft 10ms"
+    },
+    {
+      "cueId": "cue.player.damage",
+      "event": "player.damage",
+      "frame": "player.hit",
+      "ui": "body interruption marker",
+      "audio": "sfx.player_damage",
+      "haptic": "firm 55ms"
+    },
+    {
+      "cueId": "cue.player.collapse",
+      "event": "player.collapse",
+      "frame": "player.digital_delete",
+      "ui": "run interruption strip",
+      "audio": "sfx.player_collapse",
+      "haptic": "firm 80ms then none"
+    },
+    {
+      "cueId": "cue.player.return",
+      "event": "player.returnInput",
+      "frame": "player.core.idle",
+      "ui": "hud returns",
+      "audio": "sfx.player_return",
+      "haptic": "soft 20ms"
+    },
+    {
+      "cueId": "cue.boss.phase",
+      "event": "boss.protocol.phaseChanged",
+      "frame": {
+        "selector": "{bossCanonicalId}.phase{phaseIndex}_live",
+        "fallback": "boss_node.phase_divider"
+      },
+      "ui": "protocol fact changes",
+      "audio": {
+        "selector": "boss.{bossSlug}.signal",
+        "fallback": "boss.absent_receiver.signal"
+      },
+      "haptic": "medium 32ms"
+    },
+    {
+      "cueId": "cue.boss.resolution",
+      "event": "boss.resolution.commit",
+      "frame": {
+        "selector": "{bossCanonicalId}.protocol_interrupted",
+        "fallback": "boss_node.rupture_joint"
+      },
+      "ui": "resolution fact, no victory text",
+      "audio": "sfx.protocol_withdraw",
+      "haptic": "soft 30ms"
+    },
+    {
+      "cueId": "cue.room.threshold",
+      "event": "room.threshold.commit",
+      "frame": {
+        "selector": "threshold.{roomSlug}",
+        "fallback": "threshold.information"
+      },
+      "ui": "mental state label updates",
+      "audio": "sfx.room_threshold",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.cable.upload",
+      "event": "cable.upload.begin",
+      "frame": "cable.upload_eye",
+      "ui": "none",
+      "audio": "sfx.cable_upload",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.cable.burnin",
+      "event": "cable.burnIn.write",
+      "frame": "cable.thermal_burnin",
+      "ui": "memory group burn-in",
+      "audio": "sfx.cable_burnin",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.burnin.capture",
+      "event": "burnIn.capture",
+      "frame": "memory.burnin",
+      "ui": "memory +1 only when serialized",
+      "audio": "sfx.burnin_capture",
+      "haptic": "soft 8ms"
+    },
+    {
+      "cueId": "cue.ghost.begin",
+      "event": "ghost.replay.begin",
+      "frame": "ghost.walk_a",
+      "ui": "input held indicator",
+      "audio": "sfx.ghost_replay",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.ghost.end",
+      "event": "ghost.replay.complete",
+      "frame": "ghost.burnout",
+      "ui": "none",
+      "audio": "sfx.ghost_burnout",
+      "haptic": "soft 12ms"
+    },
+    {
+      "cueId": "cue.witness.turn",
+      "event": "witness.turn",
+      "frame": "witness.turn_player",
+      "ui": "none",
+      "audio": "sfx.witness_turn",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.snapshot.collect",
+      "event": "snapshot.collect",
+      "frame": "snapshot.capture",
+      "ui": "snapshot panels open",
+      "audio": "sfx.snapshot_collect",
+      "haptic": "soft 18ms"
+    },
+    {
+      "cueId": "cue.snapshot.handoff",
+      "event": "snapshot.handoff",
+      "frame": "snapshot_echo.fade",
+      "ui": "continue choices appear",
+      "audio": "sfx.snapshot_handoff",
+      "haptic": "soft 18ms"
+    },
+    {
+      "cueId": "cue.noDusk",
+      "event": "noDusk.binaryTimeCut.begin",
+      "frame": "dusk.no_dusk_cut",
+      "ui": "weather/time fact",
+      "audio": "sfx.no_dusk_cut",
+      "haptic": "two firm 25ms pulses"
+    },
+    {
+      "cueId": "cue.weather.static",
+      "event": "weather.STATIC.phase",
+      "frame": "weather.static_dropout",
+      "ui": "weather phase when descriptions enabled",
+      "audio": "sfx.weather_static",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.weather.rain",
+      "event": "weather.RAIN.phase",
+      "frame": "weather.rain_onset",
+      "ui": "weather phase when descriptions enabled",
+      "audio": "sfx.weather_rain",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.weather.ash",
+      "event": "weather.ASH.phase",
+      "frame": "weather.ash_settle",
+      "ui": "weather phase when descriptions enabled",
+      "audio": "sfx.weather_ash",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.weather.wind",
+      "event": "weather.WIND.phase",
+      "frame": "weather.wind_vector",
+      "ui": "weather phase when descriptions enabled",
+      "audio": "sfx.weather_wind",
+      "haptic": "none"
+    },
+    {
+      "cueId": "cue.weather.eclipse",
+      "event": "weather.ECLIPSE.phase",
+      "frame": "weather.eclipse_occlusion",
+      "ui": "weather phase when descriptions enabled",
+      "audio": "sfx.weather_eclipse",
+      "haptic": "medium 20ms at omen only"
+    }
+  ],
+  "runtimeCueResolvers": [
+    {
+      "bindingId": "player-collision-off-visual",
+      "eventId": "player.collision.off",
+      "kind": "visual",
+      "cueId": "player.hitbox-disabled-steady",
+      "resolver": "player.void_hold"
+    },
+    {
+      "bindingId": "player-collision-on-visual",
+      "eventId": "player.collision.on",
+      "kind": "visual",
+      "cueId": "player.hitbox-ready-steady",
+      "resolver": "player.hitbox.offset_core"
+    },
+    {
+      "bindingId": "player-damage-audio",
+      "eventId": "player.damage.commit",
+      "kind": "audio",
+      "cueId": "player.damage-material-click",
+      "resolver": "sfx.player_damage"
+    },
+    {
+      "bindingId": "projectile-arm-visual",
+      "eventId": "projectile.arm.begin",
+      "kind": "visual",
+      "cueId": "projectile.telegraph.motion",
+      "resolver": "cue.projectile.dormant",
+      "accessibilityFallback": {
+        "cueId": "projectile.telegraph.steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": "enemy_attack.warning_strip"
+      }
+    },
+    {
+      "bindingId": "projectile-live-visual",
+      "eventId": "projectile.collision.on",
+      "kind": "visual",
+      "cueId": "projectile.live-notch-steady",
+      "resolver": "cue.projectile.armed"
+    },
+    {
+      "bindingId": "graze-visual",
+      "eventId": "projectile.graze.commit",
+      "kind": "visual",
+      "cueId": "graze.notch-pulse",
+      "resolver": "graze.near_miss",
+      "accessibilityFallback": {
+        "cueId": "graze.notch-steady",
+        "when": [
+          "flashing:off"
+        ],
+        "resolver": "evidence.grain"
+      }
+    },
+    {
+      "bindingId": "graze-audio",
+      "eventId": "projectile.graze.commit",
+      "kind": "audio",
+      "cueId": "graze.evidence-tick",
+      "resolver": "sfx.graze_evidence"
+    },
+    {
+      "bindingId": "gaze-acquire-visual",
+      "eventId": "gaze.acquire.begin",
+      "kind": "visual",
+      "cueId": "gaze.horizon-threshold-steady",
+      "resolver": "eye.reveal"
+    },
+    {
+      "bindingId": "gaze-clamp-visual",
+      "eventId": "gaze.clamp.commit",
+      "kind": "visual",
+      "cueId": "gaze.contrast-clamp.animated",
+      "resolver": "eye.clamp",
+      "accessibilityFallback": {
+        "cueId": "gaze.contrast-clamp.steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": "eye.pressure_hold"
+      }
+    },
+    {
+      "bindingId": "gaze-clamp-audio",
+      "eventId": "gaze.clamp.commit",
+      "kind": "audio",
+      "cueId": "gaze.lowpass.commit",
+      "resolver": "sfx.gaze_hold_pulse"
+    },
+    {
+      "bindingId": "gaze-clamp-haptic",
+      "eventId": "gaze.clamp.commit",
+      "kind": "haptic",
+      "cueId": "gaze.single-pulse",
+      "resolver": {
+        "pulses": [
+          {
+            "atMs": 0,
+            "durationMs": 24,
+            "strength": 0.55
+          }
+        ]
+      }
+    },
+    {
+      "bindingId": "gaze-release-visual",
+      "eventId": "gaze.clamp.release",
+      "kind": "visual",
+      "cueId": "gaze.release-boundary-steady",
+      "resolver": "eye.withdraw"
+    },
+    {
+      "bindingId": "override-open-visual",
+      "eventId": "player.override.local_void.open",
+      "kind": "visual",
+      "cueId": "override.directional-tear.flash",
+      "resolver": "override.directional_tear",
+      "accessibilityFallback": {
+        "cueId": "override.directional-tear.steady",
+        "when": [
+          "motion:reduced",
+          "flashing:off"
+        ],
+        "resolver": "override.local_void"
+      }
+    },
+    {
+      "bindingId": "override-open-audio",
+      "eventId": "player.override.local_void.open",
+      "kind": "audio",
+      "cueId": "override.digital-tear",
+      "resolver": "sfx.override_tear"
+    },
+    {
+      "bindingId": "override-open-haptic",
+      "eventId": "player.override.local_void.open",
+      "kind": "haptic",
+      "cueId": "override.directional-double-pulse",
+      "resolver": {
+        "pulses": [
+          {
+            "atMs": 0,
+            "durationMs": 18,
+            "strength": 0.7
+          },
+          {
+            "atMs": 54,
+            "durationMs": 26,
+            "strength": 0.85
+          }
+        ]
+      }
+    },
+    {
+      "bindingId": "override-close-visual",
+      "eventId": "player.override.local_void.close",
+      "kind": "visual",
+      "cueId": "override.boundary-collapse-steady",
+      "resolver": "override.local_void"
+    },
+    {
+      "bindingId": "scar-write-visual",
+      "eventId": "cross_run.scar.write.commit",
+      "kind": "visual",
+      "cueId": "material.override-scar-write",
+      "resolver": "override.scar_commit"
+    },
+    {
+      "bindingId": "boss-phase-visual",
+      "eventId": "boss.phase.swap",
+      "kind": "visual",
+      "cueId": "boss.topology-phase-boundary",
+      "resolver": "boss_node.phase_divider",
+      "accessibilityFallback": {
+        "cueId": "boss.topology-phase-boundary.steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": "boss_node.rupture_joint"
+      }
+    },
+    {
+      "bindingId": "boss-resolve-ui",
+      "eventId": "boss.encounter.resolve",
+      "kind": "ui",
+      "cueId": "boss.resolution-fact",
+      "resolver": "boss_hud.resolution_condition"
+    },
+    {
+      "bindingId": "weather-omen-visual",
+      "eventId": "weather.omen.begin",
+      "kind": "visual",
+      "cueId": "weather.omen-world-space",
+      "resolver": {
+        "selector": "weather.{weatherSlug}_warning",
+        "fallback": "weather.static_warning"
+      },
+      "accessibilityFallback": {
+        "cueId": "weather.omen-boundary-steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": {
+          "selector": "weather.{weatherSlug}_warning",
+          "fallback": "weather.static_warning"
+        }
+      }
+    },
+    {
+      "bindingId": "weather-active-visual",
+      "eventId": "weather.active.begin",
+      "kind": "visual",
+      "cueId": "weather.body-world-space",
+      "resolver": {
+        "selector": "weather.{weatherSlug}_body",
+        "fallback": "weather.static_dropout"
+      },
+      "accessibilityFallback": {
+        "cueId": "weather.body-steady-mask",
+        "when": [
+          "motion:reduced",
+          "flashing:off"
+        ],
+        "resolver": {
+          "selector": "weather.{weatherSlug}_steady",
+          "fallback": "weather.shadow_failure"
+        }
+      }
+    },
+    {
+      "bindingId": "snapshot-begin-ui",
+      "eventId": "snapshot.begin",
+      "kind": "ui",
+      "cueId": "snapshot.observational-frame",
+      "resolver": "state_snapshot.observations"
+    },
+    {
+      "bindingId": "cross-run-restore-ui",
+      "eventId": "cross_run.restore.begin",
+      "kind": "ui",
+      "cueId": "cross-run.restore-order-marker",
+      "resolver": "cross_run_transition.authoritativeTimeline"
+    },
+    {
+      "bindingId": "override-scar-rehydrate-visual",
+      "eventId": "overrideScar.rehydrate",
+      "kind": "visual",
+      "cueId": "material.override-scar-rehydrate-steady",
+      "resolver": "memory.scar_rehydrate"
+    },
+    {
+      "bindingId": "death-trace-rehydrate-visual",
+      "eventId": "deathTrace.rehydrate",
+      "kind": "visual",
+      "cueId": "material.death-trace-rehydrate-steady",
+      "resolver": "memory.death_trace"
+    },
+    {
+      "bindingId": "burn-in-rehydrate-visual",
+      "eventId": "burnIn.rehydrate",
+      "kind": "visual",
+      "cueId": "material.burn-in-rehydrate-steady",
+      "resolver": "memory.burnin"
+    },
+    {
+      "bindingId": "ghost-replay-begin-visual",
+      "eventId": "ghost.replay.begin",
+      "kind": "visual",
+      "cueId": "ghost.actual-route-linear",
+      "resolver": "ghost.retrace",
+      "accessibilityFallback": {
+        "cueId": "ghost.actual-route-event-pins",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": "ghost.path_endpoint"
+      }
+    },
+    {
+      "bindingId": "ghost-replay-complete-visual",
+      "eventId": "ghost.replay.complete",
+      "kind": "visual",
+      "cueId": "ghost.burnout-oldest-to-newest",
+      "resolver": "ghost.burnout",
+      "accessibilityFallback": {
+        "cueId": "ghost.burnout-final-point-steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": "ghost.material_residue"
+      }
+    },
+    {
+      "bindingId": "ghost-residue-write-visual",
+      "eventId": "ghost.residue.write",
+      "kind": "visual",
+      "cueId": "material.ghost-residue-write-steady",
+      "resolver": "ghost.material_residue"
+    },
+    {
+      "bindingId": "witness-turn-visual",
+      "eventId": "witness.turn",
+      "kind": "visual",
+      "cueId": "witness.fact-directed-turn",
+      "resolver": "witness.turn_player",
+      "accessibilityFallback": {
+        "cueId": "witness.fact-directed-facing-steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": "witness.turn_player"
+      }
+    },
+    {
+      "bindingId": "cross-run-input-ui",
+      "eventId": "returnInput",
+      "kind": "ui",
+      "cueId": "cross-run.input-return-marker",
+      "resolver": "cross_run_transition.returnInput"
+    },
+    {
+      "bindingId": "room-transition-visual",
+      "eventId": "room.transition.begin",
+      "kind": "visual",
+      "cueId": "room.threshold-motion",
+      "resolver": {
+        "selector": "threshold.{roomSlug}",
+        "fallback": "threshold.information"
+      },
+      "accessibilityFallback": {
+        "cueId": "room.threshold-steady",
+        "when": [
+          "motion:reduced"
+        ],
+        "resolver": {
+          "selector": "threshold.{roomSlug}",
+          "fallback": "threshold.information"
+        }
+      }
+    },
+    {
+      "bindingId": "room-transition-audio",
+      "eventId": "room.transition.begin",
+      "kind": "audio",
+      "cueId": "room.crossfade-spatial",
+      "resolver": {
+        "selector": "room.{roomSlug}.bed",
+        "fallback": "room.information.bed"
+      },
+      "accessibilityFallback": {
+        "cueId": "room.crossfade-mono",
+        "when": [
+          "binaural:mono"
+        ],
+        "resolver": {
+          "selector": "room.{roomSlug}.bed",
+          "fallback": "room.information.bed",
+          "mix": "mono"
+        }
+      }
+    },
+    {
+      "bindingId": "room-world-swap-visual",
+      "eventId": "room.transition.world_swap.commit",
+      "kind": "visual",
+      "cueId": "room.world-swap-boundary-steady",
+      "resolver": {
+        "selector": "threshold.{roomSlug}",
+        "fallback": "threshold.information"
+      }
+    }
+  ],
+  "selectors": {
+    "roomSlug": {
+      "INFORMATION": "information",
+      "FORCED_ALIGNMENT": "forced_choice",
+      "IN_BETWEEN": "in_between",
+      "POLARIZED": "polarized"
+    },
+    "weatherSlug": {
+      "STATIC": "static",
+      "RAIN": "rain",
+      "ASH": "ash",
+      "WIND": "wind",
+      "ECLIPSE": "eclipse"
+    },
+    "bossCanonicalId": "gameplay rig ID including the 'boss.' prefix, for example boss.absent_receiver",
+    "bossSlug": "bossCanonicalId with the leading 'boss.' removed, for example absent_receiver",
+    "phaseIndex": "1-based integer in [1,3]"
+  }
+}

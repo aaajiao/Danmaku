@@ -1,0 +1,1255 @@
+{
+  "schemaVersion": "4.0.0",
+  "$schema": "../../gameplay/schemas/enemies-v4.schema.json",
+  "mechanicalRoleCount": 8,
+  "enemies": [
+    {
+      "id": "enemy.packet_sprayer.orphan_packet",
+      "role": "packet_sprayer",
+      "variant": "orphan_packet",
+      "name": {
+        "zh": "数据包喷洒者·1",
+        "en": "Packet Sprayer 1"
+      },
+      "entry": {
+        "type": "cubic_top",
+        "durationMs": 900,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "hover_saw",
+        "durationMs": 5200,
+        "amplitudePx": [
+          26,
+          12
+        ],
+        "periodMs": 1800,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "staggered_column",
+        "slot": 0,
+        "minimumSeparationPx": 42,
+        "maxSimultaneous": 2
+      },
+      "cadence": {
+        "patternId": "room.information.stale_packet_retry",
+        "warmupMs": 620,
+        "repeatEveryMs": 3100,
+        "maxRepeats": 2,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "top_withdraw",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 760,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 480,
+        "shape": "anchor_ticks",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "packet_pulp",
+        "lifetimeMs": 2600,
+        "quantity": 2,
+        "sourceId": "enemy.packet_sprayer.orphan_packet",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          11,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.packet_sprayer.retry_node",
+      "role": "packet_sprayer",
+      "variant": "retry_node",
+      "name": {
+        "zh": "数据包喷洒者·2",
+        "en": "Packet Sprayer 2"
+      },
+      "entry": {
+        "type": "cubic_top",
+        "durationMs": 1020,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "hover_saw",
+        "durationMs": 5200,
+        "amplitudePx": [
+          26,
+          20
+        ],
+        "periodMs": 2110,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "staggered_column",
+        "slot": 1,
+        "minimumSeparationPx": 42,
+        "maxSimultaneous": 2
+      },
+      "cadence": {
+        "patternId": "room.information.unanswered_fan",
+        "warmupMs": 620,
+        "repeatEveryMs": 3360,
+        "maxRepeats": 3,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "top_withdraw",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 760,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 480,
+        "shape": "anchor_ticks",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "packet_pulp",
+        "lifetimeMs": 2600,
+        "quantity": 3,
+        "sourceId": "enemy.packet_sprayer.retry_node",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          11,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.seam_warden.left_gate",
+      "role": "seam_warden",
+      "variant": "left_gate",
+      "name": {
+        "zh": "缝隙看守·1",
+        "en": "Seam Warden 1"
+      },
+      "entry": {
+        "type": "side_hook",
+        "durationMs": 990,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "lane_patrol",
+        "durationMs": 5460,
+        "amplitudePx": [
+          30,
+          12
+        ],
+        "periodMs": 2030,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "mirrored_pair",
+        "slot": 0,
+        "minimumSeparationPx": 44,
+        "maxSimultaneous": 3
+      },
+      "cadence": {
+        "patternId": "room.forced.left_right_gate",
+        "warmupMs": 660,
+        "repeatEveryMs": 3280,
+        "maxRepeats": 3,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "side_release",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 830,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 515,
+        "shape": "lane_notches",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "seam_wire",
+        "lifetimeMs": 2910,
+        "quantity": 3,
+        "sourceId": "enemy.seam_warden.left_gate",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          12,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.seam_warden.right_gate",
+      "role": "seam_warden",
+      "variant": "right_gate",
+      "name": {
+        "zh": "缝隙看守·2",
+        "en": "Seam Warden 2"
+      },
+      "entry": {
+        "type": "side_hook",
+        "durationMs": 1110,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "lane_patrol",
+        "durationMs": 5460,
+        "amplitudePx": [
+          30,
+          20
+        ],
+        "periodMs": 2340,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "mirrored_pair",
+        "slot": 1,
+        "minimumSeparationPx": 44,
+        "maxSimultaneous": 3
+      },
+      "cadence": {
+        "patternId": "room.forced.unstable_middle",
+        "warmupMs": 660,
+        "repeatEveryMs": 3540,
+        "maxRepeats": 4,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "side_release",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 830,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 515,
+        "shape": "lane_notches",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "seam_wire",
+        "lifetimeMs": 2910,
+        "quantity": 4,
+        "sourceId": "enemy.seam_warden.right_gate",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          12,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.clock_divider.phase_a",
+      "role": "clock_divider",
+      "variant": "phase_a",
+      "name": {
+        "zh": "时钟分配器·1",
+        "en": "Clock Divider 1"
+      },
+      "entry": {
+        "type": "seam_rise",
+        "durationMs": 1080,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "clock_step",
+        "durationMs": 5720,
+        "amplitudePx": [
+          34,
+          12
+        ],
+        "periodMs": 2260,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "clock_quartet",
+        "slot": 0,
+        "minimumSeparationPx": 46,
+        "maxSimultaneous": 4
+      },
+      "cadence": {
+        "patternId": "room.forced.ballot_shift",
+        "warmupMs": 700,
+        "repeatEveryMs": 3460,
+        "maxRepeats": 4,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "seam_sink",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 900,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 550,
+        "shape": "clock_pips",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "clock_chip",
+        "lifetimeMs": 3220,
+        "quantity": 4,
+        "sourceId": "enemy.clock_divider.phase_a",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          13,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.clock_divider.phase_b",
+      "role": "clock_divider",
+      "variant": "phase_b",
+      "name": {
+        "zh": "时钟分配器·2",
+        "en": "Clock Divider 2"
+      },
+      "entry": {
+        "type": "seam_rise",
+        "durationMs": 1200,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "clock_step",
+        "durationMs": 5720,
+        "amplitudePx": [
+          34,
+          20
+        ],
+        "periodMs": 2570,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "clock_quartet",
+        "slot": 1,
+        "minimumSeparationPx": 46,
+        "maxSimultaneous": 4
+      },
+      "cadence": {
+        "patternId": "room.polarized.clock_decree",
+        "warmupMs": 700,
+        "repeatEveryMs": 3720,
+        "maxRepeats": 2,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "seam_sink",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 900,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 550,
+        "shape": "clock_pips",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "clock_chip",
+        "lifetimeMs": 3220,
+        "quantity": 5,
+        "sourceId": "enemy.clock_divider.phase_b",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          13,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.context_misreader.system_a",
+      "role": "context_misreader",
+      "variant": "system_a",
+      "name": {
+        "zh": "语境误读者·1",
+        "en": "Context Misreader 1"
+      },
+      "entry": {
+        "type": "packet_drop",
+        "durationMs": 1170,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "context_swap",
+        "durationMs": 5980,
+        "amplitudePx": [
+          38,
+          12
+        ],
+        "periodMs": 2490,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "incompatible_pair",
+        "slot": 0,
+        "minimumSeparationPx": 48,
+        "maxSimultaneous": 2
+      },
+      "cadence": {
+        "patternId": "room.in_between.context_switch",
+        "warmupMs": 740,
+        "repeatEveryMs": 3640,
+        "maxRepeats": 2,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "packet_timeout",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 970,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 585,
+        "shape": "context_brackets",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "misprint",
+        "lifetimeMs": 3530,
+        "quantity": 2,
+        "sourceId": "enemy.context_misreader.system_a",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          11,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.context_misreader.system_b",
+      "role": "context_misreader",
+      "variant": "system_b",
+      "name": {
+        "zh": "语境误读者·2",
+        "en": "Context Misreader 2"
+      },
+      "entry": {
+        "type": "packet_drop",
+        "durationMs": 1290,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "context_swap",
+        "durationMs": 5980,
+        "amplitudePx": [
+          38,
+          20
+        ],
+        "periodMs": 2800,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "incompatible_pair",
+        "slot": 1,
+        "minimumSeparationPx": 48,
+        "maxSimultaneous": 2
+      },
+      "cadence": {
+        "patternId": "room.in_between.misregistration_corridor",
+        "warmupMs": 740,
+        "repeatEveryMs": 3900,
+        "maxRepeats": 3,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "packet_timeout",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 970,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 585,
+        "shape": "context_brackets",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "misprint",
+        "lifetimeMs": 3530,
+        "quantity": 3,
+        "sourceId": "enemy.context_misreader.system_b",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          11,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.gaze_proxy.probe",
+      "role": "gaze_proxy",
+      "variant": "probe",
+      "name": {
+        "zh": "凝视代理·1",
+        "en": "Gaze Proxy 1"
+      },
+      "entry": {
+        "type": "paired_cross",
+        "durationMs": 1260,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "sample_and_hold",
+        "durationMs": 6240,
+        "amplitudePx": [
+          42,
+          12
+        ],
+        "periodMs": 2720,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "staggered_column",
+        "slot": 0,
+        "minimumSeparationPx": 50,
+        "maxSimultaneous": 3
+      },
+      "cadence": {
+        "patternId": "common.eye_acquisition",
+        "warmupMs": 780,
+        "repeatEveryMs": 3820,
+        "maxRepeats": 3,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "reverse_entry",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1040,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 620,
+        "shape": "anchor_ticks",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "readout_film",
+        "lifetimeMs": 3840,
+        "quantity": 3,
+        "sourceId": "enemy.gaze_proxy.probe",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          12,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.gaze_proxy.clamp_relay",
+      "role": "gaze_proxy",
+      "variant": "clamp_relay",
+      "name": {
+        "zh": "凝视代理·2",
+        "en": "Gaze Proxy 2"
+      },
+      "entry": {
+        "type": "paired_cross",
+        "durationMs": 1380,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "sample_and_hold",
+        "durationMs": 6240,
+        "amplitudePx": [
+          42,
+          20
+        ],
+        "periodMs": 3030,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "staggered_column",
+        "slot": 1,
+        "minimumSeparationPx": 50,
+        "maxSimultaneous": 3
+      },
+      "cadence": {
+        "patternId": "room.in_between.stable_intersection",
+        "warmupMs": 780,
+        "repeatEveryMs": 4080,
+        "maxRepeats": 4,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "reverse_entry",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1040,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 620,
+        "shape": "anchor_ticks",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "readout_film",
+        "lifetimeMs": 3840,
+        "quantity": 4,
+        "sourceId": "enemy.gaze_proxy.clamp_relay",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          12,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.residue_hauler.cable_carrier",
+      "role": "residue_hauler",
+      "variant": "cable_carrier",
+      "name": {
+        "zh": "残留搬运者·1",
+        "en": "Residue Hauler 1"
+      },
+      "entry": {
+        "type": "slow_material_lift",
+        "durationMs": 1350,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "weighted_drift",
+        "durationMs": 6500,
+        "amplitudePx": [
+          46,
+          12
+        ],
+        "periodMs": 2950,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "mirrored_pair",
+        "slot": 0,
+        "minimumSeparationPx": 52,
+        "maxSimultaneous": 4
+      },
+      "cadence": {
+        "patternId": "encounter.weather_echo.rain_packets",
+        "warmupMs": 820,
+        "repeatEveryMs": 4000,
+        "maxRepeats": 4,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "drop_material",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1110,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 655,
+        "shape": "lane_notches",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "cable_fiber",
+        "lifetimeMs": 4150,
+        "quantity": 4,
+        "sourceId": "enemy.residue_hauler.cable_carrier",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          13,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.residue_hauler.ash_maker",
+      "role": "residue_hauler",
+      "variant": "ash_maker",
+      "name": {
+        "zh": "残留搬运者·2",
+        "en": "Residue Hauler 2"
+      },
+      "entry": {
+        "type": "slow_material_lift",
+        "durationMs": 1470,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "weighted_drift",
+        "durationMs": 6500,
+        "amplitudePx": [
+          46,
+          20
+        ],
+        "periodMs": 3260,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "mirrored_pair",
+        "slot": 1,
+        "minimumSeparationPx": 52,
+        "maxSimultaneous": 4
+      },
+      "cadence": {
+        "patternId": "encounter.weather_echo.ash_memory",
+        "warmupMs": 820,
+        "repeatEveryMs": 4260,
+        "maxRepeats": 2,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "drop_material",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1110,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 655,
+        "shape": "lane_notches",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "cable_fiber",
+        "lifetimeMs": 4150,
+        "quantity": 5,
+        "sourceId": "enemy.residue_hauler.ash_maker",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          13,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.orbit_broker.twin_orbit",
+      "role": "orbit_broker",
+      "variant": "twin_orbit",
+      "name": {
+        "zh": "轨道经纪人·1",
+        "en": "Orbit Broker 1"
+      },
+      "entry": {
+        "type": "orbit_in",
+        "durationMs": 1440,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "elliptic_orbit",
+        "durationMs": 6760,
+        "amplitudePx": [
+          50,
+          12
+        ],
+        "periodMs": 3180,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "clock_quartet",
+        "slot": 0,
+        "minimumSeparationPx": 54,
+        "maxSimultaneous": 2
+      },
+      "cadence": {
+        "patternId": "room.in_between.misregistration_corridor",
+        "warmupMs": 860,
+        "repeatEveryMs": 4180,
+        "maxRepeats": 2,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "tangent_exit",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1180,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 690,
+        "shape": "clock_pips",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "bearing_dust",
+        "lifetimeMs": 4460,
+        "quantity": 2,
+        "sourceId": "enemy.orbit_broker.twin_orbit",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          11,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.orbit_broker.release_broker",
+      "role": "orbit_broker",
+      "variant": "release_broker",
+      "name": {
+        "zh": "轨道经纪人·2",
+        "en": "Orbit Broker 2"
+      },
+      "entry": {
+        "type": "orbit_in",
+        "durationMs": 1560,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "elliptic_orbit",
+        "durationMs": 6760,
+        "amplitudePx": [
+          50,
+          20
+        ],
+        "periodMs": 3490,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "clock_quartet",
+        "slot": 1,
+        "minimumSeparationPx": 54,
+        "maxSimultaneous": 2
+      },
+      "cadence": {
+        "patternId": "encounter.weather_echo.wind_bias",
+        "warmupMs": 860,
+        "repeatEveryMs": 4440,
+        "maxRepeats": 3,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "tangent_exit",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1180,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 690,
+        "shape": "clock_pips",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "bearing_dust",
+        "lifetimeMs": 4460,
+        "quantity": 3,
+        "sourceId": "enemy.orbit_broker.release_broker",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          11,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.scar_examiner.trace_reader",
+      "role": "scar_examiner",
+      "variant": "trace_reader",
+      "name": {
+        "zh": "伤痕检验者·1",
+        "en": "Scar Examiner 1"
+      },
+      "entry": {
+        "type": "history_retrace",
+        "durationMs": 1530,
+        "controlPoints": [
+          [
+            0.08000000000000002,
+            -0.08
+          ],
+          [
+            0.6799999999999999,
+            0.06
+          ],
+          [
+            0.4,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "scar_follow",
+        "durationMs": 7020,
+        "amplitudePx": [
+          54,
+          12
+        ],
+        "periodMs": 3410,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "incompatible_pair",
+        "slot": 0,
+        "minimumSeparationPx": 56,
+        "maxSimultaneous": 3
+      },
+      "cadence": {
+        "patternId": "room.in_between.borrowed_rule",
+        "warmupMs": 900,
+        "repeatEveryMs": 4360,
+        "maxRepeats": 3,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "burn_in_place",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1250,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 725,
+        "shape": "context_brackets",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "scar_rubbing",
+        "lifetimeMs": 4770,
+        "quantity": 3,
+        "sourceId": "enemy.scar_examiner.trace_reader",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          12,
+          9
+        ],
+        "visualAlphaIgnored": true
+      }
+    },
+    {
+      "id": "enemy.scar_examiner.void_filler",
+      "role": "scar_examiner",
+      "variant": "void_filler",
+      "name": {
+        "zh": "伤痕检验者·2",
+        "en": "Scar Examiner 2"
+      },
+      "entry": {
+        "type": "history_retrace",
+        "durationMs": 1650,
+        "controlPoints": [
+          [
+            0.9199999999999999,
+            -0.08
+          ],
+          [
+            0.32,
+            0.06
+          ],
+          [
+            0.6,
+            0.18
+          ]
+        ],
+        "collisionArmsAt": 0.72
+      },
+      "movement": {
+        "type": "scar_follow",
+        "durationMs": 7020,
+        "amplitudePx": [
+          54,
+          20
+        ],
+        "periodMs": 3720,
+        "roomRuleResponsive": true
+      },
+      "formation": {
+        "family": "incompatible_pair",
+        "slot": 1,
+        "minimumSeparationPx": 56,
+        "maxSimultaneous": 3
+      },
+      "cadence": {
+        "patternId": "transition.override_void",
+        "warmupMs": 900,
+        "repeatEveryMs": 4620,
+        "maxRepeats": 4,
+        "interruptibleOnWithdrawal": true
+      },
+      "exit": {
+        "type": "burn_in_place",
+        "condition": "cadence_complete_or_room_withdrawal",
+        "durationMs": 1250,
+        "collisionDisarmsAt": 0.0
+      },
+      "telegraph": {
+        "durationMs": 725,
+        "shape": "context_brackets",
+        "coversEntryAndFirstBurst": true,
+        "neverColorOnly": true
+      },
+      "materialResidue": {
+        "type": "scar_rubbing",
+        "lifetimeMs": 4770,
+        "quantity": 4,
+        "sourceId": "enemy.scar_examiner.void_filler",
+        "collision": false
+      },
+      "collision": {
+        "shape": "ellipse",
+        "radiusPx": [
+          12,
+          10
+        ],
+        "visualAlphaIgnored": true
+      }
+    }
+  ]
+}

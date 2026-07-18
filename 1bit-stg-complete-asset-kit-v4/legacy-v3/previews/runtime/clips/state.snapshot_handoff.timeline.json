@@ -1,0 +1,80 @@
+{
+  "clip": "state.snapshot_handoff",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1630,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "snapshot.collect",
+      "startMs": 0,
+      "durationMs": 160,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "snapshot.compress",
+      "startMs": 160,
+      "durationMs": 130,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "snapshot.label",
+      "startMs": 290,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "snapshot.store",
+      "startMs": 410,
+      "durationMs": 180,
+      "events": [
+        "snapshot_serialized"
+      ]
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "snapshot.handoff",
+      "startMs": 590,
+      "durationMs": 220,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "snapshot.next_seed",
+      "startMs": 810,
+      "durationMs": 160,
+      "events": [
+        "next_run_seeded"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "snapshot.next_scar",
+      "startMs": 970,
+      "durationMs": 240,
+      "events": [
+        "scar_restored"
+      ]
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "snapshot.next_active",
+      "startMs": 1210,
+      "durationMs": 420,
+      "events": []
+    }
+  ]
+}

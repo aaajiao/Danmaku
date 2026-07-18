@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "encounter.weather_echo.wind_bias",
+  "traceSha256": "add7058e5fe702c450de862f1de165fbe7a1c18f377d41f905afca9193b8d4e8",
+  "sourceDurationMs": 9600,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 133,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 578,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 578,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 4800,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 8900,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 9180,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 9600,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "encounter--weather_echo--wind_bias.gif",
+    "apng": "encounter--weather_echo--wind_bias.apng",
+    "timeline": "encounter--weather_echo--wind_bias.timeline.json"
+  }
+}

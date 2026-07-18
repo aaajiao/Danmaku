@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "1.0.0",
+  "result": "pass",
+  "checks": [
+    {
+      "path": "atlas/ui-atlas.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "alphaValues": [
+        0,
+        255
+      ],
+      "sha256": "18ee69565abd86ed34d455bf64385a43dcb868f0da1615c3efe88df94378e661"
+    },
+    {
+      "path": "mockups/01-gameplay-hud.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "44795811f75cae6456448b711f98b7cca50bc4df9833f8c38af8b6912384fc8f"
+    },
+    {
+      "path": "mockups/02-boss-hud.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "6c3b7976f9e83a3f01712dfbfd761cc3261a8485c376178e4b6bdf94ef779ea9"
+    },
+    {
+      "path": "mockups/03-title.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "3da4357edd45a96c6b0aa1721d1c3dbaf7ab0d59b36e735f3402e728d7fb5666"
+    },
+    {
+      "path": "mockups/04-pause.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "67fcd56cd837cf4e1c562ac10bcb69b254a1dfe7e50d37aad354cd611e38b992"
+    },
+    {
+      "path": "mockups/05-settings.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "b4aaa6802074d9c9dc6234fe15404a4e9e821aa74caf435ad73a243902520b6a"
+    },
+    {
+      "path": "mockups/06-continue.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "3b23f2064cc16605fd9a246421ba59651e633b973f151059893ae1dd6c7c28a6"
+    },
+    {
+      "path": "mockups/07-failure.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "dca87bed41343679a0cdfb2cac9a9d5676c777558f8e07f140c406bbc194c168"
+    },
+    {
+      "path": "mockups/08-tutorial-behavior-map.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "74a650abe2095f47ee738f6a16fb40f70f15ad1e0610810aa6100e62d3eb0da5"
+    },
+    {
+      "path": "mockups/09-state-snapshot.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "b7d21b17d177c70df8b8282d90d8e9ebcb815cd35a1cfd892cf7936d452b81d2"
+    },
+    {
+      "path": "mockups/10-cross-run-transition.png",
+      "size": [
+        360,
+        640
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "8c16128cd0a73db7573e502b563b4ad6eb445a97a88053dcea7a6d86f60f5211"
+    },
+    {
+      "path": "mockups/00-ui-overview.png",
+      "size": [
+        972,
+        716
+      ],
+      "mode": "RGB",
+      "alphaValues": null,
+      "sha256": "33e4d48304d0e8113040910972ad5b0b424c9e37a7c25a9e851d91d12cf9db7e"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "transition.room_threshold",
+  "traceSha256": "6bec07f9bd99ab32a22b24ddc3430585a64efe5938a3a9ccdc08e78b935b56ce",
+  "sourceDurationMs": 7800,
+  "previewFrameCount": 63,
+  "previewFrameDurationMs": 124,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 737,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 737,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 3900,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 7100,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 7380,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 7800,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "transition--room_threshold.gif",
+    "apng": "transition--room_threshold.apng",
+    "timeline": "transition--room_threshold.timeline.json"
+  }
+}

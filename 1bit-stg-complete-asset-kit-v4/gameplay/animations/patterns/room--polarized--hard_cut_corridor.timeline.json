@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "4.0.0-pattern-preview",
+  "patternId": "room.polarized.hard_cut_corridor",
+  "traceSha256": "ac16a9099aa00414bf3132c4de94b8c2291e30bff53b364b7d28648ed5adf7ab",
+  "sourceDurationMs": 10800,
+  "previewFrameCount": 72,
+  "previewFrameDurationMs": 150,
+  "timeline": [
+    {
+      "atMs": 0,
+      "event": "warning.begin"
+    },
+    {
+      "atMs": 693,
+      "event": "collision.arm"
+    },
+    {
+      "atMs": 693,
+      "event": "emit.begin"
+    },
+    {
+      "atMs": 5400,
+      "event": "pattern.midpoint"
+    },
+    {
+      "atMs": 10100,
+      "event": "emit.end"
+    },
+    {
+      "atMs": 10380,
+      "event": "residue.commit"
+    },
+    {
+      "atMs": 10800,
+      "event": "pattern.complete"
+    }
+  ],
+  "files": {
+    "gif": "room--polarized--hard_cut_corridor.gif",
+    "apng": "room--polarized--hard_cut_corridor.apng",
+    "timeline": "room--polarized--hard_cut_corridor.timeline.json"
+  }
+}

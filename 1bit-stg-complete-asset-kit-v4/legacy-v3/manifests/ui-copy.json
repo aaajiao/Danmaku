@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "3.0.0-ui-copy",
+  "localeFallback": "en",
+  "copy": {
+    "title.tagline": {
+      "zh-CN": "你被画成了一条路径",
+      "en": "YOU WERE DRAWN AS A ROUTE"
+    },
+    "pause.note": {
+      "zh-CN": "画面没有停止。只有输入停下。",
+      "en": "THE IMAGE CONTINUES. ONLY INPUT IS HELD."
+    },
+    "continue.note": {
+      "zh-CN": "继续不是回到原处。",
+      "en": "CONTINUE DOES NOT MEAN RETURN."
+    },
+    "failure.title": {
+      "zh-CN": "本次运行结束",
+      "en": "RUN ENDED"
+    },
+    "failure.note": {
+      "zh-CN": "没有得分。留下的是一份行为。",
+      "en": "NO SCORE. A BEHAVIOR REMAINS."
+    },
+    "snapshot.observation.08": {
+      "zh-CN": "你有一次把画面弄坏了。它恢复了，但已经不太一样。",
+      "en": "YOU BROKE THE IMAGE ONCE. IT RECOVERED, BUT NOT UNCHANGED."
+    },
+    "bridge.title": {
+      "zh-CN": "上一局没有消失。",
+      "en": "THE LAST RUN REMAINS."
+    },
+    "bridge.note": {
+      "zh-CN": "记忆不会增加分数，只会改变条件。",
+      "en": "MEMORY ADDS NO SCORE. IT CHANGES CONDITIONS."
+    }
+  },
+  "forbiddenEvaluationCopy": [
+    "GAME OVER",
+    "RANK",
+    "SCORE",
+    "PERFECT",
+    "BAD ROUTE",
+    "GOOD ENDING",
+    "失败者",
+    "最优路线"
+  ]
+}
+

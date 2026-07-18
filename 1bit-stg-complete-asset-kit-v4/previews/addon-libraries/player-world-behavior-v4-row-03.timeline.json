@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "player-world-behavior-v4",
+  "row": 3,
+  "states": [
+    {
+      "semanticId": "witness.distant",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.isolated",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.resonance",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.lower_head",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.look_eye",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.turn_player",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.gather_scar",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "witness.rebel_exit",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}

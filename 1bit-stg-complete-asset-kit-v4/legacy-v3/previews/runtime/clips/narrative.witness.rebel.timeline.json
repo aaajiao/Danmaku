@@ -1,0 +1,78 @@
+{
+  "clip": "narrative.witness.rebel",
+  "fps": 12,
+  "loop": false,
+  "loopMode": "once",
+  "hold": {},
+  "periodMs": 1700,
+  "timeline": [
+    {
+      "playbackOrdinal": 0,
+      "sourceOrdinal": 0,
+      "frame": "witness.idle_a",
+      "startMs": 0,
+      "durationMs": 240,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 1,
+      "sourceOrdinal": 1,
+      "frame": "witness.idle_b",
+      "startMs": 240,
+      "durationMs": 260,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 2,
+      "sourceOrdinal": 2,
+      "frame": "witness.turn_0",
+      "startMs": 500,
+      "durationMs": 120,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 3,
+      "sourceOrdinal": 3,
+      "frame": "witness.turn_1",
+      "startMs": 620,
+      "durationMs": 160,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 4,
+      "sourceOrdinal": 4,
+      "frame": "witness.face_player",
+      "startMs": 780,
+      "durationMs": 220,
+      "events": [
+        "witness_choice"
+      ]
+    },
+    {
+      "playbackOrdinal": 5,
+      "sourceOrdinal": 5,
+      "frame": "witness.rebel_mark",
+      "startMs": 1000,
+      "durationMs": 140,
+      "events": [
+        "rebel_committed"
+      ]
+    },
+    {
+      "playbackOrdinal": 6,
+      "sourceOrdinal": 6,
+      "frame": "witness.rebel_hold",
+      "startMs": 1140,
+      "durationMs": 340,
+      "events": []
+    },
+    {
+      "playbackOrdinal": 7,
+      "sourceOrdinal": 7,
+      "frame": "witness.rebel_exit",
+      "startMs": 1480,
+      "durationMs": 220,
+      "events": []
+    }
+  ]
+}

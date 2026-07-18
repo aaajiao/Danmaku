@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "4.0.0-preview",
+  "mode": "state-library-not-authoritative-gameplay",
+  "board": "combat-behavior-cues-v4",
+  "row": 6,
+  "states": [
+    {
+      "semanticId": "residue.thermal_curl",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.thermal_dropout",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.acrylic_offcut",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.misaligned_mold",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.crossed_fiber",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.delamination",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.red_hardcut",
+      "durationMs": 260,
+      "collision": false
+    },
+    {
+      "semanticId": "residue.bone_core",
+      "durationMs": 260,
+      "collision": false
+    }
+  ]
+}
