@@ -1,6 +1,6 @@
 # 1bit STG 工业化路线图
 
-状态快照：2026-07-18
+状态快照：2026-07-19
 
 目标：把当前 V4 Lab/PWA 基础推进为可验证、可离线、可重放、可发布的完整 STG。本文按证据标状态，不以文件存在代替系统完成。
 
@@ -24,6 +24,7 @@
 | Keyboard/pointer/gamepad | DONE（浏览器基础） | standard mapping、dead zone、hotplug、edge、可选 haptics；实机矩阵未完成 |
 | PWA/图标 | DONE（基础） | RUN manifest、SW、any/maskable 图标、waiting-worker 非运行中接管；Three/frame-index/pattern-manifest 稳定分 chunk，但仍全量 precache；N→N+1 双构建升级回归/存档迁移未完成 |
 | Unit tests | WIP | 当前完整 `bun run test:all` 已通过：unit 29/29 files、584/584（combat 176/176）、content 8/8、build 69 modules、smoke 1/1、Chromium E2E 14/14。Stable Intersection 新增7项 focused cases，锁定 exact contract/QA reports、hostile descriptors/private boundary、E/N/H schedules/lattice/RNG、A∨B clock/continuous phase mask、production/full hashes、nonzero start/cadence/backlog/weather/accessibility parity。Room Threshold、Clock 与 No-dusk Grid 各7项、LiveRunAdmission 28项保持；缺其余24 patterns、完整 Run/perf |
+| GitHub 自动 CI | PAUSED（FOUNDATION） | push/PR 自动触发已暂停，保留手动 workflow；每个切片仍按风险在本地验证。P0 权威闭环完成、进入 Alpha 候选且完整门禁稳定后再恢复自动 CI |
 | Playwright E2E/smoke | DONE（基础） | production preview 验证 exact V4 boot、显式 seed fail-closed、guarded 序章、因果输入/暂停/保留 backlog、Full/Reduced/Flash-Off fragment trace、warm-offline reload、live collider 与 source drain；离线升级与完整 Run 门禁未完成 |
 | Boss/laser/narrative/cross-run | WIP（authority） | 8×3 Boss phase、8 laser、16-state narrative reducer 与 route-present snapshot/in-memory archive/restore 已有单测；archive 精确锚定 serialize tick，`snapshot.complete` 或 archive acceptance 都不会单独授权 handoff，FIRST_CLAMP_RECOVERY 不再绕过 conjunctive Flower guard；Misreader 另有隔离 entry fragment，live producers、默认应用、renderer、null-route 与 durable persistence 未接通 |
 
@@ -45,7 +46,7 @@ P0 全部完成后才进入 Alpha 候选。
 | P0-08 | Boss 与 laser | WIP（authority） | 8 Boss × 3 phase 事件机、8 laser lifecycle/连续碰撞已测；Boss 与 laser 各自的 begin/swap/resolve、active-entry/terminal/cleanup 已做 conflict-atomic batch，standalone 无事件 rupture mutation 已删除。Absent Receiver query 只执行 rig 明示无 laser 的 observe pattern；其 generic entity-drain readiness 不解释 rig `evidence>=1` 与 pattern `phaseEvidence>=1` 的差异，也不提交 phase swap。Misreader `observe → enforce` 则以 exact receipt 完成窄范围 Boss-swap→一次 laser-start；contact 每 generation 至多一次、只伤害玩家、不 impact beam，并保留无 repeat cadence/无 scar 坐标的缺席。但该 fragment 不执行 phase-2 emitters，也没有 phase-evidence evaluator、live cycle、room/session/app/renderer 组合；通用 player-damage→projectile/laser-impact 与 rollback transaction 仍未实现 |
 | P0-09 | Narrative/world memory | WIP（authority） | 16 state、64 observations、8 Boss resolution projection，以及彼此分离的 route-present snapshot、in-memory archive 与 material→ghost→residue→witness→input restore authority 已测。Snapshot 在偶数起点 `T` 的 `T/T+50/T+98/T+196` 发 current-run begin/serialize/present/complete，不发 cross-run event，numeric seed 是显式应用 adapter；archive 只接受 serialize 成功铸造的 exact receipt，并在同一 tick 每 run 写一次原 token。complete 或 archive acceptance 都不授权 handoff；route960ms restore 对齐 tick `0/52/166/200/252`，input 持有到 return，ghost 三类均 `NONE`。NarrativeAuthority 不能以 gaze release/room swap 代替 `flower.recoveryComplete`。live session boot、null-route、durable/parsed restore、renderer、IndexedDB 与 app E2E 未完成 |
 | P0-10 | Deterministic save/replay | WIP | fragment/authority fixture 已覆盖 seed/input/content digest/trace hash、canonical serializer 与同输入可重放；完整 Run save/replay 未接线 |
-| P0-11 | 测试/CI | WIP | type/unit/build、4 V4 validator、E2E/smoke 已自动化；oracle/accessibility parity 与长期 artifact 未完成 |
+| P0-11 | 测试/CI | WIP | 本地分层门禁与手动 GitHub workflow 可用；FOUNDATION 阶段暂停 push/PR 自动触发。Alpha 候选前补齐 oracle/accessibility parity 与长期 artifact，并在完整门禁稳定后恢复自动 CI |
 | P0-12 | 文档/扩展治理 | DONE（基础） | 架构、设计、测试、路线图与 Extension ADR gate 已落地；后续扩展逐项执行 |
 
 P0 发布硬门：0 schema warning、0 unknown operator、0 orphan event、0 fixed projectile flight timeout、0 feedback→gameplay edge、0 accessibility trace mismatch。

@@ -4,6 +4,10 @@
 
 原则：测试权威事实，不用截图替代玩法证明；视觉 QA 也不能反向决定碰撞。
 
+当前 `FOUNDATION` 阶段暂停 GitHub push/PR 自动 CI，只保留手动 workflow；
+这不减免本地提交前验证。每个切片使用聚焦测试，跨模块或里程碑再扩大范围；
+P0 权威闭环完成、进入 Alpha 候选且完整门禁稳定后恢复自动 CI。
+
 ## 1. 当前可执行命令
 
 CI 从仓库根目录运行；`bun.lock` 必须已提交且不能在安装阶段漂移：
@@ -23,8 +27,8 @@ bun run test:all
 ```sh
 cd stg-dev
 bun install --frozen-lockfile
-bunx --bun playwright install chromium
-bunx --bun playwright test
+bun --bun playwright install chromium
+bun --bun playwright test
 bun run test:smoke
 bun run test:e2e
 ```

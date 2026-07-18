@@ -122,6 +122,11 @@ a ritual after every small edit.
 - Run `bun run test:all` once after targeted scopes are green for a milestone,
   release candidate, PR readiness check, broad cross-cutting change, or an
   explicit request. Do not run it once per small commit.
+- Automatic GitHub push/PR CI is intentionally paused during the current
+  `FOUNDATION` phase; `.github/workflows/ci.yml` is manual-only. This does not
+  waive local pre-commit evidence. Do not restore automatic triggers before the
+  roadmap reaches an Alpha candidate with the P0 authority loop closed and the
+  full gate stable, unless the user explicitly asks sooner.
 - When debugging a failure, reproduce the narrow failing scope, fix it, and
   rerun that scope before escalating. Distinguish assertion failures from time
   budget failures. Increase a timeout only with measured evidence; never skip,
