@@ -16,16 +16,16 @@
 | 能力 | 状态 | 证据与边界 |
 |---|---|---|
 | Bun/Vite/TypeScript/Three.js 工程 | DONE | Bun 1.3.14 单一入口、精确依赖版本、strict build、Three.js renderer |
-| V4 48 pattern 数据入口 | DONE（入口） | 直接 import manifest；尚无应用 content index/hash |
-| 120Hz fixed-step Lab simulation | DONE（基础） | player、shoot、graze、damage、局部 Override；非完整 canonical runtime |
-| Pattern compiler | WIP | deterministic burst 与部分 operator；未完成 48×3 oracle parity |
+| V4 48 pattern 数据入口 | DONE | Content Authority 展开 13 个入口、验证 781 个物理文件/778 个 SHA-256、版本/ID/引用并生成确定性 digest |
+| 120Hz fixed-step Lab simulation | DONE（基础） | 主循环已使用整数 120Hz master/60Hz due scheduler；默认应用仍使用旧 `GameSimulation` adapter，尚未装配新 authority kernel |
+| Pattern authority | WIP | 48/48 NORMAL trace hash 与 96/96 safe-gap path 精确匹配 V4 oracle；三难度与应用增量 adapter 未完成 |
 | Run Director | WIP | deterministic schedule、默认 RUN 接线与单测已完成；完整 encounter/narrative phases 未完成 |
 | Run Memory | WIP | recorder/validator、ghost 压缩、storage adapter 与单测已完成；app archive/restore/IndexedDB 未完成 |
 | Keyboard/pointer/gamepad | DONE（浏览器基础） | standard mapping、dead zone、hotplug、edge、可选 haptics；实机矩阵未完成 |
 | PWA/图标 | DONE（基础） | manifest、SW、any/maskable 图标；升级事务/存档迁移未完成 |
-| Unit tests | WIP | 23 tests 覆盖 compiler/input/simulation/director/memory；缺全契约/oracle/perf |
-| Playwright E2E/smoke | DONE（基础） | Bun/production preview/CI 已接通，7 tests 全绿；离线升级与完整 Run 门禁未完成 |
-| 完整 Boss/laser/narrative/cross-run | TODO | V4 数据存在，但应用未完整执行 |
+| Unit tests | WIP | 135 tests / 14 files 覆盖 clock/event/content/oracle/projectile/player/laser/encounter/narrative 及既有 game 层；缺 authority→application、完整 Run、accessibility/perf |
+| Playwright E2E/smoke | DONE（基础） | Bun/production preview/CI 已接通，6 Chromium E2E + 1 smoke；离线升级与完整 Run 门禁未完成 |
+| Boss/laser/narrative/cross-run | WIP（authority） | 8×3 Boss phase、8 laser、16-state narrative/cross-run reducer 已有单测；live producers、默认应用与持久化未接通 |
 
 因此当前正确称呼是“工业化基础 / playable reference”，不能称为 complete game、release candidate 或 production-ready。
 
@@ -35,20 +35,22 @@ P0 全部完成后才进入 Alpha 候选。
 
 | ID | 工作 | 状态 | 完成定义 |
 |---|---|---|---|
-| P0-01 | Content index/schema/hash | TODO | V4 版本、ID、引用、文件 SHA-256 构建门禁；未知/孤儿/漂移即失败 |
-| P0-02 | 120Hz master + 60Hz runtime due-time | TODO | 双速率无漂移；render cadence/large delta/pause trace parity |
-| P0-03 | Canonical ordered event bus | TODO | 72 event envelope/payload；同 timestamp 五阶段顺序；feedback 无反向边 |
-| P0-04 | 48 pattern oracle parity | WIP | 3 difficulty、12 operator、burst/order/safe-gap/warning/trace 与 fixture 同构 |
-| P0-05 | Projectile authority | WIP | 7-stage gameplay lifecycle、entity-owned flight、swept collision、stable pool、graze generation key |
-| P0-06 | Player/damage/Override | WIP | owner leases、原子 fatal/non-fatal、局部扇区、evidence consume、typed scar |
-| P0-07 | Encounter/room Run | WIP | 2–4 room weighted without replacement、rest/budget、最长 2 Boss、≥240s/≥2 rooms |
-| P0-08 | Boss 与 laser | TODO | 8 Boss × 3 phase、8 laser、HP/survival/world-fact resolution，全量事件 |
-| P0-09 | Narrative/world memory | WIP | 16-state machine；snapshot/archive/restore 分权；material/ghost/witness/input 顺序 |
+| P0-01 | Content index/schema/hash | DONE | 13 入口、40 版本、9 schema、818 ID、781 文件/778 hash/3 exclusion；dev/build fail-fast |
+| P0-02 | 120Hz master + 60Hz runtime due-time | DONE（scheduler） | 30/60/90/120/144Hz、large delta、pause、一小时无漂移；V4 machine adapter 仍归各系统 |
+| P0-03 | Canonical ordered event bus | DONE（authority） | 72 event、required payload、occurrence 去重、五阶段顺序、只读 feedback；旧 UI trace adapter 待移除 |
+| P0-04 | 48 pattern oracle parity | WIP | NORMAL 48/48 trace、96/96 safe-gap、12 operator/13 geometry；三难度增量 runtime 尚缺 |
+| P0-05 | Projectile authority | WIP（authority） | 7-stage、entity-owned flight、swept circle/capsule、固定 pool、generation graze 已完成；`GameSimulation` adapter 尚未替换 |
+| P0-06 | Player/damage/Override | WIP（authority） | leases、稳定多 hit、原子 fatal/non-fatal、respawn/handoff、evidence/graze、局部扇区与真实坐标 scar 已测；默认应用仍走旧实现 |
+| P0-07 | Encounter/room Run | WIP | 旧 `RunDirector` 已接默认应用并满足完整时长骨架；新 authority combat plan 覆盖 room/wave/segment/transition 与单个 terminal Boss，二者尚未合并成完整 Run |
+| P0-08 | Boss 与 laser | WIP（authority） | 8 Boss × 3 phase 事件机、8 laser lifecycle/连续碰撞已测；phase 条件求值、Boss↔pattern/projectile/laser 组合与 app/renderer adapter 未完成 |
+| P0-09 | Narrative/world memory | WIP（authority） | 16 state、64 observations、8 Boss resolution projection 与 material→ghost→residue→witness→input 顺序已测；live producers、archive/restore、IndexedDB 与 app E2E 未完成 |
 | P0-10 | Deterministic save/replay | WIP | seed/input/content digest/trace hash；canonical serializer；同输入可重放 |
 | P0-11 | 测试/CI | WIP | type/unit/build、4 V4 validator、E2E/smoke 已自动化；oracle/accessibility parity 与长期 artifact 未完成 |
 | P0-12 | 文档/扩展治理 | DONE（基础） | 架构、设计、测试、路线图与 Extension ADR gate 已落地；后续扩展逐项执行 |
 
 P0 发布硬门：0 schema warning、0 unknown operator、0 orphan event、0 fixed projectile flight timeout、0 feedback→gameplay edge、0 accessibility trace mismatch。
+
+已知的 V4/adapter 边界必须保持显式：`broken_polyline` 与 `scrolling_comb` 未声明 beam width，laser authority 暂以 manifest 的 `sampleTolerancePx = 1.5` 回退；narrative source 中 `GLITCH`、`player.graze`、6 个 threshold action 与 canonical crossing payload 仍有缺口，reducer 不自行推断；`encounters.ts` 的 combat plan 不是包含 Awakening/Snapshot 的完整 Run。
 
 ## 4. P1：生产硬化与跨设备发布
 

@@ -11,6 +11,7 @@ CI 从仓库根目录运行；`bun.lock` 必须已提交且不能在安装阶段
 ```sh
 cd stg-dev
 bun install --frozen-lockfile
+bun run content:check
 bun run typecheck
 bun run test:unit
 bun run build
@@ -46,13 +47,13 @@ python3 -B 1bit-stg-complete-asset-kit-v4/narrative/validate_narrative_v4.py
 | 层 | 验证对象 | 现有证据 | 工业验收缺口 |
 |---|---|---|---|
 | Type/Build | strict TS、Vite/PWA 构建 | `typecheck`、`build` | 构建 metadata/content digest |
-| Unit | dead zone、RNG、compiler、simulation、RunDirector | `src/game/*.test.ts` | 全 operator、pool、swept collision、dual-rate |
-| Content contract | schema、ID、引用、hash、预算 | V4 自带 validator | 应用 content index 尚未建立 |
-| Runtime contract | 72 canonical events、state ordering | V4 runtime validator | 应用 trace 尚未全量同构 |
-| Oracle parity | 同 fixture 对 V4 reference runtime | 尚无 | 48 pattern × 3 difficulty × 12 operator |
-| Integration | Run→snapshot→archive→restore | 局部 WIP | 16-state 与完整 material order |
-| Browser E2E | RUN/LAB、clock、pause、PWA manifest | `e2e/**` 已有骨架 | CI/生产离线/更新事务 |
-| Smoke | 默认 RUN 可启动、无 page error | `run-mode.smoke.spec.ts` | 发布包、弱网、缓存升级 |
+| Unit | clock、event、content、pattern、projectile、player、laser、encounter/Boss、narrative 与既有 game 层 | 135 tests / 14 files | authority→application adapter、完整 Run、accessibility/perf |
+| Content contract | schema、ID、引用、hash、预算 | `content:check` + V4 validator；digest `ae2656e…a3b45` | release metadata/冻结流程 |
+| Runtime contract | 72 canonical events、state ordering | authority bus + V4 runtime validator | 旧应用 trace 尚未全量同构 |
+| Oracle parity | 同 fixture 对 V4 reference runtime | NORMAL 48/48 trace hash；96/96 safe-gap path | EASY/HARD 与增量 120Hz adapter |
+| Integration | Run→snapshot→archive→restore | authority fixture 已覆盖 16 state 与 material/ghost/residue/witness/input 顺序 | 真实 Run producers、archive、next-run restore、app/IndexedDB E2E |
+| Browser E2E | RUN/LAB、clock、pause、PWA manifest | 3 files / 6 Chromium tests | 新 authority 模块、完整 Run、生产离线/更新事务 |
+| Smoke | 默认 RUN 可启动、无 page error | 1 file / 1 smoke test | 发布包、弱网、缓存升级 |
 | Visual | atlas、safe gap、warning、overlay parity | 人工 QA 截图 | 自动像素契约/实机矩阵 |
 | Performance | tick budget、pool、GPU/内存 | 尚无基准 | 固定设备基线与回归阈值 |
 
@@ -71,11 +72,11 @@ python3 -B 1bit-stg-complete-asset-kit-v4/narrative/validate_narrative_v4.py
 - Override 证据不足拒绝，足够时只清除前方局部扇区，并写 typed scar；
 - accessibility profile、音频/触觉失败和 devicePixelRatio 不影响核心。
 
-当前 `simulation.test.ts` 已覆盖确定性 trace、部分伤害边界、graze/Override 和 pattern loop；这些是基础，不等于 projectile/runtime 全契约完成。
+新 authority tests 已覆盖双速率、canonical event/batch 原子性、projectile/laser 生命周期、damage leases、同 tick 多 hit、graze generation、局部 Override、Boss phase、encounter 与 narrative reducer。`simulation.test.ts` 仍验证默认应用正在使用的旧 adapter；除 clock 外，新 authority 模块尚未装配进 `main.ts`，因此 135 个 unit tests 不等于完整 Run 已端到端完成。
 
 ## 4. Content 与 oracle parity
 
-P0 content test 应先建立一个 canonical content index，至少断言：
+P0 Content Authority 已建立 canonical content index，并断言：
 
 - 48 pattern 分类数量为 BOSS 24、COMMON 2、ROOM 16、TRANSITION 3、WEATHER_ECHO 3；
 - 12 motion operator 均有可执行 fixture，不允许“未知 operator 静默忽略”；
@@ -85,7 +86,7 @@ P0 content test 应先建立一个 canonical content index，至少断言：
 - canonical room 只写 4 个新 ID；`INFO_OVERFLOW` 只允许 migration read；
 - schema warning、runtime failure、feedback→gameplay edge、fixed projectile timeout 均为 0。
 
-48 pattern oracle 不是“能生成有限数字”即可。每个 pattern × difficulty 至少比较：burst due-time、实体稳定 ID、spawn 数量/顺序、初速度、operator 状态转移、safe gap、warning boundary、impact/cancel/residue 事件和最终 trace hash。浮点比较只在 manifest 明确允许的数值域使用固定 epsilon；事件 ID/tick/order 必须精确相等。
+当前 oracle 已对 NORMAL 完成 48/48 最终 trace SHA-256、emission/gap/split counters 和 96/96 normal/focus safe-gap path 的逐项精确同构，并另测 12 operator、13 geometry 与 swept warning primitive。EASY/HARD 和应用增量 120Hz adapter 仍须比较 burst due-time、实体稳定 ID、spawn 数量/顺序、初速度、operator 状态转移、impact/cancel/residue 事件；浮点比较只在 manifest 明确允许的数值域使用固定 epsilon，事件 ID/tick/order 必须精确相等。
 
 ## 5. E2E 与 Smoke
 

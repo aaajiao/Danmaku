@@ -12,7 +12,7 @@
 - Playwright `1.61.1`
 - vite-plugin-pwa `1.3.0`
 
-没有引入 React、Phaser 或额外输入框架。Three.js 只负责表现；当前模拟层与 Run Director 使用固定 120Hz gameplay clock。V4 runtime 中 60Hz 契约的最终兼容策略见 `docs/ARCHITECTURE_ZH.md`，在 parity 验收完成前不能宣称完整 V4 等价。
+这些版本在 2026-07-18 通过 package registry 核验并精确锁定。没有引入 React、Phaser 或额外输入框架：Three.js 只负责表现，浏览器原生 API 负责输入/音频/PWA，玩法 authority 保持 renderer-independent。主循环使用整数 120Hz master，V4 60Hz machine 只在偶数 master tick 到期；完整装配边界见 `docs/ARCHITECTURE_ZH.md`。
 
 ## 启动
 
@@ -32,7 +32,7 @@ bun run dev
 bun run test:all
 ```
 
-它依次运行 typecheck、Vitest、production build、RUN smoke 与完整 Chromium E2E。首次运行浏览器测试前执行 `bunx --bun playwright install chromium`。
+它依次运行 typecheck、Vitest、production build、RUN smoke 与完整 Chromium E2E。首次运行浏览器测试前执行 `bunx --bun playwright install chromium`。应用内浏览器用于交互式视觉检查；Playwright 保留为可重复的仓库/CI 契约，两者职责不同。
 
 ## 输入
 
@@ -50,13 +50,15 @@ bun run test:all
 
 - 种子确定的 Run Director 基础：觉醒、First Eye、2–4 个房间、强制休息、最多 2 个 Boss、Dusk、Snapshot 与 cross-run handoff；
 - 默认 RUN 锁定开发控制，Pattern Lab 可直接检查全部 48 个 V4 executable patterns；
-- 120Hz fixed-step 玩家移动、射击、Focus、擦弹 evidence、局部 Override、伤害与复归；
+- V4 Content Authority：13 个入口、版本/ID/引用、物理文件 universe、SHA-256 与 dev/build fail-fast；
+- 120/60Hz clock、72-event ordered bus，以及 pattern/projectile/player/laser/encounter/Boss/narrative authority 单测切片；
+- 默认应用中的 120Hz 玩家移动、射击、Focus、擦弹 evidence、局部 Override、伤害与复归仍是 playable adapter；
 - Three.js 正交像素渲染、V4 房间背景/图集、房间声床与事件 SFX；
 - 键盘、触控、标准映射游戏手柄和可选 rumble；
 - 可安装 PWA、离线预缓存、自动更新、favicon、Apple Touch、any 与 maskable 图标；
 - Vitest 确定性/边界测试、Playwright production smoke/E2E 与 GitHub Actions 门禁。
 
-当前 pattern compiler 是开发参考执行层，还没有通过 48-pattern oracle parity、12/12 operator、完整 safe-gap/exact-warning、Boss/laser/narrative authority 等工业验收。详细差距与顺序见 `docs/ROADMAP_ZH.md`。
+当前 NORMAL oracle 已精确覆盖 48/48 trace hash、96/96 safe-gap path、12 operators 与 13 geometries；player/projectile/laser/Boss/narrative authority 也已有独立契约测试。但除 clock 外，新 authority 尚未替换默认应用的旧 `GameSimulation`/trace，EASY/HARD 增量 pattern adapter、完整 Run、跨局持久化和性能门禁仍未完成。详细差距与顺序见 `docs/ROADMAP_ZH.md`。
 
 ## PWA 图标
 
