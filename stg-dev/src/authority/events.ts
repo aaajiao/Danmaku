@@ -385,38 +385,56 @@ export class CanonicalEventBus {
   private feedbackDispatching = false;
 
   enqueue(draft: GameplayEventDraft): void {
+    this.enqueueBatch([draft]);
+  }
+
+  /**
+   * Validate a related set of authority facts before claiming any occurrence
+   * key. This is the write primitive for state transitions whose envelopes and
+   * in-memory mutation must either all commit or all remain untouched.
+   */
+  enqueueBatch(drafts: readonly GameplayEventDraft[]): void {
     if (this.feedbackDispatching) {
       throw new Error("feedback sinks cannot emit gameplay events");
     }
-    const id = requireCanonicalEventId(draft.id);
-    const tick120 = requireNonNegativeInteger(draft.tick120, "tick120");
-    if (tick120 <= this.lastFlushedTick) {
-      throw new Error(`tick ${tick120} is already closed for authoritative writes`);
-    }
-    const entityStableId = requireNonEmptyString(draft.entityStableId, "entityStableId");
-    const localSequence = requireNonNegativeInteger(draft.localSequence, "localSequence");
-    const occurrenceKey = requireNonEmptyString(draft.occurrenceKey, "occurrenceKey");
-    if (this.occurrenceKeys.has(occurrenceKey)) {
-      throw new Error(`duplicate authoritative occurrence key: ${occurrenceKey}`);
-    }
-    const payload = canonicalizePayload(draft.payload);
-    const definition = CANONICAL_EVENT_REGISTRY[id];
-    if (definition === undefined) throw new Error(`unknown canonical gameplay event id: ${id}`);
-    assertRequiredPayload(definition, payload);
+    if (!Array.isArray(drafts)) throw new Error("event batch must be an array");
 
-    this.occurrenceKeys.add(occurrenceKey);
-    this.pending.push(Object.freeze({
-      id,
-      tick120,
-      simulationTimeMs: simulationTimeMsForTick(tick120),
-      phasePriority: phasePriorityFor(id),
-      entityStableId,
-      localSequence,
-      occurrenceKey,
-      payload,
-      insertionIndex: this.nextInsertionIndex,
-    }));
-    this.nextInsertionIndex += 1;
+    const batchOccurrenceKeys = new Set<string>();
+    const pending = drafts.map((draft, index): PendingEvent => {
+      const path = `event batch[${index}]`;
+      const id = requireCanonicalEventId(draft?.id);
+      const tick120 = requireNonNegativeInteger(draft?.tick120, `${path}.tick120`);
+      if (tick120 <= this.lastFlushedTick) {
+        throw new Error(`tick ${tick120} is already closed for authoritative writes`);
+      }
+      const entityStableId = requireNonEmptyString(draft?.entityStableId, `${path}.entityStableId`);
+      const localSequence = requireNonNegativeInteger(draft?.localSequence, `${path}.localSequence`);
+      const occurrenceKey = requireNonEmptyString(draft?.occurrenceKey, `${path}.occurrenceKey`);
+      if (this.occurrenceKeys.has(occurrenceKey) || batchOccurrenceKeys.has(occurrenceKey)) {
+        throw new Error(`duplicate authoritative occurrence key: ${occurrenceKey}`);
+      }
+      batchOccurrenceKeys.add(occurrenceKey);
+      const payload = canonicalizePayload(draft?.payload);
+      const definition = CANONICAL_EVENT_REGISTRY[id];
+      if (definition === undefined) throw new Error(`unknown canonical gameplay event id: ${id}`);
+      assertRequiredPayload(definition, payload);
+
+      return Object.freeze({
+        id,
+        tick120,
+        simulationTimeMs: simulationTimeMsForTick(tick120),
+        phasePriority: phasePriorityFor(id),
+        entityStableId,
+        localSequence,
+        occurrenceKey,
+        payload,
+        insertionIndex: this.nextInsertionIndex + index,
+      });
+    });
+
+    for (const event of pending) this.occurrenceKeys.add(event.occurrenceKey);
+    this.pending.push(...pending);
+    this.nextInsertionIndex += pending.length;
   }
 
   flush(feedbackSinks: readonly ReadonlyFeedbackSink[] = []): readonly CanonicalGameplayEvent[] {

@@ -85,6 +85,33 @@ describe("envelope and payload validation", () => {
 });
 
 describe("ordered authority bus", () => {
+  it("validates a batch before claiming keys or appending any event", () => {
+    const bus = new CanonicalEventBus();
+    const first = damageDraft({occurrenceKey: "atomic:first"});
+    expect(() => bus.enqueueBatch([
+      first,
+      damageDraft({
+        localSequence: 1,
+        occurrenceKey: "atomic:invalid",
+        payload: {amount: 1, healthAfter: 2, sourceId: "projectile:10"},
+      }),
+    ])).toThrow(/missing required payload field: branch/);
+    expect(bus.events()).toEqual([]);
+
+    // The failed batch did not claim its otherwise-valid first occurrence.
+    expect(() => bus.enqueue(first)).not.toThrow();
+    expect(bus.flush().map((event) => event.occurrenceKey)).toEqual(["atomic:first"]);
+  });
+
+  it("rejects duplicate keys inside a batch without a partial append", () => {
+    const bus = new CanonicalEventBus();
+    expect(() => bus.enqueueBatch([
+      damageDraft({occurrenceKey: "atomic:duplicate"}),
+      damageDraft({localSequence: 1, occurrenceKey: "atomic:duplicate"}),
+    ])).toThrow(/duplicate authoritative occurrence key/);
+    expect(bus.flush()).toEqual([]);
+  });
+
   it("deduplicates occurrence keys across pending and committed events", () => {
     const bus = new CanonicalEventBus();
     bus.enqueue(damageDraft());
