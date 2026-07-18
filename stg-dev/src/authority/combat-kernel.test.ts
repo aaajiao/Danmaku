@@ -41,6 +41,7 @@ import {
   validateDuskSettlePatternContract,
   validateDualClockGateParameters,
   validateGridGeometryContract,
+  validateLatticeGeometryContract,
   validateLineGeometryContract,
   validateLateralWallParameters,
   validateLocalVectorBiasParameters,
@@ -53,6 +54,7 @@ import {
   validateRainPacketsWeatherEchoContract,
   validateRingGeometryContract,
   validateRoomThresholdPatternContract,
+  validateStableIntersectionPatternContract,
   validateSeamTransformParameters,
   validateSpeedEnvelopeParameters,
   validateTurnOnceParameters,
@@ -88,6 +90,7 @@ const ONE_SUN_ONE_RULE_REPORT_SEED = 2689482836;
 const CLOCK_DECREE_REPORT_SEED = 1517218079;
 const NO_DUSK_GRID_REPORT_SEED = 2541744056;
 const ROOM_THRESHOLD_REPORT_SEED = 577554878;
+const STABLE_INTERSECTION_REPORT_SEED = 3179523623;
 
 function inputAt(tick120: number): CanonicalCombatStepInput {
   return {
@@ -135,6 +138,7 @@ function optionsFor(patternId: CanonicalCombatPatternId) {
         : OPTIONS.projectilePoolClasses,
     roomId: patternId === "boss.misreader.phase1"
       || patternId === "room.in_between.context_switch"
+      || patternId === "room.in_between.stable_intersection"
       ? "IN_BETWEEN"
       : patternId === "boss.one_sun_one_rule.phase1"
         || patternId === "room.forced.left_right_gate"
@@ -536,6 +540,46 @@ function driveRoomThresholdWithDeltas(
   const kernel = new CanonicalCombatKernel({
     ...optionsFor("transition.room_threshold"),
     seed: ROOM_THRESHOLD_REPORT_SEED,
+    startTick120,
+  });
+  const clock = new AuthorityClock({
+    onTick120: ({tick120}) => {
+      if (tick120 <= startTick120 || tick120 > startTick120 + targetTick120) return;
+      const relativeTick120 = tick120 - startTick120;
+      const maximumTravel = PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND / 120;
+      const targetX = safeGapCenter(pattern, relativeTick120 * 1000 / 120);
+      const currentX = kernel.snapshot().playerPosition.x;
+      kernel.step({
+        tick120,
+        movement: {
+          x: Math.max(-1, Math.min(1, (targetX - currentX) / maximumTravel)),
+          y: 0,
+        },
+        focused: false,
+        ...presentationProfile,
+      } as CanonicalCombatStepInput);
+    },
+  });
+  for (const delta of deltas) clock.advance(delta);
+  while (clock.snapshot().backlogTicks > 0) clock.advance(0);
+  expect(kernel.snapshot().relativeTick120).toBe(targetTick120);
+  return kernel;
+}
+
+function driveStableIntersectionWithDeltas(
+  deltas: readonly number[],
+  targetTick120: number,
+  startTick120 = 0,
+  presentationProfile: Readonly<{
+    weatherEvent: string;
+    reducedMotion: boolean;
+    flashOff: boolean;
+  }> = {weatherEvent: "clear", reducedMotion: false, flashOff: false},
+): CanonicalCombatKernel {
+  const pattern = executablePattern("room.in_between.stable_intersection");
+  const kernel = new CanonicalCombatKernel({
+    ...optionsFor("room.in_between.stable_intersection"),
+    seed: STABLE_INTERSECTION_REPORT_SEED,
     startTick120,
   });
   const clock = new AuthorityClock({
@@ -13389,6 +13433,850 @@ describe("isolated Room Threshold transition-pattern combat capability", () => {
       ),
       driveRoomThresholdWithDeltas(
         [7800],
+        targetTick120,
+        0,
+        {weatherEvent: "clear", reducedMotion: true, flashOff: false},
+      ),
+    ];
+    for (const candidate of variants) {
+      expect(candidate.canonicalEventSerialization()).toBe(baseline.canonicalEventSerialization());
+      expect(candidate.snapshot()).toEqual(baseline.snapshot());
+    }
+  });
+});
+
+describe("isolated Stable Intersection room-pattern combat capability", () => {
+  it("pins the exact room contract, inert hook seam, and immutable QA evidence", () => {
+    const pattern = executablePattern("room.in_between.stable_intersection");
+    const kernel = new CanonicalCombatKernel({
+      ...optionsFor("room.in_between.stable_intersection"),
+      seed: STABLE_INTERSECTION_REPORT_SEED,
+    });
+    const contract = kernel.patternContractSnapshot();
+    expect(() => validateStableIntersectionPatternContract(contract)).not.toThrow();
+    expect(contract).toEqual(pattern);
+    expect(Object.isFrozen(contract)).toBe(true);
+    expect(Object.isFrozen(contract.emitters)).toBe(true);
+    expect(contract).toMatchObject({
+      id: "room.in_between.stable_intersection",
+      category: "ROOM",
+      room: "IN_BETWEEN",
+      name: {zh: "稳定交集", en: "Stable intersection"},
+      intent: "双时钟同时打开的短窗口形成可学习的交集。",
+      durationMs: 12400,
+      timeline: [
+        {atMs: 0, event: "warning.begin"},
+        {atMs: 682, event: "collision.arm"},
+        {atMs: 682, event: "emit.begin"},
+        {atMs: 6200, event: "pattern.midpoint"},
+        {atMs: 11700, event: "emit.end"},
+        {atMs: 11980, event: "residue.commit"},
+        {atMs: 12400, event: "pattern.complete"},
+      ],
+      emitters: [
+        {
+          id: "orthogonal-a",
+          geometry: {
+            type: "lattice",
+            variant: "horizontal-clock",
+            count: 12,
+            baseAngleDeg: 90,
+            spreadDeg: 0,
+          },
+          cadence: {startMs: 682, intervalMs: 720, bursts: 15, intraBurstMs: 0},
+          motionStack: [
+            {
+              operator: "op.dual_clock_gate",
+              params: {
+                periodAMs: 1600,
+                periodBMs: 2400,
+                dutyA: 0.5,
+                dutyB: 0.34,
+                phaseOffsetMs: 0,
+              },
+            },
+            {operator: "op.linear", params: {}},
+          ],
+        },
+        {
+          id: "diagonal-b",
+          geometry: {
+            type: "lattice",
+            variant: "diagonal-clock",
+            count: 10,
+            baseAngleDeg: 74,
+            spreadDeg: 46,
+          },
+          cadence: {startMs: 882, intervalMs: 960, bursts: 12, intraBurstMs: 0},
+          motionStack: [
+            {
+              operator: "op.dual_clock_gate",
+              params: {
+                periodAMs: 2400,
+                periodBMs: 1600,
+                dutyA: 0.34,
+                dutyB: 0.5,
+                phaseOffsetMs: 400,
+              },
+            },
+            {operator: "op.linear", params: {}},
+          ],
+        },
+      ],
+      safeGap: {
+        type: "dual_clock_intersection",
+        minimumWidthPx: 44,
+        focusMinimumWidthPx: 36,
+        path: {
+          centerX: 180,
+          amplitudePx: 16,
+          periodMs: 6600,
+          phase: 0,
+          laneX: [],
+          maxTravelPxPerSec: 78,
+        },
+        enforcement: "phase_gate",
+      },
+      warning: {durationMs: 682, shape: "clock_intersection_cells"},
+      residue: {type: "misregistration_flake", lifetimeMs: 3155, density: 0.23},
+      seed: {
+        algorithm: "mulberry32-v1",
+        base: 3179525433,
+        composition: "runSeed xor base xor encounterOrdinal xor difficultySalt",
+        randomCalls: "emitter-order then burst-order then projectile-order",
+      },
+      resolutionHook: "intersection_hold_ms",
+    });
+    expect(kernel.snapshot().adapterGaps.stableIntersectionPhaseGate).toEqual({
+      candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity",
+      clockIdentity: "pattern-relative-integer-tick120",
+      effectiveGate:
+        "dual-clock-xor-plus-both-open-intersection-plus-continuous-sine-collision-mask",
+      intersectionRule: "python-oracle-a-or-b-from-xor-plus-both-open",
+      corridorSweep: "analytic-relative-sine-extrema-then-bisection",
+      clockInactiveBehavior: "same-generation-speed-zero-and-collision-off",
+      clockOpenBoundary: "collision-on-at-crossed-tick;motion-and-contact-next-tick",
+      phaseGapBehavior: "same-generation-motion-retained-collision-off",
+      collisionLease: "reversible-entity-owned-canonical-events",
+      resolutionHook: "validated-inert-no-metric-or-room-completion",
+      roomAuthority: "withheld-no-composer-session-handoff-renderer-or-default-run",
+      completeTickTie: "pattern-end-cancels-live-identities-before-gate-update",
+    });
+
+    expect(patternStructureReportJson.patterns.find((entry) =>
+      entry.patternId === pattern.id)).toEqual({
+      patternId: pattern.id,
+      sha256: "5c55c7976d83c708f4fc7c7ca3051f958aff87dacb1030054dfaae2633ced1c9",
+      normalized: {
+        emitterCount: 2,
+        emitters: [
+          {
+            geometry: "lattice",
+            countBand: 4,
+            spreadBand: 0,
+            cadenceBand: 4,
+            burstBand: 5,
+            speedKeyCount: 1,
+            speedDirection: "flat",
+            operators: ["op.dual_clock_gate", "op.linear"],
+            parameterShapes: [
+              ["dutyA", "dutyB", "periodAMs", "periodBMs", "phaseOffsetMs"],
+              [],
+            ],
+          },
+          {
+            geometry: "lattice",
+            countBand: 3,
+            spreadBand: 1,
+            cadenceBand: 6,
+            burstBand: 4,
+            speedKeyCount: 1,
+            speedDirection: "flat",
+            operators: ["op.dual_clock_gate", "op.linear"],
+            parameterShapes: [
+              ["dutyA", "dutyB", "periodAMs", "periodBMs", "phaseOffsetMs"],
+              [],
+            ],
+          },
+        ],
+        gap: ["dual_clock_intersection", "phase_gate", 11],
+        warning: "clock_intersection_cells",
+        timelineRatios: [0, 0.06, 0.06, 0.5, 0.94, 0.97, 1],
+        hasLaser: false,
+      },
+    });
+    expect(safeGapReportJson.patterns.find((entry) => entry.patternId === pattern.id))
+      .toMatchObject({
+        gapType: "dual_clock_intersection",
+        widthPx: 44,
+        enforcement: "phase_gate",
+        normal: {
+          pass: true,
+          minimumClearancePx: 24.395,
+          sampleCount: 125,
+          pathHash: "0b9d1a190a814fce978bd5124ae7ad8bcd4a97587bb88d0a41a4bc4659e0ad6e",
+        },
+        focus: {
+          pass: true,
+          minimumClearancePx: 25.395,
+          sampleCount: 125,
+          pathHash: "0b9d1a190a814fce978bd5124ae7ad8bcd4a97587bb88d0a41a4bc4659e0ad6e",
+        },
+        pass: true,
+      });
+
+    const expectedOracle = {
+      EASY: [26, 223, 16, "1f5e7cecbfc7dfd3edb0813eee1489deda66b68b862e295445dd845db650aef5"],
+      NORMAL: [27, 300, 26, "5dba80afbfc2c9e1b835d3bca1e13237b23de32d79706597fb8396b708b7fd83"],
+      HARD: [27, 354, 31, "ef17e7df7416b4b33a78dceda0b5b4945dfa6c488d2a0420cd3088aecb6e44f8"],
+    } as const;
+    for (const difficulty of ["EASY", "NORMAL", "HARD"] as const) {
+      const reference = simulatePattern(contract, {
+        seed: STABLE_INTERSECTION_REPORT_SEED,
+        difficulty,
+        semantics: "reference-v4",
+      });
+      const declared = simulatePattern(contract, {
+        seed: STABLE_INTERSECTION_REPORT_SEED,
+        difficulty,
+        semantics: "declared-v4",
+      });
+      expect([
+        reference.events.length,
+        reference.events.reduce((total, event) => total + event.count, 0),
+        reference.omittedOrRedirected,
+        reference.traceSha256,
+      ]).toEqual(expectedOracle[difficulty]);
+      expect(declared.traceSha256).toBe(reference.traceSha256);
+      expect(reference.splitChildren).toBe(0);
+    }
+  });
+
+  it("fails closed on hostile drift and remains private from room and live-run authority", () => {
+    const source = structuredClone(
+      executablePattern("room.in_between.stable_intersection"),
+    ) as unknown as {
+      durationMs: number;
+      resolutionHook: string;
+      safeGap: {type: string; enforcement: string};
+      emitters: Array<{
+        geometry: {type: string; count: number};
+        motionStack: Array<{
+          operator: string;
+          params: {dutyA?: number; phaseOffsetMs?: number};
+        }>;
+      }>;
+      metadata?: string;
+    };
+    expect(() => validateStableIntersectionPatternContract(source)).not.toThrow();
+    expect(() => validateLatticeGeometryContract(source.emitters[0]!.geometry)).not.toThrow();
+
+    const extra = structuredClone(source);
+    extra.metadata = "room-completion-write-back";
+    expect(() => validateStableIntersectionPatternContract(extra)).toThrow(/contract drifted/);
+    const durationDrift = structuredClone(source);
+    durationDrift.durationMs += 1;
+    expect(() => validateStableIntersectionPatternContract(durationDrift)).toThrow(/contract drifted/);
+    const hookDrift = structuredClone(source);
+    hookDrift.resolutionHook = "automatic_room_complete";
+    expect(() => validateStableIntersectionPatternContract(hookDrift)).toThrow(/contract drifted/);
+    const gapDrift = structuredClone(source);
+    gapDrift.safeGap.type = "quantized_step";
+    expect(() => validateStableIntersectionPatternContract(gapDrift)).toThrow(/contract drifted/);
+    const policyDrift = structuredClone(source);
+    policyDrift.safeGap.enforcement = "spawn_omission";
+    expect(() => validateStableIntersectionPatternContract(policyDrift)).toThrow(/contract drifted/);
+    const geometryDrift = structuredClone(source);
+    geometryDrift.emitters[0]!.geometry.type = "grid";
+    expect(() => validateStableIntersectionPatternContract(geometryDrift)).toThrow(/contract drifted/);
+    expect(() => validateLatticeGeometryContract(geometryDrift.emitters[0]!.geometry))
+      .toThrow(/type must be lattice/);
+    const clockDrift = structuredClone(source);
+    clockDrift.emitters[1]!.motionStack[0]!.params.dutyA = 0.35;
+    expect(() => validateStableIntersectionPatternContract(clockDrift)).toThrow(/contract drifted/);
+    const emitterOrderDrift = structuredClone(source);
+    emitterOrderDrift.emitters.reverse();
+    expect(() => validateStableIntersectionPatternContract(emitterOrderDrift))
+      .toThrow(/contract drifted/);
+    const operatorOrderDrift = structuredClone(source);
+    operatorOrderDrift.emitters[0]!.motionStack.reverse();
+    expect(() => validateStableIntersectionPatternContract(operatorOrderDrift))
+      .toThrow(/contract drifted/);
+
+    const hiddenHook = structuredClone(source);
+    Object.defineProperty(hiddenHook, "resolutionHook", {
+      value: source.resolutionHook,
+      writable: true,
+      configurable: true,
+      enumerable: false,
+    });
+    expect(() => validateStableIntersectionPatternContract(hiddenHook))
+      .toThrow(/enumerable own data property/);
+    let safeGapReads = 0;
+    const accessorPattern = Object.defineProperty(structuredClone(source), "safeGap", {
+      enumerable: true,
+      get() {
+        safeGapReads += 1;
+        return source.safeGap;
+      },
+    });
+    expect(() => validateStableIntersectionPatternContract(accessorPattern))
+      .toThrow(/own data property/);
+    expect(safeGapReads).toBe(0);
+    let dutyReads = 0;
+    const nestedAccessor = structuredClone(source);
+    Object.defineProperty(nestedAccessor.emitters[0]!.motionStack[0]!.params, "dutyA", {
+      enumerable: true,
+      get() {
+        dutyReads += 1;
+        return 0.5;
+      },
+    });
+    expect(() => validateStableIntersectionPatternContract(nestedAccessor))
+      .toThrow(/own data property/);
+    expect(dutyReads).toBe(0);
+    const revoked = Proxy.revocable(structuredClone(source), {});
+    revoked.revoke();
+    expect(() => validateStableIntersectionPatternContract(revoked.proxy)).toThrow();
+
+    expect(SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS)
+      .not.toContain("room.in_between.stable_intersection");
+    expect(() => new CanonicalCombatKernel({
+      ...optionsFor("room.in_between.stable_intersection"),
+      seed: STABLE_INTERSECTION_REPORT_SEED,
+    })).not.toThrow();
+  });
+
+  it("preserves exact E\/N\/H cadence, lattice candidates, sine path, and RNG identity", () => {
+    const pattern = executablePattern("room.in_between.stable_intersection");
+    const expected = {
+      EASY: {
+        candidates: 223,
+        gap: 52,
+        orthogonal: [82, 183, 283, 383, 483, 583, 684, 784, 884, 984, 1085, 1185, 1285, 1385, 1485],
+        diagonal: [106, 240, 374, 507, 641, 774, 908, 1042, 1175, 1309, 1443],
+      },
+      NORMAL: {
+        candidates: 300,
+        gap: 44,
+        orthogonal: [82, 169, 255, 342, 428, 514, 601, 687, 774, 860, 946, 1033, 1119, 1206, 1292],
+        diagonal: [106, 222, 337, 452, 567, 682, 798, 913, 1028, 1143, 1258, 1374],
+      },
+      HARD: {
+        candidates: 354,
+        gap: 40,
+        orthogonal: [82, 158, 234, 310, 386, 462, 539, 615, 691, 767, 843, 919, 995, 1071, 1147],
+        diagonal: [106, 208, 309, 410, 512, 613, 715, 816, 917, 1019, 1120, 1221],
+      },
+    } as const;
+    for (const difficulty of ["EASY", "NORMAL", "HARD"] as const) {
+      const schedule = createPatternSchedule(pattern, difficulty);
+      const spawnTicks = (sourceId: string) => schedule
+        .filter((entry) => entry.emitter.id === sourceId)
+        .map((entry) => crossedTickCount(entry.atMs));
+      expect(spawnTicks("orthogonal-a")).toEqual(expected[difficulty].orthogonal);
+      expect(spawnTicks("diagonal-b")).toEqual(expected[difficulty].diagonal);
+      expect(schedule.reduce((total, entry) => total + roundPatternCount(
+        entry.emitter.geometry.count * pattern.difficulty[difficulty].countMultiplier,
+      ), 0)).toBe(expected[difficulty].candidates);
+      expect(safeGapWidth(pattern, difficulty)).toBe(expected[difficulty].gap);
+    }
+    expect([0, 682, 682, 6200, 11700, 11980, 12400].map(crossedTickCount))
+      .toEqual([0, 82, 82, 744, 1404, 1438, 1488]);
+    expect(crossedTickCount(3155)).toBe(379);
+    expect([0, 198, 396, 594, 792].map((tick120) =>
+      safeGapCenter(pattern, tick120 * 1000 / 120)))
+      .toEqual([180, 196, 180, 164, 180]);
+
+    const orthogonal = geometryCandidates(pattern.emitters[0]!, 0, 12);
+    expect(orthogonal).toHaveLength(12);
+    expect(orthogonal[0]).toEqual({
+      x: 29.666666666666664,
+      y: 19.2,
+      headingDeg: 90,
+      sourceIndex: 0,
+    });
+    expect(orthogonal[11]).toEqual({
+      x: 330.33333333333337,
+      y: 19.2,
+      headingDeg: 90,
+      sourceIndex: 11,
+    });
+    const diagonal = geometryCandidates(pattern.emitters[1]!, 0, 10);
+    expect(diagonal).toHaveLength(10);
+    expect(diagonal[0]).toEqual({
+      x: 32.400000000000006,
+      y: 51.2,
+      headingDeg: 51,
+      sourceIndex: 0,
+    });
+    expect(diagonal[9]).toEqual({
+      x: 327.59999999999997,
+      y: 51.2,
+      headingDeg: 97,
+      sourceIndex: 9,
+    });
+
+    const easySchedule = createPatternSchedule(pattern, "EASY");
+    const late = easySchedule.find((entry) =>
+      entry.emitter.id === "orthogonal-a" && entry.burstIndex === 14);
+    expect(late).toMatchObject({atMs: 12374.8, burstIndex: 14});
+    expect(crossedTickCount(late!.atMs)).toBe(1485);
+    expect(crossedTickCount(late!.atMs + 40)).toBe(1490);
+    expect(crossedTickCount(late!.atMs + 40)).toBeGreaterThan(crossedTickCount(pattern.durationMs));
+  });
+
+  it("applies the oracle A-or-B clock, reversible leases, and continuous sine mask", () => {
+    const pattern = executablePattern("room.in_between.stable_intersection");
+    const kernel = new CanonicalCombatKernel({
+      ...optionsFor("room.in_between.stable_intersection"),
+      seed: STABLE_INTERSECTION_REPORT_SEED,
+    });
+    const sampleTicks = new Set([
+      82, 87, 97, 98, 106, 111, 144, 145, 192, 193, 239, 240, 288, 289, 670, 671, 672,
+    ]);
+    const samples = new Map<number, ReturnType<CanonicalCombatKernel["snapshot"]>>();
+    for (let tick120 = 1; tick120 <= 672; tick120 += 1) {
+      const snapshot = kernel.step(safeGapFollowingInput(kernel, pattern, tick120));
+      if (sampleTicks.has(tick120)) samples.set(tick120, snapshot);
+    }
+    const projectileAt = (tick120: number, sourceId: string, sourceIndex: number) => {
+      const projectile = samples.get(tick120)?.projectiles.find((entry) =>
+        entry.sourceId === sourceId
+        && entry.burstIndex === 0
+        && entry.sourceIndex === sourceIndex);
+      expect(projectile, `${sourceId}/${sourceIndex} at ${tick120}`).toBeDefined();
+      return projectile as NonNullable<typeof projectile>;
+    };
+
+    const orthogonalArm = projectileAt(87, "orthogonal-a", 0);
+    expect(projectileAt(82, "orthogonal-a", 0)).toMatchObject({
+      state: "arm",
+      collisionEnabled: false,
+      position: {x: 29.666666666666664, y: 19.2},
+      spawnedAtTick: 82,
+      armAtTick: 87,
+    });
+    // At 725ms both clocks are open. The immutable Python oracle simplifies
+    // XOR plus the both-open intersection to A OR B, so this lease is live.
+    expect(orthogonalArm).toMatchObject({
+      instanceId: "combat:room.in_between.stable_intersection/micro/0000",
+      generation: 0,
+      state: "flight",
+      collisionEnabled: true,
+      position: {x: 29.666666666666664, y: 19.2},
+      movedAtTick120: null,
+    });
+    const orthogonalBeforeClose = projectileAt(97, "orthogonal-a", 0);
+    const orthogonalClosed = projectileAt(98, "orthogonal-a", 0);
+    expect(orthogonalBeforeClose.position.y).toBeCloseTo(30.866666666666678, 12);
+    expect(orthogonalClosed).toMatchObject({collisionEnabled: false, speedPxPerSecond: 0});
+    expect(orthogonalClosed.position).toEqual(orthogonalBeforeClose.position);
+    const orthogonalReopened = projectileAt(192, "orthogonal-a", 0);
+    expect(orthogonalReopened).toMatchObject({
+      instanceId: orthogonalArm.instanceId,
+      generation: orthogonalArm.generation,
+      collisionEnabled: true,
+      speedPxPerSecond: 0,
+    });
+    expect(orthogonalReopened.position).toEqual(orthogonalClosed.position);
+    expect(projectileAt(193, "orthogonal-a", 0).position.y - orthogonalReopened.position.y)
+      .toBeCloseTo(140 / 120, 12);
+
+    expect(projectileAt(106, "diagonal-b", 0)).toMatchObject({
+      instanceId: "combat:room.in_between.stable_intersection/micro/0012",
+      generation: 0,
+      state: "arm",
+      collisionEnabled: false,
+      position: {x: 32.400000000000006, y: 51.2},
+      spawnedAtTick: 106,
+      armAtTick: 111,
+    });
+    expect(projectileAt(111, "diagonal-b", 0)).toMatchObject({
+      state: "flight",
+      collisionEnabled: false,
+      speedPxPerSecond: 0,
+      position: {x: 32.400000000000006, y: 51.2},
+    });
+    const diagonalOpen = projectileAt(144, "diagonal-b", 0);
+    expect(diagonalOpen).toMatchObject({collisionEnabled: true, speedPxPerSecond: 0});
+    expect(projectileAt(145, "diagonal-b", 0).position).toEqual({
+      x: 33.22763665130802,
+      y: 52.22402572454151,
+    });
+    const diagonalBeforeClose = projectileAt(239, "diagonal-b", 0);
+    const diagonalClosed = projectileAt(240, "diagonal-b", 0);
+    expect(diagonalClosed).toMatchObject({collisionEnabled: false, speedPxPerSecond: 0});
+    expect(diagonalClosed.position).toEqual(diagonalBeforeClose.position);
+    const diagonalReopened = projectileAt(288, "diagonal-b", 0);
+    expect(diagonalReopened).toMatchObject({collisionEnabled: true, speedPxPerSecond: 0});
+    expect(diagonalReopened.position).toEqual(diagonalClosed.position);
+    expect(projectileAt(289, "diagonal-b", 0).position).toEqual({
+      x: 111.85311852556916,
+      y: 149.5064695559852,
+    });
+
+    const phaseBefore = projectileAt(670, "orthogonal-a", 5);
+    const phaseMasked = projectileAt(671, "orthogonal-a", 5);
+    expect(phaseBefore).toMatchObject({collisionEnabled: true, speedPxPerSecond: 140});
+    expect(phaseBefore.position.y).toBeCloseTo(475.3666666666694, 10);
+    expect(phaseMasked).toMatchObject({collisionEnabled: false, speedPxPerSecond: 140});
+    expect(phaseMasked.position.y - phaseBefore.position.y).toBeCloseTo(140 / 120, 12);
+    expect(projectileAt(672, "orthogonal-a", 5).position.y - phaseMasked.position.y)
+      .toBeCloseTo(140 / 120, 12);
+
+    expect(kernel.events()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "projectile.collision.off",
+        tick120: 98,
+        entityStableId: orthogonalArm.instanceId,
+        payload: expect.objectContaining({reason: "dual_clock_gate"}),
+      }),
+      expect.objectContaining({
+        id: "projectile.collision.on",
+        tick120: 192,
+        entityStableId: orthogonalArm.instanceId,
+      }),
+      expect.objectContaining({
+        id: "projectile.collision.off",
+        tick120: 240,
+        entityStableId: diagonalOpen.instanceId,
+        payload: expect.objectContaining({reason: "dual_clock_gate"}),
+      }),
+      expect.objectContaining({
+        id: "projectile.collision.off",
+        tick120: 671,
+        entityStableId: phaseBefore.instanceId,
+        payload: expect.objectContaining({reason: "phase_gate"}),
+      }),
+    ]));
+    expect(kernel.events().some((event) => event.payload.reason === "source_withdrawn")).toBe(false);
+    expect(new Set(kernel.events().map((event) => event.occurrenceKey)).size)
+      .toBe(kernel.events().length);
+  });
+
+  it("retains every E\/N\/H identity, protects the corridor, and drains exactly", {
+    timeout: 40_000,
+  }, () => {
+    const pattern = executablePattern("room.in_between.stable_intersection");
+    const allowedEventIds = new Set([
+      "evidence.gain.commit",
+      "projectile.arm.begin",
+      "projectile.armed",
+      "projectile.cancel.commit",
+      "projectile.collision.off",
+      "projectile.collision.on",
+      "projectile.flight.begin",
+      "projectile.graze.commit",
+      "projectile.lifecycle.complete",
+      "projectile.residue.begin",
+      "projectile.residue.remove",
+      "projectile.spawn.commit",
+    ]);
+    const expected = {
+      EASY: {
+        candidates: 223,
+        armed: 214,
+        on: 775,
+        off: 788,
+        dualOff: 550,
+        phaseOff: 15,
+        outOfBounds: 59,
+        patternEnd: 164,
+        removedAtEnd: 5,
+        activeResidue: 218,
+        allocated: 219,
+        peakLive: 168,
+        peakResidue: 218,
+        endHash: "0dab165f009b39c96b804efcc6393e0d3dfac8ab32249f5758fc854bf45d0271",
+        fullHash: "35c45ab634ddca50cd67b62b3b80e094bef593d05d0493c024f32855c9acaa15",
+      },
+      NORMAL: {
+        candidates: 300,
+        armed: 300,
+        on: 1095,
+        off: 1099,
+        dualOff: 776,
+        phaseOff: 23,
+        outOfBounds: 112,
+        patternEnd: 188,
+        removedAtEnd: 37,
+        activeResidue: 263,
+        allocated: 289,
+        peakLive: 210,
+        peakResidue: 263,
+        endHash: "44b29fead5702979827b26c15b8a86258076f01b7ab6941b87d8b639d9bf1a08",
+        fullHash: "1509b2cf295b6a56a346cda4eaf2bbcf3f62fd30fd75aa319aa73be66b2f69b4",
+      },
+      HARD: {
+        candidates: 354,
+        armed: 354,
+        on: 1324,
+        off: 1329,
+        dualOff: 946,
+        phaseOff: 29,
+        outOfBounds: 194,
+        patternEnd: 160,
+        removedAtEnd: 75,
+        activeResidue: 279,
+        allocated: 352,
+        peakLive: 260,
+        peakResidue: 279,
+        endHash: "07faaeee0e34dc2287876c7af885056b8515f7d5feb4d4db5ebb5bc41e102b84",
+        fullHash: "31b8b615cc392fc0c0ceb01a2951137c1c6c629e0ea3c2c886fb6c4cd5c2e840",
+      },
+    } as const;
+
+    for (const difficulty of ["EASY", "NORMAL", "HARD"] as const) {
+      const facts = expected[difficulty];
+      const kernel = new CanonicalCombatKernel({
+        ...optionsFor("room.in_between.stable_intersection"),
+        seed: STABLE_INTERSECTION_REPORT_SEED,
+        difficulty,
+      });
+      let peakLive = 0;
+      let peakResidue = 0;
+      let minimumCollisionMargin = Number.POSITIVE_INFINITY;
+      for (let tick120 = 1; tick120 <= 1488; tick120 += 1) {
+        const snapshot = kernel.step(safeGapFollowingInput(kernel, pattern, tick120));
+        peakLive = Math.max(peakLive, snapshot.poolUsage.liveColliders);
+        peakResidue = Math.max(peakResidue, snapshot.poolUsage.residueVisuals);
+        const corridorCenter = safeGapCenter(pattern, tick120 * 1000 / 120);
+        for (const projectile of snapshot.projectiles) {
+          if (
+            projectile.state !== "flight"
+            || !projectile.collisionEnabled
+            || projectile.position.y < 476
+            || projectile.position.y > 622
+          ) continue;
+          minimumCollisionMargin = Math.min(
+            minimumCollisionMargin,
+            Math.abs(projectile.position.x - corridorCenter) - (
+              safeGapWidth(pattern, difficulty) / 2
+              + projectile.collisionRadiusPx
+              + 2
+            ),
+          );
+        }
+      }
+      const snapshot = kernel.snapshot();
+      const events = kernel.events();
+      const count = (id: string, reason?: string) => events.filter((event) =>
+        event.id === id && (reason === undefined || event.payload.reason === reason)).length;
+      expect([...new Set(events.map((event) => event.id))]
+        .every((id) => allowedEventIds.has(id))).toBe(true);
+      expect(minimumCollisionMargin).toBeGreaterThanOrEqual(-1e-9);
+      expect({
+        rng: snapshot.rngCallsConsumed,
+        spawn: count("projectile.spawn.commit"),
+        armBegin: count("projectile.arm.begin"),
+        armed: count("projectile.armed"),
+        flight: count("projectile.flight.begin"),
+        on: count("projectile.collision.on"),
+        off: count("projectile.collision.off"),
+        dualOff: count("projectile.collision.off", "dual_clock_gate"),
+        phaseOff: count("projectile.collision.off", "phase_gate"),
+        outOfBounds: count("projectile.cancel.commit", "out_of_bounds"),
+        patternEnd: count("projectile.cancel.commit", "pattern_end"),
+        cancel: count("projectile.cancel.commit"),
+        residue: count("projectile.residue.begin"),
+        removed: count("projectile.residue.remove"),
+        activeResidue: snapshot.projectiles.length,
+        allocated: snapshot.poolUsage.allocatedSlots.micro,
+        peakLive,
+        peakResidue,
+        hash: sha256(new TextEncoder().encode(kernel.canonicalEventSerialization())),
+      }).toEqual({
+        rng: facts.candidates,
+        spawn: facts.candidates,
+        armBegin: facts.candidates,
+        armed: facts.armed,
+        flight: facts.armed,
+        on: facts.on,
+        off: facts.off,
+        dualOff: facts.dualOff,
+        phaseOff: facts.phaseOff,
+        outOfBounds: facts.outOfBounds,
+        patternEnd: facts.patternEnd,
+        cancel: facts.candidates,
+        residue: facts.candidates,
+        removed: facts.removedAtEnd,
+        activeResidue: facts.activeResidue,
+        allocated: facts.allocated,
+        peakLive: facts.peakLive,
+        peakResidue: facts.peakResidue,
+        hash: facts.endHash,
+      });
+      expect(snapshot).toMatchObject({
+        tick120: 1488,
+        relativeTick120: 1488,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        materialResidueDraining: true,
+        projectileLifecycleDrained: false,
+        handoffReady: false,
+        player: {health: 3},
+        evidence: {amount: 0, consumedPurposeCount: 0},
+        poolUsage: {liveColliders: 0, residueVisuals: facts.activeResidue},
+      });
+      expect(snapshot.projectiles.every((projectile) =>
+        projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+      expect(kernel.projectilePoolAudit()).toEqual([]);
+      expect(events.some((event) =>
+        event.id === "projectile.impact.commit"
+        || event.id === "player.damage.commit"
+        || event.id.startsWith("laser.")
+        || event.id.startsWith("boss.")
+        || event.id.startsWith("room.")
+        || event.id.startsWith("run.")
+        || event.payload.reason === "source_withdrawn")).toBe(false);
+      expect(events.some((event) =>
+        event.tick120 === 1488 && event.id === "projectile.collision.on")).toBe(false);
+      expect(new Set(events.map((event) => event.occurrenceKey)).size).toBe(events.length);
+
+      if (difficulty === "EASY") {
+        const late = snapshot.projectiles.filter((projectile) =>
+          projectile.sourceId === "orthogonal-a" && projectile.burstIndex === 14);
+        expect(late).toHaveLength(9);
+        expect(late).toEqual(expect.arrayContaining(Array.from({length: 9}, () =>
+          expect.objectContaining({
+            state: "residue",
+            collisionEnabled: false,
+            spawnedAtTick: 1485,
+            armAtTick: 1490,
+            movedAtTick120: null,
+            speedPxPerSecond: 123.2,
+            terminalCause: "cancel",
+          }))));
+        for (const projectile of late) {
+          expect(events.some((event) =>
+            event.entityStableId === projectile.instanceId
+            && event.id === "projectile.collision.on"
+            && event.payload.generation === projectile.generation)).toBe(false);
+          expect(events.filter((event) =>
+            event.tick120 === 1488 && event.entityStableId === projectile.instanceId)
+            .map((event) => event.id)).toEqual([
+              "projectile.collision.off",
+              "projectile.cancel.commit",
+              "projectile.residue.begin",
+            ]);
+        }
+      }
+
+      for (let tick120 = 1489; tick120 <= 1866; tick120 += 1) {
+        kernel.step(safeGapFollowingInput(kernel, pattern, tick120));
+      }
+      expect(kernel.snapshot()).toMatchObject({
+        tick120: 1866,
+        projectileLifecycleDrained: false,
+        handoffReady: false,
+      });
+      expect(kernel.snapshot().projectiles.length).toBeGreaterThan(0);
+      kernel.step(safeGapFollowingInput(kernel, pattern, 1867));
+      expect(kernel.snapshot()).toMatchObject({
+        tick120: 1867,
+        projectiles: [],
+        poolUsage: {liveColliders: 0, residueVisuals: 0},
+        projectileLifecycleDrained: true,
+        handoffReady: true,
+      });
+      expect(kernel.events().filter((event) => event.id === "projectile.residue.remove"))
+        .toHaveLength(facts.candidates);
+      expect(kernel.events().filter((event) => event.id === "projectile.lifecycle.complete"))
+        .toHaveLength(facts.candidates);
+      expect(sha256(new TextEncoder().encode(kernel.canonicalEventSerialization())))
+        .toBe(facts.fullHash);
+    }
+  });
+
+  it("keeps clock, sine mask, and event identities relative to a nonzero start tick", () => {
+    const pattern = executablePattern("room.in_between.stable_intersection");
+    const offsetTick120 = 419;
+    const zero = new CanonicalCombatKernel({
+      ...optionsFor("room.in_between.stable_intersection"),
+      seed: STABLE_INTERSECTION_REPORT_SEED,
+    });
+    const offset = new CanonicalCombatKernel({
+      ...optionsFor("room.in_between.stable_intersection"),
+      seed: STABLE_INTERSECTION_REPORT_SEED,
+      startTick120: offsetTick120,
+    });
+    const stepRelative = (kernel: CanonicalCombatKernel, relativeTick120: number) => {
+      const maximumTravel = PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND / 120;
+      const targetX = safeGapCenter(pattern, relativeTick120 * 1000 / 120);
+      const currentX = kernel.snapshot().playerPosition.x;
+      kernel.step({
+        tick120: kernel.snapshot().startTick120 + relativeTick120,
+        movement: {
+          x: Math.max(-1, Math.min(1, (targetX - currentX) / maximumTravel)),
+          y: 0,
+        },
+        focused: false,
+      });
+    };
+    for (let relativeTick120 = 1; relativeTick120 <= 1000; relativeTick120 += 1) {
+      stepRelative(zero, relativeTick120);
+      stepRelative(offset, relativeTick120);
+    }
+    const normalizedProjectiles = (kernel: CanonicalCombatKernel) => {
+      const start = kernel.snapshot().startTick120;
+      return kernel.snapshot().projectiles.map((projectile) => ({
+        ...projectile,
+        spawnedAtTick: projectile.spawnedAtTick - start,
+        armAtTick: projectile.armAtTick - start,
+        movedAtTick120: projectile.movedAtTick120 === null
+          ? null
+          : projectile.movedAtTick120 - start,
+      }));
+    };
+    const normalizedEvents = (kernel: CanonicalCombatKernel) => {
+      const start = kernel.snapshot().startTick120;
+      const startMs = start * 1000 / 120;
+      const relativeMs = (value: number) =>
+        Math.round((value - startMs) * 1_000_000_000) / 1_000_000_000;
+      return kernel.events().map((event) => {
+        const payload = {...event.payload} as Record<string, unknown>;
+        for (const key of ["commitAtMs", "readyAtMs", "removeAtMs"] as const) {
+          if (typeof payload[key] === "number") payload[key] = relativeMs(payload[key]);
+        }
+        return {
+          ...event,
+          tick120: event.tick120 - start,
+          simulationTimeMs: relativeMs(event.simulationTimeMs),
+          payload,
+        };
+      });
+    };
+    expect(normalizedProjectiles(offset)).toEqual(normalizedProjectiles(zero));
+    expect(normalizedEvents(offset)).toEqual(normalizedEvents(zero));
+    expect(offset.snapshot().rngCallsConsumed).toBe(zero.snapshot().rngCallsConsumed);
+    expect(offset.snapshot().playerPosition).toEqual(zero.snapshot().playerPosition);
+    expect(offset.snapshot().poolUsage).toEqual(zero.snapshot().poolUsage);
+  });
+
+  it("stays trace-identical across cadence, backlog, weather, and accessibility projections", {
+    timeout: 40_000,
+  }, () => {
+    const targetTick120 = 1488;
+    const baseline = driveStableIntersectionWithDeltas(
+      Array.from({length: 372}, () => 1000 / 30),
+      targetTick120,
+    );
+    const variants = [
+      driveStableIntersectionWithDeltas(
+        Array.from({length: 744}, () => 1000 / 60),
+        targetTick120,
+        0,
+        {weatherEvent: "sleet", reducedMotion: true, flashOff: true},
+      ),
+      driveStableIntersectionWithDeltas(
+        Array.from({length: 1786}, () => 1000 / 144),
+        targetTick120,
+        0,
+        {weatherEvent: "ash", reducedMotion: false, flashOff: true},
+      ),
+      driveStableIntersectionWithDeltas(
+        [12400],
         targetTick120,
         0,
         {weatherEvent: "clear", reducedMotion: true, flashOff: false},

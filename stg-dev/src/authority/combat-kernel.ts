@@ -99,6 +99,7 @@ export const SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
 // Direct-kernel capabilities only: live-run admission intentionally consumes
 // the exported list above and must not infer these isolated slices.
 const ISOLATED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
+  "room.in_between.stable_intersection",
   "room.polarized.clock_decree",
   "room.polarized.no_dusk_grid",
   "transition.room_threshold",
@@ -421,6 +422,20 @@ export interface CanonicalCombatSnapshot {
       collisionLease: "reversible-entity-owned-canonical-events";
       easyLateBurst: "cadence-owned-after-emit-end-and-residue-marker";
       resolutionHook: "validated-inert-no-automatic-completion";
+      completeTickTie: "pattern-end-cancels-live-identities-before-gate-update";
+    }>;
+    stableIntersectionPhaseGate?: Readonly<{
+      candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity";
+      clockIdentity: "pattern-relative-integer-tick120";
+      effectiveGate: "dual-clock-xor-plus-both-open-intersection-plus-continuous-sine-collision-mask";
+      intersectionRule: "python-oracle-a-or-b-from-xor-plus-both-open";
+      corridorSweep: "analytic-relative-sine-extrema-then-bisection";
+      clockInactiveBehavior: "same-generation-speed-zero-and-collision-off";
+      clockOpenBoundary: "collision-on-at-crossed-tick;motion-and-contact-next-tick";
+      phaseGapBehavior: "same-generation-motion-retained-collision-off";
+      collisionLease: "reversible-entity-owned-canonical-events";
+      resolutionHook: "validated-inert-no-metric-or-room-completion";
+      roomAuthority: "withheld-no-composer-session-handoff-renderer-or-default-run";
       completeTickTie: "pattern-end-cancels-live-identities-before-gate-update";
     }>;
     roomThresholdPhaseGate?: Readonly<{
@@ -2100,6 +2115,34 @@ export function validateGridGeometryContract(
   geometry: Readonly<Record<string, unknown>>,
 ): void {
   assertGridGeometry(geometry, "grid");
+}
+
+function assertLatticeGeometry(
+  geometry: Readonly<Record<string, unknown>>,
+  path: string,
+): void {
+  const captured = ownPlainDataRecord(
+    geometry,
+    ["baseAngleDeg", "count", "ordering", "spreadDeg", "type", "variant"],
+    path,
+  );
+  if (captured.type !== "lattice") throw new Error(`${path}.type must be lattice`);
+  if (captured.ordering !== "clockwise-then-source-index") {
+    throw new Error(`${path}.ordering must be clockwise-then-source-index`);
+  }
+  if (typeof captured.variant !== "string" || captured.variant.length === 0) {
+    throw new Error(`${path}.variant must be a non-empty string`);
+  }
+  requirePositiveInteger(captured.count as number, `${path}.count`);
+  requireNonNegativeFinite(captured.baseAngleDeg as number, `${path}.baseAngleDeg`);
+  requireNonNegativeFinite(captured.spreadDeg as number, `${path}.spreadDeg`);
+}
+
+/** Exported for fail-closed lattice-shape tests; production validates the same shape. */
+export function validateLatticeGeometryContract(
+  geometry: Readonly<Record<string, unknown>>,
+): void {
+  assertLatticeGeometry(geometry, "lattice");
 }
 
 function assertRingGeometry(
@@ -5070,6 +5113,162 @@ export function validateNoDuskGridPatternContract(patternValue: unknown): void {
   );
 }
 
+const STABLE_INTERSECTION_PATTERN_CONTRACT = deepFreezeJson({
+  id: "room.in_between.stable_intersection",
+  category: "ROOM",
+  room: "IN_BETWEEN",
+  name: {zh: "稳定交集", en: "Stable intersection"},
+  intent: "双时钟同时打开的短窗口形成可学习的交集。",
+  durationMs: 12400,
+  clock: {
+    authority: "GAMEPLAY",
+    tickHz: 120,
+    eventDispatch: "crossed-time-exactly-once",
+    pausePolicy: "freeze",
+    visualClockSeparated: true,
+  },
+  timeline: [
+    {atMs: 0, event: "warning.begin"},
+    {atMs: 682, event: "collision.arm"},
+    {atMs: 682, event: "emit.begin"},
+    {atMs: 6200, event: "pattern.midpoint"},
+    {atMs: 11700, event: "emit.end"},
+    {atMs: 11980, event: "residue.commit"},
+    {atMs: 12400, event: "pattern.complete"},
+  ],
+  emitters: [
+    {
+      id: "orthogonal-a",
+      kind: "projectile",
+      anchor: {space: "viewport-normalized", x: 0.5, y: 0.03},
+      geometry: {
+        type: "lattice",
+        variant: "horizontal-clock",
+        count: 12,
+        baseAngleDeg: 90,
+        spreadDeg: 0,
+        ordering: "clockwise-then-source-index",
+      },
+      cadence: {startMs: 682, intervalMs: 720, bursts: 15, intraBurstMs: 0},
+      projectile: {
+        archetype: "bullet.micro.notch_e",
+        collisionRadiusPx: 2,
+        armDelayMs: 40,
+      },
+      speedCurve: {type: "piecewise-linear", keys: [{atMs: 0, pxPerSec: 140}]},
+      motionStack: [
+        {
+          operator: "op.dual_clock_gate",
+          params: {
+            periodAMs: 1600,
+            periodBMs: 2400,
+            dutyA: 0.5,
+            dutyB: 0.34,
+            phaseOffsetMs: 0,
+          },
+        },
+        {operator: "op.linear", params: {}},
+      ],
+    },
+    {
+      id: "diagonal-b",
+      kind: "projectile",
+      anchor: {space: "viewport-normalized", x: 0.5, y: 0.08},
+      geometry: {
+        type: "lattice",
+        variant: "diagonal-clock",
+        count: 10,
+        baseAngleDeg: 74,
+        spreadDeg: 46,
+        ordering: "clockwise-then-source-index",
+      },
+      cadence: {startMs: 882, intervalMs: 960, bursts: 12, intraBurstMs: 0},
+      projectile: {
+        archetype: "bullet.micro.notch_e",
+        collisionRadiusPx: 2,
+        armDelayMs: 40,
+      },
+      speedCurve: {type: "piecewise-linear", keys: [{atMs: 0, pxPerSec: 158}]},
+      motionStack: [
+        {
+          operator: "op.dual_clock_gate",
+          params: {
+            periodAMs: 2400,
+            periodBMs: 1600,
+            dutyA: 0.34,
+            dutyB: 0.5,
+            phaseOffsetMs: 400,
+          },
+        },
+        {operator: "op.linear", params: {}},
+      ],
+    },
+  ],
+  safeGap: {
+    type: "dual_clock_intersection",
+    minimumWidthPx: 44,
+    focusMinimumWidthPx: 36,
+    path: {
+      centerX: 180,
+      amplitudePx: 16,
+      periodMs: 6600,
+      phase: 0,
+      laneX: [],
+      maxTravelPxPerSec: 78,
+    },
+    enforcement: "phase_gate",
+    compileRule:
+      "omit, gate, redirect, or visibly cancel any candidate whose swept circle violates the corridor envelope",
+    readability: {leadMs: 520, neverColorOnly: true},
+  },
+  warning: {
+    durationMs: 682,
+    shape: "clock_intersection_cells",
+    coversSweptArea: true,
+    collisionEnabled: false,
+    flashIndependent: true,
+  },
+  cancel: {
+    triggers: ["pattern_end", "source_withdrawn", "override_void", "room_transition"],
+    mode: "digital_cancel_to_material_residue",
+    collisionOffBeforeVisual: true,
+    eventIdempotent: true,
+  },
+  residue: {
+    type: "misregistration_flake",
+    lifetimeMs: 3155,
+    density: 0.23,
+    inheritsSourceId: true,
+    gameplayCollision: false,
+  },
+  difficulty: {
+    EASY: {countMultiplier: 0.78, speedMultiplier: 0.88, cadenceMultiplier: 1.16, gapDeltaPx: 8},
+    NORMAL: {countMultiplier: 1, speedMultiplier: 1, cadenceMultiplier: 1, gapDeltaPx: 0},
+    HARD: {countMultiplier: 1.18, speedMultiplier: 1.12, cadenceMultiplier: 0.88, gapDeltaPx: -4},
+  },
+  seed: {
+    algorithm: "mulberry32-v1",
+    base: 3179525433,
+    composition: "runSeed xor base xor encounterOrdinal xor difficultySalt",
+    randomCalls: "emitter-order then burst-order then projectile-order",
+  },
+  accessibility: {
+    reducedMotionGameplayParity: true,
+    flashOffGameplayParity: true,
+    telegraphNeverColorOnly: true,
+  },
+  resolutionHook: "intersection_hold_ms",
+});
+
+/** Exact descriptor-safe V4 contract for the bounded Stable Intersection authority. */
+export function validateStableIntersectionPatternContract(patternValue: unknown): void {
+  assertExactDataContract(
+    patternValue,
+    STABLE_INTERSECTION_PATTERN_CONTRACT,
+    "room.in_between.stable_intersection",
+  );
+}
+
 const ROOM_THRESHOLD_PATTERN_CONTRACT = deepFreezeJson({
   id: "transition.room_threshold",
   category: "TRANSITION",
@@ -5498,6 +5697,9 @@ function validatePattern(pattern: CombatPattern): void {
   if (pattern.id === "room.polarized.no_dusk_grid") {
     validateNoDuskGridPatternContract(pattern);
   }
+  if (pattern.id === "room.in_between.stable_intersection") {
+    validateStableIntersectionPatternContract(pattern);
+  }
   if (pattern.id === "transition.room_threshold") {
     validateRoomThresholdPatternContract(pattern);
   }
@@ -5631,6 +5833,7 @@ function validatePattern(pattern: CombatPattern): void {
     && pattern.id !== "room.forced.ballot_shift"
     && pattern.id !== "room.polarized.clock_decree"
     && pattern.id !== "room.polarized.no_dusk_grid"
+    && pattern.id !== "room.in_between.stable_intersection"
     && pattern.id !== "transition.room_threshold"
   ) {
     throw new Error(`${pattern.id} phase-gate capability ownership drifted`);
@@ -5678,10 +5881,13 @@ function validatePattern(pattern: CombatPattern): void {
     const ownsNoDuskCross = pattern.id === "room.polarized.no_dusk_grid"
       && emitter.id === "diagonal-law"
       && emitter.geometry.type === "cross";
+    const ownsStableIntersectionLattice = pattern.id === "room.in_between.stable_intersection"
+      && emitter.geometry.type === "lattice";
     if (
       !SUPPORTED_GEOMETRY_SET.has(emitter.geometry.type)
       && !ownsClockDecreeShutter
       && !ownsNoDuskCross
+      && !ownsStableIntersectionLattice
     ) {
       throw new Error(`${pattern.id}/${emitter.id} requires an unsupported geometry`);
     }
@@ -5720,6 +5926,14 @@ function validatePattern(pattern: CombatPattern): void {
         throw new Error(`${pattern.id}/${emitter.id} grid geometry capability ownership drifted`);
       }
       assertGridGeometry(
+        emitter.geometry as unknown as Readonly<Record<string, unknown>>,
+        `${pattern.id}/${emitter.id}.geometry`,
+      );
+    } else if (emitter.geometry.type === "lattice") {
+      if (pattern.id !== "room.in_between.stable_intersection") {
+        throw new Error(`${pattern.id}/${emitter.id} lattice geometry capability ownership drifted`);
+      }
+      assertLatticeGeometry(
         emitter.geometry as unknown as Readonly<Record<string, unknown>>,
         `${pattern.id}/${emitter.id}.geometry`,
       );
@@ -5810,7 +6024,8 @@ function validatePattern(pattern: CombatPattern): void {
     }
     const ownsDualClockGate = pattern.id === "room.forced.ballot_shift"
       || pattern.id === "room.polarized.clock_decree"
-      || pattern.id === "room.polarized.no_dusk_grid";
+      || pattern.id === "room.polarized.no_dusk_grid"
+      || pattern.id === "room.in_between.stable_intersection";
     if (ownsDualClockGate !== (dualClockGate !== undefined)) {
       throw new Error(`${pattern.id}/${emitter.id} dual-clock capability ownership drifted`);
     }
@@ -5952,6 +6167,7 @@ function candidateViolatesSafeGap(
     const ownsPhaseGate = pattern.id === "room.forced.ballot_shift"
       || pattern.id === "room.polarized.clock_decree"
       || pattern.id === "room.polarized.no_dusk_grid"
+      || pattern.id === "room.in_between.stable_intersection"
       || pattern.id === "transition.room_threshold";
     const ownsIndependentRoomThresholdGate = pattern.id === "transition.room_threshold";
     if (
@@ -6278,6 +6494,30 @@ function reversiblePhaseGateAllowsCollision(
       previousRelativeMs,
       relativeMs,
     );
+  } else if (pattern.id === "room.in_between.stable_intersection") {
+    if (
+      pattern.safeGap.type !== "dual_clock_intersection"
+      || pattern.safeGap.enforcement !== "phase_gate"
+      || pattern.safeGap.path.laneX.length !== 0
+    ) {
+      throw new Error(`${pattern.id} phase-gate path ownership drifted`);
+    }
+    // Unlike the quantized paths above, this corridor is a continuous sine.
+    // Use the shared analytic extrema/bisection sweep so a complete enter/exit
+    // between two endpoints cannot disappear through temporal undersampling.
+    return firstSafeGapEntryOnSegment(
+      pattern,
+      difficulty,
+      motionSegment(
+        from,
+        proposed,
+        previousRelativeMs,
+        relativeMs,
+        Math.hypot(proposed.x - from.x, proposed.y - from.y)
+          * 1000 / Math.max(Number.EPSILON, relativeMs - previousRelativeMs),
+      ),
+      collisionRadiusPx,
+    ) === null;
   } else {
     throw new Error(`${pattern.id} reversible phase-gate ownership drifted`);
   }
@@ -7446,6 +7686,29 @@ export class CanonicalCombatKernel {
             collisionLease: "reversible-entity-owned-canonical-events" as const,
             easyLateBurst: "cadence-owned-after-emit-end-and-residue-marker" as const,
             resolutionHook: "validated-inert-no-automatic-completion" as const,
+            completeTickTie:
+              "pattern-end-cancels-live-identities-before-gate-update" as const,
+          })}
+        : {}),
+      ...(this.pattern.id === "room.in_between.stable_intersection"
+        ? {stableIntersectionPhaseGate: Object.freeze({
+            candidateIdentity:
+              "all-authored-candidates-retain-rng-and-entity-identity" as const,
+            clockIdentity: "pattern-relative-integer-tick120" as const,
+            effectiveGate:
+              "dual-clock-xor-plus-both-open-intersection-plus-continuous-sine-collision-mask" as const,
+            intersectionRule:
+              "python-oracle-a-or-b-from-xor-plus-both-open" as const,
+            corridorSweep:
+              "analytic-relative-sine-extrema-then-bisection" as const,
+            clockInactiveBehavior: "same-generation-speed-zero-and-collision-off" as const,
+            clockOpenBoundary:
+              "collision-on-at-crossed-tick;motion-and-contact-next-tick" as const,
+            phaseGapBehavior: "same-generation-motion-retained-collision-off" as const,
+            collisionLease: "reversible-entity-owned-canonical-events" as const,
+            resolutionHook: "validated-inert-no-metric-or-room-completion" as const,
+            roomAuthority:
+              "withheld-no-composer-session-handoff-renderer-or-default-run" as const,
             completeTickTie:
               "pattern-end-cancels-live-identities-before-gate-update" as const,
           })}
