@@ -25,8 +25,16 @@ bun run dev
 
 - `http://127.0.0.1:5173/`：canonical RUN 序章。
 - `http://127.0.0.1:5173/?mode=pattern-lab`：显式开发/QA 控制面。
-- `?seed=4088`：调用方已解析的十进制 uint32 encounter seed；非法值 fail closed。
+- `?seed=4088`：调用方已解析的 First Eye encounter 十进制 uint32 seed；它不是 raw V4
+  Run seed，也不在 URL 层推导 difficulty salt；非法值 fail closed。
 - `?profile=reduced-motion` / `?profile=flash-off`：只读表现配置。
+
+检查 production PWA 构建：
+
+```sh
+bun run build
+bun run preview
+```
 
 只有显式升级依赖并准备审查 lockfile diff 时，才允许不带
 `--frozen-lockfile` 的安装。
@@ -42,7 +50,8 @@ bun run dev
 | 暂停 | Space | Start / Options（button 9） |
 
 手柄由浏览器原生 Gamepad API 读取；触觉反馈是可选投影，不影响 gameplay trace。
-实机支持范围只能由已记录的设备矩阵证明。
+实机支持范围只能由已记录的设备矩阵证明。触屏支持在画面内单指按住/拖动，移动与 signal
+由同一次 pointer 输入投影，不产生双份 gameplay fact。
 
 ## 目录职责
 
