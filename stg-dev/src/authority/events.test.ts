@@ -5,11 +5,13 @@ import {
   CANONICAL_EVENT_IDS,
   CANONICAL_EVENT_REGISTRY,
   CanonicalEventBus,
+  consumeCanonicalEventBatchReceipt,
   EVENT_PHASE_PRIORITY,
   EVENT_SCHEMA_ID,
   EVENT_SCHEMA_VERSION,
   serializeCanonicalEvents,
   simulationTimeMsForTick,
+  type CanonicalEventBatchReceipt,
   type GameplayEventDraft,
   type ReadonlyFeedbackSink,
 } from "./events";
@@ -85,6 +87,157 @@ describe("envelope and payload validation", () => {
 });
 
 describe("ordered authority bus", () => {
+  it("issues exact one-use receipts for groups accepted in one prepared batch", () => {
+    const bus = new CanonicalEventBus();
+    const otherBus = new CanonicalEventBus();
+    const firstGroup = Object.freeze([
+      Object.freeze(damageDraft({occurrenceKey: "prepared:first"})),
+    ]);
+    const secondGroup = Object.freeze([
+      Object.freeze(damageDraft({
+        localSequence: 1,
+        occurrenceKey: "prepared:second",
+      })),
+    ]);
+    const receipts = bus.enqueuePreparedBatch(Object.freeze([firstGroup, secondGroup]));
+    expect(Object.isFrozen(receipts)).toBe(true);
+    expect(receipts).toHaveLength(2);
+    const firstReceipt = receipts[0] as CanonicalEventBatchReceipt;
+    const secondReceipt = receipts[1] as CanonicalEventBatchReceipt;
+    expect(Object.isFrozen(firstReceipt)).toBe(true);
+
+    expect(() => consumeCanonicalEventBatchReceipt(
+      firstReceipt,
+      otherBus,
+      firstGroup,
+    )).toThrow(/another bus/);
+    expect(() => consumeCanonicalEventBatchReceipt(
+      firstReceipt,
+      bus,
+      Object.freeze([
+        Object.freeze(damageDraft({occurrenceKey: "prepared:first"})),
+      ]),
+    )).toThrow(/does not cover/);
+    expect(() => consumeCanonicalEventBatchReceipt(firstReceipt, bus, firstGroup)).not.toThrow();
+    expect(() => consumeCanonicalEventBatchReceipt(firstReceipt, bus, firstGroup)).toThrow(
+      /consumed/,
+    );
+    expect(() => consumeCanonicalEventBatchReceipt(secondReceipt, bus, secondGroup)).not.toThrow();
+    expect(bus.flush().map((event) => event.occurrenceKey)).toEqual([
+      "prepared:first",
+      "prepared:second",
+    ]);
+  });
+
+  it("leases exact-tick closure, including silent ticks, to one coordinator", () => {
+    const bus = new CanonicalEventBus();
+    const owner = bus.claimExclusiveTickFlush("fixture:coordinator", 10);
+    expect(Object.isFrozen(owner)).toBe(true);
+    expect(() => bus.flush()).toThrow(/exclusively owned/);
+    expect(() => bus.claimExclusiveTickFlush("fixture:second", 10)).toThrow(/already owned/);
+    expect(() => bus.enqueue(damageDraft({tick120: 10}))).toThrow(/already closed/);
+
+    bus.enqueue(damageDraft({tick120: 11}));
+    expect(owner.flushTick(11).map((event) => event.tick120)).toEqual([11]);
+    expect(owner.flushTick(12)).toEqual([]);
+    expect(() => bus.enqueue(damageDraft({
+      tick120: 12,
+      occurrenceKey: "damage:closed-silent-tick",
+    }))).toThrow(/already closed/);
+  });
+
+  it("rejects a mixed leased-tick batch atomically and leaves the valid key reusable", () => {
+    const bus = new CanonicalEventBus();
+    const owner = bus.claimExclusiveTickFlush("fixture:coordinator", 0);
+    const current = damageDraft({tick120: 1, occurrenceKey: "damage:current"});
+    expect(() => bus.enqueueBatch([
+      current,
+      damageDraft({tick120: 2, occurrenceKey: "damage:future", localSequence: 1}),
+    ])).toThrow(/accepts only next tick 1, received 2/);
+    expect(bus.events()).toEqual([]);
+    expect(() => bus.enqueue(current)).not.toThrow();
+    expect(() => owner.flushTick(2)).toThrow(/close next tick 1, received 2/);
+    expect(owner.flushTick(1).map((event) => event.occurrenceKey)).toEqual(["damage:current"]);
+    expect(() => bus.flush()).toThrow(/exclusively owned/);
+  });
+
+  it("rejects accessor reentrancy before a nested event can escape batch validation", () => {
+    const bus = new CanonicalEventBus();
+    const owner = bus.claimExclusiveTickFlush("fixture:coordinator", 0);
+    const valid = damageDraft({tick120: 1, occurrenceKey: "damage:reentry-valid"});
+    let reentryAttempts = 0;
+    const hostile = {
+      get id(): string {
+        reentryAttempts += 1;
+        bus.enqueue(valid);
+        return "player.damage.commit";
+      },
+      tick120: 1,
+      entityStableId: "player:0",
+      localSequence: 0,
+      occurrenceKey: "damage:reentry-hostile",
+      payload: {amount: 1, healthAfter: 2, sourceId: "projectile:9", branch: "non-fatal"},
+    };
+    expect(() => bus.enqueueBatch([hostile])).toThrow(/own enumerable data property/);
+    expect(reentryAttempts).toBe(0);
+    expect(bus.events()).toEqual([]);
+    expect(() => bus.enqueue(valid)).not.toThrow();
+    expect(owner.flushTick(1).map((event) => event.occurrenceKey))
+      .toEqual(["damage:reentry-valid"]);
+  });
+
+  it("rejects virtual array methods in batches and payloads before commit", () => {
+    const batchBus = new CanonicalEventBus();
+    const batchOwner = batchBus.claimExclusiveTickFlush("fixture:batch-owner", 0);
+    const valid = damageDraft({tick120: 1, occurrenceKey: "damage:array-valid"});
+    const hostileBatch = [valid];
+    Object.defineProperty(hostileBatch, "map", {
+      enumerable: true,
+      value: () => [{
+        id: "not.canonical",
+        tick120: 1,
+        simulationTimeMs: 123,
+        phasePriority: 999,
+      }],
+    });
+    expect(() => batchBus.enqueueBatch(hostileBatch)).toThrow(/dense and contain no metadata/);
+    expect(batchBus.events()).toEqual([]);
+    batchBus.enqueue(valid);
+    expect(batchOwner.flushTick(1)).toHaveLength(1);
+
+    const payloadBus = new CanonicalEventBus();
+    const nested: unknown[] = [];
+    Object.defineProperty(nested, "map", {
+      enumerable: true,
+      value: () => [Symbol("not-json")],
+    });
+    expect(() => payloadBus.enqueue(damageDraft({
+      occurrenceKey: "damage:payload-array",
+      payload: {
+        amount: 1,
+        healthAfter: 2,
+        sourceId: "projectile:9",
+        branch: "non-fatal",
+        nested,
+      },
+    }))).toThrow(/dense and contain no metadata/);
+    expect(payloadBus.events()).toEqual([]);
+
+    const hostileEvents = [...batchBus.events()];
+    Object.defineProperty(hostileEvents, "slice", {
+      enumerable: true,
+      value: () => [{authority: "gameplay", id: "not.canonical"}],
+    });
+    expect(() => serializeCanonicalEvents(hostileEvents)).toThrow(/dense and contain no metadata/);
+  });
+
+  it("refuses to lease a bus whose pending queue is not between ticks", () => {
+    const bus = new CanonicalEventBus();
+    bus.enqueue(damageDraft());
+    expect(() => bus.claimExclusiveTickFlush("fixture:coordinator", 0)).toThrow(/empty pending queue/);
+    expect(bus.flush()).toHaveLength(1);
+  });
+
   it("validates a batch before claiming keys or appending any event", () => {
     const bus = new CanonicalEventBus();
     const first = damageDraft({occurrenceKey: "atomic:first"});

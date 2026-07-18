@@ -2,8 +2,12 @@ import laserManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manifests
 import {MASTER_TICK_HZ} from "./clock";
 import {
   CanonicalEventBus,
+  consumeCanonicalEventBatchReceipt,
+  isExactCanonicalEventBus,
   simulationTimeMsForTick,
+  type CanonicalEventBatchReceipt,
   type CanonicalGameplayEvent,
+  type GameplayEventDraft,
   type ReadonlyFeedbackSink,
 } from "./events";
 
@@ -94,13 +98,28 @@ export function laserDefinition(id: string): LaserDefinition {
 
 export function millisecondsToAuthorityTicks(milliseconds: number): number {
   assertFiniteNonNegative(milliseconds, "milliseconds");
-  return Math.ceil(milliseconds * LASER_TICK_HZ / 1000 - Number.EPSILON);
+  const rounded = Math.ceil(milliseconds * LASER_TICK_HZ / 1000 - Number.EPSILON);
+  const ticks = Object.is(rounded, -0) ? 0 : rounded;
+  if (!Number.isSafeInteger(ticks) || ticks < 0) {
+    throw new Error("milliseconds exceed the safe authority tick range");
+  }
+  return ticks;
 }
 
 function assertTick(tick120: number, label: string): void {
-  if (!Number.isSafeInteger(tick120) || tick120 < 0) {
+  if (!Number.isSafeInteger(tick120) || tick120 < 0 || Object.is(tick120, -0)) {
     throw new Error(`${label} must be a non-negative safe integer`);
   }
+}
+
+function checkedTickAddition(baseTick120: number, offsetTicks: number, label: string): number {
+  assertTick(baseTick120, `${label} base tick120`);
+  assertTick(offsetTicks, `${label} offset ticks`);
+  const result = baseTick120 + offsetTicks;
+  if (!Number.isSafeInteger(result) || result < baseTick120) {
+    throw new Error(`${label} exceeds the safe authority tick range`);
+  }
+  return result;
 }
 
 function assertFiniteNonNegative(value: number, label: string): void {
@@ -739,9 +758,16 @@ export function laserIntersectsPlayerBetweenTicks(
     : definitionOrId;
   assertTick(fromTick120, "collision fromTick120");
   assertTick(toTick120, "collision toTick120");
+  assertTick(activeStartTick120, "collision activeStartTick120");
+  assertTick(activeDurationTicks, "collision activeDurationTicks");
   if (toTick120 < fromTick120) throw new Error("collision tick range must be monotonic");
+  const activeEndTick120 = checkedTickAddition(
+    activeStartTick120,
+    activeDurationTicks,
+    "laser collision active deadline",
+  );
   const start = Math.max(fromTick120, activeStartTick120);
-  const end = Math.min(toTick120, activeStartTick120 + activeDurationTicks);
+  const end = Math.min(toTick120, activeEndTick120);
   if (end < start) return false;
   const totalTicks = Math.max(1, toTick120 - fromTick120);
   let previous = compileLaserGeometry(definition, {
@@ -854,6 +880,90 @@ export interface LaserLifecycleSnapshot {
   readonly terminalCause: LaserTerminalCause | null;
 }
 
+declare const preparedLaserMutationBrand: unique symbol;
+
+/**
+ * Opaque one-use proposal for the two laser mutations that must participate in
+ * a cross-authority append: phase-entry start and terminal impact. The token is
+ * not a rollback transaction. A coordinator must inspect every participant,
+ * append their drafts once, then apply each already-validated after-state.
+ */
+export interface PreparedLaserMutation {
+  readonly [preparedLaserMutationBrand]: "PreparedLaserMutation";
+}
+
+export interface PreparedLaserMutationView {
+  readonly kind: "start" | "impact";
+  readonly owner: LaserAuthority;
+  readonly eventBus: CanonicalEventBus;
+  readonly tick120: number;
+  readonly revision: number;
+  readonly drafts: readonly GameplayEventDraft[];
+  readonly preview: LaserLifecycleSnapshot;
+}
+
+interface PreparedLaserMutationState extends PreparedLaserMutationView {
+  consumed: boolean;
+  readonly generation: number;
+  readonly localSequence: number;
+  readonly currentTick120: number;
+  readonly state: LaserLifecycleState;
+  readonly collisionEnabled: boolean;
+  readonly warningEndTick120: number | null;
+  readonly activeTick120: number | null;
+  readonly terminalTick120: number | null;
+  readonly residueTick120: number | null;
+  readonly cleanupTick120: number | null;
+  readonly terminalCause: LaserTerminalCause | null;
+}
+
+const PREPARED_LASER_MUTATIONS = new WeakMap<PreparedLaserMutation, PreparedLaserMutationState>();
+const EXACT_LASER_AUTHORITIES = new WeakSet<LaserAuthority>();
+
+function preparedLaserToken(state: PreparedLaserMutationState): PreparedLaserMutation {
+  const token = Object.freeze({}) as PreparedLaserMutation;
+  PREPARED_LASER_MUTATIONS.set(token, state);
+  return token;
+}
+
+/** Read-only proposal inspection for the two narrow composite coordinators. */
+export function inspectPreparedLaserMutation(
+  proposal: PreparedLaserMutation,
+): PreparedLaserMutationView {
+  const state = PREPARED_LASER_MUTATIONS.get(proposal);
+  if (state === undefined || state.consumed) {
+    throw new Error("laser mutation proposal is unknown or already consumed");
+  }
+  return LaserAuthority.prototype.validatePreparedMutation.call(state.owner, proposal);
+}
+
+function preparedLaserMutationView(
+  state: PreparedLaserMutationState,
+): PreparedLaserMutationView {
+  return Object.freeze({
+    kind: state.kind,
+    owner: state.owner,
+    eventBus: state.eventBus,
+    tick120: state.tick120,
+    revision: state.revision,
+    drafts: state.drafts,
+    preview: state.preview,
+  });
+}
+
+export function isExactLaserAuthority(value: unknown): value is LaserAuthority {
+  return typeof value === "object"
+    && value !== null
+    && EXACT_LASER_AUTHORITIES.has(value as LaserAuthority)
+    && Object.getPrototypeOf(value) === LaserAuthority.prototype
+    && [
+      "snapshot",
+      "prepareStart",
+      "validatePreparedMutation",
+      "applyPreparedMutationAfterAppend",
+    ].every((method) => !Object.prototype.hasOwnProperty.call(value, method));
+}
+
 /**
  * Entity-owned laser lifecycle. It has no presentation command port: feedback
  * only receives immutable events from CanonicalEventBus after gameplay commit.
@@ -870,21 +980,28 @@ export class LaserAuthority {
   private cleanupTick: number | null = null;
   private terminalCause: LaserTerminalCause | null = null;
   private localSequence = 0;
+  private mutationRevision = 0;
+  private mutationLocked = false;
 
   readonly definition: LaserDefinition;
 
   constructor(
     private readonly bus: CanonicalEventBus,
-    definitionOrId: LaserDefinition | string,
+    definitionId: string,
     readonly instanceId: string,
   ) {
+    if (!isExactCanonicalEventBus(bus)) {
+      throw new Error("laser authority requires an exact CanonicalEventBus instance");
+    }
     if (!instanceId) throw new Error("laser instanceId is required");
-    this.definition = typeof definitionOrId === "string"
-      ? laserDefinition(definitionOrId)
-      : definitionOrId;
+    if (typeof definitionId !== "string") {
+      throw new Error("production laser authority requires a canonical V4 laser id");
+    }
+    this.definition = laserDefinition(definitionId);
     validateLaserDefinition(this.definition);
     // Compile once so an unknown or malformed topology fails before gameplay.
     compileLaserGeometry(this.definition, {tick120: 0});
+    if (new.target === LaserAuthority) EXACT_LASER_AUTHORITIES.add(this);
   }
 
   snapshot(): LaserLifecycleSnapshot {
@@ -904,7 +1021,7 @@ export class LaserAuthority {
     });
   }
 
-  start(tick120: number): LaserLifecycleSnapshot {
+  prepareStart(tick120: number): PreparedLaserMutation {
     assertTick(tick120, "laser start tick120");
     if (this.stateValue !== "idle" && this.stateValue !== "cleanup") {
       throw new Error(`laser cannot start from ${this.stateValue}`);
@@ -912,29 +1029,96 @@ export class LaserAuthority {
     if (tick120 < this.currentTickValue) throw new Error("laser start tick must be monotonic");
     const nextGeneration = this.stateValue === "cleanup" ? this.generationValue + 1 : this.generationValue;
     const timing = this.definition.lifecycle.timingMs;
-    const warningEnd = tick120 + millisecondsToAuthorityTicks(timing.telegraph);
-    const active = tick120 + millisecondsToAuthorityTicks(timing.telegraph + timing.charge + timing.grow);
-    const terminal = active + millisecondsToAuthorityTicks(timing.live);
-
-    this.emit("projectile.spawn.commit", tick120, "spawn", {
+    const warningEnd = checkedTickAddition(
+      tick120,
+      millisecondsToAuthorityTicks(timing.telegraph),
+      "laser warning deadline",
+    );
+    const active = checkedTickAddition(
+      tick120,
+      millisecondsToAuthorityTicks(timing.telegraph + timing.charge + timing.grow),
+      "laser active deadline",
+    );
+    const terminal = checkedTickAddition(
+      active,
+      millisecondsToAuthorityTicks(timing.live),
+      "laser terminal deadline",
+    );
+    // Preflight the complete natural lifecycle before claiming the spawn
+    // occurrence. An unsafe cleanup boundary must leave both bus and entity
+    // state untouched.
+    const naturalResidue = checkedTickAddition(
+      terminal,
+      millisecondsToAuthorityTicks(timing.shutdown),
+      "laser residue deadline",
+    );
+    checkedTickAddition(
+      naturalResidue,
+      millisecondsToAuthorityTicks(timing.residue),
+      "laser cleanup deadline",
+    );
+    const payload = Object.freeze({
       instanceId: this.instanceId,
       generation: nextGeneration,
       archetypeId: this.definition.id,
       topology: this.definition.geometry.type,
-    }, nextGeneration);
+    });
+    const drafts = Object.freeze([Object.freeze({
+      id: "projectile.spawn.commit",
+      tick120,
+      entityStableId: this.instanceId,
+      localSequence: 0,
+      occurrenceKey: `${this.instanceId}:${nextGeneration}:spawn`,
+      payload,
+    })]);
+    const preview = Object.freeze({
+      instanceId: this.instanceId,
+      laserId: this.definition.id,
+      generation: nextGeneration,
+      state: "warning" as const,
+      collisionEnabled: false,
+      currentTick120: tick120,
+      warningEndTick120: warningEnd,
+      activeTick120: active,
+      terminalTick120: terminal,
+      residueTick120: null,
+      cleanupTick120: null,
+      terminalCause: null,
+    });
+    return preparedLaserToken({
+      kind: "start",
+      owner: this,
+      eventBus: this.bus,
+      tick120,
+      revision: this.mutationRevision,
+      drafts,
+      preview,
+      consumed: false,
+      generation: nextGeneration,
+      localSequence: 1,
+      currentTick120: tick120,
+      state: "warning",
+      collisionEnabled: false,
+      warningEndTick120: warningEnd,
+      activeTick120: active,
+      terminalTick120: terminal,
+      residueTick120: null,
+      cleanupTick120: null,
+      terminalCause: null,
+    });
+  }
 
-    this.generationValue = nextGeneration;
-    this.localSequence = 1;
-    this.currentTickValue = tick120;
-    this.stateValue = "warning";
-    this.collisionEnabledValue = false;
-    this.warningEndTick = warningEnd;
-    this.activeTick = active;
-    this.terminalTick = terminal;
-    this.residueTick = null;
-    this.cleanupTick = null;
-    this.terminalCause = null;
-    return this.snapshot();
+  start(tick120: number): LaserLifecycleSnapshot {
+    const proposal = this.prepareStart(tick120);
+    const view = this.validatePreparedMutation(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    return this.applyPreparedMutationAfterAppend(
+      proposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
   }
 
   advance(toTick120: number): LaserLifecycleSnapshot {
@@ -959,20 +1143,34 @@ export class LaserAuthority {
       }
       if (this.stateValue === "arming" && this.activeTick !== null && toTick120 >= this.activeTick) {
         const due = this.activeTick;
-        this.emit("projectile.armed", due, "armed", {
-          instanceId: this.instanceId,
-          generation: this.generationValue,
-        });
-        this.emit("projectile.collision.on", due, "collision-on", {
-          instanceId: this.instanceId,
-          generation: this.generationValue,
-        });
-        this.emit("projectile.flight.begin", due, "flight-begin", {
-          instanceId: this.instanceId,
-          generation: this.generationValue,
-          ownership: "entity",
-          topology: this.definition.geometry.type,
-        });
+        this.emitBatch(due, [
+          {
+            id: "projectile.armed",
+            suffix: "armed",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+            },
+          },
+          {
+            id: "projectile.collision.on",
+            suffix: "collision-on",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+            },
+          },
+          {
+            id: "projectile.flight.begin",
+            suffix: "flight-begin",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+              ownership: "entity",
+              topology: this.definition.geometry.type,
+            },
+          },
+        ]);
         this.stateValue = "active";
         this.collisionEnabledValue = true;
         progressed = true;
@@ -1003,21 +1201,32 @@ export class LaserAuthority {
         const due = this.cleanupTick;
         const cause = this.terminalCause;
         if (cause === null) throw new Error("laser cleanup cause is missing");
-        this.emit("projectile.residue.remove", due, "residue-remove", {
-          instanceId: this.instanceId,
-          generation: this.generationValue,
-          cause,
-        });
-        this.emit("projectile.lifecycle.complete", due, "complete", {
-          instanceId: this.instanceId,
-          generation: this.generationValue,
-          cause,
-        });
+        this.emitBatch(due, [
+          {
+            id: "projectile.residue.remove",
+            suffix: "residue-remove",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+              cause,
+            },
+          },
+          {
+            id: "projectile.lifecycle.complete",
+            suffix: "complete",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+              cause,
+            },
+          },
+        ]);
         this.stateValue = "cleanup";
         progressed = true;
       }
     }
     this.currentTickValue = toTick120;
+    this.mutationRevision += 1;
     return this.snapshot();
   }
 
@@ -1028,15 +1237,158 @@ export class LaserAuthority {
       throw new Error(`laser cannot cancel from ${this.stateValue}`);
     }
     this.commitTerminal(tick120, "cancel", reason, undefined);
+    this.mutationRevision += 1;
     return this.snapshot();
   }
 
   impact(tick120: number, targetId: string): LaserLifecycleSnapshot {
     if (!targetId) throw new Error("laser impact targetId is required");
     this.advance(tick120);
+    const proposal = this.prepareImpactAtCurrentTick(tick120, targetId);
+    const view = this.validatePreparedMutation(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    return this.applyPreparedMutationAfterAppend(
+      proposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+  }
+
+  /**
+   * Stage a terminal impact without advancing time. This exact-current-tick
+   * restriction is what makes the proposal safe to compose with player damage.
+   */
+  prepareImpactAtCurrentTick(tick120: number, targetIdValue: string): PreparedLaserMutation {
+    assertTick(tick120, "laser impact tick120");
+    if (typeof targetIdValue !== "string" || targetIdValue.trim().length === 0) {
+      throw new Error("laser impact targetId is required");
+    }
+    if (tick120 !== this.currentTickValue) {
+      throw new Error(
+        `prepared laser impact requires current tick ${this.currentTickValue}, received ${tick120}`,
+      );
+    }
     if (this.stateValue !== "active") throw new Error(`laser cannot impact from ${this.stateValue}`);
-    this.commitTerminal(tick120, "impact", undefined, targetId);
-    return this.snapshot();
+    if (this.activeTick === null || tick120 <= this.activeTick) {
+      throw new Error("laser cannot impact on its collision-enable tick");
+    }
+    const shutdownTicks = millisecondsToAuthorityTicks(this.definition.lifecycle.timingMs.shutdown);
+    const residueTicks = millisecondsToAuthorityTicks(this.definition.lifecycle.timingMs.residue);
+    const residueTick = checkedTickAddition(tick120, shutdownTicks, "laser residue deadline");
+    const cleanupTick = checkedTickAddition(residueTick, residueTicks, "laser cleanup deadline");
+    const drafts = Object.freeze([
+      Object.freeze({
+        id: "projectile.collision.off",
+        tick120,
+        entityStableId: this.instanceId,
+        localSequence: this.localSequence,
+        occurrenceKey: `${this.instanceId}:${this.generationValue}:collision-off`,
+        payload: Object.freeze({
+          instanceId: this.instanceId,
+          generation: this.generationValue,
+          reason: "impact",
+        }),
+      }),
+      Object.freeze({
+        id: "projectile.impact.commit",
+        tick120,
+        entityStableId: this.instanceId,
+        localSequence: this.localSequence + 1,
+        occurrenceKey: `${this.instanceId}:${this.generationValue}:impact`,
+        payload: Object.freeze({
+          instanceId: this.instanceId,
+          generation: this.generationValue,
+          targetId: targetIdValue,
+        }),
+      }),
+    ]);
+    const preview = Object.freeze({
+      instanceId: this.instanceId,
+      laserId: this.definition.id,
+      generation: this.generationValue,
+      state: "shutdown" as const,
+      collisionEnabled: false,
+      currentTick120: tick120,
+      warningEndTick120: this.warningEndTick,
+      activeTick120: this.activeTick,
+      terminalTick120: tick120,
+      residueTick120: residueTick,
+      cleanupTick120: cleanupTick,
+      terminalCause: "impact" as const,
+    });
+    return preparedLaserToken({
+      kind: "impact",
+      owner: this,
+      eventBus: this.bus,
+      tick120,
+      revision: this.mutationRevision,
+      drafts,
+      preview,
+      consumed: false,
+      generation: this.generationValue,
+      localSequence: this.localSequence + drafts.length,
+      currentTick120: tick120,
+      state: "shutdown",
+      collisionEnabled: false,
+      warningEndTick120: this.warningEndTick,
+      activeTick120: this.activeTick,
+      terminalTick120: tick120,
+      residueTick120: residueTick,
+      cleanupTick120: cleanupTick,
+      terminalCause: "impact",
+    });
+  }
+
+  /** Revalidate an opaque proposal immediately before a composite append. */
+  validatePreparedMutation(
+    proposal: PreparedLaserMutation,
+  ): PreparedLaserMutationView {
+    if (this.mutationLocked) throw new Error("laser mutation is already in progress");
+    const prepared = PREPARED_LASER_MUTATIONS.get(proposal);
+    if (prepared === undefined || prepared.consumed || prepared.owner !== this) {
+      throw new Error("laser mutation proposal is unknown, consumed, or owned by another laser");
+    }
+    if (prepared.revision !== this.mutationRevision) {
+      throw new Error("laser mutation proposal is stale");
+    }
+    return preparedLaserMutationView(prepared);
+  }
+
+  /** Apply a proposal only after its drafts are part of one accepted batch. */
+  applyPreparedMutationAfterAppend(
+    proposal: PreparedLaserMutation,
+    receipt: CanonicalEventBatchReceipt,
+  ): LaserLifecycleSnapshot {
+    if (this.mutationLocked) throw new Error("laser mutation is already in progress");
+    const prepared = PREPARED_LASER_MUTATIONS.get(proposal);
+    if (prepared === undefined || prepared.consumed || prepared.owner !== this) {
+      throw new Error("laser mutation proposal is unknown, consumed, or owned by another laser");
+    }
+    if (prepared.revision !== this.mutationRevision) {
+      throw new Error("laser mutation proposal is stale");
+    }
+    this.mutationLocked = true;
+    try {
+      consumeCanonicalEventBatchReceipt(receipt, this.bus, prepared.drafts);
+      this.generationValue = prepared.generation;
+      this.localSequence = prepared.localSequence;
+      this.currentTickValue = prepared.currentTick120;
+      this.stateValue = prepared.state;
+      this.collisionEnabledValue = prepared.collisionEnabled;
+      this.warningEndTick = prepared.warningEndTick120;
+      this.activeTick = prepared.activeTick120;
+      this.terminalTick = prepared.terminalTick120;
+      this.residueTick = prepared.residueTick120;
+      this.cleanupTick = prepared.cleanupTick120;
+      this.terminalCause = prepared.terminalCause;
+      prepared.consumed = true;
+      this.mutationRevision += 1;
+      return prepared.preview;
+    } finally {
+      this.mutationLocked = false;
+    }
   }
 
   activeGeometry(tick120 = this.currentTickValue): LaserGeometrySnapshot {
@@ -1057,19 +1409,40 @@ export class LaserAuthority {
     toTick120: number,
     player: CircleSweep,
   ): boolean {
-    if (this.activeTick === null || this.terminalTick === null) return false;
+    assertTick(fromTick120, "laser collision fromTick120");
+    assertTick(toTick120, "laser collision toTick120");
+    if (toTick120 < fromTick120) throw new Error("laser collision tick range must be monotonic");
     if (toTick120 > this.currentTickValue) {
       throw new Error("laser collision cannot query a future authority tick");
     }
+    if (this.activeTick === null || this.terminalTick === null) return false;
+    if (this.terminalTick <= this.activeTick) return false;
     const lastCollisionTick = this.terminalTick - 1;
-    if (toTick120 < this.activeTick || fromTick120 > lastCollisionTick) return false;
+    assertTick(lastCollisionTick, "laser last collision tick120");
+    // collision.on is the end-of-tick activation fact. Contact authority begins
+    // with the first non-zero interval ending on the following master tick.
+    if (toTick120 <= this.activeTick || fromTick120 >= lastCollisionTick) return false;
+    const collisionToTick120 = Math.min(toTick120, lastCollisionTick);
+    if (collisionToTick120 <= fromTick120) return false;
+    const clippedPlayer = collisionToTick120 === toTick120
+      ? player
+      : {
+          from: player.from,
+          to: point(
+            player.from.x + (player.to.x - player.from.x)
+              * ((collisionToTick120 - fromTick120) / (toTick120 - fromTick120)),
+            player.from.y + (player.to.y - player.from.y)
+              * ((collisionToTick120 - fromTick120) / (toTick120 - fromTick120)),
+          ),
+          radius: player.radius,
+        };
     return laserIntersectsPlayerBetweenTicks(
       this.definition,
       fromTick120,
-      toTick120,
+      collisionToTick120,
       this.activeTick,
       Math.max(0, lastCollisionTick - this.activeTick),
-      player,
+      clippedPlayer,
     );
   }
 
@@ -1079,32 +1452,46 @@ export class LaserAuthority {
     reason: string | undefined,
     targetId: string | undefined,
   ): void {
-    this.emit("projectile.collision.off", tick120, "collision-off", {
-      instanceId: this.instanceId,
-      generation: this.generationValue,
-      reason: cause === "impact" ? "impact" : (reason ?? "cancel"),
-    });
-    if (cause === "impact") {
-      this.emit("projectile.impact.commit", tick120, "impact", {
-        instanceId: this.instanceId,
-        generation: this.generationValue,
-        targetId: targetId ?? "unknown",
-      });
-    } else {
-      this.emit("projectile.cancel.commit", tick120, "cancel", {
-        instanceId: this.instanceId,
-        generation: this.generationValue,
-        reason: reason ?? "cancel",
-      });
-    }
     const shutdownTicks = millisecondsToAuthorityTicks(this.definition.lifecycle.timingMs.shutdown);
     const residueTicks = millisecondsToAuthorityTicks(this.definition.lifecycle.timingMs.residue);
+    const residueTick = checkedTickAddition(tick120, shutdownTicks, "laser residue deadline");
+    const cleanupTick = checkedTickAddition(residueTick, residueTicks, "laser cleanup deadline");
+    this.emitBatch(tick120, [
+      {
+        id: "projectile.collision.off",
+        suffix: "collision-off",
+        payload: {
+          instanceId: this.instanceId,
+          generation: this.generationValue,
+          reason: cause === "impact" ? "impact" : (reason ?? "cancel"),
+        },
+      },
+      cause === "impact"
+        ? {
+            id: "projectile.impact.commit",
+            suffix: "impact",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+              targetId: targetId ?? "unknown",
+            },
+          }
+        : {
+            id: "projectile.cancel.commit",
+            suffix: "cancel",
+            payload: {
+              instanceId: this.instanceId,
+              generation: this.generationValue,
+              reason: reason ?? "cancel",
+            },
+          },
+    ]);
     this.stateValue = "shutdown";
     this.collisionEnabledValue = false;
     this.terminalTick = tick120;
     this.terminalCause = cause;
-    this.residueTick = tick120 + shutdownTicks;
-    this.cleanupTick = tick120 + shutdownTicks + residueTicks;
+    this.residueTick = residueTick;
+    this.cleanupTick = cleanupTick;
   }
 
   private emit(
@@ -1115,15 +1502,40 @@ export class LaserAuthority {
     generation = this.generationValue,
   ): void {
     const sequence = suffix === "spawn" ? 0 : this.localSequence;
-    this.bus.enqueue({
+    this.enqueueExactBatch([{
       id,
       tick120,
       entityStableId: this.instanceId,
       localSequence: sequence,
       occurrenceKey: `${this.instanceId}:${generation}:${suffix}`,
       payload,
-    });
+    }]);
     if (suffix !== "spawn") this.localSequence += 1;
+  }
+
+  private emitBatch(
+    tick120: number,
+    entries: readonly Readonly<{
+      id: string;
+      suffix: string;
+      payload: Readonly<Record<string, unknown>>;
+    }>[],
+  ): void {
+    const sequenceBase = this.localSequence;
+    const drafts = entries.map((entry, index): GameplayEventDraft => Object.freeze({
+      id: entry.id,
+      tick120,
+      entityStableId: this.instanceId,
+      localSequence: sequenceBase + index,
+      occurrenceKey: `${this.instanceId}:${this.generationValue}:${entry.suffix}`,
+      payload: entry.payload,
+    }));
+    this.enqueueExactBatch(drafts);
+    this.localSequence += drafts.length;
+  }
+
+  private enqueueExactBatch(drafts: readonly GameplayEventDraft[]): void {
+    CanonicalEventBus.prototype.enqueueBatch.call(this.bus, drafts);
   }
 }
 

@@ -2,7 +2,10 @@ import projectileLifecycleJson from "../../../1bit-stg-complete-asset-kit-v4/man
 
 import {
   CanonicalEventBus,
+  consumeCanonicalEventBatchReceipt,
   simulationTimeMsForTick,
+  type CanonicalEventBatchReceipt,
+  type GameplayEventDraft,
 } from "./events";
 
 export const PROJECTILE_TICKS_PER_SECOND = 120 as const;
@@ -62,6 +65,19 @@ export interface ProjectileHandle {
   readonly generation: number;
 }
 
+export interface ProjectileFlightCollisionChange {
+  readonly handle: ProjectileHandle;
+  readonly enabled: boolean;
+  readonly reason: string;
+}
+
+declare const preparedProjectileCollisionBatchBrand: unique symbol;
+
+/** Opaque, one-use proof of a fully validated reversible-collider batch. */
+export interface PreparedProjectileCollisionBatch {
+  readonly [preparedProjectileCollisionBatchBrand]: "PreparedProjectileCollisionBatch";
+}
+
 export interface SpawnProjectileRequest {
   readonly tick120: number;
   /** Authority-side occurrence identity. Replaying it is an error. */
@@ -70,6 +86,11 @@ export interface SpawnProjectileRequest {
   readonly position: Vec2;
   readonly armDelayTicks: number;
   readonly residueTicks: number;
+  /**
+   * Motion operators may own a collision gate at the arm boundary. Omitted
+   * callers retain the canonical projectile lifecycle's collision-on default.
+   */
+  readonly collisionEnabledAtArm?: boolean;
 }
 
 export interface ProjectileSnapshot extends ProjectileHandle {
@@ -80,6 +101,8 @@ export interface ProjectileSnapshot extends ProjectileHandle {
   readonly collisionEnabled: boolean;
   readonly previousPosition: Vec2;
   readonly position: Vec2;
+  /** Last master tick whose movement segment ends at `position`. */
+  readonly movedAtTick120: number | null;
   readonly spawnedAtTick: number;
   readonly armAtTick: number;
   readonly terminalCause: ProjectileTerminalCause | null;
@@ -128,13 +151,38 @@ interface ProjectileSlot {
   collisionEnabled: boolean;
   previousPosition: Vec2;
   position: Vec2;
+  movedAtTick120: number | null;
   spawnedAtTick: number;
   armAtTick: number;
+  collisionEnabledAtArm: boolean;
+  collisionGateTransitionOrdinal: number;
   residueTicks: number;
   cleanupAtTick: number | null;
   terminalCause: ProjectileTerminalCause | null;
   residueVisualReserved: boolean;
 }
+
+interface PreparedProjectileCollisionTransition {
+  readonly slot: ProjectileSlot;
+  readonly generation: number;
+  readonly enabled: boolean;
+  readonly expectedCollisionEnabled: boolean;
+  readonly expectedLocalSequence: number;
+  readonly expectedGateOrdinal: number;
+}
+
+interface PreparedProjectileCollisionBatchRecord {
+  readonly owner: ProjectileAuthorityPool;
+  readonly tick120: number;
+  readonly drafts: readonly GameplayEventDraft[];
+  readonly transitions: readonly PreparedProjectileCollisionTransition[];
+  status: "prepared" | "begun" | "complete";
+}
+
+const PREPARED_PROJECTILE_COLLISION_BATCHES = new WeakMap<
+  PreparedProjectileCollisionBatch,
+  PreparedProjectileCollisionBatchRecord
+>();
 
 const POOL_CLASS_ORDER = Object.freeze([
   "micro",
@@ -464,6 +512,89 @@ function canonicalAuditSerialization(records: readonly ProjectilePoolAuditRecord
   })));
 }
 
+function captureFlightCollisionChanges(
+  value: unknown,
+): readonly Readonly<ProjectileFlightCollisionChange>[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
+    throw new Error("projectile collision-gate changes must be a plain array");
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new Error("projectile collision-gate changes must not use symbols");
+  }
+  const arrayDescriptors = Object.getOwnPropertyDescriptors(value) as Record<
+    string,
+    PropertyDescriptor
+  >;
+  const lengthDescriptor = arrayDescriptors.length;
+  const length = lengthDescriptor !== undefined && "value" in lengthDescriptor
+    ? lengthDescriptor.value
+    : undefined;
+  if (!Number.isSafeInteger(length) || (length as number) <= 0) {
+    throw new Error("projectile collision-gate changes must be a non-empty dense array");
+  }
+  const expectedArrayKeys = Array.from({length: length as number}, (_, index) => String(index))
+    .concat("length")
+    .sort();
+  const actualArrayKeys = Object.keys(arrayDescriptors).sort();
+  if (
+    actualArrayKeys.length !== expectedArrayKeys.length
+    || actualArrayKeys.some((key, index) => key !== expectedArrayKeys[index])
+  ) {
+    throw new Error("projectile collision-gate changes must be a non-empty dense array");
+  }
+  return Object.freeze(Array.from({length: length as number}, (_, index) => {
+    const elementDescriptor = arrayDescriptors[String(index)];
+    if (
+      elementDescriptor === undefined
+      || !("value" in elementDescriptor)
+      || elementDescriptor.enumerable !== true
+    ) {
+      throw new Error(`projectile collision-gate changes[${index}] must be an own data element`);
+    }
+    const change = elementDescriptor.value;
+    if (
+      typeof change !== "object"
+      || change === null
+      || Array.isArray(change)
+      || (Object.getPrototypeOf(change) !== Object.prototype
+        && Object.getPrototypeOf(change) !== null)
+      || Object.getOwnPropertySymbols(change).length > 0
+    ) {
+      throw new Error(`projectile collision-gate changes[${index}] must be a plain object`);
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(change);
+    const expectedKeys = ["enabled", "handle", "reason"];
+    const actualKeys = Object.keys(descriptors).sort();
+    if (
+      actualKeys.length !== expectedKeys.length
+      || actualKeys.some((key, keyIndex) => key !== expectedKeys[keyIndex])
+    ) {
+      throw new Error(`projectile collision-gate changes[${index}] field contract drifted`);
+    }
+    const read = (key: "enabled" | "handle" | "reason"): unknown => {
+      const descriptor = descriptors[key];
+      if (descriptor === undefined || !("value" in descriptor) || descriptor.enumerable !== true) {
+        throw new Error(
+          `projectile collision-gate changes[${index}].${key} must be an own data property`,
+        );
+      }
+      return descriptor.value;
+    };
+    const enabled = read("enabled");
+    if (typeof enabled !== "boolean") {
+      throw new Error(`projectile collision-gate changes[${index}].enabled must be boolean`);
+    }
+    return Object.freeze({
+      handle: read("handle") as ProjectileHandle,
+      enabled,
+      reason: requireString(
+        read("reason"),
+        `projectile collision-gate changes[${index}].reason`,
+      ),
+    });
+  }));
+}
+
 /**
  * Entity-owned projectile authority. Presentation may observe snapshots and
  * events, but it cannot advance this state machine or reclaim its live slots.
@@ -516,6 +647,12 @@ export class ProjectileAuthorityPool {
     const position = validateVec2(raw.position as Vec2, "projectile spawn position");
     const armDelayTicks = requireNonNegativeInteger(raw.armDelayTicks, "projectile armDelayTicks");
     const residueTicks = requireNonNegativeInteger(raw.residueTicks, "projectile residueTicks");
+    const collisionEnabledAtArm = raw.collisionEnabledAtArm === undefined
+      ? true
+      : raw.collisionEnabledAtArm;
+    if (typeof collisionEnabledAtArm !== "boolean") {
+      throw new Error("projectile collisionEnabledAtArm must be boolean when supplied");
+    }
 
     this.advanceTo(tick120);
     this.claimedSpawnOccurrences.add(occurrenceKey);
@@ -537,19 +674,43 @@ export class ProjectileAuthorityPool {
       return null;
     }
 
-    this.beginSpawn(slot, archetype, position, tick120, armDelayTicks, residueTicks);
+    this.beginSpawn(
+      slot,
+      archetype,
+      position,
+      tick120,
+      armDelayTicks,
+      residueTicks,
+      collisionEnabledAtArm,
+    );
     return Object.freeze({instanceId: slot.instanceId, generation: slot.generation});
   }
 
   advanceTo(tick120Value: number): void {
     const tick120 = requireNonNegativeInteger(tick120Value, "projectile advance tick120");
+    this.advanceToTick(tick120);
+  }
+
+  private advanceToTick(
+    tick120: number,
+    sameTickArmCancellations: ReadonlySet<ProjectileSlot> = new Set(),
+  ): void {
     if (tick120 < this.currentTick) {
       throw new Error(`projectile authority cannot move backward from tick ${this.currentTick} to ${tick120}`);
     }
 
     for (const poolClass of POOL_CLASS_ORDER) {
       for (const slot of this.slots[poolClass]) {
-        if (slot.state === "arm" && slot.armAtTick <= tick120) {
+        if (
+          slot.state === "flight"
+          && slot.movedAtTick120 !== null
+          && slot.movedAtTick120 < tick120
+        ) {
+          slot.previousPosition = slot.position;
+        }
+        const cancelsBeforeSameTickArm = slot.armAtTick === tick120
+          && sameTickArmCancellations.has(slot);
+        if (slot.state === "arm" && slot.armAtTick <= tick120 && !cancelsBeforeSameTickArm) {
           this.enterFlight(slot, slot.armAtTick);
         }
         if (slot.state === "residue" && slot.cleanupAtTick !== null && slot.cleanupAtTick <= tick120) {
@@ -562,20 +723,203 @@ export class ProjectileAuthorityPool {
 
   move(handle: ProjectileHandle, tick120Value: number, nextPositionValue: Vec2): ProjectileSnapshot {
     const tick120 = requireNonNegativeInteger(tick120Value, "projectile move tick120");
-    this.advanceTo(tick120);
-    const slot = this.resolve(handle);
-    if (slot.state !== "flight") throw new Error(`projectile cannot move from ${slot.state}`);
     const nextPosition = validateVec2(nextPositionValue, "projectile next position");
-    slot.previousPosition = slot.position;
+    if (tick120 < this.currentTick) {
+      throw new Error(`projectile authority cannot move backward from tick ${this.currentTick} to ${tick120}`);
+    }
+    const slot = this.resolve(handle);
+    if (slot.state !== "flight" && !(slot.state === "arm" && slot.armAtTick <= tick120)) {
+      throw new Error(`projectile cannot move from ${slot.state}`);
+    }
+    this.advanceToTick(tick120);
+    if (slot.state !== "flight") throw new Error(`projectile cannot move from ${slot.state}`);
+    if (slot.movedAtTick120 !== tick120) slot.previousPosition = slot.position;
     slot.position = nextPosition;
+    slot.movedAtTick120 = tick120;
     return this.snapshotSlot(slot);
+  }
+
+  /**
+   * Change only a live flight collider lease. The projectile keeps its entity,
+   * position, movement clock, and terminal lifecycle; presentation cannot call
+   * this port because the owning gameplay operator retains the handle.
+   */
+  setFlightCollision(
+    handle: ProjectileHandle,
+    tick120Value: number,
+    enabledValue: boolean,
+    reasonValue: string,
+  ): ProjectileSnapshot {
+    const tick120 = requireNonNegativeInteger(tick120Value, "projectile collision-gate tick120");
+    if (typeof enabledValue !== "boolean") {
+      throw new Error("projectile collision-gate enabled must be boolean");
+    }
+    const reason = requireString(reasonValue, "projectile collision-gate reason");
+    if (tick120 !== this.currentTick) {
+      throw new Error(
+        `projectile collision-gate requires authority at exact tick ${tick120}; current ${this.currentTick}`,
+      );
+    }
+    const slot = this.resolve(handle);
+    if (slot.state !== "flight") {
+      throw new Error(`projectile cannot change collision gate from ${slot.state}`);
+    }
+    if (slot.armAtTick >= tick120) {
+      throw new Error(`projectile cannot change collision gate on activation tick ${tick120}`);
+    }
+    if (slot.collisionEnabled === enabledValue) return this.snapshotSlot(slot);
+    const prepared = this.prepareFlightCollisionBatch(tick120, Object.freeze([Object.freeze({
+      handle,
+      enabled: enabledValue,
+      reason,
+    })]));
+    this.beginPreparedFlightCollisionBatch(prepared);
+    this.finishPreparedFlightCollisionBatch(prepared);
+    return this.snapshotSlot(slot);
+  }
+
+  /**
+   * Stage every reversible collision transition for one exact master tick.
+   * No event or projectile state changes until `beginPrepared...` atomically
+   * appends the complete off/on draft set.
+   */
+  prepareFlightCollisionBatch(
+    tick120Value: number,
+    changesValue: readonly ProjectileFlightCollisionChange[],
+  ): PreparedProjectileCollisionBatch {
+    const tick120 = requireNonNegativeInteger(
+      tick120Value,
+      "projectile collision-gate batch tick120",
+    );
+    if (tick120 !== this.currentTick) {
+      throw new Error(
+        `projectile collision-gate batch requires authority at exact tick ${tick120}; current ${this.currentTick}`,
+      );
+    }
+    const changes = captureFlightCollisionChanges(changesValue);
+    const targetKeys = new Set<string>();
+    const transitions: PreparedProjectileCollisionTransition[] = [];
+    const drafts: GameplayEventDraft[] = [];
+    for (let index = 0; index < changes.length; index += 1) {
+      const change = changes[index];
+      if (change === undefined) throw new Error("projectile collision-gate change disappeared");
+      const slot = this.resolve(change.handle);
+      const targetKey = `${slot.instanceId}:${slot.generation}`;
+      if (targetKeys.has(targetKey)) {
+        throw new Error(`duplicate projectile collision-gate handle: ${targetKey}`);
+      }
+      targetKeys.add(targetKey);
+      if (slot.state !== "flight") {
+        throw new Error(`projectile cannot change collision gate from ${slot.state}`);
+      }
+      if (slot.armAtTick >= tick120) {
+        throw new Error(`projectile cannot change collision gate on activation tick ${tick120}`);
+      }
+      if (slot.collisionEnabled === change.enabled) continue;
+      const ordinal = slot.collisionGateTransitionOrdinal;
+      const suffix = change.enabled ? "on" : "off";
+      transitions.push(Object.freeze({
+        slot,
+        generation: slot.generation,
+        enabled: change.enabled,
+        expectedCollisionEnabled: slot.collisionEnabled,
+        expectedLocalSequence: slot.nextLocalSequence,
+        expectedGateOrdinal: ordinal,
+      }));
+      drafts.push(Object.freeze({
+        id: change.enabled ? "projectile.collision.on" : "projectile.collision.off",
+        tick120,
+        entityStableId: slot.instanceId,
+        localSequence: slot.nextLocalSequence,
+        occurrenceKey: `${slot.instanceId}:${slot.generation}:collision-gate:${ordinal}:${suffix}`,
+        payload: change.enabled
+          ? Object.freeze({instanceId: slot.instanceId, generation: slot.generation})
+          : Object.freeze({
+              instanceId: slot.instanceId,
+              generation: slot.generation,
+              reason: change.reason,
+            }),
+      }));
+    }
+    if (transitions.length === 0) {
+      throw new Error("projectile collision-gate batch contains no state transition");
+    }
+    const token = Object.freeze(Object.create(null)) as PreparedProjectileCollisionBatch;
+    PREPARED_PROJECTILE_COLLISION_BATCHES.set(token, {
+      owner: this,
+      tick120,
+      drafts: Object.freeze(drafts),
+      transitions: Object.freeze(transitions),
+      status: "prepared",
+    });
+    return token;
+  }
+
+  /** Append the full batch, then apply only collision-off assignments. */
+  beginPreparedFlightCollisionBatch(prepared: PreparedProjectileCollisionBatch): void {
+    const record = this.requirePreparedFlightCollisionBatch(prepared, "prepared");
+    this.validatePreparedFlightCollisionTransitions(record);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([record.drafts]),
+    );
+    consumeCanonicalEventBatchReceipt(
+      receipts[0] as CanonicalEventBatchReceipt,
+      this.bus,
+      record.drafts,
+    );
+    for (const transition of record.transitions) {
+      if (transition.enabled) continue;
+      transition.slot.collisionEnabled = false;
+      transition.slot.collisionGateTransitionOrdinal += 1;
+      transition.slot.nextLocalSequence += 1;
+    }
+    record.status = "begun";
+  }
+
+  /** Apply preaccepted collision-on assignments after same-tick state/damage. */
+  finishPreparedFlightCollisionBatch(prepared: PreparedProjectileCollisionBatch): void {
+    const record = this.requirePreparedFlightCollisionBatch(prepared, "begun");
+    for (const transition of record.transitions) {
+      if (!transition.enabled) continue;
+      const slot = transition.slot;
+      if (
+        slot.state !== "flight"
+        || slot.generation !== transition.generation
+        || slot.collisionEnabled !== transition.expectedCollisionEnabled
+        || slot.nextLocalSequence !== transition.expectedLocalSequence
+        || slot.collisionGateTransitionOrdinal !== transition.expectedGateOrdinal
+      ) {
+        throw new Error("prepared projectile collision-on transition became stale");
+      }
+    }
+    for (const transition of record.transitions) {
+      if (!transition.enabled) continue;
+      transition.slot.collisionEnabled = true;
+      transition.slot.collisionGateTransitionOrdinal += 1;
+      transition.slot.nextLocalSequence += 1;
+    }
+    record.status = "complete";
   }
 
   impact(handle: ProjectileHandle, tick120Value: number, targetIdValue: string): void {
     const tick120 = requireNonNegativeInteger(tick120Value, "projectile impact tick120");
     const targetId = requireString(targetIdValue, "projectile impact targetId");
-    this.advanceTo(tick120);
+    if (tick120 < this.currentTick) {
+      throw new Error(`projectile authority cannot move backward from tick ${this.currentTick} to ${tick120}`);
+    }
     const slot = this.resolve(handle);
+    if (slot.state !== "arm" && slot.state !== "flight") {
+      throw new Error(`projectile cannot impact from ${slot.state}`);
+    }
+    if (slot.armAtTick === tick120) {
+      throw new Error(`projectile cannot impact on activation tick ${tick120}`);
+    }
+    if (slot.state === "arm" && slot.armAtTick > tick120) {
+      throw new Error(`projectile cannot impact from ${slot.state}`);
+    }
+
+    this.advanceToTick(tick120);
     if (slot.state !== "flight") throw new Error(`projectile cannot impact from ${slot.state}`);
     slot.state = "impact";
     slot.collisionEnabled = false;
@@ -593,6 +937,19 @@ export class ProjectileAuthorityPool {
   }
 
   cancel(handle: ProjectileHandle, tick120Value: number, reasonValue: ProjectileCancelReason): void {
+    this.cancelMany([handle], tick120Value, reasonValue);
+  }
+
+  /**
+   * Cancels a complete handle set as one scheduling decision. Targets due to
+   * arm on this exact tick stay in `arm` until their cancellation commits, so
+   * phase ordering cannot expose a trailing collision-on for a cancelled body.
+   */
+  cancelMany(
+    handlesValue: readonly ProjectileHandle[],
+    tick120Value: number,
+    reasonValue: ProjectileCancelReason,
+  ): void {
     const tick120 = requireNonNegativeInteger(tick120Value, "projectile cancel tick120");
     const reason = requireString(reasonValue, "projectile cancel reason") as ProjectileCancelReason;
     if (![
@@ -604,24 +961,43 @@ export class ProjectileAuthorityPool {
     ].includes(reason)) {
       throw new Error(`unsupported projectile cancel reason: ${reason}`);
     }
-    this.advanceTo(tick120);
-    const slot = this.resolve(handle);
-    if (slot.state !== "arm" && slot.state !== "flight") {
-      throw new Error(`projectile cannot cancel from ${slot.state}`);
+    if (!Array.isArray(handlesValue) || handlesValue.length === 0) {
+      throw new Error("projectile cancel handles must be a non-empty array");
     }
-    slot.state = "cancel";
-    slot.collisionEnabled = false;
-    this.emit(slot, "projectile.collision.off", tick120, {
-      instanceId: slot.instanceId,
-      generation: slot.generation,
-      reason,
-    }, "collision-off");
-    this.emit(slot, "projectile.cancel.commit", tick120, {
-      instanceId: slot.instanceId,
-      generation: slot.generation,
-      reason,
-    }, "cancel");
-    this.enterResidue(slot, tick120, "cancel");
+    if (tick120 < this.currentTick) {
+      throw new Error(`projectile authority cannot move backward from tick ${this.currentTick} to ${tick120}`);
+    }
+
+    // Resolve and validate the entire set before advancing unrelated due work
+    // or mutating a target. A malformed, stale, terminal, or duplicate handle
+    // therefore fails closed without a partial cancellation.
+    const slots: ProjectileSlot[] = [];
+    const targetKeys = new Set<string>();
+    for (const handle of handlesValue) {
+      const slot = this.resolve(handle);
+      const targetKey = `${slot.instanceId}:${slot.generation}`;
+      if (targetKeys.has(targetKey)) {
+        throw new Error(`duplicate projectile cancel handle: ${targetKey}`);
+      }
+      targetKeys.add(targetKey);
+      if (slot.state !== "arm" && slot.state !== "flight") {
+        throw new Error(`projectile cannot cancel from ${slot.state}`);
+      }
+      slots.push(slot);
+    }
+    for (const slot of slots) {
+      if (slot.state === "flight" && slot.armAtTick === tick120) {
+        throw new Error(`projectile cannot cancel on activation tick ${tick120}`);
+      }
+    }
+    slots.sort((left, right) => left.instanceId < right.instanceId
+      ? -1
+      : left.instanceId > right.instanceId
+        ? 1
+        : left.generation - right.generation);
+
+    this.advanceToTick(tick120, new Set(slots));
+    for (const slot of slots) this.cancelSlot(slot, tick120, reason);
   }
 
   sweepAgainstCircle(handle: ProjectileHandle, collider: CircleCollider): SweepHit | null {
@@ -692,6 +1068,41 @@ export class ProjectileAuthorityPool {
     return canonicalAuditSerialization(this.auditRecords);
   }
 
+  private requirePreparedFlightCollisionBatch(
+    prepared: PreparedProjectileCollisionBatch,
+    expectedStatus: "prepared" | "begun",
+  ): PreparedProjectileCollisionBatchRecord {
+    const record = PREPARED_PROJECTILE_COLLISION_BATCHES.get(prepared);
+    if (record === undefined || record.owner !== this) {
+      throw new Error("prepared projectile collision-gate batch is not owned by this authority");
+    }
+    if (record.status !== expectedStatus) {
+      throw new Error(`prepared projectile collision-gate batch is ${record.status}`);
+    }
+    if (record.tick120 !== this.currentTick) {
+      throw new Error("prepared projectile collision-gate batch became stale by tick");
+    }
+    return record;
+  }
+
+  private validatePreparedFlightCollisionTransitions(
+    record: PreparedProjectileCollisionBatchRecord,
+  ): void {
+    for (const transition of record.transitions) {
+      const slot = transition.slot;
+      if (
+        slot.state !== "flight"
+        || slot.generation !== transition.generation
+        || slot.armAtTick >= record.tick120
+        || slot.collisionEnabled !== transition.expectedCollisionEnabled
+        || slot.nextLocalSequence !== transition.expectedLocalSequence
+        || slot.collisionGateTransitionOrdinal !== transition.expectedGateOrdinal
+      ) {
+        throw new Error("prepared projectile collision-gate transition became stale");
+      }
+    }
+  }
+
   private createSlot(poolClass: ProjectilePoolClass, index: number): ProjectileSlot {
     const width = String(PROJECTILE_POOL_BUDGETS[poolClass] - 1).length;
     const position = Object.freeze({x: 0, y: 0});
@@ -706,8 +1117,11 @@ export class ProjectileAuthorityPool {
       collisionEnabled: false,
       previousPosition: position,
       position,
+      movedAtTick120: null,
       spawnedAtTick: 0,
       armAtTick: 0,
+      collisionEnabledAtArm: true,
+      collisionGateTransitionOrdinal: 0,
       residueTicks: 0,
       cleanupAtTick: null,
       terminalCause: null,
@@ -722,6 +1136,7 @@ export class ProjectileAuthorityPool {
     tick120: number,
     armDelayTicks: number,
     residueTicks: number,
+    collisionEnabledAtArm: boolean,
   ): void {
     if (slot.state !== "pooled") throw new Error("live projectile slots cannot be recycled");
     if (slot.hasSpawned) slot.generation += 1;
@@ -731,8 +1146,11 @@ export class ProjectileAuthorityPool {
     slot.collisionEnabled = false;
     slot.previousPosition = position;
     slot.position = position;
+    slot.movedAtTick120 = null;
     slot.spawnedAtTick = tick120;
     slot.armAtTick = tick120 + armDelayTicks;
+    slot.collisionEnabledAtArm = collisionEnabledAtArm;
+    slot.collisionGateTransitionOrdinal = 0;
     slot.residueTicks = residueTicks;
     slot.cleanupAtTick = null;
     slot.terminalCause = null;
@@ -759,16 +1177,38 @@ export class ProjectileAuthorityPool {
       instanceId: slot.instanceId,
       generation: slot.generation,
     }, "armed");
-    slot.collisionEnabled = true;
-    this.emit(slot, "projectile.collision.on", tick120, {
-      instanceId: slot.instanceId,
-      generation: slot.generation,
-    }, "collision-on");
+    slot.collisionEnabled = slot.collisionEnabledAtArm;
+    if (slot.collisionEnabled) {
+      this.emit(slot, "projectile.collision.on", tick120, {
+        instanceId: slot.instanceId,
+        generation: slot.generation,
+      }, "collision-on");
+    }
     this.emit(slot, "projectile.flight.begin", tick120, {
       instanceId: slot.instanceId,
       generation: slot.generation,
       ownership: "entity",
     }, "flight-begin");
+  }
+
+  private cancelSlot(
+    slot: ProjectileSlot,
+    tick120: number,
+    reason: ProjectileCancelReason,
+  ): void {
+    slot.state = "cancel";
+    slot.collisionEnabled = false;
+    this.emit(slot, "projectile.collision.off", tick120, {
+      instanceId: slot.instanceId,
+      generation: slot.generation,
+      reason,
+    }, "collision-off");
+    this.emit(slot, "projectile.cancel.commit", tick120, {
+      instanceId: slot.instanceId,
+      generation: slot.generation,
+      reason,
+    }, "cancel");
+    this.enterResidue(slot, tick120, "cancel");
   }
 
   private enterResidue(
@@ -889,6 +1329,7 @@ export class ProjectileAuthorityPool {
       collisionEnabled: slot.collisionEnabled,
       previousPosition: Object.freeze({...slot.previousPosition}),
       position: Object.freeze({...slot.position}),
+      movedAtTick120: slot.movedAtTick120,
       spawnedAtTick: slot.spawnedAtTick,
       armAtTick: slot.armAtTick,
       terminalCause: slot.terminalCause,

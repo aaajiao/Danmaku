@@ -1,11 +1,14 @@
-import {describe, expect, it} from "vitest";
+import {describe, expect, expectTypeOf, it} from "vitest";
 import sampleRunMemory from "../../../1bit-stg-complete-asset-kit-v4/manifests/narrative/sample-run-memory-v4.json";
 import {
   LocalStorageRunMemoryAdapter,
+  RUN_MEMORY_PROVENANCE_CONTRACT,
   RunMemoryRecorder,
+  captureRecorderIssuedRunMemory,
   parseRunMemory,
+  readRecorderIssuedRunMemory,
   validateRunMemory,
-  type RunMemory,
+  type FinalizedRunMemory,
   type SegmentBehaviorFact,
   type StorageLike,
 } from "./run-memory";
@@ -44,7 +47,7 @@ function canonicalJson(value: unknown): string {
   return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
 }
 
-function createMemory(): RunMemory {
+function createMemory(): FinalizedRunMemory {
   const recorder = new RunMemoryRecorder({runId: "run-v4-test-0001", seed: 4088, startedAtTick: 10});
   for (const fact of facts) recorder.recordBehaviorFact(fact);
   recorder.recordGhostPoint({tMs: 0, xNorm: 0.1, yNorm: 0.8, room: "INFORMATION", flower: 0.25, focus: false, flags: ["ROOM_ENTER"]});
@@ -116,6 +119,39 @@ describe("V4 run memory", () => {
     expect(adapter.load()).toEqual(memory);
     adapter.clear();
     expect(adapter.load()).toBeNull();
+  });
+
+  it("mints restore provenance only from the immutable in-memory recorder result", () => {
+    const memory = createMemory();
+    const token = captureRecorderIssuedRunMemory(memory);
+    const snapshot = readRecorderIssuedRunMemory(token);
+    expect(RUN_MEMORY_PROVENANCE_CONTRACT).toEqual({
+      trustedSource: "RunMemoryRecorder.finalize",
+      capturePolicy: "unchanged-exact-in-memory-result-only",
+      tokenPolicy: "opaque-weakmap-capability",
+      tokenSnapshot: "immutable-finalize-time-copy",
+      parsedOrPersistedAuthority: "unsupported",
+      compressedRouteDigestRecomputation: "forbidden-uncompressed-samples-unavailable",
+    });
+    expect(snapshot).toEqual(memory);
+    expect(snapshot).not.toBe(memory);
+    expect(Object.isFrozen(memory)).toBe(true);
+    expect(Object.isFrozen(memory.ghostRoute?.points)).toBe(true);
+    expect(Object.isFrozen(snapshot)).toBe(true);
+    expectTypeOf<ReturnType<RunMemoryRecorder["finalize"]>>()
+      .toEqualTypeOf<FinalizedRunMemory>();
+    expectTypeOf<ReturnType<typeof readRecorderIssuedRunMemory>>()
+      .toEqualTypeOf<FinalizedRunMemory>();
+    expect(() => {
+      // @ts-expect-error Runtime probe: finalized nested run identity is readonly.
+      memory.run.id = "edited-after-finalize";
+    }).toThrow();
+
+    const clone = structuredClone(memory);
+    const parsed = parseRunMemory(JSON.stringify(memory));
+    expect(() => captureRecorderIssuedRunMemory(clone)).toThrow(/raw, cloned, parsed, or persisted/);
+    expect(() => captureRecorderIssuedRunMemory(parsed)).toThrow(/raw, cloned, parsed, or persisted/);
+    expect(() => readRecorderIssuedRunMemory(Object.freeze({}))).toThrow(/opaque recorder-issued/);
   });
 
   it("rejects malformed, corrupted, and schema-expanding data", () => {

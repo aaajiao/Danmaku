@@ -5,8 +5,15 @@ import {
   type CanonicalGameplayEvent,
   type GameplayEventDraft,
   type JsonObject,
+  type JsonValue,
 } from "./events";
-import {assertRunMemory, RunMemoryRecorder, validateRunMemory, type RunMemory} from "../game/run-memory";
+import {
+  assertRunMemory,
+  RunMemoryRecorder,
+  validateRunMemory,
+  type FinalizedRunMemory,
+  type RunMemory,
+} from "../game/run-memory";
 import {
   AUTHORED_BOSS_RESOLUTIONS,
   AUTHORED_ROOM_THRESHOLDS,
@@ -14,7 +21,6 @@ import {
   AUTHORED_WORLD_REACTION_EDGES,
   NARRATIVE_AUTHORITY_REPORT,
   NARRATIVE_ROOM_IDS,
-  NARRATIVE_STATE_IDS,
   NarrativeAuthority,
   evaluateObservationCondition,
   selectSnapshotObservations,
@@ -24,7 +30,7 @@ import {
   type NarrativeRoomId,
 } from "./narrative";
 
-function makeMemory(): RunMemory {
+function makeMemory(): FinalizedRunMemory {
   const recorder = new RunMemoryRecorder({runId: "run-narrative-v4", seed: 413, startedAtTick: 0});
   recorder.recordBehaviorFact({
     segmentId: "room-information",
@@ -100,13 +106,6 @@ function makeMemory(): RunMemory {
     },
   });
   if (memory.ghostRoute === null) throw new Error("test memory must have an actual route");
-  memory.materialMemory.ghostResidues.push({
-    id: "ghost-residue-v4",
-    position: {room: "INFORMATION", xNorm: 0.7, yNorm: 0.4},
-    sourceRouteDigest: memory.ghostRoute.routeDigest,
-    createdAfterReplay: true,
-    persistenceRuns: 1,
-  });
   expect(validateRunMemory(memory)).toEqual({ok: true, errors: []});
   return memory;
 }
@@ -133,7 +132,13 @@ function event(
   return result;
 }
 
-function routeFacts(memory: RunMemory): {
+function mutableMemoryClone(memory: FinalizedRunMemory): RunMemory {
+  const clone: unknown = structuredClone(memory);
+  assertRunMemory(clone);
+  return clone;
+}
+
+function routeFacts(memory: FinalizedRunMemory): {
   readonly routeDigest: string;
   readonly routeDurationMs: number;
 } {
@@ -144,7 +149,7 @@ function routeFacts(memory: RunMemory): {
   };
 }
 
-function snapshotPayload(memory: RunMemory): JsonObject {
+function snapshotPayload(memory: FinalizedRunMemory): JsonObject {
   return {
     runId: memory.run.id,
     snapshotHash: memory.fingerprint.digestSha256,
@@ -159,40 +164,52 @@ function snapshotPayload(memory: RunMemory): JsonObject {
   };
 }
 
-function restoreEvents(memory: RunMemory, startTick = 1): readonly CanonicalGameplayEvent[] {
+function restoreEvents(memory: FinalizedRunMemory, startTick = 1): readonly CanonicalGameplayEvent[] {
   if (memory.ghostRoute === null) throw new Error("test memory must have a route");
   const identity = {fromRunId: memory.run.id, nextRunId: "run-narrative-v4-next"};
   const route = routeFacts(memory);
-  const finalPoint = memory.ghostRoute.points.at(-1) as unknown as JsonObject;
+  const routeFinalPoint = memory.ghostRoute.points.at(-1);
+  if (routeFinalPoint === undefined) throw new Error("test memory must have a final route point");
+  const finalPoint = {
+    tMs: routeFinalPoint.tMs,
+    xNorm: routeFinalPoint.xNorm,
+    yNorm: routeFinalPoint.yNorm,
+    room: routeFinalPoint.room,
+  };
+  const ghostEndpoint = {
+    room: routeFinalPoint.room,
+    xNorm: routeFinalPoint.xNorm,
+    yNorm: routeFinalPoint.yNorm,
+  };
   return Object.freeze([
     event("cross_run.restore.begin", {...identity, ...route}, startTick),
     event("overrideScar.rehydrate", {
       ...identity,
       recordType: "overrideScar",
       count: memory.materialMemory.overrideScars.length,
-      records: ["payload-is-not-authority"],
+      records: memory.materialMemory.overrideScars as unknown as JsonValue,
     }, startTick + 1),
     event("deathTrace.rehydrate", {
       ...identity,
       recordType: "deathTrace",
       count: memory.materialMemory.deathTraces.length,
-      records: [],
+      records: memory.materialMemory.deathTraces as unknown as JsonValue,
     }, startTick + 2),
     event("burnIn.rehydrate", {
       ...identity,
       recordType: "burnIn",
       count: memory.materialMemory.burnIns.length,
-      records: [],
+      records: memory.materialMemory.burnIns as unknown as JsonValue,
     }, startTick + 3),
     event("ghost.replay.begin", {
       ...identity,
       ...route,
       pointCount: memory.ghostRoute.points.length,
-      routePoints: ["payload-is-not-authority"],
+      routePoints: memory.ghostRoute.points as unknown as JsonValue,
       timeScale: 1,
       collisionClass: "NONE",
       rewardClass: "NONE",
-      emitterClass: "PRESENTATION_ONLY",
+      emitterClass: "NONE",
     }, startTick + 4),
     event("ghost.replay.complete", {
       ...identity,
@@ -203,30 +220,30 @@ function restoreEvents(memory: RunMemory, startTick = 1): readonly CanonicalGame
     event("ghost.residue.write", {
       ...identity,
       recordType: "ghostResidue",
-      residueId: "new-residue",
+      residueId: `ghost-residue:${memory.run.id}:run-narrative-v4-next`,
       sourceRouteDigest: memory.ghostRoute.routeDigest,
       createdAfterReplay: true,
       persistenceRuns: 1,
-      position: {room: "INFORMATION", xNorm: 0.7, yNorm: 0.4},
+      position: ghostEndpoint,
       priorGhostResidueCount: memory.materialMemory.ghostResidues.length,
     }, startTick + 6),
     event("witness.turn", {
       ...identity,
       evaluatedAfterGhostResidue: true,
       overrideScarIds: memory.materialMemory.overrideScars.map((scar) => scar.id),
-      ghostEndpoint: finalPoint,
-      priority: "AUTHORED",
+      ghostEndpoint,
+      priority: ["nearbyOverrideScar", "ghostEndpoint", "resistanceTransmission", "eclipse", "resonance", "clamp", "idle"],
     }, startTick + 7),
     event("returnInput", {
       ...identity,
-      inputState: "READY",
+      inputState: "enabled",
       routeDurationMs: route.routeDurationMs,
     }, startTick + 8),
     event("cross_run.restore.complete", {...identity, ...route}, startTick + 9),
   ]);
 }
 
-function stateSequence(memory: RunMemory): readonly CanonicalGameplayEvent[] {
+function stateSequence(memory: FinalizedRunMemory): readonly CanonicalGameplayEvent[] {
   const start = [...restoreEvents(memory)];
   let tick = 20;
   const next = (id: string, payload: JsonObject): CanonicalGameplayEvent => event(id, payload, tick++);
@@ -316,7 +333,7 @@ function ensureGhostPointCount(memory: RunMemory, count: number): void {
 }
 
 function satisfyObservation(definition: AuthoredObservationDefinition): RunMemory {
-  const memory = structuredClone(makeMemory());
+  const memory = mutableMemoryClone(makeMemory());
   const branch = definition.condition.split(/\s*\|\|\s*/u)[0] ?? "";
   const comparisons = branch.split(/\s*&&\s*/u).map((raw) => {
     const match = /^(.+?)\s*(==|!=|<=|>=|<|>)\s*(.+)$/u.exec(raw.trim());
@@ -337,6 +354,28 @@ function satisfyObservation(definition: AuthoredObservationDefinition): RunMemor
             : Number(comparison.right);
     if (comparison.left === "ghostRoute.points.length") {
       ensureGhostPointCount(memory, Number(literal));
+      continue;
+    }
+    if (comparison.left === "materialMemory.ghostResidues.length") {
+      if (typeof literal !== "number" || memory.ghostRoute === null) {
+        throw new Error("ghost residue length comparison requires a route and numeric literal");
+      }
+      const targetCount = comparison.operator === ">"
+        ? Math.floor(literal) + 1
+        : comparison.operator === ">=" || comparison.operator === "=="
+          ? Math.ceil(literal)
+          : comparison.operator === "!="
+            ? literal === 0 ? 1 : 0
+            : Math.max(0, Math.ceil(literal) - 1);
+      const endpoint = memory.ghostRoute.points.at(-1);
+      if (endpoint === undefined) throw new Error("ghost residue condition requires a route endpoint");
+      memory.materialMemory.ghostResidues = Array.from({length: targetCount}, (_, index) => ({
+        id: `observation-ghost-residue-${index}`,
+        position: {room: endpoint.room, xNorm: endpoint.xNorm, yNorm: endpoint.yNorm},
+        sourceRouteDigest: memory.ghostRoute?.routeDigest ?? "",
+        createdAfterReplay: true as const,
+        persistenceRuns: 1,
+      }));
       continue;
     }
     if (comparison.left.endsWith(".length")) continue;
@@ -498,6 +537,183 @@ describe("V4 narrative/world-reaction authority", () => {
     expect(() => authority.consume(conflict)).toThrow(/conflicting duplicate/);
   });
 
+  it("allows archive persistence immediately after serialize without manufacturing BOOT handoff", () => {
+    const memory = makeMemory();
+    const authority = new NarrativeAuthority({
+      snapshotRecord: validateNarrativeRecord(memory, assertRunMemory),
+    });
+    authority.consume(event("snapshot.begin", {runId: memory.run.id}, 1));
+    authority.consume(event("snapshot.serialize.commit", snapshotPayload(memory), 2));
+    authority.consume(event("cross_run.record.persist.commit", snapshotPayload(memory), 2,
+      "snapshot-persist-at-serialize-boundary"));
+
+    expect(authority.snapshot()).toMatchObject({
+      state: "BOOT_REHYDRATE",
+      handoffReady: false,
+      processedOccurrences: 3,
+    });
+    expect(authority.snapshot().observations.length).toBeGreaterThan(0);
+
+    authority.consume(event("snapshot.present.begin", {
+      runId: memory.run.id,
+      snapshotHash: memory.fingerprint.digestSha256,
+    }, 3));
+    authority.consume(event("snapshot.complete", {runId: memory.run.id}, 4));
+    expect(authority.snapshot()).toMatchObject({
+      state: "BOOT_REHYDRATE",
+      handoffReady: false,
+      processedOccurrences: 5,
+    });
+  });
+
+  it("preflights snapshot identity and keeps rejected events mutation-free for retry", () => {
+    const memory = makeMemory();
+    const authority = new NarrativeAuthority({
+      snapshotRecord: validateNarrativeRecord(memory, assertRunMemory),
+    });
+    authority.consume(event("snapshot.begin", {runId: memory.run.id}, 1));
+    const expectRejectedWithoutMutation = (
+      rejected: CanonicalGameplayEvent,
+      message: RegExp,
+    ): void => {
+      const before = authority.canonicalSerialization();
+      expect(() => authority.consume(rejected)).toThrow(message);
+      expect(authority.canonicalSerialization()).toBe(before);
+    };
+
+    const forgedSerialize = event("snapshot.serialize.commit", {
+      ...snapshotPayload(memory),
+      snapshotHash: "f".repeat(64),
+    }, 2, "snapshot-forged-serialize-hash");
+    expectRejectedWithoutMutation(forgedSerialize, /snapshotHash does not match/);
+    expectRejectedWithoutMutation(forgedSerialize, /snapshotHash does not match/);
+
+    const wrongCounts = event("snapshot.serialize.commit", {
+      ...snapshotPayload(memory),
+      materialCounts: {
+        overrideScars: 999,
+        deathTraces: memory.materialMemory.deathTraces.length,
+        burnIns: memory.materialMemory.burnIns.length,
+        ghostResidues: memory.materialMemory.ghostResidues.length,
+      },
+    }, 2, "snapshot-forged-serialize-counts");
+    expectRejectedWithoutMutation(wrongCounts, /materialCounts does not match/);
+
+    authority.consume(event("snapshot.serialize.commit", snapshotPayload(memory), 2));
+    expect(authority.snapshot().observations.length).toBeGreaterThan(0);
+
+    const forgedPersist = event("cross_run.record.persist.commit", {
+      ...snapshotPayload(memory),
+      snapshotHash: "0".repeat(64),
+    }, 3, "snapshot-forged-persist-hash");
+    expectRejectedWithoutMutation(forgedPersist, /snapshotHash does not match/);
+    const extraCountPersist = event("cross_run.record.persist.commit", {
+      ...snapshotPayload(memory),
+      materialCounts: {
+        overrideScars: memory.materialMemory.overrideScars.length,
+        deathTraces: memory.materialMemory.deathTraces.length,
+        burnIns: memory.materialMemory.burnIns.length,
+        ghostResidues: memory.materialMemory.ghostResidues.length,
+        inventedMaterial: 1,
+      },
+    }, 3, "snapshot-forged-persist-extra-count");
+    expectRejectedWithoutMutation(extraCountPersist, /materialCounts does not match/);
+
+    authority.consume(event("cross_run.record.persist.commit", snapshotPayload(memory), 3));
+    authority.consume(event("snapshot.present.begin", {
+      runId: memory.run.id,
+      snapshotHash: memory.fingerprint.digestSha256,
+    }, 4));
+    authority.consume(event("snapshot.complete", {runId: memory.run.id}, 5));
+    expect(authority.snapshot().handoffReady).toBe(false);
+  });
+
+  it("rejects fresh-key snapshot lifecycle duplicates and out-of-order archive facts atomically", () => {
+    const memory = makeMemory();
+    const token = validateNarrativeRecord(memory, assertRunMemory);
+    const authority = new NarrativeAuthority({snapshotRecord: token});
+    const rejectWithoutMutation = (rejected: CanonicalGameplayEvent, message: RegExp): void => {
+      const before = authority.canonicalSerialization();
+      expect(() => authority.consume(rejected)).toThrow(message);
+      expect(authority.canonicalSerialization()).toBe(before);
+    };
+
+    rejectWithoutMutation(
+      event("cross_run.record.persist.commit", snapshotPayload(memory), 1, "persist-before-snapshot"),
+      /out of order from idle/,
+    );
+    rejectWithoutMutation(
+      event("snapshot.serialize.commit", snapshotPayload(memory), 1, "serialize-before-begin"),
+      /out of order from idle/,
+    );
+    rejectWithoutMutation(
+      event("snapshot.begin", {runId: "wrong-current-run"}, 1, "snapshot-begin-wrong-run"),
+      /runId does not match/,
+    );
+    const begin = event("snapshot.begin", {runId: memory.run.id}, 1);
+    authority.consume(begin);
+    authority.consume(begin);
+    rejectWithoutMutation(
+      event("snapshot.begin", {runId: memory.run.id}, 2, "duplicate-snapshot-begin"),
+      /out of order from capturing/,
+    );
+    rejectWithoutMutation(
+      event("snapshot.present.begin", {
+        runId: memory.run.id,
+        snapshotHash: memory.fingerprint.digestSha256,
+      }, 2, "present-before-serialize"),
+      /out of order from capturing/,
+    );
+
+    authority.consume(event("snapshot.serialize.commit", snapshotPayload(memory), 2));
+    rejectWithoutMutation(
+      event("snapshot.serialize.commit", snapshotPayload(memory), 3, "duplicate-snapshot-serialize"),
+      /out of order from serialized/,
+    );
+    authority.consume(event("cross_run.record.persist.commit", snapshotPayload(memory), 3));
+    rejectWithoutMutation(
+      event("cross_run.record.persist.commit", snapshotPayload(memory), 4, "duplicate-snapshot-persist"),
+      /cannot persist twice/,
+    );
+    rejectWithoutMutation(
+      event("snapshot.complete", {runId: memory.run.id}, 4, "complete-before-present"),
+      /out of order from serialized/,
+    );
+    rejectWithoutMutation(
+      event("snapshot.present.begin", {
+        runId: memory.run.id,
+        snapshotHash: "a".repeat(64),
+      }, 4, "snapshot-present-wrong-hash"),
+      /snapshotHash does not match/,
+    );
+
+    authority.consume(event("snapshot.present.begin", {
+      runId: memory.run.id,
+      snapshotHash: memory.fingerprint.digestSha256,
+    }, 5));
+    rejectWithoutMutation(
+      event("snapshot.complete", {runId: "wrong-current-run"}, 6, "snapshot-complete-wrong-run"),
+      /changed the active snapshot runId/,
+    );
+    rejectWithoutMutation(
+      event("snapshot.present.begin", {
+        runId: memory.run.id,
+        snapshotHash: memory.fingerprint.digestSha256,
+      }, 6, "duplicate-snapshot-present"),
+      /out of order from presenting/,
+    );
+    authority.consume(event("snapshot.complete", {runId: memory.run.id}, 6));
+    rejectWithoutMutation(
+      event("snapshot.complete", {runId: memory.run.id}, 7, "duplicate-snapshot-complete"),
+      /out of order from complete/,
+    );
+    expect(authority.snapshot()).toMatchObject({
+      state: "BOOT_REHYDRATE",
+      handoffReady: false,
+      processedOccurrences: 5,
+    });
+  });
+
   it("is bit-stable across delivery chunks and presentation cadence", () => {
     const memory = makeMemory();
     const options: NarrativeAuthorityOptions = {
@@ -583,35 +799,142 @@ describe("V4 narrative/world-reaction authority", () => {
   it("reads cross-run material and ghost facts only through an immutable validated record", () => {
     const memory = makeMemory();
     const token = validateNarrativeRecord(memory, assertRunMemory);
-    memory.run.id = "mutated-after-validation";
+    const mutatedClone = mutableMemoryClone(memory);
+    mutatedClone.run.id = "mutated-after-validation";
     const authority = new NarrativeAuthority({previousRun: token});
-    const immutableRecord = structuredClone(token.read()) as unknown as RunMemory;
+    const immutableRecordValue: unknown = structuredClone(token.read());
+    assertRunMemory(immutableRecordValue);
+    const immutableRecord = immutableRecordValue;
     authority.consumeMany(restoreEvents(immutableRecord));
     const snapshot = authority.snapshot();
     expect(snapshot.crossRun[0]?.fromRunId).toBe("run-narrative-v4");
     expect(snapshot.crossRun.find(({eventId}) => eventId === "overrideScar.rehydrate")?.recordCount).toBe(1);
-    expect(authority.canonicalSerialization()).not.toContain("payload-is-not-authority");
+    expect(authority.canonicalSerialization()).toContain(immutableRecord.ghostRoute?.routeDigest ?? "missing-route");
     expect(authority.canonicalSerialization()).not.toContain("mutated-after-validation");
     expect(() => new NarrativeAuthority().consume(restoreEvents(immutableRecord)[0] as CanonicalGameplayEvent))
       .toThrow(/validated previous-run record/);
   });
 
-  it("covers all authored states and finishes with observation plus handoff", () => {
+  it("rejects malformed authority-bearing restore payloads against the validated record", () => {
+    const memory = makeMemory();
+    const token = validateNarrativeRecord(memory, assertRunMemory);
+    const validEvents = restoreEvents(memory);
+    const cases = [
+      {
+        label: "material records",
+        eventId: "overrideScar.rehydrate",
+        mutate: (payload: Record<string, unknown>) => { payload.records = []; },
+        message: /payload\.records does not match the validated record/,
+      },
+      {
+        label: "actual route points",
+        eventId: "ghost.replay.begin",
+        mutate: (payload: Record<string, unknown>) => { payload.routePoints = []; },
+        message: /routePoints does not match the validated record/,
+      },
+      {
+        label: "ghost emitter class",
+        eventId: "ghost.replay.begin",
+        mutate: (payload: Record<string, unknown>) => { payload.emitterClass = "PRESENTATION_ONLY"; },
+        message: /classes must all remain NONE/,
+      },
+      {
+        label: "ghost completion endpoint",
+        eventId: "ghost.replay.complete",
+        mutate: (payload: Record<string, unknown>) => {
+          payload.finalPoint = {tMs: 240, xNorm: 0.1, yNorm: 0.4, room: "INFORMATION"};
+        },
+        message: /finalPoint does not match the validated record/,
+      },
+      {
+        label: "witness evaluation order",
+        eventId: "witness.turn",
+        mutate: (payload: Record<string, unknown>) => { payload.evaluatedAfterGhostResidue = false; },
+        message: /evaluated after ghost residue/,
+      },
+      {
+        label: "witness priority",
+        eventId: "witness.turn",
+        mutate: (payload: Record<string, unknown>) => { payload.priority = ["idle"]; },
+        message: /priority does not match the validated record/,
+      },
+      {
+        label: "witness endpoint",
+        eventId: "witness.turn",
+        mutate: (payload: Record<string, unknown>) => {
+          payload.ghostEndpoint = {room: "INFORMATION", xNorm: 0.1, yNorm: 0.4};
+        },
+        message: /ghostEndpoint does not match the validated record/,
+      },
+      {
+        label: "input return state",
+        eventId: "returnInput",
+        mutate: (payload: Record<string, unknown>) => { payload.inputState = "READY"; },
+        message: /enabled input state/,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const index = validEvents.findIndex(({id}) => id === testCase.eventId);
+      if (index < 0) throw new Error(`missing restore test event: ${testCase.eventId}`);
+      const valid = validEvents[index];
+      if (valid === undefined) throw new Error(`missing indexed restore test event: ${testCase.eventId}`);
+      const payload = structuredClone(valid.payload) as Record<string, unknown>;
+      testCase.mutate(payload);
+      const malformed = event(
+        valid.id,
+        payload as JsonObject,
+        valid.tick120,
+        `${valid.occurrenceKey}:malformed:${testCase.label}`,
+      );
+      const authority = new NarrativeAuthority({previousRun: token});
+      authority.consumeMany(validEvents.slice(0, index));
+      expect(() => authority.consume(malformed), testCase.label).toThrow(testCase.message);
+    }
+
+    const ghostBeginIndex = validEvents.findIndex(({id}) => id === "ghost.replay.begin");
+    const ghostComplete = validEvents.find(({id}) => id === "ghost.replay.complete");
+    if (ghostBeginIndex < 0 || ghostComplete === undefined) {
+      throw new Error("restore ordering test requires ghost begin and complete events");
+    }
+    const skippedBegin = new NarrativeAuthority({previousRun: token});
+    skippedBegin.consumeMany(validEvents.slice(0, ghostBeginIndex));
+    expect(() => skippedBegin.consume(ghostComplete)).toThrow(/rehydration order/);
+
+    const duplicateBegin = new NarrativeAuthority({previousRun: token});
+    const restoreBegin = validEvents[0];
+    if (restoreBegin === undefined) throw new Error("restore ordering test requires restore begin");
+    duplicateBegin.consume(restoreBegin);
+    const secondBegin = event(
+      restoreBegin.id,
+      restoreBegin.payload,
+      restoreBegin.tick120 + 1,
+      `${restoreBegin.occurrenceKey}:duplicate-begin`,
+    );
+    expect(() => duplicateBegin.consume(secondBegin)).toThrow(/cannot restart/);
+  });
+
+  it("parks at the conjunctive Flower recovery barrier after gaze release and room swaps", () => {
     const memory = makeMemory();
     const token = validateNarrativeRecord(memory, assertRunMemory);
     const authority = new NarrativeAuthority({previousRun: token, snapshotRecord: token});
-    authority.consumeMany(stateSequence(memory));
+    const events = stateSequence(memory);
+    const secondRoomSwapIndex = events.findIndex((event, index) =>
+      event.id === "room.transition.world_swap.commit"
+      && events.slice(0, index).some((prior) => prior.id === "room.transition.world_swap.commit"));
+    if (secondRoomSwapIndex < 0) throw new Error("barrier test requires two room world swaps");
+    authority.consumeMany(events.slice(0, secondRoomSwapIndex + 1));
     const snapshot = authority.snapshot();
-    const covered = new Set([narrativeStateJsonInitial(), ...snapshot.transitions.map(({to}) => to)]);
-    expect([...covered].sort()).toEqual([...NARRATIVE_STATE_IDS].sort());
-    expect(snapshot.state).toBe("RUN_CYCLE_COMPLETE");
-    expect(snapshot.observations.length).toBeGreaterThan(0);
-    expect(snapshot.observations.length).toBeLessThanOrEqual(3);
-    expect(snapshot.handoffReady).toBe(true);
-    const serialized = authority.canonicalSerialization().toLowerCase();
-    for (const forbidden of ["score", "rank", "victory", "defeat", "success", "failure", "good", "bad"]) {
-      expect(new RegExp(`\\b${forbidden}\\b`, "u").test(serialized)).toBe(false);
-    }
+    expect(snapshot.state).toBe("FIRST_CLAMP_RECOVERY");
+    expect(snapshot.transitions.map(({to}) => to)).toEqual([
+      "GHOST_REPLAY",
+      "WITNESS_ORIENTATION",
+      "AWAKENING",
+      "FIRST_EYE",
+      "FIRST_CLAMP_RECOVERY",
+    ]);
+    expect(snapshot.transitions.some(({to}) => to === "ROOM_SAMPLING")).toBe(false);
+    expect(snapshot.handoffReady).toBe(false);
   });
 
   it("parses and evaluates all 64 authored observation conditions without eval", () => {
@@ -628,7 +951,3 @@ describe("V4 narrative/world-reaction authority", () => {
     }
   });
 });
-
-function narrativeStateJsonInitial(): string {
-  return "BOOT_REHYDRATE";
-}

@@ -76,8 +76,44 @@ export function tick120ToMilliseconds(tick120: number): number {
   return tick120 * 1000 / MASTER_TICK_HZ;
 }
 
+/**
+ * Projects a V4 60 Hz runtime delay onto the first non-early runtime boundary.
+ * Runtime machines are due only on even master ticks, including when their
+ * request arrived on an odd 120 Hz boundary.
+ */
+export function runtime60DeadlineTick(startTick120: number, durationMs: number): number {
+  assertTick(startTick120, "runtime deadline start tick120");
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    throw new Error("runtime deadline durationMs must be finite and non-negative");
+  }
+  const masterTicksPerRuntimeTick = MASTER_TICK_HZ / RUNTIME_TICK_HZ;
+  if (!Number.isSafeInteger(masterTicksPerRuntimeTick) || masterTicksPerRuntimeTick <= 0) {
+    throw new Error("runtime tick ratio must be a positive integer");
+  }
+  const runtimeBoundary = Math.ceil(
+    startTick120 / masterTicksPerRuntimeTick + durationMs * RUNTIME_TICK_HZ / 1000,
+  );
+  const deadline = runtimeBoundary * masterTicksPerRuntimeTick;
+  if (!Number.isSafeInteger(deadline)) {
+    throw new Error("runtime deadline exceeds the safe tick range");
+  }
+  return deadline;
+}
+
+/**
+ * Converts two monotonic presentation timestamps into the wall-time budget
+ * offered to AuthorityClock. The delta is deliberately not capped: backlog
+ * retention and the per-advance boundary limit belong to AuthorityClock.
+ */
+export function elapsedWallDeltaMs(previousTimeMs: number, currentTimeMs: number): number {
+  if (!Number.isFinite(previousTimeMs) || !Number.isFinite(currentTimeMs)) {
+    throw new Error("presentation timestamps must be finite");
+  }
+  return Math.max(0, currentTimeMs - previousTimeMs);
+}
+
 function assertTick(value: number, label: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) {
+  if (!Number.isSafeInteger(value) || value < 0 || Object.is(value, -0)) {
     throw new Error(`${label} must be a non-negative safe integer`);
   }
 }
