@@ -12,7 +12,7 @@
 .agents/skills/aaajiao/SKILL.md
 ```
 
-仓库已提交的技能基线 metadata version 为 `1.1.0`。ADR 要记录实际读取的 skill version 与文件 digest，因此本地未提交的技能更新也必须与仓库基线分开记载；技能升级后，只对被修改的扩展重新评审，不静默改写历史 provenance。
+仓库已提交的技能基线 metadata version 为 `1.1.1`。ADR 要记录实际读取的 skill version 与文件 digest；技能升级后，只对被修改的扩展重新评审，不静默改写历史 provenance。
 
 技能在本项目中的约束不是“模仿一种视觉风格”，而是四个工程门：
 
