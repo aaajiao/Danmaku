@@ -1,18 +1,19 @@
-# 1bit STG 工业化基础
+# 1bit STG 应用开发说明
 
-基于 `../1bit-stg-complete-asset-kit-v4` 的 Three.js STG 开发环境。默认入口是由种子驱动的 canonical RUN 序章，`/?mode=pattern-lab` 是显式开发控制面。工程直接读取 V4 权威 manifests、图集、背景与声音，不修改素材包本身。
+`stg-dev/` 是 `../1bit-stg-complete-asset-kit-v4/` 的生产应用层。Three.js 只负责表现；
+玩法 authority 保持 renderer-independent，素材包本身不因应用测试而修改。
+
+项目当前完成度与缺口只在[制作路线图](docs/ROADMAP_ZH.md)维护。
 
 ## 技术基线
 
-- Bun `1.3.14`（package manager 与脚本 runtime）
-- Three.js `0.185.1`
-- Vite `8.1.5`
+- Bun `1.3.14`：唯一的 package manager 与脚本 runtime
 - TypeScript `7.0.2`（strict）
-- Vitest `4.1.10`
-- Playwright `1.61.1`
+- Vite `8.1.5` / Three.js `0.185.1`
+- Vitest `4.1.10` / Playwright `1.61.1`
 - vite-plugin-pwa `1.3.0`
 
-这些版本在 2026-07-18 通过 package registry 核验并精确锁定。没有引入 React、Phaser 或额外输入框架：Three.js 只负责表现，浏览器原生 API 负责输入/音频/PWA，玩法 authority 保持 renderer-independent。主循环使用整数 120Hz master，V4 60Hz machine 只在偶数 master tick 到期；完整装配边界见 `docs/ARCHITECTURE_ZH.md`。
+依赖由唯一的 `bun.lock` 精确锁定。不要引入 npm、npx、pnpm、Yarn 或第二份 lockfile。
 
 ## 启动
 
@@ -22,21 +23,13 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-日常开发和验证都从已提交的 `bun.lock` 复现 Bun 1.3.14 依赖。只有在显式更新依赖、
-并准备审查 lockfile diff 时，才运行不带 `--frozen-lockfile` 的 `bun install`。
+- `http://127.0.0.1:5173/`：canonical RUN 序章。
+- `http://127.0.0.1:5173/?mode=pattern-lab`：显式开发/QA 控制面。
+- `?seed=4088`：调用方已解析的十进制 uint32 encounter seed；非法值 fail closed。
+- `?profile=reduced-motion` / `?profile=flash-off`：只读表现配置。
 
-- `http://127.0.0.1:5173/`：默认 canonical RUN 序章；
-- `http://127.0.0.1:5173/?mode=pattern-lab`：48-pattern legacy 开发试验台；
-- `?seed=4088`：传入调用方已解析的 First Eye encounter 十进制 uint32 种子（不是未经解析的 V4 Run seed）；显式无效值 fail closed；
-- `?profile=reduced-motion` / `?profile=flash-off`：选择只读表现配置；系统 reduced-motion 偏好也会自动生效。
-
-完整本地门禁：
-
-```sh
-bun run test:all
-```
-
-它依次运行 typecheck、Vitest、production build、RUN smoke 与完整 Chromium E2E。首次运行浏览器测试前执行 `bunx --bun playwright install chromium`。应用内浏览器用于交互式视觉检查；Playwright 保留为可重复的仓库/CI 契约，两者职责不同。
+只有显式升级依赖并准备审查 lockfile diff 时，才允许不带
+`--frozen-lockfile` 的安装。
 
 ## 输入
 
@@ -48,55 +41,54 @@ bun run test:all
 | Focus | Shift | LB / RB（button 4 / 5） |
 | 暂停 | Space | Start / Options（button 9） |
 
-手柄使用浏览器原生 Gamepad API，包含 0.18 径向死区、热插拔、断开回退、动作边沿锁存，以及平台允许时的双马达触觉反馈。移动端支持在游戏画面内按住拖动。
+手柄由浏览器原生 Gamepad API 读取；触觉反馈是可选投影，不影响 gameplay trace。
+实机支持范围只能由已记录的设备矩阵证明。
 
-## 当前已落地
+## 目录职责
 
-- 默认 RUN 由 `CanonicalRunSession` 推进 `quiet_awakening → common.eye_acquisition`；Quiet Awakening 固定选择 8 秒且要求 2 次 meaningful-input rising edge。First Eye 以一次性 occurrence `run:first-eye:0` 接入 `CanonicalRunCombatState`，将 combat drain、gaze clamp/release 与 Flower recovery 作为独立交接门；projectile/residue 释放后不再推进已结束的 kernel，而由同一 shared state 继续 idle tick。当前 fragment 不猜测缺失的 recovery timing，所以 handoff 永不标记 ready，尚未实现的后续 Run 也不会回退到另一套玩法语言；
-- 默认 RUN 静态与运行时都隐藏开发面板/说明；新会话 boot 只显示 V4 `continue.withoutMemory`。只有 Pattern Lab 保留 legacy `GameSimulation`，用于检查全部 48 个 V4 executable patterns，不作为生产 RUN 证据；
-- V4 Content Authority：13 个入口、版本/ID/引用、物理文件 universe、SHA-256 与 dev/build fail-fast；
-- 120/60Hz clock、72-event ordered bus，以及 pattern/projectile/player/laser/encounter/Boss/narrative authority 单测切片。run combat 持有不可逆的 exact-next-tick flush lease：只允许下一 `tick120` 写入，安静 tick 同样关闭一次，ambient `flush()` 与第二 owner 都被拒绝；`advanceTick()` 可把当前 tick 留给 coordinator 补入同 tick 事实，occurrence 只在成功 close 后释放。现有一个隔离的 run-scoped `CanonicalMisreaderEnforceEntryFragment`：它用 one-use prepared Boss phase-exit + laser-start 合并 append，而 player damage 也以 owner/bus/tick/revision 绑定的 prepared after-state 在 append 后应用。这两条都不是通用 rollback transaction。新的纯 `RunComposer` QA adapter 精确对齐 V4 Python 报告的 16 个 seed 与完整样例，650ms atomic room FSM 则独立映射到非提前的 60Hz 偶数 master tick；两者均未接入默认 RUN。历史 mixed encounter envelope 已重命名并隔离为 non-live `EncounterEnvelopeFixture`，没有 canonical event bus 写入口。`LiveRunAdmission` 是另一道 bus-free fail-closed 边界，只接受调用方完整解析的 live facts；缺 room count、14 项 metric producer snapshot、difficulty salt、segment/parallel/Boss/capability 任一项都会返回稳定 rejection ledger，admitted full-plan metadata 也固定 `canonicalEventBus:false`、`composer:false`、`executionScheduled:false`。独立入口 `admitLiveRoomCapability` 使用 `1.0.0-live-room-capability` / `caller-resolved-live-room` 验收调用方已解析的 room slice：现有 fixtures 锁定 POLARIZED exact pair（`0659e91c…ba820`）、singleton POLARIZED Alternating（`36da160c…24131`）、singleton INFORMATION stale（`7915d5ce…72c24`）、singleton IN_BETWEEN Context（`28c2b746…987fe`）与 singleton FORCED_ALIGNMENT Ballot（`fea078a4…cdc2a7`）。Clock Decree singleton（`43bf1afb…007e2`）则稳定拒绝为 `unsupported-pattern`，证明 private direct-kernel capability 没有扩大 live admission。admitted artifacts 都固定 no-bus/no-composer/no-schedule；这只是 capability validation，不选择/组合，不排程/执行 kernel，不发 canonical event，也不等于完整 Run admission。pair 仍是合法的 admission artifact，但 singleton Alternating executor 会在 bus 创建前拒绝它，不暗自选择 pair 的第一项；
-- No-dusk Grid 也保持在上述 admission 边界之外：structurally complete singleton 的 exact rejection hash 为 `cc6c9636b2dd90d8b289d1d68fe7048ea1025c5cf01dea27e6912b047c7307b8`，结果仍是 `unsupported-pattern`；exported live-admission registry 因此保持 20；
-- `CanonicalLiveRoomExecutionFragment` 与上述 admission artifact 分离：它重新验收 exact raw Left/Right Gate fixture `b6a1eddf…d1c`。metric capture 为 tick960，未执行但已计时的 telegraph520ms + entry800ms 向上投影为159 ticks，因此调用方建立的 READ 边界必须满足 `S>=1119`；fragment 只执行 `FORCED_ALIGNMENT/listen/EASY` 的 READ、material settle 与 rest。520ms handoff 只作标量校验；相对边界为 `S+1224/+1350/+1540/+1542`。最后一 tick 不接受 gameplay input，只允许 run-owned timer 已静止后的内部 neutral close；nested kernel readiness 重命名为 occurrence-local evidence，不能覆盖顶层恒假的 room/run handoff。切片不触发 room transition、不消费 selection RNG、不发 segment 伪事件，`roomComplete/handoffReady/runHandoff` 始终为 false；它不是 composer、scheduler、完整房间、默认 RUN 或 renderer 接线；
-- `CanonicalAlternatingVerdictReadFragment` 是第二个彼此独立的 exact executor：它只重新验收 singleton hash `36da160cd1a63e96a71c6c5978c1d3b73398e177c8b447ef08274c6215824131`。raw seed `0x12345678`、metric tick960 的 14 项 snapshot、salt `0x2200`、resolved seed `0xe9f333c4`、parallel-none selection seed `0x1234ba38` 和 `520/800/11600/900/1600/520ms` 六段标量全部锁定；`S>=1119` 后才创建内部 bus/shared state，相对边界为 `S+1392/+1500/+1683/+1692`。`+1683` 释放 occurrence；只有 pinned stationary-neutral trace 在 `+1684…+1691` 不发事件，其它合法输入仍可让 run-owned timer 在该区间提交事件并阻止 `+1692` quiescent neutral close。stationary-center/unfocused/graze10/damage1 trace 有 1500 events，hash `21c28e87ea9bdb9fd2a9777fd8f6cc3392209ae5557ede1b766b6d3bcf36bd3c`；`digital/live/all/residue/allocated=52/52/83/83/83`，spawn/RNG/omission `150/162/12`。listen tier `maxProjectiles=80/maxEmitters=2` 与 director EASY `maxProjectileBudget=120` 只作观察，V4 未解释 concurrent/residue/cumulative 计数，所以不进入 budget branch。fragment 不拥有 composer、selection/selection RNG、scheduler、parallel、telegraph/entry 执行、incoming safe-gap、transition、room completion/handoff、weather、persistence、default RUN/session/renderer 或 future-tick authority，不发伪 segment event；
-- `CanonicalCombatKernel` 已可直接执行 48 个 pattern 中的 23 个；exported live-admission capability list 仍为 20 个，Clock Decree、No-dusk Grid 与 Room Threshold 只在 private direct-kernel tuple。`room.forced.crack_fall_loop` 继续以 `op.linear > op.seam_transform` 对每个 generation 只执行一次 inclusive departure/crossing mirror，并以同一有序 path 驱动 moving-player contact、graze 与 Override。移动正弦走廊的首次进入由导数极值分区+固定 52 次二分求出，之后的 contact 边界用解析曲率上界外移；Python 只授权 endpoint edge snap 与 signed `±8°` adapter。E/N/H 的 `candidate/RNG/spawn` 均为 `90/90/90`、`120/120/120`、`140/140/140`，tick1320 完成，tick1782 排空最后 filament。Ballot Shift 把 FORCED_ALIGNMENT 的隔离 capability 补到 4/4，但 Ballot 本身没有接 room composer、scheduler 或 execution；窄化例外只是彼此独立的 Left/Right 与 Alternating READ adapters，均不是通用房间接线。Dusk 仍不执行自己的 hook；加入 isolated Override Void 与 Room Threshold 后 TRANSITION 为 3/3，Wind/Notification 证据不变；
-- 新增隔离的 `room.forced.ballot_shift`：`op.dual_clock_gate` 只以 pattern-relative 整数 `tick120` 计算双周期 XOR，关闭时保留 generation 但冻结速度与碰撞；开启边界先发 collision-on，该 tick 仍静止且不可接触，下一 tick 才移动。`phase_gate` 保留 RNG、entity identity 与 linear motion，仅对连续 swept lane corridor 侵入做可逆 collision mask；masked body 仍可被 Override 精确 cancel/scar。collision transition 整批预验后才提交，不会在 retained bus 冲突时留下部分实体改写。E/N/H 的 `candidate=RNG=spawn` 为 `170/220/260`，production hashes 为 `4ed653e2f043eddd47c3488bae6428c7ddcd3d9c0a6015cda2f7bfca692548fb`、`7d15af539bf24e1da5174ac29abbd4f81f2adbd018b9017b776a17921f097d3b`、`54c5ddcebe8adb79e603478ee1fa20a9cf03b744297bb04e01cc797b2b3d763f`。Python 30Hz 的 `26/33/55` deletion 只作 QA 证据，不替代生产 lifecycle；tick1440 complete，310-tick `seam_filament` 在 tick1750 排空；
-- 新增 direct-kernel-only `room.polarized.clock_decree`：单一 `shutter/four-beat-decree` emitter 原样执行 `op.dual_clock_gate > op.linear`。A/B 双钟只按 relative integer `tick120` 取 XOR；关闭时同 generation 速度/碰撞均为零，开启 tick 只提交 collision-on，下一 tick 才恢复移动/contact。`quantized_step` 的中心沿 `180→234→180→126→180`、480-tick 周期三角路径移动，cusp-segmented continuous `phase_gate` 只屏蔽碰撞、不冻结运动。E/N/H 保留全部 `153/216/252` candidate/RNG/identity；30Hz deletion intervention/hash 为 `22/ddbfbf02…0411`、`33/895b02be…f450`、`55/6a4a588f…8ed0`，120Hz tick1200 hashes 为 `364c95ce…06e`、`bde5e39e…249ba`、`14962808…5911`，tick1493 full hashes 为 `45074fc1…999c`、`4732a149…bd5`、`ea15a504…ad9f`。HARD 的8次 graze/evidence不造成 damage；EASY 的末次 burst 在 tick1183/1188 保留，虽已越过 emit/residue markers，仍在关闭时钟中保持原位并于 pattern end 转为 `binary_chip`。它不拥有 composer/scheduler/selection、room completion、Boss/laser/resolution、session/renderer/default RUN；
-- 新增 direct-kernel-only `room.polarized.no_dusk_grid`：两个 emitter 各自拥有 XOR clock；`binary_cross` 的 cusp-segmented continuous phase mask 在 phase-off 时只屏蔽碰撞并保留同一 identity/运动，clock-off 才冻结速度与碰撞。E/N/H candidate 为 `133/168/203`；不可变 QA deletion/intervention/hash 为 `13/e587211cb50d6e42a0feab07f08d18520188495314743e53cc2f79c189315bcd`、`18/b2c402fd550d19386c096ca39f3bf40e12f63fb64080e3d4660acbbdfc49b3f6`、`22/9871c0383df928b0c2f8594380e9295a31f88e30f6bbce0b440084a3947eba57`。production tick1464 的 `activeResidue/removed/allocated/peakLive/peakResidue/hash` 为 `119/14/124/90/119/3ddd331ca7e8a6da50fbd6e863743c58c21f1aab2c541be0f69b14e765b8987d`、`148/20/159/129/148/c9023f0f7ea2ab512901db451990f41fb9f07b0cb2aa845762d02af906243e61`、`161/42/189/154/161/e465928f2680f83cb53009da3f1b3895bee873f7bad3db33c792ac3282bcdfa5`；tick1781 lifecycle drain/handoff-ready hashes 为 `88ba6f54861d98819fae1ee0dba79dae9df1b27d4826b67aacd224b0a17bc1c6`、`aa941a85fd21c0c855d9bcb4a2cf1952ea088dc058d5b6e09ef8ec4b9c06a221`、`3d50e7891159a3ab2d5146270796273c48b56cad8929a950db1e383325dbaf61`。EASY authored `11861ms` 末次 vertical burst 在 `emit.end` tick1380、`residue.commit` tick1414 后于 tick1424 spawn、tick1429 arm；关闭时钟保留同位置/identity，pattern end 才 cancel。`resolutionHook:"no_dusk_clock_ticks"` 保持 inert，不自动完成、发事件或写 metric；它不拥有 composer/scheduler/selection、READ、session、room completion、Boss/laser/resolution、renderer/default RUN；
-- 新增 direct-kernel-only `transition.room_threshold`：exact contract 固定 7800ms、timeline ticks `[0,89,89,468,852,886,936]`、departing line 的 `8×128px/s` + `1→0.55` envelope/6 bursts，以及 arriving fan 的 `6×146px/s` + `0.55→1` envelope/5 bursts。连续正弦 `threshold_bridge` 只可逆屏蔽 collision，同一 generation 的 envelope motion/identity 继续；E/N/H 全部 `61/78/89` candidate 均消费 RNG 并取得 identity。QA hashes 为 `46f93363…c8e` / `0c483797…c8c` / `7f2600cf…7aff`，tick936 production hashes 为 `36e3b5c5…a6ae` / `92d7ea69…07d5` / `c48b285b…d9e59`，329-tick `threshold_sediment` 在 tick1265 排空，full hashes 为 `dc6a4490…825b` / `ebba622f…168b9` / `f63a5bc9…5e072`。它没有 resolution hook/laser，不进入 atomic `RoomTransitionAuthority`、composer/scheduler/selection、session、room completion/handoff、renderer/default RUN；TRANSITION 3/3 仅是 isolated direct execution coverage；
-- 新增隔离的 `encounter.weather_echo.rain_packets`：`laneX:[]` 不套用 lateral-wall lane lattice，adapter 顺序固定为 geometry source index → 一次 pattern RNG jitter → 完整 fixed-tick local-vector swept preflight → entity identity/spawn；省略的 candidate 没有数字身体或材料 residue。report seed `1771193663` 的 reference-v4（declared-v4 同构）E/N/H intervention/hash 为 `20 / 6667fc66a702c25d1fbb56d8d3ba55d307695ce6b70c934b81c40b4b047776eb`、`28 / 68480085b6a1542700ad86eceb4e37aaede7e3a23b8854de82d61f64e7bdbbc2`、`35 / aa8c029c73588e4488e93b1d02adf7f5c7ce6ab7334c0ed6d2527a23b16832f2`。120Hz `candidate/RNG/preflight/spawn/OOB/end` 为 `140/140/21/119/46/73`、`195/195/29/166/71/95`、`225/225/39/186/107/79`，production event hashes 为 `869d1ee119a4a772698c27a769386cf02fcca1a06b09521e085e1b2f306a308d`、`afd1dde61a6bc1b076571813e2b065bed8ca536b2d8d947e43cf66f0ff8038c7`、`1829f3539e67f76b8013d73ef10242369f59909d58b7f1b439772db013aca8d9`。EASY 最后一 burst `8885.2ms` 晚于 `emit.end=8700ms` 但仍在 duration 内，因此保持为无额外提示的 cadence fact；tick1128 complete，456-tick `wet_packet_pulp` 于 tick1584 排空。真实 RAIN event/seed/RNG 与 presentation/accessibility profile 都不能触发、生成或改写 gameplay；
-- 新增隔离的 `room.in_between.context_switch`：pattern-specific `operator_constraint` 以连续 120Hz path 查找首次走廊进入，先保留 A 的 literal `linear → turn` 和 B 的 `linear envelope → turn → linear`，再执行 endpoint edge snap + signed `±8°`；全部 candidate 都消费 RNG 并保留 entity identity。E/N/H reference 的 `emission/candidate/intervention/hash` 为 `19/122/104/43c0ccdeed148b1608137f2db353d90fb89a53361a86a0bc4f263007eadcc30d`、`20/169/154/eaee02492d1be50f8df214f226ffe8be568b89b35085e25e3a9fa4ec5657846c`、`20/198/273/4cc95eb7f32cce086ddf5ff8cee009f4602664dfdb346a09a32f81c534578577`。120Hz production 的 `candidate=RNG=spawn / OOB / end / redirect(L/R) / hash` 为 `122/75/47/93/49/7cb60b23323a16da617297daec9b3ce437cc1246e56b28f629b3288eff163bb0`、`169/120/49/110/50/99a2e087c38cbdd977766c3c3133d3ae8f3c6682ab7ce61f92fce524c0a9a1fb`、`198/166/32/215/121/b5a55f8da9c3a317289c8d871a1ad31c2a91973e5f8f923f3350496c37cb2855`。EASY 末次 cadence `11398ms` 与 complete 同落 tick1368；canonical phase order 先 materialize identity，再以 `pattern_end` 转为无碰撞 residue，不发 `collision-on`，tick1746 排空；
-- `room.forced.unstable_middle` 的双源 `paired_fan` 均严格执行 `op.linear > op.turn_once`：跨过 880ms turn 的 tick 先在旧 heading 上移动/sweep，再以零时长旋转 `±16°`，下一 tick 才以新 heading 移动；preflight 同样覆盖转向前后的完整声明 path。report seed `1610616880` 的 E/N/H `candidate=RNG / omission / spawn / OOB / end` 为 `144/6/138/94/44`、`180/12/168/137/31`、`216/12/204/188/16`；full-lifecycle `events/hash` 为 `1380/2ffd9cd25098d60ff8033812580d73fa7de1b3c2abacf8a2eb0b64ad2cdc0ff0`、`1680/175dd9006058b797fc652d666d14a86aaf79b0add900a57523f63652f65ad44b`、`2040/47990c6f57c3492a9a4b03c311137346c12109e5e574fa112db54b7dacbbb052`。tick1392 complete，tick1807 drain，三难度均无 `source_withdrawn`/impact/damage。该 room pattern 不支持或启动 `boss.two_claims.phase2`；
-- `room.polarized.alternating_verdict` 也保留两条 literal `op.linear > op.turn_once`：A/B 的 crossed tick 分别先在旧 heading 上 sweep，再做零时长 `+32°/-32°` turn，新 heading 从下一 tick 起生效。angular omission 顺序固定为 source index → 一次 RNG jitter → 完整 declaration-order swept preflight → entity identity/spawn；省略项没有 event/identity/residue，不可能的 post-admission 违例 fail-stop，不伪造 `source_withdrawn`。report seed `4224146597` 的 E/N/H `RNG / omission / spawn / OOB / end` 为 `162/12/150/99/51`、`198/15/183/147/36`、`234/15/219/201/18`，full-lifecycle `events/hash` 为 `1500/b7f2b9bca9fd76bce42f245cfd4cae302aec8297c19a836e6b38ad4e46e77a7f`、`1830/25a0fdd4617d491a33aa6fa9502af447dc5e6103582844c16ab9a81fddd22969`、`2190/92a7f8055a6703289bae5e570d7e07583cc5c8c7fbf7ade38c5a3e2b7a9c4c87`；tick1392 complete，tick1683 drain，三难度均无 `source_withdrawn`/impact/damage。该修正本身不扩大 capability；另行加入 Clock Decree 与 No-dusk Grid 后 POLARIZED 为 4/4；
-- 新增隔离的 `boss.one_sun_one_rule.phase1`：唯一 emitter 原样执行 `op.turn_once > op.linear`，跨过 780ms 的 tick 先转 `+30°`、再沿新 heading 完成 linear sweep，最后才让连续 `operator_constraint` 对每个 120Hz motion segment 的首次走廊侵入做 edge snap + signed `±8°`；同一 generation 可在后续 tick 再次 redirect。E/N/H 的全部 `80/104/120` 个 candidate 都消费一次 RNG 并取得稳定 identity；没有 preflight omission 或 `source_withdrawn`。不可变 30Hz reference 的 redirect/hash 是 `24/99fa2c6102afb147af480adddc03e3c788ca91d6e0f1c382709a084557a8f525`、`0/0407cdec6ed371ecd4b66bf651c5c79e7fd515b50767f6b6fa83847bd9781d6a`、`70/50c7dbe48fd84ceba68d56a8515326abfadd48be0db998f9f8407ae1bf7657da`；120Hz continuous production redirect 是 `25/24/72`（HARD `22L/50R`），tick1380 hashes 是 `9053899fdb5c5feba0640d0f3b6af3f994e4102449fbdcea5ce16085a342b6ca`、`038426d85d5245616d296102b190d8bb0d6fcea1f21179ea1d75507d354d46ee`、`6cc6bc61700eb53e2be00e6f790d331975a164b088d73f6307bf0ca18fac933c`，tick1680 才排空。两层 evidence 分开记录，不声称 redirect parity。pattern 的 `laser.single_decree_sweep` 只是 family association；exact observe rig 明示 `laserGeometry:null`。没有 phase-exit evaluator、resolution/terminal event、phase2/3 execution 或 renderer/default RUN 接线；
-- stale-packet、hard-cut 与 Absent Receiver 继续共用 curve/envelope temporal sub-sweep；signed lateral wall 与 visible `rule_clip_with_residue` 的既有行为不变。四个 Boss pattern（4/8 rigs、4/24 Boss patterns）仍只接 rig 明示 `laserGeometry:null` 的 `observe` phase；Absent Receiver 与 One Sun 的 generic handoff 只表示 projectile lifecycle 与 run timers 静止，不解释各自 exit/hook 条件，也不发 Boss phase/laser/terminal 事件。隔离 Misreader entry fragment 不执行 phase-2 emitters，`boss.two_claims.phase2` 也仍明确 unsupported，因而不计入新增 coverage。INFORMATION 现覆盖 3/4，FORCED_ALIGNMENT 4/4，IN_BETWEEN 1/4，POLARIZED 4/4，TRANSITION 3/3，weather echo 2/3。caller-resolved room admission 现在可验证 Rain parallel member、Context Switch、Ballot Shift、Left/Right 与 Alternating singleton；Alternating pair/singleton hashes 为 `0659e91c…ba820` / `36da160c…24131`，Ballot / Left/Right 为 `fea078a4…cdc2a7` / `b6a1eddf…d1c`；Clock `43bf1afb…007e2` 与 No-dusk Grid `cc6c9636b2dd90d8b289d1d68fe7048ea1025c5cf01dea27e6912b047c7307b8` 保持 exact rejection。Room Threshold 不是 room-admission candidate，也不因 3/3 获得 transition/composer authority。artifact 本身仍固定 `canonicalEventBus:false`、`composer:false`、`executionScheduled:false`；只有彼此独立的 exact Left/Right 与 Alternating READ adapters 在重新验收后创建各自的 bus，二者都不选择、组合或排程 room chain，完整 Run plan 继续拒绝；
-- route-present `SnapshotAuthority` 与 `CrossRunRestoreAuthority` 都只接受 recorder-issued、finalize 时深冻结的内存 token；raw/clone/parse/persist/tamper 都 fail closed。Snapshot 在 `snapshot.serialize.commit` 成功 append 后铸造与 exact bus/token/payload/tick 绑定的 opaque receipt；独立 in-memory `CrossRunArchiveAuthority` 只消费该 receipt，并强制在同一个 serialize tick 写入，以原始 recorder token 作为不可覆盖的 run-ID 记录。它不是 browser storage、restore、session 或 handoff authority，Standalone BOOT facts 也不能制造 handoff。Restore 共享 ledger 仍按 tick `0/52/166/200/252` 锁定 material/ghost/residue/witness/input 顺序。Snapshot/archive/restore 都未接 session boot、renderer、durable storage/IndexedDB 或 null-route；`FIRST_CLAMP_RECOVERY` 也不由 gaze release 或 room swap 单独越过；
-- 默认 First Eye 仍只运行 `common.eye_acquisition`，已使用 canonical movement/projectile/damage/graze/evidence authority，并通过调用方显式提供的 device-neutral sample 接入 V4 GazeMachine：连续 60 `tick120` 后 clamp，失配 54 `tick120` 后 release，与 Flower 共用 ordered event bus，clamp 期强制为 `0.1`。shared state 跨严格串行 occurrence 保存 player/evidence/graze/Override；identity 使用 `combat:<UTF-8字节数>:<occurrenceId>:<patternId>`，同一 occurrence 不可复用。浏览器默认显式传入不合格中性 sample，因为 V4 没有定义任何设备→gaze 映射；不以鼠标、摇杆或画面状态猜测。Eye 代表帧只跟随已提交 gaze state：`idle → eye.reveal`、`acquiring → eye.acquire`、`clamped/release-delay → eye.read`。`gaze_reading_cone` 只从 warning/emitter/motion 上界生成。dead/respawning 期间输入锁定，当前用 ADR 公开的 V4 稳定代表帧，尚未伪装为完整因果 clip。局部 Override 是 kernel 能力，但当前 fragment 在 `LOCAL_RESISTANCE_AVAILABLE` 之前显式拒绝接线；
-- 新增隔离的 `transition.override_void`：4 次 full-360 ring 在 E/N/H 保留 `48/64/76` 个 RNG/entity identity；每个 generation 在首次 inclusive seam crossing 按方向只施加一次 signed `±22px` offset，heading 不变。contact、visible `rule_clip_with_residue` 与明示启动的 DirectionalOverride 共用 linear + offset-discontinuity 两段 sweep。同 tick 同一弹体同时进入移动走廊与玩家 Void 时，adapter 固定先以 `source_withdrawn` 发出 collision-off/cancel/residue，不再发 Override terminal 或为该弹体写联动 scar。pattern 声明的 `scar_coordinate_commit` 只严格验证、不自动完成；只有另行显式 DirectionalOverride 周期才写其真实取消坐标。该 capability 不消费 `evidence>=overrideCost`，不进入 director/session/composer/scheduler、room transition/event、Snapshot/persistence/handoff、renderer 或默认 RUN；无新 asset、event ID、dependency 或 gameplay language；
-- Three.js 正交像素渲染、V4 房间背景/图集、房间声床与事件 SFX；
-- 键盘、触控、标准映射游戏手柄和可选 rumble；
-- 可安装 PWA、离线预缓存/warm reload、favicon、Apple Touch、any 与 maskable 图标；waiting worker 不在 gameplay 中接管。生产构建已将 Three.js、V4 frame index 和 executable-pattern manifest 分成稳定 chunk；它们仍全部进入离线 precache，尚未实现 RUN/Lab 按模式延迟求值。N→N+1 双构建回归仍待完成；
-- Vitest 确定性/边界测试、Playwright production smoke/E2E 与 GitHub Actions 门禁。
+- `src/authority/`：确定性玩法 authority 与只读 snapshots/ports。
+- `src/game/`：应用装配与表现集成，不反写 authority。
+- `src/content/`：V4 内容入口与 fail-fast validation。
+- `e2e/`：production-preview Playwright runbook 与 specs。
+- `docs/`：GDD、技术架构、制作路线图、QA 与 ADR。
+- `public/` / `artwork/`：运行时静态资产与已记录 provenance 的源文件。
 
-当前 NORMAL oracle 已精确覆盖 48/48 trace hash、96/96 safe-gap path、12 operators 与 13 geometries；player/projectile/laser/Boss/narrative authority 也已有独立契约测试。但生产 combat 只可直接执行 23/48，仍有 25 个 pattern 未接入。单元 authority 可到 `first_clamp_recovery`，并可隔离执行 Ballot Shift/Clock Decree/No-dusk Grid/Room Threshold/Crack/Unstable Middle/Dusk/Override Void/Rain/Context Switch/Alternating Verdict/One Sun observe、一次 Misreader enforce-entry laser、两段彼此独立的精确 Left/Right 与 Alternating READ 切片、一次 route-present snapshot、一次 in-memory archive persist 与一次 route-present cross-run restore。Clock、No-dusk Grid 与 Room Threshold 只在 private direct-kernel tuple；exported admission registry 仍为20。两个 READ 切片各有内部 exact bus/shared state，但都不拥有 telegraph/entry、room selection/transition/completion/handoff/session/renderer；其它列出的 fragment 也没有默认 session/renderer 入口。gaze release 后因 V4 没有给出 Flower recovery delay/duration，`flowerRecoveryComplete` 保持 `false`；浏览器默认则因中性 gaze sample 保持在 `first_eye`。完整 encounter/Boss/active-laser/narrative Run、durable cross-run persistence 和性能门禁仍未完成。详细差距与顺序见 `docs/ROADMAP_ZH.md`。
+## 验证方式
 
-shared state 当前只允许一个 spawning occurrence；它没有 room scheduler、parallel kernel、multi-pool Override fanout/aggregate budget，也不提供 rollback transaction。Left/Right READ 切片实测 peak arm/flight/live-collider 为 `56/56`、residue-inclusive authority entity/residue visual/allocated micro high-water 为 `77/74/77`、累计 spawn 为 `86`。Alternating READ 在 `stationary-center-unfocused-graze10-damage1` 观察下的 digital/live/all-authority/residue/allocated 峰值为 `52/52/83/83/83`，累计 spawn/RNG/preflight omission 为 `150/162/12`；composer listen 的 `maxProjectiles=80/maxEmitters=2` 与 encounter-director EASY `maxProjectileBudget=120` 同时公开。这些都只作观察证据，V4 未定义 tier budget 应按 concurrent、cumulative 还是 residue-inclusive 计数，因此两个 executor 都没有 budget branch。Misreader entry 已有窄范围 prepared Boss-phase-exit + laser-start 合并 append，player damage 也有 one-use prepared proposal；两者都只能在同步验证后应用预计算 after-state，不会回滚任意 sibling mutation。通用 player-damage→projectile-impact composite 仍缺失；本 fragment 的 laser contact 刻意只伤害玩家，不发 `projectile.impact.commit`、不终止持续 beam。
-
-已知 adapter 边界保持在 snapshot/policy 中：V4 未给出的 graze radius、通用 projectile damage 和 archetype→pool mapping 由应用显式提供；`op.lateral_wall` 只声明 lane 从左到右，却没有定义 geometry count 与 `laneCount` 不同时的投影，应用因此公开并冻结 `candidate-center-into-left-to-right-lane-bins` policy。Rain 的 `laneX:[]` 与通用 `lane_omission` compile rule 则冻结为 `geometry-source-index>rng-jitter>swept-preflight>entity-spawn`，并明示省略者没有 identity/residue；这不是 lateral-wall 的 pre-RNG lane policy。Alternating 的 angular omission 另锁定为 `geometry-source-index>one-rng-jitter>full-declaration-order-swept-preflight>entity-spawn`，省略项没有 event/identity/residue，已入场实体的不可能违例 fail-stop 而非转成 `source_withdrawn`。Unstable/Alternating 的后置 `turn_once` 均锁定 crossed tick 旧 heading sweep → 零时长 turn → 下一 tick 新 heading motion；One Sun 的前置 `turn_once` 则锁定 crossed tick 先转向 → 新 heading linear sweep → continuous operator constraint，且保留全部 RNG/identity。Misreader laser policy 另显式记录一次 start、`repeatCadence:null`、每 generation 至多一次非终止 contact、`S+152` 首个 post-enable interval、16 个 adaptive-flattening adapter capsule、difficulty-invariant trace，并因 V4 无单一 scar 坐标而拒绝 Override edge；First Eye 的 room/difficulty 固定选择与 caller-resolved seed 被记录；负 aim lead 读取精确历史 `tick120`，正 aim lead 暂以最后一段 authority 移动线性外推。V4 还没有给出 live room-count、pattern `difficultySalt`、parallel weather activation 与 encounter segment range 取值算法；因此 `RunComposer` 产物显式标记为 QA provenance，不写 canonical bus。这些是可审查的缺口，不是 V4 事实。
-
-## PWA 图标
-
-AI 生成的来源母版保存在 `artwork/icon-source-imagegen.png`，严格量化后的四色母版为 `artwork/icon-master-1024.png`。运行时图标在 `public/icons/`，包含 favicon、Apple Touch、192、512、shortcut 与 maskable 版本。
-
-## 权威边界
-
-V4 manifest 是唯一内容入口；表现回调、音频、PWA、手柄振动与 UI 不得回写 gameplay authority。项目不引入 score、rank 或善恶结局，记录的是行为事实和材料余波。任何超出 V4 的设计/素材扩展必须先使用项目 `aaajiao` skill，并完成 `docs/CONTENT_EXTENSION_ZH.md` 中的 Extension ADR。
-
-素材包的独立门禁：
+小切片默认只跑聚焦测试、strict typecheck 与 whitespace check；按影响面增加
+content/build/Playwright。不要在每个 commit 后重复完整门禁。
 
 ```sh
-python3 -B ../1bit-stg-complete-asset-kit-v4/tools/qa/validate_v4_integration.py
-python3 -B ../1bit-stg-complete-asset-kit-v4/runtime/validate_v4_runtime.py --run-code --strict-warnings
-python3 -B ../1bit-stg-complete-asset-kit-v4/gameplay/tools/validate_gameplay_v4.py
-python3 -B ../1bit-stg-complete-asset-kit-v4/narrative/validate_narrative_v4.py
+bun run typecheck
+bun run test -- <test-file> -t "<case or describe>"
 ```
+
+内容、构建或 PWA 集成：
+
+```sh
+bun run content:check
+bun run build
+```
+
+用户可见路径运行相关 production-preview spec。首次安装 Chromium：
+
+```sh
+bun --bun playwright install chromium
+```
+
+`bun run test:all` 只用于跨模块里程碑、Alpha/发布候选或显式要求。
+GitHub 自动 CI 当前暂停，手动 workflow 保留；本地验证仍是提交前门禁。完整选择矩阵见
+[测试与验收](docs/TESTING_ZH.md)，浏览器操作见 [E2E runbook](e2e/README.md)。
+
+## Authority 边界
+
+- 整数 `tick120` 是唯一玩法时间；V4 60Hz machine 只在偶数 master tick 到期。
+- canonical event、projectile、laser、player、Boss、narrative 与 cross-run authority 只从
+  V4 契约和显式 application adapter 得到权限。
+- Pattern Lab 的可见性、renderer frame、音频、alpha、weather 或 accessibility profile
+  都不能证明或改写生产玩法状态。
+- 项目不增加 score、rank、victory 或 morality。V4 外扩展必须通过
+  [内容扩展治理](docs/CONTENT_EXTENSION_ZH.md)和 focused ADR。
+
+更多稳定技术边界见[技术架构基线](docs/ARCHITECTURE_ZH.md)；当前实现范围与下一步只见
+[制作路线图](docs/ROADMAP_ZH.md)。
