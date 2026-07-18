@@ -21,7 +21,7 @@ export async function openApp(page: Page, mode: AppMode = "run"): Promise<void> 
 export async function enterSimulation(page: Page): Promise<void> {
   const overlay = page.locator("#boot-overlay");
   await expect(overlay).toBeVisible();
-  await page.getByRole("button", {name: /进入模拟/}).click();
+  await page.locator("#boot-button").click();
   await expect(overlay).toHaveCount(0, {timeout: 10_000});
 }
 

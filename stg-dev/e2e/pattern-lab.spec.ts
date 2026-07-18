@@ -14,6 +14,12 @@ test.describe("V4 pattern lab", () => {
   });
 
   test("enters the simulation and advances the fixed gameplay clock", async ({page}) => {
+    await expect(page.locator(".lab-panel")).toBeVisible();
+    await expect(page.locator("#surface-name")).toHaveText("STG LAB");
+    await expect(page.locator("#boot-heading")).toBeVisible();
+    await expect(page.locator("#boot-meta")).toBeVisible();
+    await expect(page.locator("#boot-action-label")).toHaveText("进入模拟");
+    await expect(page.locator("#boot-key")).toBeVisible();
     const before = await readClock(page);
     await enterSimulation(page);
     await waitForClockAfter(page, before);

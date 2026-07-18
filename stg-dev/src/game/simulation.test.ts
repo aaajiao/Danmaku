@@ -118,6 +118,9 @@ function input(overrides: Partial<InputFrame> = {}): InputFrame {
     shoot: false,
     focus: false,
     overridePressed: false,
+    overrideReleased: false,
+    overrideHeld: false,
+    overrideEdges: [],
     pausePressed: false,
     ...overrides,
   };

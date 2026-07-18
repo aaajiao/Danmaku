@@ -11,20 +11,20 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta
       name="description"
-      content="1bit STG V4 manifest-driven Three.js development environment"
+      content="Deterministic 1bit STG run projected from the immutable V4 authority package"
     />
-    <title>1bit / STG LAB 04</title>
+    <title>1bit / STG RUN 04</title>
   </head>
-  <body>
+  <body data-mode="run">
     <div id="app">
       <header class="site-header">
-        <a class="brand" href="#" aria-label="1bit STG Lab 首页">
+        <a class="brand" href="#" aria-label="1bit STG Run 首页">
           <span class="brand-mark">1<span>bit</span></span>
-          <span class="brand-copy">STG LAB <i>04</i></span>
+          <span class="brand-copy"><span id="surface-name">STG RUN</span> <i>04</i></span>
         </a>
         <div class="system-state">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span>MANIFEST ONLINE</span>
+          <span id="manifest-live-dot" class="live-dot" aria-hidden="true" hidden></span>
+          <span id="manifest-status" hidden>MANIFEST ONLINE</span>
           <span class="header-clock" id="header-clock">000.000</span>
         </div>
       </header>
@@ -49,22 +49,28 @@
 
             <div id="game-stage" class="game-stage">
               <canvas id="game-canvas" aria-label="1bit STG 可玩画面"></canvas>
-              <div id="warning" class="warning-card" aria-live="polite">
+              <div id="warning" class="warning-card" hidden aria-live="polite">
                 <span>EXACT WARNING</span>
                 <strong id="warning-shape">SPARSE PATH TICKS</strong>
               </div>
               <div id="toast" class="toast" aria-live="polite"></div>
+              <div id="signal-fallback" class="signal-fallback" hidden aria-live="polite"></div>
               <div id="boot-overlay" class="boot-overlay">
-                <div class="boot-index">04 / DEVELOPMENT TRACE</div>
-                <h1>先读取，<br />再穿过。</h1>
-                <p>
+                <div id="boot-index" class="boot-index" hidden>04 / DEVELOPMENT TRACE</div>
+                <h1 id="boot-heading" hidden>先读取，<br />再穿过。</h1>
+                <p id="boot-description" hidden>
                   弹幕不是装饰。每条轨迹都从 V4 manifest 编译，并在固定玩法时钟中发生。
                 </p>
-                <button id="boot-button" class="primary-button" type="button">
-                  <span>进入模拟</span><kbd>ENTER</kbd>
+                <button
+                  id="boot-button"
+                  class="primary-button"
+                  type="button"
+                  title="BEGIN WITHOUT RETAINED MATTER"
+                >
+                  <span id="boot-action-label">从没有留痕的条件开始</span><kbd id="boot-key" hidden>ENTER</kbd>
                 </button>
-                <div class="boot-meta">
-                  <span>120 HZ</span><span>48 PATTERNS</span><span>8 × 3 BOSS</span>
+                <div id="boot-meta" class="boot-meta" hidden>
+                  <span>120 HZ</span><span>48 PATTERNS</span><span>V4 CONTENT VERIFIED</span>
                 </div>
               </div>
             </div>
@@ -86,7 +92,7 @@
             </div>
           </div>
 
-          <div class="controls-strip" aria-label="操作说明">
+          <div class="controls-strip" hidden aria-label="操作说明">
             <span><kbd>WASD</kbd> 移动</span>
             <span><kbd>SHIFT</kbd> Focus</span>
             <span><kbd>Z</kbd> 表达</span>
@@ -97,7 +103,7 @@
           </div>
         </section>
 
-        <aside class="lab-panel" aria-label="弹幕开发控制台">
+        <aside class="lab-panel" hidden aria-label="弹幕开发控制台">
           <div class="panel-heading">
             <div>
               <span class="eyebrow">PATTERN COMPILER</span>
@@ -164,7 +170,7 @@
 
           <footer class="panel-footer">
             <span>7 ATLASES / 448 FRAMES</span>
-            <span class="status-pass">SYSTEM PASS</span>
+            <span class="status-pass">APP FOUNDATION</span>
           </footer>
         </aside>
       </main>

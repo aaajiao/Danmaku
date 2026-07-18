@@ -352,7 +352,10 @@ export class GameSimulation {
         if (bullet.ageMs < releaseAt) {
           const radius = numberParam(params, "radiusPx", 26);
           const angular = numberParam(params, "angularDegPerSec", 120);
-          const angle = (bullet.ageMs / 1000 * angular + bullet.id * 17) * Math.PI / 180;
+          const stableNumericId = typeof bullet.id === "number"
+            ? bullet.id
+            : [...bullet.id].reduce((sum, character) => sum + character.codePointAt(0)!, 0);
+          const angle = (bullet.ageMs / 1000 * angular + stableNumericId * 17) * Math.PI / 180;
           bullet.position.x = bullet.origin.x + Math.cos(angle) * radius;
           bullet.position.y = bullet.origin.y + Math.sin(angle) * radius;
           orbiting = true;
