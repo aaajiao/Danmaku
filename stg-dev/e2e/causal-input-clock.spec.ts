@@ -200,6 +200,18 @@ test("first room hands through two occurrences into retained material", async ({
   expect([200, 206]).toContain(gazeHoldResponses[0]);
   await page.keyboard.up("g");
   await stepRaf(page, 0);
+  await advanceControlledRunToTick(page, 1033);
+  await expect(body).toHaveAttribute("data-projectile-entities", "6");
+  await expect(canvas).toHaveAttribute(
+    "data-presented-projectile-causality-frames",
+    "cue.projectile.dormant=6",
+  );
+  await advanceControlledRunToTick(page, 1037);
+  await expect(body).toHaveAttribute("data-live-colliders", "6");
+  await expect(canvas).toHaveAttribute(
+    "data-presented-projectile-causality-frames",
+    "cue.projectile.armed=6",
+  );
   await advanceControlledRunToTick(page, 1075);
   await expect(body).toHaveAttribute("data-gaze-clamp-released", "false");
   await expect(body).toHaveAttribute("data-flower-recovery-complete", "false");

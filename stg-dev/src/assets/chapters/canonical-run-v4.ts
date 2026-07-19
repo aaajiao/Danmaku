@@ -117,6 +117,45 @@ export const CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK = Object.freeze({
   }),
 });
 
+const projectileArmVisual = requiredFeedbackResolver(
+  "projectile-arm-visual",
+  "projectile.arm.begin",
+  "visual",
+);
+const projectileLiveVisual = requiredFeedbackResolver(
+  "projectile-live-visual",
+  "projectile.collision.on",
+  "visual",
+);
+const projectileArmFallback = projectileArmVisual.resolver.accessibilityFallback;
+if (
+  projectileArmFallback === undefined
+  || projectileArmFallback.when.length !== 1
+  || projectileArmFallback.when[0] !== "motion:reduced"
+) {
+  throw new Error("Canonical Run V4 projectile arm requires its exact reduced-motion fallback");
+}
+
+export const CANONICAL_RUN_PROJECTILE_V4_FEEDBACK = Object.freeze({
+  arm: Object.freeze({
+    eventId: projectileArmVisual.binding.eventId,
+    bindingId: projectileArmVisual.binding.id,
+    cueId: projectileArmVisual.binding.sink.cueId,
+    frameId: requiredFrame(projectileArmVisual.resolver.resolver, projectileArmVisual.binding.id),
+    reducedMotionCueId: projectileArmFallback.cueId,
+    reducedMotionFrameId: requiredFrame(
+      projectileArmFallback.resolver,
+      projectileArmVisual.binding.id,
+    ),
+  }),
+  live: Object.freeze({
+    eventId: projectileLiveVisual.binding.eventId,
+    bindingId: projectileLiveVisual.binding.id,
+    cueId: projectileLiveVisual.binding.sink.cueId,
+    frameId: requiredFrame(projectileLiveVisual.resolver.resolver, projectileLiveVisual.binding.id),
+  }),
+});
+
 const roomTransitionVisual = requiredFeedbackResolver(
   "room-transition-visual",
   "room.transition.begin",

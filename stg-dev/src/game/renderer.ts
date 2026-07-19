@@ -1,13 +1,20 @@
 import * as THREE from "three";
 import {
   CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK,
+  CANONICAL_RUN_PROJECTILE_V4_FEEDBACK,
   CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK,
   CANONICAL_RUN_V4_ASSETS,
   canonicalRunAssetRoom,
   canonicalRunRoomThresholdFrame,
 } from "../assets/chapters/canonical-run-v4";
 import {V4_SHARED_ASSETS} from "../assets/shared-v4";
-import type {FrameDefinition, PatternDefinition, SimulationSnapshot, Vec2} from "./types";
+import type {
+  BulletState,
+  FrameDefinition,
+  PatternDefinition,
+  SimulationSnapshot,
+  Vec2,
+} from "./types";
 
 const FIRST_EYE_PATTERN_ID = "common.eye_acquisition";
 const LOGICAL_VIEW_WIDTH = 360;
@@ -45,6 +52,50 @@ export function cyclicPresentationEnabled(reducedMotion: boolean, flashOff: bool
 export function releaseIndependentSprite(scene: THREE.Scene, sprite: THREE.Sprite): void {
   scene.remove(sprite);
   sprite.material.dispose();
+}
+
+/** Replaces one entity-owned material without mutating or disposing the cached source. */
+export function replaceIndependentSpriteMaterial(
+  sprite: THREE.Sprite,
+  cachedSource: THREE.SpriteMaterial,
+): void {
+  const previous = sprite.material;
+  sprite.material = cachedSource.clone();
+  previous.dispose();
+}
+
+/** EXT-026: canonical projectile causality follows the final frozen authority snapshot. */
+export function projectileCausalityFrameForState(
+  projectile: Pick<BulletState, "lifecycleState" | "collisionEnabled">,
+  reducedMotion = false,
+): string | null {
+  const {lifecycleState, collisionEnabled} = projectile;
+  if (lifecycleState === undefined) return null;
+  if (typeof collisionEnabled !== "boolean") {
+    throw new Error(`Canonical projectile ${lifecycleState} requires an explicit collision fact`);
+  }
+  switch (lifecycleState) {
+    case "arm":
+      if (collisionEnabled) {
+        throw new Error("Canonical projectile arm cannot own collision");
+      }
+      return reducedMotion
+        ? CANONICAL_RUN_PROJECTILE_V4_FEEDBACK.arm.reducedMotionFrameId
+        : CANONICAL_RUN_PROJECTILE_V4_FEEDBACK.arm.frameId;
+    case "flight":
+      return collisionEnabled
+        ? CANONICAL_RUN_PROJECTILE_V4_FEEDBACK.live.frameId
+        : null;
+    case "residue":
+      if (collisionEnabled) {
+        throw new Error("Canonical projectile residue cannot own collision");
+      }
+      return null;
+    default: {
+      const exhaustive: never = lifecycleState;
+      throw new Error(`Unknown canonical projectile lifecycle: ${String(exhaustive)}`);
+    }
+  }
 }
 
 export type PresentedPlayerLifeState = "alive" | "dead" | "respawning" | "run-ended";
@@ -372,7 +423,7 @@ export class GameView {
     this.updateRoomThreshold(snapshot);
     this.updateTarget(snapshot, reducedMotion);
     this.updateGazeWarning(snapshot);
-    this.syncBulletSprites(snapshot);
+    this.syncBulletSprites(snapshot, reducedMotion);
     this.syncShotSprites(snapshot);
 
     this.playerSprite.position.set(snapshot.player.position.x, snapshot.player.position.y, 3);
@@ -502,8 +553,9 @@ export class GameView {
       && snapshot.patternElapsedMs < descriptor.warningDurationMs;
   }
 
-  private syncBulletSprites(snapshot: SimulationSnapshot): void {
+  private syncBulletSprites(snapshot: SimulationSnapshot, reducedMotion: boolean): void {
     const active = new Set(snapshot.bullets.map((bullet) => bullet.id));
+    const causalityFrameCounts = new Map<string, number>();
     for (const [id, sprite] of this.bulletSprites) {
       if (!active.has(id)) {
         // Bullet materials are deliberately cloned because rotation and
@@ -513,27 +565,44 @@ export class GameView {
       }
     }
     for (const bullet of snapshot.bullets) {
+      const causalityFrameId = projectileCausalityFrameForState(bullet, reducedMotion);
+      const frameId = causalityFrameId ?? bullet.archetype;
       let sprite = this.bulletSprites.get(bullet.id);
       if (!sprite) {
-        sprite = this.makeSprite(bullet.archetype, 62, 2, true);
+        sprite = this.makeSprite(frameId, 62, 2, true);
         this.bulletSprites.set(bullet.id, sprite);
         this.scene.add(sprite);
+      } else if (sprite.userData.frameId !== frameId) {
+        replaceIndependentSpriteMaterial(sprite, this.materialFor(frameId));
+        sprite.userData.frameId = frameId;
       }
       sprite.position.set(bullet.position.x, bullet.position.y, 2);
       sprite.material.rotation = Math.atan2(bullet.velocity.y, bullet.velocity.x) + Math.PI / 2;
       // Reduced motion may change interpolation, but V4 does not authorize it
       // to remove the material residue state from presentation.
       sprite.visible = true;
-      sprite.material.opacity = bullet.lifecycleState === "residue"
+      sprite.material.opacity = causalityFrameId !== null
+        ? 1
+        : bullet.lifecycleState === "residue"
         ? 0.18
         : bullet.lifecycleState === "arm"
           ? 0.34
           : bullet.lifecycleState === "flight"
             ? 1
             : snapshot.nowMs >= bullet.armedAtMs
-              ? 1
-              : 0.34;
+            ? 1
+            : 0.34;
+      if (causalityFrameId !== null) {
+        causalityFrameCounts.set(
+          causalityFrameId,
+          (causalityFrameCounts.get(causalityFrameId) ?? 0) + 1,
+        );
+      }
     }
+    this.canvas.dataset.presentedProjectileCausalityFrames = [...causalityFrameCounts]
+      .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+      .map(([frameId, count]) => `${frameId}=${count}`)
+      .join(",");
   }
 
   private syncShotSprites(snapshot: SimulationSnapshot): void {
@@ -560,6 +629,7 @@ export class GameView {
   private makeSprite(frameId: string, size: number, z: number, independentMaterial = false): THREE.Sprite {
     const material = this.materialFor(frameId);
     const sprite = new THREE.Sprite(independentMaterial ? material.clone() : material);
+    sprite.userData.frameId = frameId;
     sprite.scale.set(size, size, 1);
     sprite.position.z = z;
     return sprite;

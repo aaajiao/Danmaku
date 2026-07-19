@@ -5,6 +5,7 @@ import backgroundsManifest from "../../../1bit-stg-complete-asset-kit-v4/manifes
 import audioManifest from "../../../1bit-stg-complete-asset-kit-v4/manifests/narrative/audio-manifest-v4.json";
 import {
   CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK,
+  CANONICAL_RUN_PROJECTILE_V4_FEEDBACK,
   CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK,
   CANONICAL_RUN_V4_ASSETS,
   canonicalRunAssetRoom,
@@ -109,6 +110,22 @@ describe("manifest-derived V4 runtime assets", () => {
     expect(canonicalRunRoomThresholdFrame("IN_BETWEEN")).toBe("threshold.in_between");
     expect(() => canonicalRunRoomThresholdFrame("UNKNOWN_ROOM"))
       .toThrow(/no V4 room threshold projection/);
+    expect(CANONICAL_RUN_PROJECTILE_V4_FEEDBACK).toEqual({
+      arm: {
+        eventId: "projectile.arm.begin",
+        bindingId: "projectile-arm-visual",
+        cueId: "projectile.telegraph.motion",
+        frameId: "cue.projectile.dormant",
+        reducedMotionCueId: "projectile.telegraph.steady",
+        reducedMotionFrameId: "enemy_attack.warning_strip",
+      },
+      live: {
+        eventId: "projectile.collision.on",
+        bindingId: "projectile-live-visual",
+        cueId: "projectile.live-notch-steady",
+        frameId: "cue.projectile.armed",
+      },
+    });
 
     expect(Object.isFrozen(V4_SHARED_ASSETS)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS)).toBe(true);
@@ -116,6 +133,9 @@ describe("manifest-derived V4 runtime assets", () => {
     expect(Object.isFrozen(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp.haptic.pulses)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK.frameByRoom)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_PROJECTILE_V4_FEEDBACK)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_PROJECTILE_V4_FEEDBACK.arm)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_PROJECTILE_V4_FEEDBACK.live)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS.atlasIds)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS.roomAssetSource)).toBe(true);
   });

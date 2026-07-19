@@ -6,7 +6,9 @@ import {
   gazeReadingConeForPattern,
   overrideSectorAngles,
   playerFrameForState,
+  projectileCausalityFrameForState,
   releaseIndependentSprite,
+  replaceIndependentSpriteMaterial,
   targetFrameForPattern,
   targetPositionForPattern,
 } from "./renderer";
@@ -115,6 +117,63 @@ describe("V4 player causality frame projection", () => {
     ["run-ended", false, true, "player.digital_delete"],
   ] as const)("maps %s (focused=%s, reduced=%s)", (lifeState, focused, reduced, expected) => {
     expect(playerFrameForState(lifeState, focused, reduced)).toBe(expected);
+  });
+});
+
+describe("EXT-026 projectile causality frame replacement", () => {
+  it.each([
+    [undefined, undefined, false, null],
+    [undefined, true, false, null],
+    ["arm", false, false, "cue.projectile.dormant"],
+    ["arm", false, true, "enemy_attack.warning_strip"],
+    ["flight", true, false, "cue.projectile.armed"],
+    ["flight", true, true, "cue.projectile.armed"],
+    ["flight", false, false, null],
+    ["residue", false, false, null],
+  ] as const)(
+    "maps lifecycle=%s collision=%s reduced=%s to %s",
+    (lifecycleState, collisionEnabled, reducedMotion, expected) => {
+      expect(projectileCausalityFrameForState(
+        {lifecycleState, collisionEnabled},
+        reducedMotion,
+      )).toBe(expected);
+    },
+  );
+
+  it.each([
+    ["arm", true],
+    ["arm", undefined],
+    ["flight", undefined],
+    ["residue", true],
+    ["residue", undefined],
+  ] as const)("fails closed for lifecycle=%s collision=%s", (lifecycleState, collisionEnabled) => {
+    expect(() => projectileCausalityFrameForState({lifecycleState, collisionEnabled}))
+      .toThrow(/collision/);
+  });
+
+  it("clones per-entity material while retaining the shared atlas texture", () => {
+    const texture = new THREE.Texture();
+    const cached = new THREE.SpriteMaterial({map: texture});
+    const first = new THREE.Sprite(new THREE.SpriteMaterial());
+    const second = new THREE.Sprite(new THREE.SpriteMaterial());
+    const firstPreviousDispose = vi.spyOn(first.material, "dispose");
+    const secondPreviousDispose = vi.spyOn(second.material, "dispose");
+    const cachedDispose = vi.spyOn(cached, "dispose");
+    const textureDispose = vi.spyOn(texture, "dispose");
+
+    replaceIndependentSpriteMaterial(first, cached);
+    replaceIndependentSpriteMaterial(second, cached);
+    first.material.rotation = 0.5;
+
+    expect(first.material).not.toBe(second.material);
+    expect(first.material).not.toBe(cached);
+    expect(first.material.map).toBe(texture);
+    expect(second.material.map).toBe(texture);
+    expect(second.material.rotation).toBe(0);
+    expect(firstPreviousDispose).toHaveBeenCalledOnce();
+    expect(secondPreviousDispose).toHaveBeenCalledOnce();
+    expect(cachedDispose).not.toHaveBeenCalled();
+    expect(textureDispose).not.toHaveBeenCalled();
   });
 });
 
