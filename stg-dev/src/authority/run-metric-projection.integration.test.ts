@@ -13,9 +13,15 @@ import {
 import {
   createCanonicalRunFirstRoomMetricProjection,
   deriveCanonicalRunFirstRoomMetricProjectionUnbranded,
+  issueCanonicalRunFirstRoomMetricProjectionReceipt,
   type CanonicalRunFirstRoomMetricAvailableEntry,
   type CanonicalRunFirstRoomMetricProjectionAvailable,
 } from "./run-metric-projection";
+import {
+  createCanonicalRunFirstContinuationRoomTarget,
+  deriveCanonicalRunFirstContinuationRoomTargetUnbranded,
+  type CanonicalRunFirstContinuationRoomTargetAvailable,
+} from "./run-first-continuation-room-target";
 import {
   CanonicalRunSession,
   type CanonicalRunSessionSnapshot,
@@ -113,18 +119,30 @@ function availableEntry(
   return entry;
 }
 
+function availableContinuationTarget(
+  snapshot: CanonicalRunSessionSnapshot,
+): CanonicalRunFirstContinuationRoomTargetAvailable {
+  const target = snapshot.firstContinuationRoomTarget;
+  if (target.availability !== "available") {
+    throw new Error("first continuation room target is missing");
+  }
+  return target;
+}
+
 function metricInternals(session: CanonicalRunSession): Readonly<{
   behaviorFacts: CanonicalRunBehaviorFactLedger;
   firstRoomClosureCaptureValue: CanonicalRunFirstRoomClosureCaptureAvailable | null;
+  firstRoomMetricProjectionValue: CanonicalRunFirstRoomMetricProjectionAvailable | null;
 }> {
   return session as unknown as Readonly<{
     behaviorFacts: CanonicalRunBehaviorFactLedger;
     firstRoomClosureCaptureValue: CanonicalRunFirstRoomClosureCaptureAvailable | null;
+    firstRoomMetricProjectionValue: CanonicalRunFirstRoomMetricProjectionAvailable | null;
   }>;
 }
 
-describe("EXT-2026-011 first-room recent-input metric integration", () => {
-  it("projects the exact H+1702 closure once without selecting or writing events", () => {
+describe("EXT-2026-011/012 first-room metric and continuation-target integration", () => {
+  it("atomically projects H+1702 and selects only the next target without transition or event writes", () => {
     const fixture = deepFreeze(firstRoomClosureFixtureJson) as unknown as CanonicalRunFirstRoomClosureCaptureAvailable;
     const fixtureBytes = JSON.stringify(fixture);
     expect(Buffer.byteLength(fixtureBytes)).toBe(FIXTURE_CANONICAL_BYTES);
@@ -137,10 +155,19 @@ describe("EXT-2026-011 first-room recent-input metric integration", () => {
       ready: false,
       selectionAllowed: false,
     });
+    expect(session.snapshot().firstContinuationRoomTarget).toEqual({
+      availability: "missing",
+      reason: "first-room-metric-projection-not-available",
+      selectionComplete: false,
+      selectionRngDraws: 0,
+      transitionAllowed: false,
+      handoffReady: false,
+    });
 
     const atObservation = reachFirstRoomRelativeTick(session, 1701);
     expect(atObservation.snapshot.tick120).toBe(atObservation.handoffTick120 + 1701);
     expect(atObservation.snapshot.firstRoomMetricProjection.availability).toBe("missing");
+    expect(atObservation.snapshot.firstContinuationRoomTarget.availability).toBe("missing");
     const eventBytesBeforeClosure = session.canonicalEventSerialization();
 
     const atClosure = session.step({
@@ -254,7 +281,56 @@ describe("EXT-2026-011 first-room recent-input metric integration", () => {
     });
     expect(isDeepFrozen(projection)).toBe(true);
 
+    const continuationTarget = availableContinuationTarget(atClosure);
+    const fixtureTarget = deriveCanonicalRunFirstContinuationRoomTargetUnbranded(projection);
+    expect(JSON.stringify(continuationTarget)).toBe(JSON.stringify(fixtureTarget));
+    expect(continuationTarget).toMatchObject({
+      selectedAtTick120: atObservation.handoffTick120 + 1702,
+      completedRoomVisit: {roomId: "FORCED_ALIGNMENT", roomOrdinal: 0},
+      candidateOrder: ["INFORMATION", "IN_BETWEEN", "POLARIZED"],
+      candidateTotalWeight: 3.089092738732555,
+      rng: {
+        algorithm: "mulberry32-v1",
+        seed: {
+          domain: "ext-012-first-continuation-room-selection",
+          value: OPTIONS.rawRunSeed.value,
+        },
+        drawOrdinal: 0,
+        drawValue: 0.7038787782657892,
+        stateAfterDrawUint32: 2_286_107_347,
+        cursorInitial: 2.1743468228887917,
+      },
+      selectionComplete: true,
+      selectionRngDraws: 1,
+      canonicalEventWrites: 0,
+      targetRoom: "POLARIZED",
+      targetRoomOrdinal: 1,
+      roomCount: null,
+      difficulty: null,
+      transitionAllowed: false,
+      handoffReady: false,
+    });
+    expect(continuationTarget.candidateWeights.map((candidate) => candidate.totalWeight)).toEqual([
+      1.0890209371659756,
+      1.0000718015665797,
+      1,
+    ]);
+    expect(continuationTarget.candidateWeights.flatMap((candidate) => candidate.metricTerms)
+      .filter((term) => term.availability === "missing")
+      .every((term) => !("value" in term) && !("contribution" in term))).toBe(true);
+    expect(isDeepFrozen(continuationTarget)).toBe(true);
+
+    expect(() => issueCanonicalRunFirstRoomMetricProjectionReceipt(projection))
+      .toThrow(/original formal projection/);
+    const internalProjection = metricInternals(session).firstRoomMetricProjectionValue;
+    if (internalProjection === null) throw new Error("formal metric projection is missing");
+    const internalReceipt = issueCanonicalRunFirstRoomMetricProjectionReceipt(internalProjection);
+    expect(issueCanonicalRunFirstRoomMetricProjectionReceipt(internalProjection)).toBe(internalReceipt);
+    expect(() => createCanonicalRunFirstContinuationRoomTarget(internalReceipt))
+      .toThrow(/already selected/);
+
     const projectionBytes = JSON.stringify(projection);
+    const targetBytes = JSON.stringify(continuationTarget);
     const closureBytes = JSON.stringify(atClosure.firstRoomClosureCapture);
     const eventBytesAtClosure = session.canonicalEventSerialization();
     const later = session.step({
@@ -262,6 +338,7 @@ describe("EXT-2026-011 first-room recent-input metric integration", () => {
       focused: true,
     });
     expect(JSON.stringify(availableProjection(later))).toBe(projectionBytes);
+    expect(JSON.stringify(availableContinuationTarget(later))).toBe(targetBytes);
     expect(JSON.stringify(later.firstRoomClosureCapture)).toBe(closureBytes);
     expect(session.canonicalEventSerialization()).toBe(eventBytesAtClosure);
     expect(later.behaviorFacts.tick120).toBe(atObservation.handoffTick120 + 1703);

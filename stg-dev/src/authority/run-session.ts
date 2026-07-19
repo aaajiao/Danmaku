@@ -43,8 +43,14 @@ import {
 import {
   CANONICAL_RUN_FIRST_ROOM_METRIC_PROJECTION_MISSING,
   createCanonicalRunFirstRoomMetricProjection,
+  issueCanonicalRunFirstRoomMetricProjectionReceipt,
   type CanonicalRunFirstRoomMetricProjection,
 } from "./run-metric-projection";
+import {
+  CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING,
+  createCanonicalRunFirstContinuationRoomTarget,
+  type CanonicalRunFirstContinuationRoomTarget,
+} from "./run-first-continuation-room-target";
 import {
   AUTHORED_PLAYER_Y,
   LOGICAL_VIEW_HEIGHT,
@@ -377,6 +383,8 @@ export interface CanonicalRunSessionSnapshot {
   readonly firstRoomClosureCapture: CanonicalRunFirstRoomClosureCapture;
   /** At closure: three exact ratios plus eleven typed absences; never composer-ready. */
   readonly firstRoomMetricProjection: CanonicalRunFirstRoomMetricProjection;
+  /** EXT-012 selects ordinal 1 only; it does not authorize transition or handoff. */
+  readonly firstContinuationRoomTarget: CanonicalRunFirstContinuationRoomTarget;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -1019,6 +1027,7 @@ export class CanonicalRunSession {
   private firstOccurrenceObservationCaptureSerializationValue: string | null = null;
   private firstRoomClosureCaptureValue: CanonicalRunFirstRoomClosureCapture | null = null;
   private firstRoomMetricProjectionValue: CanonicalRunFirstRoomMetricProjection | null = null;
+  private firstContinuationRoomTargetValue: CanonicalRunFirstContinuationRoomTarget | null = null;
   private phaseValue: CanonicalRunSessionPhase = "quiet_awakening";
   private currentTick120 = 0;
   private phaseStartTick120 = 0;
@@ -1169,6 +1178,8 @@ export class CanonicalRunSession {
         ?? CANONICAL_RUN_FIRST_ROOM_CLOSURE_CAPTURE_MISSING,
       firstRoomMetricProjection: this.firstRoomMetricProjectionValue
         ?? CANONICAL_RUN_FIRST_ROOM_METRIC_PROJECTION_MISSING,
+      firstContinuationRoomTarget: this.firstContinuationRoomTargetValue
+        ?? CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1383,8 +1394,11 @@ export class CanonicalRunSession {
       metricSourceReceipt,
       recentInputSupplementReceipt,
     );
+    const metricProjectionReceipt = issueCanonicalRunFirstRoomMetricProjectionReceipt(metricProjection);
+    const continuationTarget = createCanonicalRunFirstContinuationRoomTarget(metricProjectionReceipt);
     this.firstRoomClosureCaptureValue = closureCapture;
     this.firstRoomMetricProjectionValue = metricProjection;
+    this.firstContinuationRoomTargetValue = continuationTarget;
   }
 
   private recordAwakeningInput(input: ValidatedStepInput): void {

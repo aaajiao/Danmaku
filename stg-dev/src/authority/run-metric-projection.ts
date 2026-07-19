@@ -134,12 +134,18 @@ export interface CanonicalRunFirstRoomMetricProjectionPayload {
 }
 
 declare const canonicalRunFirstRoomMetricProjectionBrand: unique symbol;
+declare const canonicalRunFirstRoomMetricProjectionReceiptBrand: unique symbol;
 
 /** Formal projection; only the receipt-taking factory can return this brand. */
 export type CanonicalRunFirstRoomMetricProjectionAvailable =
   CanonicalRunFirstRoomMetricProjectionPayload & {
     readonly [canonicalRunFirstRoomMetricProjectionBrand]: true;
   };
+
+/** Opaque in-memory authority for the exact formal projection object. */
+export type CanonicalRunFirstRoomMetricProjectionReceipt = Readonly<{
+  readonly [canonicalRunFirstRoomMetricProjectionReceiptBrand]: true;
+}>;
 
 export type CanonicalRunFirstRoomMetricProjection =
   | CanonicalRunFirstRoomMetricProjectionMissing
@@ -152,6 +158,16 @@ export const CANONICAL_RUN_FIRST_ROOM_METRIC_PROJECTION_MISSING:
   ready: false,
   selectionAllowed: false,
 });
+
+const formalProjections = new WeakSet<object>();
+const formalProjectionReceiptsByProjection = new WeakMap<
+  object,
+  CanonicalRunFirstRoomMetricProjectionReceipt
+>();
+const formalProjectionReceipts = new WeakMap<
+  object,
+  CanonicalRunFirstRoomMetricProjectionAvailable
+>();
 
 const MISSING_REASONS: Readonly<Record<
   CanonicalRunFirstRoomMissingMetricId,
@@ -941,5 +957,33 @@ export function createCanonicalRunFirstRoomMetricProjection(
   const source = firstRoomClosureFromCanonicalMetricSourceReceipt(sourceReceipt);
   const supplement = firstRoomRecentInputSupplementFromCanonicalReceipt(supplementReceipt);
   const payload = deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source, supplement);
-  return payload as CanonicalRunFirstRoomMetricProjectionAvailable;
+  const projection = payload as CanonicalRunFirstRoomMetricProjectionAvailable;
+  formalProjections.add(projection);
+  return projection;
+}
+
+/**
+ * Issues an opaque receipt only for the original formal projection. Public
+ * snapshots and JSON-equivalent clones deliberately fail this boundary.
+ */
+export function issueCanonicalRunFirstRoomMetricProjectionReceipt(
+  projection: CanonicalRunFirstRoomMetricProjectionAvailable,
+): CanonicalRunFirstRoomMetricProjectionReceipt {
+  invariant(formalProjections.has(projection), "metric projection receipt requires the original formal projection");
+  const existing = formalProjectionReceiptsByProjection.get(projection);
+  if (existing !== undefined) return existing;
+  const receipt = Object.freeze({}) as CanonicalRunFirstRoomMetricProjectionReceipt;
+  formalProjectionReceiptsByProjection.set(projection, receipt);
+  formalProjectionReceipts.set(receipt, projection);
+  return receipt;
+}
+
+/** Internal authority handoff for the EXT-012 first-continuation selector. */
+export function firstRoomMetricProjectionFromCanonicalReceipt(
+  receipt: CanonicalRunFirstRoomMetricProjectionReceipt,
+): CanonicalRunFirstRoomMetricProjectionAvailable {
+  invariant(typeof receipt === "object" && receipt !== null, "metric projection receipt must be opaque");
+  const projection = formalProjectionReceipts.get(receipt);
+  invariant(projection !== undefined, "metric projection receipt is not registered");
+  return projection;
 }
