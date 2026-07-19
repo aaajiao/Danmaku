@@ -22,6 +22,7 @@
 | [EXT-2026-005：首个 Forced Alignment 房间 bootstrap](EXT-2026-005-first-forced-room-bootstrap.md) | ACCEPTED | fixed non-composer bootstrap、seed domain、共享 authority 与完整 pre-read/READ 调度 |
 | [EXT-2026-006：Canonical Run rolling 原始行为事实账本](EXT-2026-006-canonical-run-behavior-facts.md) | ACCEPTED | accepted-tick 机械聚合、owner/request/commit 分栏、handoff 归属与显式 missing |
 | [EXT-2026-007：Canonical Run pre-room 行为事实冻结](EXT-2026-007-pre-room-behavior-capture.md) | ACCEPTED | H 后一次性 `[1,H]` raw-facts capture、exact-schema isolation 与 metric/composer firewall |
+| [EXT-2026-008：首个 room occurrence 观察闭合冻结](EXT-2026-008-first-occurrence-observation-capture.md) | PROPOSED | H+1701 post-occurrence raw-facts capture；room completion/selection/transition 继续 withheld |
 
 ## 新 ADR 规则
 
