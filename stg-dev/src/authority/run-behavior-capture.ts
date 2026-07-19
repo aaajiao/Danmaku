@@ -2,7 +2,9 @@ import roomComposersJson from "../../../1bit-stg-complete-asset-kit-v4/manifests
 
 import {V4_CONTENT_IDENTITY, type V4ContentIdentity} from "../content/v4-content-identity";
 import {
+  behaviorFactsLineageFromCanonicalReceipt,
   behaviorFactsFromCanonicalReceipt,
+  type CanonicalRunBehaviorLineageIdentity,
   type CanonicalRunBehaviorFactsReceipt,
   type CanonicalRunBehaviorCountEntry,
   type CanonicalRunBehaviorEventCountEntry,
@@ -200,10 +202,18 @@ export interface CanonicalRunFirstRoomMetricSourceReceipt {
   readonly [canonicalRunFirstRoomMetricSourceReceiptBrand]: true;
 }
 
-const CANONICAL_RUN_FIRST_ROOM_CLOSURES = new WeakSet<object>();
+interface CanonicalRunFirstRoomMetricSourceRecord {
+  readonly capture: CanonicalRunFirstRoomClosureCaptureAvailable;
+  readonly lineage: CanonicalRunBehaviorLineageIdentity;
+}
+
+const CANONICAL_RUN_FIRST_ROOM_CLOSURES = new WeakMap<
+  object,
+  CanonicalRunBehaviorLineageIdentity
+>();
 const CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS = new WeakMap<
   object,
-  CanonicalRunFirstRoomClosureCaptureAvailable
+  CanonicalRunFirstRoomMetricSourceRecord
 >();
 
 export interface CreateCanonicalRunFirstRoomClosureCaptureOptions {
@@ -218,29 +228,40 @@ export interface CreateCanonicalRunFirstRoomClosureCaptureOptions {
 export function issueCanonicalRunFirstRoomMetricSourceReceipt(
   capture: CanonicalRunFirstRoomClosureCaptureAvailable,
 ): CanonicalRunFirstRoomMetricSourceReceipt {
-  if (
-    typeof capture !== "object"
-    || capture === null
-    || !CANONICAL_RUN_FIRST_ROOM_CLOSURES.has(capture)
-  ) {
+  const lineage = typeof capture === "object" && capture !== null
+    ? CANONICAL_RUN_FIRST_ROOM_CLOSURES.get(capture)
+    : undefined;
+  if (lineage === undefined) {
     throw new Error("first-room metric source must be the exact canonical closure capture");
   }
   const receipt = Object.freeze(Object.create(null)) as CanonicalRunFirstRoomMetricSourceReceipt;
-  CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS.set(receipt, capture);
+  CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS.set(receipt, Object.freeze({capture, lineage}));
   return receipt;
+}
+
+function firstRoomMetricSourceRecordFromCanonicalReceipt(
+  receipt: CanonicalRunFirstRoomMetricSourceReceipt,
+): CanonicalRunFirstRoomMetricSourceRecord {
+  if (typeof receipt !== "object" || receipt === null) {
+    throw new Error("first-room metric source receipt must be an opaque object");
+  }
+  const source = CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS.get(receipt);
+  if (source === undefined) {
+    throw new Error("first-room metric source receipt was not issued by the canonical closure factory");
+  }
+  return source;
 }
 
 export function firstRoomClosureFromCanonicalMetricSourceReceipt(
   receipt: CanonicalRunFirstRoomMetricSourceReceipt,
 ): CanonicalRunFirstRoomClosureCaptureAvailable {
-  if (typeof receipt !== "object" || receipt === null) {
-    throw new Error("first-room metric source receipt must be an opaque object");
-  }
-  const capture = CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS.get(receipt);
-  if (capture === undefined) {
-    throw new Error("first-room metric source receipt was not issued by the canonical closure factory");
-  }
-  return capture;
+  return firstRoomMetricSourceRecordFromCanonicalReceipt(receipt).capture;
+}
+
+export function firstRoomMetricSourceLineageFromCanonicalReceipt(
+  receipt: CanonicalRunFirstRoomMetricSourceReceipt,
+): CanonicalRunBehaviorLineageIdentity {
+  return firstRoomMetricSourceRecordFromCanonicalReceipt(receipt).lineage;
 }
 
 export const CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING:
@@ -1984,6 +2005,7 @@ export function createCanonicalRunFirstRoomClosureCapture(
 ): CanonicalRunFirstRoomClosureCaptureAvailable {
   const sourceEventCount = safeNonNegativeInteger(options.sourceEventCount, "sourceEventCount");
   const sourceBehaviorFacts = behaviorFactsFromCanonicalReceipt(options.behaviorFactsReceipt);
+  const sourceLineage = behaviorFactsLineageFromCanonicalReceipt(options.behaviorFactsReceipt);
   validateAvailableFirstOccurrenceObservationCapture(
     options.firstOccurrenceObservationCapture,
     options.preRoomCapture,
@@ -2062,6 +2084,6 @@ export function createCanonicalRunFirstRoomClosureCapture(
     selectionRngDraws: 0 as const,
     canonicalEventWrites: 0 as const,
   });
-  CANONICAL_RUN_FIRST_ROOM_CLOSURES.add(capture);
+  CANONICAL_RUN_FIRST_ROOM_CLOSURES.set(capture, sourceLineage);
   return capture;
 }

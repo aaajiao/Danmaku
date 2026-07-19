@@ -6,6 +6,10 @@ import type {
   CanonicalRunFirstRoomClosureCaptureAvailable,
   CanonicalRunFirstRoomMetricSourceReceipt,
 } from "./run-behavior-capture";
+import type {
+  CanonicalRunFirstRoomRecentInputSupplementReceipt,
+  CanonicalRunFirstRoomRecentInputSupplementSource,
+} from "./run-behavior-facts";
 import {
   CANONICAL_RUN_FIRST_ROOM_METRIC_IDS,
   CANONICAL_RUN_FIRST_ROOM_METRIC_PROJECTION_MISSING,
@@ -53,7 +57,6 @@ const EXPECTED_MISSING = Object.freeze({
   intersectionHold: "intersection-authority-not-observed",
   noDuskTicks: "no-dusk-authority-not-observed",
   overrideRatio: "override-not-eligible-in-source-window",
-  recentInputDensity: "recent-window-not-recorded",
   sideCommitment: "side-band-samples-not-recorded",
   sideSwitches: "side-transition-sequence-not-recorded",
   unansweredActions: "action-response-contract-not-authored",
@@ -268,6 +271,27 @@ function frozenClosureFixture(): CanonicalRunFirstRoomClosureCaptureAvailable {
   return deepFreeze(capture);
 }
 
+function frozenSupplementFixture(): CanonicalRunFirstRoomRecentInputSupplementSource {
+  return deepFreeze({
+    availability: "available",
+    authority: "canonical-run-first-room-recent-input-supplement-v1",
+    schemaVersion: "1.0.0-ext-2026-011",
+    producerId: "canonical-run-behavior-facts.first-room-recent-input-observer",
+    producerVersion: "1.0.0",
+    extensionPolicy: "EXT-2026-011",
+    sourceEpoch: "first-authored-room-input-window",
+    capturedAtTick120: CLOSURE_TICK120,
+    rawRunSeed: {domain: "raw-run-seed", value: RAW_RUN_SEED},
+    sourceWindow: {
+      firstTick120: PRE_ROOM_TICK120 + 1,
+      lastTick120: CLOSURE_TICK120,
+    },
+    roomTickCount: 1702,
+    activeUnionTickCount: 200,
+    canonicalEventWrites: 0,
+  });
+}
+
 function hostileFixture(
   mutate: (draft: Record<string, any>) => void,
   freeze = true,
@@ -277,9 +301,18 @@ function hostileFixture(
   return (freeze ? deepFreeze(draft) : draft) as CanonicalRunFirstRoomClosureCaptureAvailable;
 }
 
+function hostileSupplementFixture(
+  mutate: (draft: Record<string, any>) => void,
+  freeze = true,
+): CanonicalRunFirstRoomRecentInputSupplementSource {
+  const draft = JSON.parse(JSON.stringify(frozenSupplementFixture())) as Record<string, any>;
+  mutate(draft);
+  return (freeze ? deepFreeze(draft) : draft) as CanonicalRunFirstRoomRecentInputSupplementSource;
+}
+
 function availableEntry(
   payload: CanonicalRunFirstRoomMetricProjectionPayload,
-  id: "avgFlower" | "gazeRatio",
+  id: "avgFlower" | "gazeRatio" | "recentInputDensity",
 ): CanonicalRunFirstRoomMetricAvailableEntry {
   const entry = payload.metricEntries.find((candidate) => candidate.id === id);
   if (entry === undefined || entry.availability !== "available") {
@@ -288,10 +321,11 @@ function availableEntry(
   return entry;
 }
 
-describe("EXT-2026-010 unbranded first-room metric derivation", () => {
-  it("projects two ratios and twelve exact absences without minting composer input", () => {
+describe("EXT-2026-011 unbranded first-room metric derivation", () => {
+  it("projects three ratios and eleven exact absences without minting composer input", () => {
     const source = frozenClosureFixture();
-    const payload = deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source);
+    const supplement = frozenSupplementFixture();
+    const payload = deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source, supplement);
 
     expect(Object.keys(payload).sort()).toEqual([
       "availability",
@@ -319,15 +353,15 @@ describe("EXT-2026-010 unbranded first-room metric derivation", () => {
     expect(payload).toMatchObject({
       availability: "available",
       authority: "canonical-run-first-room-metric-projection-v1",
-      schemaVersion: "1.0.0-ext-2026-010",
+      schemaVersion: "1.1.0-ext-2026-011",
       producerId: "canonical-run-session.first-room-metric-projector",
-      producerVersion: "1.0.0",
-      extensionPolicy: "EXT-2026-010",
+      producerVersion: "1.1.0",
+      extensionPolicy: "EXT-2026-011",
       sourceEpoch: "current-run-through-first-room-closure",
       capturedAtTick120: CLOSURE_TICK120,
       projectionStatus: "partial",
-      availableMetricCount: 2,
-      missingMetricCount: 12,
+      availableMetricCount: 3,
+      missingMetricCount: 11,
       ready: false,
       selectionAllowed: false,
       selectionRngDraws: 0,
@@ -370,6 +404,22 @@ describe("EXT-2026-010 unbranded first-room metric derivation", () => {
       },
       sampleWindow: {firstTick120: 11, lastTick120: 1802},
     });
+    expect(availableEntry(payload, "recentInputDensity")).toEqual({
+      id: "recentInputDensity",
+      availability: "available",
+      value: 200 / 1702,
+      unit: "ratio-0-1",
+      formulaId: "first-room-active-input-union-ratio-v1",
+      numerator: {
+        sourcePath: "metricSupplement.activeUnionTickCount",
+        value: 200,
+      },
+      denominator: {
+        sourcePath: "metricSupplement.roomTickCount",
+        value: 1702,
+      },
+      sampleWindow: {firstTick120: 101, lastTick120: 1802},
+    });
 
     const missing = Object.fromEntries(payload.metricEntries
       .filter((entry): entry is CanonicalRunFirstRoomMetricMissingEntry => entry.availability === "missing")
@@ -380,7 +430,7 @@ describe("EXT-2026-010 unbranded first-room metric derivation", () => {
     expect(Reflect.ownKeys(payload).every((key) => typeof key === "string")).toBe(true);
     expect(isDeepFrozen(payload)).toBe(true);
     expect(payload.sourceBoundary).not.toBe(source.sourceBoundary);
-    expect(JSON.stringify(deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source)))
+    expect(JSON.stringify(deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source, supplement)))
       .toBe(JSON.stringify(payload));
   });
 
@@ -392,7 +442,7 @@ describe("EXT-2026-010 unbranded first-room metric derivation", () => {
       gaze.clampActiveTickCount = 54;
     });
     const entry = availableEntry(
-      deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source),
+      deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source, frozenSupplementFixture()),
       "gazeRatio",
     );
     expect(entry.numerator.value).toBe(0);
@@ -436,15 +486,68 @@ describe("EXT-2026-010 unbranded first-room metric derivation", () => {
   ] as const)("fails closed on %s", (_label, mutate, error) => {
     expect(() => deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
       hostileFixture(mutate),
+      frozenSupplementFixture(),
     )).toThrow(error);
   });
 
-  it("rejects mutable source data and a forged formal receipt", () => {
+  it.each([
+    ["extra supplement field", (draft: Record<string, any>) => {
+      draft.metrics = {};
+    }, /exact schema fields/],
+    ["wrong supplement identity", (draft: Record<string, any>) => {
+      draft.producerVersion = "1.0.1";
+    }, /supplement identity/],
+    ["wrong supplement seed", (draft: Record<string, any>) => {
+      draft.rawRunSeed.value += 1;
+    }, /exact event-free/],
+    ["wrong supplement capture tick", (draft: Record<string, any>) => {
+      draft.capturedAtTick120 -= 1;
+    }, /exact event-free/],
+    ["wrong supplement first tick", (draft: Record<string, any>) => {
+      draft.sourceWindow.firstTick120 += 1;
+    }, /exact event-free/],
+    ["wrong supplement last tick", (draft: Record<string, any>) => {
+      draft.sourceWindow.lastTick120 -= 1;
+    }, /exact event-free/],
+    ["zero supplement denominator", (draft: Record<string, any>) => {
+      draft.roomTickCount = 0;
+    }, /roomTickCount must be positive/],
+    ["wrong supplement denominator", (draft: Record<string, any>) => {
+      draft.roomTickCount -= 1;
+    }, /exact event-free/],
+    ["active union beyond denominator", (draft: Record<string, any>) => {
+      draft.activeUnionTickCount = 1703;
+    }, /exact event-free/],
+    ["negative active union", (draft: Record<string, any>) => {
+      draft.activeUnionTickCount = -1;
+    }, /non-negative safe integer/],
+    ["negative-zero active union", (draft: Record<string, any>) => {
+      draft.activeUnionTickCount = -0;
+    }, /finite JSON number/],
+    ["supplement event write", (draft: Record<string, any>) => {
+      draft.canonicalEventWrites = 1;
+    }, /exact event-free/],
+  ] as const)("fails closed on %s", (_label, mutate, error) => {
+    expect(() => deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
+      frozenClosureFixture(),
+      hostileSupplementFixture(mutate),
+    )).toThrow(error);
+  });
+
+  it("rejects mutable source/supplement data and forged formal receipts", () => {
     const mutable = hostileFixture(() => undefined, false);
-    expect(() => deriveCanonicalRunFirstRoomMetricProjectionUnbranded(mutable))
+    expect(() => deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
+      mutable,
+      frozenSupplementFixture(),
+    ))
       .toThrow(/recursively frozen/);
+    expect(() => deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
+      frozenClosureFixture(),
+      hostileSupplementFixture(() => undefined, false),
+    )).toThrow(/recursively frozen/);
     expect(() => createCanonicalRunFirstRoomMetricProjection(
       Object.freeze({}) as CanonicalRunFirstRoomMetricSourceReceipt,
+      Object.freeze({}) as CanonicalRunFirstRoomRecentInputSupplementReceipt,
     )).toThrow(/receipt.*not issued/);
   });
 

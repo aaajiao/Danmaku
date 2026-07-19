@@ -3,13 +3,18 @@ import roomComposersJson from "../../../1bit-stg-complete-asset-kit-v4/manifests
 import {V4_CONTENT_IDENTITY, type V4ContentIdentity} from "../content/v4-content-identity";
 import {
   firstRoomClosureFromCanonicalMetricSourceReceipt,
+  firstRoomMetricSourceLineageFromCanonicalReceipt,
   type CanonicalRunFirstRoomClosureCaptureAvailable,
   type CanonicalRunFirstRoomMetricSourceReceipt,
 } from "./run-behavior-capture";
-import type {
-  CanonicalRunBehaviorAvailable,
-  CanonicalRunBehaviorCountEntry,
-  CanonicalRunBehaviorFactsSnapshot,
+import {
+  firstRoomRecentInputLineageFromCanonicalReceipt,
+  firstRoomRecentInputSupplementFromCanonicalReceipt,
+  type CanonicalRunBehaviorAvailable,
+  type CanonicalRunBehaviorCountEntry,
+  type CanonicalRunBehaviorFactsSnapshot,
+  type CanonicalRunFirstRoomRecentInputSupplementReceipt,
+  type CanonicalRunFirstRoomRecentInputSupplementSource,
 } from "./run-behavior-facts";
 import {
   FIRST_FIXED_ROOM_CLOSURE_CONTRACT,
@@ -19,9 +24,9 @@ import {executablePattern} from "./pattern-executor";
 
 const UINT32_MAX = 0xffff_ffff;
 const AUTHORITY = "canonical-run-first-room-metric-projection-v1" as const;
-const SCHEMA_VERSION = "1.0.0-ext-2026-010" as const;
+const SCHEMA_VERSION = "1.1.0-ext-2026-011" as const;
 const PRODUCER_ID = "canonical-run-session.first-room-metric-projector" as const;
-const PRODUCER_VERSION = "1.0.0" as const;
+const PRODUCER_VERSION = "1.1.0" as const;
 
 const EXPECTED_METRIC_IDS = Object.freeze([
   "avgFlower",
@@ -41,7 +46,10 @@ const EXPECTED_METRIC_IDS = Object.freeze([
 ] as const);
 
 export type CanonicalRunFirstRoomMetricId = typeof EXPECTED_METRIC_IDS[number];
-export type CanonicalRunFirstRoomAvailableMetricId = "avgFlower" | "gazeRatio";
+export type CanonicalRunFirstRoomAvailableMetricId =
+  | "avgFlower"
+  | "gazeRatio"
+  | "recentInputDensity";
 export type CanonicalRunFirstRoomMissingMetricId = Exclude<
   CanonicalRunFirstRoomMetricId,
   CanonicalRunFirstRoomAvailableMetricId
@@ -57,7 +65,6 @@ export type CanonicalRunFirstRoomMetricMissingReason =
   | "intersection-authority-not-observed"
   | "no-dusk-authority-not-observed"
   | "override-not-eligible-in-source-window"
-  | "recent-window-not-recorded"
   | "side-band-samples-not-recorded"
   | "side-transition-sequence-not-recorded";
 
@@ -78,7 +85,8 @@ export interface CanonicalRunFirstRoomMetricAvailableEntry {
   readonly unit: "ratio-0-1";
   readonly formulaId:
     | "committed-flower-target-mean-v1"
-    | "committed-gaze-clamped-state-ratio-v1";
+    | "committed-gaze-clamped-state-ratio-v1"
+    | "first-room-active-input-union-ratio-v1";
   readonly numerator: CanonicalRunFirstRoomMetricValueSource;
   readonly denominator: CanonicalRunFirstRoomMetricValueSource;
   readonly sampleWindow: CanonicalRunFirstRoomMetricSampleWindow;
@@ -107,15 +115,15 @@ export interface CanonicalRunFirstRoomMetricProjectionPayload {
   readonly schemaVersion: typeof SCHEMA_VERSION;
   readonly producerId: typeof PRODUCER_ID;
   readonly producerVersion: typeof PRODUCER_VERSION;
-  readonly extensionPolicy: "EXT-2026-010";
+  readonly extensionPolicy: "EXT-2026-011";
   readonly sourceEpoch: "current-run-through-first-room-closure";
   readonly capturedAtTick120: number;
   readonly rawRunSeed: CanonicalRunBehaviorFactsSnapshot["rawRunSeed"];
   readonly contentIdentity: V4ContentIdentity;
   readonly sourceBoundary: CanonicalRunFirstRoomClosureCaptureAvailable["sourceBoundary"];
   readonly projectionStatus: "partial";
-  readonly availableMetricCount: 2;
-  readonly missingMetricCount: 12;
+  readonly availableMetricCount: 3;
+  readonly missingMetricCount: 11;
   readonly metricEntries: readonly CanonicalRunFirstRoomMetricEntry[];
   readonly ready: false;
   readonly selectionAllowed: false;
@@ -157,7 +165,6 @@ const MISSING_REASONS: Readonly<Record<
   intersectionHold: "intersection-authority-not-observed",
   noDuskTicks: "no-dusk-authority-not-observed",
   overrideRatio: "override-not-eligible-in-source-window",
-  recentInputDensity: "recent-window-not-recorded",
   sideCommitment: "side-band-samples-not-recorded",
   sideSwitches: "side-transition-sequence-not-recorded",
   unansweredActions: "action-response-contract-not-authored",
@@ -472,23 +479,24 @@ function assertBehaviorFactsShape(facts: CanonicalRunBehaviorFactsSnapshot): voi
   ], "source.behaviorFacts.adapterPolicy");
 }
 
-interface ProjectionInputs {
-  readonly capturedAtTick120: number;
-  readonly flower: Readonly<{
-    numerator: number;
-    denominator: number;
-    firstTick120: number;
-    lastTick120: number;
-  }>;
-  readonly gaze: Readonly<{
-    numerator: number;
-    denominator: number;
-    firstTick120: number;
-    lastTick120: number;
-  }>;
+interface MetricRatioInput {
+  readonly numerator: number;
+  readonly denominator: number;
+  readonly firstTick120: number;
+  readonly lastTick120: number;
 }
 
-function validateSource(source: CanonicalRunFirstRoomClosureCaptureAvailable): ProjectionInputs {
+interface ClosureProjectionInputs {
+  readonly capturedAtTick120: number;
+  readonly flower: Readonly<MetricRatioInput>;
+  readonly gaze: Readonly<MetricRatioInput>;
+}
+
+interface ProjectionInputs extends ClosureProjectionInputs {
+  readonly recentInput: Readonly<MetricRatioInput>;
+}
+
+function validateSource(source: CanonicalRunFirstRoomClosureCaptureAvailable): ClosureProjectionInputs {
   assertFrozenJsonData(source);
   assertExactKeys(source, [
     "availability",
@@ -722,12 +730,91 @@ function validateSource(source: CanonicalRunFirstRoomClosureCaptureAvailable): P
   });
 }
 
+function validateRecentInputSupplement(
+  supplement: CanonicalRunFirstRoomRecentInputSupplementSource,
+  source: CanonicalRunFirstRoomClosureCaptureAvailable,
+  closureInputs: ClosureProjectionInputs,
+): Readonly<MetricRatioInput> {
+  assertFrozenJsonData(supplement, "metricSupplement");
+  assertExactKeys(supplement, [
+    "availability",
+    "authority",
+    "schemaVersion",
+    "producerId",
+    "producerVersion",
+    "extensionPolicy",
+    "sourceEpoch",
+    "capturedAtTick120",
+    "rawRunSeed",
+    "sourceWindow",
+    "roomTickCount",
+    "activeUnionTickCount",
+    "canonicalEventWrites",
+  ], "metricSupplement");
+  invariant(
+    supplement.availability === "available"
+      && supplement.authority === "canonical-run-first-room-recent-input-supplement-v1"
+      && supplement.schemaVersion === "1.0.0-ext-2026-011"
+      && supplement.producerId === "canonical-run-behavior-facts.first-room-recent-input-observer"
+      && supplement.producerVersion === "1.0.0"
+      && supplement.extensionPolicy === "EXT-2026-011"
+      && supplement.sourceEpoch === "first-authored-room-input-window",
+    "metric supplement identity is incompatible",
+  );
+  const capturedAtTick120 = safePositiveInteger(
+    supplement.capturedAtTick120,
+    "metricSupplement.capturedAtTick120",
+  );
+  const rawRunSeed = assertTaggedRawRunSeed(
+    supplement.rawRunSeed,
+    "metricSupplement.rawRunSeed",
+  );
+  const sourceRawRunSeed = assertTaggedRawRunSeed(source.rawRunSeed, "source.rawRunSeed");
+  assertExactKeys(supplement.sourceWindow, [
+    "firstTick120",
+    "lastTick120",
+  ], "metricSupplement.sourceWindow");
+  const firstTick120 = safePositiveInteger(
+    supplement.sourceWindow.firstTick120,
+    "metricSupplement.sourceWindow.firstTick120",
+  );
+  const lastTick120 = safePositiveInteger(
+    supplement.sourceWindow.lastTick120,
+    "metricSupplement.sourceWindow.lastTick120",
+  );
+  const roomTickCount = safePositiveInteger(
+    supplement.roomTickCount,
+    "metricSupplement.roomTickCount",
+  );
+  const activeUnionTickCount = safeNonNegativeInteger(
+    supplement.activeUnionTickCount,
+    "metricSupplement.activeUnionTickCount",
+  );
+  invariant(
+    capturedAtTick120 === closureInputs.capturedAtTick120
+      && rawRunSeed === sourceRawRunSeed
+      && firstTick120 === source.sourceBoundary.preRoomTick120 + 1
+      && lastTick120 === closureInputs.capturedAtTick120
+      && roomTickCount === FIRST_FIXED_ROOM_CLOSURE_CONTRACT.closureRelativeTick120
+      && lastTick120 - firstTick120 + 1 === roomTickCount
+      && activeUnionTickCount <= roomTickCount
+      && supplement.canonicalEventWrites === 0,
+    "metric supplement does not cover the exact event-free H+1 through H+1702 window",
+  );
+  return deepFreeze({
+    numerator: activeUnionTickCount,
+    denominator: roomTickCount,
+    firstTick120,
+    lastTick120,
+  });
+}
+
 function availableEntry(
   id: CanonicalRunFirstRoomAvailableMetricId,
   formulaId: CanonicalRunFirstRoomMetricAvailableEntry["formulaId"],
   numeratorPath: string,
   denominatorPath: string,
-  input: ProjectionInputs["flower"] | ProjectionInputs["gaze"],
+  input: ProjectionInputs["flower"] | ProjectionInputs["gaze"] | ProjectionInputs["recentInput"],
 ): CanonicalRunFirstRoomMetricAvailableEntry {
   const value = input.numerator / input.denominator;
   invariant(
@@ -766,6 +853,15 @@ function metricEntries(inputs: ProjectionInputs): readonly CanonicalRunFirstRoom
         inputs.gaze,
       );
     }
+    if (id === "recentInputDensity") {
+      return availableEntry(
+        id,
+        "first-room-active-input-union-ratio-v1",
+        "metricSupplement.activeUnionTickCount",
+        "metricSupplement.roomTickCount",
+        inputs.recentInput,
+      );
+    }
     return Object.freeze({
       id,
       availability: "missing" as const,
@@ -782,8 +878,13 @@ function metricEntries(inputs: ProjectionInputs): readonly CanonicalRunFirstRoom
  */
 export function deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
   source: CanonicalRunFirstRoomClosureCaptureAvailable,
+  supplement: CanonicalRunFirstRoomRecentInputSupplementSource,
 ): CanonicalRunFirstRoomMetricProjectionPayload {
-  const inputs = validateSource(source);
+  const closureInputs = validateSource(source);
+  const inputs = deepFreeze({
+    ...closureInputs,
+    recentInput: validateRecentInputSupplement(supplement, source, closureInputs),
+  });
   const sourceBoundary = deepFreeze({
     preRoomTick120: source.sourceBoundary.preRoomTick120,
     firstOccurrenceObservationTick120: source.sourceBoundary.firstOccurrenceObservationTick120,
@@ -804,7 +905,7 @@ export function deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
     schemaVersion: SCHEMA_VERSION,
     producerId: PRODUCER_ID,
     producerVersion: PRODUCER_VERSION,
-    extensionPolicy: "EXT-2026-010" as const,
+    extensionPolicy: "EXT-2026-011" as const,
     sourceEpoch: "current-run-through-first-room-closure" as const,
     capturedAtTick120: inputs.capturedAtTick120,
     rawRunSeed: {
@@ -814,8 +915,8 @@ export function deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
     contentIdentity: V4_CONTENT_IDENTITY,
     sourceBoundary,
     projectionStatus: "partial" as const,
-    availableMetricCount: 2 as const,
-    missingMetricCount: 12 as const,
+    availableMetricCount: 3 as const,
+    missingMetricCount: 11 as const,
     metricEntries: metricEntries(inputs),
     ready: false as const,
     selectionAllowed: false as const,
@@ -826,11 +927,19 @@ export function deriveCanonicalRunFirstRoomMetricProjectionUnbranded(
   });
 }
 
-/** Formal EXT-010 entry point. Plain captures and unbranded fixtures are not accepted. */
+/** Formal EXT-011 entry point. Plain captures and unbranded fixtures are not accepted. */
 export function createCanonicalRunFirstRoomMetricProjection(
-  receipt: CanonicalRunFirstRoomMetricSourceReceipt,
+  sourceReceipt: CanonicalRunFirstRoomMetricSourceReceipt,
+  supplementReceipt: CanonicalRunFirstRoomRecentInputSupplementReceipt,
 ): CanonicalRunFirstRoomMetricProjectionAvailable {
-  const source = firstRoomClosureFromCanonicalMetricSourceReceipt(receipt);
-  const payload = deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source);
+  const sourceLineage = firstRoomMetricSourceLineageFromCanonicalReceipt(sourceReceipt);
+  const supplementLineage = firstRoomRecentInputLineageFromCanonicalReceipt(supplementReceipt);
+  invariant(
+    sourceLineage === supplementLineage,
+    "closure and metric supplement receipts must share one opaque ledger lineage",
+  );
+  const source = firstRoomClosureFromCanonicalMetricSourceReceipt(sourceReceipt);
+  const supplement = firstRoomRecentInputSupplementFromCanonicalReceipt(supplementReceipt);
+  const payload = deriveCanonicalRunFirstRoomMetricProjectionUnbranded(source, supplement);
   return payload as CanonicalRunFirstRoomMetricProjectionAvailable;
 }

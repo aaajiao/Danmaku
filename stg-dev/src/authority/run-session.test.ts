@@ -1,4 +1,8 @@
-import {describe, expect, it} from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
+import {
+  CanonicalRunBehaviorFactLedger,
+  type CanonicalRunBehaviorAcceptedTick,
+} from "./run-behavior-facts";
 import {
   PLAYER_FOCUS_MAX_SPEED_PX_PER_SECOND,
   PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND,
@@ -16,6 +20,22 @@ const OPTIONS = Object.freeze({
   projectileDamage: 1,
   projectilePoolClasses: Object.freeze({"bullet.micro.notch_e": "micro" as const}),
 });
+
+afterEach(() => vi.restoreAllMocks());
+
+function observeBehaviorTicks(): Map<number, CanonicalRunBehaviorAcceptedTick> {
+  const records = new Map<number, CanonicalRunBehaviorAcceptedTick>();
+  const original = CanonicalRunBehaviorFactLedger.prototype.recordAcceptedTick;
+  vi.spyOn(CanonicalRunBehaviorFactLedger.prototype, "recordAcceptedTick")
+    .mockImplementation(function (
+      this: CanonicalRunBehaviorFactLedger,
+      value: CanonicalRunBehaviorAcceptedTick,
+    ): void {
+      records.set(value.requested.tick120, value);
+      original.call(this, value);
+    });
+  return records;
+}
 
 function neutralInput(tick120: number): CanonicalRunSessionStepInput {
   return {
@@ -428,6 +448,7 @@ describe("manifest-backed canonical V4 run session prologue", () => {
   });
 
   it("gates movement, Focus, and Flower signal while the retained player is non-alive", () => {
+    const behaviorTicks = observeBehaviorTicks();
     const session = new CanonicalRunSession({
       ...OPTIONS,
       rawRunSeed: {domain: "raw-run-seed", value: 1},
@@ -447,12 +468,18 @@ describe("manifest-backed canonical V4 run session prologue", () => {
       inputEnabled: false,
       damage: {state: "dead", health: 0},
     });
+    expect(behaviorTicks.get(snapshot.tick120)?.inputConsumption).toEqual({
+      movement: true,
+      signal: true,
+      focus: true,
+      gaze: true,
+    });
     const heldPosition = snapshot.player.position;
     const resumeAtTick120 = snapshot.player.damage?.respawnCompleteAtTick120;
     expect(resumeAtTick120).not.toBeNull();
 
     const deadInput = session.step({
-      ...neutralInput(snapshot.tick120 + 1),
+      ...qualifiedGazeInput(snapshot.tick120 + 1),
       movement: {x: 1, y: 0},
       signalActive: true,
       focused: true,
@@ -463,6 +490,12 @@ describe("manifest-backed canonical V4 run session prologue", () => {
       inputEnabled: false,
       flower: {resolution: {source: "signal", targetIntensity: 0.3}},
       damage: {state: "dead"},
+    });
+    expect(behaviorTicks.get(deadInput.tick120)).toMatchObject({
+      inputConsumption: {movement: false, signal: false, focus: false, gaze: true},
+      requested: {
+        gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+      },
     });
 
     snapshot = deadInput;

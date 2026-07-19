@@ -14,11 +14,19 @@ import type {
   PlayerLifeState,
 } from "./player";
 import type {Vec2} from "./projectiles";
+import {FIRST_FIXED_ROOM_CLOSURE_CONTRACT} from "./run-room-session";
 
 const UINT32_MAX = 0xffff_ffff;
 const SCHEMA_VERSION = "1.0.0-ext-2026-006" as const;
 const PRODUCER_ID = "canonical-run-session.accepted-tick-observer" as const;
 const PRODUCER_VERSION = "1.0.0" as const;
+const RECENT_INPUT_SUPPLEMENT_AUTHORITY =
+  "canonical-run-first-room-recent-input-supplement-v1" as const;
+const RECENT_INPUT_SUPPLEMENT_SCHEMA_VERSION = "1.0.0-ext-2026-011" as const;
+const RECENT_INPUT_SUPPLEMENT_PRODUCER_ID =
+  "canonical-run-behavior-facts.first-room-recent-input-observer" as const;
+const RECENT_INPUT_SUPPLEMENT_PRODUCER_VERSION = "1.0.0" as const;
+const FIRST_ROOM_TICK_COUNT = FIRST_FIXED_ROOM_CLOSURE_CONTRACT.closureRelativeTick120;
 
 export type CanonicalRunBehaviorOwnerPhase =
   | "quiet_awakening"
@@ -67,8 +75,17 @@ export interface CanonicalRunBehaviorCommittedTick {
   readonly sourceEventCount: number;
 }
 
+export interface CanonicalRunBehaviorInputConsumption {
+  readonly movement: boolean;
+  readonly signal: boolean;
+  readonly focus: boolean;
+  readonly gaze: boolean;
+}
+
 export interface CanonicalRunBehaviorAcceptedTick {
   readonly ownerPhase: CanonicalRunBehaviorOwnerPhase;
+  /** Pre-step proposal committed only after the authority tick closes successfully. */
+  readonly inputConsumption: CanonicalRunBehaviorInputConsumption;
   readonly requested: CanonicalRunBehaviorRequestedTick;
   readonly committed: CanonicalRunBehaviorCommittedTick;
 }
@@ -192,26 +209,107 @@ export interface CanonicalRunBehaviorFactsSnapshot {
 }
 
 declare const canonicalRunBehaviorFactsReceiptBrand: unique symbol;
+declare const canonicalRunBehaviorLineageIdentityBrand: unique symbol;
+declare const canonicalRunFirstRoomRecentInputSupplementReceiptBrand: unique symbol;
+
+/** Opaque per-ledger identity. Equality is meaningful; its contents never serialize. */
+export interface CanonicalRunBehaviorLineageIdentity {
+  readonly [canonicalRunBehaviorLineageIdentityBrand]: true;
+}
 
 /** Opaque proof that one snapshot came from a live ledger's closed current tick. */
 export interface CanonicalRunBehaviorFactsReceipt {
   readonly [canonicalRunBehaviorFactsReceiptBrand]: true;
 }
 
+export interface CanonicalRunFirstRoomRecentInputSupplementSource {
+  readonly availability: "available";
+  readonly authority: typeof RECENT_INPUT_SUPPLEMENT_AUTHORITY;
+  readonly schemaVersion: typeof RECENT_INPUT_SUPPLEMENT_SCHEMA_VERSION;
+  readonly producerId: typeof RECENT_INPUT_SUPPLEMENT_PRODUCER_ID;
+  readonly producerVersion: typeof RECENT_INPUT_SUPPLEMENT_PRODUCER_VERSION;
+  readonly extensionPolicy: "EXT-2026-011";
+  readonly sourceEpoch: "first-authored-room-input-window";
+  readonly capturedAtTick120: number;
+  readonly rawRunSeed: CanonicalRunBehaviorFactsOptions["rawRunSeed"];
+  readonly sourceWindow: Readonly<{
+    readonly firstTick120: number;
+    readonly lastTick120: number;
+  }>;
+  readonly roomTickCount: number;
+  readonly activeUnionTickCount: number;
+  readonly canonicalEventWrites: 0;
+}
+
+export interface CanonicalRunFirstRoomRecentInputSupplementReceipt {
+  readonly [canonicalRunFirstRoomRecentInputSupplementReceiptBrand]: true;
+}
+
+interface CanonicalRunBehaviorFactsReceiptRecord {
+  readonly facts: CanonicalRunBehaviorFactsSnapshot;
+  readonly lineage: CanonicalRunBehaviorLineageIdentity;
+}
+
+interface CanonicalRunFirstRoomRecentInputSupplementReceiptRecord {
+  readonly source: CanonicalRunFirstRoomRecentInputSupplementSource;
+  readonly lineage: CanonicalRunBehaviorLineageIdentity;
+}
+
 const CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS = new WeakMap<
   object,
-  CanonicalRunBehaviorFactsSnapshot
+  CanonicalRunBehaviorFactsReceiptRecord
 >();
+const CANONICAL_RUN_FIRST_ROOM_RECENT_INPUT_SUPPLEMENT_RECEIPTS = new WeakMap<
+  object,
+  CanonicalRunFirstRoomRecentInputSupplementReceiptRecord
+>();
+
+function behaviorFactsReceiptRecord(
+  value: CanonicalRunBehaviorFactsReceipt,
+): CanonicalRunBehaviorFactsReceiptRecord {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("behavior facts receipt must be an opaque object");
+  }
+  const record = CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS.get(value);
+  if (record === undefined) throw new Error("behavior facts receipt was not issued by a live ledger");
+  return record;
+}
+
+function recentInputSupplementReceiptRecord(
+  value: CanonicalRunFirstRoomRecentInputSupplementReceipt,
+): CanonicalRunFirstRoomRecentInputSupplementReceiptRecord {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("first-room recent-input supplement receipt must be an opaque object");
+  }
+  const record = CANONICAL_RUN_FIRST_ROOM_RECENT_INPUT_SUPPLEMENT_RECEIPTS.get(value);
+  if (record === undefined) {
+    throw new Error("first-room recent-input supplement receipt was not issued by a live ledger");
+  }
+  return record;
+}
 
 export function behaviorFactsFromCanonicalReceipt(
   value: CanonicalRunBehaviorFactsReceipt,
 ): CanonicalRunBehaviorFactsSnapshot {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("behavior facts receipt must be an opaque object");
-  }
-  const facts = CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS.get(value);
-  if (facts === undefined) throw new Error("behavior facts receipt was not issued by a live ledger");
-  return facts;
+  return behaviorFactsReceiptRecord(value).facts;
+}
+
+export function behaviorFactsLineageFromCanonicalReceipt(
+  value: CanonicalRunBehaviorFactsReceipt,
+): CanonicalRunBehaviorLineageIdentity {
+  return behaviorFactsReceiptRecord(value).lineage;
+}
+
+export function firstRoomRecentInputSupplementFromCanonicalReceipt(
+  value: CanonicalRunFirstRoomRecentInputSupplementReceipt,
+): CanonicalRunFirstRoomRecentInputSupplementSource {
+  return recentInputSupplementReceiptRecord(value).source;
+}
+
+export function firstRoomRecentInputLineageFromCanonicalReceipt(
+  value: CanonicalRunFirstRoomRecentInputSupplementReceipt,
+): CanonicalRunBehaviorLineageIdentity {
+  return recentInputSupplementReceiptRecord(value).lineage;
 }
 
 interface AvailabilityState {
@@ -277,6 +375,12 @@ interface InternalState {
   observedEventCount: number;
   lastObservedSequence: number | null;
   eventCountsById: Record<string, number>;
+  firstRoomRecentInput: {
+    firstTick120: number | null;
+    lastTick120: number | null;
+    roomTickCount: number;
+    activeUnionTickCount: number;
+  };
 }
 
 const OWNER_PHASES = new Set<CanonicalRunBehaviorOwnerPhase>([
@@ -489,6 +593,12 @@ function initialState(): InternalState {
     observedEventCount: 0,
     lastObservedSequence: null,
     eventCountsById: {},
+    firstRoomRecentInput: {
+      firstTick120: null,
+      lastTick120: null,
+      roomTickCount: 0,
+      activeUnionTickCount: 0,
+    },
   });
 }
 
@@ -510,20 +620,74 @@ function cloneState(value: InternalState): InternalState {
       activeOccurrenceTickCounts: {...value.runCombat.activeOccurrenceTickCounts},
     },
     eventCountsById: {...value.eventCountsById},
+    firstRoomRecentInput: {...value.firstRoomRecentInput},
   };
+}
+
+function captureInputConsumption(
+  value: unknown,
+): Readonly<CanonicalRunBehaviorInputConsumption> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("behavior facts inputConsumption must be an exact object");
+  }
+  const prototype = Object.getPrototypeOf(value) as object | null;
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error("behavior facts inputConsumption must be a plain object");
+  }
+  const expected = ["focus", "gaze", "movement", "signal"];
+  const keys = Reflect.ownKeys(value).sort((left, right) => compareCodePoints(String(left), String(right)));
+  if (
+    keys.length !== expected.length
+    || keys.some((key, index) => typeof key !== "string" || key !== expected[index])
+  ) {
+    throw new Error("behavior facts inputConsumption must contain only movement, signal, focus, and gaze");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const captured: Record<string, boolean> = {};
+  for (const key of expected) {
+    const descriptor = descriptors[key];
+    if (
+      descriptor === undefined
+      || !("value" in descriptor)
+      || descriptor.enumerable !== true
+      || typeof descriptor.value !== "boolean"
+    ) {
+      throw new Error(`behavior facts inputConsumption.${key} must be an enumerable boolean data property`);
+    }
+    captured[key] = descriptor.value;
+  }
+  return Object.freeze({
+    movement: captured.movement as boolean,
+    signal: captured.signal as boolean,
+    focus: captured.focus as boolean,
+    gaze: captured.gaze as boolean,
+  });
 }
 
 function validateAcceptedTick(
   value: CanonicalRunBehaviorAcceptedTick,
   previousTick120: number,
-): void {
+): Readonly<CanonicalRunBehaviorInputConsumption> {
   if (!OWNER_PHASES.has(value.ownerPhase)) throw new Error("behavior facts owner phase is invalid");
+  const inputConsumption = captureInputConsumption(value.inputConsumption);
+  if (value.ownerPhase === "room_sampling" && inputConsumption.gaze !== true) {
+    throw new Error("behavior facts room_sampling must consume the Gaze channel");
+  }
   const tick120 = safeNonNegativeInteger(value.requested.tick120, "behavior facts tick120");
   if (tick120 !== previousTick120 + 1) {
     throw new Error(`behavior facts must advance one accepted tick: ${previousTick120} -> ${tick120}`);
   }
   finite(value.requested.movement.x, "behavior facts requested movement.x");
   finite(value.requested.movement.y, "behavior facts requested movement.y");
+  if (typeof value.requested.signalActive !== "boolean") {
+    throw new Error("behavior facts requested signalActive must be boolean");
+  }
+  if (typeof value.requested.focused !== "boolean") {
+    throw new Error("behavior facts requested focused must be boolean");
+  }
+  if (typeof value.requested.gaze.skyEyeVisible !== "boolean") {
+    throw new Error("behavior facts requested Gaze visibility must be boolean");
+  }
   finite(value.requested.gaze.pitchDegrees, "behavior facts requested gaze pitch");
   finite(value.requested.gaze.alignment, "behavior facts requested gaze alignment");
   finite(value.committed.player.position.x, "behavior facts committed player x");
@@ -554,6 +718,7 @@ function validateAcceptedTick(
     nonEmpty(value.committed.activeOccurrenceId, "behavior facts occurrenceId");
   }
   safeNonNegativeInteger(value.committed.sourceEventCount, "behavior facts source event count");
+  return inputConsumption;
 }
 
 /**
@@ -564,6 +729,9 @@ function validateAcceptedTick(
 export class CanonicalRunBehaviorFactLedger {
   private readonly rawRunSeed: CanonicalRunBehaviorFactsOptions["rawRunSeed"];
   private readonly baselineEventCount: number;
+  private readonly lineage = Object.freeze(
+    Object.create(null),
+  ) as CanonicalRunBehaviorLineageIdentity;
   private state: InternalState = initialState();
 
   constructor(options: CanonicalRunBehaviorFactsOptions) {
@@ -573,7 +741,7 @@ export class CanonicalRunBehaviorFactLedger {
   }
 
   recordAcceptedTick(value: CanonicalRunBehaviorAcceptedTick): void {
-    validateAcceptedTick(value, this.state.tick120);
+    const inputConsumption = validateAcceptedTick(value, this.state.tick120);
     const next = cloneState(this.state);
     const tick120 = value.requested.tick120;
     next.tick120 = tick120;
@@ -643,16 +811,48 @@ export class CanonicalRunBehaviorFactLedger {
       requested.gaze.alignment,
       "gaze alignment sum",
     );
-    if (
+    const gazeQualified = (
       requested.gaze.skyEyeVisible
       && requested.gaze.pitchDegrees >= GAZE_AUTHORITY_CONTRACT.pitchThresholdDegrees
       && requested.gaze.alignment >= GAZE_AUTHORITY_CONTRACT.alignmentThreshold
-    ) {
+    );
+    if (gazeQualified) {
       next.requested.gazeQualifiedInputTickCount = addCount(
         next.requested.gazeQualifiedInputTickCount,
         1,
         "qualified gaze input ticks",
       );
+    }
+
+    const recentInput = next.firstRoomRecentInput;
+    if (
+      value.ownerPhase === "room_sampling"
+      && recentInput.roomTickCount < FIRST_ROOM_TICK_COUNT
+    ) {
+      if (recentInput.firstTick120 === null) {
+        recentInput.firstTick120 = tick120;
+      } else if (recentInput.lastTick120 === null || tick120 !== recentInput.lastTick120 + 1) {
+        throw new Error("behavior facts first-room input window must be contiguous");
+      }
+      recentInput.lastTick120 = tick120;
+      recentInput.roomTickCount = addCount(
+        recentInput.roomTickCount,
+        1,
+        "first-room recent-input room ticks",
+      );
+      const active = (
+        (inputConsumption.movement && movementMagnitude > 0)
+        || (inputConsumption.signal && requested.signalActive)
+        || (inputConsumption.focus && requested.focused)
+        || (inputConsumption.gaze && gazeQualified)
+      );
+      if (active) {
+        recentInput.activeUnionTickCount = addCount(
+          recentInput.activeUnionTickCount,
+          1,
+          "first-room recent-input active union ticks",
+        );
+      }
     }
     if (requested.overridePressed) {
       next.requested.overridePressedEdgeCount = addCount(
@@ -899,7 +1099,59 @@ export class CanonicalRunBehaviorFactLedger {
       throw new Error("behavior facts cannot issue a receipt before the first accepted tick");
     }
     const receipt = Object.freeze(Object.create(null)) as CanonicalRunBehaviorFactsReceipt;
-    CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS.set(receipt, this.#snapshotCurrent());
+    CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS.set(receipt, Object.freeze({
+      facts: this.#snapshotCurrent(),
+      lineage: this.lineage,
+    }));
+    return receipt;
+  }
+
+  /** Issue the exact closed first-room union source; later rolling ticks cannot reissue it. */
+  issueFirstRoomRecentInputSupplementReceipt():
+    CanonicalRunFirstRoomRecentInputSupplementReceipt {
+    const recentInput = this.state.firstRoomRecentInput;
+    if (
+      recentInput.roomTickCount !== FIRST_ROOM_TICK_COUNT
+      || recentInput.firstTick120 === null
+      || recentInput.lastTick120 === null
+      || recentInput.lastTick120 - recentInput.firstTick120 + 1 !== FIRST_ROOM_TICK_COUNT
+      || this.state.tick120 !== recentInput.lastTick120
+    ) {
+      throw new Error(
+        "first-room recent-input supplement receipt requires the exact closed 1702-tick room window",
+      );
+    }
+    if (
+      recentInput.activeUnionTickCount < 0
+      || recentInput.activeUnionTickCount > recentInput.roomTickCount
+    ) {
+      throw new Error("first-room recent-input active union is outside its room window");
+    }
+    const source = deepFreeze({
+      availability: "available" as const,
+      authority: RECENT_INPUT_SUPPLEMENT_AUTHORITY,
+      schemaVersion: RECENT_INPUT_SUPPLEMENT_SCHEMA_VERSION,
+      producerId: RECENT_INPUT_SUPPLEMENT_PRODUCER_ID,
+      producerVersion: RECENT_INPUT_SUPPLEMENT_PRODUCER_VERSION,
+      extensionPolicy: "EXT-2026-011" as const,
+      sourceEpoch: "first-authored-room-input-window" as const,
+      capturedAtTick120: recentInput.lastTick120,
+      rawRunSeed: this.rawRunSeed,
+      sourceWindow: {
+        firstTick120: recentInput.firstTick120,
+        lastTick120: recentInput.lastTick120,
+      },
+      roomTickCount: recentInput.roomTickCount,
+      activeUnionTickCount: recentInput.activeUnionTickCount,
+      canonicalEventWrites: 0 as const,
+    }) satisfies CanonicalRunFirstRoomRecentInputSupplementSource;
+    const receipt = Object.freeze(
+      Object.create(null),
+    ) as CanonicalRunFirstRoomRecentInputSupplementReceipt;
+    CANONICAL_RUN_FIRST_ROOM_RECENT_INPUT_SUPPLEMENT_RECEIPTS.set(
+      receipt,
+      Object.freeze({source, lineage: this.lineage}),
+    );
     return receipt;
   }
 

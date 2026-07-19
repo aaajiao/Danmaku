@@ -4,9 +4,14 @@ import {CanonicalEventBus} from "./events";
 import {
   CanonicalRunBehaviorFactLedger,
   behaviorFactsFromCanonicalReceipt,
+  behaviorFactsLineageFromCanonicalReceipt,
+  firstRoomRecentInputLineageFromCanonicalReceipt,
+  firstRoomRecentInputSupplementFromCanonicalReceipt,
   type CanonicalRunBehaviorAcceptedTick,
   type CanonicalRunBehaviorCountEntry,
   type CanonicalRunBehaviorFactsReceipt,
+  type CanonicalRunBehaviorInputConsumption,
+  type CanonicalRunFirstRoomRecentInputSupplementReceipt,
 } from "./run-behavior-facts";
 import {PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND} from "./pattern-executor";
 import {
@@ -61,6 +66,12 @@ function acceptedLedgerTick(
 ): CanonicalRunBehaviorAcceptedTick {
   return {
     ownerPhase: "quiet_awakening",
+    inputConsumption: {
+      movement: true,
+      signal: true,
+      focus: false,
+      gaze: false,
+    },
     requested: {
       tick120,
       movement: {x: 0, y: 0},
@@ -102,6 +113,48 @@ function acceptedLedgerTick(
       activeOccurrenceId: null,
       canonicalEvents: [],
       sourceEventCount,
+    },
+  };
+}
+
+interface RoomLedgerTickOptions {
+  readonly movement?: Readonly<{readonly x: number; readonly y: number}>;
+  readonly signalActive?: boolean;
+  readonly focused?: boolean;
+  readonly gaze?: Readonly<{
+    readonly skyEyeVisible: boolean;
+    readonly pitchDegrees: number;
+    readonly alignment: number;
+  }>;
+  readonly inputConsumption?: CanonicalRunBehaviorInputConsumption;
+}
+
+function roomLedgerTick(
+  tick120: number,
+  options: RoomLedgerTickOptions = {},
+): CanonicalRunBehaviorAcceptedTick {
+  const base = acceptedLedgerTick(tick120, 0);
+  return {
+    ...base,
+    ownerPhase: "room_sampling",
+    inputConsumption: options.inputConsumption ?? {
+      movement: false,
+      signal: false,
+      focus: false,
+      gaze: true,
+    },
+    requested: {
+      ...base.requested,
+      movement: options.movement ?? base.requested.movement,
+      signalActive: options.signalActive ?? base.requested.signalActive,
+      focused: options.focused ?? base.requested.focused,
+      gaze: options.gaze ?? base.requested.gaze,
+    },
+    committed: {
+      ...base.committed,
+      gaze: {...base.committed.gaze, tick120},
+      roomId: "FORCED_ALIGNMENT",
+      runCombatAvailable: true,
     },
   };
 }
@@ -320,6 +373,142 @@ describe("EXT-2026-006 canonical Run rolling behavior facts", () => {
     expect(() => behaviorFactsFromCanonicalReceipt(
       Object.freeze({}) as CanonicalRunBehaviorFactsReceipt,
     )).toThrow(/receipt.*not issued/);
+  });
+
+  it("keeps the first-room input union private, bounded, atomic, and lineage-bound", () => {
+    const ledger = new CanonicalRunBehaviorFactLedger({
+      rawRunSeed: OPTIONS.rawRunSeed,
+      baselineEvents: [],
+    });
+    expect(() => ledger.issueFirstRoomRecentInputSupplementReceipt())
+      .toThrow(/exact closed 1702-tick room window/);
+
+    ledger.recordAcceptedTick(roomLedgerTick(1, {
+      movement: {x: 1, y: 0},
+      signalActive: true,
+      focused: true,
+      gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+      inputConsumption: {movement: true, signal: true, focus: true, gaze: true},
+    }));
+    for (const tick120 of [2, 3]) {
+      ledger.recordAcceptedTick(roomLedgerTick(tick120, {
+        signalActive: true,
+        inputConsumption: {movement: false, signal: true, focus: false, gaze: true},
+      }));
+    }
+    ledger.recordAcceptedTick(roomLedgerTick(4, {
+      movement: {x: 1, y: 0},
+      inputConsumption: {movement: false, signal: false, focus: false, gaze: true},
+    }));
+    ledger.recordAcceptedTick(roomLedgerTick(5, {
+      gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+      inputConsumption: {movement: false, signal: false, focus: false, gaze: true},
+    }));
+    ledger.recordAcceptedTick(roomLedgerTick(6, {
+      gaze: {skyEyeVisible: false, pitchDegrees: 60, alignment: 1},
+    }));
+    ledger.recordAcceptedTick(roomLedgerTick(7, {
+      gaze: {skyEyeVisible: true, pitchDegrees: 0, alignment: 0},
+    }));
+
+    const beforeInvalid = ledger.canonicalSerialization();
+    expect(() => ledger.recordAcceptedTick({
+      ...roomLedgerTick(8),
+      inputConsumption: {
+        movement: false,
+        signal: false,
+        focus: false,
+        gaze: true,
+        extra: false,
+      } as unknown as CanonicalRunBehaviorInputConsumption,
+    })).toThrow(/must contain only/);
+    expect(() => ledger.recordAcceptedTick({
+      ...roomLedgerTick(8),
+      inputConsumption: {
+        movement: 0,
+        signal: false,
+        focus: false,
+        gaze: true,
+      } as unknown as CanonicalRunBehaviorInputConsumption,
+    })).toThrow(/movement.*boolean/);
+    expect(() => ledger.recordAcceptedTick({
+      ...roomLedgerTick(8, {movement: {x: 1, y: 0}}),
+      inputConsumption: {movement: true, signal: false, focus: false, gaze: false},
+    })).toThrow(/room_sampling must consume the Gaze channel/);
+    expect(() => ledger.recordAcceptedTick({
+      ...roomLedgerTick(8, {
+        focused: true,
+        inputConsumption: {movement: false, signal: false, focus: true, gaze: true},
+      }),
+      committed: {
+        ...roomLedgerTick(8).committed,
+        sourceEventCount: 1,
+      },
+    })).toThrow(/event cursor diverged/);
+    expect(ledger.canonicalSerialization()).toBe(beforeInvalid);
+
+    for (let tick120 = 8; tick120 <= 1702; tick120 += 1) {
+      ledger.recordAcceptedTick(roomLedgerTick(tick120));
+    }
+    const publicBytes = ledger.canonicalSerialization();
+    expect(publicBytes).not.toContain("recent-input");
+    expect(publicBytes).not.toContain("activeUnionTickCount");
+    expect("firstRoomRecentInput" in ledger.snapshot()).toBe(false);
+
+    const factsReceipt = ledger.issueCurrentSnapshotReceipt();
+    const supplementReceipt = ledger.issueFirstRoomRecentInputSupplementReceipt();
+    const source = firstRoomRecentInputSupplementFromCanonicalReceipt(supplementReceipt);
+    expect(source).toEqual({
+      availability: "available",
+      authority: "canonical-run-first-room-recent-input-supplement-v1",
+      schemaVersion: "1.0.0-ext-2026-011",
+      producerId: "canonical-run-behavior-facts.first-room-recent-input-observer",
+      producerVersion: "1.0.0",
+      extensionPolicy: "EXT-2026-011",
+      sourceEpoch: "first-authored-room-input-window",
+      capturedAtTick120: 1702,
+      rawRunSeed: OPTIONS.rawRunSeed,
+      sourceWindow: {firstTick120: 1, lastTick120: 1702},
+      roomTickCount: 1702,
+      activeUnionTickCount: 4,
+      canonicalEventWrites: 0,
+    });
+    expect(isDeepFrozen(source)).toBe(true);
+    expect(firstRoomRecentInputLineageFromCanonicalReceipt(supplementReceipt))
+      .toBe(behaviorFactsLineageFromCanonicalReceipt(factsReceipt));
+    expect(() => firstRoomRecentInputSupplementFromCanonicalReceipt(
+      Object.freeze({}) as CanonicalRunFirstRoomRecentInputSupplementReceipt,
+    )).toThrow(/receipt.*not issued/);
+
+    ledger.recordAcceptedTick(roomLedgerTick(1703, {
+      focused: true,
+      inputConsumption: {movement: false, signal: false, focus: true, gaze: true},
+    }));
+    expect(firstRoomRecentInputSupplementFromCanonicalReceipt(supplementReceipt)).toEqual(source);
+    expect(() => ledger.issueFirstRoomRecentInputSupplementReceipt())
+      .toThrow(/exact closed 1702-tick room window/);
+  });
+
+  it("assigns a distinct opaque lineage to each ledger", () => {
+    const first = new CanonicalRunBehaviorFactLedger({
+      rawRunSeed: OPTIONS.rawRunSeed,
+      baselineEvents: [],
+    });
+    const second = new CanonicalRunBehaviorFactLedger({
+      rawRunSeed: OPTIONS.rawRunSeed,
+      baselineEvents: [],
+    });
+    first.recordAcceptedTick(acceptedLedgerTick(1, 0));
+    second.recordAcceptedTick(acceptedLedgerTick(1, 0));
+    const firstLineage = behaviorFactsLineageFromCanonicalReceipt(
+      first.issueCurrentSnapshotReceipt(),
+    );
+    const secondLineage = behaviorFactsLineageFromCanonicalReceipt(
+      second.issueCurrentSnapshotReceipt(),
+    );
+    expect(firstLineage).not.toBe(secondLineage);
+    expect(Object.isFrozen(firstLineage)).toBe(true);
+    expect(Object.isFrozen(secondLineage)).toBe(true);
   });
 
   it("attributes transition ticks to the pre-step owner and withholds room context through H", () => {

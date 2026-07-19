@@ -24,6 +24,7 @@ import {
 import {
   CanonicalRunBehaviorFactLedger,
   type CanonicalRunBehaviorFactsSnapshot,
+  type CanonicalRunBehaviorInputConsumption,
   type CanonicalRunBehaviorOwnerPhase,
 } from "./run-behavior-facts";
 import {
@@ -374,7 +375,7 @@ export interface CanonicalRunSessionSnapshot {
   readonly firstOccurrenceObservationCapture: CanonicalRunFirstOccurrenceObservationCapture;
   /** Frozen `[1,H+1702]` room closure; target selection and transition stay withheld. */
   readonly firstRoomClosureCapture: CanonicalRunFirstRoomClosureCapture;
-  /** At closure: two exact ratios plus twelve typed absences; never composer-ready. */
+  /** At closure: three exact ratios plus eleven typed absences; never composer-ready. */
   readonly firstRoomMetricProjection: CanonicalRunFirstRoomMetricProjection;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
@@ -400,6 +401,18 @@ function deepFreezeJson<T>(value: T): T {
     return Object.freeze(copy) as T;
   }
   return value;
+}
+
+function bodyGatedInputConsumption(
+  bodyInputEligible: boolean,
+  movementChannelEnabled: boolean,
+): Readonly<CanonicalRunBehaviorInputConsumption> {
+  return Object.freeze({
+    movement: bodyInputEligible && movementChannelEnabled,
+    signal: bodyInputEligible,
+    focus: bodyInputEligible,
+    gaze: true,
+  });
 }
 
 function compareCodePoints(left: string, right: string): number {
@@ -1058,10 +1071,11 @@ export class CanonicalRunSession {
       const ownerPhase: CanonicalRunBehaviorOwnerPhase = this.phaseValue;
       const eventCountBefore = this.bus.committedEventCount();
       try {
+        const inputConsumption = this.captureBehaviorInputConsumption(ownerPhase, validated);
         if (this.phaseValue === "quiet_awakening") this.stepAwakening(validated);
         else if (this.phaseValue === "room_sampling") this.stepRoomSampling(validated);
         else this.stepFirstEye(validated);
-        this.recordBehaviorFacts(ownerPhase, validated, eventCountBefore);
+        this.recordBehaviorFacts(ownerPhase, inputConsumption, validated, eventCountBefore);
         this.capturePreRoomBehaviorFacts(ownerPhase);
         this.captureFirstOccurrenceObservation(ownerPhase);
         this.captureFirstRoomClosure(ownerPhase);
@@ -1184,6 +1198,7 @@ export class CanonicalRunSession {
 
   private recordBehaviorFacts(
     ownerPhase: CanonicalRunBehaviorOwnerPhase,
+    inputConsumption: Readonly<CanonicalRunBehaviorInputConsumption>,
     input: ValidatedStepInput,
     eventCountBefore: number,
   ): void {
@@ -1204,6 +1219,7 @@ export class CanonicalRunSession {
       || playerInputEligibleAtTick(this.playerDamage, this.currentTick120);
     this.behaviorFacts.recordAcceptedTick({
       ownerPhase,
+      inputConsumption,
       requested: {
         tick120: input.tick120,
         movement: input.movement,
@@ -1231,6 +1247,37 @@ export class CanonicalRunSession {
         sourceEventCount,
       },
     });
+  }
+
+  private captureBehaviorInputConsumption(
+    ownerPhase: CanonicalRunBehaviorOwnerPhase,
+    input: ValidatedStepInput,
+  ): Readonly<CanonicalRunBehaviorInputConsumption> {
+    if (ownerPhase === "quiet_awakening") {
+      return Object.freeze({movement: true, signal: true, focus: false, gaze: false});
+    }
+
+    if (ownerPhase === "room_sampling") {
+      const combatState = this.combatState;
+      const roomSession = this.roomSession;
+      if (combatState === null || roomSession === null) {
+        throw new Error("ROOM_SAMPLING input consumption lost its shared authorities");
+      }
+      const bodyInputEligible = playerInputEligibleAtTick(
+        combatState.snapshot().player,
+        input.tick120,
+      );
+      const boundaries = roomSession.snapshot().boundaryTicks120;
+      const movementNeutralized = input.tick120 > boundaries.residueDeadline
+        && input.tick120 <= boundaries.fixedSliceComplete;
+      return bodyGatedInputConsumption(bodyInputEligible, !movementNeutralized);
+    }
+
+    const combat = this.combat;
+    if (combat === null) throw new Error("First Eye input consumption lost its combat authority");
+    const retainedPlayer = this.playerDamage ?? combat.snapshot().player;
+    const bodyInputEligible = playerInputEligibleAtTick(retainedPlayer, input.tick120);
+    return bodyGatedInputConsumption(bodyInputEligible, true);
   }
 
   private capturePreRoomBehaviorFacts(ownerPhase: CanonicalRunBehaviorOwnerPhase): void {
@@ -1321,15 +1368,21 @@ export class CanonicalRunSession {
     ) {
       throw new Error("first room closure capture lost its room-complete authority");
     }
+    const behaviorFactsReceipt = this.behaviorFacts.issueCurrentSnapshotReceipt();
     const closureCapture = createCanonicalRunFirstRoomClosureCapture({
-      behaviorFactsReceipt: this.behaviorFacts.issueCurrentSnapshotReceipt(),
+      behaviorFactsReceipt,
       sourceEventCount: this.bus.committedEventCount(),
       preRoomCapture,
       firstOccurrenceObservationCapture: observationCapture,
       roomSnapshot,
     });
+    const recentInputSupplementReceipt =
+      this.behaviorFacts.issueFirstRoomRecentInputSupplementReceipt();
     const metricSourceReceipt = issueCanonicalRunFirstRoomMetricSourceReceipt(closureCapture);
-    const metricProjection = createCanonicalRunFirstRoomMetricProjection(metricSourceReceipt);
+    const metricProjection = createCanonicalRunFirstRoomMetricProjection(
+      metricSourceReceipt,
+      recentInputSupplementReceipt,
+    );
     this.firstRoomClosureCaptureValue = closureCapture;
     this.firstRoomMetricProjectionValue = metricProjection;
   }
