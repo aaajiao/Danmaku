@@ -191,6 +191,29 @@ export interface CanonicalRunBehaviorFactsSnapshot {
   }>;
 }
 
+declare const canonicalRunBehaviorFactsReceiptBrand: unique symbol;
+
+/** Opaque proof that one snapshot came from a live ledger's closed current tick. */
+export interface CanonicalRunBehaviorFactsReceipt {
+  readonly [canonicalRunBehaviorFactsReceiptBrand]: true;
+}
+
+const CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS = new WeakMap<
+  object,
+  CanonicalRunBehaviorFactsSnapshot
+>();
+
+export function behaviorFactsFromCanonicalReceipt(
+  value: CanonicalRunBehaviorFactsReceipt,
+): CanonicalRunBehaviorFactsSnapshot {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("behavior facts receipt must be an opaque object");
+  }
+  const facts = CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS.get(value);
+  if (facts === undefined) throw new Error("behavior facts receipt was not issued by a live ledger");
+  return facts;
+}
+
 interface AvailabilityState {
   firstTick120: number | null;
   lastTick120: number | null;
@@ -758,7 +781,7 @@ export class CanonicalRunBehaviorFactLedger {
     this.state = deepFreeze(next);
   }
 
-  snapshot(): CanonicalRunBehaviorFactsSnapshot {
+  #snapshotCurrent(): CanonicalRunBehaviorFactsSnapshot {
     const state = this.state;
     const requested = state.requested.sampleCount === 0
       ? missing("no-accepted-tick")
@@ -861,6 +884,23 @@ export class CanonicalRunBehaviorFactLedger {
         provenance: "application-policy-EXT-2026-006" as const,
       },
     });
+  }
+
+  snapshot(): CanonicalRunBehaviorFactsSnapshot {
+    return this.#snapshotCurrent();
+  }
+
+  /**
+   * Bind a downstream boundary capture to this exact post-record state without
+   * exposing mutable ledger internals or trusting caller-reconstructed facts.
+   */
+  issueCurrentSnapshotReceipt(): CanonicalRunBehaviorFactsReceipt {
+    if (this.state.acceptedTickCount === 0) {
+      throw new Error("behavior facts cannot issue a receipt before the first accepted tick");
+    }
+    const receipt = Object.freeze(Object.create(null)) as CanonicalRunBehaviorFactsReceipt;
+    CANONICAL_RUN_BEHAVIOR_FACTS_RECEIPTS.set(receipt, this.#snapshotCurrent());
+    return receipt;
   }
 
   canonicalSerialization(): string {

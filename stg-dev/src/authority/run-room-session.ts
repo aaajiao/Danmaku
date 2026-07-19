@@ -69,6 +69,8 @@ const RELATIVE_BOUNDARY_TICKS120 = Object.freeze({
       + SERIAL_SEGMENTS_MS.rest,
   ),
 });
+const FIRST_FIXED_ROOM_CLOSURE_RELATIVE_TICK120 =
+  RELATIVE_BOUNDARY_TICKS120.fixedSliceComplete + 1;
 
 function deepFreeze<T>(value: T, seen = new Set<object>()): T {
   if (typeof value !== "object" || value === null || seen.has(value)) return value;
@@ -143,6 +145,9 @@ function assertFixedBootstrapSource(): void {
     || !inRange(SERIAL_SEGMENTS_MS.entry, entry[0]?.durationMs ?? [])
     || read.length !== 1
     || !inRange(SERIAL_SEGMENTS_MS.read, read[0]?.durationMs ?? [])
+    || read[0]?.patternSlots?.length !== 2
+    || read[0]?.patternSlots?.[0] !== 1
+    || read[0]?.patternSlots?.[1] !== 3
     || materialSettle.length !== 1
     || !inRange(SERIAL_SEGMENTS_MS.materialSettle, materialSettle[0]?.durationMs ?? [])
     || materialSettle[0]?.newSpawns !== false
@@ -177,6 +182,7 @@ function assertFixedBootstrapSource(): void {
     || RELATIVE_BOUNDARY_TICKS120.rest !== 1509
     || RELATIVE_BOUNDARY_TICKS120.residueDrained !== 1699
     || RELATIVE_BOUNDARY_TICKS120.fixedSliceComplete !== 1701
+    || FIRST_FIXED_ROOM_CLOSURE_RELATIVE_TICK120 !== 1702
   ) {
     throw new Error("EXT-2026-005 cumulative tick projection drifted");
   }
@@ -223,6 +229,35 @@ export const RUN_ROOM_SESSION_CONTRACT = deepFreeze({
   },
 });
 
+export const FIRST_FIXED_ROOM_CLOSURE_CONTRACT = deepFreeze({
+  schemaVersion: "1.0.0-ext-2026-009-first-fixed-room-closure" as const,
+  authority: "single-occurrence-fixed-bootstrap-room-closure" as const,
+  extensionPolicy: "EXT-2026-009" as const,
+  roomId: ROOM_ID,
+  roomOrdinal: 0 as const,
+  plannedOccurrenceCount: 1 as const,
+  completedOccurrenceCount: 1 as const,
+  remainingOccurrenceCount: 0 as const,
+  closureRelativeTick120: FIRST_FIXED_ROOM_CLOSURE_RELATIVE_TICK120,
+  roomComplete: true as const,
+  handoffReady: false as const,
+  selectionRngDraws: 0 as const,
+  canonicalEventWrites: 0 as const,
+  parentCanonicalEventIds: Object.freeze([
+    "flower.intensity.commit",
+    "gaze.acquire.begin",
+    "gaze.acquire.cancel",
+    "gaze.clamp.commit",
+    "gaze.release.begin",
+    "gaze.release.cancel",
+    "gaze.clamp.release",
+  ] as const),
+  metricProjection: false as const,
+  selectionAllowed: false as const,
+  transitionAllowed: false as const,
+  targetRoom: null,
+});
+
 export interface DomainTaggedRawRunSeed {
   readonly domain: "raw-run-seed";
   readonly value: number;
@@ -246,7 +281,8 @@ export type CanonicalRunRoomSessionPhase =
   | "read"
   | "material_settle"
   | "rest"
-  | "first_room_slice_complete";
+  | "first_room_slice_complete"
+  | "first_room_complete";
 
 export interface CanonicalRunRoomSessionBoundaryTicks {
   readonly start: number;
@@ -260,7 +296,7 @@ export interface CanonicalRunRoomSessionBoundaryTicks {
 
 export interface CanonicalRunRoomSessionSnapshot {
   readonly authority: "canonical-run-room-session-v4";
-  readonly extensionPolicy: "EXT-2026-005";
+  readonly extensionPolicy: "EXT-2026-005" | "EXT-2026-009";
   readonly phase: CanonicalRunRoomSessionPhase;
   readonly tick120: number;
   readonly relativeTick120: number;
@@ -290,7 +326,7 @@ export interface CanonicalRunRoomSessionSnapshot {
     readonly residueVisuals: number;
   }>;
   readonly fixedSliceComplete: boolean;
-  readonly roomComplete: false;
+  readonly roomComplete: boolean;
   readonly handoffReady: false;
   readonly faulted: boolean;
   readonly adapterPolicy: Readonly<{
@@ -301,8 +337,12 @@ export interface CanonicalRunRoomSessionSnapshot {
     readonly overrideEdges: "screened-without-reading";
     readonly tickClosure: "shared-run-combat-state-sole-flush-owner";
     readonly terminalTail: "residue-drained-at-H+1699-plus-two-neutral-ticks";
-    readonly completion: "slice-only-no-room-completion-or-handoff";
-    readonly provenance: "application-policy-EXT-2026-005";
+    readonly completion:
+      | "slice-only-no-room-completion-or-handoff"
+      | "single-occurrence-room-close-no-handoff";
+    readonly provenance:
+      | "application-policy-EXT-2026-005"
+      | "application-policy-EXT-2026-009";
   }>;
 }
 
@@ -349,10 +389,12 @@ interface RunRoomInternals {
   readonly runState: CanonicalRunCombatState;
   readonly boundaries: Readonly<CanonicalRunRoomSessionBoundaryTicks>;
   readonly sourceEvents: readonly CanonicalGameplayEvent[];
+  readonly sourceClaimedOccurrenceIds: readonly string[];
   combat: CanonicalCombatKernel | null;
   latestCombat: CanonicalCombatSnapshot | null;
   tick120: number;
   fixedSliceComplete: boolean;
+  roomComplete: boolean;
   advancing: boolean;
   fault: Error | null;
 }
@@ -593,7 +635,7 @@ function captureStepInput(value: CanonicalCombatStepInput): CapturedStepInput {
 }
 
 function absoluteBoundaries(handoffTick120: number): Readonly<CanonicalRunRoomSessionBoundaryTicks> {
-  if (handoffTick120 > Number.MAX_SAFE_INTEGER - RELATIVE_BOUNDARY_TICKS120.fixedSliceComplete) {
+  if (handoffTick120 > Number.MAX_SAFE_INTEGER - FIRST_FIXED_ROOM_CLOSURE_RELATIVE_TICK120) {
     throw new Error("run room handoff tick cannot represent the fixed slice boundaries safely");
   }
   return Object.freeze({
@@ -662,6 +704,7 @@ function internalsFor(session: CanonicalRunRoomSession): RunRoomInternals {
 }
 
 function phaseFor(internals: RunRoomInternals): CanonicalRunRoomSessionPhase {
+  if (internals.roomComplete) return "first_room_complete";
   if (internals.fixedSliceComplete) return "first_room_slice_complete";
   if (internals.tick120 < internals.boundaries.telegraphEnd) return "telegraph";
   if (internals.tick120 < internals.boundaries.read) return "entry";
@@ -699,6 +742,17 @@ function assertSynchronized(internals: RunRoomInternals): CanonicalRunCombatStat
     throw new Error("run room shared occurrence ownership drifted");
   }
   return runCombat;
+}
+
+function assertSharedCanonicalTraceAligned(internals: RunRoomInternals): void {
+  const busEvents = CanonicalEventBus.prototype.events.call(internals.eventBus);
+  const stateEvents = CanonicalRunCombatState.prototype.events.call(internals.runState);
+  if (
+    busEvents.length !== stateEvents.length
+    || stateEvents.some((event, index) => event !== busEvents[index])
+  ) {
+    throw new Error("run room eventBus and runState canonical traces diverged");
+  }
 }
 
 function sanitizedInput(input: CapturedStepInput): CanonicalCombatStepInput {
@@ -744,6 +798,109 @@ const ADAPTER_POLICY = deepFreeze({
   provenance: "application-policy-EXT-2026-005" as const,
 });
 
+const CLOSURE_ADAPTER_POLICY = deepFreeze({
+  ...ADAPTER_POLICY,
+  completion: "single-occurrence-room-close-no-handoff" as const,
+  provenance: "application-policy-EXT-2026-009" as const,
+});
+
+const CLOSURE_PARENT_EVENT_IDS = new Set<string>(
+  FIRST_FIXED_ROOM_CLOSURE_CONTRACT.parentCanonicalEventIds,
+);
+
+function expectedClaimedOccurrenceIds(internals: RunRoomInternals): readonly string[] {
+  return Object.freeze(
+    [...internals.sourceClaimedOccurrenceIds, OCCURRENCE_ID].sort((left, right) =>
+      left < right ? -1 : left > right ? 1 : 0),
+  );
+}
+
+function assertClaimedOccurrencePrefix(
+  internals: RunRoomInternals,
+  runCombat: CanonicalRunCombatStateSnapshot,
+): void {
+  const expected = expectedClaimedOccurrenceIds(internals);
+  if (
+    runCombat.claimedOccurrenceIds.length !== expected.length
+    || runCombat.claimedOccurrenceIds.some((id, index) => id !== expected[index])
+  ) {
+    throw new Error("run room closure requires exactly the inherited and fixed occurrence identities");
+  }
+}
+
+function assertFirstFixedRoomClosureReady(
+  internals: RunRoomInternals,
+  runCombat: CanonicalRunCombatStateSnapshot,
+): void {
+  assertSharedCanonicalTraceAligned(internals);
+  const latest = internals.latestCombat;
+  const entities = entitiesFor(latest);
+  if (
+    internals.tick120 !== internals.boundaries.fixedSliceComplete
+    || !internals.fixedSliceComplete
+    || internals.roomComplete
+    || latest === null
+    || !latest.patternComplete
+    || !latest.digitalBodiesDrained
+    || latest.materialResidueDraining
+    || !latest.projectileLifecycleDrained
+    || !latest.runTimedStateQuiescent
+    || !latest.handoffReady
+    || latest.projectiles.length !== 0
+    || latest.poolUsage.liveColliders !== 0
+    || latest.poolUsage.residueVisuals !== 0
+    || entities.digitalBodies !== 0
+    || entities.liveColliders !== 0
+    || entities.residueVisuals !== 0
+  ) {
+    throw new Error("run room closure requires the fully drained fixed occurrence slice");
+  }
+  if (
+    runCombat.activeOccurrenceId !== null
+    || runCombat.pendingFlushTick120 !== null
+    || runCombat.faulted
+    || runCombat.player.state === "run-ended"
+    || runCombat.player.recoveryAtTick120 !== null
+    || runCombat.player.respawnPlaceAtTick120 !== null
+    || runCombat.player.respawnCompleteAtTick120 !== null
+    || runCombat.override.state !== "idle"
+    || runCombat.override.deadlineTick120 !== null
+    || runCombat.override.localVoid !== null
+  ) {
+    throw new Error("run room closure requires quiescent non-terminal shared run authority");
+  }
+  assertClaimedOccurrencePrefix(internals, runCombat);
+}
+
+function assertFirstFixedRoomClosurePostflight(
+  internals: RunRoomInternals,
+  runCombat: CanonicalRunCombatStateSnapshot,
+  committedEventsBefore: readonly CanonicalGameplayEvent[],
+): void {
+  assertSharedCanonicalTraceAligned(internals);
+  if (
+    internals.tick120
+      !== internals.boundaries.start + FIRST_FIXED_ROOM_CLOSURE_RELATIVE_TICK120
+    || runCombat.tick120 !== internals.tick120
+    || runCombat.activeOccurrenceId !== null
+    || runCombat.pendingFlushTick120 !== null
+    || runCombat.faulted
+    || runCombat.player.state === "run-ended"
+  ) {
+    throw new Error("run room closure did not close the exact H+1702 idle tick");
+  }
+  assertClaimedOccurrencePrefix(internals, runCombat);
+  const committedEventsAfter = CanonicalEventBus.prototype.events.call(internals.eventBus);
+  if (
+    committedEventsAfter.length < committedEventsBefore.length
+    || committedEventsBefore.some((event, index) => committedEventsAfter[index] !== event)
+    || committedEventsAfter.slice(committedEventsBefore.length).some((event) =>
+      event.tick120 !== internals.tick120 || !CLOSURE_PARENT_EVENT_IDS.has(event.id))
+  ) {
+    throw new Error("run room closure accepts only the existing same-tick Gaze/Flower event suffix");
+  }
+}
+
 /**
  * EXT-2026-005's fixed first-room owner switch. It consumes no selection RNG,
  * invents no room-enter event, and keeps the First Eye bus/state as the only
@@ -777,10 +934,12 @@ export class CanonicalRunRoomSession {
       runState: options.runState,
       boundaries,
       sourceEvents,
+      sourceClaimedOccurrenceIds: Object.freeze(beforeState.claimedOccurrenceIds.slice()),
       combat: null,
       latestCombat: null,
       tick120: handoffTick120,
       fixedSliceComplete: false,
+      roomComplete: false,
       advancing: false,
       fault: null,
     });
@@ -805,7 +964,7 @@ export class CanonicalRunRoomSession {
       : CanonicalCombatKernel.prototype.snapshot.call(internals.combat);
     return deepFreeze({
       authority: "canonical-run-room-session-v4" as const,
-      extensionPolicy: "EXT-2026-005" as const,
+      extensionPolicy: internals.roomComplete ? "EXT-2026-009" as const : "EXT-2026-005" as const,
       phase: phaseFor(internals),
       tick120: internals.tick120,
       relativeTick120: internals.tick120 - internals.handoff.atTick120,
@@ -831,10 +990,10 @@ export class CanonicalRunRoomSession {
       runCombat,
       entities: entitiesFor(combat),
       fixedSliceComplete: internals.fixedSliceComplete,
-      roomComplete: false as const,
+      roomComplete: internals.roomComplete,
       handoffReady: false as const,
       faulted: internals.fault !== null,
-      adapterPolicy: ADAPTER_POLICY,
+      adapterPolicy: internals.roomComplete ? CLOSURE_ADAPTER_POLICY : ADAPTER_POLICY,
     });
   }
 
@@ -870,6 +1029,8 @@ export class CanonicalRunRoomSession {
     try {
       const runBefore = assertSynchronized(internals);
       const tick120 = input.tick120;
+      let closeFirstFixedRoom = false;
+      let closureCommittedEventsBefore: readonly CanonicalGameplayEvent[] = Object.freeze([]);
       if (tick120 <= internals.boundaries.read) {
         CanonicalRunCombatState.prototype.stepIdle.call(
           internals.runState,
@@ -938,6 +1099,16 @@ export class CanonicalRunRoomSession {
         if (!internals.fixedSliceComplete) {
           throw new Error("run room cannot idle beyond an incomplete fixed slice");
         }
+        if (!internals.roomComplete) {
+          const expectedClosureTick120 = internals.boundaries.start
+            + FIRST_FIXED_ROOM_CLOSURE_RELATIVE_TICK120;
+          if (tick120 !== expectedClosureTick120) {
+            throw new Error("run room closure lost the exact H+1702 boundary");
+          }
+          assertFirstFixedRoomClosureReady(internals, runBefore);
+          closeFirstFixedRoom = true;
+          closureCommittedEventsBefore = CanonicalEventBus.prototype.events.call(internals.eventBus);
+        }
         CanonicalRunCombatState.prototype.stepIdle.call(
           internals.runState,
           sanitizedInput(input),
@@ -945,7 +1116,15 @@ export class CanonicalRunRoomSession {
         );
         internals.tick120 = tick120;
       }
-      assertSynchronized(internals);
+      const runAfter = assertSynchronized(internals);
+      if (closeFirstFixedRoom) {
+        assertFirstFixedRoomClosurePostflight(
+          internals,
+          runAfter,
+          closureCommittedEventsBefore,
+        );
+        internals.roomComplete = true;
+      }
       return this.snapshot();
     } catch (error) {
       internals.fault = asError(error);

@@ -3,8 +3,10 @@ import {describe, expect, it, vi} from "vitest";
 import {CanonicalEventBus} from "./events";
 import {
   CanonicalRunBehaviorFactLedger,
+  behaviorFactsFromCanonicalReceipt,
   type CanonicalRunBehaviorAcceptedTick,
   type CanonicalRunBehaviorCountEntry,
+  type CanonicalRunBehaviorFactsReceipt,
 } from "./run-behavior-facts";
 import {PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND} from "./pattern-executor";
 import {
@@ -296,6 +298,28 @@ describe("EXT-2026-006 canonical Run rolling behavior facts", () => {
 
     ledger.recordAcceptedTick(acceptedLedgerTick(2, 0));
     expect(ledger.snapshot()).toMatchObject({tick120: 2, acceptedTickCount: 2});
+  });
+
+  it("issues an opaque exact-tick receipt that cannot be forged or redirected by snapshot spies", () => {
+    const ledger = new CanonicalRunBehaviorFactLedger({
+      rawRunSeed: OPTIONS.rawRunSeed,
+      baselineEvents: [],
+    });
+    expect(() => ledger.issueCurrentSnapshotReceipt()).toThrow(/before the first accepted tick/);
+    ledger.recordAcceptedTick(acceptedLedgerTick(1, 0));
+    const exactTickOne = ledger.snapshot();
+    const hostileSnapshot = vi.spyOn(CanonicalRunBehaviorFactLedger.prototype, "snapshot")
+      .mockReturnValue(Object.freeze({...exactTickOne, tick120: 999}));
+    const receipt = ledger.issueCurrentSnapshotReceipt();
+    hostileSnapshot.mockRestore();
+
+    expect(behaviorFactsFromCanonicalReceipt(receipt)).toEqual(exactTickOne);
+    expect(isDeepFrozen(behaviorFactsFromCanonicalReceipt(receipt))).toBe(true);
+    ledger.recordAcceptedTick(acceptedLedgerTick(2, 0));
+    expect(behaviorFactsFromCanonicalReceipt(receipt)).toEqual(exactTickOne);
+    expect(() => behaviorFactsFromCanonicalReceipt(
+      Object.freeze({}) as CanonicalRunBehaviorFactsReceipt,
+    )).toThrow(/receipt.*not issued/);
   });
 
   it("attributes transition ticks to the pre-step owner and withholds room context through H", () => {

@@ -28,10 +28,14 @@ import {
 } from "./run-behavior-facts";
 import {
   CANONICAL_RUN_FIRST_OCCURRENCE_OBSERVATION_CAPTURE_MISSING,
+  CANONICAL_RUN_FIRST_ROOM_CLOSURE_CAPTURE_MISSING,
   CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING,
+  assertCanonicalRunFirstOccurrenceObservationReadyForClosure,
   createCanonicalRunFirstOccurrenceObservationCapture,
+  createCanonicalRunFirstRoomClosureCapture,
   createCanonicalRunPreRoomBehaviorCapture,
   type CanonicalRunFirstOccurrenceObservationCapture,
+  type CanonicalRunFirstRoomClosureCapture,
   type CanonicalRunPreRoomBehaviorCapture,
 } from "./run-behavior-capture";
 import {
@@ -50,6 +54,7 @@ import {
 import {playerInputEligibleAtTick} from "./player";
 import {
   CanonicalRunRoomSession,
+  FIRST_FIXED_ROOM_CLOSURE_CONTRACT,
   RUN_ROOM_SESSION_CONTRACT,
   type CanonicalRunRoomSessionSnapshot,
 } from "./run-room-session";
@@ -361,6 +366,8 @@ export interface CanonicalRunSessionSnapshot {
   readonly preRoomBehaviorCapture: CanonicalRunPreRoomBehaviorCapture;
   /** Frozen `[1,H+1701]` observation; explicitly grants no continuation authority. */
   readonly firstOccurrenceObservationCapture: CanonicalRunFirstOccurrenceObservationCapture;
+  /** Frozen `[1,H+1702]` room closure; target selection and transition stay withheld. */
+  readonly firstRoomClosureCapture: CanonicalRunFirstRoomClosureCapture;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -988,6 +995,8 @@ export class CanonicalRunSession {
   private preRoomBehaviorCaptureValue: CanonicalRunPreRoomBehaviorCapture | null = null;
   private firstOccurrenceObservationCaptureValue:
     CanonicalRunFirstOccurrenceObservationCapture | null = null;
+  private firstOccurrenceObservationCaptureSerializationValue: string | null = null;
+  private firstRoomClosureCaptureValue: CanonicalRunFirstRoomClosureCapture | null = null;
   private phaseValue: CanonicalRunSessionPhase = "quiet_awakening";
   private currentTick120 = 0;
   private phaseStartTick120 = 0;
@@ -1046,6 +1055,7 @@ export class CanonicalRunSession {
         this.recordBehaviorFacts(ownerPhase, validated, eventCountBefore);
         this.capturePreRoomBehaviorFacts(ownerPhase);
         this.captureFirstOccurrenceObservation(ownerPhase);
+        this.captureFirstRoomClosure(ownerPhase);
         return this.snapshot();
       } catch (error) {
         this.fatalError = error instanceof Error ? error : new Error(String(error));
@@ -1132,6 +1142,8 @@ export class CanonicalRunSession {
         ?? CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING,
       firstOccurrenceObservationCapture: this.firstOccurrenceObservationCaptureValue
         ?? CANONICAL_RUN_FIRST_OCCURRENCE_OBSERVATION_CAPTURE_MISSING,
+      firstRoomClosureCapture: this.firstRoomClosureCaptureValue
+        ?? CANONICAL_RUN_FIRST_ROOM_CLOSURE_CAPTURE_MISSING,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1253,10 +1265,56 @@ export class CanonicalRunSession {
       throw new Error("first occurrence observation capture lost its room slice-close authority");
     }
 
-    this.firstOccurrenceObservationCaptureValue = createCanonicalRunFirstOccurrenceObservationCapture({
+    const capture = createCanonicalRunFirstOccurrenceObservationCapture({
       behaviorFacts: this.behaviorFacts.snapshot(),
       sourceEventCount: this.bus.committedEventCount(),
       preRoomCapture,
+      roomSnapshot,
+    });
+    const serialization = JSON.stringify(capture);
+    this.firstOccurrenceObservationCaptureValue = capture;
+    this.firstOccurrenceObservationCaptureSerializationValue = serialization;
+  }
+
+  private captureFirstRoomClosure(ownerPhase: CanonicalRunBehaviorOwnerPhase): void {
+    if (this.firstRoomClosureCaptureValue !== null) return;
+    if (ownerPhase !== "room_sampling") return;
+
+    const preRoomCapture = this.preRoomBehaviorCaptureValue;
+    const observationCapture = this.firstOccurrenceObservationCaptureValue;
+    if (preRoomCapture === null || preRoomCapture.availability !== "available") {
+      throw new Error("first room closure capture lost its pre-room provenance");
+    }
+    const boundaryTick120 = preRoomCapture.capturedAtTick120
+      + FIRST_FIXED_ROOM_CLOSURE_CONTRACT.closureRelativeTick120;
+    if (this.currentTick120 < boundaryTick120) return;
+    if (this.currentTick120 !== boundaryTick120) {
+      throw new Error("first room closure capture lost the exact H+1702 boundary");
+    }
+    if (observationCapture === null || observationCapture.availability !== "available") {
+      throw new Error("first room closure capture lost its H+1701 observation");
+    }
+    if (
+      this.firstOccurrenceObservationCaptureSerializationValue === null
+      || JSON.stringify(observationCapture)
+        !== this.firstOccurrenceObservationCaptureSerializationValue
+    ) {
+      throw new Error("first room closure capture observed H+1701 byte drift");
+    }
+    const roomSnapshot = this.roomSession?.snapshot() ?? null;
+    if (
+      roomSnapshot === null
+      || roomSnapshot.tick120 !== boundaryTick120
+      || roomSnapshot.phase !== "first_room_complete"
+      || roomSnapshot.roomComplete !== true
+    ) {
+      throw new Error("first room closure capture lost its room-complete authority");
+    }
+    this.firstRoomClosureCaptureValue = createCanonicalRunFirstRoomClosureCapture({
+      behaviorFactsReceipt: this.behaviorFacts.issueCurrentSnapshotReceipt(),
+      sourceEventCount: this.bus.committedEventCount(),
+      preRoomCapture,
+      firstOccurrenceObservationCapture: observationCapture,
       roomSnapshot,
     });
   }
@@ -1523,6 +1581,7 @@ export class CanonicalRunSession {
     if (roomSession === null) throw new Error("ROOM_SAMPLING lost its fixed bootstrap authority");
     const combatState = this.combatState;
     if (combatState === null) throw new Error("ROOM_SAMPLING lost its shared run combat state");
+    this.assertFirstRoomClosurePreflight(input.tick120);
     const before = combatState.snapshot();
     const inputEligible = playerInputEligibleAtTick(before.player, input.tick120);
     const gazeAfter = this.gaze.observe(input.gaze, input.tick120);
@@ -1544,5 +1603,45 @@ export class CanonicalRunSession {
     this.focused = room.runCombat.focused;
     this.playerDamage = room.runCombat.player;
     if (room.combat !== null) this.latestCombatSnapshot = room.combat;
+  }
+
+  private assertFirstRoomClosurePreflight(nextTick120: number): void {
+    if (this.firstRoomClosureCaptureValue !== null) return;
+    const preRoomCapture = this.preRoomBehaviorCaptureValue;
+    if (preRoomCapture === null || preRoomCapture.availability !== "available") {
+      throw new Error("first room closure preflight lost its pre-room provenance");
+    }
+    const boundaryTick120 = preRoomCapture.capturedAtTick120
+      + FIRST_FIXED_ROOM_CLOSURE_CONTRACT.closureRelativeTick120;
+    if (nextTick120 < boundaryTick120) return;
+    if (nextTick120 !== boundaryTick120) {
+      throw new Error("first room closure preflight lost the exact H+1702 boundary");
+    }
+    const observationCapture = this.firstOccurrenceObservationCaptureValue;
+    if (observationCapture === null || observationCapture.availability !== "available") {
+      throw new Error("first room closure preflight requires the H+1701 observation");
+    }
+    if (
+      this.firstOccurrenceObservationCaptureSerializationValue === null
+      || JSON.stringify(observationCapture)
+        !== this.firstOccurrenceObservationCaptureSerializationValue
+    ) {
+      throw new Error("first room closure preflight observed H+1701 byte drift");
+    }
+    assertCanonicalRunFirstOccurrenceObservationReadyForClosure(
+      observationCapture,
+      preRoomCapture,
+    );
+    const room = this.roomSession?.snapshot() ?? null;
+    if (
+      room === null
+      || room.tick120 !== boundaryTick120 - 1
+      || room.phase !== "first_room_slice_complete"
+      || room.fixedSliceComplete !== true
+      || room.roomComplete !== false
+      || room.handoffReady !== false
+    ) {
+      throw new Error("first room closure preflight requires the exact H+1701 room snapshot");
+    }
   }
 }

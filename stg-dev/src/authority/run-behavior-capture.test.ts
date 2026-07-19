@@ -1,20 +1,26 @@
+import {createHash} from "node:crypto";
 import {describe, expect, it, vi} from "vitest";
 
 import {
+  assertCanonicalRunFirstOccurrenceObservationReadyForClosure,
   createCanonicalRunFirstOccurrenceObservationCapture,
+  createCanonicalRunFirstRoomClosureCapture,
   createCanonicalRunPreRoomBehaviorCapture,
   type CanonicalRunFirstOccurrenceObservationCaptureAvailable,
+  type CanonicalRunFirstRoomClosureCaptureAvailable,
   type CanonicalRunPreRoomBehaviorCaptureAvailable,
 } from "./run-behavior-capture";
 import {
   CanonicalRunBehaviorFactLedger,
   type CanonicalRunBehaviorCountEntry,
+  type CanonicalRunBehaviorFactsReceipt,
 } from "./run-behavior-facts";
 import {
   CanonicalRunSession,
   type CanonicalRunSessionSnapshot,
   type CanonicalRunSessionStepInput,
 } from "./run-session";
+import {CanonicalRunRoomSession} from "./run-room-session";
 
 const OPTIONS = Object.freeze({
   rawRunSeed: Object.freeze({domain: "raw-run-seed" as const, value: 0x1b17c0de}),
@@ -101,6 +107,16 @@ function availableFirstOccurrenceCapture(
   const capture = snapshot.firstOccurrenceObservationCapture;
   if (capture.availability !== "available") {
     throw new Error("first-occurrence observation capture is missing");
+  }
+  return capture;
+}
+
+function availableFirstRoomClosureCapture(
+  snapshot: CanonicalRunSessionSnapshot,
+): CanonicalRunFirstRoomClosureCaptureAvailable {
+  const capture = snapshot.firstRoomClosureCapture;
+  if (capture.availability !== "available") {
+    throw new Error("first-room closure capture is missing");
   }
   return capture;
 }
@@ -468,15 +484,14 @@ describe("EXT-2026-008 first-occurrence observation capture", () => {
     expect(isDeepFrozen(capture)).toBe(true);
 
     const captureBytes = JSON.stringify(capture);
-    let later = session.step(neutralInput(handoffTick120 + 1702));
-    while (later.tick120 < handoffTick120 + 1720) {
-      later = session.step(neutralInput(later.tick120 + 1));
-    }
-    expect(JSON.stringify(availableFirstOccurrenceCapture(later))).toBe(captureBytes);
-    expect(later.behaviorFacts.tick120).toBe(handoffTick120 + 1720);
-    expect(availableFirstOccurrenceCapture(later).behaviorFacts.tick120)
-      .toBe(handoffTick120 + 1701);
-    expect(later.roomSampling).toMatchObject({roomComplete: false, handoffReady: false});
+    expect(Buffer.byteLength(captureBytes)).toBe(5567);
+    expect(createHash("sha256").update(captureBytes).digest("hex"))
+      .toBe("a31c3b06dd17ce5403865fac265f86d04345da08524f51d0951f67e061b5fa29");
+    expect(atClose.firstRoomClosureCapture).toMatchObject({
+      availability: "missing",
+      roomComplete: false,
+      handoffReady: false,
+    });
     expect(session.canonicalEventSerialization()).toBe(eventBytesBeforeClose);
   });
 
@@ -624,4 +639,201 @@ describe("EXT-2026-008 first-occurrence observation capture", () => {
     expect(() => session.canonicalEventSerialization()).toThrow(/faulted.*exact schema fields/);
     expect(() => session.behaviorFactSerialization()).toThrow(/faulted.*exact schema fields/);
   });
+});
+
+describe("EXT-2026-009 first fixed room closure capture", () => {
+  it("closes exactly at H+1702, freezes one visit fact, and preserves H+1701 bytes", () => {
+    const session = new CanonicalRunSession(OPTIONS);
+    expect(session.snapshot().firstRoomClosureCapture).toEqual({
+      availability: "missing",
+      reason: "first-fixed-room-not-closed",
+      roomComplete: false,
+      distinctVisitedDelta: 0,
+      handoffReady: false,
+      metricProjection: false,
+      selectionAllowed: false,
+      transitionAllowed: false,
+      targetRoom: null,
+      selectionRngDraws: 0,
+      canonicalEventWrites: 0,
+    });
+    const atObservation = reachFirstOccurrenceSliceClose(session).atClose;
+    const handoffTick120 = atObservation.handoff.atTick120;
+    if (handoffTick120 === null) throw new Error("first-room closure fixture lost H");
+    const observation = availableFirstOccurrenceCapture(atObservation);
+    const observationBytes = JSON.stringify(observation);
+    const eventsAtObservation = session.events().length;
+
+    const atClosure = session.step({
+      ...neutralInput(handoffTick120 + 1702),
+      focused: true,
+    });
+    const room = atClosure.roomSampling;
+    if (room === null) throw new Error("first-room closure fixture lost its room snapshot");
+    const capture = availableFirstRoomClosureCapture(atClosure);
+    expect(capture).toMatchObject({
+      authority: "canonical-run-first-room-closure-capture-v1",
+      schemaVersion: "1.0.0-ext-2026-009",
+      producerId: "canonical-run-session.first-room-closure-observer",
+      producerVersion: "1.0.0",
+      extensionPolicy: "EXT-2026-009",
+      sourceEpoch: "current-run-through-first-room-closure",
+      capturedAtTick120: handoffTick120 + 1702,
+      rawRunSeed: OPTIONS.rawRunSeed,
+      contentIdentity: observation.contentIdentity,
+      plannedOccurrenceCount: 1,
+      completedOccurrenceCount: 1,
+      remainingOccurrenceCount: 0,
+      roomComplete: true,
+      completedRoomVisit: {roomId: "FORCED_ALIGNMENT", roomOrdinal: 0},
+      distinctVisitedDelta: 1,
+      handoffReady: false,
+      metricProjection: false,
+      selectionAllowed: false,
+      transitionAllowed: false,
+      targetRoom: null,
+      selectionRngDraws: 0,
+      canonicalEventWrites: 0,
+    });
+    expect(Object.keys(capture).sort()).toEqual([
+      "availability",
+      "authority",
+      "behaviorFacts",
+      "canonicalEventWrites",
+      "capturedAtTick120",
+      "completedOccurrenceCount",
+      "completedRoomVisit",
+      "contentIdentity",
+      "distinctVisitedDelta",
+      "extensionPolicy",
+      "handoffReady",
+      "metricProjection",
+      "plannedOccurrenceCount",
+      "producerId",
+      "producerVersion",
+      "rawRunSeed",
+      "remainingOccurrenceCount",
+      "roomComplete",
+      "schemaVersion",
+      "selectionAllowed",
+      "selectionRngDraws",
+      "sourceBoundary",
+      "sourceEpoch",
+      "targetRoom",
+      "transitionAllowed",
+    ].sort());
+    expect(capture.sourceBoundary).toEqual({
+      preRoomTick120: handoffTick120,
+      firstOccurrenceObservationTick120: handoffTick120 + 1701,
+      roomClosureTick120: handoffTick120 + 1702,
+      roomId: "FORCED_ALIGNMENT",
+      roomOrdinal: 0,
+      patternId: "room.forced.left_right_gate",
+      occurrenceId: "room:0:encounter:0:room.forced.left_right_gate",
+      encounterOrdinal: 0,
+      resolvedSeed: room.resolvedSeed,
+    });
+    expect(capture.behaviorFacts).toEqual(atClosure.behaviorFacts);
+    expect(capture.behaviorFacts).toMatchObject({
+      tick120: handoffTick120 + 1702,
+      acceptedTickCount: handoffTick120 + 1702,
+      sampling: {lastAcceptedTick120: handoffTick120 + 1702},
+      context: {
+        room: {
+          firstAvailableTick120: handoffTick120 + 1,
+          lastAvailableTick120: handoffTick120 + 1702,
+          sampleCount: 1702,
+          aggregate: {roomTickCounts: [{id: "FORCED_ALIGNMENT", ticks120: 1702}]},
+        },
+      },
+      composerAvailability: {ready: false, selectionAllowed: false},
+    });
+    expect(ticks(capture.behaviorFacts.sampling.ownerPhaseTickCounts, "room_sampling")).toBe(1702);
+    if (capture.behaviorFacts.context.runCombat.availability !== "available") {
+      throw new Error("first-room closure capture lost run-combat facts");
+    }
+    expect(ticks(
+      capture.behaviorFacts.context.runCombat.aggregate.activeOccurrenceTickCounts,
+      "room:0:encounter:0:room.forced.left_right_gate",
+    )).toBe(1540);
+    expect(room).toMatchObject({
+      extensionPolicy: "EXT-2026-009",
+      phase: "first_room_complete",
+      relativeTick120: 1702,
+      roomComplete: true,
+      handoffReady: false,
+      entities: {digitalBodies: 0, liveColliders: 0, residueVisuals: 0},
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null, faulted: false},
+    });
+    expect(session.events()).toHaveLength(eventsAtObservation + 1);
+    expect(session.events().at(-1)).toMatchObject({
+      id: "flower.intensity.commit",
+      tick120: handoffTick120 + 1702,
+      payload: {source: "focus"},
+    });
+    expect(capture.behaviorFacts.canonicalEvents.tickZeroBaselineCount
+      + capture.behaviorFacts.canonicalEvents.observedCount).toBe(session.events().length);
+    expect(JSON.stringify(availableFirstOccurrenceCapture(atClosure))).toBe(observationBytes);
+    expect(isDeepFrozen(capture)).toBe(true);
+
+    const closureBytes = JSON.stringify(capture);
+    const eventBytesAtClosure = session.canonicalEventSerialization();
+    const later = session.step({
+      ...neutralInput(handoffTick120 + 1703),
+      focused: true,
+    });
+    expect(JSON.stringify(availableFirstOccurrenceCapture(later))).toBe(observationBytes);
+    expect(JSON.stringify(availableFirstRoomClosureCapture(later))).toBe(closureBytes);
+    expect(later.behaviorFacts.tick120).toBe(handoffTick120 + 1703);
+    expect(availableFirstRoomClosureCapture(later).behaviorFacts.tick120)
+      .toBe(handoffTick120 + 1702);
+    expect(later.roomSampling).toMatchObject({roomComplete: true, handoffReady: false});
+    expect(session.canonicalEventSerialization()).toBe(eventBytesAtClosure);
+
+    expect(() => createCanonicalRunFirstRoomClosureCapture({
+      behaviorFactsReceipt: Object.freeze({}) as CanonicalRunBehaviorFactsReceipt,
+      sourceEventCount: session.events().length,
+      preRoomCapture: availableCapture(atClosure),
+      firstOccurrenceObservationCapture: observation,
+      roomSnapshot: room,
+    })).toThrow(/receipt.*not issued/);
+    expect(() => assertCanonicalRunFirstOccurrenceObservationReadyForClosure(
+      frozenWithExtra(
+        observation,
+        "continuationToken",
+        "forged",
+      ),
+      availableCapture(atClosure),
+    )).toThrow(/exact schema fields/);
+  }, 15_000);
+
+  it("faults the composite instead of exposing a half-capture at H+1702", () => {
+    const session = new CanonicalRunSession(OPTIONS);
+    const atObservation = reachFirstOccurrenceSliceClose(session).atClose;
+    const handoffTick120 = atObservation.handoff.atTick120;
+    if (handoffTick120 === null) throw new Error("first-room closure fault fixture lost H");
+    expect(atObservation.firstRoomClosureCapture.availability).toBe("missing");
+    expect(atObservation.roomSampling).toMatchObject({roomComplete: false});
+
+    const originalSnapshot = CanonicalRunRoomSession.prototype.snapshot;
+    const hostileSource = vi.spyOn(CanonicalRunRoomSession.prototype, "snapshot")
+      .mockImplementation(function (this: CanonicalRunRoomSession) {
+        const room = originalSnapshot.call(this);
+        return room.tick120 === handoffTick120 + 1702
+          ? Object.freeze({...room, selectionAuthority: "forged-composer"}) as unknown as typeof room
+          : room;
+      });
+    try {
+      expect(() => session.step(neutralInput(handoffTick120 + 1702)))
+        .toThrow(/source identity/);
+    } finally {
+      hostileSource.mockRestore();
+    }
+    expect(() => session.snapshot()).toThrow(/faulted.*source identity/);
+    expect(() => session.events()).toThrow(/faulted.*source identity/);
+    expect(() => session.canonicalEventSerialization()).toThrow(/faulted.*source identity/);
+    expect(() => session.behaviorFactSerialization()).toThrow(/faulted.*source identity/);
+    expect(() => session.step(neutralInput(handoffTick120 + 1703)))
+      .toThrow(/faulted.*source identity/);
+  }, 15_000);
 });

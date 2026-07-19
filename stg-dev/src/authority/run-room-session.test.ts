@@ -1,4 +1,4 @@
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 import {
   CanonicalCombatKernel,
   CanonicalRunCombatState,
@@ -11,6 +11,7 @@ import {
 } from "./events";
 import type {CanonicalRunSessionHandoffSnapshot} from "./run-session";
 import {
+  FIRST_FIXED_ROOM_CLOSURE_CONTRACT,
   RUN_ROOM_SESSION_CONTRACT,
   CanonicalRunRoomSession,
   type CanonicalRunRoomSessionOptions,
@@ -204,6 +205,31 @@ describe("EXT-2026-005 fixed first-room bootstrap contract", () => {
       selectionRngDraws: 0,
       roomComplete: false,
       handoffReady: false,
+    });
+    expect(FIRST_FIXED_ROOM_CLOSURE_CONTRACT).toMatchObject({
+      extensionPolicy: "EXT-2026-009",
+      roomId: "FORCED_ALIGNMENT",
+      plannedOccurrenceCount: 1,
+      completedOccurrenceCount: 1,
+      remainingOccurrenceCount: 0,
+      closureRelativeTick120: 1702,
+      roomComplete: true,
+      handoffReady: false,
+      selectionRngDraws: 0,
+      canonicalEventWrites: 0,
+      parentCanonicalEventIds: [
+        "flower.intensity.commit",
+        "gaze.acquire.begin",
+        "gaze.acquire.cancel",
+        "gaze.clamp.commit",
+        "gaze.release.begin",
+        "gaze.release.cancel",
+        "gaze.clamp.release",
+      ],
+      metricProjection: false,
+      selectionAllowed: false,
+      transitionAllowed: false,
+      targetRoom: null,
     });
     expect(snapshot).toMatchObject({
       phase: "telegraph",
@@ -550,6 +576,7 @@ describe("run room terminal tail and honest completion", () => {
     }));
     expect(neutralOne.runCombat.playerPosition).toEqual(positionAtDrain);
     expect(complete).toMatchObject({
+      extensionPolicy: "EXT-2026-005",
       phase: "first_room_slice_complete",
       fixedSliceComplete: true,
       roomComplete: false,
@@ -558,16 +585,104 @@ describe("run room terminal tail and honest completion", () => {
       faulted: false,
     });
     expect(session.events()).toHaveLength(roomEventCountAtDrain);
+    const claimedAtSliceClose = complete.runCombat.claimedOccurrenceIds;
 
-    const later = session.step(inputAt(H + 1702, {
+    const closed = session.step(inputAt(H + 1702, {
       movement: {x: 1, y: 0},
       focused: true,
       overridePressed: true,
       overrideDirection: {x: 0, y: -1},
     }));
-    expect(later.phase).toBe("first_room_slice_complete");
-    expect(later.runCombat.playerPosition.x).toBeGreaterThan(positionAtDrain.x);
-    expect(later.runCombat.override).toMatchObject({state: "idle", cycle: 0});
-    expect(later).toMatchObject({roomComplete: false, handoffReady: false});
+    expect(closed).toMatchObject({
+      extensionPolicy: "EXT-2026-009",
+      phase: "first_room_complete",
+      relativeTick120: 1702,
+      fixedSliceComplete: true,
+      roomComplete: true,
+      handoffReady: false,
+      entities: {digitalBodies: 0, liveColliders: 0, residueVisuals: 0},
+      runCombat: {
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+        faulted: false,
+      },
+      adapterPolicy: {
+        completion: "single-occurrence-room-close-no-handoff",
+        provenance: "application-policy-EXT-2026-009",
+      },
+    });
+    expect(closed.runCombat.playerPosition.x).toBeGreaterThan(positionAtDrain.x);
+    expect(closed.runCombat.override).toMatchObject({state: "idle", cycle: 0});
+    expect(closed.runCombat.claimedOccurrenceIds).toEqual(claimedAtSliceClose);
+    expect(session.events()).toHaveLength(roomEventCountAtDrain);
+
+    const later = session.step(inputAt(H + 1703));
+    expect(later).toMatchObject({
+      extensionPolicy: "EXT-2026-009",
+      phase: "first_room_complete",
+      roomComplete: true,
+      handoffReady: false,
+    });
+    expect(later.runCombat.claimedOccurrenceIds).toEqual(claimedAtSliceClose);
+    expect(session.events()).toHaveLength(roomEventCountAtDrain);
+  }, 15_000);
+
+  it("fails before H+1702 mutation when the shared player becomes terminal", () => {
+    const source = sourceFixture();
+    const session = new CanonicalRunRoomSession(optionsFor(source));
+    const H = source.handoffTick120;
+    const atSliceClose = stepTo(session, H + 1701);
+    const eventBytes = session.canonicalEventSerialization();
+    const originalSnapshot = CanonicalRunCombatState.prototype.snapshot;
+    const hostileState = vi.spyOn(CanonicalRunCombatState.prototype, "snapshot")
+      .mockImplementation(function (this: CanonicalRunCombatState) {
+        const snapshot = originalSnapshot.call(this);
+        return snapshot.tick120 === H + 1701
+          ? Object.freeze({
+              ...snapshot,
+              player: Object.freeze({...snapshot.player, state: "run-ended" as const}),
+            })
+          : snapshot;
+      });
+    try {
+      expect(() => session.step(inputAt(H + 1702))).toThrow(/non-terminal/);
+    } finally {
+      hostileState.mockRestore();
+    }
+    expect(session.snapshot()).toMatchObject({
+      tick120: H + 1701,
+      phase: "first_room_slice_complete",
+      roomComplete: false,
+      faulted: true,
+    });
+    expect(session.snapshot().runCombat.player).toEqual(atSliceClose.runCombat.player);
+    expect(session.canonicalEventSerialization()).toBe(eventBytes);
+  }, 15_000);
+
+  it("rejects a pending transition event instead of laundering it through H+1702 closure", () => {
+    const source = sourceFixture();
+    const session = new CanonicalRunRoomSession(optionsFor(source));
+    const H = source.handoffTick120;
+    stepTo(session, H + 1701);
+    source.bus.enqueue({
+      id: "room.transition.begin",
+      tick120: H + 1702,
+      entityStableId: "forged-transition",
+      localSequence: 0,
+      occurrenceKey: "forged-transition:1:begin",
+      payload: {generation: 1, fromRoom: "FORCED_ALIGNMENT", toRoom: "IN_BETWEEN"},
+    });
+
+    expect(() => session.step(inputAt(H + 1702))).toThrow(/Gaze\/Flower event suffix/);
+    expect(session.snapshot()).toMatchObject({
+      tick120: H + 1702,
+      roomComplete: false,
+      handoffReady: false,
+      faulted: true,
+    });
+    expect(session.events().at(-1)).toMatchObject({
+      id: "room.transition.begin",
+      tick120: H + 1702,
+    });
   }, 15_000);
 });

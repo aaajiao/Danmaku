@@ -48,6 +48,25 @@ async function openControlled(page: Page, path: string): Promise<void> {
   await expect(page.locator("#pattern-select option")).toHaveCount(PATTERN_COUNT);
 }
 
+async function advanceControlledRunToTick(page: Page, targetTick120: number): Promise<void> {
+  const body = page.locator("body");
+  for (let attempt = 0; attempt < 10_000; attempt += 1) {
+    const currentTick120 = Number(await body.getAttribute("data-authority-tick"));
+    if (currentTick120 === targetTick120) return;
+    if (!Number.isSafeInteger(currentTick120) || currentTick120 > targetTick120) {
+      throw new Error(`controlled RUN overshot tick ${targetTick120}: ${currentTick120}`);
+    }
+    const remainingTicks = targetTick120 - currentTick120;
+    if (remainingTicks > 4) {
+      const batchTicks = Math.min(800, remainingTicks - 2);
+      await stepRaf(page, batchTicks * 1000 / 120);
+    } else {
+      await stepRaf(page, 8.4);
+    }
+  }
+  throw new Error(`controlled RUN did not reach tick ${targetTick120}`);
+}
+
 test("RUN samples forward across boot, backlog, pause, and Focus boundaries", async ({page}) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -115,6 +134,67 @@ test("RUN samples forward across boot, backlog, pause, and Focus boundaries", as
   await page.keyboard.up("z");
 
   expect(pageErrors, "controlled RUN should have no uncaught page errors").toEqual([]);
+});
+
+test("first fixed room closure commits only at H+1702", async ({page}) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await openControlled(page, "/?seed=305419896");
+  const body = page.locator("body");
+
+  await page.locator("#boot-button").click();
+  await page.waitForTimeout(600);
+  await stepRaf(page, 0);
+
+  await page.keyboard.down("z");
+  await stepRaf(page, 0);
+  await stepRaf(page, 8.4);
+  await page.keyboard.up("z");
+  await stepRaf(page, 0);
+  await stepRaf(page, 8.4);
+  await page.keyboard.down("d");
+  await stepRaf(page, 0);
+  await stepRaf(page, 8.4);
+  await advanceControlledRunToTick(page, 960);
+  await expect(body).toHaveAttribute("data-run-phase", "first_eye");
+  await page.keyboard.up("d");
+  await stepRaf(page, 0);
+
+  await page.keyboard.down("g");
+  await stepRaf(page, 0);
+  await advanceControlledRunToTick(page, 1021);
+  await expect(body).toHaveAttribute("data-run-phase", "first_clamp_recovery");
+  await page.keyboard.up("g");
+  await stepRaf(page, 0);
+  await advanceControlledRunToTick(page, 1106);
+  await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
+  await expect(body).toHaveAttribute("data-flower-recovery-complete", "true");
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await body.getAttribute("data-run-phase") === "room_sampling") break;
+    const currentTick120 = Number(await body.getAttribute("data-authority-tick"));
+    await advanceControlledRunToTick(page, currentTick120 + 120);
+  }
+  await expect(body).toHaveAttribute("data-run-phase", "room_sampling");
+  const handoffTick120 = Number(await body.getAttribute("data-room-start-tick"));
+  expect(handoffTick120).toBeGreaterThan(0);
+
+  await advanceControlledRunToTick(page, handoffTick120 + 1701);
+  await expect(body).toHaveAttribute("data-room-complete", "false");
+  await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
+  await expect(body).toHaveAttribute("data-projectile-entities", "0");
+  await expect(body).toHaveAttribute("data-live-colliders", "0");
+  await expect(body).toHaveAttribute("data-residue-visuals", "0");
+
+  await advanceControlledRunToTick(page, handoffTick120 + 1702);
+  await expect(body).toHaveAttribute("data-room-complete", "true");
+  await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
+  await expect(body).toHaveAttribute("data-handoff-ready", "true");
+
+  await advanceControlledRunToTick(page, handoffTick120 + 1703);
+  await expect(body).toHaveAttribute("data-room-complete", "true");
+  await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
+  expect(pageErrors, "controlled first-room closure should have no uncaught errors").toEqual([]);
 });
 
 test("pause preserves the pre-pause sample while retained backlog drains", async ({page}) => {
