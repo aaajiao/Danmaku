@@ -13,6 +13,7 @@ import {
   type CanonicalCombatStepInput,
   type CanonicalRoomThresholdMaterialCarryoverSnapshot,
   type CanonicalRunRoomThresholdTargetRoom,
+  type CanonicalRunFirstContinuationDormantSuccessorTransferCapability,
 } from "../../combat-kernel";
 import {type CanonicalEventBus} from "../../events";
 import {
@@ -24,6 +25,17 @@ import {
   type RoomTransitionAuthoritySnapshot,
 } from "../../room-transition";
 import type {CollisionBlockerLease, PlayerLifeState} from "../../player";
+import {
+  canonicalRunFirstContinuationRoomHandoffWasCommitted,
+  registerCanonicalRunFirstContinuationRoomHandoffReceipt,
+  type CanonicalRunFirstContinuationRoomHandoffReceipt,
+} from "./first-continuation-room-admission-authority";
+
+export {
+  inspectCanonicalRunFirstContinuationRoomHandoffReceipt,
+  type CanonicalRunFirstContinuationRoomHandoffReceipt,
+  type CanonicalRunFirstContinuationRoomHandoffReceiptView,
+} from "./first-continuation-room-admission-authority";
 
 const TRANSITION_PATTERN_ID = "transition.room_threshold" as const;
 const TRANSITION_OCCURRENCE_ID =
@@ -79,6 +91,7 @@ export interface CanonicalRunFirstContinuationRoomHandoffSnapshot {
 export interface CanonicalRunFirstContinuationTransitionSnapshot {
   readonly authority: "canonical-run-first-continuation-transition-v1";
   readonly extensionPolicy: "EXT-2026-013";
+  readonly ownership: "active" | "transferred-to-dormant-successor";
   readonly phase: CanonicalRunFirstContinuationTransitionPhase;
   readonly sourceRoom: typeof TRANSITION_SOURCE_ROOM;
   readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
@@ -116,27 +129,14 @@ export interface CanonicalRunFirstContinuationTransitionStartOptions {
   readonly input: CanonicalCombatStepInput;
 }
 
-declare const canonicalRunFirstContinuationRoomHandoffReceiptBrand: unique symbol;
-
-/** Opaque evidence that gameplay ownership ended at an admissible player boundary. */
-export type CanonicalRunFirstContinuationRoomHandoffReceipt = Readonly<{
-  readonly [canonicalRunFirstContinuationRoomHandoffReceiptBrand]: true;
-}>;
-
-export interface CanonicalRunFirstContinuationRoomHandoffReceiptView {
-  readonly authority: "canonical-run-first-continuation-room-handoff-v1";
-  readonly extensionPolicy: "EXT-2026-013";
-  readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
-  readonly atTick120: number;
-  readonly nextRoomAdmission: typeof NEXT_ROOM_ADMISSION;
-}
-
 interface ChapterRecord {
   readonly formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable;
   readonly runState: CanonicalRunCombatState;
   readonly eventBus: CanonicalEventBus;
   readonly roomTransition: RoomTransitionAuthority;
   readonly kernel: CanonicalCombatKernel;
+  readonly successorTransferCapability:
+    CanonicalRunFirstContinuationDormantSuccessorTransferCapability;
   readonly collisionLease: CollisionBlockerLease;
   readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
   readonly startTick120: number;
@@ -150,24 +150,9 @@ interface ChapterRecord {
   stepping: boolean;
 }
 
-interface HandoffReceiptRecord {
-  readonly owner: CanonicalRunFirstContinuationTransitionChapter;
-  readonly formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable;
-  readonly runState: CanonicalRunCombatState;
-  readonly roomTransition: RoomTransitionAuthority;
-  readonly carryover: CanonicalRoomThresholdMaterialCarryover;
-  readonly gameplayExit: CanonicalRunFirstContinuationGameplayExitSnapshot;
-  readonly handoff: CanonicalRunFirstContinuationRoomHandoffSnapshot;
-  readonly view: CanonicalRunFirstContinuationRoomHandoffReceiptView;
-}
-
 const CHAPTER_RECORDS = new WeakMap<
   CanonicalRunFirstContinuationTransitionChapter,
   ChapterRecord
->();
-const HANDOFF_RECEIPTS = new WeakMap<
-  CanonicalRunFirstContinuationRoomHandoffReceipt,
-  HandoffReceiptRecord
 >();
 
 function asError(value: unknown): Error {
@@ -347,18 +332,32 @@ function refreshHandoff(
     atTick120: runCombat.tick120,
     nextRoomAdmission: NEXT_ROOM_ADMISSION,
   });
-  const receipt = Object.freeze({}) as CanonicalRunFirstContinuationRoomHandoffReceipt;
-  HANDOFF_RECEIPTS.set(receipt, {
+  record.handoffSnapshot = handoff;
+  const receipt = registerCanonicalRunFirstContinuationRoomHandoffReceipt({
     owner,
     formalTarget: record.formalTarget,
     runState: record.runState,
+    eventBus: record.eventBus,
     roomTransition: record.roomTransition,
     carryover: record.material,
-    gameplayExit: record.gameplayExit,
-    handoff,
+    successorTransferCapability: record.successorTransferCapability,
     view,
+    validateLineage: (candidate) => {
+      const ownerRecord = requireChapter(owner);
+      if (
+        ownerRecord.formalTarget !== record.formalTarget
+        || ownerRecord.runState !== record.runState
+        || ownerRecord.eventBus !== record.eventBus
+        || ownerRecord.roomTransition !== record.roomTransition
+        || ownerRecord.material !== record.material
+        || ownerRecord.gameplayExit !== record.gameplayExit
+        || ownerRecord.handoffSnapshot !== handoff
+        || ownerRecord.handoffReceipt !== candidate
+      ) {
+        throw new Error("first-continuation room handoff receipt lost its exact authority lineage");
+      }
+    },
   });
-  record.handoffSnapshot = handoff;
   record.handoffReceipt = receipt;
 }
 
@@ -416,6 +415,7 @@ export class CanonicalRunFirstContinuationTransitionChapter {
       eventBus: options.eventBus,
       roomTransition,
       kernel: committed.kernel,
+      successorTransferCapability: committed.successorTransferCapability,
       collisionLease: committed.collisionLease,
       targetRoom: options.formalTarget.targetRoom,
       startTick120: committed.combat.tick120,
@@ -450,6 +450,12 @@ export class CanonicalRunFirstContinuationTransitionChapter {
 
   step(input: CanonicalCombatStepInput): CanonicalRunFirstContinuationTransitionSnapshot {
     const record = requireChapter(this);
+    if (
+      record.handoffReceipt !== null
+      && canonicalRunFirstContinuationRoomHandoffWasCommitted(record.handoffReceipt)
+    ) {
+      throw new Error("first-continuation transition ownership was transferred to the dormant successor");
+    }
     if (record.stepping) throw new Error("first-continuation transition step is already active");
     record.stepping = true;
     let authoritativeTickAccepted = false;
@@ -500,6 +506,10 @@ export class CanonicalRunFirstContinuationTransitionChapter {
     const runCombat = record.runState.snapshot();
     const roomTransition = record.roomTransition.snapshot();
     const material = record.material?.snapshot() ?? null;
+    const ownership = record.handoffReceipt !== null
+      && canonicalRunFirstContinuationRoomHandoffWasCommitted(record.handoffReceipt)
+      ? "transferred-to-dormant-successor" as const
+      : "active" as const;
     const phase: CanonicalRunFirstContinuationTransitionPhase = material === null
       ? "transition_gameplay"
       : material.drained
@@ -558,6 +568,7 @@ export class CanonicalRunFirstContinuationTransitionChapter {
     return Object.freeze({
       authority: "canonical-run-first-continuation-transition-v1" as const,
       extensionPolicy: "EXT-2026-013" as const,
+      ownership,
       phase,
       sourceRoom: TRANSITION_SOURCE_ROOM,
       targetRoom: record.targetRoom,
@@ -585,30 +596,4 @@ export class CanonicalRunFirstContinuationTransitionChapter {
   handoff(): CanonicalRunFirstContinuationRoomHandoffReceipt | null {
     return requireChapter(this).handoffReceipt;
   }
-}
-
-/** Read-only receipt evidence; exact authorities and capabilities remain sealed. */
-export function inspectCanonicalRunFirstContinuationRoomHandoffReceipt(
-  receipt: CanonicalRunFirstContinuationRoomHandoffReceipt,
-): CanonicalRunFirstContinuationRoomHandoffReceiptView {
-  if (typeof receipt !== "object" || receipt === null) {
-    throw new Error("first-continuation room handoff receipt must be opaque");
-  }
-  const record = HANDOFF_RECEIPTS.get(receipt);
-  if (record === undefined) {
-    throw new Error("first-continuation room handoff receipt is not registered");
-  }
-  const ownerRecord = requireChapter(record.owner);
-  if (
-    ownerRecord.formalTarget !== record.formalTarget
-    || ownerRecord.runState !== record.runState
-    || ownerRecord.roomTransition !== record.roomTransition
-    || ownerRecord.material !== record.carryover
-    || ownerRecord.gameplayExit !== record.gameplayExit
-    || ownerRecord.handoffSnapshot !== record.handoff
-    || ownerRecord.handoffReceipt !== receipt
-  ) {
-    throw new Error("first-continuation room handoff receipt lost its exact authority lineage");
-  }
-  return record.view;
 }

@@ -1,5 +1,5 @@
 import {V4_CONTENT_IDENTITY, type V4ContentIdentity} from "../../../content/v4-content-identity";
-import {SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS} from "../../combat-kernel";
+import {SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS} from "../../combat-pattern-capabilities";
 import type {CanonicalRunFirstContinuationRoomId} from "../../run-first-continuation-room-target";
 import {
   canonicalRunFirstContinuationRoomPlanCatalogComposer,

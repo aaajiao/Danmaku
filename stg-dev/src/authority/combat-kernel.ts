@@ -1,4 +1,5 @@
 import bossRigsJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/boss-rigs-v4.json";
+import {SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS} from "./combat-pattern-capabilities";
 import {
   AUTHORED_PLAYER_Y,
   LOGICAL_VIEW_HEIGHT,
@@ -42,6 +43,7 @@ import {
 import {
   PLAYER_FOCUS_COLLISION_RADIUS_PX,
   PLAYER_NORMAL_COLLISION_RADIUS_PX,
+  PROJECTILE_POOL_BUDGETS,
   ProjectileAuthorityPool,
   sweepCircleAgainstCircle,
   type SweepHit,
@@ -87,38 +89,21 @@ import {
   type CanonicalRunFirstContinuationRoomTargetAvailable,
   type CanonicalRunFirstContinuationRoomTransitionReceipt,
 } from "./run-first-continuation-room-target";
+import {
+  evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbranded,
+  type CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation,
+} from "./run/chapters/first-continuation-room-admission";
+import {
+  deriveCanonicalRunFirstContinuationRoomPlanUnbranded,
+  type CanonicalRunFirstContinuationRoomPlanPayload,
+  type CanonicalRunFirstContinuationRoomPlanSourceView,
+} from "./run/chapters/first-continuation-room-plan";
+import {deriveCanonicalRunFirstContinuationRoomPlanSourceUnbranded} from
+  "./run/chapters/first-continuation-room-plan-source";
 import {TICKS_PER_SECOND, crossedTickCount} from "./tick120";
 
 export {crossedTickCount} from "./tick120";
-
-/**
- * Manifest-structural production capability: radial perception/omission,
- * authored lane lattices, local vector fields, retry envelopes, one-shot governance turns,
- * and visible rule clips.
- * These IDs are capability, not a content registry.
- */
-export const SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
-  "common.eye_acquisition",
-  "common.graze_calibration",
-  "encounter.weather_echo.rain_packets",
-  "encounter.weather_echo.wind_bias",
-  "room.in_between.context_switch",
-  "transition.dusk_settle",
-  "transition.override_void",
-  "room.forced.ballot_shift",
-  "room.forced.crack_fall_loop",
-  "room.forced.left_right_gate",
-  "room.forced.unstable_middle",
-  "room.information.unanswered_fan",
-  "room.information.stale_packet_retry",
-  "room.information.notification_overflow",
-  "room.polarized.alternating_verdict",
-  "room.polarized.hard_cut_corridor",
-  "boss.absent_receiver.phase1",
-  "boss.misreader.phase1",
-  "boss.one_sun_one_rule.phase1",
-  "boss.unanswering_feed.phase1",
-] as const);
+export {SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS} from "./combat-pattern-capabilities";
 // Direct-kernel capabilities only: live-run admission intentionally consumes
 // the exported list above and must not infer these isolated slices.
 const ISOLATED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
@@ -642,6 +627,8 @@ export interface CanonicalRunRoomThresholdStartResult {
   readonly runCombat: CanonicalRunCombatStateSnapshot;
   readonly combat: CanonicalCombatSnapshot;
   readonly roomTransition: RoomTransitionAuthoritySnapshot;
+  readonly successorTransferCapability:
+    CanonicalRunFirstContinuationDormantSuccessorTransferCapability;
 }
 
 interface PreparedRunRoomThresholdStartRecord {
@@ -679,13 +666,23 @@ const EXT013_ROOM_THRESHOLD_KERNELS = new WeakSet<CanonicalCombatKernel>();
 
 interface Ext013RoomThresholdRunBinding {
   readonly kernel: CanonicalCombatKernel;
+  readonly formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable;
   readonly roomTransition: RoomTransitionAuthority;
   readonly lease: CollisionBlockerLease;
   readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
   readonly completeTick120: number;
-  phase: "transition" | "detach-release-requested" | "material" | "target-room-idle";
+  readonly successorTransferCapability:
+    CanonicalRunFirstContinuationDormantSuccessorTransferCapability;
+  phase:
+    | "transition"
+    | "detach-release-requested"
+    | "material"
+    | "target-room-idle"
+    | "successor-dormant";
   carryover: CanonicalRoomThresholdMaterialCarryover | null;
   materialRoomEventCount: number | null;
+  successorOwner: object | null;
+  successorReservation: CanonicalRunFirstContinuationDormantSuccessorReservation | null;
   expectedFlushTick120: number | null;
   expectedPendingEventCount: number | null;
 }
@@ -693,6 +690,94 @@ interface Ext013RoomThresholdRunBinding {
 const EXT013_ROOM_THRESHOLD_RUN_BINDINGS = new WeakMap<
   CanonicalRunCombatState,
   Ext013RoomThresholdRunBinding
+>();
+
+declare const dormantSuccessorTransferCapabilityBrand: unique symbol;
+
+export type CanonicalRunFirstContinuationDormantSuccessorTransferCapability = Readonly<{
+  readonly [dormantSuccessorTransferCapabilityBrand]: true;
+}>;
+
+interface DormantSuccessorTransferCapabilityRecord {
+  readonly runState: CanonicalRunCombatState;
+  readonly kernel: CanonicalCombatKernel;
+  readonly formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable;
+  status: "transition" | "handoff" | "prepared" | "committed";
+  handoffReceipt: object | null;
+  handoffTick120: number | null;
+  carryover: CanonicalRoomThresholdMaterialCarryover | null;
+  activeProposal: PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer | null;
+}
+
+const DORMANT_SUCCESSOR_TRANSFER_CAPABILITIES = new WeakMap<
+  CanonicalRunFirstContinuationDormantSuccessorTransferCapability,
+  DormantSuccessorTransferCapabilityRecord
+>();
+
+export interface CanonicalRunFirstContinuationDormantSuccessorReservation {
+  readonly authority: "canonical-run-first-continuation-dormant-successor-reservation-v1";
+  readonly extensionPolicy: "EXT-2026-015";
+  readonly admittedAtTick120: number;
+  readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
+  readonly occurrenceId: string;
+  readonly patternId: string;
+  readonly difficulty: PatternDifficulty;
+  readonly projectileArchetypeId: string;
+  readonly projectilePoolClass: ProjectilePoolClass;
+  readonly requestedProjectileSlots: number;
+  readonly requestedResidueVisualSlots: number;
+  readonly emitterCount: number;
+  readonly maxEmitters: number;
+  readonly combinedAllocatedSlots: Readonly<Record<ProjectilePoolClass, number>>;
+  readonly combinedResidueVisuals: number;
+}
+
+declare const preparedDormantSuccessorTransferBrand: unique symbol;
+
+export interface PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer {
+  readonly [preparedDormantSuccessorTransferBrand]:
+    "PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer";
+}
+
+export interface PreparedCanonicalRunFirstContinuationDormantSuccessorTransferView {
+  readonly authority: "canonical-run-first-continuation-dormant-successor-transfer-v1";
+  readonly extensionPolicy: "EXT-2026-015";
+  readonly tick120: number;
+  readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
+  readonly occurrenceId: string;
+  readonly patternId: string;
+  readonly plan: CanonicalRunFirstContinuationRoomPlanPayload;
+  readonly combinedPoolAdmission: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+  readonly materialCount: number;
+  readonly materialDraining: boolean;
+  readonly liveColliders: 0;
+  readonly canonicalEventWrites: 0;
+  readonly tickAdvance: 0;
+}
+
+interface PreparedDormantSuccessorTransferRecord {
+  readonly capability: CanonicalRunFirstContinuationDormantSuccessorTransferCapability;
+  readonly handoffReceipt: object;
+  readonly runState: CanonicalRunCombatState;
+  readonly eventBus: CanonicalEventBus;
+  readonly carryover: CanonicalRoomThresholdMaterialCarryover;
+  readonly successorOwner: object;
+  readonly reservation: CanonicalRunFirstContinuationDormantSuccessorReservation;
+  readonly source: CanonicalRunFirstContinuationRoomPlanSourceView;
+  readonly plan: CanonicalRunFirstContinuationRoomPlanPayload;
+  readonly evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+  readonly material: CanonicalRoomThresholdMaterialCarryoverSnapshot;
+  readonly view: PreparedCanonicalRunFirstContinuationDormantSuccessorTransferView;
+  status: "prepared" | "committed" | "cancelled" | "failed";
+}
+
+const PREPARED_DORMANT_SUCCESSOR_TRANSFERS = new WeakMap<
+  PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
+  PreparedDormantSuccessorTransferRecord
+>();
+const ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE = new WeakMap<
+  CanonicalRunCombatState,
+  PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer
 >();
 
 declare const preparedRunRoomTransitionLeaseReleaseBrand: unique symbol;
@@ -7372,7 +7457,7 @@ function claimRunCombatOccurrence(
   assertRunCombatStateOperational(internals);
   if (EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(state)) {
     throw new Error(
-      "run combat cannot claim a new occurrence before EXT-013 successor admission releases",
+      "run combat cannot claim a new occurrence until successor admission releases the active continuation binding",
     );
   }
   if (internals.currentTick120 !== startTick120) {
@@ -7821,8 +7906,9 @@ export function commitPreparedCanonicalRunRoomThresholdStart(
     if (activeRoomTransition === null) {
       throw new Error("Room Threshold prepared room transition lost its active record");
     }
-    record.kernel[DEFERRED_ROOM_THRESHOLD_INSTALL](
+    const successorTransferCapability = record.kernel[DEFERRED_ROOM_THRESHOLD_INSTALL](
       record.runState,
+      record.formalTarget,
       record.roomTransition,
       lease,
       record.view.targetRoom,
@@ -7858,6 +7944,7 @@ export function commitPreparedCanonicalRunRoomThresholdStart(
       runCombat: record.runState.snapshot(),
       combat: CanonicalCombatKernel.prototype.snapshot.call(record.kernel),
       roomTransition,
+      successorTransferCapability,
     });
   } catch (error) {
     record.status = "failed";
@@ -8429,7 +8516,7 @@ export class CanonicalRunCombatState {
     assertRunCombatStateOperational(internals);
     if (EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(this)) {
       throw new Error(
-        "run combat idle advance is reserved by the active EXT-013 transition or material owner",
+        "run combat idle advance is reserved by the active EXT-013 continuation transition, material, or dormant successor owner",
       );
     }
     if (internals.activeOccurrenceId !== null) {
@@ -8553,7 +8640,11 @@ export class CanonicalRunCombatState {
         internals.fault = error;
         throw error;
       }
-    } else if (binding?.phase === "material" || binding?.phase === "target-room-idle") {
+    } else if (
+      binding?.phase === "material"
+      || binding?.phase === "target-room-idle"
+      || binding?.phase === "successor-dormant"
+    ) {
       const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
       const material = binding.carryover?.snapshot() ?? null;
       if (
@@ -8567,9 +8658,12 @@ export class CanonicalRunCombatState {
         || room.active !== null
         || material === null
         || material.tick120 !== tick120
+        || (binding.phase === "successor-dormant"
+          ? binding.successorOwner === null || binding.successorReservation === null
+          : binding.successorOwner !== null || binding.successorReservation !== null)
       ) {
         const error = new Error(
-          "EXT-013 material, target-room FSM, and Run tick lost sealed synchronization",
+          "continuation material, target-room FSM, and Run tick lost sealed synchronization",
         );
         internals.fault = error;
         throw error;
@@ -9404,16 +9498,18 @@ export class CanonicalCombatKernel {
 
   [DEFERRED_ROOM_THRESHOLD_INSTALL](
     runState: CanonicalRunCombatState,
+    formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable,
     roomTransition: RoomTransitionAuthority,
     lease: CollisionBlockerLease,
     targetRoom: CanonicalRunRoomThresholdTargetRoom,
     completeTick120: number,
-  ): void {
+  ): CanonicalRunFirstContinuationDormantSuccessorTransferCapability {
     if (
       !this.deferredRoomThresholdInstallPending
       || this.runState !== runState
       || this.pattern.id !== FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID
       || this.occurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+      || formalTarget.targetRoom !== targetRoom
       || !isExactRoomTransitionAuthority(roomTransition)
       || !FIRST_CONTINUATION_ROOM_THRESHOLD_TARGETS.includes(targetRoom)
       || EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(runState)
@@ -9439,20 +9535,37 @@ export class CanonicalCombatKernel {
       throw new Error("Room Threshold deferred install lost its prepared shared state");
     }
     this.focused = internals.focused;
+    const successorTransferCapability = Object.freeze({}) as
+      CanonicalRunFirstContinuationDormantSuccessorTransferCapability;
+    DORMANT_SUCCESSOR_TRANSFER_CAPABILITIES.set(successorTransferCapability, {
+      runState,
+      kernel: this,
+      formalTarget,
+      status: "transition",
+      handoffReceipt: null,
+      handoffTick120: null,
+      carryover: null,
+      activeProposal: null,
+    });
     EXT013_ROOM_THRESHOLD_KERNELS.add(this);
     EXT013_ROOM_THRESHOLD_RUN_BINDINGS.set(runState, {
       kernel: this,
+      formalTarget,
       roomTransition,
       lease,
       targetRoom,
       completeTick120,
+      successorTransferCapability,
       phase: "transition",
       carryover: null,
       materialRoomEventCount: null,
+      successorOwner: null,
+      successorReservation: null,
       expectedFlushTick120: null,
       expectedPendingEventCount: null,
     });
     this.deferredRoomThresholdInstallPending = false;
+    return successorTransferCapability;
   }
 
   [ROOM_THRESHOLD_RUN_STATE_PROOF](): CanonicalRunCombatState {
@@ -10940,4 +11053,629 @@ export function advanceCanonicalRunIdleWithRoomThresholdMaterial(
   } finally {
     internals.advanceLocked = false;
   }
+}
+
+const DORMANT_SUCCESSOR_POOL_CLASS_ORDER = Object.freeze([
+  "micro",
+  "medium",
+  "heavy",
+  "splitChildren",
+] as const satisfies readonly ProjectilePoolClass[]);
+
+function requireDormantSuccessorTransferCapability(
+  capability: CanonicalRunFirstContinuationDormantSuccessorTransferCapability,
+  expectedStatus: DormantSuccessorTransferCapabilityRecord["status"],
+): DormantSuccessorTransferCapabilityRecord {
+  if (typeof capability !== "object" || capability === null) {
+    throw new Error("dormant successor transfer capability must be opaque");
+  }
+  const record = DORMANT_SUCCESSOR_TRANSFER_CAPABILITIES.get(capability);
+  if (record === undefined) {
+    throw new Error("dormant successor transfer capability is not registered");
+  }
+  if (record.status !== expectedStatus) {
+    throw new Error(`dormant successor transfer capability is ${record.status}`);
+  }
+  return record;
+}
+
+/** Bind the exact EXT-013 start capability to its one opaque handoff receipt. */
+export function bindCanonicalRunFirstContinuationDormantSuccessorTransferCapability(
+  capability: CanonicalRunFirstContinuationDormantSuccessorTransferCapability,
+  formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable,
+  runState: CanonicalRunCombatState,
+  eventBus: CanonicalEventBus,
+  roomTransition: RoomTransitionAuthority,
+  carryover: CanonicalRoomThresholdMaterialCarryover,
+  handoffReceipt: object,
+): void {
+  const capabilityRecord = requireDormantSuccessorTransferCapability(
+    capability,
+    "transition",
+  );
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const materialRecord = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(carryover);
+  const internals = runCombatStateInternals(runState);
+  const room = RoomTransitionAuthority.prototype.snapshot.call(roomTransition);
+  const material = carryover.snapshot();
+  if (
+    capabilityRecord.runState !== runState
+    || capabilityRecord.kernel !== binding?.kernel
+    || capabilityRecord.formalTarget !== formalTarget
+    || binding.formalTarget !== formalTarget
+    || binding.successorTransferCapability !== capability
+    || (binding.phase !== "material" && binding.phase !== "target-room-idle")
+    || binding.roomTransition !== roomTransition
+    || binding.carryover !== carryover
+    || binding.successorOwner !== null
+    || binding.successorReservation !== null
+    || materialRecord?.runState !== runState
+    || internals.bus !== eventBus
+    || internals.pendingFlushTick120 !== null
+    || internals.activeOccurrenceId !== null
+    || eventBus.pendingEventCount() !== 0
+    || room.tick120 !== internals.currentTick120
+    || room.currentRoom !== formalTarget.targetRoom
+    || room.state !== "idle"
+    || room.active !== null
+    || material.tick120 !== internals.currentTick120
+    || material.poolUsage.liveColliders !== 0
+    || typeof handoffReceipt !== "object"
+    || handoffReceipt === null
+    || !Object.isFrozen(handoffReceipt)
+    || Reflect.ownKeys(handoffReceipt).length !== 0
+  ) {
+    throw new Error("dormant successor transfer capability lost its exact handoff lineage");
+  }
+  capabilityRecord.status = "handoff";
+  capabilityRecord.handoffReceipt = handoffReceipt;
+  capabilityRecord.handoffTick120 = material.tick120;
+  capabilityRecord.carryover = carryover;
+}
+
+function captureDormantSuccessorReservation(
+  value: CanonicalRunFirstContinuationDormantSuccessorReservation,
+): CanonicalRunFirstContinuationDormantSuccessorReservation {
+  const captured = ownPlainDataRecord(
+    value as unknown as Readonly<Record<string, unknown>>,
+    [
+      "authority",
+      "extensionPolicy",
+      "admittedAtTick120",
+      "targetRoom",
+      "occurrenceId",
+      "patternId",
+      "difficulty",
+      "projectileArchetypeId",
+      "projectilePoolClass",
+      "requestedProjectileSlots",
+      "requestedResidueVisualSlots",
+      "emitterCount",
+      "maxEmitters",
+      "combinedAllocatedSlots",
+      "combinedResidueVisuals",
+    ],
+    "dormant successor reservation",
+  );
+  if (
+    captured.authority !== "canonical-run-first-continuation-dormant-successor-reservation-v1"
+    || captured.extensionPolicy !== "EXT-2026-015"
+  ) {
+    throw new Error("dormant successor reservation identity drifted");
+  }
+  const admittedAtTick120 = requireSafeTick(
+    captured.admittedAtTick120 as number,
+    "dormant successor reservation admittedAtTick120",
+  );
+  const targetRoom = captured.targetRoom;
+  if (!FIRST_CONTINUATION_ROOM_THRESHOLD_TARGETS.includes(
+    targetRoom as CanonicalRunRoomThresholdTargetRoom,
+  )) {
+    throw new Error("dormant successor reservation target is not authored");
+  }
+  const occurrenceId = requireUnicodeScalarString(
+    captured.occurrenceId,
+    "dormant successor reservation occurrenceId",
+  );
+  const patternId = requireUnicodeScalarString(
+    captured.patternId,
+    "dormant successor reservation patternId",
+  );
+  if (occurrenceId !== `run:room:1:encounter:0:${patternId}`) {
+    throw new Error("dormant successor reservation occurrence identity drifted");
+  }
+  const difficulty = captured.difficulty;
+  if (!(["EASY", "NORMAL", "HARD"] as const).includes(difficulty as PatternDifficulty)) {
+    throw new Error("dormant successor reservation difficulty is not canonical");
+  }
+  const projectileArchetypeId = requireUnicodeScalarString(
+    captured.projectileArchetypeId,
+    "dormant successor reservation projectileArchetypeId",
+  );
+  const projectilePoolClass = captured.projectilePoolClass;
+  if (!DORMANT_SUCCESSOR_POOL_CLASS_ORDER.includes(projectilePoolClass as ProjectilePoolClass)) {
+    throw new Error("dormant successor reservation pool class is not canonical");
+  }
+  const requestedProjectileSlots = requirePositiveInteger(
+    captured.requestedProjectileSlots as number,
+    "dormant successor reservation requestedProjectileSlots",
+  );
+  const requestedResidueVisualSlots = requirePositiveInteger(
+    captured.requestedResidueVisualSlots as number,
+    "dormant successor reservation requestedResidueVisualSlots",
+  );
+  const emitterCount = requirePositiveInteger(
+    captured.emitterCount as number,
+    "dormant successor reservation emitterCount",
+  );
+  const maxEmitters = requirePositiveInteger(
+    captured.maxEmitters as number,
+    "dormant successor reservation maxEmitters",
+  );
+  if (emitterCount > maxEmitters) {
+    throw new Error("dormant successor reservation exceeds its emitter capacity");
+  }
+  const rawCombined = ownPlainDataRecord(
+    captured.combinedAllocatedSlots as Readonly<Record<string, unknown>>,
+    DORMANT_SUCCESSOR_POOL_CLASS_ORDER,
+    "dormant successor reservation combinedAllocatedSlots",
+  );
+  const combinedAllocatedSlots = Object.freeze(Object.fromEntries(
+    DORMANT_SUCCESSOR_POOL_CLASS_ORDER.map((poolClass) => {
+      const count = requireNonNegativeInteger(
+        rawCombined[poolClass] as number,
+        `dormant successor reservation combinedAllocatedSlots.${poolClass}`,
+      );
+      if (count > PROJECTILE_POOL_BUDGETS[poolClass]) {
+        throw new Error(`dormant successor reservation exceeds ${poolClass} capacity`);
+      }
+      return [poolClass, count];
+    }),
+  )) as Readonly<Record<ProjectilePoolClass, number>>;
+  const combinedResidueVisuals = requireNonNegativeInteger(
+    captured.combinedResidueVisuals as number,
+    "dormant successor reservation combinedResidueVisuals",
+  );
+  if (combinedResidueVisuals > PROJECTILE_POOL_BUDGETS.residueVisualOnly) {
+    throw new Error("dormant successor reservation exceeds residue visual capacity");
+  }
+  return Object.freeze({
+    authority: "canonical-run-first-continuation-dormant-successor-reservation-v1" as const,
+    extensionPolicy: "EXT-2026-015" as const,
+    admittedAtTick120,
+    targetRoom: targetRoom as CanonicalRunRoomThresholdTargetRoom,
+    occurrenceId,
+    patternId,
+    difficulty: difficulty as PatternDifficulty,
+    projectileArchetypeId,
+    projectilePoolClass: projectilePoolClass as ProjectilePoolClass,
+    requestedProjectileSlots,
+    requestedResidueVisualSlots,
+    emitterCount,
+    maxEmitters,
+    combinedAllocatedSlots,
+    combinedResidueVisuals,
+  });
+}
+
+function sameDormantSuccessorJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function reservationFromFormalCombinedAdmission(
+  plan: CanonicalRunFirstContinuationRoomPlanPayload,
+  evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation,
+): CanonicalRunFirstContinuationDormantSuccessorReservation {
+  if (
+    !evaluation.admissible
+    || evaluation.state !== "admissible"
+    || evaluation.poolClassResolution.state !== "resolved"
+    || evaluation.successor.reservationByClass === null
+    || evaluation.combined === null
+  ) {
+    throw new Error("formal combined pool admission did not produce a reservation");
+  }
+  return captureDormantSuccessorReservation(Object.freeze({
+    authority: "canonical-run-first-continuation-dormant-successor-reservation-v1" as const,
+    extensionPolicy: "EXT-2026-015" as const,
+    admittedAtTick120: plan.plannedAtTick120,
+    targetRoom: plan.targetRoom,
+    occurrenceId: plan.occurrence.occurrenceId,
+    patternId: plan.occurrence.patternId,
+    difficulty: plan.occurrence.difficulty,
+    projectileArchetypeId: evaluation.poolClassResolution.archetypeId,
+    projectilePoolClass: evaluation.poolClassResolution.poolClass,
+    requestedProjectileSlots: evaluation.successor.requestedProjectileSlots,
+    requestedResidueVisualSlots: evaluation.successor.requestedResidueVisualSlots,
+    emitterCount: evaluation.successor.emitterCount,
+    maxEmitters: evaluation.successor.maxEmitters,
+    combinedAllocatedSlots: evaluation.combined.allocatedSlots,
+    combinedResidueVisuals: evaluation.combined.residueVisuals,
+  }));
+}
+
+function validateDormantSuccessorTransferBoundary(
+  runState: CanonicalRunCombatState,
+  eventBus: CanonicalEventBus,
+  carryover: CanonicalRoomThresholdMaterialCarryover,
+  successorOwner: object,
+  reservation: CanonicalRunFirstContinuationDormantSuccessorReservation,
+): Readonly<{
+  readonly binding: Ext013RoomThresholdRunBinding;
+  readonly material: CanonicalRoomThresholdMaterialCarryoverSnapshot;
+}> {
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("dormant successor transfer requires an exact CanonicalRunCombatState");
+  }
+  if (!isExactCanonicalEventBus(eventBus)) {
+    throw new Error("dormant successor transfer requires the exact canonical event bus");
+  }
+  if (
+    typeof successorOwner !== "object"
+    || successorOwner === null
+    || Object.getPrototypeOf(successorOwner) !== Object.prototype
+    || !Object.isFrozen(successorOwner)
+    || Reflect.ownKeys(successorOwner).length !== 0
+  ) {
+    throw new Error("dormant successor transfer owner must be opaque");
+  }
+  const materialRecord = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(carryover);
+  if (materialRecord === undefined || materialRecord.runState !== runState) {
+    throw new Error("dormant successor transfer requires the exact material owner");
+  }
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  if (
+    (binding?.phase !== "material" && binding?.phase !== "target-room-idle")
+    || binding.carryover !== carryover
+    || binding.successorOwner !== null
+    || binding.successorReservation !== null
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+    || binding.kernel[ROOM_THRESHOLD_RUN_STATE_PROOF]() !== runState
+  ) {
+    throw new Error("dormant successor transfer lost the exact flushed EXT-013 binding");
+  }
+  const internals = runCombatStateInternals(runState);
+  assertRunCombatStateOperational(internals);
+  if (
+    internals.bus !== eventBus
+    || internals.advanceLocked
+    || internals.activeOccurrenceId !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.pendingFlushTick120 !== null
+    || internals.bus.pendingEventCount() !== 0
+  ) {
+    throw new Error("dormant successor transfer requires an empty flushed Run boundary");
+  }
+  const material = carryover.snapshot();
+  const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+  const player = internals.player.snapshot();
+  const override = internals.override.snapshot();
+  if (
+    material.tick120 !== internals.currentTick120
+    || material.poolUsage.liveColliders !== 0
+    || material.poolUsage.residueVisuals !== material.materialCount
+    || room.tick120 !== internals.currentTick120
+    || room.state !== "idle"
+    || room.currentRoom !== binding.targetRoom
+    || room.targetRoom !== null
+    || room.generation !== 1
+    || room.active !== null
+    || binding.materialRoomEventCount === null
+    || room.eventCount !== binding.materialRoomEventCount
+    || player.tick120 !== internals.currentTick120
+    || player.state !== "alive"
+    || player.collisionEnabled !== true
+    || player.activeLeases.length !== 0
+    || player.recoveryAtTick120 !== null
+    || player.respawnPlaceAtTick120 !== null
+    || player.respawnCompleteAtTick120 !== null
+    || override.state !== "idle"
+    || override.deadlineTick120 !== null
+    || override.localVoid !== null
+  ) {
+    throw new Error("dormant successor transfer boundary is not alive, quiescent, and collisionless");
+  }
+  if (
+    reservation.admittedAtTick120 !== internals.currentTick120
+    || reservation.targetRoom !== binding.targetRoom
+    || internals.adapterPolicy.projectilePoolClasses[reservation.projectileArchetypeId]
+      !== reservation.projectilePoolClass
+    || reservation.combinedResidueVisuals
+      !== material.poolUsage.residueVisuals + reservation.requestedResidueVisualSlots
+  ) {
+    throw new Error("dormant successor reservation is stale or belongs to another Run boundary");
+  }
+  for (const poolClass of DORMANT_SUCCESSOR_POOL_CLASS_ORDER) {
+    const expected = material.poolUsage.allocatedSlots[poolClass]
+      + (poolClass === reservation.projectilePoolClass
+        ? reservation.requestedProjectileSlots
+        : 0);
+    if (reservation.combinedAllocatedSlots[poolClass] !== expected) {
+      throw new Error(`dormant successor ${poolClass} reservation lost its carryover join`);
+    }
+  }
+  return Object.freeze({binding, material});
+}
+
+function requirePreparedDormantSuccessorTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
+  expectedStatus: PreparedDormantSuccessorTransferRecord["status"] = "prepared",
+): PreparedDormantSuccessorTransferRecord {
+  if (typeof proposal !== "object" || proposal === null) {
+    throw new Error("dormant successor transfer proposal must be opaque");
+  }
+  const record = PREPARED_DORMANT_SUCCESSOR_TRANSFERS.get(proposal);
+  if (record === undefined) {
+    throw new Error("dormant successor transfer proposal is not registered");
+  }
+  if (record.status !== expectedStatus) {
+    throw new Error(`dormant successor transfer proposal is ${record.status}`);
+  }
+  return record;
+}
+
+/** Prepare a zero-event replacement of the flushed EXT-013 material binding. */
+export function prepareCanonicalRunFirstContinuationDormantSuccessorTransfer(
+  capability: CanonicalRunFirstContinuationDormantSuccessorTransferCapability,
+  handoffReceipt: object,
+  runState: CanonicalRunCombatState,
+  eventBus: CanonicalEventBus,
+  carryover: CanonicalRoomThresholdMaterialCarryover,
+  successorOwner: object,
+): PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer {
+  if (ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.has(runState)) {
+    throw new Error("dormant successor transfer already has an in-flight proposal");
+  }
+  const capabilityRecord = requireDormantSuccessorTransferCapability(
+    capability,
+    "handoff",
+  );
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const material = carryover.snapshot();
+  if (
+    capabilityRecord.runState !== runState
+    || capabilityRecord.kernel !== binding?.kernel
+    || capabilityRecord.formalTarget !== binding.formalTarget
+    || capabilityRecord.handoffReceipt !== handoffReceipt
+    || capabilityRecord.handoffTick120 === null
+    || capabilityRecord.handoffTick120 !== material.tick120
+    || capabilityRecord.carryover !== carryover
+    || binding.successorTransferCapability !== capability
+  ) {
+    throw new Error("dormant successor transfer capability is not the exact handoff proof");
+  }
+  const source = deriveCanonicalRunFirstContinuationRoomPlanSourceUnbranded(
+    capabilityRecord.formalTarget,
+    Object.freeze({
+      targetRoom: capabilityRecord.formalTarget.targetRoom,
+      atTick120: capabilityRecord.handoffTick120,
+    }),
+    material,
+  );
+  const plan = deriveCanonicalRunFirstContinuationRoomPlanUnbranded(source);
+  const evaluation = evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbranded(
+    plan,
+    runState.snapshot().adapterPolicy.projectilePoolClasses,
+  );
+  if (!evaluation.admissible || evaluation.state !== "admissible") {
+    throw new Error(`dormant successor formal admission is ${evaluation.state}`);
+  }
+  const reservation = reservationFromFormalCombinedAdmission(plan, evaluation);
+  const boundary = validateDormantSuccessorTransferBoundary(
+    runState,
+    eventBus,
+    carryover,
+    successorOwner,
+    reservation,
+  );
+  const proposal = Object.freeze({}) as
+    PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer;
+  const view = Object.freeze({
+    authority: "canonical-run-first-continuation-dormant-successor-transfer-v1" as const,
+    extensionPolicy: "EXT-2026-015" as const,
+    tick120: reservation.admittedAtTick120,
+    targetRoom: reservation.targetRoom,
+    occurrenceId: reservation.occurrenceId,
+    patternId: reservation.patternId,
+    plan,
+    combinedPoolAdmission: evaluation,
+    materialCount: boundary.material.materialCount,
+    materialDraining: !boundary.material.drained,
+    liveColliders: 0 as const,
+    canonicalEventWrites: 0 as const,
+    tickAdvance: 0 as const,
+  });
+  PREPARED_DORMANT_SUCCESSOR_TRANSFERS.set(proposal, {
+    capability,
+    handoffReceipt,
+    runState,
+    eventBus,
+    carryover,
+    successorOwner,
+    reservation,
+    source,
+    plan,
+    evaluation,
+    material: boundary.material,
+    view,
+    status: "prepared",
+  });
+  ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.set(runState, proposal);
+  capabilityRecord.status = "prepared";
+  capabilityRecord.activeProposal = proposal;
+  return proposal;
+}
+
+export function inspectPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
+): PreparedCanonicalRunFirstContinuationDormantSuccessorTransferView {
+  return requirePreparedDormantSuccessorTransfer(proposal).view;
+}
+
+/**
+ * Atomically replaces the existing map entry; it never deletes the binding,
+ * so generic occurrence claim cannot observe an unleased gap.
+ */
+export function commitPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
+): void {
+  const record = requirePreparedDormantSuccessorTransfer(proposal);
+  const capabilityRecord = requireDormantSuccessorTransferCapability(
+    record.capability,
+    "prepared",
+  );
+  try {
+    if (
+      ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.get(record.runState) !== proposal
+      || capabilityRecord.activeProposal !== proposal
+      || capabilityRecord.handoffReceipt !== record.handoffReceipt
+      || capabilityRecord.carryover !== record.carryover
+      || capabilityRecord.handoffTick120 === null
+    ) {
+      throw new Error("dormant successor transfer lost its exclusive reservation");
+    }
+    const boundary = validateDormantSuccessorTransferBoundary(
+      record.runState,
+      record.eventBus,
+      record.carryover,
+      record.successorOwner,
+      record.reservation,
+    );
+    if (
+      boundary.material.tick120 !== record.material.tick120
+      || boundary.material.materialCount !== record.material.materialCount
+      || boundary.material.drained !== record.material.drained
+      || boundary.material.poolUsage.residueVisuals !== record.material.poolUsage.residueVisuals
+      || DORMANT_SUCCESSOR_POOL_CLASS_ORDER.some((poolClass) =>
+        boundary.material.poolUsage.active[poolClass] !== record.material.poolUsage.active[poolClass]
+        || boundary.material.poolUsage.allocatedSlots[poolClass]
+          !== record.material.poolUsage.allocatedSlots[poolClass])
+    ) {
+      throw new Error("dormant successor transfer material summary became stale");
+    }
+    const source = deriveCanonicalRunFirstContinuationRoomPlanSourceUnbranded(
+      capabilityRecord.formalTarget,
+      Object.freeze({
+        targetRoom: capabilityRecord.formalTarget.targetRoom,
+        atTick120: capabilityRecord.handoffTick120,
+      }),
+      boundary.material,
+    );
+    const plan = deriveCanonicalRunFirstContinuationRoomPlanUnbranded(source);
+    const evaluation = evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbranded(
+      plan,
+      record.runState.snapshot().adapterPolicy.projectilePoolClasses,
+    );
+    if (
+      !evaluation.admissible
+      || !sameDormantSuccessorJson(source, record.source)
+      || !sameDormantSuccessorJson(plan, record.plan)
+      || !sameDormantSuccessorJson(evaluation, record.evaluation)
+    ) {
+      throw new Error("dormant successor formal plan or combined admission became stale");
+    }
+    boundary.binding.successorOwner = record.successorOwner;
+    boundary.binding.successorReservation = record.reservation;
+    boundary.binding.phase = "successor-dormant";
+    record.status = "committed";
+    capabilityRecord.status = "committed";
+    capabilityRecord.activeProposal = null;
+    ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.delete(record.runState);
+  } catch (error) {
+    record.status = "failed";
+    capabilityRecord.status = "handoff";
+    capabilityRecord.activeProposal = null;
+    ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.delete(record.runState);
+    throw error;
+  }
+}
+
+export function cancelPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
+): void {
+  const record = requirePreparedDormantSuccessorTransfer(proposal);
+  const capabilityRecord = requireDormantSuccessorTransferCapability(
+    record.capability,
+    "prepared",
+  );
+  if (
+    ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.get(record.runState) !== proposal
+    || capabilityRecord.activeProposal !== proposal
+  ) {
+    throw new Error("dormant successor transfer lost its exclusive reservation");
+  }
+  record.status = "cancelled";
+  capabilityRecord.status = "handoff";
+  capabilityRecord.activeProposal = null;
+  ACTIVE_DORMANT_SUCCESSOR_TRANSFER_BY_RUN_STATE.delete(record.runState);
+}
+
+export interface CanonicalRunFirstContinuationDormantSuccessorBindingSnapshot {
+  readonly authority: "canonical-run-first-continuation-dormant-successor-binding-v1";
+  readonly extensionPolicy: "EXT-2026-015";
+  readonly phase: "dormant";
+  readonly tick120: number;
+  readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
+  readonly reservation: CanonicalRunFirstContinuationDormantSuccessorReservation;
+  readonly material: CanonicalRoomThresholdMaterialCarryoverSnapshot;
+  readonly combat: null;
+  readonly nextMasterTickAction: "telegraph";
+}
+
+export function inspectCanonicalRunFirstContinuationDormantSuccessorBinding(
+  runState: CanonicalRunCombatState,
+  eventBus: CanonicalEventBus,
+  carryover: CanonicalRoomThresholdMaterialCarryover,
+  successorOwner: object,
+): CanonicalRunFirstContinuationDormantSuccessorBindingSnapshot {
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("dormant successor inspection requires an exact Run state");
+  }
+  if (!isExactCanonicalEventBus(eventBus)) {
+    throw new Error("dormant successor inspection requires the exact event bus");
+  }
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const materialRecord = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(carryover);
+  if (
+    binding?.phase !== "successor-dormant"
+    || binding.carryover !== carryover
+    || binding.successorOwner !== successorOwner
+    || binding.successorReservation === null
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+    || materialRecord?.runState !== runState
+  ) {
+    throw new Error("dormant successor owner lost its exact binding");
+  }
+  const internals = runCombatStateInternals(runState);
+  const material = carryover.snapshot();
+  const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+  if (
+    internals.bus !== eventBus
+    || internals.currentTick120 !== binding.successorReservation.admittedAtTick120
+    || internals.activeOccurrenceId !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.pendingFlushTick120 !== null
+    || internals.bus.pendingEventCount() !== 0
+    || material.tick120 !== internals.currentTick120
+    || material.poolUsage.liveColliders !== 0
+    || room.tick120 !== internals.currentTick120
+    || room.currentRoom !== binding.targetRoom
+    || room.state !== "idle"
+    || room.active !== null
+  ) {
+    throw new Error("dormant successor binding advanced or acquired combat authority");
+  }
+  return Object.freeze({
+    authority: "canonical-run-first-continuation-dormant-successor-binding-v1" as const,
+    extensionPolicy: "EXT-2026-015" as const,
+    phase: "dormant" as const,
+    tick120: internals.currentTick120,
+    targetRoom: binding.targetRoom,
+    reservation: binding.successorReservation,
+    material,
+    combat: null,
+    nextMasterTickAction: "telegraph" as const,
+  });
 }

@@ -34,6 +34,12 @@ import {
   CanonicalRunFirstContinuationTransitionChapter,
   inspectCanonicalRunFirstContinuationRoomHandoffReceipt,
 } from "./first-continuation-transition";
+import {
+  cancelPreparedCanonicalRunFirstContinuationRoomAdmission,
+  commitPreparedCanonicalRunFirstContinuationRoomAdmission,
+  inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
+  prepareCanonicalRunFirstContinuationRoomAdmission,
+} from "./first-continuation-room-admission-authority";
 
 function runInput(
   tick120: number,
@@ -182,7 +188,201 @@ beforeAll(() => {
   formalTargetSource = produceFormalTargetSource();
 }, 30_000);
 
+function reachLiveMaterialHandoff() {
+  const fixture = freshFormalTarget();
+  const startTick120 = fixture.formalTarget.selectedAtTick120 + 1;
+  const chapter = CanonicalRunFirstContinuationTransitionChapter.start({
+    formalTarget: fixture.formalTarget,
+    runState: fixture.runState,
+    eventBus: fixture.eventBus,
+    input: combatInput(startTick120),
+  });
+  let transition = chapter.snapshot();
+  while (transition.combat.tick120 < transition.timeline.patternCompleteTick120) {
+    transition = chapter.step(combatInput(transition.combat.tick120 + 1));
+  }
+  const handoffReceipt = chapter.handoff();
+  if (handoffReceipt === null) throw new Error("formal admission fixture lost its handoff");
+  return Object.freeze({fixture, chapter, transition, handoffReceipt});
+}
+
 describe("first continuation transition chapter owner", () => {
+  it("atomically transfers a live material handoff to one dormant successor owner", {
+    timeout: 30_000,
+  }, () => {
+    const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
+    const handoffTick120 = transition.combat.tick120;
+    expect(transition.material).toMatchObject({drained: false});
+    expect(transition.material?.materialCount).toBeGreaterThan(0);
+
+    expect(() => prepareCanonicalRunFirstContinuationRoomAdmission(
+      Object.freeze({}) as typeof handoffReceipt,
+    )).toThrow(/not registered/);
+    const eventsBefore = fixture.eventBus.events().length;
+    const runBefore = fixture.runState.snapshot();
+    const materialBefore = transition.material;
+    const preparation = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (preparation.state !== "prepared") {
+      throw new Error(`expected admissible fixture, received ${preparation.reason}`);
+    }
+    expect(preparation.view).toMatchObject({
+      state: "prepared",
+      preparedAtTick120: handoffTick120,
+      handoff: {targetRoom: fixture.formalTarget.targetRoom, atTick120: handoffTick120},
+      plan: {
+        targetRoom: fixture.formalTarget.targetRoom,
+        occurrence: {roomOrdinal: 1, encounterOrdinal: 0},
+      },
+      combinedPoolAdmission: {
+        state: "admissible",
+        admissible: true,
+        reservationCommitted: false,
+      },
+      transfer: {
+        tick120: handoffTick120,
+        targetRoom: fixture.formalTarget.targetRoom,
+        materialDraining: true,
+        liveColliders: 0,
+        canonicalEventWrites: 0,
+        tickAdvance: 0,
+      },
+      canonicalEventWrites: 0,
+      tickAdvance: 0,
+    });
+    expect(fixture.runState.snapshot()).toEqual(runBefore);
+    expect(fixture.eventBus.events()).toHaveLength(eventsBefore);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+    expect(() => prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt))
+      .toThrow(/in-flight admission proposal/);
+
+    const owner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    );
+    const successor = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    expect(Object.isFrozen(owner)).toBe(true);
+    expect(Reflect.ownKeys(owner)).toEqual([]);
+    expect(successor).toMatchObject({
+      phase: "dormant",
+      tick120: handoffTick120,
+      targetRoom: fixture.formalTarget.targetRoom,
+      patternId: preparation.view.plan.occurrence.patternId,
+      occurrenceId: preparation.view.plan.occurrence.occurrenceId,
+      difficulty: preparation.view.plan.occurrence.difficulty,
+      combinedPoolAdmission: {
+        state: "committed",
+        evaluation: {state: "admissible", admissible: true},
+        reservationCommitted: true,
+      },
+      material: {
+        tick120: handoffTick120,
+        materialCount: materialBefore?.materialCount,
+        drained: false,
+        poolUsage: {liveColliders: 0},
+      },
+      combat: null,
+      targetVisible: false,
+      nextMasterTickAction: "telegraph",
+      inputOwnership: {
+        movement: "continued",
+        focus: "continued",
+        signal: "requested-unconsumed",
+        gazeInput: "requested-unconsumed",
+        flowerAuthority: "frozen",
+        gazeAuthority: "frozen",
+        override: "locked",
+      },
+    });
+    expect(fixture.runState.snapshot()).toEqual(runBefore);
+    expect(fixture.eventBus.events()).toHaveLength(eventsBefore);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+    expect(chapter.snapshot()).toMatchObject({
+      ownership: "transferred-to-dormant-successor",
+      material: materialBefore,
+    });
+    expect(inspectCanonicalRunFirstContinuationRoomHandoffReceipt(handoffReceipt))
+      .toEqual(preparation.view.handoff);
+    expect(() => chapter.step(combatInput(handoffTick120 + 1)))
+      .toThrow(/ownership was transferred/);
+    expect(() => fixture.runState.stepIdle(
+      combatInput(handoffTick120 + 1),
+      fixture.formalTarget.targetRoom,
+    )).toThrow(/dormant successor owner/);
+    expect(() => prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt))
+      .toThrow(/already committed/);
+    expect(() => commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    )).toThrow(/proposal is committed/);
+    expect(fixture.runState.snapshot()).toEqual(runBefore);
+    expect(fixture.eventBus.events()).toHaveLength(eventsBefore);
+  });
+
+  it("cancels a prepared admission without consuming the handoff, then retries", {
+    timeout: 30_000,
+  }, () => {
+    const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
+    const runBefore = fixture.runState.snapshot();
+    const eventsBefore = fixture.eventBus.events();
+    const first = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (first.state !== "prepared") {
+      throw new Error(`expected admissible fixture, received ${first.reason}`);
+    }
+
+    cancelPreparedCanonicalRunFirstContinuationRoomAdmission(first.proposal);
+    expect(fixture.runState.snapshot()).toEqual(runBefore);
+    expect(fixture.eventBus.events()).toEqual(eventsBefore);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+    expect(chapter.snapshot()).toEqual(transition);
+    expect(() => commitPreparedCanonicalRunFirstContinuationRoomAdmission(first.proposal))
+      .toThrow(/proposal is cancelled/);
+
+    const retry = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (retry.state !== "prepared") {
+      throw new Error(`expected retry to remain admissible, received ${retry.reason}`);
+    }
+    const owner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(retry.proposal);
+    expect(inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner)).toMatchObject({
+      phase: "dormant",
+      tick120: transition.combat.tick120,
+      targetRoom: fixture.formalTarget.targetRoom,
+    });
+    expect(fixture.runState.snapshot()).toEqual(runBefore);
+    expect(fixture.eventBus.events()).toEqual(eventsBefore);
+  });
+
+  it("rejects a stale prepared admission without blocking the original owner", {
+    timeout: 30_000,
+  }, () => {
+    const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
+    const preparation = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (preparation.state !== "prepared") {
+      throw new Error(`expected admissible fixture, received ${preparation.reason}`);
+    }
+
+    const advanced = chapter.step(combatInput(transition.combat.tick120 + 1));
+    const runAfterAdvance = fixture.runState.snapshot();
+    const eventsAfterAdvance = fixture.eventBus.events();
+    expect(() => commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    )).toThrow(/stale/);
+    expect(fixture.runState.snapshot()).toEqual(runAfterAdvance);
+    expect(fixture.eventBus.events()).toEqual(eventsAfterAdvance);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+    expect(chapter.snapshot()).toEqual(advanced);
+    expect(() => commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    )).toThrow(/proposal is failed/);
+    expect(() => prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt))
+      .toThrow(/stale or no longer flushed/);
+
+    const advancedMaterialTick120 = advanced.material?.tick120;
+    if (advancedMaterialTick120 === undefined) {
+      throw new Error("stale admission fixture lost its material clock");
+    }
+    const continued = chapter.step(combatInput(advancedMaterialTick120 + 1));
+    expect(continued.material?.tick120).toBe(advancedMaterialTick120 + 1);
+    expect(continued.ownership).toBe("active");
+  });
+
   it("owns start through material handoff without exposing mutable authorities", {
     timeout: 30_000,
   }, () => {
@@ -281,6 +481,8 @@ describe("first continuation transition chapter owner", () => {
       material: {drained: true, materialCount: 0},
     });
     expect(chapter.handoff()).toBe(receipt);
+    expect(() => prepareCanonicalRunFirstContinuationRoomAdmission(receipt))
+      .toThrow(/stale or no longer flushed/);
   });
 
   it("waits for the exact player recovery boundary without waiting for material drain", {
