@@ -700,6 +700,9 @@ function validateAcceptedTick(
     if (inputConsumption.signal || inputConsumption.gaze) {
       throw new Error("behavior facts roomless transition cannot consume Signal or Gaze");
     }
+    if (inputConsumption.movement !== inputConsumption.focus) {
+      throw new Error("behavior facts roomless transition must gate movement and Focus together");
+    }
     if (value.committed.flower !== null || value.committed.gaze !== null) {
       throw new Error("behavior facts roomless transition requires absent Flower and Gaze commits");
     }

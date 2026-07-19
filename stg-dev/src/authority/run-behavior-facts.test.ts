@@ -513,6 +513,10 @@ describe("EXT-2026-006 canonical Run rolling behavior facts", () => {
     })).toThrow(/cannot consume Signal or Gaze/);
     expect(() => ledger.recordAcceptedTick({
       ...transitionTick,
+      inputConsumption: {...transitionTick.inputConsumption, focus: false},
+    })).toThrow(/must gate movement and Focus together/);
+    expect(() => ledger.recordAcceptedTick({
+      ...transitionTick,
       committed: {
         ...transitionTick.committed,
         flower: roomLedgerTick(1703).committed.flower,
