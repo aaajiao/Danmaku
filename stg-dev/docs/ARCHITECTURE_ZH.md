@@ -78,9 +78,11 @@ fallback 与最终 frame/audio/haptic resolver；章节只选择要消费的 bin
 都不能阻塞或回写 gameplay。状态 frame 只观察 authority snapshot；release、collision、entity drain 与
 handoff 不能由图片、声音或表现结束反推。
 
-当前 First Eye 边界只使用 V4 已给出的稳定代表 frame、声音和单次触觉，不拥有动画 playhead、持续时间、
-叠层、房间声床 crossfade 或 reaction 生命周期。加入这些组合规则前必须先明确 focused extension；QA
-preview timeline 不能代替该决定。
+当前因果素材边界只使用 V4 已给出的稳定代表 frame 与已有 authority 生命周期。First Eye消费reveal、
+clamp、Reduced Motion fallback、release及一次clamp声音/触觉；Room Threshold仅在atomic room-transition
+FSM active期间按`toRoom`显示正式steady frame，并在complete隐藏。两者都不拥有动画playhead；当前阈值
+投影也不授权动态运动或房间声床crossfade。加入未定义的持续时间、混合、reaction或其他组合规则前必须
+先明确focused extension；QA preview timeline不能代替该决定。
 
 ## 4. 时间模型
 
