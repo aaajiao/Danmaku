@@ -92,6 +92,11 @@ V4 causality frame；表现不保存计时器，也不写回authority。
 | `checksums-sha256.txt` | V4 physical file universe | `ff833ceef5c9821ca2f76feeb6ae6afb4be84facba8f61f22d114e6efd057b99` |
 | `runtime/feedback.ts` | reference feedback subscriber | `5312a0a2fd72fabc4c55bb53e47f96478693898a3df3008a063f97c5f922292f` |
 | `runtime/projectile.ts` | reference entity lifecycle | `b61b5c78760bae221b75f0518fd8af5e2404f3e293ea1180e5d31a2541780b60` |
+| `stg-dev/src/assets/chapters/canonical-run-v4.ts` | exact chapter binding selection at `69e4487` | `f794f0cd7a93a861b5f670ddee86ca1bf19448c8ee54b781e39dfdbbcce64cb4` |
+| `stg-dev/src/game/renderer.ts` | accepted replacement implementation at `69e4487` | `76f9233df333f5f8751f4deb45e67b52c7c3f7c87c7df5ee2db56662e6e3de42` |
+| `stg-dev/src/assets/v4-runtime-assets.test.ts` | binding evidence at `69e4487` | `c19c04b27b5a7d7140ada258d08bfecfa6ae4a2407ed221095c4bfaa454b5c30` |
+| `stg-dev/src/game/renderer.test.ts` | state/material evidence at `69e4487` | `17975aaa52a3e6b1352bbfcd4a448b18f63edfb8a7dbbc607e95b64514c653e6` |
+| `stg-dev/e2e/causal-input-clock.spec.ts` | production-preview evidence at `69e4487` | `da183ea4c32854d32f5da7bdc00aa585fd5d18ea101ee5ce7b500211c5bea58c` |
 
 未生成或导入新artifact；所有可见像素均来自上述V4 frame。
 
@@ -103,6 +108,19 @@ V4 causality frame；表现不保存计时器，也不写回authority。
   `projectile.collision.on`提交tick断言玩家可见frame；不新建第二条长producer。
 - strict typecheck、`git diff --check`；production-preview自动执行content check、build与preview。
 - gameplay snapshot/event trace不变；本切片不跑smoke、全unit或全E2E，留到完整玩家路径里程碑。
+
+## 实现与证据
+
+- 实现提交：`69e4487`。章节registry只消费两个正式visual binding；renderer根据每tick已提交的最终snapshot
+  选择frame，同一projectile始终只有一个sprite，frame切换只释放entity-owned material clone。
+- focused asset registry与renderer测试通过：asset 1项，renderer 41项；覆盖Full/Reduced arm、live、
+  collision-off、residue、legacy、非法collision组合及多个sprite不共享可变material。
+- strict typecheck与`git diff --check`通过。
+- seed-1 controlled production-preview通过：1 passed，约11秒；真实tick `1033`显示
+  `cue.projectile.dormant=6`，tick `1037`显示`cue.projectile.armed=6`。该路径自动完成content check、
+  production build与preview。
+- 一次定向只读复核未发现P0/P1。按风险策略未运行smoke、全unit、全E2E或`test:all`；这些保留到完整玩家
+  路径或Alpha门禁，不重复消耗本切片时间。
 
 ## 回滚与迁移
 

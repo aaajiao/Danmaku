@@ -80,9 +80,14 @@ handoff 不能由图片、声音或表现结束反推。
 
 当前因果素材边界只使用 V4 已给出的稳定代表 frame 与已有 authority 生命周期。First Eye消费reveal、
 clamp、Reduced Motion fallback、release及一次clamp声音/触觉；Room Threshold仅在atomic room-transition
-FSM active期间按`toRoom`显示正式steady frame，并在complete隐藏。两者都不拥有动画playhead；当前阈值
-投影也不授权动态运动或房间声床crossfade。加入未定义的持续时间、混合、reaction或其他组合规则前必须
-先明确focused extension；QA preview timeline不能代替该决定。
+FSM active期间按`toRoom`显示正式steady frame，并在complete隐藏。EXT-026让canonical projectile在同一个
+sprite上按最终frozen lifecycle/collision snapshot原位替换arm/live frame：arm使用正式telegraph及其Reduced
+Motion fallback，`flight + collisionEnabled`使用live frame，collision-off、residue和legacy恢复原archetype。
+每个projectile只拥有自己的material clone；frame、opacity或动画不能反推collider。
+
+上述投影都不拥有动画playhead；当前阈值不授权动态运动或房间声床crossfade，projectile也不消费V4 preview
+时长或未绑定音频。加入未定义的持续时间、混合、reaction或其他组合规则前必须先明确focused extension；
+QA preview timeline不能代替该决定。
 
 ## 4. 时间模型
 

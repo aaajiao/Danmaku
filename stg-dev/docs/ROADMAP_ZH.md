@@ -33,7 +33,7 @@
 | Room composition / execution | WIP（首个 live 切片） | Misregistration encounter ordinal 1已进入真实Session，完成80-slot READ、global8219 gameplay release、rest8327、close8519与post-close material hold；formal fixture的63个residue在8682自然排空且lease不自动释放。下一occurrence/room决定与完整multi-pool仍未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
-| Renderer / input / PWA | WIP（首批因果素材族） | shared/chapter runtime registry已闭合7/7图集与448 frame atlas依赖，当前接4个房间背景、4个room bed和6个既有feedback音效；First Eye已按正式事件/状态投影reveal、clamp、Reduced Motion fallback、release及一次clamp音频/触觉，Room Threshold会在atomic transition存活期间显示目标房间的正式steady frame并在complete隐藏。其余事件族、动态clip、reaction、升级迁移和实机矩阵未完成 |
+| Renderer / input / PWA | WIP（首批因果素材族） | shared/chapter runtime registry已闭合7/7图集与448 frame atlas依赖，当前接4个房间背景、4个room bed和6个既有feedback音效；First Eye、Room Threshold及projectile arm/live collision边界已由真实Run事实驱动正式V4 frame，含对应Reduced Motion fallback。其余事件族、动态clip、reaction、升级迁移和实机矩阵未完成 |
 | QA / release evidence | WIP | focused/unit/content/build/smoke/E2E 与 V4 validators 可运行；完整 Run、性能、soak、设备和升级证据未闭合 |
 | GitHub 自动 CI | PAUSED（FOUNDATION） | push/PR 自动触发暂停，手动 workflow 保留；进入 Alpha 候选且完整门禁稳定后恢复 |
 
@@ -54,17 +54,17 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
 | P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold、Context Switch与Misregistration已进入同一Session/只读presentation并到global8683；下一consumer、room handoff和完整Run终点仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
-| P0-09 | Presentation / accessibility | WIP（首批因果素材族） | `stg-dev/src/assets`已让共享层唯一绑定V4物理URL、章节层只选择ID，并闭合7张正式图集；First Eye steady frame、Reduced Motion fallback、clamp音频/触觉与Room Threshold目标房间steady overlay已从真实Run提交事实投影。下一缺口是projectile/Flower等事件族；动态clip、房间声床crossfade与reaction须先闭合其组合规则。完整Run的full/reduced-motion/flash-off gameplay trace仍须证明相同 |
+| P0-09 | Presentation / accessibility | WIP（首批因果素材族） | `stg-dev/src/assets`已让共享层唯一绑定V4物理URL、章节层只选择ID，并闭合7张正式图集；First Eye、Room Threshold与projectile arm/live frame已从真实Run提交事实投影，projectile replacement由EXT-026冻结且不拥有碰撞。下一缺口是Flower等事件族；动态clip、房间声床crossfade与reaction须先闭合其组合规则。完整Run的full/reduced-motion/flash-off gameplay trace仍须证明相同 |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
 | P0-11 | PWA release path | WIP | 本地root preview可启动并离线warm reload；GitHub Pages尚无deploy workflow，`/Danmaku/` base、manifest identity与子路径smoke未接。之后再闭合冷启动、N→N+1 worker、存档迁移及未知URL fallback |
 | P0-12 | 文档与扩展治理 | DONE（基础） | GDD/TDD/Roadmap/QA 单一职责；每个 V4 外扩展都有 focused ADR 与 provenance |
 
 ### 当前生产顺序
 
-1. 沿进入真实Run的章节事件继续补projectile与Flower等被动素材投影；First Eye和Room Threshold当前只闭合
-   V4已给出且已有状态边界的steady事实，不冒充动态clip或房间声床crossfade。动态playhead、crossfade与
-   reaction组合规则先走focused决定；章节只选择共享V4 ID，不复制素材，不把preview/QA图当runtime资产，
-   `dist`继续由部署阶段生成。
+1. 沿进入真实Run的章节事件继续补Flower等被动素材投影；First Eye、Room Threshold与projectile当前只闭合
+   V4已给出且已有状态边界的steady事实，不冒充动态clip、未绑定声音或房间声床crossfade。动态playhead、
+   crossfade与reaction组合规则先走focused决定；章节只选择共享V4 ID，不复制素材，不把preview/QA图当
+   runtime资产，`dist`继续由部署阶段生成。
 2. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
    count、完整room order、difficulty与RNG continuation在各自消费边界明确，禁止再次形成“后置事实先齐”的门。
 3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
