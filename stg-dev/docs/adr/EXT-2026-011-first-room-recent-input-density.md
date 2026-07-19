@@ -1,9 +1,10 @@
 # EXT-2026-011：首房 recent input union
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 实施 commit：`448d525`（已推送）
 - 前置记录：[EXT-2026-006](EXT-2026-006-canonical-run-behavior-facts.md)、
   [EXT-2026-010](EXT-2026-010-first-room-metric-projection.md)
 - aaajiao skill：`1.1.1`；SHA-256
@@ -101,21 +102,21 @@ accessibility profile不进入事实。
 | `.agents/skills/aaajiao/SKILL.md` | Danmaku / aaajiao | absence、双螺旋、非单一化门 | `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4` |
 | `manifests/gameplay/room-composers-v4.json` | V4 package / aaajiao | ID与weight；无producer/window | `5fb7a8ffa7a77553682f0644f2857fbd4e5f135e55ed5a9dc749640b5fa0e7e9` |
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | caller metrics consumer；非live producer | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
-| `src/authority/run-behavior-facts.ts` | Danmaku / aaajiao + Codex | closed-tick ledger baseline | `079ba851f7b353adea2421d9fc6ab28fb6fe76f86918903148d4e6f628f37f90` |
-| `src/authority/run-metric-projection.ts` | Danmaku / aaajiao + Codex | 2 available / 12 missing baseline | `a2080c019c56a95936257e2d2a8e3f4858c50c652ded43e29f713938cb70ecc1` |
+| `src/authority/run-behavior-facts.ts` | Danmaku / aaajiao + Codex | private 1702-tick union、supplement receipt与ledger lineage | `5c289ccb5a4d1e281b051be136eea86f95dea625582cc964ac3182a2d3763d58` |
+| `src/authority/run-behavior-capture.ts` | Danmaku / aaajiao + Codex | closure metric-source lineage传播 | `4b962765c0daf0a107c314cacc58f8e22c4743ebb4d2ccc02199bef86311ea78` |
+| `src/authority/run-metric-projection.ts` | Danmaku / aaajiao + Codex | same-lineage双receipt、3 available / 11 missing | `623c1c68075d4efb3b97402b0494ce00dc24a65af31d5e53a83df062c50afc4e` |
+| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | pre-step consumption proposal与H+1702原子公开 | `c3fc44a446c8a4e77e0785d70bd1aada845bde6b7ff2aabab4a21b297539af80` |
 
-## 验证预算
+## 验证证据
 
-- pure supplement/projection tests目标低于1秒：同tick四通道重叠只计1、hold逐tick、不可见/unqualified Gaze
-  仍进分母、body-disabled但Gaze qualified、致死同tickpre-step gate、wrong window/seed/receipt与deep freeze。
-- movement-only H+1700/H+1701 neutral-tail request不计active；authority或late ledger validation失败后，
-  supplement receipt不可签发或仍解析为此前完整state。
-- 两个同seed/tick/window的独立ledger/session receipt不得混用；专测opaque lineage identity拒绝splice。
-- 一条真实Run复用既有H+1702路径：closure canonical 5686 bytes / SHA-256
-  `d15ddcef736728ab86eedcf2e061771c6e615b0db4731f45c5fb2165ef388389`保持不变；默认fixture在closure tick
-  只请求Focus，因此`recentInputDensity=1/1702`；H+1703 projection bytes不变。
-- focused ledger/projection/Run regression保持30秒内；strict typecheck、content check、build与diff-check。
-  没有可见路径变化，不跑browser/E2E/full suite。
+- 5个focused authority/Run文件共65项测试通过，wall 21.82秒；覆盖同tickunion、hold、hidden/unqualified
+  Gaze、body gate、致死tick pre-step gate、late failure原子性、H+1700/H+1701 neutral tail与同seed跨session
+  lineage splice拒绝。
+- 真实H+1702路径保持closure canonical 5686 bytes / SHA-256
+  `d15ddcef736728ab86eedcf2e061771c6e615b0db4731f45c5fb2165ef388389`；默认fixture得到
+  `recentInputDensity=1/1702`，neutral-tail-only路径为`0/1702`，H+1703 projection与closure bytes不变。
+- strict typecheck、content authority 778 checksum rows、production build与`git diff --check`通过；只读复核无
+  blocker。没有可见路径变化，未跑browser/E2E/full suite。
 
 ## 回滚与后续
 
@@ -125,5 +126,5 @@ transition分别使用successor ADR。
 
 ## 决策
 
-PROPOSED。只增加首房per-channel-consumed同tickactive union与`recentInputDensity`，projection保持partial，所有
+ACCEPTED。只增加首房per-channel-consumed同tickactive union与`recentInputDensity`，projection保持partial，所有
 composer/selection权限继续withheld。
