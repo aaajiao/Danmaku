@@ -58,11 +58,12 @@ bun run preview
 ## 目录职责
 
 - `src/authority/`：确定性玩法 authority 与只读 snapshots/ports。
+- `src/assets/`：只读 V4 浏览器素材 registry；共享层拥有物理 URL，章节层只选择 canonical ID。
 - `src/game/`：应用装配与表现集成，不反写 authority。
 - `src/content/`：V4 内容入口与 fail-fast validation。
 - `e2e/`：production-preview Playwright runbook 与 specs。
 - `docs/`：GDD、技术架构、制作路线图、QA 与 ADR。
-- `public/` / `artwork/`：运行时静态资产与已记录 provenance 的源文件。
+- `public/`：应用身份图标；`artwork/`：已记录 provenance 的应用源文件。游戏素材继续唯一来自仓库根目录的 V4 包。
 
 ## 验证方式
 

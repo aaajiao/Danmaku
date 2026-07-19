@@ -33,7 +33,7 @@
 | Room composition / execution | WIP（首个 live 切片） | Misregistration encounter ordinal 1已完成80-slot READ、global8219 gameplay release、rest8327与close8519；63-residue transfer已实现，post-close material consumer、Session消费、room count/order与完整multi-pool仍未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
-| Renderer / input / PWA | WIP（基础可用） | Three.js、键盘/触控/标准手柄、manifest、离线warm reload与图标已存在；V4源素材由构建直接打包，但runtime当前只接5/7图集、4个房间背景及部分音频，完整章节素材、causal clips、升级迁移和实机矩阵未完成 |
+| Renderer / input / PWA | WIP（registry闭合） | shared/chapter runtime registry已闭合7/7图集与448 frame atlas依赖，当前接4个房间背景、4个room bed和5个既有feedback音效；完整event→causal clip/audio投影、reaction、升级迁移和实机矩阵未完成 |
 | QA / release evidence | WIP | focused/unit/content/build/smoke/E2E 与 V4 validators 可运行；完整 Run、性能、soak、设备和升级证据未闭合 |
 | GitHub 自动 CI | PAUSED（FOUNDATION） | push/PR 自动触发暂停，手动 workflow 保留；进入 Alpha 候选且完整门禁稳定后恢复 |
 
@@ -54,18 +54,18 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
 | P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold及successor首slice已进入同一session/只读presentation；第二occurrence direct authority已到global8519并持有转交后材料，但该段Session接线、room handoff和完整Run终点仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
-| P0-09 | Presentation / accessibility | WIP | 建立`stg-dev/src/assets`运行时registry，源文件继续唯一指向V4；按共享/章节接完7张正式图集与实际流程所需音频。完整Run的full/reduced-motion/flash-off gameplay trace相同，UI、音频、触觉、天气只读投影，关键causal clips可追溯到事件/tick |
+| P0-09 | Presentation / accessibility | WIP（registry完成） | `stg-dev/src/assets`已让共享层唯一绑定V4物理URL、章节层只选择ID，并闭合7张正式图集；下一缺口是沿真实Run事件补齐Flower/Gaze/projectile/threshold等causal clip与音频。完整Run的full/reduced-motion/flash-off gameplay trace仍须证明相同 |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
-| P0-11 | PWA release path | WIP | 在线/离线冷暖启动、N→N+1 service-worker 更新、存档迁移、未知 URL fallback 与安装路径通过 |
+| P0-11 | PWA release path | WIP | 本地root preview可启动并离线warm reload；GitHub Pages尚无deploy workflow，`/Danmaku/` base、manifest identity与子路径smoke未接。之后再闭合冷启动、N→N+1 worker、存档迁移及未知URL fallback |
 | P0-12 | 文档与扩展治理 | DONE（基础） | GDD/TDD/Roadmap/QA 单一职责；每个 V4 外扩展都有 focused ADR 与 provenance |
 
 ### 当前生产顺序
 
-1. 建立只引用V4唯一源文件的共享/章节素材registry，按实际Run章节补齐图集、背景、causal clip与音频；
-   不复制二进制素材，不把preview/QA图当runtime资产，并让`dist`继续由部署阶段生成。
-2. 为EXT-023新material owner冻结下一个真实consumer：先决定post-close material hold、第三occurrence或room
+1. 为EXT-023新material owner冻结下一个真实consumer：先决定post-close material hold、第三occurrence或room
    composer中谁取得所有权，再实现对应exact tick/lease；不得自动等到`8682`、清屏、释放80-slot capacity或提前
    声称room completion。
+2. 沿进入真实Run的章节事件逐项补causal clip、音频与reaction；只在章节声明中选择共享V4 ID，不复制素材，
+   不把preview/QA图当runtime资产，`dist`继续由部署阶段生成。
 3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
    count、完整room order、difficulty与RNG continuation在各自消费边界明确，禁止再次形成“后置事实先齐”的门。
 4. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把

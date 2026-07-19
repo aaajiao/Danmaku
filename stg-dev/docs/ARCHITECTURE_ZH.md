@@ -41,6 +41,7 @@ authority。V4 素材包不因应用测试失败而修改。
 |---|---|---|
 | `src/content/` | 加载 canonical entrypoints；验证版本、schema、ID、引用、文件 universe 与 digest | gameplay selection、mutable fallback、renderer state |
 | `src/authority/` | clock、event、pattern、projectile、player、Boss/laser、narrative、snapshot/restore 等确定性状态 | DOM、Three.js、audio、wall-clock identity |
+| `src/assets/` | 把 V4 manifest 条目绑定到浏览器 URL；声明共享素材与章节选择 | gameplay authority、复制二进制素材、preview/QA 替代品 |
 | `src/game/` | 装配 authority、输入投影、renderer/audio/UI adapter 与应用生命周期 | 重解释 manifest、根据画面推断 collision/lifecycle |
 | `src/main.ts` | boot mode、显式 URL facts、Run/Lab 入口和应用 wiring | 隐式 seed、第二套 Run authority |
 | `e2e/` | production-preview 用户路径验证 | 注入私有 gameplay state 以伪造完成 |
@@ -57,6 +58,19 @@ buffer、ledger 或内部 state 引用。
 - V4 canonical counts 是内容契约；production coverage 是制作状态，两者不能混写。
 - V4 外内容必须经过 `CONTENT_EXTENSION_ZH.md`、focused ADR 与 provenance；不得修改 V4 tree
   让 application tests 通过。
+
+### 3.1 浏览器素材 registry
+
+`src/assets/shared-v4.ts` 是 Vite `?url` 导入的唯一应用入口。每个物理 URL 必须与 V4 manifest 的
+canonical ID、相对路径、SHA-256 和尺寸闭合；完整 frame universe 引用的 atlas 必须全部可用。未知
+frame、atlas、room 或必需素材应 fail closed，不能用通用子弹、INFORMATION 房间或别的声音静默替代。
+
+`src/assets/chapters/**` 只声明章节需要的 canonical ID、room projection 与明确的 feedback selection，
+不再复制路径或二进制文件。共享 registry 是被动素材目录，不消费 RNG、不推进 tick、不拥有 collision
+或 lifecycle；章节 snapshot/event 仍是何时显示或播放的唯一上游事实。QA preview、pattern 动画和生成过程图
+不得进入 runtime registry。
+
+V4 源素材与应用源码提交到 Git；`dist/`、hash 文件名和 service-worker artifact 由部署阶段构建，保持忽略。
 
 ## 4. 时间模型
 
