@@ -6,6 +6,9 @@ import {
   type CanonicalRunSessionSnapshot,
   type CanonicalRunSessionStepInput,
 } from "../../run-session";
+import {executablePattern} from "../../pattern-executor";
+import {projectCanonicalRunSession} from "../../../game/presentation";
+import type {PatternDefinition} from "../../../game/types";
 
 const OPTIONS = Object.freeze({
   rawRunSeed: Object.freeze({domain: "raw-run-seed" as const, value: 1}),
@@ -68,8 +71,17 @@ function availableSampleCount(
   return entry.sampleCount;
 }
 
+function project(snapshot: CanonicalRunSessionSnapshot) {
+  const patternId = snapshot.firstContinuationRoom?.patternId;
+  if (patternId === undefined) throw new Error("continuation projection lost its pattern");
+  return projectCanonicalRunSession(
+    snapshot,
+    executablePattern(patternId) as unknown as PatternDefinition,
+  );
+}
+
 describe("first continuation transition session integration", () => {
-  it("hands one session owner from transition through successor READ and material hold", {
+  it("hands one session owner through both occurrences and the retained material hold", {
     timeout: 30_000,
   }, () => {
     const session = new CanonicalRunSession(OPTIONS);
@@ -233,6 +245,7 @@ describe("first continuation transition session integration", () => {
         },
       },
       firstContinuationRoom: {
+        stage: "first-occurrence",
         phase: "dormant",
         tick120: patternCompleteTick120,
         relativeTick120: 0,
@@ -303,6 +316,7 @@ describe("first continuation transition session integration", () => {
         handoff: {ready: true, atTick120: patternCompleteTick120},
       },
       firstContinuationRoom: {
+        stage: "first-occurrence",
         phase: "telegraph",
         relativeTick120: 1,
         combat: null,
@@ -335,6 +349,7 @@ describe("first continuation transition session integration", () => {
       phase: "first_continuation_room",
       tick120: readStartTick120,
       firstContinuationRoom: {
+        stage: "first-occurrence",
         phase: "read",
         relativeTick120: 159,
         combat: {
@@ -366,13 +381,27 @@ describe("first continuation transition session integration", () => {
     ).toBeLessThanOrEqual(reservation.combinedResidueVisuals);
 
     const sliceCompleteTick120 = successorAtHandoff.boundaryTicks120.sliceCompleteTick120;
-    while (snapshot.tick120 < sliceCompleteTick120) {
+    while (snapshot.tick120 < sliceCompleteTick120 - 1) {
       snapshot = session.step(input(snapshot.tick120 + 1, {
         signalActive: true,
         focused: true,
         gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
       }));
     }
+    expect(snapshot.firstContinuationRoom).toMatchObject({
+      stage: "first-occurrence",
+      nextMasterTickAction: "close-slice",
+    });
+    const firstOccurrenceId = successorAtHandoff.occurrenceId;
+    const beforeFirstCloseProjection = project(snapshot);
+    const beforeFirstCloseIds = beforeFirstCloseProjection.bullets.map((bullet) => bullet.id);
+    expect(beforeFirstCloseIds.length).toBeGreaterThan(0);
+
+    snapshot = session.step(input(sliceCompleteTick120, {
+      signalActive: true,
+      focused: true,
+      gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+    }));
     expect(snapshot).toMatchObject({
       phase: "first_continuation_room",
       tick120: sliceCompleteTick120,
@@ -381,41 +410,210 @@ describe("first continuation transition session integration", () => {
         material: {drained: true, materialCount: 0},
       },
       firstContinuationRoom: {
-        phase: "complete",
-        nextMasterTickAction: "advance-complete-hold",
-        material: {drained: true, materialCount: 0},
+        stage: "second-occurrence",
+        phase: "dormant",
+        relativeTick120: 0,
+        patternId: "room.in_between.misregistration_corridor",
+        nextMasterTickAction: "telegraph",
+        material: {drained: false},
         runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
-        combat: {
-          patternComplete: true,
-          digitalBodiesDrained: true,
-          poolUsage: {liveColliders: 0},
-        },
+        combat: null,
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+        admissionWithheld: null,
+        child: {stage: "second-occurrence"},
       },
+      combat: null,
     });
-    expect(snapshot.firstContinuationRoom?.combat?.projectiles.every((projectile) =>
-      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
-    expect(snapshot.firstContinuationRoom?.combat?.projectiles.length).toBeGreaterThan(0);
-
-    while ((snapshot.firstContinuationRoom?.combat?.projectiles.length ?? 0) > 0) {
-      snapshot = session.step(input(snapshot.tick120 + 1));
+    const secondAtHandoff = snapshot.firstContinuationRoom;
+    if (secondAtHandoff === null || secondAtHandoff.stage !== "second-occurrence") {
+      throw new Error("second occurrence did not receive the exact first close");
     }
-    const drainedAtTick120 = snapshot.tick120;
-    snapshot = session.step(input(drainedAtTick120 + 1));
+    const secondOccurrenceId = secondAtHandoff.occurrenceId;
+    expect(secondAtHandoff.material.materialCount).toBeGreaterThan(0);
+    expect(secondAtHandoff.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === firstOccurrenceId)).toHaveLength(1);
+    expect(secondAtHandoff.runCombat.claimedOccurrenceIds).not.toContain(secondOccurrenceId);
+    expect(project(snapshot).bullets.map((bullet) => bullet.id)).toEqual(beforeFirstCloseIds);
+
+    snapshot = session.step(input(sliceCompleteTick120 + 1));
     expect(snapshot).toMatchObject({
       phase: "first_continuation_room",
-      tick120: drainedAtTick120 + 1,
+      tick120: sliceCompleteTick120 + 1,
       firstContinuationRoom: {
-        phase: "complete",
-        nextMasterTickAction: "advance-complete-hold",
+        stage: "second-occurrence",
+        phase: "telegraph",
+        relativeTick120: 1,
+        nextMasterTickAction: "continue-telegraph",
+        combat: null,
+      },
+    });
+
+    const secondReadStartTick120 = secondAtHandoff.boundaryTicks120.readStartTick120;
+    while (snapshot.tick120 < secondReadStartTick120) {
+      snapshot = session.step(input(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: secondReadStartTick120,
+      firstContinuationRoom: {
+        stage: "second-occurrence",
+        phase: "read",
+        relativeTick120: 159,
+        patternId: "room.in_between.misregistration_corridor",
         combat: {
-          projectileLifecycleDrained: true,
+          relativeTick120: 0,
           projectiles: [],
-          poolUsage: {liveColliders: 0},
+          rngCallsConsumed: 0,
         },
+        runCombat: {activeOccurrenceId: secondOccurrenceId},
       },
     });
     expect(snapshot.firstContinuationRoom?.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
-      occurrenceId === snapshot.firstContinuationRoom?.occurrenceId)).toHaveLength(1);
+      occurrenceId === secondOccurrenceId)).toHaveLength(1);
+
+    const secondMaterialSettleTick120 = secondAtHandoff
+      .boundaryTicks120.materialSettleStartTick120;
+    while (snapshot.tick120 < secondMaterialSettleTick120) {
+      snapshot = session.step(input(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      tick120: secondMaterialSettleTick120,
+      firstContinuationRoom: {
+        stage: "second-occurrence",
+        phase: "material-settle",
+        nextMasterTickAction: "advance-material-settle",
+        runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+        combat: {
+          relativeTick120: 1_272,
+          patternComplete: true,
+          digitalBodiesDrained: true,
+          rngCallsConsumed: 126,
+          poolUsage: {liveColliders: 0},
+        },
+      },
+    });
+
+    const secondSliceCompleteTick120 = secondAtHandoff
+      .boundaryTicks120.sliceCompleteTick120;
+    while (snapshot.tick120 < secondSliceCompleteTick120 - 1) {
+      snapshot = session.step(input(snapshot.tick120 + 1));
+    }
+    expect(snapshot.firstContinuationRoom).toMatchObject({
+      stage: "second-occurrence",
+      phase: "rest",
+      nextMasterTickAction: "close-slice",
+    });
+    const beforeSecondCloseProjection = project(snapshot);
+    const beforeSecondCloseIds = beforeSecondCloseProjection.bullets.map((bullet) => bullet.id);
+    expect(beforeSecondCloseIds.length).toBeGreaterThan(0);
+
+    snapshot = session.step(input(secondSliceCompleteTick120));
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: secondSliceCompleteTick120,
+      combat: null,
+      firstContinuationRoom: {
+        stage: "second-material",
+        phase: "material-hold",
+        nextMasterTickAction: "advance-material-hold",
+        patternId: "room.in_between.misregistration_corridor",
+        occurrenceId: secondOccurrenceId,
+        combat: null,
+        material: {
+          drained: false,
+          rngCallsConsumed: 126,
+          poolUsage: {
+            allocatedSlots: {micro: 80},
+            liveColliders: 0,
+          },
+        },
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+        child: {stage: "second-material"},
+      },
+    });
+    const secondMaterial = snapshot.firstContinuationRoom?.material;
+    if (secondMaterial === undefined) throw new Error("second material owner disappeared");
+    expect(secondMaterial.materialCount).toBeGreaterThan(0);
+    expect(secondMaterial.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+    expect(project(snapshot).bullets.map((bullet) => bullet.id)).toEqual(beforeSecondCloseIds);
+
+    const claimsAtSecondClose = snapshot.firstContinuationRoom?.runCombat.claimedOccurrenceIds;
+    if (claimsAtSecondClose === undefined) throw new Error("second close lost occurrence claims");
+    expect(claimsAtSecondClose.filter((occurrenceId) =>
+      occurrenceId === firstOccurrenceId)).toHaveLength(1);
+    expect(claimsAtSecondClose.filter((occurrenceId) =>
+      occurrenceId === secondOccurrenceId)).toHaveLength(1);
+    expect(claimsAtSecondClose.some((occurrenceId) =>
+      occurrenceId.includes(":encounter:2:"))).toBe(false);
+
+    const postCloseEventStart = session.events().length;
+    while (snapshot.tick120 < 8_682) {
+      snapshot = session.step(input(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: 8_682,
+      combat: null,
+      firstContinuationRoom: {
+        stage: "second-material",
+        phase: "material-hold",
+        material: {
+          materialCount: 0,
+          drained: true,
+          rngCallsConsumed: 126,
+          projectiles: [],
+          poolUsage: {
+            active: {micro: 0},
+            allocatedSlots: {micro: 80},
+            liveColliders: 0,
+            residueVisuals: 0,
+          },
+        },
+        runCombat: {
+          activeOccurrenceId: null,
+          pendingFlushTick120: null,
+          claimedOccurrenceIds: claimsAtSecondClose,
+        },
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+      },
+    });
+    const postCloseMaterialEvents = session.events().slice(postCloseEventStart).filter((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete");
+    expect(postCloseMaterialEvents).toHaveLength(secondMaterial.materialCount * 2);
+    expect(postCloseMaterialEvents.filter((event) =>
+      event.id === "projectile.residue.remove").at(-1)?.tick120).toBe(8_682);
+
+    const eventsAtEmptyHold = session.events().length;
+    snapshot = session.step(input(8_683));
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: 8_683,
+      combat: null,
+      firstContinuationRoom: {
+        stage: "second-material",
+        phase: "material-hold",
+        nextMasterTickAction: "advance-material-hold",
+        material: {
+          materialCount: 0,
+          drained: true,
+          poolUsage: {allocatedSlots: {micro: 80}, liveColliders: 0},
+        },
+        runCombat: {claimedOccurrenceIds: claimsAtSecondClose},
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+      },
+    });
+    expect(session.events()).toHaveLength(eventsAtEmptyHold);
+    expect(project(snapshot)).toMatchObject({
+      bullets: [],
+      combatEnabled: false,
+      pattern: {id: "room.in_between.misregistration_corridor"},
+    });
     expect(session.events().filter((event) => event.id === "room.transition.complete"))
       .toHaveLength(roomTransitionCompleteCount);
     expect(session.events().some((event) => event.id === "player.override.local_void.open"))

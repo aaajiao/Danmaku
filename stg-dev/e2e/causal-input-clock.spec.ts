@@ -136,7 +136,7 @@ test("RUN samples forward across boot, backlog, pause, and Focus boundaries", as
   expect(pageErrors, "controlled RUN should have no uncaught page errors").toEqual([]);
 });
 
-test("first room closes at H+1702 and hands through transition into its successor", async ({page}) => {
+test("first room hands through two occurrences into retained material", async ({page}) => {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -311,6 +311,7 @@ test("first room closes at H+1702 and hands through transition into its successo
   await expect(body).toHaveAttribute("data-run-phase", "first_continuation_room");
   await expect(body).toHaveAttribute("data-authority-owner", "first_continuation_room_pre_read");
   await expect(body).toHaveAttribute("data-successor-present", "true");
+  await expect(body).toHaveAttribute("data-successor-stage", "first-occurrence");
   await expect(body).toHaveAttribute("data-successor-phase", "dormant");
   await expect(body).toHaveAttribute("data-successor-admission-withheld-reason", "");
   const successorPatternId = await body.getAttribute("data-successor-pattern-id");
@@ -322,6 +323,10 @@ test("first room closes at H+1702 and hands through transition into its successo
   );
   expect(Number(await body.getAttribute("data-projectile-entities"))).toBe(
     Number(await body.getAttribute("data-transition-material-count")),
+  );
+  await expect(body).toHaveAttribute(
+    "data-successor-material-count",
+    await body.getAttribute("data-transition-material-count") ?? "",
   );
   await advanceControlledRunToTick(page, patternCompleteTick120 + 1);
   await expect(body).toHaveAttribute("data-successor-phase", "telegraph");
@@ -338,6 +343,90 @@ test("first room closes at H+1702 and hands through transition into its successo
   await page.keyboard.up("z");
   await page.keyboard.up("g");
   await stepRaf(page, 0);
+
+  const firstSliceCompleteTick120 = Number(
+    await body.getAttribute("data-successor-slice-complete-tick"),
+  );
+  expect(firstSliceCompleteTick120).toBeGreaterThan(patternCompleteTick120 + 1);
+  await advanceControlledRunToTick(page, firstSliceCompleteTick120 - 1);
+  await expect(body).toHaveAttribute("data-successor-stage", "first-occurrence");
+  await expect(body).toHaveAttribute("data-authority-owner", "first_continuation_room_tail");
+  const firstCloseProjectileCount = Number(
+    await body.getAttribute("data-projectile-entities"),
+  );
+  expect(firstCloseProjectileCount).toBeGreaterThan(0);
+
+  await advanceControlledRunToTick(page, firstSliceCompleteTick120);
+  await expect(body).toHaveAttribute("data-successor-stage", "second-occurrence");
+  await expect(body).toHaveAttribute("data-successor-phase", "dormant");
+  await expect(body).toHaveAttribute(
+    "data-authority-owner",
+    "first_continuation_room_second_pre_read",
+  );
+  await expect(body).toHaveAttribute(
+    "data-successor-pattern-id",
+    "room.in_between.misregistration_corridor",
+  );
+  await expect(body).toHaveAttribute("data-transition-material-count", "0");
+  await expect(body).toHaveAttribute("data-transition-material-drained", "true");
+  expect(Number(await body.getAttribute("data-successor-material-count"))).toBeGreaterThan(0);
+  expect(Number(await body.getAttribute("data-projectile-entities"))).toBe(
+    firstCloseProjectileCount,
+  );
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-pattern-id",
+    "room.in_between.misregistration_corridor",
+  );
+
+  const secondReadStartTick120 = Number(await body.getAttribute("data-room-read-start-tick"));
+  await advanceControlledRunToTick(page, secondReadStartTick120);
+  await expect(body).toHaveAttribute("data-successor-stage", "second-occurrence");
+  await expect(body).toHaveAttribute("data-successor-phase", "read");
+  await expect(body).toHaveAttribute(
+    "data-authority-owner",
+    "first_continuation_room_second_pattern",
+  );
+  await expect(body).toHaveAttribute("data-room-combat-present", "true");
+
+  const secondSliceCompleteTick120 = Number(
+    await body.getAttribute("data-successor-slice-complete-tick"),
+  );
+  await advanceControlledRunToTick(page, secondSliceCompleteTick120 - 1);
+  await expect(body).toHaveAttribute("data-successor-stage", "second-occurrence");
+  await expect(body).toHaveAttribute("data-authority-owner", "first_continuation_room_second_tail");
+  const secondCloseProjectileCount = Number(
+    await body.getAttribute("data-projectile-entities"),
+  );
+  const patternTimeBeforeSecondClose = Number(await page.locator("#pattern-time").textContent());
+  expect(secondCloseProjectileCount).toBeGreaterThan(0);
+
+  await advanceControlledRunToTick(page, secondSliceCompleteTick120);
+  await expect(body).toHaveAttribute("data-successor-stage", "second-material");
+  await expect(body).toHaveAttribute("data-successor-phase", "material-hold");
+  await expect(body).toHaveAttribute(
+    "data-authority-owner",
+    "first_continuation_room_second_material",
+  );
+  await expect(body).toHaveAttribute("data-room-combat-present", "false");
+  await expect(body).toHaveAttribute("data-successor-room-completion", "withheld");
+  await expect(body).toHaveAttribute("data-successor-room-handoff", "withheld");
+  expect(Number(await body.getAttribute("data-projectile-entities"))).toBe(
+    secondCloseProjectileCount,
+  );
+  expect(Number(await page.locator("#pattern-time").textContent()))
+    .toBeGreaterThan(patternTimeBeforeSecondClose);
+
+  await advanceControlledRunToTick(page, 8_682);
+  await expect(body).toHaveAttribute("data-successor-stage", "second-material");
+  await expect(body).toHaveAttribute("data-successor-material-count", "0");
+  await expect(body).toHaveAttribute("data-successor-material-drained", "true");
+  await expect(body).toHaveAttribute("data-projectile-entities", "0");
+  await advanceControlledRunToTick(page, 8_683);
+  await expect(body).toHaveAttribute("data-run-phase", "first_continuation_room");
+  await expect(body).toHaveAttribute("data-successor-stage", "second-material");
+  await expect(body).toHaveAttribute("data-successor-material-allocated-micro", "80");
+  await expect(body).toHaveAttribute("data-successor-room-completion", "withheld");
+  await expect(body).toHaveAttribute("data-successor-room-handoff", "withheld");
 
   expect(pageErrors, "controlled first-room closure should have no uncaught errors").toEqual([]);
   expect(consoleErrors, "controlled transition should have no console errors").toEqual([]);

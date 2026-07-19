@@ -77,13 +77,14 @@ import {
 } from "./run/chapters/first-continuation-transition";
 import {
   commitPreparedCanonicalRunFirstContinuationRoomAdmission,
-  inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
   prepareCanonicalRunFirstContinuationRoomAdmission,
-  stepCanonicalRunFirstContinuationSuccessor,
-  type CanonicalRunFirstContinuationDormantSuccessorOwner,
-  type CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot,
   type CanonicalRunFirstContinuationRoomAdmissionWithheld,
 } from "./run/chapters/first-continuation-room-admission-authority";
+import {
+  registerCanonicalRunFirstContinuationRoomProgression,
+  type CanonicalRunFirstContinuationRoomProgression,
+  type CanonicalRunFirstContinuationRoomProgressionSnapshot,
+} from "./run/chapters/first-continuation-room-progression";
 
 const TICKS_PER_SECOND = 120;
 const UINT32_MAX = 0xffff_ffff;
@@ -402,9 +403,9 @@ export interface CanonicalRunSessionSnapshot {
   readonly firstContinuationRoomTarget: CanonicalRunFirstContinuationRoomTarget;
   /** EXT-013/014 own the roomless transition after the first room closes. */
   readonly firstContinuationTransition: CanonicalRunFirstContinuationTransitionSnapshot | null;
-  /** EXT-015/016 own the admitted successor and its post-slice material hold. */
+  /** EXT-015/016 and EXT-019—025 own one discriminated room progression. */
   readonly firstContinuationRoom:
-    CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot | null;
+    CanonicalRunFirstContinuationRoomProgressionSnapshot | null;
   /** Typed absence only; a withheld exact handoff is never silently retried or reselected. */
   readonly firstContinuationRoomAdmissionWithheld:
     CanonicalRunFirstContinuationRoomAdmissionWithheld | null;
@@ -1065,8 +1066,8 @@ export class CanonicalRunSession {
   private roomSession: CanonicalRunRoomSession | null = null;
   private firstContinuationTransitionChapter:
     CanonicalRunFirstContinuationTransitionChapter | null = null;
-  private firstContinuationSuccessorOwner:
-    CanonicalRunFirstContinuationDormantSuccessorOwner | null = null;
+  private firstContinuationProgression:
+    CanonicalRunFirstContinuationRoomProgression | null = null;
   private firstContinuationRoomAdmissionWithheldValue:
     CanonicalRunFirstContinuationRoomAdmissionWithheld | null = null;
   private gazeClampCommittedAtTick120: number | null = null;
@@ -1149,11 +1150,9 @@ export class CanonicalRunSession {
     const roomSampling = this.roomSession?.snapshot() ?? null;
     const firstContinuationTransition =
       this.firstContinuationTransitionChapter?.snapshot() ?? null;
-    const firstContinuationRoom = this.firstContinuationSuccessorOwner === null
+    const firstContinuationRoom = this.firstContinuationProgression === null
       ? null
-      : inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
-        this.firstContinuationSuccessorOwner,
-      );
+      : this.firstContinuationProgression.snapshot();
     const transitionPhase = this.phaseValue === "first_continuation_transition";
     const successorPhase = this.phaseValue === "first_continuation_room";
     if (
@@ -1292,7 +1291,7 @@ export class CanonicalRunSession {
 
   private firstContinuationOwnsTick(nextTick120: number): boolean {
     const chapterInstalled = this.firstContinuationTransitionChapter !== null;
-    const successorInstalled = this.firstContinuationSuccessorOwner !== null;
+    const successorInstalled = this.firstContinuationProgression !== null;
     if (this.phaseValue === "first_continuation_transition") {
       if (!chapterInstalled || successorInstalled) {
         throw new Error("first continuation transition phase lost its chapter owner");
@@ -1842,15 +1841,12 @@ export class CanonicalRunSession {
       overridePressed: false,
       overrideReleased: false,
     });
-    const successorOwner = this.firstContinuationSuccessorOwner;
-    if (successorOwner !== null) {
+    const progression = this.firstContinuationProgression;
+    if (progression !== null) {
       if (this.phaseValue !== "first_continuation_room") {
-        throw new Error("first continuation successor escaped its session phase");
+        throw new Error("first continuation progression escaped its session phase");
       }
-      const successor = stepCanonicalRunFirstContinuationSuccessor(
-        successorOwner,
-        combatInput,
-      );
+      const successor = progression.step(combatInput);
       const runCombat = combatState.snapshot();
       if (
         successor.tick120 !== input.tick120
@@ -1942,7 +1938,8 @@ export class CanonicalRunSession {
     const owner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(
       preparation.proposal,
     );
-    const successor = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    const registeredProgression = registerCanonicalRunFirstContinuationRoomProgression(owner);
+    const successor = registeredProgression.snapshot();
     const transferredTransition = transitionChapter.snapshot();
     if (
       combatState.snapshot().tick120 !== admissionTick120
@@ -1957,7 +1954,7 @@ export class CanonicalRunSession {
     ) {
       throw new Error("first continuation admission did not preserve its zero-tick handoff");
     }
-    this.firstContinuationSuccessorOwner = owner;
+    this.firstContinuationProgression = registeredProgression;
     this.latestCombatSnapshot = null;
     this.phaseValue = "first_continuation_room";
     this.phaseStartTick120 = admissionTick120;

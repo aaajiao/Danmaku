@@ -401,3 +401,31 @@ export function closeCanonicalRunFirstContinuationNextOccurrenceSlice(
     record.stepping = false;
   }
 }
+
+/** Single chapter-facing router; zero-tick material transfer remains separate. */
+export function stepCanonicalRunFirstContinuationNextOccurrence(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot {
+  const before = inspectCanonicalRunFirstContinuationNextOccurrenceOwner(owner);
+  switch (before.nextMasterTickAction) {
+    case "telegraph":
+    case "continue-telegraph":
+    case "entry":
+    case "continue-entry":
+      return advanceCanonicalRunFirstContinuationNextOccurrencePreRead(owner, input);
+    case "claim-read":
+      return startCanonicalRunFirstContinuationNextOccurrenceRead(owner, input);
+    case "advance-read":
+      return advanceCanonicalRunFirstContinuationNextOccurrenceRead(owner, input);
+    case "advance-material-settle":
+    case "advance-rest":
+      return advanceCanonicalRunFirstContinuationNextOccurrenceTail(owner, input);
+    case "close-slice":
+      return closeCanonicalRunFirstContinuationNextOccurrenceSlice(owner, input);
+    case "transfer-material":
+      throw new Error(
+        "first continuation next occurrence missed its same-tick material transfer",
+      );
+  }
+}

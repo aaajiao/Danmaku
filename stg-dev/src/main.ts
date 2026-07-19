@@ -329,7 +329,15 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
   if (run) {
     const transition = run.firstContinuationTransition;
     const successor = run.firstContinuationRoom;
-    const material = successor?.material ?? transition?.material ?? null;
+    const transitionMaterial = transition?.material ?? null;
+    const inheritedTransitionProjectileCount = successor !== null
+      && successor.stage !== "first-occurrence"
+      ? transitionMaterial?.projectiles.length ?? 0
+      : 0;
+    const inheritedTransitionResidueCount = successor !== null
+      && successor.stage !== "first-occurrence"
+      ? transitionMaterial?.poolUsage.residueVisuals ?? 0
+      : 0;
     document.body.dataset.authority = run.authority;
     document.body.dataset.authorityTick = String(run.tick120);
     document.body.dataset.rawRunSeedDomain = run.rawRunSeed.domain;
@@ -368,15 +376,25 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
       ? successor.combat
       : transition?.combat ?? room?.combat ?? null;
     document.body.dataset.authorityOwner = successor !== null
-      ? successor.phase === "dormant"
+      ? successor.stage === "first-material-withheld"
+        ? "first_continuation_room_material_withheld"
+        : successor.stage === "second-material"
+          ? "first_continuation_room_second_material"
+          : successor.phase === "dormant"
           || successor.phase === "telegraph"
           || successor.phase === "entry"
-        ? "first_continuation_room_pre_read"
-        : successor.phase === "complete"
-          ? "first_continuation_room_complete_hold"
-          : successor.phase === "read"
-            ? "first_continuation_room_pattern"
-            : "first_continuation_room_tail"
+            ? successor.stage === "second-occurrence"
+              ? "first_continuation_room_second_pre_read"
+              : "first_continuation_room_pre_read"
+            : successor.phase === "complete"
+              ? "first_continuation_room_complete_hold"
+              : successor.phase === "read"
+                ? successor.stage === "second-occurrence"
+                  ? "first_continuation_room_second_pattern"
+                  : "first_continuation_room_pattern"
+                : successor.stage === "second-occurrence"
+                  ? "first_continuation_room_second_tail"
+                  : "first_continuation_room_tail"
       : transition !== null
         ? "first_continuation_transition"
       : run.phase === "quiet_awakening"
@@ -446,7 +464,11 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
       ? ""
       : String(currentRoomCombat.relativeTick120);
     document.body.dataset.roomFixedSliceComplete = successor !== null
-      ? String(successor.phase === "complete")
+      ? String(
+          successor.stage === "first-material-withheld"
+          || successor.stage === "second-material"
+          || successor.phase === "complete",
+        )
       : transition !== null || room === null
         ? ""
         : String(room.fixedSliceComplete);
@@ -460,13 +482,18 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
         : room === null ? "" : String(room.handoffReady);
     document.body.dataset.projectileEntities = String(
       successor === null
-        ? material?.projectiles.length ?? run.combat?.projectiles.length ?? 0
-        : successor.material.projectiles.length + (successor.combat?.projectiles.length ?? 0),
+        ? transitionMaterial?.projectiles.length ?? run.combat?.projectiles.length ?? 0
+        : inheritedTransitionProjectileCount
+          + successor.material.projectiles.length
+          + (successor.combat?.projectiles.length ?? 0),
     );
     document.body.dataset.residueVisuals = String(
       successor === null
-        ? material?.poolUsage.residueVisuals ?? run.combat?.poolUsage.residueVisuals ?? 0
-        : successor.material.poolUsage.residueVisuals
+        ? transitionMaterial?.poolUsage.residueVisuals
+          ?? run.combat?.poolUsage.residueVisuals
+          ?? 0
+        : inheritedTransitionResidueCount
+          + successor.material.poolUsage.residueVisuals
           + (successor.combat?.poolUsage.residueVisuals ?? 0),
     );
     document.body.dataset.transitionPresent = String(transition !== null);
@@ -490,12 +517,12 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
     document.body.dataset.transitionCollisionLeaseReleased = transition === null
       ? ""
       : String(transition.collisionLeaseReleased);
-    document.body.dataset.transitionMaterialCount = material === null
+    document.body.dataset.transitionMaterialCount = transitionMaterial === null
       ? ""
-      : String(material.materialCount);
-    document.body.dataset.transitionMaterialDrained = material === null
+      : String(transitionMaterial.materialCount);
+    document.body.dataset.transitionMaterialDrained = transitionMaterial === null
       ? ""
-      : String(material.drained);
+      : String(transitionMaterial.drained);
     document.body.dataset.transitionHandoffState = transition?.handoff.state ?? "";
     document.body.dataset.transitionHandoffReady = transition === null
       ? ""
@@ -507,6 +534,7 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
     document.body.dataset.transitionNextRoomAdmission =
       transition?.handoff.nextRoomAdmission ?? "";
     document.body.dataset.successorPresent = String(successor !== null);
+    document.body.dataset.successorStage = successor?.stage ?? "";
     document.body.dataset.successorPhase = successor?.phase ?? "";
     document.body.dataset.successorPatternId = successor?.patternId ?? "";
     document.body.dataset.successorOccurrenceId = successor?.occurrenceId ?? "";
@@ -514,7 +542,20 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
       ? ""
       : String(successor.boundaryTicks120.sliceCompleteTick120);
     document.body.dataset.successorAdmissionWithheldReason =
-      run.firstContinuationRoomAdmissionWithheld?.reason ?? "";
+      successor?.admissionWithheld?.reason
+      ?? run.firstContinuationRoomAdmissionWithheld?.reason
+      ?? "";
+    document.body.dataset.successorMaterialCount = successor === null
+      ? ""
+      : String(successor.material.materialCount);
+    document.body.dataset.successorMaterialDrained = successor === null
+      ? ""
+      : String(successor.material.drained);
+    document.body.dataset.successorMaterialAllocatedMicro = successor === null
+      ? ""
+      : String(successor.material.poolUsage.allocatedSlots.micro);
+    document.body.dataset.successorRoomCompletion = successor?.roomCompletion ?? "";
+    document.body.dataset.successorRoomHandoff = successor?.roomHandoff ?? "";
     document.body.dataset.flowerAuthorityTick = String(run.player.flower.tick120);
     document.body.dataset.gazeAuthorityTick = run.gaze.tick120 === null
       ? ""

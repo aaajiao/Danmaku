@@ -18,6 +18,9 @@ const LOGICAL_VIEW_HEIGHT = 640;
 type TransitionMaterial = NonNullable<
   NonNullable<CanonicalRunSessionSnapshot["firstContinuationTransition"]>["material"]
 >;
+type ProgressMaterial = NonNullable<
+  CanonicalRunSessionSnapshot["firstContinuationRoom"]
+>["material"];
 
 function sameNumberRecord(
   left: Readonly<Record<string, number>>,
@@ -31,9 +34,10 @@ function sameNumberRecord(
 
 function sameTransitionMaterial(
   left: TransitionMaterial,
-  right: TransitionMaterial,
+  right: ProgressMaterial,
 ): boolean {
-  return left.authority === right.authority
+  return "detachedAtTick120" in right
+    && left.authority === right.authority
     && left.sourcePatternId === right.sourcePatternId
     && left.sourceOccurrenceId === right.sourceOccurrenceId
     && left.detachedAtTick120 === right.detachedAtTick120
@@ -144,6 +148,16 @@ export function projectCanonicalRunSession(
   if (activePattern.id !== expectedPatternId) {
     throw new Error("canonical presentation pattern identity drifted");
   }
+  if (successor !== null && (
+    successor.targetRoom !== successor.plan.targetRoom
+    || successor.worldRoom !== successor.plan.targetRoom
+    || successor.plan.occurrence.roomId !== successor.plan.targetRoom
+    || successor.patternId !== successor.plan.occurrence.patternId
+    || successor.occurrenceId !== successor.plan.occurrence.occurrenceId
+    || successor.difficulty !== successor.plan.occurrence.difficulty
+  )) {
+    throw new Error("canonical presentation progression plan identity drifted");
+  }
   const nowMs = run.tick120 * 1000 / TICKS_PER_SECOND;
   const combat = run.combat;
   if (combat !== null && combat.patternId !== expectedPatternId) {
@@ -212,16 +226,48 @@ export function projectCanonicalRunSession(
   }
   if (
     successor !== null
+    && successor.stage === "first-occurrence"
     && (material === null || !sameTransitionMaterial(material, successor.material))
   ) {
     throw new Error("canonical presentation successor material lineage drifted");
   }
-  const relativeTick120 = combat?.relativeTick120 ?? 0;
+  if (successor !== null && (
+    successor.material.tick120 !== run.tick120
+    || successor.material.sourcePatternId !== (
+      successor.stage === "first-occurrence" || successor.stage === "second-occurrence"
+        ? successor.plan.poolReservationRequest.carryover.sourcePatternId
+        : successor.plan.occurrence.patternId
+    )
+    || successor.material.sourceOccurrenceId !== (
+      successor.stage === "first-occurrence" || successor.stage === "second-occurrence"
+        ? successor.plan.poolReservationRequest.carryover.sourceOccurrenceId
+        : successor.plan.occurrence.occurrenceId
+    )
+    || successor.material.materialCount !== successor.material.projectiles.length
+    || successor.material.poolUsage.residueVisuals
+      !== successor.material.projectiles.length
+    || successor.material.poolUsage.liveColliders !== 0
+    || successor.material.drained !== (successor.material.materialCount === 0)
+    || successor.material.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+  )) {
+    throw new Error("canonical presentation progression material identity drifted");
+  }
+  const relativeTick120 = combat?.relativeTick120
+    ?? (successor?.phase === "material-hold"
+      ? Math.max(0, run.tick120 - successor.boundaryTicks120.readStartTick120)
+      : 0);
   const patternElapsedMs = relativeTick120 * 1000 / TICKS_PER_SECOND;
   const emitterById = new Map(activePattern.emitters.map((emitter) => [emitter.id, emitter]));
   const projectileSnapshots = successor === null
     ? material?.projectiles ?? combat?.projectiles ?? []
-    : [...successor.material.projectiles, ...(combat?.projectiles ?? [])];
+    : successor.stage === "first-occurrence"
+      ? [...successor.material.projectiles, ...(combat?.projectiles ?? [])]
+      : [
+          ...(material?.projectiles ?? []),
+          ...successor.material.projectiles,
+          ...(combat?.projectiles ?? []),
+        ];
   const projectedProjectileIds = new Set<string>();
   const bullets = projectileSnapshots.map((projectile): BulletState => {
     const emitter = emitterById.get(projectile.sourceId);
