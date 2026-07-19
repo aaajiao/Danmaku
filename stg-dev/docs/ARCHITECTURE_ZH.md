@@ -325,7 +325,20 @@ EXT-024只消费上述exact material owner：global `8520..8682`逐tick同步Run
 80-slot allocation，`8683` empty hold也不自动release、选择第三occurrence或关闭room。Run在不可逆flush前验证
 exact owner、四lineage、pool admission、room/player/Override与tick同步。契约见
 [EXT-2026-024](adr/EXT-2026-024-second-in-between-post-close-material-hold.md)；exact authority路径已由`953159e`
-实现，Session、下一consumer、room completion与handoff继续withheld。
+实现；该决定自身不授权Session、下一consumer、room completion或handoff。
+
+EXT-025把EXT-019—024的original opaque owners装入一个章节级判别式progression owner，Session只保留一个
+`firstContinuationRoom`引用并把accepted tick交给当前child。global `6788`在首slice sole-flush后同tick完成
+Context Switch material transfer与Misregistration plan/admission；global `8519`同样在第二slice sole-flush后
+立即转为Misregistration material owner。两次换手均为零tick/event/RNG，旧owner不可恢复，顶层Session phase与
+`segmentTick120`不重置。公开stage只可能是`first-occurrence`、`first-material-withheld`、
+`second-occurrence`或`second-material`；typed withheld只推进原material，不重试或重抽。
+
+只读presentation按transition material → progression material → combat稳定排序，并按stage校验plan、room、
+pattern、occurrence、difficulty和material lineage；重复projectile identity或来源漂移fail closed。material hold
+从read-start推导连续显示时间，不在owner换手时把HUD归零。global `8683`仍是同一Session中的empty material
+hold与80-slot allocation；第三occurrence、room completion/handoff和下一consumer继续缺席。契约与provenance见
+[EXT-2026-025](adr/EXT-2026-025-second-in-between-session-projection.md)，实现提交为`0c54b9a`。
 
 ## 11. Narrative、snapshot 与 cross-run restore
 

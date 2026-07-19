@@ -1,6 +1,6 @@
 # EXT-2026-025：IN_BETWEEN 第二个 occurrence 的 Session 与只读投影
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
@@ -77,7 +77,8 @@ material与combat，global `8683`后仍停在同一room/session phase和同一80
 
 - dormant、pre-READ、READ、release、tail与close只经现有EXT-021—023 owner router推进；共享Run每tick仍sole-flush。
 - global `8519` close已经flush后，在同一个Session step立即提交EXT-023 material transfer；旧第二owner永久失效，
-  顶层`combat=null`，63个residue保留原`instanceId:generation`、位置、deadline与terminal cause。
+  顶层`combat=null`，当次仍在场的residue保留原`instanceId:generation`、位置、deadline与terminal cause；
+  EXT-024 formal fixture中的63个是该固定输入轨迹证据，不是对其他玩家输入强制出的数量。
 - global `8520`起只由EXT-024 owner exact-next推进。`8682` drain与`8683` empty hold都不切phase、不释放
   80-slot allocation、不选择下一consumer。
 
@@ -120,8 +121,11 @@ material与combat，global `8683`后仍停在同一room/session phase和同一80
 | `EXT-2026-022-second-in-between-read-release.md` | second READ/release | `c6a78842ecfefe1606ff2c2617f50ad3c6fb31fe144f094687842a7ed975f548` |
 | `EXT-2026-023-second-in-between-material-tail-transfer.md` | second tail/transfer | `d01bbd0d5c9dc69d724b9323b4ecd77e81714d141862ac357a31b2a2882b911b` |
 | `EXT-2026-024-second-in-between-post-close-material-hold.md` | post-close material hold | `ef5abe7bbad2506116e35d803e7833cb45b9202f17178b003151e9688619a6f3` |
-| `stg-dev/src/authority/run-session.ts` | current Session consumer | `1c6829f59c6298b7f1cfc06f86871722e8bab9439cc721000788762097cbbcd0` |
-| `stg-dev/src/game/presentation.ts` | current read-only projection | `b947bba7b27317dd70a24d669d5dffe3eed0a7832c62b3f3f1e9ea6d0d7a8918` |
+| `stg-dev/src/authority/run-session.ts` | accepted Session consumer | `8044986d44e4b1dc20c3762ff0dcc295d13777172cf9ec20caef3fd26d2eb65f` |
+| `stg-dev/src/authority/run/chapters/first-continuation-room-progression.ts` | discriminated chapter owner | `dfb86bbf87bf73967feb61bc02d7a70bad26095eaa56a970d255792d37608e2c` |
+| `stg-dev/src/game/presentation.ts` | accepted read-only projection | `7f3f6e5c6301933fbcf90cef1b2e367462c5b18158db15f55a5e23cd69c8f050` |
+| `stg-dev/src/main.ts` | production diagnostic projection | `8dcc95cbb00f3fc55287e11fd9d6023fa7524e9cff2c58e01a7a18d5b51d05d1` |
+| `stg-dev/e2e/causal-input-clock.spec.ts` | controlled production-preview acceptance | `15871d4e18673e323aa30530ca6f4849b917d66c06f4b289c3fe72d019fa23b0` |
 
 ## 验证计划
 
@@ -132,6 +136,19 @@ material与combat，global `8683`后仍停在同一room/session phase和同一80
 - strict typecheck与`git diff --check`。玩家可见路径只跑现有controlled-clock production-preview用例；该用例
   自动完成content check、typecheck、build与preview，因此不重复跑build，不跑smoke、全unit或全E2E。
 
+## 实现与证据
+
+- 实现提交：`0c54b9a`。新增一个章节级判别式progression owner；Session只持有、step并投影这一owner，
+  second-occurrence端新增单一路由，不把EXT-019—024的既有transfer/admission/lifecycle规则复制进Session。
+- seed-1真实Session producer通过：1 passed，约16秒；覆盖global
+  `6788 → 6947 → 8219 → 8519 → 8682 → 8683`、两次original owner零tick换手、两次唯一claim、
+  RNG126、素材identity连续、empty hold仍保留80-slot allocation，以及第三occurrence/room handoff缺席。
+- production-preview Playwright通过：1 passed，约10秒（其中浏览器路径约8秒）；自动完成content check、
+  strict typecheck、build与preview，并证明两次换手前后projectile数量连续、active pattern切换正确、
+  second-material HUD时间不归零、8683仍为同一Session phase。
+- `git diff --check`通过；一次定向只读复审修复了material-hold HUD时间归零与stage-aware material lineage校验，
+  最终没有剩余P0/P1。按风险计划未运行smoke、全unit、全E2E或`test:all`。
+
 ## 回滚与迁移
 
 实现前回滚只删除本proposal及索引/路线图引用，Session继续安全停在Context Switch complete hold。实现后回滚
@@ -140,5 +157,5 @@ material与combat，global `8683`后仍停在同一room/session phase和同一80
 
 ## 决策
 
-PROPOSED。同一Session只消费已经被EXT-019—024授权的owner与材料时间；可见性扩大到Misregistration及其
+ACCEPTED。同一Session只消费已经被EXT-019—024授权的owner与材料时间；可见性扩大到Misregistration及其
 post-close residue，但玩法边界仍停在下一consumer之前。
