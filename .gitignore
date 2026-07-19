@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+**/.DS_Store
+Icon?
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# JavaScript
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local environment
+.env
+.env.*
+!.env.example
+*.log
+
+# Claude Code local state (project skills and launch config stay tracked)
+.claude/settings.local.json
+.claude/.cc-writes/
