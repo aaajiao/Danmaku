@@ -179,7 +179,7 @@ swap 都不能单独授权 handoff。跨 Run ledger 必须防止 previous-run、
 
 - Renderer/audio/haptics/UI 只消费 frozen projection；不得保存隐藏 gameplay state。
 - 视觉截图是表现证据，不是 collision/order/lifecycle 证据。
-- `full`、`reduced-motion`、`flash-off` 与 weather presentation 必须产生相同 gameplay trace。
+- `full`、`reducedMotion`、`flashOff` 与 weather presentation 必须产生相同 gameplay trace。
 - PWA 使用 waiting-worker；运行中的 gameplay 不由新 worker 接管。只有安全 boot/Run boundary 可以
   提升版本，禁止混用 content digest。
 - build/release metadata 记录 Git commit、V4 package/content digest、extension digest、Bun/runtime
