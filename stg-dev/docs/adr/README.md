@@ -38,7 +38,7 @@
 | [EXT-2026-021：IN_BETWEEN 第二个 occurrence 的双材料 pre-READ 与 READ start](EXT-2026-021-second-in-between-pre-read-and-read-start.md) | ACCEPTED | T+1..T+159同tick推进retained material/room/player并sole-flush；READ local0后置claim，READ advance仍withheld |
 | [EXT-2026-022：IN_BETWEEN 第二个 occurrence 的 READ 与 gameplay release](EXT-2026-022-second-in-between-read-release.md) | ACCEPTED | READ local1..1272同步执行；保留80-slot capacity audit，并在digital drain sole-flush后释放gameplay，材料tail另片 |
 | [EXT-2026-023：IN_BETWEEN 第二个 occurrence 的材料尾段与转交](EXT-2026-023-second-in-between-material-tail-transfer.md) | ACCEPTED | global8220..8519 material-cleanup/player-timer tail；按slice close保留63个residue并零tick/event/RNG转给新material owner，最终drain另片 |
-| [EXT-2026-024：IN_BETWEEN 第二个 occurrence 的 post-close 材料持有](EXT-2026-024-second-in-between-post-close-material-hold.md) | PROPOSED | global8519后自然推进63个residue至drain；空材料仍保留80-slot lease，第三occurrence与room close继续withheld |
+| [EXT-2026-024：IN_BETWEEN 第二个 occurrence 的 post-close 材料持有](EXT-2026-024-second-in-between-post-close-material-hold.md) | ACCEPTED | global8520..8682自然清理63个residue；8683空持有仍保留80-slot lease，第三occurrence与room close继续withheld |
 
 ## 新 ADR 规则
 

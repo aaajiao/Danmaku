@@ -319,6 +319,14 @@ Switch material lease，并把Misregistration原pool、identity、deadline和80-
 owner。契约见[EXT-2026-023](adr/EXT-2026-023-second-in-between-material-tail-transfer.md)；exact authority路径已由
 `902e57d`实现，Session、第三occurrence、room completion与handoff继续withheld。
 
+EXT-024只消费上述exact material owner：global `8520..8682`逐tick同步Run/player、idle room、两条已排空
+历史lineage与Misregistration residue，并继续由Run sole-flush。每个entity按自己的deadline产生相邻
+`projectile.residue.remove → projectile.lifecycle.complete`；正式producer最后一组位于`8682`。drain后仍保留
+80-slot allocation，`8683` empty hold也不自动release、选择第三occurrence或关闭room。Run在不可逆flush前验证
+exact owner、四lineage、pool admission、room/player/Override与tick同步。契约见
+[EXT-2026-024](adr/EXT-2026-024-second-in-between-post-close-material-hold.md)；exact authority路径已由`953159e`
+实现，Session、下一consumer、room completion与handoff继续withheld。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与
