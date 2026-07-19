@@ -101,6 +101,22 @@ a ritual after every small edit.
 - Every completed code slice must pass `git diff --check`, strict typecheck, and
   the smallest test file/name scope that proves the changed behavior. A typical
   focused command is `bun run test -- <test-file> -t "<case or describe>"`.
+- Declare the slice's verification budget before implementation: focused test
+  files/cases, directly affected consumers, and the condition that would
+  escalate to build or browser evidence. Do not discover an ever-growing test
+  scope at the end of the slice.
+- Keep a normal focused feedback loop under roughly 30 seconds on the standard
+  development machine. If a narrow suite repeatedly exceeds that budget,
+  profile setup and split producer integration from pure-consumer cases before
+  adding timeouts or running fewer assertions. Record a justified exception
+  when the authority itself genuinely requires the longer real-time window.
+- For a long deterministic prefix, retain at least one live integration case
+  that executes the real producer from its authoritative start. Downstream
+  pure projectors may use an immutable exact-schema boundary fixture whose
+  bytes/hash are pinned by that producer case, instead of replaying thousands
+  of ticks for every leaf assertion. Such a fixture is test input only: it may
+  not prove producer lifecycle/order, replace a V4 oracle, or become a second
+  gameplay authority. Refresh it whenever the producer contract changes.
 - Documentation-only changes require `git diff --check` plus link, command, and
   stale-fact review. Do not run JavaScript suites unless the documentation
   change also modifies generated content, manifests, executable examples, or a
@@ -180,6 +196,12 @@ hashes, test output, or implementation history.
   or test-total updates; only status, explicit supersession, or dated errata may
   change. Preserve historical umbrella ADRs and their provenance, and create a
   focused successor ADR for a new independent decision.
+- Keep extension ADRs delta-shaped: link predecessor and stable architecture,
+  then state only the missing V4 decision, negative space, source window,
+  failure mode, provenance, and rollback required by the extension process.
+  At acceptance, replace planned evidence with one concise final evidence block
+  and final hashes; do not paste full command output or repeat stable background
+  into the roadmap, architecture, and README.
 - Route a vertical slice only to documents whose owned facts changed: player
   rule -> GDD; stable technical boundary -> architecture or a focused ADR;
   production status -> roadmap; QA method -> testing guide. Ordinary capability
