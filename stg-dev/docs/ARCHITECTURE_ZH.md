@@ -201,6 +201,14 @@ rolling facts不得改写它。契约与provenance见
 [EXT-2026-010](adr/EXT-2026-010-first-room-metric-projection.md)与
 [EXT-2026-011](adr/EXT-2026-011-first-room-recent-input-density.md)。
 
+EXT-012由正式projection对象签发单一opaque receipt；公开snapshot clone与unbranded fixture不能进入live
+selector。Run在同一个`H+1702`公开边界中，从V4 room/composer一致的declaration order移除已完成的
+`FORCED_ALIGNMENT`，按metric ID code-point order先从0累加available behavior bias，再计算
+`totalWeight=1+bias`；missing term保留reason且不生成numeric 0。application-authored first-continuation domain
+以raw Run seed执行一次Mulberry32 draw 0，冻结ordinal 1 target与候选证据。该target不解析总room count、
+difficulty或pattern plan，不写canonical event，也不授权transition/handoff；H+1703后保持不变。契约与
+provenance见[EXT-2026-012](adr/EXT-2026-012-first-continuation-room-target.md)。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与

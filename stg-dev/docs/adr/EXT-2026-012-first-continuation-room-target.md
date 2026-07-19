@@ -4,10 +4,11 @@
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 实施 commit：`279e32e`（已推送）
 - 前置记录：[EXT-2026-005](EXT-2026-005-first-forced-room-bootstrap.md)、
   [EXT-2026-009](EXT-2026-009-first-fixed-room-closure.md)、
   [EXT-2026-011](EXT-2026-011-first-room-recent-input-density.md)
-- 接受后取代：EXT-010“14项全部available后才允许selection”的后续顺序，以及EXT-009“先解析完整room
+- 取代：EXT-010“14项全部available后才允许selection”的后续顺序，以及EXT-009“先解析完整room
   count再选择target”的后续顺序；不改写两个已接受artifact的历史字节或职责
 - aaajiao skill：`1.1.1`；SHA-256
   `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
@@ -136,19 +137,24 @@ base-plus-available-bias，消耗一个Mulberry32 draw并冻结room ordinal 1的
 | `manifests/gameplay/run-director-v4.json` | V4 package / aaajiao | authored JSON / 4.0.0 | 2–4 rooms、no-repeat、behavior-ledger selection、Mulberry32 | repository license | `2dd2529478c11ac214ca4046fac93f40c479e9357b30f9be8d44a44bd09422b6` |
 | `manifests/gameplay/room-composers-v4.json` | V4 package / aaajiao | authored JSON / 4.0.0 | room declaration order与metric weights | repository license | `5fb7a8ffa7a77553682f0644f2857fbd4e5f135e55ed5a9dc749640b5fa0e7e9` |
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | Python QA oracle / 4.0.0 | Mulberry32、base 1、weighted cursor；非live source policy | repository license | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
-| `src/authority/run-metric-projection.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | 3 available / 11 typed missing formal projection | repository license | `623c1c68075d4efb3b97402b0494ce00dc24a65af31d5e53a83df062c50afc4e` |
+| `src/authority/run-metric-projection.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | formal projection登记与单一opaque receipt | repository license | `925aa79ea3bbe727c07fb3b76ce110b54d8b0478f75603bb98cb33c2b7728999` |
 | `src/authority/run-composer.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | QA-only exact-14/full-plan isolation | repository license | `930295610620fb5e392e251fde91f50f419b6fab6c099b074ff5c29ea1dc3335` |
+| `src/authority/run-first-continuation-room-target.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | manifest-derived remaining candidates、partial terms、one-draw target与firewall | repository license | `b85116bbec43763de8ffdd3e245a415b50d12952bfda6bc4407890f280ac3057` |
+| `src/authority/run-first-continuation-room-target.test.ts` | Danmaku / Codex | Vitest / Bun 1.3.14 | pure exact/hostile/three-room reachability contract | repository license | `0bb98c68c94bbeaa4b5ec1d13a2e835d9ab639b1051d685b728cc2bd52c77d42` |
+| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1702 closure→projection→target原子公开 | repository license | `7ebde846c5353527e33e9fbb237975def833650338e05ae32c0187ded3983c11` |
+| `src/authority/run-metric-projection.integration.test.ts` | Danmaku / Codex | Vitest / Bun 1.3.14 | 单一真实长producer、receipt isolation与H+1703 freeze | repository license | `eade05f0fd2c13a9e689d99953d992e6fefd79dcce9d1fc8df9aead953af6ca0` |
 
-## 实施验收门
+## 验证证据
 
-- 新selection pure contract：exact schema、candidate order、三房available/missing term明细、权重与cursor边界；
-  固定seed覆盖每个remaining room可达、同source byte-identical与profile parity。
-- receipt/hostile：public clone、unbranded fixture、fake receipt、wrong lineage/content/boundary/order/value拒绝；
-  old closure/projection bytes不变，重复关闭或H+1703不会draw第二次。
-- 复用现有唯一真实长producer到H+1702，证明closure→projection→target同tick原子公开、event trace不因selection
-  增加、首房不重复且Run仍不transition；下游纯consumer使用冻结exact projection fixture，不新增第二条长replay。
-- 聚焦反馈预算约30秒；通过strict typecheck、content check、production build与`git diff --check`。没有可见路径
-  变化，不需要browser/E2E；若实现触及presentation则升级到相关production-preview spec。
+- pure selector 14项通过：exact schema、code-point metric sum、manifest room order、typed missing、hostile source与
+  seed `0/1/2`分别覆盖`INFORMATION/IN_BETWEEN/POLARIZED`。
+- 唯一真实H+1702 producer的2项集成通过：当前Run seed选择`POLARIZED`，closure canonical仍为5686 bytes /
+  SHA-256 `d15ddcef736728ab86eedcf2e061771c6e615b0db4731f45c5fb2165ef388389`；公开clone不能签发receipt，
+  同formal projection不能第二次选择，H+1703 target bytes不变，event与transition写入为0。
+- 直接受影响的projection、Run与closure共5个文件69项通过；长producer/closure分别单独运行，未并发重压。
+  strict typecheck、778-row content authority、production build与`git diff --check`通过；只读复核关闭proposal
+  状态与浮点累加顺序两个blocker后未发现新P0/P1。
+- 本切片不改变presentation、input、PWA route或可见room，未运行browser/E2E/full suite。
 
 ## 回滚与迁移
 
@@ -160,5 +166,5 @@ successor ADR。
 ## 决策
 
 ACCEPTED。partial facts只形成V4-authored bias增量，missing保留absence；使用raw Run seed draw 0遍历
-post-bootstrap remaining candidates明确属于EXT-012窄domain，不冒充V4 full-composer cursor。总room count、
-difficulty、pattern/Boss RNG、transition与handoff继续未决；实现必须先通过上列验收门才可提交。
+post-bootstrap remaining candidates明确属于EXT-012窄domain，不冒充V4 full-composer cursor。实现证据已闭合；
+总room count、difficulty、pattern/Boss RNG、transition与handoff继续未决。
