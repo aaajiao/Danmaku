@@ -76,6 +76,10 @@ export interface CanonicalRunFirstContinuationRoomPlanCatalogPoolBudgets {
   readonly splitChildren: number;
 }
 
+export type CanonicalRunFirstContinuationRoomPlanCatalogDifficultyBudgets = Readonly<
+  Record<CanonicalRunFirstContinuationRoomPlanCatalogDifficulty, number>
+>;
+
 type UnknownRecord = Record<string, unknown>;
 
 interface ParsedPattern extends CanonicalRunFirstContinuationRoomPlanCatalogPattern {
@@ -91,6 +95,7 @@ interface CatalogRecord {
   readonly previousStructuralSignatureSha256: string;
   readonly poolBudgets: CanonicalRunFirstContinuationRoomPlanCatalogPoolBudgets;
   readonly residueVisualOnlyBudget: number;
+  readonly difficultyBudgets: CanonicalRunFirstContinuationRoomPlanCatalogDifficultyBudgets;
 }
 
 function invariant(condition: unknown, message: string): asserts condition {
@@ -224,6 +229,11 @@ function parseCatalog(): CatalogRecord {
       && maxProjectileBudget.HARD === 280,
     "encounter scheduling budget/safe-gap drifted",
   );
+  const difficultyBudgets = Object.freeze({
+    EASY: maxProjectileBudget.EASY as number,
+    NORMAL: maxProjectileBudget.NORMAL as number,
+    HARD: maxProjectileBudget.HARD as number,
+  });
   const parallelPools = plainDataRecord(encounter.parallelEncounterPools, "encounter director parallel pools");
   const weatherEcho = plainDataRecord(parallelPools.weatherEcho, "encounter director weatherEcho pool");
   invariant(weatherEcho.maximumConcurrent === 1, "encounter parallel policy drifted");
@@ -504,6 +514,7 @@ function parseCatalog(): CatalogRecord {
     previousStructuralSignatureSha256,
     poolBudgets,
     residueVisualOnlyBudget,
+    difficultyBudgets,
   });
 }
 
@@ -538,4 +549,9 @@ CanonicalRunFirstContinuationRoomPlanCatalogPoolBudgets {
 
 export function canonicalRunFirstContinuationRoomPlanCatalogResidueVisualOnlyBudget(): number {
   return CATALOG.residueVisualOnlyBudget;
+}
+
+export function canonicalRunFirstContinuationRoomPlanCatalogDifficultyBudgets():
+CanonicalRunFirstContinuationRoomPlanCatalogDifficultyBudgets {
+  return CATALOG.difficultyBudgets;
 }
