@@ -134,6 +134,7 @@ function roomLedgerTick(
   options: RoomLedgerTickOptions = {},
 ): CanonicalRunBehaviorAcceptedTick {
   const base = acceptedLedgerTick(tick120, 0);
+  if (base.committed.gaze === null) throw new Error("room ledger fixture lost Gaze");
   return {
     ...base,
     ownerPhase: "room_sampling",
@@ -155,6 +156,27 @@ function roomLedgerTick(
       gaze: {...base.committed.gaze, tick120},
       roomId: "FORCED_ALIGNMENT",
       runCombatAvailable: true,
+    },
+  };
+}
+
+function roomlessTransitionLedgerTick(tick120: number): CanonicalRunBehaviorAcceptedTick {
+  const base = roomLedgerTick(tick120, {
+    movement: {x: 0.5, y: 0},
+    signalActive: true,
+    focused: true,
+    gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+    inputConsumption: {movement: true, signal: false, focus: true, gaze: false},
+  });
+  return {
+    ...base,
+    committed: {
+      ...base.committed,
+      player: {...base.committed.player, focused: true},
+      flower: null,
+      gaze: null,
+      roomId: null,
+      activeOccurrenceId: "run:room:0-to-1:transition:transition.room_threshold",
     },
   };
 }
@@ -382,6 +404,9 @@ describe("EXT-2026-006 canonical Run rolling behavior facts", () => {
     });
     expect(() => ledger.issueFirstRoomRecentInputSupplementReceipt())
       .toThrow(/exact closed 1702-tick room window/);
+    expect(() => ledger.recordAcceptedTick(roomlessTransitionLedgerTick(1)))
+      .toThrow(/requires the closed first-room input window/);
+    expect(ledger.snapshot()).toMatchObject({tick120: 0, acceptedTickCount: 0});
 
     ledger.recordAcceptedTick(roomLedgerTick(1, {
       movement: {x: 1, y: 0},
@@ -480,10 +505,50 @@ describe("EXT-2026-006 canonical Run rolling behavior facts", () => {
       Object.freeze({}) as CanonicalRunFirstRoomRecentInputSupplementReceipt,
     )).toThrow(/receipt.*not issued/);
 
-    ledger.recordAcceptedTick(roomLedgerTick(1703, {
-      focused: true,
-      inputConsumption: {movement: false, signal: false, focus: true, gaze: true},
-    }));
+    const beforeTransition = ledger.snapshot();
+    const transitionTick = roomlessTransitionLedgerTick(1703);
+    expect(() => ledger.recordAcceptedTick({
+      ...transitionTick,
+      inputConsumption: {...transitionTick.inputConsumption, signal: true},
+    })).toThrow(/cannot consume Signal or Gaze/);
+    expect(() => ledger.recordAcceptedTick({
+      ...transitionTick,
+      committed: {
+        ...transitionTick.committed,
+        flower: roomLedgerTick(1703).committed.flower,
+      },
+    })).toThrow(/requires absent Flower and Gaze commits/);
+    expect(ledger.snapshot()).toEqual(beforeTransition);
+
+    ledger.recordAcceptedTick(transitionTick);
+    const afterTransition = ledger.snapshot();
+    expect(afterTransition).toMatchObject({
+      tick120: 1703,
+      acceptedTickCount: 1703,
+      sampling: {
+        lastAcceptedTick120: 1703,
+        ownerPhaseTickCounts: [{id: "room_sampling", ticks120: 1703}],
+      },
+      requested: {
+        availability: "available",
+        lastAvailableTick120: 1703,
+        sampleCount: 1703,
+      },
+      context: {
+        room: {
+          availability: "available",
+          lastAvailableTick120: 1702,
+          sampleCount: 1702,
+        },
+        runCombat: {
+          availability: "available",
+          lastAvailableTick120: 1703,
+          sampleCount: 1703,
+        },
+      },
+    });
+    expect(afterTransition.committed.flower).toEqual(beforeTransition.committed.flower);
+    expect(afterTransition.committed.gaze).toEqual(beforeTransition.committed.gaze);
     expect(firstRoomRecentInputSupplementFromCanonicalReceipt(supplementReceipt)).toEqual(source);
     expect(() => ledger.issueFirstRoomRecentInputSupplementReceipt())
       .toThrow(/exact closed 1702-tick room window/);

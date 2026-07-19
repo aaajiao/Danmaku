@@ -61,8 +61,10 @@ export interface CanonicalRunBehaviorCommittedTick {
     readonly focused: boolean;
     readonly lifeState: PlayerLifeState | null;
   }>;
-  readonly flower: FlowerIntensitySnapshot;
-  readonly gaze: GazeAuthoritySnapshot;
+  /** Null means the current owner deliberately did not consume Flower this tick. */
+  readonly flower: FlowerIntensitySnapshot | null;
+  /** Null means the current owner deliberately did not consume Gaze this tick. */
+  readonly gaze: GazeAuthoritySnapshot | null;
   /** Null means the current owner did not consume Override authority this tick. */
   readonly override: DirectionalOverrideSnapshot | null;
   /** Null means the current owner did not consume a mental-room context this tick. */
@@ -670,9 +672,6 @@ function validateAcceptedTick(
 ): Readonly<CanonicalRunBehaviorInputConsumption> {
   if (!OWNER_PHASES.has(value.ownerPhase)) throw new Error("behavior facts owner phase is invalid");
   const inputConsumption = captureInputConsumption(value.inputConsumption);
-  if (value.ownerPhase === "room_sampling" && inputConsumption.gaze !== true) {
-    throw new Error("behavior facts room_sampling must consume the Gaze channel");
-  }
   const tick120 = safeNonNegativeInteger(value.requested.tick120, "behavior facts tick120");
   if (tick120 !== previousTick120 + 1) {
     throw new Error(`behavior facts must advance one accepted tick: ${previousTick120} -> ${tick120}`);
@@ -695,15 +694,32 @@ function validateAcceptedTick(
   if (value.committed.player.lifeState !== null && !PLAYER_LIFE_STATES.has(value.committed.player.lifeState)) {
     throw new Error("behavior facts committed player life state is invalid");
   }
-  if (value.committed.flower.resolution === null) {
-    throw new Error("behavior facts require a committed Flower resolution");
-  }
-  finite(value.committed.flower.resolution.targetIntensity, "behavior facts Flower target");
-  if (!FLOWER_SOURCES.has(value.committed.flower.resolution.source)) {
-    throw new Error("behavior facts Flower source is invalid");
-  }
-  if (!GAZE_STATES.has(value.committed.gaze.state)) {
-    throw new Error("behavior facts Gaze state is invalid");
+  const roomlessTransition = value.ownerPhase === "room_sampling"
+    && value.committed.roomId === null;
+  if (roomlessTransition) {
+    if (inputConsumption.signal || inputConsumption.gaze) {
+      throw new Error("behavior facts roomless transition cannot consume Signal or Gaze");
+    }
+    if (value.committed.flower !== null || value.committed.gaze !== null) {
+      throw new Error("behavior facts roomless transition requires absent Flower and Gaze commits");
+    }
+    if (!value.committed.runCombatAvailable) {
+      throw new Error("behavior facts roomless transition requires Run combat authority");
+    }
+  } else {
+    if (value.ownerPhase === "room_sampling" && inputConsumption.gaze !== true) {
+      throw new Error("behavior facts room_sampling must consume the Gaze channel");
+    }
+    if (value.committed.flower === null || value.committed.flower.resolution === null) {
+      throw new Error("behavior facts require a committed Flower resolution");
+    }
+    finite(value.committed.flower.resolution.targetIntensity, "behavior facts Flower target");
+    if (!FLOWER_SOURCES.has(value.committed.flower.resolution.source)) {
+      throw new Error("behavior facts Flower source is invalid");
+    }
+    if (value.committed.gaze === null || !GAZE_STATES.has(value.committed.gaze.state)) {
+      throw new Error("behavior facts Gaze state is invalid");
+    }
   }
   if (value.committed.override !== null) {
     if (value.committed.override.tick120 !== tick120 || !OVERRIDE_STATES.has(value.committed.override.state)) {
@@ -742,6 +758,14 @@ export class CanonicalRunBehaviorFactLedger {
 
   recordAcceptedTick(value: CanonicalRunBehaviorAcceptedTick): void {
     const inputConsumption = validateAcceptedTick(value, this.state.tick120);
+    const roomlessTransition = value.ownerPhase === "room_sampling"
+      && value.committed.roomId === null;
+    if (
+      roomlessTransition
+      && this.state.firstRoomRecentInput.roomTickCount !== FIRST_ROOM_TICK_COUNT
+    ) {
+      throw new Error("behavior facts roomless transition requires the closed first-room input window");
+    }
     const next = cloneState(this.state);
     const tick120 = value.requested.tick120;
     next.tick120 = tick120;
@@ -909,18 +933,19 @@ export class CanonicalRunBehaviorFactLedger {
       increment(next.player.lifeStateTickCounts, player.lifeState, "player life-state ticks");
     }
 
-    const flower = value.committed.flower.resolution;
-    if (flower === null) throw new Error("validated Flower resolution disappeared");
-    markAvailable(next.flower, tick120);
-    next.flower.targetIntensitySum = addFinite(
-      next.flower.targetIntensitySum,
-      flower.targetIntensity,
-      "Flower target sum",
-    );
-    increment(next.flower.sourceTickCounts, flower.source, "Flower source ticks");
+    const flower = value.committed.flower?.resolution ?? null;
+    if (flower !== null) {
+      markAvailable(next.flower, tick120);
+      next.flower.targetIntensitySum = addFinite(
+        next.flower.targetIntensitySum,
+        flower.targetIntensity,
+        "Flower target sum",
+      );
+      increment(next.flower.sourceTickCounts, flower.source, "Flower source ticks");
+    }
 
     const gaze = value.committed.gaze;
-    if (gaze.tick120 === tick120) {
+    if (gaze !== null && gaze.tick120 === tick120) {
       markAvailable(next.gaze, tick120);
       increment(next.gaze.stateTickCounts, gaze.state, "Gaze state ticks");
       if (gaze.clampActive) {
