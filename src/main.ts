@@ -1,60 +1,106 @@
-import * as THREE from 'three';
-import { Loop } from './core/loop';
 import { Button, Input } from './core/input';
+import { Loop } from './core/loop';
+import { seedRun, sim } from './core/random';
+import { Emitter } from './content/patterns';
+import { BulletSystem, type BulletSpec } from './sim/bullet';
+import { createBulletAtlas, createShipAtlas } from './render/procedural';
+import { SpriteBatch } from './render/sprite-batch';
+import { Layer, Stage } from './render/stage';
 
 /** Upstream's play-field dimensions. All content data is authored in this space. */
-export const FIELD_W = 480;
-export const FIELD_H = 480;
+const FIELD_W = 480;
+const FIELD_H = 480;
 
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
 
-const renderer = new THREE.WebGLRenderer({ canvas: field, antialias: false });
-renderer.setPixelRatio(devicePixelRatio);
-renderer.setSize(FIELD_W, FIELD_H, false);
-renderer.setClearColor(0x000000, 1);
+const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
 
-// Sprites are ordered explicitly, never by depth — CLAUDE.md rule 3.
-renderer.sortObjects = false;
+const bulletAtlas = createBulletAtlas();
+const shipAtlas = createShipAtlas();
 
-const scene = new THREE.Scene();
+// One batch per blend mode and layer. Each is a single draw call.
+const enemyShots = new SpriteBatch(bulletAtlas, {
+  capacity: 4096,
+  renderOrder: Layer.EnemyShots,
+});
+const playerShots = new SpriteBatch(bulletAtlas, {
+  capacity: 1024,
+  blending: 'additive',
+  renderOrder: Layer.PlayerShots,
+});
+const ship = new SpriteBatch(shipAtlas, { capacity: 4, renderOrder: Layer.Player });
 
-// Screen-space camera: (0,0) top-left, y down, one unit = one pixel, matching
-// the coordinate space every value in `data/` is written in.
-//
-// The y-flip (top=0 above bottom=FIELD_H) gives the projection a negative Y
-// scale, which reverses triangle winding — front faces would be culled. Sprite
-// materials must therefore disable culling; see SPRITE_SIDE below.
-const camera = new THREE.OrthographicCamera(0, FIELD_W, 0, FIELD_H, -1000, 1000);
+stage.add(enemyShots.mesh, 'EnemyShots');
+stage.add(playerShots.mesh, 'PlayerShots');
+stage.add(ship.mesh, 'Player');
 
-/** Required by the y-down projection. Every sprite material must use it. */
-export const SPRITE_SIDE = THREE.DoubleSide;
+const bullets = new BulletSystem({
+  bounds: { width: FIELD_W, height: FIELD_H, margin: 48 },
+  initial: 4000,
+});
 
-// Placeholder: a single quad, standing in for the sprite batches to come. It
-// exists to prove the renderer, the coordinate space and the loop agree.
-const probe = new THREE.Mesh(
-  new THREE.PlaneGeometry(24, 24),
-  new THREE.MeshBasicMaterial({
-    color: 0x66ccff,
-    depthTest: false,
-    side: SPRITE_SIDE,
-  }),
-);
-scene.add(probe);
+seedRun(20260720);
+
+/* ------------------------------------------------------------------ */
+/* Content                                                             */
+/* ------------------------------------------------------------------ */
+
+const blue: BulletSpec = {
+  style: { sprite: 'orb.medium', r: 0.45, g: 0.75, b: 1 },
+  radius: 4,
+  motion: { r: 1.5 },
+};
+
+const rose: BulletSpec = {
+  style: { sprite: 'needle', r: 1, g: 0.4, b: 0.7, orientToHeading: true },
+  radius: 3,
+  motion: { r: 2.4 },
+};
+
+const amber: BulletSpec = {
+  style: { sprite: 'star', r: 1, g: 0.8, b: 0.35, spin: 0.08 },
+  radius: 4,
+  motion: { r: 1.1, ra: 0.02, rrange: { max: 3.2 } },
+};
+
+const shot: BulletSpec = {
+  style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1, additive: true },
+  radius: 3,
+  motion: { r: -9, theta: 90 },
+  damage: 1,
+};
+
+const emitters = [
+  new Emitter('spiral', 120, 110, 'enemy', { spec: blue, arms: 4, step: 9, period: 3 }),
+  new Emitter('ring', 360, 110, 'enemy', { spec: amber, count: 14, period: 34, rotation: 9 }),
+  new Emitter('aimed-fan', 240, 70, 'enemy', { spec: rose, count: 5, spread: 34, period: 52 }),
+];
+
+/* ------------------------------------------------------------------ */
+/* Player                                                              */
+/* ------------------------------------------------------------------ */
 
 const input = new Input();
 input.attach();
 
-// Speeds are per tick, in pixels — the unit every value in `data/` uses.
-const SPEED = 4;
-const SLOW_SPEED = 1.6;
+const SPEED = 3.6;
+const SLOW_SPEED = 1.5;
+const SHOT_PERIOD = 5;
 
-probe.position.set(FIELD_W / 2, FIELD_H - 64, 0);
+const player = { x: FIELD_W / 2, y: FIELD_H - 72, radius: 2.5, hits: 0, invuln: 0 };
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+/* ------------------------------------------------------------------ */
+/* Loop                                                                */
+/* ------------------------------------------------------------------ */
 
 const loop = new Loop({
   tick() {
-    // Sample once, at the top of the tick. Never from render.
     input.sample();
 
     const speed = input.held(Button.Slow) ? SLOW_SPEED : SPEED;
@@ -64,40 +110,97 @@ const loop = new Loop({
     if (input.held(Button.Right)) dx += 1;
     if (input.held(Button.Up)) dy -= 1;
     if (input.held(Button.Down)) dy += 1;
-
-    // Normalise the diagonal so it is not faster than an axis.
     if (dx !== 0 && dy !== 0) {
       dx *= Math.SQRT1_2;
       dy *= Math.SQRT1_2;
     }
+    player.x = clamp(player.x + dx * speed, 8, FIELD_W - 8);
+    player.y = clamp(player.y + dy * speed, 8, FIELD_H - 8);
 
-    probe.position.x = clamp(probe.position.x + dx * speed, 12, FIELD_W - 12);
-    probe.position.y = clamp(probe.position.y + dy * speed, 12, FIELD_H - 12);
-    probe.rotation.z = input.held(Button.Shot) ? loop.count / 6 : 0;
+    if (input.held(Button.Shot) && loop.count % SHOT_PERIOD === 0) {
+      bullets.spawn(player.x - 6, player.y - 10, shot, 'player');
+      bullets.spawn(player.x + 6, player.y - 10, shot, 'player');
+    }
+
+    for (const emitter of emitters) {
+      emitter.step(bullets, player.x, player.y, sim);
+    }
+
+    bullets.step(player.x, player.y, sim);
+
+    // Grazing distance is generous; the lethal hitbox is tiny. That gap is the
+    // whole genre — you survive by threading, not by avoiding.
+    if (player.invuln > 0) {
+      player.invuln--;
+    } else if (bullets.hitTest(player.x, player.y, player.radius, 'enemy')) {
+      player.hits++;
+      player.invuln = 90;
+    }
   },
 
   render() {
-    renderer.render(scene, camera);
+    enemyShots.begin();
+    playerShots.begin();
+    ship.begin();
 
-    surface.clearRect(0, 0, overlay.width, overlay.height);
-    surface.fillStyle = '#111';
-    surface.fillRect(FIELD_W, 0, overlay.width - FIELD_W, overlay.height);
-    surface.fillStyle = '#888';
-    surface.font = '12px monospace';
-    surface.fillText('DANMAKU', FIELD_W + 16, 28);
-    surface.fillText(`tick ${loop.count}`, FIELD_W + 16, 48);
-    surface.fillText(`three r${THREE.REVISION}`, FIELD_W + 16, 68);
+    for (const b of bullets.bullets) {
+      const batch = b.faction === 'player' ? playerShots : enemyShots;
+      batch.draw(b.x, b.y, b.style.sprite, {
+        rotation: b.angle,
+        r: b.style.r,
+        g: b.style.g,
+        b: b.style.b,
+        a: b.style.a,
+      });
+    }
 
-    const pads = (navigator.getGamepads?.() ?? []).filter((p) => p?.connected);
-    surface.fillStyle = pads.length > 0 ? '#6c9' : '#555';
-    surface.fillText(`pad ${pads.length > 0 ? 'yes' : 'no'}`, FIELD_W + 16, 96);
-    surface.fillStyle = '#888';
-    surface.fillText(`btn ${input.buttons.toString(2).padStart(8, '0')}`, FIELD_W + 16, 116);
+    const flash = player.invuln > 0 && Math.floor(player.invuln / 4) % 2 === 0;
+    ship.draw(player.x, player.y, 'ship', {
+      width: 40,
+      height: 40,
+      a: flash ? 0.35 : 1,
+      g: flash ? 0.5 : 1,
+      b: flash ? 0.5 : 1,
+    });
+
+    enemyShots.end();
+    playerShots.end();
+    ship.end();
+
+    stage.render();
+    drawHud();
   },
 });
 
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
+function drawHud(): void {
+  surface.clearRect(0, 0, overlay.width, overlay.height);
+  surface.fillStyle = '#0a0a0a';
+  surface.fillRect(FIELD_W, 0, overlay.width - FIELD_W, overlay.height);
+
+  const x = FIELD_W + 14;
+  surface.font = '11px monospace';
+
+  surface.fillStyle = '#cfcfcf';
+  surface.fillText('DANMAKU', x, 26);
+
+  surface.fillStyle = '#6f6f6f';
+  surface.fillText(`tick   ${loop.count}`, x, 52);
+  surface.fillText(`bullet ${bullets.count}`, x, 68);
+  surface.fillText(`pool   ${bullets.poolSize}`, x, 84);
+  surface.fillText(`calls  ${stage.stats.calls}`, x, 100);
+
+  const pads = (navigator.getGamepads?.() ?? []).filter((p) => p?.connected);
+  surface.fillStyle = pads.length > 0 ? '#6c9' : '#4a4a4a';
+  surface.fillText(`pad    ${pads.length > 0 ? 'yes' : 'no'}`, x, 124);
+
+  surface.fillStyle = player.hits > 0 ? '#c66' : '#4a4a4a';
+  surface.fillText(`hits   ${player.hits}`, x, 140);
+
+  surface.fillStyle = '#3a3a3a';
+  surface.fillText('arrows move', x, 174);
+  surface.fillText('Z    shoot', x, 188);
+  surface.fillText('shift  slow', x, 202);
+  surface.fillText('pad supported', x, 216);
 }
 
 loop.start();
