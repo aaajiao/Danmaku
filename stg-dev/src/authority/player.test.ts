@@ -872,6 +872,34 @@ describe("directional Override authority", () => {
     })]);
   });
 
+  it("sweeps disconnected authority path components without inventing a connector", () => {
+    const bus = new CanonicalEventBus();
+    const pool = makeProjectilePool(bus, "override-component-path-pool");
+    const crossing = spawnProjectile(pool, "component-crossing", 50, -50, 0, 10);
+    pool.move(crossing, 13, {x: 50, y: 50});
+    const evidence = new EvidenceAuthority(bus, 2);
+    const override = new DirectionalOverrideAuthority(bus, evidence, {config: FAST_OVERRIDE_CONFIG});
+    override.press({origin: {x: 0, y: 0}, direction: {x: 1, y: 0}, roomId: "IN_BETWEEN"}, 0);
+    override.advanceTo(12);
+
+    expect(override.cancelProjectilesAlongPaths(pool, [{
+      projectileId: crossing.instanceId,
+      projectileGeneration: crossing.generation,
+      segments: [
+        {from: {x: 50, y: -50}, to: {x: 50, y: -50}},
+        {
+          from: {x: 50, y: 50},
+          to: {x: 50, y: 50},
+          startsNewComponent: true,
+        },
+      ],
+    }], 13)).toEqual([]);
+    expect(pool.snapshot(crossing)).toMatchObject({
+      state: "flight",
+      position: {x: 50, y: 50},
+    });
+  });
+
   it("rejects hostile or non-authoritative paths without advancing Override or projectiles", () => {
     const bus = new CanonicalEventBus();
     const pool = makeProjectilePool(bus, "override-hostile-path-pool");
@@ -894,6 +922,27 @@ describe("directional Override authority", () => {
       [{...valid, segments: [
         {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
         {from: {x: 1, y: 0}, to: {x: 20, y: 0}},
+      ]}],
+      [{...valid, segments: [{
+        from: {x: -20, y: 0},
+        to: {x: 20, y: 0},
+        startsNewComponent: true,
+      }]}],
+      [{...valid, segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        {
+          from: {x: 1, y: 0},
+          to: {x: 20, y: 0},
+          startsNewComponent: false,
+        },
+      ]}],
+      [{...valid, segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        {
+          from: {x: 0, y: 0},
+          to: {x: 20, y: 0},
+          startsNewComponent: true,
+        },
       ]}],
       [{
         projectileId: arm.instanceId,
@@ -938,6 +987,29 @@ describe("directional Override authority", () => {
       13,
     )).toThrow(/own enumerable data property/);
     expect(accessorReads).toBe(0);
+    expect(override.snapshot()).toEqual(beforeWrongTick);
+
+    let componentAccessorReads = 0;
+    const componentBoundary = Object.defineProperty({
+      from: {x: 1, y: 0},
+      to: {x: 20, y: 0},
+    }, "startsNewComponent", {
+      enumerable: true,
+      get() {
+        componentAccessorReads += 1;
+        return true;
+      },
+    });
+    expect(() => override.cancelProjectilesAlongPaths(pool, [{
+      projectileId: flight.instanceId,
+      projectileGeneration: flight.generation,
+      segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        componentBoundary,
+      ],
+    }] as unknown as Parameters<DirectionalOverrideAuthority["cancelProjectilesAlongPaths"]>[1], 13))
+      .toThrow(/own enumerable data property/);
+    expect(componentAccessorReads).toBe(0);
     expect(override.snapshot()).toEqual(beforeWrongTick);
   });
 

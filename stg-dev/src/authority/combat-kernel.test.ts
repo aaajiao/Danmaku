@@ -33,6 +33,7 @@ import {
   sweepMovingProjectileAgainstPlayer,
   validateAbsentReceiverObserveRigContract,
   validateAlternatingVerdictPatternContract,
+  validateAshMemoryPatternContract,
   validateBallotShiftPatternContract,
   validateBossObservePhaseContract,
   validateClockDecreePatternContract,
@@ -41,6 +42,7 @@ import {
   validateDuskSettlePatternContract,
   validateDualClockGateParameters,
   validateGridGeometryContract,
+  validateHistoryReplayParameters,
   validateLatticeGeometryContract,
   validateLineGeometryContract,
   validateLateralWallParameters,
@@ -91,6 +93,7 @@ const CLOCK_DECREE_REPORT_SEED = 1517218079;
 const NO_DUSK_GRID_REPORT_SEED = 2541744056;
 const ROOM_THRESHOLD_REPORT_SEED = 577554878;
 const STABLE_INTERSECTION_REPORT_SEED = 3179523623;
+const ASH_MEMORY_REPORT_SEED = 2725930629;
 
 function inputAt(tick120: number): CanonicalCombatStepInput {
   return {
@@ -135,6 +138,8 @@ function optionsFor(patternId: CanonicalCombatPatternId) {
       ? Object.freeze({"bullet.micro.dash": "micro" as const})
       : patternId === "encounter.weather_echo.wind_bias"
         ? Object.freeze({"bullet.micro.seed": "micro" as const})
+        : patternId === "encounter.weather_echo.ash_memory"
+          ? Object.freeze({"bullet.micro.shard": "micro" as const})
         : OPTIONS.projectilePoolClasses,
     roomId: patternId === "boss.misreader.phase1"
       || patternId === "room.in_between.context_switch"
@@ -14281,6 +14286,584 @@ describe("isolated Stable Intersection room-pattern combat capability", () => {
         0,
         {weatherEvent: "clear", reducedMotion: true, flashOff: false},
       ),
+    ];
+    for (const candidate of variants) {
+      expect(candidate.canonicalEventSerialization()).toBe(baseline.canonicalEventSerialization());
+      expect(candidate.snapshot()).toEqual(baseline.snapshot());
+    }
+  });
+});
+
+describe("isolated Ash Memory weather-echo combat capability", () => {
+  const patternId = "encounter.weather_echo.ash_memory" as const;
+  const pattern = executablePattern(patternId);
+
+  const createAsh = (
+    difficulty: "EASY" | "NORMAL" | "HARD" = "NORMAL",
+    startTick120 = 0,
+    roomId = "INFORMATION",
+  ) => new CanonicalCombatKernel({
+    ...optionsFor(patternId),
+    seed: ASH_MEMORY_REPORT_SEED,
+    difficulty,
+    startTick120,
+    roomId,
+  });
+
+  const stepFollowingGap = (kernel: CanonicalCombatKernel, relativeTick120: number): void => {
+    const maximumTravel = PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND / 120;
+    const targetX = safeGapCenter(pattern, relativeTick120 * 1000 / 120);
+    const currentX = kernel.snapshot().playerPosition.x;
+    kernel.step({
+      tick120: kernel.snapshot().startTick120 + relativeTick120,
+      movement: {
+        x: Math.max(-1, Math.min(1, (targetX - currentX) / maximumTravel)),
+        y: 0,
+      },
+      focused: false,
+    });
+  };
+
+  const projectile = (
+    kernel: CanonicalCombatKernel,
+    burstIndex: number,
+    sourceIndex: number,
+  ) => {
+    const value = kernel.snapshot().projectiles.find((entry) =>
+      entry.sourceId === "ash-echo"
+      && entry.burstIndex === burstIndex
+      && entry.sourceIndex === sourceIndex);
+    expect(value).toBeDefined();
+    return value as NonNullable<typeof value>;
+  };
+
+  it("pins the exact weather firewall, serialized reverse path, and V4 QA evidence", () => {
+    const kernel = createAsh();
+    const contract = kernel.patternContractSnapshot();
+    expect(() => validateAshMemoryPatternContract(contract)).not.toThrow();
+    expect(Object.isFrozen(contract)).toBe(true);
+    expect(contract).toMatchObject({
+      id: patternId,
+      category: "WEATHER_ECHO",
+      room: "COMMON",
+      durationMs: 10200,
+      timeline: [
+        {atMs: 0, event: "warning.begin"},
+        {atMs: 759, event: "collision.arm"},
+        {atMs: 759, event: "emit.begin"},
+        {atMs: 5100, event: "pattern.midpoint"},
+        {atMs: 9500, event: "emit.end"},
+        {atMs: 9780, event: "residue.commit"},
+        {atMs: 10200, event: "pattern.complete"},
+      ],
+      emitters: [expect.objectContaining({
+        id: "ash-echo",
+        anchor: {space: "viewport-normalized", x: 0.5, y: 0.08},
+        geometry: {
+          type: "history_chain",
+          variant: "reverse-short-trace",
+          count: 10,
+          baseAngleDeg: 90,
+          spreadDeg: 0,
+          ordering: "clockwise-then-source-index",
+        },
+        cadence: {startMs: 759, intervalMs: 1600, bursts: 6, intraBurstMs: 0},
+        projectile: {archetype: "bullet.micro.shard", collisionRadiusPx: 2, armDelayMs: 40},
+        speedCurve: {type: "piecewise-linear", keys: [{atMs: 0, pxPerSec: 94}]},
+        motionStack: [{
+          operator: "op.history_replay",
+          params: {
+            points: [
+              [180, 70, 0],
+              [132, 190, 500],
+              [214, 330, 1000],
+              [166, 470, 1500],
+              [196, 600, 1900],
+            ],
+            delayMs: 420,
+            mode: "reverse",
+          },
+        }],
+      })],
+      safeGap: {
+        type: "ash_wake",
+        minimumWidthPx: 44,
+        focusMinimumWidthPx: 36,
+        enforcement: "operator_constraint",
+        path: {centerX: 180, amplitudePx: 38, periodMs: 9200, phase: 0, laneX: []},
+      },
+      warning: {durationMs: 759, shape: "reverse_trace_preview", coversSweptArea: true},
+      residue: {type: "ash_fiber", lifetimeMs: 3194, gameplayCollision: false},
+      seed: {
+        base: 2725936518,
+        disallowedInputs: ["weatherEvent", "weatherSeed", "weatherRng"],
+      },
+      weatherEchoContract: {
+        visualSource: "ASH",
+        schedulingAuthority: "director.encounter.v4",
+        runsParallelToWeather: true,
+        weatherEventCanTrigger: false,
+        weatherEventCanSpawnProjectile: false,
+        weatherEventCanAlterMotion: false,
+        weatherEventCanAlterCollision: false,
+        weatherEventCanAlterSafeGap: false,
+        weatherRngUsed: false,
+        seedAuthority: "pattern.seed only",
+      },
+    });
+    expect("laserGeometry" in contract).toBe(false);
+    expect("resolutionHook" in contract).toBe(false);
+
+    expect(patternStructureReportJson.patterns.find((entry) => entry.patternId === patternId))
+      .toMatchObject({
+        sha256: "992daefaac793bab220f7ce0dc3e88d4a6a6b57aca2eddff20de6e9bff7dcc9d",
+        normalized: {
+          emitters: [expect.objectContaining({
+            geometry: "history_chain",
+            operators: ["op.history_replay"],
+          })],
+        },
+      });
+    expect(safeGapReportJson.patterns.find((entry) => entry.patternId === patternId))
+      .toMatchObject({
+        pass: true,
+        normal: {
+          minimumClearancePx: 21.236,
+          pathHash: "e1ae3ac133e2ce0ac88d5855252086a9876e134f04015d164c916a934c9dcab9",
+        },
+        focus: {
+          minimumClearancePx: 22.236,
+          pathHash: "e1ae3ac133e2ce0ac88d5855252086a9876e134f04015d164c916a934c9dcab9",
+        },
+      });
+
+    const expected = {
+      EASY: [48, 645, "2dba0f30f4c120aa55bae38e2b6b4db27af081f689b10dc9a0f6050a022518e5"],
+      NORMAL: [60, 816, "8e4697fc1035c123adcb197af977c40208d26882ef5de295cc7cf1227d29d5de"],
+      HARD: [72, 828, "34f7a1a7f0a9d64fbebbca47207dc6c83ea56601f1783316aa2e5866a0c090b4"],
+    } as const;
+    for (const difficulty of ["EASY", "NORMAL", "HARD"] as const) {
+      const reference = simulatePattern(contract, {
+        seed: ASH_MEMORY_REPORT_SEED,
+        difficulty,
+        semantics: "reference-v4",
+      });
+      const declared = simulatePattern(contract, {
+        seed: ASH_MEMORY_REPORT_SEED,
+        difficulty,
+        semantics: "declared-v4",
+      });
+      for (const trace of [reference, declared]) {
+        expect({
+          bursts: trace.events.length,
+          candidates: trace.events.reduce((total, event) => total + event.count, 0),
+          redirects: trace.omittedOrRedirected,
+          splitChildren: trace.splitChildren,
+          hash: trace.traceSha256,
+        }).toEqual({
+          bursts: 6,
+          candidates: expected[difficulty][0],
+          redirects: expected[difficulty][1],
+          splitChildren: 0,
+          hash: expected[difficulty][2],
+        });
+      }
+      expect(declared.traceSha256).toBe(reference.traceSha256);
+    }
+  });
+
+  it("fails closed on history, weather, descriptor, pool, and admission drift", () => {
+    const source = structuredClone(pattern);
+    expect(() => validateAshMemoryPatternContract(source)).not.toThrow();
+    expect(() => validateHistoryReplayParameters(
+      source.emitters[0]!.motionStack[0]!.params,
+    )).not.toThrow();
+
+    const extra = structuredClone(source) as unknown as Record<string, unknown>;
+    extra.weatherWriteBack = true;
+    expect(() => validateAshMemoryPatternContract(extra)).toThrow(/contract drifted/);
+    const modeDrift = structuredClone(source);
+    (modeDrift.emitters[0]!.motionStack[0]!.params as {mode: string}).mode = "follow";
+    expect(() => validateAshMemoryPatternContract(modeDrift)).toThrow(/contract drifted/);
+    expect(() => validateHistoryReplayParameters(
+      modeDrift.emitters[0]!.motionStack[0]!.params,
+    )).toThrow(/mode must be reverse/);
+    const pointOrderDrift = structuredClone(source);
+    const pointOrder = pointOrderDrift.emitters[0]!.motionStack[0]!.params as unknown as {
+      points: number[][];
+    };
+    pointOrder.points[2]![2] = 500;
+    expect(() => validateHistoryReplayParameters(
+      pointOrderDrift.emitters[0]!.motionStack[0]!.params,
+    )).toThrow(/strictly ordered/);
+    const sparsePoints = structuredClone(source);
+    const sparse = sparsePoints.emitters[0]!.motionStack[0]!.params as unknown as {
+      points: Array<number[] | undefined>;
+    };
+    delete sparse.points[1];
+    expect(() => validateHistoryReplayParameters(
+      sparsePoints.emitters[0]!.motionStack[0]!.params,
+    )).toThrow(/dense/);
+
+    let accessorReads = 0;
+    const accessorParams = Object.defineProperty({
+      delayMs: 420,
+      points: source.emitters[0]!.motionStack[0]!.params.points,
+    }, "mode", {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return "reverse";
+      },
+    });
+    expect(() => validateHistoryReplayParameters(accessorParams)).toThrow(/own data property/);
+    expect(accessorReads).toBe(0);
+
+    expect(() => new CanonicalCombatKernel({
+      ...optionsFor(patternId),
+      projectilePoolClasses: {"bullet.micro.shard": "medium"},
+    })).toThrow(/pool mapping|micro pool class/i);
+    expect(SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS).not.toContain(patternId);
+    const kernel = createAsh();
+    expect(kernel.adapterGaps.ashMemoryHistoryReplay).toEqual({
+      candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity",
+      spawnOrdinal: "occurrence-local-emitter-burst-source-order-starting-at-one",
+      armPolicy: "anchor-spawn-then-first-flight-tick-sweeps-to-reversed-path-head",
+      replayClock: "authored-spawn-age-with-delay-held-at-reversed-path-head",
+      pathSweep: "absolute-polyline-split-at-authored-vertices",
+      crossSideEntry: "safe-prefix-plus-disconnected-snapped-endpoint-no-interior-contact",
+      redirectPolicy: "absolute-replay-before-repeatable-operator-constraint",
+      releasePolicy: "first-fixed-tick-after-replay-end-continues-at-owned-heading-and-speed",
+      weatherAuthority: "withheld-no-weather-event-seed-rng-motion-collision-or-gap-input",
+      admission: "isolated-kernel-no-director-session-renderer-or-default-run",
+    });
+    expect("weatherEvent" in kernel.adapterGaps).toBe(false);
+    expect("weatherSeed" in kernel.adapterGaps).toBe(false);
+    expect("weatherRng" in kernel.adapterGaps).toBe(false);
+  });
+
+  it("keeps exact cadence, anchor sweep, stable uid offsets, reverse interpolation, and release", () => {
+    const expectedCadence = {
+      EASY: {
+        count: 8,
+        spawn: [92, 314, 537, 760, 982, 1205],
+        arm: [96, 319, 542, 765, 987, 1210],
+      },
+      NORMAL: {
+        count: 10,
+        spawn: [92, 284, 476, 668, 860, 1052],
+        arm: [96, 288, 480, 672, 864, 1056],
+      },
+      HARD: {
+        count: 12,
+        spawn: [92, 261, 429, 598, 767, 936],
+        arm: [96, 265, 434, 603, 772, 941],
+      },
+    } as const;
+    for (const difficulty of ["EASY", "NORMAL", "HARD"] as const) {
+      const schedule = createPatternSchedule(pattern, difficulty);
+      expect(schedule).toHaveLength(6);
+      expect(roundPatternCount(
+        pattern.emitters[0]!.geometry.count * pattern.difficulty[difficulty].countMultiplier,
+      )).toBe(expectedCadence[difficulty].count);
+      expect(schedule.map((entry) => crossedTickCount(entry.atMs)))
+        .toEqual(expectedCadence[difficulty].spawn);
+      expect(schedule.map((entry) => crossedTickCount(
+        entry.atMs + entry.emitter.projectile.armDelayMs,
+      ))).toEqual(expectedCadence[difficulty].arm);
+    }
+
+    const kernel = createAsh();
+    for (let tick120 = 1; tick120 <= 92; tick120 += 1) {
+      stepFollowingGap(kernel, tick120);
+    }
+    expect(kernel.snapshot().rngCallsConsumed).toBe(10);
+    expect(projectile(kernel, 0, 0)).toMatchObject({
+      state: "arm",
+      position: {x: 162, y: 51.2},
+      spawnedAtTick: 92,
+      armAtTick: 96,
+      collisionEnabled: false,
+    });
+    for (let tick120 = 93; tick120 <= 96; tick120 += 1) {
+      stepFollowingGap(kernel, tick120);
+    }
+    expect(projectile(kernel, 0, 0)).toMatchObject({
+      state: "flight",
+      position: {x: 162, y: 51.2},
+      collisionEnabled: true,
+    });
+    stepFollowingGap(kernel, 97);
+    const firstCenter = safeGapCenter(pattern, 97 * 1000 / 120);
+    expect(projectile(kernel, 0, 0)).toMatchObject({
+      previousPosition: {x: 162, y: 51.2},
+      position: {x: firstCenter - 26, y: 600},
+      headingDegrees: 82,
+      speedPxPerSecond: 94,
+    });
+    expect(projectile(kernel, 0, 4)).toMatchObject({
+      previousPosition: {x: 178, y: 39.2},
+      position: {x: firstCenter + 26, y: 600},
+      headingDegrees: 98,
+    });
+
+    const reversed = [
+      [196, 600, 0],
+      [166, 470, 400],
+      [214, 330, 900],
+      [132, 190, 1400],
+      [180, 70, 1900],
+    ] as const;
+    const replayPosition = (tick120: number, ordinal: number) => {
+      const localMs = tick120 * 1000 / 120 - 759 - 420;
+      const offset = ((ordinal % 7) - 3) * 2.2;
+      for (let index = 0; index < reversed.length - 1; index += 1) {
+        const left = reversed[index]!;
+        const right = reversed[index + 1]!;
+        if (localMs > right[2]) continue;
+        const progress = (localMs - left[2]) / (right[2] - left[2]);
+        return {
+          x: left[0] + (right[0] - left[0]) * progress + offset,
+          y: left[1] + (right[1] - left[1]) * progress,
+        };
+      }
+      throw new Error("test replay sample exceeded the authored path");
+    };
+    for (const tick120 of [191, 250, 310, 369] as const) {
+      for (let next = kernel.snapshot().tick120 + 1; next <= tick120; next += 1) {
+        stepFollowingGap(kernel, next);
+      }
+      expect(projectile(kernel, 0, 0).position.x).toBeCloseTo(replayPosition(tick120, 1).x, 10);
+      expect(projectile(kernel, 0, 0).position.y).toBeCloseTo(replayPosition(tick120, 1).y, 10);
+    }
+    expect(projectile(kernel, 0, 6).position.x - projectile(kernel, 0, 0).position.x)
+      .toBeCloseTo(-2.2, 10);
+    expect(projectile(kernel, 0, 7).position.x).toBeCloseTo(projectile(kernel, 0, 0).position.x, 10);
+
+    const beforeRelease = projectile(kernel, 0, 0);
+    stepFollowingGap(kernel, 370);
+    const afterRelease = projectile(kernel, 0, 0);
+    const radians = beforeRelease.headingDegrees * Math.PI / 180;
+    expect(afterRelease.headingDegrees).toBe(beforeRelease.headingDegrees);
+    expect(afterRelease.position.x).toBeCloseTo(
+      beforeRelease.position.x + Math.cos(radians) * 94 / 120,
+      10,
+    );
+    expect(afterRelease.position.y).toBeCloseTo(
+      beforeRelease.position.y + Math.sin(radians) * 94 / 120,
+      10,
+    );
+  });
+
+  it("uses the first anchor-to-path capsule for contact and component-safe Override paths", () => {
+    const contact = new CanonicalCombatKernel({
+      ...optionsFor(patternId),
+      seed: ASH_MEMORY_REPORT_SEED,
+      initialPlayerPosition: {x: 180, y: 385},
+    });
+    for (let tick120 = 1; tick120 <= 97; tick120 += 1) {
+      contact.step({...inputAt(tick120), focused: false});
+    }
+    expect(contact.events().filter((event) => event.id === "player.damage.commit"))
+      .toEqual([expect.objectContaining({tick120: 97})]);
+    expect(contact.events().filter((event) => event.id === "projectile.impact.commit"))
+      .toEqual([expect.objectContaining({tick120: 97})]);
+
+    const overridden = new CanonicalCombatKernel({
+      ...optionsFor(patternId),
+      seed: ASH_MEMORY_REPORT_SEED,
+      grazeRadiusPx: 1000,
+    });
+    for (let tick120 = 1; tick120 <= 170; tick120 += 1) {
+      const maximumTravel = PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND / 120;
+      const targetX = safeGapCenter(pattern, tick120 * 1000 / 120);
+      const currentX = overridden.snapshot().playerPosition.x;
+      overridden.step({
+        tick120,
+        movement: {
+          x: Math.max(-1, Math.min(1, (targetX - currentX) / maximumTravel)),
+          y: 0,
+        },
+        focused: false,
+        ...(tick120 === 30
+          ? {overridePressed: true, overrideDirection: {x: 0, y: -1}}
+          : {}),
+      });
+    }
+    expect(overridden.snapshot().override).toMatchObject({state: "active", cycle: 1});
+    const overrideCancels = overridden.events().filter((event) =>
+      event.id === "projectile.cancel.commit" && event.payload.reason === "override_void");
+    expect(overrideCancels).toHaveLength(10);
+    expect(overrideCancels.map((event) => event.tick120)).toEqual([
+      156, 156, 156, 156, 156, 156, 156, 156, 156, 160,
+    ]);
+    expect(overridden.events().filter((event) => event.id === "player.damage.commit")).toEqual([]);
+  });
+
+  it("preserves every candidate and drains collisionless Ash residue across E/N/H", {
+    timeout: 20_000,
+  }, () => {
+    const expected = {
+      EASY: {
+        candidates: 48,
+        outOfBounds: 15,
+        patternEnd: 33,
+        residuesAtComplete: 41,
+        productionHash: "cee50f5cdda53dd8c266896a46c3560a3333d9fdad100ea5d28b897bab23da2b",
+      },
+      NORMAL: {
+        candidates: 60,
+        outOfBounds: 25,
+        patternEnd: 35,
+        residuesAtComplete: 49,
+        productionHash: "4d9b92572e8f00e43a904826e47829730fa8630ea0e9d06e09725b444b8b168b",
+      },
+      HARD: {
+        candidates: 72,
+        outOfBounds: 33,
+        patternEnd: 39,
+        residuesAtComplete: 60,
+        productionHash: "553bab131d5b215aa5217440b8333f53114854388722ee7814a94e8f454cc055",
+      },
+    } as const;
+    for (const difficulty of ["EASY", "NORMAL", "HARD"] as const) {
+      const kernel = createAsh(difficulty);
+      for (let relativeTick120 = 1; relativeTick120 <= 1224; relativeTick120 += 1) {
+        stepFollowingGap(kernel, relativeTick120);
+        const snapshot = kernel.snapshot();
+        const center = safeGapCenter(pattern, relativeTick120 * 1000 / 120);
+        for (const body of snapshot.projectiles) {
+          if (
+            body.state === "flight"
+            && body.collisionEnabled
+            && body.position.y >= 476
+            && body.position.y <= 622
+          ) {
+            expect(Math.abs(body.position.x - center)).toBeGreaterThanOrEqual(
+              safeGapWidth(pattern, difficulty) / 2 + body.collisionRadiusPx + 2 - 1e-9,
+            );
+          }
+        }
+      }
+      const events = kernel.events();
+      const countCancel = (reason: string) => events.filter((event) =>
+        event.id === "projectile.cancel.commit" && event.payload.reason === reason).length;
+      expect({
+        rng: kernel.snapshot().rngCallsConsumed,
+        spawn: events.filter((event) => event.id === "projectile.spawn.commit").length,
+        outOfBounds: countCancel("out_of_bounds"),
+        patternEnd: countCancel("pattern_end"),
+        sourceWithdrawn: countCancel("source_withdrawn"),
+        impact: events.filter((event) => event.id === "projectile.impact.commit").length,
+        damage: events.filter((event) => event.id === "player.damage.commit").length,
+        residuesAtComplete: kernel.snapshot().projectiles.length,
+        productionHash: sha256(new TextEncoder().encode(kernel.canonicalEventSerialization())),
+      }).toEqual({
+        rng: expected[difficulty].candidates,
+        spawn: expected[difficulty].candidates,
+        outOfBounds: expected[difficulty].outOfBounds,
+        patternEnd: expected[difficulty].patternEnd,
+        sourceWithdrawn: 0,
+        impact: 0,
+        damage: 0,
+        residuesAtComplete: expected[difficulty].residuesAtComplete,
+        productionHash: expected[difficulty].productionHash,
+      });
+      expect(kernel.snapshot()).toMatchObject({
+        tick120: 1224,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        materialResidueDraining: true,
+        projectileLifecycleDrained: false,
+        handoffReady: false,
+        poolUsage: {liveColliders: 0},
+      });
+      expect(kernel.snapshot().projectiles.every((body) =>
+        body.state === "residue" && !body.collisionEnabled)).toBe(true);
+
+      for (let relativeTick120 = 1225; relativeTick120 <= 1608; relativeTick120 += 1) {
+        stepFollowingGap(kernel, relativeTick120);
+      }
+      expect(kernel.snapshot()).toMatchObject({
+        tick120: 1608,
+        projectiles: [],
+        projectileLifecycleDrained: true,
+        handoffReady: true,
+        poolUsage: {liveColliders: 0, residueVisuals: 0},
+      });
+    }
+  });
+
+  it("keeps history, identity, cadence, and backlog stable while presentation has no input port", {
+    timeout: 20_000,
+  }, () => {
+    const offsetTick120 = 419;
+    const zero = createAsh("NORMAL", 0, "INFORMATION");
+    const offset = createAsh("NORMAL", offsetTick120, "POLARIZED");
+    for (let relativeTick120 = 1; relativeTick120 <= 500; relativeTick120 += 1) {
+      stepFollowingGap(zero, relativeTick120);
+      stepFollowingGap(offset, relativeTick120);
+    }
+    const normalizedProjectiles = (kernel: CanonicalCombatKernel) => {
+      const start = kernel.snapshot().startTick120;
+      return kernel.snapshot().projectiles.map((body) => ({
+        ...body,
+        spawnedAtTick: body.spawnedAtTick - start,
+        armAtTick: body.armAtTick - start,
+        movedAtTick120: body.movedAtTick120 === null ? null : body.movedAtTick120 - start,
+      }));
+    };
+    const normalizedEvents = (kernel: CanonicalCombatKernel) => {
+      const start = kernel.snapshot().startTick120;
+      const startMs = start * 1000 / 120;
+      const relativeMs = (value: number) =>
+        Math.round((value - startMs) * 1_000_000_000) / 1_000_000_000;
+      return kernel.events().map((event) => {
+        const payload = {...event.payload} as Record<string, unknown>;
+        for (const key of ["commitAtMs", "readyAtMs", "removeAtMs"] as const) {
+          if (typeof payload[key] === "number") payload[key] = relativeMs(payload[key]);
+        }
+        return {
+          ...event,
+          tick120: event.tick120 - start,
+          simulationTimeMs: relativeMs(event.simulationTimeMs),
+          payload,
+        };
+      });
+    };
+    expect(normalizedProjectiles(offset)).toEqual(normalizedProjectiles(zero));
+    expect(normalizedEvents(offset)).toEqual(normalizedEvents(zero));
+    expect(offset.snapshot().rngCallsConsumed).toBe(zero.snapshot().rngCallsConsumed);
+    expect(offset.snapshot().playerPosition).toEqual(zero.snapshot().playerPosition);
+
+    const drive = (
+      deltas: readonly number[],
+      profile: Readonly<{weather: string; reducedMotion: boolean; flashOff: boolean}>,
+    ) => {
+      expect(profile.weather.length).toBeGreaterThan(0);
+      const kernel = createAsh();
+      const clock = new AuthorityClock({
+        onTick120: ({tick120}) => stepFollowingGap(kernel, tick120),
+      });
+      for (const delta of deltas) clock.advance(delta);
+      while (clock.snapshot().backlogTicks > 0) clock.advance(0);
+      expect(clock.snapshot().tick120).toBe(500);
+      return kernel;
+    };
+    const baseline = drive(
+      Array.from({length: 125}, () => 1000 / 30),
+      {weather: "ASH", reducedMotion: false, flashOff: false},
+    );
+    const variants = [
+      drive(
+        Array.from({length: 250}, () => 1000 / 60),
+        {weather: "RAIN", reducedMotion: true, flashOff: true},
+      ),
+      drive(
+        Array.from({length: 600}, () => 1000 / 144),
+        {weather: "CLEAR", reducedMotion: false, flashOff: true},
+      ),
+      drive([500 * 1000 / 120], {weather: "WIND", reducedMotion: true, flashOff: false}),
     ];
     for (const candidate of variants) {
       expect(candidate.canonicalEventSerialization()).toBe(baseline.canonicalEventSerialization());

@@ -99,6 +99,7 @@ export const SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
 // Direct-kernel capabilities only: live-run admission intentionally consumes
 // the exported list above and must not infer these isolated slices.
 const ISOLATED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
+  "encounter.weather_echo.ash_memory",
   "room.in_between.stable_intersection",
   "room.polarized.clock_decree",
   "room.polarized.no_dusk_grid",
@@ -115,6 +116,7 @@ const SUPPORTED_PATTERN_SET: ReadonlySet<string> = new Set([
 const SUPPORTED_OPERATOR_SET: ReadonlySet<string> = new Set([
   "op.aim_lock",
   "op.dual_clock_gate",
+  "op.history_replay",
   "op.lateral_wall",
   "op.limited_homing",
   "op.linear",
@@ -135,6 +137,7 @@ const SUPPORTED_OPERATOR_SIGNATURES: ReadonlySet<string> = new Set([
   "op.local_vector_bias>op.linear",
   "op.speed_envelope>op.linear",
   "op.speed_envelope>op.turn_once>op.linear",
+  "op.history_replay",
   "op.aim_lock>op.linear",
   "op.aim_lock>op.limited_homing>op.linear",
 ]);
@@ -241,6 +244,8 @@ interface RuntimeProjectile {
   readonly spawnTick120: number;
   readonly authoredSpawnMs: number;
   readonly motion: readonly PatternMotion[];
+  readonly historyReplay: HistoryReplayContract | undefined;
+  readonly authoredSpawnOrdinal: number;
   position: Vec2;
   previousPosition: Vec2;
   headingDegrees: number;
@@ -347,6 +352,18 @@ export interface CanonicalCombatSnapshot {
       preflight: "shared-fixed-tick-local-vector-corridor-sweep";
       spawnIdentity: "assigned-only-after-preflight-pass";
       residue: "omitted-candidates-have-no-entity-or-residue";
+    }>;
+    ashMemoryHistoryReplay?: Readonly<{
+      candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity";
+      spawnOrdinal: "occurrence-local-emitter-burst-source-order-starting-at-one";
+      armPolicy: "anchor-spawn-then-first-flight-tick-sweeps-to-reversed-path-head";
+      replayClock: "authored-spawn-age-with-delay-held-at-reversed-path-head";
+      pathSweep: "absolute-polyline-split-at-authored-vertices";
+      crossSideEntry: "safe-prefix-plus-disconnected-snapped-endpoint-no-interior-contact";
+      redirectPolicy: "absolute-replay-before-repeatable-operator-constraint";
+      releasePolicy: "first-fixed-tick-after-replay-end-continues-at-owned-heading-and-speed";
+      weatherAuthority: "withheld-no-weather-event-seed-rng-motion-collision-or-gap-input";
+      admission: "isolated-kernel-no-director-session-renderer-or-default-run";
     }>;
     alternatingVerdictAngularOmission?: Readonly<{
       order:
@@ -1270,6 +1287,165 @@ function localVectorBiasContract(
   return localVectorBias.params as unknown as LocalVectorBiasContract;
 }
 
+interface HistoryReplayPoint {
+  readonly x: number;
+  readonly y: number;
+  readonly atMs: number;
+}
+
+interface HistoryReplayContract {
+  readonly points: readonly HistoryReplayPoint[];
+  readonly delayMs: number;
+  readonly mode: "reverse";
+  readonly replayDurationMs: number;
+}
+
+function captureHistoryReplay(
+  motionEntry: Pick<PatternMotion, "params">,
+  path: string,
+): HistoryReplayContract {
+  const captured = ownPlainDataRecord(motionEntry.params, ["delayMs", "mode", "points"], path);
+  if (captured.mode !== "reverse") {
+    throw new Error(`${path}.mode must be reverse for the admitted Ash Memory slice`);
+  }
+  const delayMs = requireNonNegativeInteger(captured.delayMs as number, `${path}.delayMs`);
+  const rawPoints = ownDenseDataArray(captured.points, `${path}.points`);
+  if (rawPoints.length < 2) throw new Error(`${path}.points must contain at least two points`);
+  let previousAtMs = -1;
+  const authoredPoints = rawPoints.map((value, index): HistoryReplayPoint => {
+    const tuple = ownDenseDataArray(value, `${path}.points[${index}]`);
+    if (tuple.length !== 3) throw new Error(`${path}.points[${index}] must contain x, y, atMs`);
+    const [x, y, rawAtMs] = tuple;
+    if (
+      typeof x !== "number"
+      || !Number.isFinite(x)
+      || Object.is(x, -0)
+      || typeof y !== "number"
+      || !Number.isFinite(y)
+      || Object.is(y, -0)
+    ) {
+      throw new Error(`${path}.points[${index}] coordinates must be finite without negative zero`);
+    }
+    const atMs = requireNonNegativeInteger(rawAtMs as number, `${path}.points[${index}].atMs`);
+    if (index === 0 && atMs !== 0) throw new Error(`${path}.points must begin at 0ms`);
+    if (index > 0 && atMs <= previousAtMs) {
+      throw new Error(`${path}.points must be strictly ordered by atMs`);
+    }
+    previousAtMs = atMs;
+    return Object.freeze({x, y, atMs});
+  });
+  const replayDurationMs = authoredPoints[authoredPoints.length - 1]?.atMs;
+  if (replayDurationMs === undefined || replayDurationMs <= 0) {
+    throw new Error(`${path}.points require a positive replay duration`);
+  }
+  const points = authoredPoints
+    .map((point) => Object.freeze({
+      x: point.x,
+      y: point.y,
+      atMs: replayDurationMs - point.atMs,
+    }))
+    .reverse();
+  return Object.freeze({
+    points: Object.freeze(points),
+    delayMs,
+    mode: "reverse",
+    replayDurationMs,
+  });
+}
+
+/** Exported for descriptor-hostile parameter tests; production uses this exact capture path. */
+export function validateHistoryReplayParameters(
+  params: Readonly<Record<string, unknown>>,
+): void {
+  captureHistoryReplay({params}, "op.history_replay");
+}
+
+function historyReplayContract(
+  motionStack: readonly PatternMotion[],
+  path: string,
+): HistoryReplayContract | undefined {
+  const historyReplay = motionStack.find((entry) => entry.operator === "op.history_replay");
+  return historyReplay === undefined ? undefined : captureHistoryReplay(historyReplay, path);
+}
+
+function historyReplayOffsetX(authoredSpawnOrdinal: number): number {
+  requirePositiveInteger(authoredSpawnOrdinal, "history replay authored spawn ordinal");
+  return ((authoredSpawnOrdinal % 7) - 3) * 2.2;
+}
+
+function historyReplayPositionAt(
+  history: HistoryReplayContract,
+  authoredSpawnOrdinal: number,
+  ageMs: number,
+): Vec2 | null {
+  const localMs = Math.max(0, ageMs - history.delayMs);
+  if (localMs > history.replayDurationMs) return null;
+  const offsetX = historyReplayOffsetX(authoredSpawnOrdinal);
+  for (let index = 0; index < history.points.length - 1; index += 1) {
+    const left = history.points[index];
+    const right = history.points[index + 1];
+    if (left === undefined || right === undefined || localMs > right.atMs) continue;
+    const progress = (localMs - left.atMs) / (right.atMs - left.atMs);
+    return Object.freeze({
+      x: left.x + (right.x - left.x) * progress + offsetX,
+      y: left.y + (right.y - left.y) * progress,
+    });
+  }
+  const terminal = history.points[history.points.length - 1];
+  if (terminal === undefined) throw new Error("validated history replay lost its terminal point");
+  return Object.freeze({x: terminal.x + offsetX, y: terminal.y});
+}
+
+/**
+ * Absolute authored replay sampled on the master clock. The first live motion
+ * interval retains the history-chain anchor-to-path capsule; later intervals
+ * reset any prior corridor redirect to the serialized path before applying the
+ * repeatable operator constraint again.
+ */
+function integrateHistoryReplayMotion(
+  position: Vec2,
+  history: HistoryReplayContract,
+  authoredSpawnOrdinal: number,
+  authoredSpawnMs: number,
+  previousRelativeMs: number,
+  relativeMs: number,
+  speedPxPerSecond: number,
+): Readonly<{
+  readonly position: Vec2;
+  readonly resolvedSpeedPxPerSecond: number;
+  readonly segments: readonly KinematicMotionSegment[];
+}> | null {
+  const ageMs = Math.max(0, relativeMs - authoredSpawnMs);
+  const terminalPosition = historyReplayPositionAt(history, authoredSpawnOrdinal, ageMs);
+  if (terminalPosition === null) return null;
+  const boundaries = [
+    authoredSpawnMs + history.delayMs,
+    ...history.points.slice(1).map((point) => authoredSpawnMs + history.delayMs + point.atMs),
+  ]
+    .filter((atMs) => atMs > previousRelativeMs && atMs < relativeMs)
+    .sort((left, right) => left - right);
+  const times = [...new Set([...boundaries, relativeMs])];
+  const segments: KinematicMotionSegment[] = [];
+  let cursor = position;
+  let fromMs = previousRelativeMs;
+  for (const toMs of times) {
+    const target = historyReplayPositionAt(
+      history,
+      authoredSpawnOrdinal,
+      Math.max(0, toMs - authoredSpawnMs),
+    );
+    if (target === null) throw new Error("history replay crossed its terminal time while active");
+    segments.push(motionSegment(cursor, target, fromMs, toMs, speedPxPerSecond));
+    cursor = target;
+    fromMs = toMs;
+  }
+  return Object.freeze({
+    position: terminalPosition,
+    resolvedSpeedPxPerSecond: speedPxPerSecond,
+    segments: Object.freeze(segments),
+  });
+}
+
 function speedEnvelopeMultiplierAt(
   envelope: SpeedEnvelopeContract | undefined,
   ageMs: number,
@@ -1306,6 +1482,7 @@ interface KinematicMotionSegment {
   readonly previousRelativeMs: number;
   readonly relativeMs: number;
   readonly speedPxPerSecond: number;
+  readonly startsNewComponent?: true;
 }
 
 function integrateKinematicMotion(
@@ -1457,6 +1634,7 @@ function motionSegment(
   previousRelativeMs: number,
   relativeMs: number,
   speedPxPerSecond: number,
+  startsNewComponent = false,
 ): KinematicMotionSegment {
   return Object.freeze({
     from,
@@ -1464,6 +1642,7 @@ function motionSegment(
     previousRelativeMs,
     relativeMs,
     speedPxPerSecond,
+    ...(startsNewComponent ? {startsNewComponent: true as const} : {}),
   });
 }
 
@@ -1866,7 +2045,8 @@ function applyOperatorConstraint(
   const halfWidth = safeGapWidth(pattern, difficulty) / 2 + collisionRadiusPx + 2;
   // Exact oracle tie policy: an endpoint on the center belongs to the left.
   const side: -1 | 1 = position.x <= center ? -1 : 1;
-  if (side !== safeGapEntry.side) {
+  const crossesSides = side !== safeGapEntry.side;
+  if (crossesSides && pattern.id !== "encounter.weather_echo.ash_memory") {
     throw new Error(
       `${pattern.id} operator constraint crossed the entire protected corridor within one tick`,
     );
@@ -1884,6 +2064,29 @@ function applyOperatorConstraint(
     relativeMs,
     speedPxPerSecond,
   ));
+
+  if (crossesSides) {
+    // Ash's first anchor-to-history sweep can enter one side of the moving
+    // wake and finish inside the opposite half. The immutable oracle chooses
+    // the endpoint side for its snap/heading. Production keeps the first safe
+    // prefix and the exact snapped endpoint as disconnected contact pieces;
+    // connecting them would reintroduce collision through the protected wake.
+    contactSegments.push(motionSegment(
+      redirectedPosition,
+      redirectedPosition,
+      relativeMs,
+      relativeMs,
+      speedPxPerSecond,
+      true,
+    ));
+    return Object.freeze({
+      position: redirectedPosition,
+      headingDegrees: headingDegrees + side * 8,
+      redirected: true,
+      segments: Object.freeze(segments),
+      contactSegments: Object.freeze(contactSegments),
+    });
+  }
 
   // The moving sine boundary bows away from its endpoint chord. Shift the
   // contact chord outward by a closed-form curvature bound, then return to the
@@ -5684,6 +5887,144 @@ export function validateAlternatingVerdictPatternContract(patternValue: unknown)
   );
 }
 
+const ASH_MEMORY_PATTERN_CONTRACT = deepFreezeJson({
+  id: "encounter.weather_echo.ash_memory",
+  category: "WEATHER_ECHO",
+  room: "COMMON",
+  name: {zh: "灰烬的回声", en: "Ash echo encounter"},
+  intent: "独立遭遇沿序列化路径反向回放；真实灰烬天气仅表现环境，不提供轨迹输入。",
+  durationMs: 10200,
+  clock: {
+    authority: "GAMEPLAY",
+    tickHz: 120,
+    eventDispatch: "crossed-time-exactly-once",
+    pausePolicy: "freeze",
+    visualClockSeparated: true,
+  },
+  timeline: [
+    {atMs: 0, event: "warning.begin"},
+    {atMs: 759, event: "collision.arm"},
+    {atMs: 759, event: "emit.begin"},
+    {atMs: 5100, event: "pattern.midpoint"},
+    {atMs: 9500, event: "emit.end"},
+    {atMs: 9780, event: "residue.commit"},
+    {atMs: 10200, event: "pattern.complete"},
+  ],
+  emitters: [
+    {
+      id: "ash-echo",
+      kind: "projectile",
+      anchor: {space: "viewport-normalized", x: 0.5, y: 0.08},
+      geometry: {
+        type: "history_chain",
+        variant: "reverse-short-trace",
+        count: 10,
+        baseAngleDeg: 90,
+        spreadDeg: 0,
+        ordering: "clockwise-then-source-index",
+      },
+      cadence: {startMs: 759, intervalMs: 1600, bursts: 6, intraBurstMs: 0},
+      projectile: {
+        archetype: "bullet.micro.shard",
+        collisionRadiusPx: 2,
+        armDelayMs: 40,
+      },
+      speedCurve: {type: "piecewise-linear", keys: [{atMs: 0, pxPerSec: 94}]},
+      motionStack: [
+        {
+          operator: "op.history_replay",
+          params: {
+            points: [
+              [180, 70, 0],
+              [132, 190, 500],
+              [214, 330, 1000],
+              [166, 470, 1500],
+              [196, 600, 1900],
+            ],
+            delayMs: 420,
+            mode: "reverse",
+          },
+        },
+      ],
+    },
+  ],
+  safeGap: {
+    type: "ash_wake",
+    minimumWidthPx: 44,
+    focusMinimumWidthPx: 36,
+    path: {
+      centerX: 180,
+      amplitudePx: 38,
+      periodMs: 9200,
+      phase: 0,
+      laneX: [],
+      maxTravelPxPerSec: 78,
+    },
+    enforcement: "operator_constraint",
+    compileRule:
+      "omit, gate, redirect, or visibly cancel any candidate whose swept circle violates the corridor envelope",
+    readability: {leadMs: 520, neverColorOnly: true},
+  },
+  warning: {
+    durationMs: 759,
+    shape: "reverse_trace_preview",
+    coversSweptArea: true,
+    collisionEnabled: false,
+    flashIndependent: true,
+  },
+  cancel: {
+    triggers: ["pattern_end", "source_withdrawn", "override_void", "room_transition"],
+    mode: "digital_cancel_to_material_residue",
+    collisionOffBeforeVisual: true,
+    eventIdempotent: true,
+  },
+  residue: {
+    type: "ash_fiber",
+    lifetimeMs: 3194,
+    density: 0.39,
+    inheritsSourceId: true,
+    gameplayCollision: false,
+  },
+  difficulty: {
+    EASY: {countMultiplier: 0.78, speedMultiplier: 0.88, cadenceMultiplier: 1.16, gapDeltaPx: 8},
+    NORMAL: {countMultiplier: 1, speedMultiplier: 1, cadenceMultiplier: 1, gapDeltaPx: 0},
+    HARD: {countMultiplier: 1.18, speedMultiplier: 1.12, cadenceMultiplier: 0.88, gapDeltaPx: -4},
+  },
+  seed: {
+    algorithm: "mulberry32-v1",
+    base: 2725936518,
+    composition: "runSeed xor base xor encounterOrdinal xor difficultySalt",
+    randomCalls: "emitter-order then burst-order then projectile-order",
+    disallowedInputs: ["weatherEvent", "weatherSeed", "weatherRng"],
+  },
+  accessibility: {
+    reducedMotionGameplayParity: true,
+    flashOffGameplayParity: true,
+    telegraphNeverColorOnly: true,
+  },
+  weatherEchoContract: {
+    visualSource: "ASH",
+    schedulingAuthority: "director.encounter.v4",
+    runsParallelToWeather: true,
+    weatherEventCanTrigger: false,
+    weatherEventCanSpawnProjectile: false,
+    weatherEventCanAlterMotion: false,
+    weatherEventCanAlterCollision: false,
+    weatherEventCanAlterSafeGap: false,
+    weatherRngUsed: false,
+    seedAuthority: "pattern.seed only",
+  },
+});
+
+/** Exact descriptor-safe V4 contract for the isolated Ash Memory authority. */
+export function validateAshMemoryPatternContract(patternValue: unknown): void {
+  assertExactDataContract(
+    patternValue,
+    ASH_MEMORY_PATTERN_CONTRACT,
+    "encounter.weather_echo.ash_memory",
+  );
+}
+
 function validatePattern(pattern: CombatPattern): void {
   if (EXECUTABLE_PATTERN_MANIFEST.schemaVersion !== "4.0.0") {
     throw new Error("canonical combat requires executable pattern schema 4.0.0");
@@ -5702,6 +6043,9 @@ function validatePattern(pattern: CombatPattern): void {
   }
   if (pattern.id === "transition.room_threshold") {
     validateRoomThresholdPatternContract(pattern);
+  }
+  if (pattern.id === "encounter.weather_echo.ash_memory") {
+    validateAshMemoryPatternContract(pattern);
   }
   if (pattern.id === "boss.one_sun_one_rule.phase1") {
     validateOneSunOneRulePatternContract(pattern);
@@ -5825,6 +6169,7 @@ function validatePattern(pattern: CombatPattern): void {
     pattern.safeGap.enforcement === "operator_constraint"
     && pattern.id !== "room.in_between.context_switch"
     && pattern.id !== "boss.one_sun_one_rule.phase1"
+    && pattern.id !== "encounter.weather_echo.ash_memory"
   ) {
     throw new Error(`${pattern.id} operator-constraint capability ownership drifted`);
   }
@@ -5883,11 +6228,14 @@ function validatePattern(pattern: CombatPattern): void {
       && emitter.geometry.type === "cross";
     const ownsStableIntersectionLattice = pattern.id === "room.in_between.stable_intersection"
       && emitter.geometry.type === "lattice";
+    const ownsAshMemoryHistoryChain = pattern.id === "encounter.weather_echo.ash_memory"
+      && emitter.geometry.type === "history_chain";
     if (
       !SUPPORTED_GEOMETRY_SET.has(emitter.geometry.type)
       && !ownsClockDecreeShutter
       && !ownsNoDuskCross
       && !ownsStableIntersectionLattice
+      && !ownsAshMemoryHistoryChain
     ) {
       throw new Error(`${pattern.id}/${emitter.id} requires an unsupported geometry`);
     }
@@ -5945,6 +6293,11 @@ function validatePattern(pattern: CombatPattern): void {
         emitter.geometry as unknown as Readonly<Record<string, unknown>>,
         `${pattern.id}/${emitter.id}.geometry`,
       );
+    } else if (
+      emitter.geometry.type === "history_chain"
+      && pattern.id !== "encounter.weather_echo.ash_memory"
+    ) {
+      throw new Error(`${pattern.id}/${emitter.id} history-chain capability ownership drifted`);
     }
     requirePositiveInteger(emitter.geometry.count, `${pattern.id}/${emitter.id} geometry count`);
     requireNonNegativeFinite(emitter.geometry.spreadDeg, `${pattern.id}/${emitter.id} spreadDeg`);
@@ -5980,8 +6333,20 @@ function validatePattern(pattern: CombatPattern): void {
     const speedEnvelope = emitter.motionStack.find((entry) => entry.operator === "op.speed_envelope");
     const seamTransform = emitter.motionStack.find((entry) => entry.operator === "op.seam_transform");
     const linear = emitter.motionStack.find((entry) => entry.operator === "op.linear");
-    if (linear === undefined) throw new Error(`${pattern.id}/${emitter.id} motion stack is incomplete`);
-    validateMotionParameters(linear, [], `${emitter.id}.linear`);
+    const historyReplay = emitter.motionStack.find((entry) => entry.operator === "op.history_replay");
+    const ownsAshMemoryHistoryReplay = pattern.id === "encounter.weather_echo.ash_memory";
+    if (ownsAshMemoryHistoryReplay !== (historyReplay !== undefined)) {
+      throw new Error(`${pattern.id}/${emitter.id} history-replay capability ownership drifted`);
+    }
+    if (historyReplay !== undefined) {
+      captureHistoryReplay(historyReplay, `${emitter.id}.history_replay`);
+      if (linear !== undefined) {
+        throw new Error(`${pattern.id}/${emitter.id} history replay must not invent linear motion`);
+      }
+    } else {
+      if (linear === undefined) throw new Error(`${pattern.id}/${emitter.id} motion stack is incomplete`);
+      validateMotionParameters(linear, [], `${emitter.id}.linear`);
+    }
     if (aim !== undefined) {
       validateMotionParameters(aim, ["lockAtMs", "leadMs", "maxTurnDeg"], `${emitter.id}.aim_lock`);
       requireNonNegativeFinite(numberParameter(aim, "lockAtMs", Number.NaN), `${emitter.id}.lockAtMs`);
@@ -7565,6 +7930,14 @@ export class CanonicalCombatKernel {
         "encounter.weather_echo.rain_packets requires bullet.micro.dash in the micro pool class",
       );
     }
+    if (
+      this.pattern.id === "encounter.weather_echo.ash_memory"
+      && projectilePoolClasses["bullet.micro.shard"] !== "micro"
+    ) {
+      throw new Error(
+        "encounter.weather_echo.ash_memory requires bullet.micro.shard in the micro pool class",
+      );
+    }
     this.options = Object.freeze({
       ...captured,
       patternId,
@@ -7585,6 +7958,29 @@ export class CanonicalCombatKernel {
             preflight: "shared-fixed-tick-local-vector-corridor-sweep" as const,
             spawnIdentity: "assigned-only-after-preflight-pass" as const,
             residue: "omitted-candidates-have-no-entity-or-residue" as const,
+          })}
+        : {}),
+      ...(this.pattern.id === "encounter.weather_echo.ash_memory"
+        ? {ashMemoryHistoryReplay: Object.freeze({
+            candidateIdentity:
+              "all-authored-candidates-retain-rng-and-entity-identity" as const,
+            spawnOrdinal:
+              "occurrence-local-emitter-burst-source-order-starting-at-one" as const,
+            armPolicy:
+              "anchor-spawn-then-first-flight-tick-sweeps-to-reversed-path-head" as const,
+            replayClock:
+              "authored-spawn-age-with-delay-held-at-reversed-path-head" as const,
+            pathSweep: "absolute-polyline-split-at-authored-vertices" as const,
+            crossSideEntry:
+              "safe-prefix-plus-disconnected-snapped-endpoint-no-interior-contact" as const,
+            redirectPolicy:
+              "absolute-replay-before-repeatable-operator-constraint" as const,
+            releasePolicy:
+              "first-fixed-tick-after-replay-end-continues-at-owned-heading-and-speed" as const,
+            weatherAuthority:
+              "withheld-no-weather-event-seed-rng-motion-collision-or-gap-input" as const,
+            admission:
+              "isolated-kernel-no-director-session-renderer-or-default-run" as const,
           })}
         : {}),
       ...(this.pattern.id === "room.polarized.alternating_verdict"
@@ -8013,6 +8409,10 @@ export class CanonicalCombatKernel {
       emitter.motionStack,
       `${this.pattern.id}/${emitter.id}.dual_clock_gate`,
     );
+    const historyReplay = historyReplayContract(
+      emitter.motionStack,
+      `${this.pattern.id}/${emitter.id}.history_replay`,
+    );
     for (const candidate of candidates) {
       // `op.lateral_wall` defines the opening as an absent spawn candidate.
       // The omitted lane therefore owns neither an entity identity nor an RNG call.
@@ -8057,6 +8457,10 @@ export class CanonicalCombatKernel {
       ) continue;
       const armDelayTicks = crossedOffsetTickCount(authoredAtMs, emitter.projectile.armDelayMs);
       const armRelativeTick120 = crossedTickCount(authoredAtMs) + armDelayTicks;
+      // Ash has one exact emitter. This candidate-derived ordinal matches the
+      // immutable oracle's uid stream without binding replay offsets to a
+      // recyclable pool slot or to whether an earlier pool allocation failed.
+      const authoredSpawnOrdinal = burstIndex * count + candidate.sourceIndex + 1;
       const collisionEnabledAtArm = dualClockGate === undefined
         || dualClockGateActiveAtRelativeTick(
           dualClockGate,
@@ -8083,6 +8487,8 @@ export class CanonicalCombatKernel {
         spawnTick120: tick120,
         authoredSpawnMs: authoredAtMs,
         motion: emitter.motionStack,
+        historyReplay,
+        authoredSpawnOrdinal,
         position,
         previousPosition: position,
         headingDegrees,
@@ -8249,7 +8655,22 @@ export class CanonicalCombatKernel {
             segment.relativeMs,
           ));
       } else if (usesOperatorConstraint) {
-        const integrated = usesAnalyticKinematics
+        const historySpeedPxPerSecond = speedCurveAt(
+          runtime.speedCurve,
+          Math.max(0, relativeMs - runtime.authoredSpawnMs),
+        ) * runtime.speedMultiplier;
+        const historyIntegrated = runtime.historyReplay === undefined
+          ? null
+          : integrateHistoryReplayMotion(
+              runtime.position,
+              runtime.historyReplay,
+              runtime.authoredSpawnOrdinal,
+              runtime.authoredSpawnMs,
+              previousRelativeMs,
+              relativeMs,
+              historySpeedPxPerSecond,
+            );
+        const integrated = historyIntegrated ?? (usesAnalyticKinematics
           ? integrateKinematicMotion(
               runtime.position,
               runtime.headingDegrees,
@@ -8282,7 +8703,7 @@ export class CanonicalCombatKernel {
                   runtime.speedPxPerSecond,
                 )]),
               });
-            })();
+            })());
         runtime.speedPxPerSecond = integrated.resolvedSpeedPxPerSecond;
         // A turn declared after linear completes the crossed tick's old-heading
         // sweep before its zero-time turn. A turn declared before linear (the
@@ -8488,6 +8909,7 @@ export class CanonicalCombatKernel {
       this.pattern.id !== "room.forced.crack_fall_loop"
       && this.pattern.id !== "room.in_between.context_switch"
       && this.pattern.id !== "transition.override_void"
+      && this.pattern.id !== "encounter.weather_echo.ash_memory"
     ) {
       return this.override.cancelProjectiles(this.projectiles, tick120);
     }
@@ -8508,6 +8930,9 @@ export class CanonicalCombatKernel {
         segments: Object.freeze(runtime.movementSegments.map((segment) => Object.freeze({
           from: segment.from,
           to: segment.to,
+          ...(segment.startsNewComponent === true
+            ? {startsNewComponent: true as const}
+            : {}),
         }))),
       }));
     }

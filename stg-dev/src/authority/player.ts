@@ -134,6 +134,8 @@ export interface LocalVoidSnapshot {
 export interface OverrideProjectilePathSegment {
   readonly from: Vec2;
   readonly to: Vec2;
+  /** The gap from the prior component contains no collider; it is not an omitted sweep. */
+  readonly startsNewComponent?: true;
 }
 
 export interface OverrideProjectilePath {
@@ -1873,11 +1875,27 @@ function captureOverrideProjectilePaths(
     );
     if (rawSegments.length === 0) throw new Error(`Override projectile path must not be empty: ${key}`);
     const segments = rawSegments.map((rawSegment, segmentIndex) => {
+      let hasComponentBoundary: boolean;
+      try {
+        hasComponentBoundary = Object.prototype.hasOwnProperty.call(
+          Object.getOwnPropertyDescriptors(rawSegment as object),
+          "startsNewComponent",
+        );
+      } catch {
+        throw new Error(
+          `Override projectile paths[${pathIndex}].segments[${segmentIndex}] could not be inspected safely`,
+        );
+      }
       const segment = exactOverridePathRecord(
         rawSegment,
-        ["from", "to"],
+        hasComponentBoundary ? ["from", "startsNewComponent", "to"] : ["from", "to"],
         `Override projectile paths[${pathIndex}].segments[${segmentIndex}]`,
       );
+      if (hasComponentBoundary && (segmentIndex === 0 || segment.startsNewComponent !== true)) {
+        throw new Error(
+          `Override projectile paths[${pathIndex}].segments[${segmentIndex}] component boundary is invalid`,
+        );
+      }
       const from = exactOverridePathRecord(
         segment.from,
         ["x", "y"],
@@ -1909,6 +1927,7 @@ function captureOverrideProjectilePaths(
             `Override projectile paths[${pathIndex}].segments[${segmentIndex}].to.y`,
           ),
         }),
+        ...(hasComponentBoundary ? {startsNewComponent: true as const} : {}),
       });
     });
     captured.set(key, Object.freeze(segments));
@@ -2057,6 +2076,14 @@ export class DirectionalOverrideAuthority {
         for (let index = 1; index < segments.length; index += 1) {
           const previous = segments[index - 1];
           const current = segments[index];
+          if (current?.startsNewComponent === true) {
+            if (
+              previous !== undefined
+              && previous.to.x === current.from.x
+              && previous.to.y === current.from.y
+            ) throw new Error(`Override path has a redundant component boundary: ${key}`);
+            continue;
+          }
           if (
             previous === undefined
             || current === undefined
