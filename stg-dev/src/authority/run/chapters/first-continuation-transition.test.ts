@@ -3,8 +3,12 @@ import {beforeAll, describe, expect, it} from "vitest";
 import {
   advanceCanonicalRunFirstContinuationSuccessorMaterialHold,
   CanonicalRunCombatState,
+  commitPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
   commitPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer,
+  inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  inspectPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
   inspectPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer,
+  prepareCanonicalRunFirstContinuationNextOccurrenceAdmission,
   prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer,
   type CanonicalCombatSnapshot,
   type CanonicalCombatStepInput,
@@ -812,31 +816,194 @@ describe("first continuation transition chapter owner", () => {
     expect(fixture.runState.snapshot()).toEqual(runBeforeRejectedOldOwner);
     expect(fixture.eventBus.events()).toEqual(eventsBeforeRejectedOldOwner);
 
-    const materialHold = advanceCanonicalRunFirstContinuationSuccessorMaterialHold(
-      materialOwner,
-      combatInput(complete.tick120 + 1),
+    const runBeforeNextAdmission = fixture.runState.snapshot();
+    const eventsBeforeNextAdmission = fixture.eventBus.events();
+    const eventSerializationBeforeNextAdmission =
+      fixture.eventBus.canonicalSerialization();
+    const nextPreparation =
+      prepareCanonicalRunFirstContinuationNextOccurrenceAdmission(materialOwner);
+    if (nextPreparation.state !== "prepared") {
+      throw new Error(`expected next occurrence admission, received ${nextPreparation.reason}`);
+    }
+    const nextView = inspectPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+      nextPreparation.proposal,
     );
-    expect(materialHold).toMatchObject({
-      runCombat: {
-        tick120: complete.tick120 + 1,
-        activeOccurrenceId: null,
-        pendingFlushTick120: null,
-        claimedOccurrenceIds: closeClaims,
-      },
+    expect(nextView).toEqual(nextPreparation.view);
+    expect(nextView).toMatchObject({
+      authority:
+        "canonical-run-first-continuation-next-occurrence-admission-v1",
+      extensionPolicy: "EXT-2026-020",
+      state: "prepared",
+      preparedAtTick120: complete.tick120,
       material: {
-        tick120: complete.tick120 + 1,
+        tick120: complete.tick120,
         materialCount: 46,
         drained: false,
-        rngCallsConsumed: closeRngCallsConsumed,
         poolUsage: {
-          active: {micro: 46, medium: 0, heavy: 0, splitChildren: 0},
           allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
           liveColliders: 0,
           residueVisuals: 46,
         },
+        nextOccurrenceAdmission:
+          "withheld-pending-plan-and-combined-pool-admission",
       },
+      plan: {
+        authority:
+          "canonical-run-first-continuation-next-occurrence-plan-v1",
+        extensionPolicy: "EXT-2026-020",
+        plannedAtTick120: complete.tick120,
+        targetRoom: "IN_BETWEEN",
+        roomOrdinal: 1,
+        intensity: {
+          score: 0.14810056112410605,
+          tierId: "listen",
+          difficulty: "EASY",
+          budget: {maxProjectiles: 80, maxEmitters: 2, restMs: 1_600},
+        },
+        selection: {
+          removedPatternIds: ["room.in_between.context_switch"],
+          previousPatternId: "room.in_between.context_switch",
+          candidateOrder: [
+            "room.in_between.stable_intersection",
+            "room.in_between.misregistration_corridor",
+            "room.in_between.borrowed_rule",
+          ],
+          rng: {
+            continuedFromStateAfterDrawUint32: 3_663_131_627,
+            drawOrdinal: 2,
+            drawValue: 0.5274470399599522,
+            stateAfterDrawUint32: 1_199_730_144,
+            selectionRngDrawsTotal: 3,
+          },
+          selectedPatternId: "room.in_between.misregistration_corridor",
+          rerollCount: 0,
+          capabilityFilteringApplied: false,
+        },
+        occurrence: {
+          occurrenceId:
+            "run:room:1:encounter:1:room.in_between.misregistration_corridor",
+          patternId: "room.in_between.misregistration_corridor",
+          roomId: "IN_BETWEEN",
+          roomOrdinal: 1,
+          encounterOrdinal: 1,
+          difficulty: "EASY",
+          difficultySalt: 0x2201,
+          resolvedSeed: {value: 4_108_513_047},
+          segmentsMs: {
+            telegraph: 520,
+            entry: 800,
+            read: 10_600,
+            materialSettle: 900,
+            rest: 1_600,
+            safeGapHandoff: 520,
+          },
+          parallel: {mode: "none", patternId: null},
+        },
+        patternCapability: {status: "supported"},
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+        canonicalEventWrites: 0,
+        authorityMutations: 0,
+      },
+      combinedPoolAdmission: {
+        state: "admissible",
+        admissible: true,
+        evaluatedAtTick120: complete.tick120,
+        poolClassResolution: {state: "resolved", poolClass: "micro"},
+        carryover: {
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          residueVisuals: 46,
+          liveColliders: 0,
+        },
+        successor: {
+          requestedProjectileSlots: 80,
+          requestedResidueVisualSlots: 80,
+          emitterCount: 2,
+          maxEmitters: 2,
+          reservationByClass: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+        },
+        combined: {
+          allocatedSlots: {micro: 160, medium: 0, heavy: 0, splitChildren: 0},
+          residueVisuals: 126,
+        },
+        limits: {
+          poolBudgets: {micro: 2_048},
+          residueVisualOnly: 1_536,
+          difficultyProjectiles: 120,
+        },
+        reservationCommitted: false,
+      },
+      roomCompletion: "withheld",
+      roomHandoff: "withheld",
+      canonicalEventWrites: 0,
+      occurrenceClaimWrites: 0,
+      tickAdvance: 0,
     });
-    expect(materialHold.material.projectiles).toEqual(closeProjectiles);
+    expect(nextView.plan.selection.candidateTotalWeight).toBeCloseTo(3.48, 12);
+    expect(nextView.plan.selection.rng.cursorInitial)
+      .toBeCloseTo(1.8355156990606338, 12);
+    expect(() => prepareCanonicalRunFirstContinuationNextOccurrenceAdmission(
+      materialOwner,
+    )).toThrow(/in-flight/);
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorMaterialHold(
+      materialOwner,
+      combatInput(complete.tick120 + 1),
+    )).toThrow(/lease/);
+    expect(fixture.runState.snapshot()).toEqual(runBeforeNextAdmission);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeNextAdmission);
+    expect(fixture.eventBus.canonicalSerialization())
+      .toBe(eventSerializationBeforeNextAdmission);
+
+    const nextOwner =
+      commitPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+        nextPreparation.proposal,
+      );
+    const nextDormant =
+      inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(nextOwner);
+    expect(nextDormant).toMatchObject({
+      authority:
+        "canonical-run-first-continuation-next-occurrence-dormant-owner-v1",
+      extensionPolicy: "EXT-2026-020",
+      phase: "dormant",
+      tick120: complete.tick120,
+      telegraphStartTick120: complete.tick120 + 1,
+      nextMasterTickAction: "telegraph",
+      plan: nextView.plan,
+      combinedPoolAdmission: {
+        state: "committed",
+        evaluation: nextView.combinedPoolAdmission,
+        reservationCommitted: true,
+      },
+      material: {
+        tick120: complete.tick120,
+        materialCount: 46,
+        nextOccurrenceAdmission: "committed-to-dormant-next-occurrence",
+      },
+      runCombat: {
+        tick120: complete.tick120,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+        claimedOccurrenceIds: closeClaims,
+      },
+      canonicalEventCount: eventsBeforeNextAdmission.length,
+      roomCompletion: "withheld",
+      roomHandoff: "withheld",
+    });
+    expect(nextDormant.material.projectiles).toEqual(closeProjectiles);
+    expect(() => commitPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+      nextPreparation.proposal,
+    )).toThrow(/committed/);
+    expect(() => prepareCanonicalRunFirstContinuationNextOccurrenceAdmission(
+      materialOwner,
+    )).toThrow(/exact flushed|binding/);
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorMaterialHold(
+      materialOwner,
+      combatInput(complete.tick120 + 1),
+    )).toThrow(/lease/);
+    expect(fixture.runState.snapshot()).toEqual(runBeforeNextAdmission);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeNextAdmission);
+    expect(fixture.eventBus.canonicalSerialization())
+      .toBe(eventSerializationBeforeNextAdmission);
     expect(complete.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
       occurrenceId === preparation.view.plan.occurrence.occurrenceId)).toHaveLength(1);
     expect(fixture.eventBus.events().slice(eventsBeforeRead.length).some((event) =>

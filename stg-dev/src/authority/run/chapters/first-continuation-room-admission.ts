@@ -33,15 +33,36 @@ export type CanonicalRunFirstContinuationCombinedPoolAdmissionState =
   | "withheld-projectile-pool-capacity"
   | "withheld-residue-visual-capacity";
 
-export type CanonicalRunFirstContinuationCombinedPoolAdmissionInput = Pick<
-  CanonicalRunFirstContinuationRoomPlanPayload,
-  | "plannedAtTick120"
-  | "targetRoom"
-  | "intensity"
-  | "occurrence"
-  | "patternCapability"
-  | "poolReservationRequest"
->;
+type CanonicalRunFirstContinuationCombinedPoolAdmissionBase = Readonly<{
+  readonly plannedAtTick120:
+    CanonicalRunFirstContinuationRoomPlanPayload["plannedAtTick120"];
+  readonly targetRoom: CanonicalRunFirstContinuationRoomPlanPayload["targetRoom"];
+  readonly intensity: CanonicalRunFirstContinuationRoomPlanPayload["intensity"];
+  readonly occurrence: Pick<
+    CanonicalRunFirstContinuationRoomPlanPayload["occurrence"],
+    "occurrenceId" | "patternId" | "roomId" | "difficulty"
+  >;
+  readonly patternCapability:
+    CanonicalRunFirstContinuationRoomPlanPayload["patternCapability"];
+}>;
+
+/**
+ * Shared structural input for any formally planned continuation occurrence.
+ * Material lineage has its own authority type; this gate consumes only the
+ * three capacity facts it owns.
+ */
+export type CanonicalRunFirstContinuationCombinedPoolAdmissionInput =
+  CanonicalRunFirstContinuationCombinedPoolAdmissionBase & Readonly<{
+    readonly poolReservationRequest: Omit<
+      CanonicalRunFirstContinuationRoomPlanPayload["poolReservationRequest"],
+      "carryover"
+    > & Readonly<{
+      readonly carryover: Pick<
+        CanonicalRunFirstContinuationRoomPlanPayload["poolReservationRequest"]["carryover"],
+        "allocatedSlots" | "residueVisuals" | "liveColliders"
+      >;
+    }>;
+  }>;
 
 type PoolCounts = Readonly<
   Record<CanonicalRunFirstContinuationRoomPlanProjectilePoolClass, number>

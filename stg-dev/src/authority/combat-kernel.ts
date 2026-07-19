@@ -102,6 +102,12 @@ import {
   type CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation,
 } from "./run/chapters/first-continuation-room-admission";
 import {
+  deriveCanonicalRunFirstContinuationNextOccurrencePlanSourceUnbranded,
+  deriveCanonicalRunFirstContinuationNextOccurrencePlanUnbranded,
+  type CanonicalRunFirstContinuationNextOccurrencePlanPayload,
+  type CanonicalRunFirstContinuationNextOccurrencePlanSourceView,
+} from "./run/chapters/first-continuation-next-occurrence-plan";
+import {
   deriveCanonicalRunFirstContinuationRoomPlanUnbranded,
   type CanonicalRunFirstContinuationRoomPlanPayload,
   type CanonicalRunFirstContinuationRoomPlanSourceView,
@@ -725,7 +731,8 @@ interface Ext013RoomThresholdRunBinding {
     | "successor-release-requested"
     | "successor-tail"
     | "successor-complete"
-    | "successor-material";
+    | "successor-material"
+    | "successor-next-dormant";
   carryover: CanonicalRoomThresholdMaterialCarryover | null;
   materialRoomEventCount: number | null;
   successorOwner: object | null;
@@ -735,6 +742,9 @@ interface Ext013RoomThresholdRunBinding {
   successorFinalCombat: CanonicalCombatSnapshot | null;
   successorMaterial: CanonicalRunOccurrenceMaterialCarryover | null;
   predecessorMaterialLeaseRetiredAtTick120: number | null;
+  nextSuccessorOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner | null;
+  nextSuccessorPlan: CanonicalRunFirstContinuationNextOccurrencePlanPayload | null;
+  nextSuccessorAdmission: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation | null;
   expectedFlushTick120: number | null;
   expectedPendingEventCount: number | null;
 }
@@ -913,7 +923,8 @@ export interface CanonicalRunOccurrenceMaterialCarryoverSnapshot {
   readonly roomCompletion: "withheld";
   readonly roomHandoff: "withheld";
   readonly nextOccurrenceAdmission:
-    "withheld-pending-plan-and-combined-pool-admission";
+    | "withheld-pending-plan-and-combined-pool-admission"
+    | "committed-to-dormant-next-occurrence";
 }
 
 declare const preparedSuccessorMaterialTransferBrand: unique symbol;
@@ -947,6 +958,85 @@ export interface CanonicalRunFirstContinuationSuccessorMaterialHoldResult {
   readonly runCombat: CanonicalRunCombatStateSnapshot;
   readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
   readonly flushedEvents: readonly CanonicalGameplayEvent[];
+}
+
+declare const preparedNextOccurrenceAdmissionBrand: unique symbol;
+
+export interface PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission {
+  readonly [preparedNextOccurrenceAdmissionBrand]:
+    "PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission";
+}
+
+declare const nextOccurrenceDormantOwnerBrand: unique symbol;
+
+export type CanonicalRunFirstContinuationNextOccurrenceDormantOwner = Readonly<{
+  readonly [nextOccurrenceDormantOwnerBrand]: true;
+}>;
+
+export interface CanonicalRunFirstContinuationNextOccurrenceAdmissionProposalView {
+  readonly authority:
+    "canonical-run-first-continuation-next-occurrence-admission-v1";
+  readonly extensionPolicy: "EXT-2026-020";
+  readonly state: "prepared";
+  readonly preparedAtTick120: number;
+  readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
+  readonly combinedPoolAdmission:
+    CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+  readonly roomCompletion: "withheld";
+  readonly roomHandoff: "withheld";
+  readonly canonicalEventWrites: 0;
+  readonly occurrenceClaimWrites: 0;
+  readonly tickAdvance: 0;
+}
+
+export interface CanonicalRunFirstContinuationNextOccurrenceAdmissionWithheld {
+  readonly authority:
+    "canonical-run-first-continuation-next-occurrence-admission-v1";
+  readonly extensionPolicy: "EXT-2026-020";
+  readonly state: "withheld";
+  readonly reason: Exclude<
+    CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation["state"],
+    "admissible"
+  >;
+  readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
+  readonly combinedPoolAdmission:
+    CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+  readonly materialOwnerConsumed: false;
+  readonly roomCompletion: "withheld";
+  readonly roomHandoff: "withheld";
+  readonly canonicalEventWrites: 0;
+  readonly authorityMutations: 0;
+}
+
+export type CanonicalRunFirstContinuationNextOccurrenceAdmissionPreparation =
+  | Readonly<{
+    readonly state: "prepared";
+    readonly proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission;
+    readonly view: CanonicalRunFirstContinuationNextOccurrenceAdmissionProposalView;
+  }>
+  | CanonicalRunFirstContinuationNextOccurrenceAdmissionWithheld;
+
+export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot {
+  readonly authority:
+    "canonical-run-first-continuation-next-occurrence-dormant-owner-v1";
+  readonly extensionPolicy: "EXT-2026-020";
+  readonly phase: "dormant";
+  readonly tick120: number;
+  readonly telegraphStartTick120: number;
+  readonly nextMasterTickAction: "telegraph";
+  readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
+  readonly combinedPoolAdmission: Readonly<{
+    readonly state: "committed";
+    readonly evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+    readonly reservationCommitted: true;
+  }>;
+  readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly canonicalEventCount: number;
+  readonly roomCompletion: "withheld";
+  readonly roomHandoff: "withheld";
 }
 
 interface PreparedRoomThresholdMaterialDetachRecord {
@@ -1004,6 +1094,21 @@ interface PreparedSuccessorMaterialTransferRecord {
   status: "prepared" | "committed" | "cancelled" | "failed";
 }
 
+interface PreparedNextOccurrenceAdmissionRecord {
+  readonly runState: CanonicalRunCombatState;
+  readonly eventBus: CanonicalEventBus;
+  readonly materialOwner: CanonicalRunOccurrenceMaterialCarryover;
+  readonly nextOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner;
+  readonly source: CanonicalRunFirstContinuationNextOccurrencePlanSourceView;
+  readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
+  readonly evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+  readonly capturedRunSerialization: string;
+  readonly capturedMaterialSerialization: string;
+  readonly capturedEventSerialization: string;
+  readonly view: CanonicalRunFirstContinuationNextOccurrenceAdmissionProposalView;
+  status: "prepared" | "committed" | "cancelled" | "failed";
+}
+
 const ROOM_THRESHOLD_MATERIAL_CARRYOVERS = new WeakMap<
   CanonicalRoomThresholdMaterialCarryover,
   RoomThresholdMaterialCarryoverRecord
@@ -1019,6 +1124,18 @@ const PREPARED_SUCCESSOR_MATERIAL_TRANSFERS = new WeakMap<
 const ACTIVE_SUCCESSOR_MATERIAL_TRANSFER_BY_RUN_STATE = new WeakMap<
   CanonicalRunCombatState,
   PreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer
+>();
+const PREPARED_NEXT_OCCURRENCE_ADMISSIONS = new WeakMap<
+  PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
+  PreparedNextOccurrenceAdmissionRecord
+>();
+const ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL = new WeakMap<
+  CanonicalRunOccurrenceMaterialCarryover,
+  PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission
+>();
+const RUN_STATE_BY_NEXT_OCCURRENCE_OWNER = new WeakMap<
+  CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  CanonicalRunCombatState
 >();
 const CREATE_ROOM_THRESHOLD_MATERIAL_CARRYOVER = Symbol(
   "create-room-threshold-material-carryover",
@@ -10034,6 +10151,9 @@ export class CanonicalCombatKernel {
       successorFinalCombat: null,
       successorMaterial: null,
       predecessorMaterialLeaseRetiredAtTick120: null,
+      nextSuccessorOwner: null,
+      nextSuccessorPlan: null,
+      nextSuccessorAdmission: null,
       expectedFlushTick120: null,
       expectedPendingEventCount: null,
     });
@@ -11633,6 +11753,9 @@ function requireSuccessorMaterialTransferBoundary(
     || binding.successorFinalCombat === null
     || binding.successorMaterial !== null
     || binding.predecessorMaterialLeaseRetiredAtTick120 !== null
+    || binding.nextSuccessorOwner !== null
+    || binding.nextSuccessorPlan !== null
+    || binding.nextSuccessorAdmission !== null
     || binding.expectedFlushTick120 !== null
     || binding.expectedPendingEventCount !== null
     || predecessorRecord?.runState !== runState
@@ -11870,10 +11993,15 @@ export class CanonicalRunOccurrenceMaterialCarryover {
       : EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(record.runState);
     if (
       record === undefined
-      || binding?.phase !== "successor-material"
+      || (binding?.phase !== "successor-material"
+        && binding?.phase !== "successor-next-dormant")
       || binding.successorMaterial !== this
       || binding.successorKernel !== record.kernel
       || binding.predecessorMaterialLeaseRetiredAtTick120 !== record.transferredAtTick120
+      || (binding.phase === "successor-next-dormant"
+        && (binding.nextSuccessorOwner === null
+          || binding.nextSuccessorPlan === null
+          || binding.nextSuccessorAdmission === null))
     ) {
       throw new Error("Run occurrence material carryover lost its sealed binding");
     }
@@ -11907,9 +12035,411 @@ export class CanonicalRunOccurrenceMaterialCarryover {
       roomCompletion: "withheld" as const,
       roomHandoff: "withheld" as const,
       nextOccurrenceAdmission:
-        "withheld-pending-plan-and-combined-pool-admission" as const,
+        binding.phase === "successor-next-dormant"
+          ? "committed-to-dormant-next-occurrence" as const
+          : "withheld-pending-plan-and-combined-pool-admission" as const,
     });
   }
+}
+
+interface NextOccurrenceAdmissionBoundary {
+  readonly binding: Ext013RoomThresholdRunBinding;
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly source: CanonicalRunFirstContinuationNextOccurrencePlanSourceView;
+  readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
+  readonly evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
+}
+
+function requireNextOccurrenceAdmissionBoundary(
+  materialOwner: CanonicalRunOccurrenceMaterialCarryover,
+  expectedProposal: PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission | null,
+): NextOccurrenceAdmissionBoundary {
+  const record = RUN_OCCURRENCE_MATERIAL_CARRYOVERS.get(materialOwner);
+  if (record === undefined) {
+    throw new Error("next occurrence admission requires the exact material owner");
+  }
+  const {runState, eventBus} = record;
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("next occurrence admission requires an exact CanonicalRunCombatState");
+  }
+  if (!isExactCanonicalEventBus(eventBus)) {
+    throw new Error("next occurrence admission requires the exact canonical event bus");
+  }
+  const activeProposal =
+    ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.get(materialOwner) ?? null;
+  if (activeProposal !== expectedProposal) {
+    throw new Error("next occurrence admission lost its exclusive prepared lease");
+  }
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const predecessorRecord = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(record.predecessor);
+  const internals = runCombatStateInternals(runState);
+  const runCombat = runState.snapshot();
+  const material = materialOwner.snapshot();
+  const predecessor = record.predecessor.snapshot();
+  const combat = CanonicalCombatKernel.prototype.snapshot.call(record.kernel);
+  const room = binding === undefined
+    ? null
+    : RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+  const player = internals.player.snapshot();
+  const override = internals.override.snapshot();
+  if (
+    binding?.phase !== "successor-material"
+    || binding.successorMaterial !== materialOwner
+    || binding.successorKernel !== record.kernel
+    || binding.successorFinalCombat === null
+    || binding.successorPlan === null
+    || binding.successorReservation === null
+    || binding.successorOwner !== record.predecessorOwner
+    || binding.carryover !== record.predecessor
+    || binding.predecessorMaterialLeaseRetiredAtTick120 !== record.transferredAtTick120
+    || binding.nextSuccessorOwner !== null
+    || binding.nextSuccessorPlan !== null
+    || binding.nextSuccessorAdmission !== null
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+    || predecessorRecord?.runState !== runState
+    || internals.bus !== eventBus
+    || internals.fault !== null
+    || internals.advanceLocked
+    || internals.activeOccurrenceId !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.pendingFlushTick120 !== null
+    || eventBus.pendingEventCount() !== 0
+    || ACTIVE_SUCCESSOR_MATERIAL_TRANSFER_BY_RUN_STATE.has(runState)
+    || runCombat.tick120 !== internals.currentTick120
+    || runCombat.activeOccurrenceId !== null
+    || runCombat.pendingFlushTick120 !== null
+    || material.transferredAtTick120 !== internals.currentTick120
+    || material.tick120 !== internals.currentTick120
+    || material.nextOccurrenceAdmission
+      !== "withheld-pending-plan-and-combined-pool-admission"
+    || material.sourcePatternId !== combat.patternId
+    || material.sourceOccurrenceId !== combat.occurrenceId
+    || material.materialCount !== combat.projectiles.length
+    || material.poolUsage.liveColliders !== 0
+    || material.poolUsage.residueVisuals !== material.materialCount
+    || material.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+    || combat.tick120 !== internals.currentTick120
+    || !combat.patternComplete
+    || !combat.digitalBodiesDrained
+    || combat.poolUsage.liveColliders !== 0
+    || JSON.stringify(combat) !== JSON.stringify(binding.successorFinalCombat)
+    || successorBoundaryTicks(binding.successorPlan).sliceCompleteTick120
+      !== internals.currentTick120
+    || predecessor.tick120 !== internals.currentTick120
+    || !predecessor.drained
+    || predecessor.materialCount !== 0
+    || predecessor.poolUsage.liveColliders !== 0
+    || room === null
+    || room.tick120 !== internals.currentTick120
+    || room.state !== "idle"
+    || room.currentRoom !== binding.targetRoom
+    || room.targetRoom !== null
+    || room.generation !== 1
+    || room.active !== null
+    || binding.materialRoomEventCount === null
+    || room.eventCount !== binding.materialRoomEventCount
+    || player.tick120 !== internals.currentTick120
+    || player.state !== "alive"
+    || !player.collisionEnabled
+    || player.activeLeases.length !== 0
+    || player.recoveryAtTick120 !== null
+    || player.respawnPlaceAtTick120 !== null
+    || player.respawnCompleteAtTick120 !== null
+    || override.state !== "idle"
+    || override.deadlineTick120 !== null
+    || override.localVoid !== null
+  ) {
+    throw new Error(
+      "next occurrence admission requires the exact flushed collisionless material boundary",
+    );
+  }
+  const source = deriveCanonicalRunFirstContinuationNextOccurrencePlanSourceUnbranded(
+    binding.successorPlan,
+    Object.freeze({
+      authority: material.authority,
+      extensionPolicy: material.extensionPolicy,
+      sourcePatternId: material.sourcePatternId,
+      sourceOccurrenceId: material.sourceOccurrenceId,
+      transferredAtTick120: material.transferredAtTick120,
+      tick120: material.tick120,
+      materialCount: material.materialCount,
+      drained: material.drained,
+      poolUsage: material.poolUsage,
+      predecessorMaterialLease: material.predecessorMaterialLease,
+      gameplayAuthority: material.gameplayAuthority,
+      roomCompletion: material.roomCompletion,
+      roomHandoff: material.roomHandoff,
+      nextOccurrenceAdmission:
+        "withheld-pending-plan-and-combined-pool-admission" as const,
+    }),
+  );
+  const plan = deriveCanonicalRunFirstContinuationNextOccurrencePlanUnbranded(source);
+  const evaluation = evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbranded(
+    plan,
+    internals.adapterPolicy.projectilePoolClasses,
+  );
+  if (
+    source.plannedAtTick120 !== internals.currentTick120
+    || plan.plannedAtTick120 !== internals.currentTick120
+    || plan.targetRoom !== binding.targetRoom
+    || evaluation.evaluatedAtTick120 !== internals.currentTick120
+  ) {
+    throw new Error("next occurrence formal plan left its exact material boundary");
+  }
+  return Object.freeze({binding, runCombat, material, source, plan, evaluation});
+}
+
+function requirePreparedNextOccurrenceAdmission(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
+  expectedStatus: PreparedNextOccurrenceAdmissionRecord["status"] = "prepared",
+): PreparedNextOccurrenceAdmissionRecord {
+  if (typeof proposal !== "object" || proposal === null) {
+    throw new Error("next occurrence admission proposal must be opaque");
+  }
+  const record = PREPARED_NEXT_OCCURRENCE_ADMISSIONS.get(proposal);
+  if (record === undefined) {
+    throw new Error("next occurrence admission proposal is not registered");
+  }
+  if (record.status !== expectedStatus) {
+    throw new Error(`next occurrence admission proposal is ${record.status}`);
+  }
+  return record;
+}
+
+/**
+ * Purely plan and reserve encounter ordinal 1 at the exact EXT-019 material
+ * boundary. A withheld result leaves the material owner untouched.
+ */
+export function prepareCanonicalRunFirstContinuationNextOccurrenceAdmission(
+  materialOwner: CanonicalRunOccurrenceMaterialCarryover,
+): CanonicalRunFirstContinuationNextOccurrenceAdmissionPreparation {
+  if (ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.has(materialOwner)) {
+    throw new Error("next occurrence admission already has an in-flight proposal");
+  }
+  const boundary = requireNextOccurrenceAdmissionBoundary(materialOwner, null);
+  if (boundary.evaluation.state !== "admissible") {
+    return Object.freeze({
+      authority:
+        "canonical-run-first-continuation-next-occurrence-admission-v1" as const,
+      extensionPolicy: "EXT-2026-020" as const,
+      state: "withheld" as const,
+      reason: boundary.evaluation.state,
+      material: boundary.material,
+      plan: boundary.plan,
+      combinedPoolAdmission: boundary.evaluation,
+      materialOwnerConsumed: false as const,
+      roomCompletion: "withheld" as const,
+      roomHandoff: "withheld" as const,
+      canonicalEventWrites: 0 as const,
+      authorityMutations: 0 as const,
+    });
+  }
+  if (!boundary.evaluation.admissible) {
+    throw new Error("next occurrence admissible evaluation lost its boolean proof");
+  }
+  const nextOwner = Object.freeze({}) as
+    CanonicalRunFirstContinuationNextOccurrenceDormantOwner;
+  const proposal = Object.freeze({}) as
+    PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission;
+  const view = Object.freeze({
+    authority:
+      "canonical-run-first-continuation-next-occurrence-admission-v1" as const,
+    extensionPolicy: "EXT-2026-020" as const,
+    state: "prepared" as const,
+    preparedAtTick120: boundary.runCombat.tick120,
+    material: boundary.material,
+    plan: boundary.plan,
+    combinedPoolAdmission: boundary.evaluation,
+    roomCompletion: "withheld" as const,
+    roomHandoff: "withheld" as const,
+    canonicalEventWrites: 0 as const,
+    occurrenceClaimWrites: 0 as const,
+    tickAdvance: 0 as const,
+  });
+  const materialRecord = RUN_OCCURRENCE_MATERIAL_CARRYOVERS.get(materialOwner);
+  if (materialRecord === undefined) {
+    throw new Error("next occurrence material owner disappeared during preparation");
+  }
+  PREPARED_NEXT_OCCURRENCE_ADMISSIONS.set(proposal, {
+    runState: materialRecord.runState,
+    eventBus: materialRecord.eventBus,
+    materialOwner,
+    nextOwner,
+    source: boundary.source,
+    plan: boundary.plan,
+    evaluation: boundary.evaluation,
+    capturedRunSerialization: JSON.stringify(boundary.runCombat),
+    capturedMaterialSerialization: JSON.stringify(boundary.material),
+    capturedEventSerialization: materialRecord.runState.canonicalEventSerialization(),
+    view,
+    status: "prepared",
+  });
+  ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.set(materialOwner, proposal);
+  return Object.freeze({state: "prepared" as const, proposal, view});
+}
+
+export function inspectPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
+): CanonicalRunFirstContinuationNextOccurrenceAdmissionProposalView {
+  return requirePreparedNextOccurrenceAdmission(proposal).view;
+}
+
+/**
+ * Replace the material-only phase with a dormant next-occurrence owner without
+ * advancing time, claiming the occurrence, or exposing an unleased gap.
+ */
+export function commitPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
+): CanonicalRunFirstContinuationNextOccurrenceDormantOwner {
+  const record = requirePreparedNextOccurrenceAdmission(proposal);
+  try {
+    if (
+      ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.get(record.materialOwner)
+        !== proposal
+    ) {
+      throw new Error("next occurrence admission lost its exclusive prepared lease");
+    }
+    const boundary = requireNextOccurrenceAdmissionBoundary(
+      record.materialOwner,
+      proposal,
+    );
+    if (
+      boundary.evaluation.state !== "admissible"
+      || !boundary.evaluation.admissible
+      || JSON.stringify(boundary.runCombat) !== record.capturedRunSerialization
+      || JSON.stringify(boundary.material) !== record.capturedMaterialSerialization
+      || JSON.stringify(boundary.source) !== JSON.stringify(record.source)
+      || JSON.stringify(boundary.plan) !== JSON.stringify(record.plan)
+      || JSON.stringify(boundary.evaluation) !== JSON.stringify(record.evaluation)
+      || record.runState.canonicalEventSerialization()
+        !== record.capturedEventSerialization
+    ) {
+      throw new Error("prepared next occurrence admission became stale");
+    }
+    boundary.binding.nextSuccessorOwner = record.nextOwner;
+    boundary.binding.nextSuccessorPlan = record.plan;
+    boundary.binding.nextSuccessorAdmission = record.evaluation;
+    boundary.binding.phase = "successor-next-dormant";
+    RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.set(record.nextOwner, record.runState);
+    record.status = "committed";
+    ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.delete(record.materialOwner);
+    return record.nextOwner;
+  } catch (error) {
+    record.status = "failed";
+    ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.delete(record.materialOwner);
+    throw error;
+  }
+}
+
+export function cancelPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
+): void {
+  const record = requirePreparedNextOccurrenceAdmission(proposal);
+  if (
+    ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.get(record.materialOwner)
+      !== proposal
+  ) {
+    throw new Error("next occurrence admission lost its exclusive prepared lease");
+  }
+  record.status = "cancelled";
+  ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.delete(record.materialOwner);
+}
+
+export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+): CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot {
+  const runState = RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.get(owner);
+  const binding = runState === undefined
+    ? undefined
+    : EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const materialOwner = binding?.successorMaterial ?? null;
+  const materialRecord = materialOwner === null
+    ? undefined
+    : RUN_OCCURRENCE_MATERIAL_CARRYOVERS.get(materialOwner);
+  if (
+    runState === undefined
+    || binding?.phase !== "successor-next-dormant"
+    || binding.nextSuccessorOwner !== owner
+    || binding.nextSuccessorPlan === null
+    || binding.nextSuccessorAdmission === null
+    || materialOwner === null
+    || materialRecord?.runState !== runState
+    || ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.has(materialOwner)
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+  ) {
+    throw new Error("next occurrence dormant owner lost its exact committed binding");
+  }
+  const internals = runCombatStateInternals(runState);
+  const runCombat = runState.snapshot();
+  const material = materialOwner.snapshot();
+  const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+  const player = internals.player.snapshot();
+  const override = internals.override.snapshot();
+  const plan = binding.nextSuccessorPlan;
+  const evaluation = binding.nextSuccessorAdmission;
+  if (
+    internals.fault !== null
+    || internals.advanceLocked
+    || internals.activeOccurrenceId !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.pendingFlushTick120 !== null
+    || internals.bus !== materialRecord.eventBus
+    || internals.bus.pendingEventCount() !== 0
+    || runCombat.tick120 !== plan.plannedAtTick120
+    || runCombat.activeOccurrenceId !== null
+    || runCombat.pendingFlushTick120 !== null
+    || material.tick120 !== plan.plannedAtTick120
+    || material.nextOccurrenceAdmission !== "committed-to-dormant-next-occurrence"
+    || material.poolUsage.liveColliders !== 0
+    || material.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+    || !evaluation.admissible
+    || evaluation.state !== "admissible"
+    || evaluation.evaluatedAtTick120 !== plan.plannedAtTick120
+    || evaluation.occurrence.occurrenceId !== plan.occurrence.occurrenceId
+    || evaluation.occurrence.patternId !== plan.occurrence.patternId
+    || room.tick120 !== plan.plannedAtTick120
+    || room.state !== "idle"
+    || room.currentRoom !== plan.targetRoom
+    || room.targetRoom !== null
+    || room.active !== null
+    || player.tick120 !== plan.plannedAtTick120
+    || player.state !== "alive"
+    || !player.collisionEnabled
+    || player.activeLeases.length !== 0
+    || override.state !== "idle"
+    || override.deadlineTick120 !== null
+    || override.localVoid !== null
+  ) {
+    throw new Error("next occurrence dormant owner left its zero-tick admission boundary");
+  }
+  return Object.freeze({
+    authority:
+      "canonical-run-first-continuation-next-occurrence-dormant-owner-v1" as const,
+    extensionPolicy: "EXT-2026-020" as const,
+    phase: "dormant" as const,
+    tick120: plan.plannedAtTick120,
+    telegraphStartTick120: requireSafeTick(
+      plan.plannedAtTick120 + 1,
+      "next occurrence telegraph start",
+    ),
+    nextMasterTickAction: "telegraph" as const,
+    plan,
+    combinedPoolAdmission: Object.freeze({
+      state: "committed" as const,
+      evaluation,
+      reservationCommitted: true as const,
+    }),
+    material,
+    runCombat,
+    canonicalEventCount: materialRecord.eventBus.events().length,
+    roomCompletion: "withheld" as const,
+    roomHandoff: "withheld" as const,
+  });
 }
 
 /**
@@ -12248,6 +12778,7 @@ export function advanceCanonicalRunFirstContinuationSuccessorMaterialHold(
     || predecessorRecord?.runState !== runState
     || internals.bus !== eventBus
     || ACTIVE_SUCCESSOR_MATERIAL_TRANSFER_BY_RUN_STATE.has(runState)
+    || ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.has(materialOwner)
     || binding.expectedFlushTick120 !== null
     || binding.expectedPendingEventCount !== null
   ) {
