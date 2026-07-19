@@ -4,13 +4,14 @@ import runtimeContractJson from "../../../1bit-stg-complete-asset-kit-v4/manifes
 import stateMachinesJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/runtime/state-machines-v4.json";
 
 import {
-  MASTER_TICK_HZ,
-  RUNTIME_TICK_HZ,
+  runtime60DeadlineTick as clockRuntime60DeadlineTick,
   tick120ToMilliseconds,
 } from "./clock";
 import {
   CANONICAL_EVENT_IDS,
   CanonicalEventBus,
+  consumeCanonicalEventBatchReceipt,
+  type CanonicalEventBatchReceipt,
   type GameplayEventDraft,
 } from "./events";
 import {
@@ -24,10 +25,16 @@ type UnknownRecord = Record<string, unknown>;
 export type PlayerLifeState = "alive" | "dead" | "respawning" | "run-ended";
 export type CommittedDamageBranch = "non-fatal" | "fatal";
 export type DamageHitDisposition = "committed" | "blocked" | "competing";
+export type CollisionBlockerOwner =
+  | "damage"
+  | "respawn"
+  | "room-transition"
+  | "cutscene"
+  | "system-handoff";
 
 export interface CollisionBlockerLease {
   readonly token: string;
-  readonly owner: string;
+  readonly owner: CollisionBlockerOwner;
   readonly reason: string;
   readonly acquiredAtTick120: number;
 }
@@ -72,6 +79,52 @@ export interface PlayerDamageSnapshot {
   readonly handoff: Readonly<{reason: "lives-exhausted"; tick120: number}> | null;
 }
 
+declare const preparedPlayerDamageCommitBrand: unique symbol;
+
+/**
+ * Opaque, one-use player-damage proposal for a same-batch authority
+ * coordinator. Preparing never mutates the player or appends events.
+ */
+export interface PreparedPlayerDamageCommit {
+  readonly [preparedPlayerDamageCommitBrand]: "PreparedPlayerDamageCommit";
+}
+
+export interface PreparedPlayerDamageCommitView {
+  readonly owner: PlayerDamageAuthority;
+  readonly eventBus: CanonicalEventBus;
+  readonly tick120: number;
+  readonly revision: number;
+  readonly drafts: readonly GameplayEventDraft[];
+  readonly result: DamageBatchResult;
+  readonly preview: PlayerDamageSnapshot;
+}
+
+export type PlayerCollisionBlockerMutationKind = "acquire" | "release";
+
+declare const preparedPlayerCollisionBlockerMutationBrand: unique symbol;
+
+/**
+ * Opaque, one-use collision-blocker mutation for a cross-authority batch.
+ * Preparing and inspecting it never mutate the player or append events.
+ */
+export interface PreparedPlayerCollisionBlockerMutation {
+  readonly [preparedPlayerCollisionBlockerMutationBrand]: "PreparedPlayerCollisionBlockerMutation";
+}
+
+export interface PreparedPlayerCollisionBlockerMutationView {
+  readonly owner: PlayerDamageAuthority;
+  readonly eventBus: CanonicalEventBus;
+  readonly kind: PlayerCollisionBlockerMutationKind;
+  readonly tick120: number;
+  readonly revision: number;
+  readonly lease: CollisionBlockerLease;
+  readonly drafts: readonly GameplayEventDraft[];
+  /** Exact immutable player state on which this proposal was prepared. */
+  readonly before: PlayerDamageSnapshot;
+  /** Exact immutable player state after a successful append/apply. */
+  readonly preview: PlayerDamageSnapshot;
+}
+
 export interface EvidenceSnapshot {
   readonly amount: number;
   readonly creditedSourceCount: number;
@@ -110,6 +163,19 @@ export interface LocalVoidSnapshot {
   readonly closesAtTick120: number;
 }
 
+export interface OverrideProjectilePathSegment {
+  readonly from: Vec2;
+  readonly to: Vec2;
+  /** The gap from the prior component contains no collider; it is not an omitted sweep. */
+  readonly startsNewComponent?: true;
+}
+
+export interface OverrideProjectilePath {
+  readonly projectileId: string;
+  readonly projectileGeneration: number;
+  readonly segments: readonly OverrideProjectilePathSegment[];
+}
+
 export interface OverrideScarRecord {
   readonly id: string;
   readonly scarType: "overrideScar";
@@ -143,6 +209,7 @@ export interface DirectionalOverrideSnapshot {
 export interface V4PlayerAuthorityContract {
   readonly schemaVersion: string;
   readonly playerDamageStates: readonly string[];
+  readonly blockerLeaseOwners: readonly CollisionBlockerOwner[];
   readonly grazeAwardStates: readonly string[];
   readonly grazeAwardKey: string;
   readonly grazeAwardMaximumPerKey: number;
@@ -170,6 +237,160 @@ interface PlayerEventSpec {
   readonly occurrenceSuffix: string;
   readonly payload: GameplayEventDraft["payload"];
 }
+
+interface MutablePlayerDamageState {
+  stateValue: PlayerLifeState;
+  healthValue: number;
+  livesValue: number;
+  currentTick120: number;
+  nextLeaseSerial: number;
+  nextEventSequence: number;
+  leases: Map<string, CollisionBlockerLease>;
+  claimedHitOccurrences: Set<string>;
+  processedDamageTicks: Set<number>;
+  recoveryLeaseToken: string | null;
+  recoveryAtTick120: number | null;
+  respawnPlaceAtTick120: number | null;
+  respawnCompleteAtTick120: number | null;
+  handoffValue: PlayerDamageSnapshot["handoff"];
+  drafts: GameplayEventDraft[];
+}
+
+interface PlayerDamageAfterState {
+  readonly stateValue: PlayerLifeState;
+  readonly healthValue: number;
+  readonly livesValue: number;
+  readonly currentTick120: number;
+  readonly nextLeaseSerial: number;
+  readonly nextEventSequence: number;
+  readonly leases: Map<string, CollisionBlockerLease>;
+  readonly claimedHitOccurrences: Set<string>;
+  readonly processedDamageTicks: Set<number>;
+  readonly recoveryLeaseToken: string | null;
+  readonly recoveryAtTick120: number | null;
+  readonly respawnPlaceAtTick120: number | null;
+  readonly respawnCompleteAtTick120: number | null;
+  readonly handoffValue: PlayerDamageSnapshot["handoff"];
+}
+
+interface PreparedPlayerDamageCommitState extends PreparedPlayerDamageCommitView {
+  consumed: boolean;
+  readonly nextRevision: number;
+  readonly after: PlayerDamageAfterState;
+}
+
+interface PreparedPlayerCollisionBlockerMutationState
+  extends PreparedPlayerCollisionBlockerMutationView {
+  consumed: boolean;
+  readonly nextRevision: number;
+  readonly beforeFingerprint: string;
+  readonly after: PlayerDamageAfterState;
+}
+
+const PREPARED_PLAYER_DAMAGE_COMMITS = new WeakMap<
+  PreparedPlayerDamageCommit,
+  PreparedPlayerDamageCommitState
+>();
+const PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS = new WeakMap<
+  PreparedPlayerCollisionBlockerMutation,
+  PreparedPlayerCollisionBlockerMutationState
+>();
+const EXACT_PLAYER_DAMAGE_AUTHORITIES = new WeakSet<PlayerDamageAuthority>();
+
+function preparedPlayerDamageToken(
+  state: PreparedPlayerDamageCommitState,
+): PreparedPlayerDamageCommit {
+  const token = Object.freeze({}) as PreparedPlayerDamageCommit;
+  PREPARED_PLAYER_DAMAGE_COMMITS.set(token, state);
+  return token;
+}
+
+/** Read-only inspection for a bounded cross-authority event-batch coordinator. */
+export function inspectPreparedPlayerDamageCommit(
+  proposal: PreparedPlayerDamageCommit,
+): PreparedPlayerDamageCommitView {
+  const state = PREPARED_PLAYER_DAMAGE_COMMITS.get(proposal);
+  if (state === undefined || state.consumed) {
+    throw new Error("player damage proposal is unknown or already consumed");
+  }
+  return PlayerDamageAuthority.prototype.validatePreparedDamageCommit.call(state.owner, proposal);
+}
+
+function preparedPlayerCollisionBlockerMutationToken(
+  state: PreparedPlayerCollisionBlockerMutationState,
+): PreparedPlayerCollisionBlockerMutation {
+  const token = Object.freeze({}) as PreparedPlayerCollisionBlockerMutation;
+  PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS.set(token, state);
+  return token;
+}
+
+/** Read-only inspection for the bounded room-transition coordinator. */
+export function inspectPreparedPlayerCollisionBlockerMutation(
+  proposal: PreparedPlayerCollisionBlockerMutation,
+): PreparedPlayerCollisionBlockerMutationView {
+  const state = PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS.get(proposal);
+  if (state === undefined || state.consumed) {
+    throw new Error("player collision blocker proposal is unknown or already consumed");
+  }
+  return PlayerDamageAuthority.prototype.validatePreparedCollisionBlockerMutation.call(
+    state.owner,
+    proposal,
+  );
+}
+
+function preparedPlayerDamageCommitView(
+  state: PreparedPlayerDamageCommitState,
+): PreparedPlayerDamageCommitView {
+  return Object.freeze({
+    owner: state.owner,
+    eventBus: state.eventBus,
+    tick120: state.tick120,
+    revision: state.revision,
+    drafts: state.drafts,
+    result: state.result,
+    preview: state.preview,
+  });
+}
+
+function preparedPlayerCollisionBlockerMutationView(
+  state: PreparedPlayerCollisionBlockerMutationState,
+): PreparedPlayerCollisionBlockerMutationView {
+  return Object.freeze({
+    owner: state.owner,
+    eventBus: state.eventBus,
+    kind: state.kind,
+    tick120: state.tick120,
+    revision: state.revision,
+    lease: state.lease,
+    drafts: state.drafts,
+    before: state.before,
+    preview: state.preview,
+  });
+}
+
+export function isExactPlayerDamageAuthority(value: unknown): value is PlayerDamageAuthority {
+  return typeof value === "object"
+    && value !== null
+    && EXACT_PLAYER_DAMAGE_AUTHORITIES.has(value as PlayerDamageAuthority)
+    && Object.getPrototypeOf(value) === PlayerDamageAuthority.prototype
+    && [
+      "prepareDamageBatch",
+      "validatePreparedDamageCommit",
+      "applyPreparedDamageAfterAppend",
+      "prepareCollisionBlockerAcquire",
+      "prepareCollisionBlockerRelease",
+      "validatePreparedCollisionBlockerMutation",
+      "applyPreparedCollisionBlockerAfterAppend",
+    ].every((method) => !Object.prototype.hasOwnProperty.call(value, method));
+}
+
+const EXPECTED_BLOCKER_LEASE_OWNERS: readonly CollisionBlockerOwner[] = Object.freeze([
+  "damage",
+  "respawn",
+  "room-transition",
+  "cutscene",
+  "system-handoff",
+]);
 
 const DEFAULT_DAMAGE_CONFIG: PlayerDamageConfig = Object.freeze({
   maxHealth: 3,
@@ -209,6 +430,13 @@ const EXPECTED_DAMAGE_TRANSITIONS: readonly MachineTransitionSignature[] = Objec
     "player.invulnerability.end", "player.collision.on",
   ])}),
 ]);
+
+/** Canonical events that can be emitted by advancing an already-owned player timer. */
+export const PLAYER_TIMER_ADVANCE_EVENT_IDS: readonly string[] = Object.freeze(
+  [...new Set(EXPECTED_DAMAGE_TRANSITIONS
+    .filter((transition) => transition.trigger.endsWith("deadline"))
+    .flatMap((transition) => transition.events))].sort(),
+);
 
 const EXPECTED_GRAZE_TRANSITIONS: readonly MachineTransitionSignature[] = Object.freeze([
   Object.freeze({from: "unseen", to: "awarded", trigger: "valid-graze-overlap", events: Object.freeze([
@@ -256,6 +484,16 @@ function nonEmptyString(value: unknown, path: string): string {
     throw new Error(`${path} must be a non-empty string`);
   }
   return value;
+}
+
+function collisionBlockerOwner(value: unknown, path: string): CollisionBlockerOwner {
+  const owner = nonEmptyString(value, path);
+  if (!(EXPECTED_BLOCKER_LEASE_OWNERS as readonly string[]).includes(owner)) {
+    throw new Error(
+      `${path} must be one of the exact V4 blocker lease owners: ${EXPECTED_BLOCKER_LEASE_OWNERS.join(", ")}`,
+    );
+  }
+  return owner as CollisionBlockerOwner;
 }
 
 function canonicalRoomId(value: unknown, path: string): string {
@@ -460,6 +698,11 @@ function readV4PlayerAuthorityContract(): V4PlayerAuthorityContract {
     "runtime contract.playerDamage",
   );
   assertContractField(damageContract, "directCollisionToggleForbidden", true, "runtime contract.playerDamage");
+  assertExactStrings(
+    damageContract.blockerLeaseOwners,
+    EXPECTED_BLOCKER_LEASE_OWNERS,
+    "runtime contract.playerDamage.blockerLeaseOwners",
+  );
   assertContractField(damageContract, "fatalCancelsNonFatalTimelineCompetition", true, "runtime contract.playerDamage");
 
   const projectileContract = record(
@@ -515,6 +758,7 @@ function readV4PlayerAuthorityContract(): V4PlayerAuthorityContract {
   return Object.freeze({
     schemaVersion,
     playerDamageStates: parseStateNames(damage, "playerDamage machine"),
+    blockerLeaseOwners: EXPECTED_BLOCKER_LEASE_OWNERS,
     grazeAwardStates: parseStateNames(graze, "grazeAward machine"),
     grazeAwardKey,
     grazeAwardMaximumPerKey,
@@ -533,16 +777,28 @@ canonicalRoomIdSet = new Set(V4_PLAYER_AUTHORITY_CONTRACT.canonicalRoomIds);
  * Converts a reference-runtime millisecond delay into a V4 60 Hz boundary.
  * The result is always an even master tick and never fires early.
  */
-export function runtime60DeadlineTick(startTick120Value: number, durationMsValue: number): number {
-  const start = tick120(startTick120Value, "deadline start tick120");
-  const durationMs = finiteNonNegative(durationMsValue, "deadline durationMs");
-  const masterTicksPerRuntimeTick = MASTER_TICK_HZ / RUNTIME_TICK_HZ;
-  const runtimeBoundary = Math.ceil(
-    start / masterTicksPerRuntimeTick + durationMs * RUNTIME_TICK_HZ / 1000,
-  );
-  const deadline = runtimeBoundary * masterTicksPerRuntimeTick;
-  if (!Number.isSafeInteger(deadline)) throw new Error("runtime deadline exceeds the safe tick range");
-  return deadline;
+export const runtime60DeadlineTick = clockRuntime60DeadlineTick;
+
+/**
+ * Pure input gate for a retained player snapshot. Respawn completion is
+ * eligible on its exact authority deadline because the owning player machine
+ * will cross that boundary when the tick is later committed.
+ */
+export function playerInputEligibleAtTick(
+  snapshot: Readonly<PlayerDamageSnapshot>,
+  tick120Value: number,
+): boolean {
+  const targetTick120 = tick120(tick120Value, "player input eligibility tick120");
+  const snapshotTick120 = tick120(snapshot.tick120, "player snapshot tick120");
+  if (targetTick120 < snapshotTick120) {
+    throw new Error(
+      `player input eligibility cannot inspect backward from ${snapshotTick120} to ${targetTick120}`,
+    );
+  }
+  if (snapshot.state === "alive") return true;
+  if (snapshot.state === "run-ended") return false;
+  return snapshot.respawnCompleteAtTick120 !== null
+    && targetTick120 >= snapshot.respawnCompleteAtTick120;
 }
 
 function freezeVec2(value: unknown, path: string): Vec2 {
@@ -573,6 +829,117 @@ function freezeDamageConfig(value: Partial<PlayerDamageConfig>): Readonly<Player
   return config;
 }
 
+function capturedOwnDataValue(
+  descriptors: Readonly<Record<string, PropertyDescriptor>>,
+  key: string,
+  path: string,
+): unknown {
+  const descriptor = descriptors[key];
+  if (
+    descriptor === undefined
+    || !("value" in descriptor)
+    || descriptor.enumerable !== true
+  ) {
+    throw new Error(`${path} must be an own enumerable data property`);
+  }
+  return descriptor.value;
+}
+
+/** Capture hostile hit inputs without invoking an element or field accessor. */
+function captureDamageHits(value: unknown): readonly Readonly<DamageHit>[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
+    throw new Error("damage batch must be a plain array");
+  }
+  const arrayDescriptors = Object.getOwnPropertyDescriptors(value) as Record<
+    string,
+    PropertyDescriptor
+  >;
+  if (Object.getOwnPropertySymbols(arrayDescriptors).length > 0) {
+    throw new Error("damage batch must not contain symbol keys");
+  }
+  const lengthDescriptor = arrayDescriptors["length"];
+  const lengthValue = lengthDescriptor !== undefined && "value" in lengthDescriptor
+    ? lengthDescriptor.value
+    : undefined;
+  if (!Number.isSafeInteger(lengthValue) || (lengthValue as number) <= 0) {
+    throw new Error("damage batch must contain at least one hit");
+  }
+  const length = lengthValue as number;
+  const expectedArrayKeys = Array.from({length}, (_, index) => String(index))
+    .concat("length")
+    .sort(compareCodePoint);
+  const actualArrayKeys = Object.keys(arrayDescriptors).sort(compareCodePoint);
+  if (
+    actualArrayKeys.length !== expectedArrayKeys.length
+    || actualArrayKeys.some((key, index) => key !== expectedArrayKeys[index])
+  ) {
+    throw new Error("damage batch must be dense and contain no metadata");
+  }
+
+  const batchOccurrences = new Set<string>();
+  const hits: Readonly<DamageHit>[] = [];
+  const expectedHitKeys = ["amount", "occurrenceKey", "sourceId"];
+  for (let index = 0; index < length; index += 1) {
+    const rawHit = capturedOwnDataValue(
+      arrayDescriptors,
+      String(index),
+      `damage hits[${index}]`,
+    );
+    if (typeof rawHit !== "object" || rawHit === null || Array.isArray(rawHit)) {
+      throw new Error(`damage hits[${index}] must be a plain object`);
+    }
+    const prototype = Object.getPrototypeOf(rawHit) as object | null;
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error(`damage hits[${index}] must be a plain object`);
+    }
+    const hitDescriptors = Object.getOwnPropertyDescriptors(rawHit) as Record<
+      string,
+      PropertyDescriptor
+    >;
+    if (Object.getOwnPropertySymbols(hitDescriptors).length > 0) {
+      throw new Error(`damage hits[${index}] must not contain symbol keys`);
+    }
+    const actualHitKeys = Object.keys(hitDescriptors).sort(compareCodePoint);
+    if (
+      actualHitKeys.length !== expectedHitKeys.length
+      || actualHitKeys.some((key, keyIndex) => key !== expectedHitKeys[keyIndex])
+    ) {
+      throw new Error(`damage hits[${index}] field contract drifted`);
+    }
+    const occurrenceKey = nonEmptyString(
+      capturedOwnDataValue(
+        hitDescriptors,
+        "occurrenceKey",
+        `damage hits[${index}].occurrenceKey`,
+      ),
+      `damage hits[${index}].occurrenceKey`,
+    );
+    if (batchOccurrences.has(occurrenceKey)) {
+      throw new Error(`duplicate damage hit occurrence: ${occurrenceKey}`);
+    }
+    batchOccurrences.add(occurrenceKey);
+    hits.push(Object.freeze({
+      occurrenceKey,
+      sourceId: nonEmptyString(
+        capturedOwnDataValue(
+          hitDescriptors,
+          "sourceId",
+          `damage hits[${index}].sourceId`,
+        ),
+        `damage hits[${index}].sourceId`,
+      ),
+      amount: positiveInteger(
+        capturedOwnDataValue(hitDescriptors, "amount", `damage hits[${index}].amount`),
+        `damage hits[${index}].amount`,
+      ),
+    }));
+  }
+  hits.sort((left, right) =>
+    compareCodePoint(left.sourceId, right.sourceId)
+    || compareCodePoint(left.occurrenceKey, right.occurrenceKey));
+  return Object.freeze(hits);
+}
+
 export class PlayerDamageAuthority {
   readonly config: Readonly<PlayerDamageConfig>;
   private stateValue: PlayerLifeState = "alive";
@@ -581,14 +948,16 @@ export class PlayerDamageAuthority {
   private currentTick120 = 0;
   private nextLeaseSerial = 0;
   private nextEventSequence = 0;
-  private readonly leases = new Map<string, CollisionBlockerLease>();
-  private readonly claimedHitOccurrences = new Set<string>();
-  private readonly processedDamageTicks = new Set<number>();
+  private leases = new Map<string, CollisionBlockerLease>();
+  private claimedHitOccurrences = new Set<string>();
+  private processedDamageTicks = new Set<number>();
   private recoveryLeaseToken: string | null = null;
   private recoveryAtTick120: number | null = null;
   private respawnPlaceAtTick120: number | null = null;
   private respawnCompleteAtTick120: number | null = null;
   private handoffValue: PlayerDamageSnapshot["handoff"] = null;
+  private mutationRevision = 0;
+  private mutationLocked = false;
 
   constructor(
     private readonly bus: CanonicalEventBus,
@@ -601,101 +970,225 @@ export class PlayerDamageAuthority {
     this.config = freezeDamageConfig(options.config ?? {});
     this.healthValue = this.config.maxHealth;
     this.livesValue = this.config.initialLives;
+    if (new.target === PlayerDamageAuthority) EXACT_PLAYER_DAMAGE_AUTHORITIES.add(this);
   }
 
   readonly playerId: string;
 
   acquireCollisionBlocker(ownerValue: string, reasonValue: string, tick120Value: number): CollisionBlockerLease {
-    const owner = nonEmptyString(ownerValue, "collision blocker owner");
-    const reason = nonEmptyString(reasonValue, "collision blocker reason");
-    const tick = tick120(tick120Value, "collision blocker tick120");
-    this.advanceToInternal(tick, true);
-    const wasEnabled = this.collisionEnabled();
-    const lease = this.prepareCollisionLease(owner, reason, tick);
-    if (wasEnabled) {
-      this.emit("player.collision.off", tick, `collision-off:${lease.token}`, {owner, reason});
-    }
-    this.commitPreparedLease(lease);
-    return lease;
+    const proposal = this.prepareCollisionBlockerAcquire(ownerValue, reasonValue, tick120Value);
+    const view = this.validatePreparedCollisionBlockerMutation(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    return this.applyPreparedCollisionBlockerAfterAppend(
+      proposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
   }
 
   releaseCollisionBlocker(tokenValue: string, tick120Value: number): void {
-    const token = nonEmptyString(tokenValue, "collision blocker token");
-    const tick = tick120(tick120Value, "collision blocker release tick120");
-    const lease = this.leases.get(token);
-    if (lease === undefined) throw new Error(`unknown or released collision blocker: ${token}`);
-    this.advanceToInternal(tick, true);
-    const enablesCollision = this.stateValue === "alive" && this.leases.size === 1;
-    if (enablesCollision) {
-      this.emit("player.collision.on", tick, `collision-on:${token}`, {
-        owner: lease.owner,
-        reason: lease.reason,
-      });
+    const proposal = this.prepareCollisionBlockerRelease(tokenValue, tick120Value);
+    const view = this.validatePreparedCollisionBlockerMutation(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    this.applyPreparedCollisionBlockerAfterAppend(
+      proposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+  }
+
+  prepareCollisionBlockerAcquire(
+    ownerValue: string,
+    reasonValue: string,
+    tick120Value: number,
+  ): PreparedPlayerCollisionBlockerMutation {
+    return this.prepareCollisionBlockerMutation(
+      "acquire",
+      ownerValue,
+      reasonValue,
+      tick120Value,
+    );
+  }
+
+  prepareCollisionBlockerRelease(
+    tokenValue: string,
+    tick120Value: number,
+  ): PreparedPlayerCollisionBlockerMutation {
+    return this.prepareCollisionBlockerMutation(
+      "release",
+      tokenValue,
+      null,
+      tick120Value,
+    );
+  }
+
+  /** Validate exact player ownership/state and freshness before batch append. */
+  validatePreparedCollisionBlockerMutation(
+    proposal: PreparedPlayerCollisionBlockerMutation,
+  ): PreparedPlayerCollisionBlockerMutationView {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    const prepared = this.requirePreparedCollisionBlockerMutation(proposal);
+    if (
+      prepared.revision !== this.mutationRevision
+      || prepared.beforeFingerprint !== this.damageMutationFingerprint()
+    ) {
+      throw new Error("player collision blocker proposal is stale");
     }
-    this.leases.delete(token);
+    return preparedPlayerCollisionBlockerMutationView(prepared);
+  }
+
+  /** Apply only the prevalidated player state after exact drafts were accepted. */
+  applyPreparedCollisionBlockerAfterAppend(
+    proposal: PreparedPlayerCollisionBlockerMutation,
+    receipt: CanonicalEventBatchReceipt,
+  ): CollisionBlockerLease {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    const prepared = this.requirePreparedCollisionBlockerMutation(proposal);
+    if (
+      prepared.revision !== this.mutationRevision
+      || prepared.beforeFingerprint !== this.damageMutationFingerprint()
+    ) {
+      throw new Error("player collision blocker proposal is stale");
+    }
+    this.mutationLocked = true;
+    try {
+      consumeCanonicalEventBatchReceipt(receipt, this.bus, prepared.drafts);
+      this.applyDamageAfterState(prepared.after);
+      prepared.consumed = true;
+      this.mutationRevision = prepared.nextRevision;
+      return prepared.lease;
+    } finally {
+      this.mutationLocked = false;
+    }
   }
 
   commitDamageBatch(tick120Value: number, hitsValue: readonly DamageHit[]): DamageBatchResult {
-    const tick = tick120(tick120Value, "damage batch tick120");
-    if (!Array.isArray(hitsValue) || hitsValue.length === 0) {
-      throw new Error("damage batch must contain at least one hit");
-    }
-    if (this.processedDamageTicks.has(tick)) {
-      throw new Error(`damage batch already committed for tick ${tick}`);
-    }
-    const batchOccurrences = new Set<string>();
-    const hits = hitsValue.map((rawHit, index) => {
-      const hit = record(rawHit, `damage hits[${index}]`);
-      const occurrenceKey = nonEmptyString(hit.occurrenceKey, `damage hits[${index}].occurrenceKey`);
-      if (batchOccurrences.has(occurrenceKey) || this.claimedHitOccurrences.has(occurrenceKey)) {
-        throw new Error(`duplicate damage hit occurrence: ${occurrenceKey}`);
+    const proposal = this.prepareDamageBatch(tick120Value, hitsValue);
+    const view = this.validatePreparedDamageCommit(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    const receipt = receipts[0] as CanonicalEventBatchReceipt;
+    return this.applyPreparedDamageAfterAppend(proposal, receipt);
+  }
+
+  prepareDamageBatch(
+    tick120Value: number,
+    hitsValue: readonly DamageHit[],
+  ): PreparedPlayerDamageCommit {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    this.assertMutationRevisionCanAdvance();
+    this.mutationLocked = true;
+    try {
+      const tick = tick120(tick120Value, "damage batch tick120");
+      const hits = captureDamageHits(hitsValue);
+      if (this.processedDamageTicks.has(tick)) {
+        throw new Error(`damage batch already committed for tick ${tick}`);
       }
-      batchOccurrences.add(occurrenceKey);
-      return Object.freeze({
-        occurrenceKey,
-        sourceId: nonEmptyString(hit.sourceId, `damage hits[${index}].sourceId`),
-        amount: positiveInteger(hit.amount, `damage hits[${index}].amount`),
+      for (const hit of hits) {
+        if (this.claimedHitOccurrences.has(hit.occurrenceKey)) {
+          throw new Error(`duplicate damage hit occurrence: ${hit.occurrenceKey}`);
+        }
+      }
+
+      const staged = this.captureMutableDamageState();
+      // A recovery or respawn completion on this exact tick may immediately
+      // hand collision authority to the selected damage branch. Do not expose
+      // a stale collision-on fact between those same-tick transitions.
+      this.stageAdvanceTo(staged, tick, true);
+      const acceptsHit = staged.stateValue === "alive" && staged.leases.size === 0;
+      const selected = acceptsHit ? hits[0] ?? null : null;
+      let branch: CommittedDamageBranch | null = null;
+      if (selected !== null) {
+        branch = staged.healthValue - selected.amount <= 0 ? "fatal" : "non-fatal";
+        if (branch === "fatal") this.stageFatalDamage(staged, selected, tick);
+        else this.stageNonFatalDamage(staged, selected, tick);
+        // Zero-duration V4 adapter timings drain at the same even boundary.
+        this.stageAdvanceTo(staged, tick, false);
+      }
+
+      const results = hits.map((hit): DamageHitResult => Object.freeze({
+        occurrenceKey: hit.occurrenceKey,
+        sourceId: hit.sourceId,
+        amount: hit.amount,
+        disposition: selected === null
+          ? "blocked"
+          : hit === selected
+            ? "committed"
+            : "competing",
+        branch: hit === selected ? branch : null,
+      }));
+      for (const hit of hits) staged.claimedHitOccurrences.add(hit.occurrenceKey);
+      staged.processedDamageTicks.add(tick);
+
+      const result: DamageBatchResult = Object.freeze({
+        tick120: tick,
+        committedSourceId: selected?.sourceId ?? null,
+        branch,
+        hits: Object.freeze(results),
       });
-    }).sort((left, right) =>
-      compareCodePoint(left.sourceId, right.sourceId)
-      || compareCodePoint(left.occurrenceKey, right.occurrenceKey));
-
-    // If recovery completes on this exact authority tick, the incoming batch
-    // may immediately claim a new blocker. Suppress the transient collision-on
-    // so the canonical trace describes the final same-tick collision state.
-    this.advanceToInternal(tick, true);
-    const acceptsHit = this.collisionEnabled();
-    const selected = acceptsHit ? hits[0] ?? null : null;
-    let branch: CommittedDamageBranch | null = null;
-    if (selected !== null) {
-      branch = this.healthValue - selected.amount <= 0 ? "fatal" : "non-fatal";
-      if (branch === "fatal") this.commitFatalDamage(selected, tick);
-      else this.commitNonFatalDamage(selected, tick);
-      // Zero-duration reference configuration crosses at this same even runtime boundary.
-      this.advanceTo(tick);
+      const drafts = Object.freeze(staged.drafts.slice());
+      const preview = this.snapshotFromDamageState(staged);
+      const after = this.freezeDamageAfterState(staged);
+      return preparedPlayerDamageToken({
+        owner: this,
+        eventBus: this.bus,
+        tick120: tick,
+        revision: this.mutationRevision,
+        drafts,
+        result,
+        preview,
+        consumed: false,
+        nextRevision: this.mutationRevision + 1,
+        after,
+      });
+    } finally {
+      this.mutationLocked = false;
     }
+  }
 
-    const results = hits.map((hit) => Object.freeze({
-      ...hit,
-      disposition: selected === null
-        ? "blocked" as const
-        : hit === selected
-          ? "committed" as const
-          : "competing" as const,
-      branch: hit === selected ? branch : null,
-    }));
-    for (const occurrenceKey of batchOccurrences) this.claimedHitOccurrences.add(occurrenceKey);
-    this.processedDamageTicks.add(tick);
-    return Object.freeze({
-      tick120: tick,
-      committedSourceId: selected?.sourceId ?? null,
-      branch,
-      hits: Object.freeze(results),
-    });
+  /** Validate ownership and freshness before a coordinator appends its batch. */
+  validatePreparedDamageCommit(
+    proposal: PreparedPlayerDamageCommit,
+  ): PreparedPlayerDamageCommitView {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    const prepared = this.requirePreparedDamageCommit(proposal);
+    if (prepared.revision !== this.mutationRevision) {
+      throw new Error("player damage proposal is stale");
+    }
+    return preparedPlayerDamageCommitView(prepared);
+  }
+
+  /** Apply only preallocated state after the proposal drafts were accepted. */
+  applyPreparedDamageAfterAppend(
+    proposal: PreparedPlayerDamageCommit,
+    receipt: CanonicalEventBatchReceipt,
+  ): DamageBatchResult {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    const prepared = this.requirePreparedDamageCommit(proposal);
+    if (prepared.revision !== this.mutationRevision) {
+      throw new Error("player damage proposal is stale");
+    }
+    this.mutationLocked = true;
+    try {
+      consumeCanonicalEventBatchReceipt(receipt, this.bus, prepared.drafts);
+      const after = prepared.after;
+      this.applyDamageAfterState(after);
+      prepared.consumed = true;
+      this.mutationRevision = prepared.nextRevision;
+      return prepared.result;
+    } finally {
+      this.mutationLocked = false;
+    }
   }
 
   advanceTo(tick120Value: number): PlayerDamageSnapshot {
-    return this.advanceToInternal(tick120Value, false);
+    return this.runPlayerMutation(() => this.advanceToInternal(tick120Value, false));
   }
 
   private advanceToInternal(
@@ -794,15 +1287,259 @@ export class PlayerDamageAuthority {
     });
   }
 
+  private prepareCollisionBlockerMutation(
+    kind: PlayerCollisionBlockerMutationKind,
+    ownerOrTokenValue: string,
+    reasonValue: string | null,
+    tick120Value: number,
+  ): PreparedPlayerCollisionBlockerMutation {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    this.assertMutationRevisionCanAdvance();
+    this.mutationLocked = true;
+    try {
+      const tick = tick120(
+        tick120Value,
+        kind === "acquire" ? "collision blocker tick120" : "collision blocker release tick120",
+      );
+      const before = this.snapshot();
+      const beforeFingerprint = this.damageMutationFingerprint();
+      const staged = this.captureMutableDamageState();
+      let lease: CollisionBlockerLease;
+
+      if (kind === "acquire") {
+        const owner = collisionBlockerOwner(ownerOrTokenValue, "collision blocker owner");
+        const reason = nonEmptyString(reasonValue, "collision blocker reason");
+        this.stageAdvanceTo(staged, tick, true);
+        const wasEnabled = staged.stateValue === "alive" && staged.leases.size === 0;
+        lease = this.stageCollisionLease(staged, owner, reason, tick);
+        if (wasEnabled) {
+          this.stagePlayerEvents(staged, tick, [{
+            id: "player.collision.off",
+            occurrenceSuffix: `collision-off:${lease.token}`,
+            payload: {owner, reason},
+          }]);
+        }
+        staged.leases.set(lease.token, lease);
+        staged.nextLeaseSerial += 1;
+      } else {
+        const token = nonEmptyString(ownerOrTokenValue, "collision blocker token");
+        const currentLease = this.leases.get(token);
+        if (currentLease === undefined) {
+          throw new Error(`unknown or released collision blocker: ${token}`);
+        }
+        this.stageAdvanceTo(staged, tick, true);
+        lease = staged.leases.get(token) ?? currentLease;
+        if (!staged.leases.has(token)) {
+          throw new Error(`collision blocker is no longer active at release tick: ${token}`);
+        }
+        this.stageCollisionBlockerRelease(staged, token, tick, false);
+      }
+
+      const drafts = Object.freeze(staged.drafts.slice());
+      const preview = this.snapshotFromDamageState(staged);
+      return preparedPlayerCollisionBlockerMutationToken({
+        owner: this,
+        eventBus: this.bus,
+        kind,
+        tick120: tick,
+        revision: this.mutationRevision,
+        lease,
+        drafts,
+        before,
+        preview,
+        consumed: false,
+        nextRevision: this.mutationRevision + 1,
+        beforeFingerprint,
+        after: this.freezeDamageAfterState(staged),
+      });
+    } finally {
+      this.mutationLocked = false;
+    }
+  }
+
   private collisionEnabled(): boolean {
     return this.stateValue === "alive" && this.leases.size === 0;
   }
 
-  private commitNonFatalDamage(hit: Readonly<DamageHit>, tick: number): void {
-    const lease = this.prepareCollisionLease("damage", "non-fatal-invulnerability", tick);
-    const healthAfter = this.healthValue - hit.amount;
+  private captureMutableDamageState(): MutablePlayerDamageState {
+    return {
+      stateValue: this.stateValue,
+      healthValue: this.healthValue,
+      livesValue: this.livesValue,
+      currentTick120: this.currentTick120,
+      nextLeaseSerial: this.nextLeaseSerial,
+      nextEventSequence: this.nextEventSequence,
+      leases: new Map(this.leases),
+      claimedHitOccurrences: new Set(this.claimedHitOccurrences),
+      processedDamageTicks: new Set(this.processedDamageTicks),
+      recoveryLeaseToken: this.recoveryLeaseToken,
+      recoveryAtTick120: this.recoveryAtTick120,
+      respawnPlaceAtTick120: this.respawnPlaceAtTick120,
+      respawnCompleteAtTick120: this.respawnCompleteAtTick120,
+      handoffValue: this.handoffValue,
+      drafts: [],
+    };
+  }
+
+  private snapshotFromDamageState(state: MutablePlayerDamageState): PlayerDamageSnapshot {
+    const activeLeases = [...state.leases.values()].sort((left, right) =>
+      compareCodePoint(left.token, right.token));
+    return Object.freeze({
+      playerId: this.playerId,
+      tick120: state.currentTick120,
+      state: state.stateValue,
+      health: state.healthValue,
+      lives: state.livesValue,
+      collisionEnabled: state.stateValue === "alive" && state.leases.size === 0,
+      activeLeases: Object.freeze(activeLeases),
+      recoveryAtTick120: state.recoveryAtTick120,
+      respawnPlaceAtTick120: state.respawnPlaceAtTick120,
+      respawnCompleteAtTick120: state.respawnCompleteAtTick120,
+      handoff: state.handoffValue,
+    });
+  }
+
+  private freezeDamageAfterState(state: MutablePlayerDamageState): PlayerDamageAfterState {
+    return Object.freeze({
+      stateValue: state.stateValue,
+      healthValue: state.healthValue,
+      livesValue: state.livesValue,
+      currentTick120: state.currentTick120,
+      nextLeaseSerial: state.nextLeaseSerial,
+      nextEventSequence: state.nextEventSequence,
+      leases: state.leases,
+      claimedHitOccurrences: state.claimedHitOccurrences,
+      processedDamageTicks: state.processedDamageTicks,
+      recoveryLeaseToken: state.recoveryLeaseToken,
+      recoveryAtTick120: state.recoveryAtTick120,
+      respawnPlaceAtTick120: state.respawnPlaceAtTick120,
+      respawnCompleteAtTick120: state.respawnCompleteAtTick120,
+      handoffValue: state.handoffValue,
+    });
+  }
+
+  private applyDamageAfterState(after: PlayerDamageAfterState): void {
+    this.stateValue = after.stateValue;
+    this.healthValue = after.healthValue;
+    this.livesValue = after.livesValue;
+    this.currentTick120 = after.currentTick120;
+    this.nextLeaseSerial = after.nextLeaseSerial;
+    this.nextEventSequence = after.nextEventSequence;
+    this.leases = after.leases;
+    this.claimedHitOccurrences = after.claimedHitOccurrences;
+    this.processedDamageTicks = after.processedDamageTicks;
+    this.recoveryLeaseToken = after.recoveryLeaseToken;
+    this.recoveryAtTick120 = after.recoveryAtTick120;
+    this.respawnPlaceAtTick120 = after.respawnPlaceAtTick120;
+    this.respawnCompleteAtTick120 = after.respawnCompleteAtTick120;
+    this.handoffValue = after.handoffValue;
+  }
+
+  private stageAdvanceTo(
+    state: MutablePlayerDamageState,
+    targetTick: number,
+    suppressCollisionEnableAtTarget: boolean,
+  ): void {
+    if (targetTick < state.currentTick120) {
+      throw new Error(
+        `player authority cannot move backward from ${state.currentTick120} to ${targetTick}`,
+      );
+    }
+    while (true) {
+      if (
+        state.stateValue === "alive"
+        && state.recoveryAtTick120 !== null
+        && state.recoveryAtTick120 <= targetTick
+      ) {
+        const due = state.recoveryAtTick120;
+        const token = state.recoveryLeaseToken;
+        if (token === null) throw new Error("non-fatal recovery lost its collision blocker");
+        state.currentTick120 = due;
+        this.stagePlayerEvents(state, due, [{
+          id: "player.invulnerability.end",
+          occurrenceSuffix: `invulnerability-end:${token}`,
+          payload: {reason: "non-fatal"},
+        }]);
+        state.recoveryAtTick120 = null;
+        state.recoveryLeaseToken = null;
+        this.stageCollisionBlockerRelease(
+          state,
+          token,
+          due,
+          suppressCollisionEnableAtTarget && due === targetTick,
+        );
+        continue;
+      }
+
+      if (
+        state.stateValue === "dead"
+        && state.respawnPlaceAtTick120 !== null
+        && state.respawnPlaceAtTick120 <= targetTick
+      ) {
+        const due = state.respawnPlaceAtTick120;
+        state.currentTick120 = due;
+        state.respawnPlaceAtTick120 = null;
+        state.stateValue = "respawning";
+        state.healthValue = this.config.maxHealth;
+        this.stagePlayerEvents(state, due, [
+          {
+            id: "player.respawn.place",
+            occurrenceSuffix: `respawn-place:${due}`,
+            payload: {health: state.healthValue},
+          },
+          {
+            id: "player.invulnerability.begin",
+            occurrenceSuffix: `respawn-invulnerability:${due}`,
+            payload: {reason: "respawn"},
+          },
+        ]);
+        continue;
+      }
+
+      if (
+        state.stateValue === "respawning"
+        && state.respawnCompleteAtTick120 !== null
+        && state.respawnCompleteAtTick120 <= targetTick
+      ) {
+        const due = state.respawnCompleteAtTick120;
+        const token = state.recoveryLeaseToken;
+        if (token === null) throw new Error("respawn completion lost its collision blocker");
+        state.currentTick120 = due;
+        state.respawnCompleteAtTick120 = null;
+        state.recoveryLeaseToken = null;
+        this.stagePlayerEvents(state, due, [{
+          id: "player.invulnerability.end",
+          occurrenceSuffix: `respawn-invulnerability-end:${due}`,
+          payload: {reason: "respawn"},
+        }]);
+        state.stateValue = "alive";
+        this.stageCollisionBlockerRelease(
+          state,
+          token,
+          due,
+          suppressCollisionEnableAtTarget && due === targetTick,
+        );
+        this.stagePlayerEvents(state, due, [{
+          id: "player.respawn.complete",
+          occurrenceSuffix: `respawn-complete:${due}`,
+          payload: {},
+        }]);
+        continue;
+      }
+      break;
+    }
+    state.currentTick120 = targetTick;
+  }
+
+  private stageNonFatalDamage(
+    state: MutablePlayerDamageState,
+    hit: Readonly<DamageHit>,
+    tick: number,
+  ): void {
+    const lease = this.stageCollisionLease(state, "damage", "non-fatal-invulnerability", tick);
+    const healthAfter = state.healthValue - hit.amount;
     const recoveryAtTick120 = runtime60DeadlineTick(tick, this.config.nonFatalInvulnerabilityMs);
-    this.enqueuePlayerEvents(tick, [
+    this.stagePlayerEvents(state, tick, [
       {
         id: "player.collision.off",
         occurrenceSuffix: `collision-off:${lease.token}`,
@@ -824,15 +1561,20 @@ export class PlayerDamageAuthority {
         payload: {reason: "non-fatal"},
       },
     ]);
-    this.commitPreparedLease(lease);
-    this.healthValue = healthAfter;
-    this.recoveryLeaseToken = lease.token;
-    this.recoveryAtTick120 = recoveryAtTick120;
+    state.leases.set(lease.token, lease);
+    state.nextLeaseSerial += 1;
+    state.healthValue = healthAfter;
+    state.recoveryLeaseToken = lease.token;
+    state.recoveryAtTick120 = recoveryAtTick120;
   }
 
-  private commitFatalDamage(hit: Readonly<DamageHit>, tick: number): void {
-    const lease = this.prepareCollisionLease("damage", "death-respawn", tick);
-    const livesAfter = this.livesValue - 1;
+  private stageFatalDamage(
+    state: MutablePlayerDamageState,
+    hit: Readonly<DamageHit>,
+    tick: number,
+  ): void {
+    const lease = this.stageCollisionLease(state, "damage", "death-respawn", tick);
+    const livesAfter = state.livesValue - 1;
     const respawnPlaceAtTick120 = livesAfter > 0
       ? runtime60DeadlineTick(tick, this.config.respawnPlaceMs)
       : null;
@@ -863,33 +1605,81 @@ export class PlayerDamageAuthority {
         payload: {reason: "lives-exhausted"},
       });
     }
-    this.enqueuePlayerEvents(tick, events);
-    this.commitPreparedLease(lease);
-    this.stateValue = "dead";
-    this.healthValue = 0;
-    this.livesValue = livesAfter;
-    this.recoveryLeaseToken = lease.token;
+    this.stagePlayerEvents(state, tick, events);
+    state.leases.set(lease.token, lease);
+    state.nextLeaseSerial += 1;
+    state.stateValue = "dead";
+    state.healthValue = 0;
+    state.livesValue = livesAfter;
+    state.recoveryLeaseToken = lease.token;
 
     if (livesAfter <= 0) {
-      this.stateValue = "run-ended";
-      this.handoffValue = Object.freeze({reason: "lives-exhausted", tick120: tick});
+      state.stateValue = "run-ended";
+      state.handoffValue = Object.freeze({reason: "lives-exhausted", tick120: tick});
       return;
     }
-    this.respawnPlaceAtTick120 = respawnPlaceAtTick120;
-    this.respawnCompleteAtTick120 = respawnCompleteAtTick120;
+    state.respawnPlaceAtTick120 = respawnPlaceAtTick120;
+    state.respawnCompleteAtTick120 = respawnCompleteAtTick120;
   }
 
-  private prepareCollisionLease(owner: string, reason: string, tick: number): CollisionBlockerLease {
-    if (!Number.isSafeInteger(this.nextLeaseSerial)) {
+  private stageCollisionLease(
+    state: MutablePlayerDamageState,
+    owner: CollisionBlockerOwner,
+    reason: string,
+    tick: number,
+  ): CollisionBlockerLease {
+    if (!Number.isSafeInteger(state.nextLeaseSerial)) {
       throw new Error("collision blocker serial exceeds the safe integer range");
     }
-    const token = `${this.playerId}:lease:${String(this.nextLeaseSerial).padStart(6, "0")}`;
+    const token = `${this.playerId}:lease:${String(state.nextLeaseSerial).padStart(6, "0")}`;
     return Object.freeze({token, owner, reason, acquiredAtTick120: tick});
   }
 
-  private commitPreparedLease(lease: CollisionBlockerLease): void {
-    this.leases.set(lease.token, lease);
-    this.nextLeaseSerial += 1;
+  private stageCollisionBlockerRelease(
+    state: MutablePlayerDamageState,
+    token: string,
+    tick: number,
+    suppressCollisionEnable: boolean,
+  ): void {
+    const lease = state.leases.get(token);
+    if (lease === undefined) throw new Error(`unknown or released collision blocker: ${token}`);
+    const enablesCollision = state.stateValue === "alive" && state.leases.size === 1;
+    if (enablesCollision && !suppressCollisionEnable) {
+      this.stagePlayerEvents(state, tick, [{
+        id: "player.collision.on",
+        occurrenceSuffix: `collision-on:${token}`,
+        payload: {owner: lease.owner, reason: lease.reason},
+      }]);
+    }
+    state.leases.delete(token);
+  }
+
+  private stagePlayerEvents(
+    state: MutablePlayerDamageState,
+    tick: number,
+    events: readonly PlayerEventSpec[],
+  ): void {
+    const finalSequence = state.nextEventSequence + events.length - 1;
+    if (events.length > 0 && !Number.isSafeInteger(finalSequence)) {
+      throw new Error("player event sequence exceeds the safe integer range");
+    }
+    const firstSequence = state.nextEventSequence;
+    for (let index = 0; index < events.length; index += 1) {
+      const event = events[index];
+      if (event === undefined || !isRecord(event.payload)) {
+        throw new Error("player event staging requires a plain payload object");
+      }
+      const payload = Object.freeze({...event.payload});
+      state.drafts.push(Object.freeze({
+        id: event.id,
+        tick120: tick,
+        entityStableId: this.playerId,
+        localSequence: firstSequence + index,
+        occurrenceKey: `${this.playerId}:${event.occurrenceSuffix}`,
+        payload,
+      }));
+    }
+    state.nextEventSequence += events.length;
   }
 
   private releaseCollisionBlockerAtCurrentTick(
@@ -919,16 +1709,111 @@ export class PlayerDamageAuthority {
   }
 
   private enqueuePlayerEvents(tick: number, events: readonly PlayerEventSpec[]): void {
+    const finalSequence = this.nextEventSequence + events.length - 1;
+    if (events.length > 0 && !Number.isSafeInteger(finalSequence)) {
+      throw new Error("player event sequence exceeds the safe integer range");
+    }
     const firstSequence = this.nextEventSequence;
-    this.bus.enqueueBatch(events.map((event, index) => ({
-      id: event.id,
-      tick120: tick,
-      entityStableId: this.playerId,
-      localSequence: firstSequence + index,
-      occurrenceKey: `${this.playerId}:${event.occurrenceSuffix}`,
-      payload: event.payload,
-    })));
+    const drafts = events.map((event, index): GameplayEventDraft => {
+      if (!isRecord(event.payload)) {
+        throw new Error("player event emission requires a plain payload object");
+      }
+      return Object.freeze({
+        id: event.id,
+        tick120: tick,
+        entityStableId: this.playerId,
+        localSequence: firstSequence + index,
+        occurrenceKey: `${this.playerId}:${event.occurrenceSuffix}`,
+        payload: Object.freeze({...event.payload}),
+      });
+    });
+    this.enqueueExactBatch(Object.freeze(drafts));
     this.nextEventSequence += events.length;
+  }
+
+  private enqueueExactBatch(drafts: readonly GameplayEventDraft[]): void {
+    CanonicalEventBus.prototype.enqueueBatch.call(this.bus, drafts);
+  }
+
+  private requirePreparedDamageCommit(
+    proposal: PreparedPlayerDamageCommit,
+  ): PreparedPlayerDamageCommitState {
+    const prepared = PREPARED_PLAYER_DAMAGE_COMMITS.get(proposal);
+    if (
+      prepared === undefined
+      || prepared.consumed
+      || prepared.owner !== this
+      || prepared.eventBus !== this.bus
+    ) {
+      throw new Error(
+        "player damage proposal is unknown, consumed, or owned by another player/event bus",
+      );
+    }
+    return prepared;
+  }
+
+  private requirePreparedCollisionBlockerMutation(
+    proposal: PreparedPlayerCollisionBlockerMutation,
+  ): PreparedPlayerCollisionBlockerMutationState {
+    const prepared = PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS.get(proposal);
+    if (
+      prepared === undefined
+      || prepared.consumed
+      || prepared.owner !== this
+      || prepared.eventBus !== this.bus
+    ) {
+      throw new Error(
+        "player collision blocker proposal is unknown, consumed, or owned by another player/event bus",
+      );
+    }
+    return prepared;
+  }
+
+  private assertMutationRevisionCanAdvance(): void {
+    if (!Number.isSafeInteger(this.mutationRevision + 1)) {
+      throw new Error("player damage mutation revision exceeds the safe integer range");
+    }
+  }
+
+  private runPlayerMutation<Result>(mutation: () => Result): Result {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    this.assertMutationRevisionCanAdvance();
+    const before = this.damageMutationFingerprint();
+    this.mutationLocked = true;
+    try {
+      const result = mutation();
+      this.mutationRevision += 1;
+      return result;
+    } catch (error) {
+      if (this.damageMutationFingerprint() !== before) this.mutationRevision += 1;
+      throw error;
+    } finally {
+      this.mutationLocked = false;
+    }
+  }
+
+  private damageMutationFingerprint(): string {
+    const leases = [...this.leases.values()]
+      .sort((left, right) => compareCodePoint(left.token, right.token))
+      .map((lease) => [lease.token, lease.owner, lease.reason, lease.acquiredAtTick120]);
+    const claimed = [...this.claimedHitOccurrences].sort(compareCodePoint);
+    const processed = [...this.processedDamageTicks].sort((left, right) => left - right);
+    return JSON.stringify([
+      this.stateValue,
+      this.healthValue,
+      this.livesValue,
+      this.currentTick120,
+      this.nextLeaseSerial,
+      this.nextEventSequence,
+      leases,
+      claimed,
+      processed,
+      this.recoveryLeaseToken,
+      this.recoveryAtTick120,
+      this.respawnPlaceAtTick120,
+      this.respawnCompleteAtTick120,
+      this.handoffValue,
+    ]);
   }
 }
 
@@ -1108,6 +1993,205 @@ function pointInSector(position: Vec2, area: LocalVoidSnapshot): boolean {
   return dot + Number.EPSILON >= threshold;
 }
 
+export interface SectorSweepHit {
+  readonly timeOfEntry: number;
+  readonly position: Vec2;
+}
+
+/** Segment against the convex forward-sector center geometry. */
+export function sweepSegmentIntoSector(
+  from: Vec2,
+  to: Vec2,
+  area: LocalVoidSnapshot,
+): SectorSweepHit | null {
+  if (pointInSector(from, area)) {
+    return Object.freeze({timeOfEntry: 0, position: Object.freeze({...from})});
+  }
+  const relative = {x: from.x - area.origin.x, y: from.y - area.origin.y};
+  const delta = {x: to.x - from.x, y: to.y - from.y};
+  const direction = area.direction;
+  const tangent = {x: -direction.y, y: direction.x};
+  const tangentOfHalfAngle = Math.tan(area.halfAngleDegrees * Math.PI / 180);
+  let minimumTime = 0;
+  let maximumTime = 1;
+  const clipLowerBound = (initial: number, rate: number): boolean => {
+    if (Math.abs(rate) <= Number.EPSILON) return initial >= -Number.EPSILON;
+    const crossing = -initial / rate;
+    if (rate > 0) minimumTime = Math.max(minimumTime, crossing);
+    else maximumTime = Math.min(maximumTime, crossing);
+    return minimumTime <= maximumTime + Number.EPSILON;
+  };
+  const forwardInitial = relative.x * direction.x + relative.y * direction.y;
+  const forwardRate = delta.x * direction.x + delta.y * direction.y;
+  const lateralInitial = relative.x * tangent.x + relative.y * tangent.y;
+  const lateralRate = delta.x * tangent.x + delta.y * tangent.y;
+  if (
+    !clipLowerBound(forwardInitial, forwardRate)
+    || !clipLowerBound(
+      forwardInitial * tangentOfHalfAngle - lateralInitial,
+      forwardRate * tangentOfHalfAngle - lateralRate,
+    )
+    || !clipLowerBound(
+      forwardInitial * tangentOfHalfAngle + lateralInitial,
+      forwardRate * tangentOfHalfAngle + lateralRate,
+    )
+  ) return null;
+
+  const quadraticA = delta.x * delta.x + delta.y * delta.y;
+  const quadraticB = 2 * (relative.x * delta.x + relative.y * delta.y);
+  const quadraticC = relative.x * relative.x + relative.y * relative.y - area.radius * area.radius;
+  if (quadraticA <= Number.EPSILON) return null;
+  const discriminant = quadraticB * quadraticB - 4 * quadraticA * quadraticC;
+  if (discriminant < 0) return null;
+  const root = Math.sqrt(Math.max(0, discriminant));
+  minimumTime = Math.max(minimumTime, (-quadraticB - root) / (2 * quadraticA), 0);
+  maximumTime = Math.min(maximumTime, (-quadraticB + root) / (2 * quadraticA), 1);
+  if (minimumTime > maximumTime + Number.EPSILON) return null;
+  const timeOfEntry = Math.max(0, Math.min(1, minimumTime));
+  return Object.freeze({
+    timeOfEntry,
+    position: Object.freeze({
+      x: from.x + delta.x * timeOfEntry,
+      y: from.y + delta.y * timeOfEntry,
+    }),
+  });
+}
+
+function exactOverridePathRecord(
+  value: unknown,
+  keys: readonly string[],
+  path: string,
+): Readonly<Record<string, unknown>> {
+  if (
+    typeof value !== "object"
+    || value === null
+    || Array.isArray(value)
+    || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
+  ) throw new Error(`${path} must be a plain object`);
+  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
+  if (Object.getOwnPropertySymbols(value).length > 0) throw new Error(`${path} must not use symbols`);
+  const actual = Object.keys(descriptors).sort(compareCodePoint);
+  const expected = [...keys].sort(compareCodePoint);
+  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
+    throw new Error(`${path} field contract drifted`);
+  }
+  const captured: Record<string, unknown> = {};
+  for (const key of expected) {
+    captured[key] = capturedOwnDataValue(descriptors, key, `${path}.${key}`);
+  }
+  return Object.freeze(captured);
+}
+
+function exactOverridePathArray(value: unknown, path: string): readonly unknown[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
+    throw new Error(`${path} must be a plain array`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
+  const lengthDescriptor = descriptors.length;
+  const length = lengthDescriptor !== undefined && "value" in lengthDescriptor
+    ? lengthDescriptor.value
+    : undefined;
+  if (!Number.isSafeInteger(length) || (length as number) < 0) {
+    throw new Error(`${path} length must be a non-negative safe integer`);
+  }
+  const expected = Array.from({length: length as number}, (_, index) => String(index))
+    .concat("length")
+    .sort(compareCodePoint);
+  const actual = Object.keys(descriptors).sort(compareCodePoint);
+  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
+    throw new Error(`${path} must be dense and contain no metadata`);
+  }
+  return Object.freeze(Array.from({length: length as number}, (_, index) =>
+    capturedOwnDataValue(descriptors, String(index), `${path}[${index}]`)));
+}
+
+function captureOverrideProjectilePaths(
+  value: unknown,
+): ReadonlyMap<string, readonly OverrideProjectilePathSegment[]> {
+  const rawPaths = exactOverridePathArray(value, "Override projectile paths");
+  const captured = new Map<string, readonly OverrideProjectilePathSegment[]>();
+  for (let pathIndex = 0; pathIndex < rawPaths.length; pathIndex += 1) {
+    const rawPath = exactOverridePathRecord(
+      rawPaths[pathIndex],
+      ["projectileGeneration", "projectileId", "segments"],
+      `Override projectile paths[${pathIndex}]`,
+    );
+    const projectileId = nonEmptyString(
+      rawPath.projectileId,
+      `Override projectile paths[${pathIndex}].projectileId`,
+    );
+    const projectileGeneration = tick120(
+      rawPath.projectileGeneration,
+      `Override projectile paths[${pathIndex}].projectileGeneration`,
+    );
+    const key = `${projectileId}:${projectileGeneration}`;
+    if (captured.has(key)) throw new Error(`duplicate Override projectile path: ${key}`);
+    const rawSegments = exactOverridePathArray(
+      rawPath.segments,
+      `Override projectile paths[${pathIndex}].segments`,
+    );
+    if (rawSegments.length === 0) throw new Error(`Override projectile path must not be empty: ${key}`);
+    const segments = rawSegments.map((rawSegment, segmentIndex) => {
+      let hasComponentBoundary: boolean;
+      try {
+        hasComponentBoundary = Object.prototype.hasOwnProperty.call(
+          Object.getOwnPropertyDescriptors(rawSegment as object),
+          "startsNewComponent",
+        );
+      } catch {
+        throw new Error(
+          `Override projectile paths[${pathIndex}].segments[${segmentIndex}] could not be inspected safely`,
+        );
+      }
+      const segment = exactOverridePathRecord(
+        rawSegment,
+        hasComponentBoundary ? ["from", "startsNewComponent", "to"] : ["from", "to"],
+        `Override projectile paths[${pathIndex}].segments[${segmentIndex}]`,
+      );
+      if (hasComponentBoundary && (segmentIndex === 0 || segment.startsNewComponent !== true)) {
+        throw new Error(
+          `Override projectile paths[${pathIndex}].segments[${segmentIndex}] component boundary is invalid`,
+        );
+      }
+      const from = exactOverridePathRecord(
+        segment.from,
+        ["x", "y"],
+        `Override projectile paths[${pathIndex}].segments[${segmentIndex}].from`,
+      );
+      const to = exactOverridePathRecord(
+        segment.to,
+        ["x", "y"],
+        `Override projectile paths[${pathIndex}].segments[${segmentIndex}].to`,
+      );
+      return Object.freeze({
+        from: Object.freeze({
+          x: finiteCoordinate(
+            from.x,
+            `Override projectile paths[${pathIndex}].segments[${segmentIndex}].from.x`,
+          ),
+          y: finiteCoordinate(
+            from.y,
+            `Override projectile paths[${pathIndex}].segments[${segmentIndex}].from.y`,
+          ),
+        }),
+        to: Object.freeze({
+          x: finiteCoordinate(
+            to.x,
+            `Override projectile paths[${pathIndex}].segments[${segmentIndex}].to.x`,
+          ),
+          y: finiteCoordinate(
+            to.y,
+            `Override projectile paths[${pathIndex}].segments[${segmentIndex}].to.y`,
+          ),
+        }),
+        ...(hasComponentBoundary ? {startsNewComponent: true as const} : {}),
+      });
+    });
+    captured.set(key, Object.freeze(segments));
+  }
+  return captured;
+}
+
 export class DirectionalOverrideAuthority {
   readonly config: Readonly<DirectionalOverrideConfig>;
   private stateValue: DirectionalOverrideState = "idle";
@@ -1201,30 +2285,151 @@ export class DirectionalOverrideAuthority {
     projectiles: ProjectileAuthorityPool,
     tick120Value: number,
   ): readonly OverrideCancellationRecord[] {
+    return this.cancelProjectilesWithPaths(projectiles, tick120Value, null);
+  }
+
+  cancelProjectilesAlongPaths(
+    projectiles: ProjectileAuthorityPool,
+    pathsValue: readonly OverrideProjectilePath[],
+    tick120Value: number,
+  ): readonly OverrideCancellationRecord[] {
+    // Authority-only prepared motion geometry. The caller must supply exact
+    // pool-owned, current-tick paths; presentation and renderer state are not
+    // accepted by this write port, and capture/validation precede mutation.
+    const paths = captureOverrideProjectilePaths(pathsValue);
+    return this.cancelProjectilesWithPaths(projectiles, tick120Value, paths);
+  }
+
+  private cancelProjectilesWithPaths(
+    projectiles: ProjectileAuthorityPool,
+    tick120Value: number,
+    paths: ReadonlyMap<string, readonly OverrideProjectilePathSegment[]> | null,
+  ): readonly OverrideCancellationRecord[] {
     const tick = tick120(tick120Value, "Override cancel tick120");
+    const activeSnapshots = projectiles.activeSnapshots();
+    if (paths !== null) {
+      const activeByKey = new Map(activeSnapshots.map((snapshot) => [
+        `${snapshot.instanceId}:${snapshot.generation}`,
+        snapshot,
+      ]));
+      for (const [key, segments] of paths) {
+        const snapshot = activeByKey.get(key);
+        if (snapshot === undefined) {
+          throw new Error(`Override path does not own an active projectile: ${key}`);
+        }
+        if (snapshot.state !== "flight" || snapshot.movedAtTick120 !== tick) {
+          throw new Error(`Override path requires flight moved on tick ${tick}: ${key}`);
+        }
+        const first = segments[0];
+        const last = segments.at(-1);
+        if (
+          first === undefined
+          || last === undefined
+          || first.from.x !== snapshot.previousPosition.x
+          || first.from.y !== snapshot.previousPosition.y
+          || last.to.x !== snapshot.position.x
+          || last.to.y !== snapshot.position.y
+        ) throw new Error(`Override path endpoints disagree with projectile authority: ${key}`);
+        for (let index = 1; index < segments.length; index += 1) {
+          const previous = segments[index - 1];
+          const current = segments[index];
+          if (current?.startsNewComponent === true) {
+            if (
+              previous !== undefined
+              && previous.to.x === current.from.x
+              && previous.to.y === current.from.y
+            ) throw new Error(`Override path has a redundant component boundary: ${key}`);
+            continue;
+          }
+          if (
+            previous === undefined
+            || current === undefined
+            || previous.to.x !== current.from.x
+            || previous.to.y !== current.from.y
+          ) throw new Error(`Override path is not contiguous: ${key}`);
+        }
+      }
+    }
     this.advanceTo(tick);
-    projectiles.advanceTo(tick);
     const area = this.localVoidValue;
     const context = this.context;
-    if (this.stateValue !== "active" || area === null || context === null) return Object.freeze([]);
-    const candidates = projectiles.activeSnapshots()
-      .filter((snapshot) =>
-        (snapshot.state === "arm" || snapshot.state === "flight")
-        && pointInSector(snapshot.position, area))
+    if (this.stateValue !== "active" || area === null || context === null) {
+      projectiles.advanceTo(tick);
+      return Object.freeze([]);
+    }
+    const candidates = activeSnapshots
+      .filter((snapshot) => snapshot.state === "arm" || snapshot.state === "flight")
+      .map((snapshot) => {
+        const path = paths?.get(`${snapshot.instanceId}:${snapshot.generation}`);
+        let hit: SectorSweepHit | null = null;
+        if (path !== undefined) {
+          for (const segment of path) {
+            hit = sweepSegmentIntoSector(segment.from, segment.to, area);
+            if (hit !== null) break;
+          }
+        } else {
+          hit = sweepSegmentIntoSector(
+            snapshot.movedAtTick120 === tick ? snapshot.previousPosition : snapshot.position,
+            snapshot.position,
+            area,
+          );
+        }
+        return Object.freeze({snapshot, hit});
+      })
+      .filter((candidate) => candidate.hit !== null)
       .sort((left, right) =>
-        compareCodePoint(left.instanceId, right.instanceId) || left.generation - right.generation);
+        compareCodePoint(left.snapshot.instanceId, right.snapshot.instanceId)
+        || left.snapshot.generation - right.snapshot.generation);
+    if (candidates.length === 0) {
+      projectiles.advanceTo(tick);
+      return Object.freeze([]);
+    }
+    const exactActivation = candidates.find(({snapshot}) =>
+      snapshot.state === "flight" && snapshot.armAtTick === tick);
+    if (exactActivation !== undefined) {
+      throw new Error(`projectile cannot cancel on activation tick ${tick}`);
+    }
+    const armHandles = candidates
+      .filter(({snapshot}) => snapshot.state === "arm")
+      .map(({snapshot}) => Object.freeze({
+        instanceId: snapshot.instanceId,
+        generation: snapshot.generation,
+      }));
+    if (armHandles.length > 0) projectiles.cancelMany(armHandles, tick, "override_void");
+
+    const flightCandidates = candidates.filter(({snapshot}) => snapshot.state === "flight");
+    for (const {snapshot, hit} of flightCandidates) {
+      if (
+        snapshot.state === "flight"
+        && hit !== null
+        && (
+          hit.position.x !== snapshot.position.x
+          || hit.position.y !== snapshot.position.y
+        )
+      ) {
+        projectiles.move(
+          {instanceId: snapshot.instanceId, generation: snapshot.generation},
+          tick,
+          hit.position,
+        );
+      }
+    }
+    const flightHandles = flightCandidates.map(({snapshot}) => Object.freeze({
+      instanceId: snapshot.instanceId,
+      generation: snapshot.generation,
+    }));
+    if (flightHandles.length > 0) projectiles.cancelMany(flightHandles, tick, "override_void");
     const cancelled: OverrideCancellationRecord[] = [];
-    for (const snapshot of candidates) {
-      const handle = Object.freeze({
+    for (const {snapshot} of candidates) {
+      const terminal = projectiles.snapshot({
         instanceId: snapshot.instanceId,
         generation: snapshot.generation,
       });
-      projectiles.cancel(handle, tick, "override_void");
       const cancellation = Object.freeze({
         id: `override-cancel:${this.cycleValue}:${snapshot.instanceId}:${snapshot.generation}`,
         cycle: this.cycleValue,
         tick120: tick,
-        position: Object.freeze({...snapshot.position}),
+        position: Object.freeze({...terminal.position}),
         projectileId: snapshot.instanceId,
         projectileGeneration: snapshot.generation,
       });

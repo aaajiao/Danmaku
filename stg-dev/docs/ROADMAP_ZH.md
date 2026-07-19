@@ -1,119 +1,131 @@
-# 1bit STG 工业化路线图
+# 1bit STG 制作路线图
 
-状态快照：2026-07-18
+状态快照：2026-07-19
 
-目标：把当前 V4 Lab/PWA 基础推进为可验证、可离线、可重放、可发布的完整 STG。本文按证据标状态，不以文件存在代替系统完成。
+当前阶段：`FOUNDATION`
+
+目标：把 V4 playable reference 推进为可验证、可离线、可重放、可发布的完整 STG。
+
+本文是唯一人工维护的制作状态源，只记录状态、优先级、依赖、风险与完成定义。
+玩法规则见[游戏设计](GAME_DESIGN_ZH.md)，稳定技术边界见[技术架构](ARCHITECTURE_ZH.md)，
+验证方法见[测试与验收](TESTING_ZH.md)。精确 seed、trace、hash 与事件计数以可执行测试为准。
 
 ## 1. 状态定义
 
-- `DONE`：代码、自动化测试和文档均存在，当前分支验证通过；
-- `WIP`：已有实现或测试骨架，但尚未端到端/未全部门禁；
-- `TODO`：尚无可接受实现；
-- `BLOCKED`：有明确外部阻塞和 owner；“工作量大”不算阻塞。
+- `DONE`：责任边界已实现，相关验证通过，所属文档已更新。
+- `WIP`：已有可执行切片，但尚未闭合端到端责任。
+- `TODO`：尚无可接受实现。
+- `PAUSED`：有意暂停，并写明恢复条件。
+- `BLOCKED`：存在明确外部阻塞、owner 与解除条件；工作量大不算阻塞。
 
-## 2. 当前基础，不是完整游戏
+## 2. 当前制作状态
 
-| 能力 | 状态 | 证据与边界 |
+| 系统 | 状态 | 当前边界 |
 |---|---|---|
-| Bun/Vite/TypeScript/Three.js 工程 | DONE | Bun 1.3.14 单一入口、精确依赖版本、strict build、Three.js renderer |
-| V4 48 pattern 数据入口 | DONE | Content Authority 展开 13 个入口、验证 781 个物理文件/778 个 SHA-256、版本/ID/引用并生成确定性 digest |
-| 120Hz fixed-step Lab simulation | DONE（基础） | 主循环已使用整数 120Hz master/60Hz due scheduler；默认应用仍使用旧 `GameSimulation` adapter，尚未装配新 authority kernel |
-| Pattern authority | WIP | 48/48 NORMAL trace hash 与 96/96 safe-gap path 精确匹配 V4 oracle；三难度与应用增量 adapter 未完成 |
-| Run Director | WIP | deterministic schedule、默认 RUN 接线与单测已完成；完整 encounter/narrative phases 未完成 |
-| Run Memory | WIP | recorder/validator、ghost 压缩、storage adapter 与单测已完成；app archive/restore/IndexedDB 未完成 |
-| Keyboard/pointer/gamepad | DONE（浏览器基础） | standard mapping、dead zone、hotplug、edge、可选 haptics；实机矩阵未完成 |
-| PWA/图标 | DONE（基础） | manifest、SW、any/maskable 图标；升级事务/存档迁移未完成 |
-| Unit tests | WIP | 135 tests / 14 files 覆盖 clock/event/content/oracle/projectile/player/laser/encounter/narrative 及既有 game 层；缺 authority→application、完整 Run、accessibility/perf |
-| Playwright E2E/smoke | DONE（基础） | Bun/production preview/CI 已接通，6 Chromium E2E + 1 smoke；离线升级与完整 Run 门禁未完成 |
-| Boss/laser/narrative/cross-run | WIP（authority） | 8×3 Boss phase、8 laser、16-state narrative/cross-run reducer 已有单测；live producers、默认应用与持久化未接通 |
+| V4 Content Authority | DONE | 48 个 executable patterns 与 canonical manifests、ID、引用、文件 universe、SHA-256 均 fail-fast；V4 素材包保持只读 |
+| 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
+| Pattern Authority | WIP | direct kernel 为 26/48；exported live-admission registry 为 21，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 3/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
+| Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
+| Canonical Run | WIP | 首房关闭 → transition/material → Context Switch → Misregistration → post-close material hold已由同一Session与只读presentation闭合到global8683；两次换手不清屏，drain后80-slot lease保留。下一consumer与room completion/handoff仍未授权 |
+| First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
+| First fixed room closure | DONE | EXT-2026-009 在H+1702原子关闭单occurrence bootstrap首房并冻结`1/1/0`与typed visit fact；closure自身仍不承载metric、selection、transition或handoff |
+| First-room metric projection | DONE（partial） | EXT-2026-010/011从exact H+1702来源投影`avgFlower`/`gazeRatio`/`recentInputDensity`，其余11项typed missing；整体不ready，不授权composer、RNG、target、selection或transition |
+| Room composition / execution | WIP（首个 live 切片） | Misregistration encounter ordinal 1已进入真实Session，完成80-slot READ、global8219 gameplay release、rest8327、close8519与post-close material hold；formal fixture的63个residue在8682自然排空且lease不自动释放。下一occurrence/room决定与完整multi-pool仍未完成 |
+| Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
+| Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
+| Renderer / input / PWA | WIP（首批因果素材族） | shared/chapter runtime registry已闭合7/7图集与448 frame atlas依赖，当前接4个房间背景、4个room bed和6个既有feedback音效；First Eye、Room Threshold及projectile arm/live collision边界已由真实Run事实驱动正式V4 frame，含对应Reduced Motion fallback。其余事件族、动态clip、reaction、升级迁移和实机矩阵未完成 |
+| QA / release evidence | WIP | focused/unit/content/build/smoke/E2E 与 V4 validators 可运行；完整 Run、性能、soak、设备和升级证据未闭合 |
+| GitHub 自动 CI | PAUSED（FOUNDATION） | push/PR 自动触发暂停，手动 workflow 保留；进入 Alpha 候选且完整门禁稳定后恢复 |
 
-因此当前正确称呼是“工业化基础 / playable reference”，不能称为 complete game、release candidate 或 production-ready。
+因此当前产品称为“工业化基础 / playable reference”，不是 complete game、release
+candidate 或 production-ready。
 
-## 3. P0：权威正确与完整可玩
+## 3. P0：完整权威闭环（Alpha 候选）
 
-P0 全部完成后才进入 Alpha 候选。
+P0 全部完成后才允许进入 Alpha 候选。
 
-| ID | 工作 | 状态 | 完成定义 |
+| ID | 工作 | 状态 | 完成定义 / 下一缺口 |
 |---|---|---|---|
-| P0-01 | Content index/schema/hash | DONE | 13 入口、40 版本、9 schema、818 ID、781 文件/778 hash/3 exclusion；dev/build fail-fast |
-| P0-02 | 120Hz master + 60Hz runtime due-time | DONE（scheduler） | 30/60/90/120/144Hz、large delta、pause、一小时无漂移；V4 machine adapter 仍归各系统 |
-| P0-03 | Canonical ordered event bus | DONE（authority） | 72 event、required payload、occurrence 去重、五阶段顺序、只读 feedback；旧 UI trace adapter 待移除 |
-| P0-04 | 48 pattern oracle parity | WIP | NORMAL 48/48 trace、96/96 safe-gap、12 operator/13 geometry；三难度增量 runtime 尚缺 |
-| P0-05 | Projectile authority | WIP（authority） | 7-stage、entity-owned flight、swept circle/capsule、固定 pool、generation graze 已完成；`GameSimulation` adapter 尚未替换 |
-| P0-06 | Player/damage/Override | WIP（authority） | leases、稳定多 hit、原子 fatal/non-fatal、respawn/handoff、evidence/graze、局部扇区与真实坐标 scar 已测；默认应用仍走旧实现 |
-| P0-07 | Encounter/room Run | WIP | 旧 `RunDirector` 已接默认应用并满足完整时长骨架；新 authority combat plan 覆盖 room/wave/segment/transition 与单个 terminal Boss，二者尚未合并成完整 Run |
-| P0-08 | Boss 与 laser | WIP（authority） | 8 Boss × 3 phase 事件机、8 laser lifecycle/连续碰撞已测；phase 条件求值、Boss↔pattern/projectile/laser 组合与 app/renderer adapter 未完成 |
-| P0-09 | Narrative/world memory | WIP（authority） | 16 state、64 observations、8 Boss resolution projection 与 material→ghost→residue→witness→input 顺序已测；live producers、archive/restore、IndexedDB 与 app E2E 未完成 |
-| P0-10 | Deterministic save/replay | WIP | seed/input/content digest/trace hash；canonical serializer；同输入可重放 |
-| P0-11 | 测试/CI | WIP | type/unit/build、4 V4 validator、E2E/smoke 已自动化；oracle/accessibility parity 与长期 artifact 未完成 |
-| P0-12 | 文档/扩展治理 | DONE（基础） | 架构、设计、测试、路线图与 Extension ADR gate 已落地；后续扩展逐项执行 |
+| P0-01 | Content index 与 schema | DONE | 所有 V4 入口、版本、ID、引用、文件与 digest fail-fast；未知内容不静默降级 |
+| P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
+| P0-03 | 48-pattern production authority | WIP | direct kernel 从 26/48 完成到 48/48；EXT-018已把Misregistration Corridor的单draw相位、orbit/release分段、完整preflight与material drain接入live registry。近期缺口包含 `room.information.missing_ack`、`room.in_between.borrowed_rule` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
+| P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
+| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition、EXT-015—024 direct authority及EXT-025 Session/presentation已闭合两个IN_BETWEEN occurrence到global8683，完成residue自然排空并保留lease。下一consumer与room completion仍withheld |
+| P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
+| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold、Context Switch与Misregistration已进入同一Session/只读presentation并到global8683；下一consumer、room handoff和完整Run终点仍未授权 |
+| P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
+| P0-09 | Presentation / accessibility | WIP（首批因果素材族） | `stg-dev/src/assets`已让共享层唯一绑定V4物理URL、章节层只选择ID，并闭合7张正式图集；First Eye、Room Threshold与projectile arm/live frame已从真实Run提交事实投影，projectile replacement由EXT-026冻结且不拥有碰撞。下一缺口是Flower等事件族；动态clip、房间声床crossfade与reaction须先闭合其组合规则。完整Run的full/reduced-motion/flash-off gameplay trace仍须证明相同 |
+| P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
+| P0-11 | PWA release path | WIP | 本地root preview可启动并离线warm reload；GitHub Pages尚无deploy workflow，`/Danmaku/` base、manifest identity与子路径smoke未接。之后再闭合冷启动、N→N+1 worker、存档迁移及未知URL fallback |
+| P0-12 | 文档与扩展治理 | DONE（基础） | GDD/TDD/Roadmap/QA 单一职责；每个 V4 外扩展都有 focused ADR 与 provenance |
 
-P0 发布硬门：0 schema warning、0 unknown operator、0 orphan event、0 fixed projectile flight timeout、0 feedback→gameplay edge、0 accessibility trace mismatch。
+### 当前生产顺序
 
-已知的 V4/adapter 边界必须保持显式：`broken_polyline` 与 `scrolling_comb` 未声明 beam width，laser authority 暂以 manifest 的 `sampleTolerancePx = 1.5` 回退；narrative source 中 `GLITCH`、`player.graze`、6 个 threshold action 与 canonical crossing payload 仍有缺口，reducer 不自行推断；`encounters.ts` 的 combat plan 不是包含 Awakening/Snapshot 的完整 Run。
+1. 沿进入真实Run的章节事件继续补Flower等被动素材投影；First Eye、Room Threshold与projectile当前只闭合
+   V4已给出且已有状态边界的steady事实，不冒充动态clip、未绑定声音或房间声床crossfade。动态playhead、
+   crossfade与reaction组合规则先走focused决定；章节只选择共享V4 ID，不复制素材，不把preview/QA图当
+   runtime资产，`dist`继续由部署阶段生成。
+2. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
+   count、完整room order、difficulty与RNG continuation在各自消费边界明确，禁止再次形成“后置事实先齐”的门。
+3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
+   isolated capability 冒充 live room/Run。
+4. 接 durable cross-run persistence，再完成完整 Run browser/accessibility/performance 证据。
+5. P0 闭合、完整门禁稳定后恢复 GitHub push/PR 自动 CI，并进入 Alpha 候选；GitHub Pages用部署阶段构建的
+   `stg-dev/dist` artifact，不把hash产物提交进开发分支。
 
-## 4. P1：生产硬化与跨设备发布
+## 4. P1：生产硬化（Beta 候选）
 
-P1 全部完成后才进入 Beta/Release Candidate 候选。
-
-| ID | 工作 | 状态 | 完成定义 |
-|---|---|---|---|
-| P1-01 | 完整视觉绑定 | TODO | 7 atlas/448 frame、16 reaction overlay、4 room 背景与 fallback 全引用验证 |
-| P1-02 | Feedback/accessibility graph | WIP | audio/visual/haptic/UI 单向 sink；Full/Reduced/Flash-Off trace parity 与 fallback |
-| P1-03 | 音频图 | WIP | 48 WAV 绑定、room bed、ducking、unlock、丢失 cue 降级、资源预算 |
-| P1-04 | 工业手柄 | WIP | Xbox/DualSense/Switch/通用/移动实机矩阵；remap profile；连接状态诊断 |
-| P1-05 | IndexedDB + PWA | TODO | versioned migration、atomic archive、quota/损坏恢复、离线 N→N+1 更新事务 |
-| P1-06 | Renderer 性能 | TODO | sprite/projectile pool、texture/material 生命周期、draw-call/heap/GPU benchmark、10 分钟 soak |
-| P1-07 | UI 与可访问性 | WIP | RUN/LAB 边界、键盘 focus、390px、文本/非闪烁替代、诊断与导出 |
-| P1-08 | Release engineering | TODO | reproducible build、Git/content/extension digest、artifact signing/checksum、rollback notes |
-| P1-09 | 浏览器/设备矩阵 | TODO | Desktop + Mobile PWA 在线/离线/后台恢复/弱网，风险有 owner 与期限 |
-
-P1 只做生产所需硬化。新的房间、敌人或装饰内容不能挤占权威/性能/持久化缺口。
+| 工作 | 完成定义 |
+|---|---|
+| 性能与资源预算 | 固定硬件/浏览器场景有 tick、frame、heap、GPU、pool 与 soak 基线；降级只影响表现 |
+| 持久化与迁移 | IndexedDB schema/version、quota、损坏隔离、导出与多版本迁移均可恢复 |
+| PWA 更新事务 | service worker 只在安全 Run 边界接管；禁止 content digest 混用 |
+| 设备与可访问性 | 目标键盘、触控、Gamepad 实机矩阵有记录；输入边沿和 trace parity 通过 |
+| 可观测性与诊断 | 构建可报告 commit、content digest、extension digest、版本与受控错误；不记录评价性 telemetry |
+| 发布自动化 | 自动 CI、release artifact、浏览器矩阵、失败证据保留和回滚流程稳定 |
 
 ## 5. P2：有基准后再做的工具
 
-P2 不应提前进入主运行时：
+- deterministic replay inspector 与 trace diff 工具；
+- manifest/schema authoring helper；
+- 视觉回归与固定性能场景自动化；
+- 只有 profile 证明收益后才考虑 Worker、更多渲染后端或并发执行。
 
-| ID | 工作 | 进入条件 | 约束 |
-|---|---|---|---|
-| P2-01 | Pattern/trace inspector | P0 oracle 已稳定 | 只读；不得成为第二套权威 |
-| P2-02 | Manifest authoring/preview | schema/content index 已稳定 | 产物必须走同一 validator/Extension ADR |
-| P2-03 | Deterministic replay viewer | canonical replay 已稳定 | viewer 不修正或补写 trace |
-| P2-04 | Privacy-preserving telemetry | 有具体发布决策问题 | 默认关闭；记录行为事实而非玩家 rank；可导出/删除 |
-| P2-05 | Worker/WASM 优化 | profile 证明主线程为瓶颈 | 同 trace hash；无共享时序隐患；可回退单线程 |
-| P2-06 | 多 renderer/实验 projection | 核心/投影依赖门禁完成 | 不复制 simulation，不改变 accessibility parity |
+工具不能成为第二套 gameplay authority，也不能绕开 V4/adapter contract。
 
 ## 6. 里程碑
 
 ### Alpha：完整权威闭环
 
-- P0 全绿；
-- 固定 seed 可从 Awakening 跑到 Snapshot/Archive，再进入下一 Run restore；
-- 48 pattern、8×3 Boss、8 laser 和 16-state narrative 可执行；
-- 无 score/rank/moral ending；行为与材料 ledger 可检查、可重放。
+- 一个完整 seeded Run 从 boot 到 observation/handoff 可玩；
+- 48/48 production pattern authority 与 live room/Boss/narrative 路径闭合；
+- snapshot/archive/restore 有 durable 路径；
+- focused、full、browser、accessibility 与基础性能门禁稳定；
+- GitHub push/PR 自动 CI 恢复。
 
 ### Beta：生产环境闭环
 
-- P1 全绿；
-- PWA 在线/离线/升级/迁移通过；
-- 性能 soak 和实机手柄矩阵有归档证据；
-- 发布包能报告 Git/content/extension digest。
+- 离线/升级/迁移、设备矩阵、性能/soak 与诊断闭合；
+- 无已知 authority divergence、存档损坏或 gameplay/profile trace mismatch；
+- 只剩内容打磨和有边界的兼容性问题。
 
 ### Release Candidate：只修阻断
 
-- 冻结内容 digest；
-- 只接受安全、数据损坏、确定性、崩溃、可访问性和发布阻断修复；
-- 每次修复重跑完整验收并生成可回滚 artifact。
+- 固定 commit/content/extension digest 的候选包通过发布验收；
+- 不再加入新机制、依赖或素材扩展；
+- 回滚、迁移与恢复路径已有演练记录。
 
-## 7. 开发流与提交边界
+## 7. 制作风险
 
-建议按可验证垂直切片提交，而不是按文件类型堆积：
+- V4 没有定义的 policy 被误写成 V4 事实；
+- isolated pattern/room/Boss 证据被误称为完整 Run；
+- 表现状态反向成为碰撞、生命周期或 handoff authority；
+- 精确 hash/count 被复制到多份文档后漂移；
+- 在性能与设备基线缺失时过早增加并发或平台复杂度；
+- 为追求反馈密度填满 authored silence、absence、residue 或 interruption。
 
-1. `chore(content): ...`：schema/index/hash 与 fixture；
-2. `feat(authority): ...`：clock/event/order，附 parity tests；
-3. `feat(gameplay): ...`：一个可闭环 operator/lifecycle/Boss slice；
-4. `feat(narrative): ...`：一个 state + material record + restore test；
-5. `test(e2e): ...`：对应用户路径；
-6. `docs: ...`：同步 ADR/验收/迁移。
+## 8. 开发与提交节奏
 
-每个提交都必须能独立说明权威变化、验证命令和回滚范围。不要把 asset kit、运行时重构、生成素材和文档塞进一个无法审查的提交。V4 外扩展提交必须带 [CONTENT_EXTENSION_ZH.md](./CONTENT_EXTENSION_ZH.md) 的 ADR/provenance。
+每个切片只解决一个可验收责任：先 focused 测试，再按风险扩展验证；完成后立即独立
+commit，并在已授权的当前非主分支 push，再进入下一切片。Roadmap 只更新状态和 DoD；
+技术决定写 architecture/focused ADR，精确证据留在 tests/fixtures。

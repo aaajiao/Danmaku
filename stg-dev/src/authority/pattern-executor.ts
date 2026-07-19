@@ -4,6 +4,9 @@ import motionOperatorsJson from "../../../1bit-stg-complete-asset-kit-v4/manifes
 export const LOGICAL_VIEW_WIDTH = 360;
 export const LOGICAL_VIEW_HEIGHT = 640;
 export const AUTHORED_PLAYER_Y = 570;
+/** Movement envelopes used by the immutable V4 safe-gap reachability oracle. */
+export const PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND = 188;
+export const PLAYER_FOCUS_MAX_SPEED_PX_PER_SECOND = 92;
 export const REFERENCE_STEP_MS = 1000 / 30;
 export const REFERENCE_CAPTURE_MS = 100;
 
@@ -18,7 +21,19 @@ interface MotionOperatorManifest {
   readonly operators: readonly {readonly id: string}[];
 }
 
-const motionOperatorManifest = motionOperatorsJson as MotionOperatorManifest;
+function deepFreezeJson<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry) => deepFreezeJson(entry))) as T;
+  }
+  if (typeof value === "object" && value !== null) {
+    const copy: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) copy[key] = deepFreezeJson(entry);
+    return Object.freeze(copy) as T;
+  }
+  return value;
+}
+
+const motionOperatorManifest = deepFreezeJson(motionOperatorsJson) as MotionOperatorManifest;
 const MOTION_OPERATOR_IDS = Object.freeze(
   motionOperatorManifest.operators.map((operator) => operator.id as MotionOperatorId),
 );
@@ -45,9 +60,12 @@ export interface PatternEmitter {
     readonly bursts: number;
   };
   readonly projectile: {
+    readonly archetype: string;
     readonly collisionRadiusPx: number;
+    readonly armDelayMs: number;
   };
   readonly speedCurve: {
+    readonly type: string;
     readonly keys: readonly {readonly atMs: number; readonly pxPerSec: number}[];
   };
   readonly motionStack: readonly PatternMotion[];
@@ -91,7 +109,7 @@ interface ExecutablePatternManifest {
   readonly patterns: readonly ExecutablePattern[];
 }
 
-const executableManifest = executablePatternsJson as unknown as ExecutablePatternManifest;
+const executableManifest = deepFreezeJson(executablePatternsJson) as unknown as ExecutablePatternManifest;
 
 /** The V4 manifest is the only pattern catalog; this module does not copy it. */
 export const EXECUTABLE_PATTERN_MANIFEST = executableManifest;
@@ -341,12 +359,24 @@ function targetTrace(pattern: ExecutablePattern, nowMs: number): readonly [numbe
   return [safeGapCenter(pattern, nowMs), AUTHORED_PLAYER_Y];
 }
 
+/**
+ * V4's immutable Python oracle uses ties-to-even when difficulty scales an
+ * emitter count. JavaScript's Math.round uses a different half-way rule, so
+ * production code must share this explicit implementation.
+ */
 function pythonRoundInteger(value: number): number {
   const floor = Math.floor(value);
   const fraction = value - floor;
   if (fraction < 0.5) return floor;
   if (fraction > 0.5) return floor + 1;
   return floor % 2 === 0 ? floor : floor + 1;
+}
+
+export function roundPatternCount(value: number): number {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error("scaled pattern count must be finite and non-negative");
+  }
+  return pythonRoundInteger(value);
 }
 
 function roundDecimal(value: number, digits: number): number {
@@ -466,7 +496,12 @@ export function sweptCircleContainsPoint(
 function lateralWallAllows(candidateIndex: number, count: number, motion: PatternMotion): boolean {
   const laneCount = Math.max(1, Math.floor(numberParam(motion.params, "laneCount", count)));
   const openLane = Math.floor(numberParam(motion.params, "openLane", -1));
-  const lane = Math.min(laneCount - 1, Math.floor(candidateIndex * laneCount / Math.max(1, count)));
+  // Application adapter for the V4-declared, left-to-right lane lattice when
+  // geometry count and laneCount differ: project each candidate-bin center.
+  const lane = Math.min(
+    laneCount - 1,
+    Math.floor((candidateIndex + 0.5) * laneCount / Math.max(1, count)),
+  );
   return lane !== openLane;
 }
 
@@ -527,7 +562,7 @@ export function simulatePattern(
     while (scheduled && scheduled.atMs <= nowMs + 0.001) {
       scheduleIndex += 1;
       const baseCount = scheduled.emitter.geometry.count;
-      const count = Math.max(1, pythonRoundInteger(baseCount * countMultiplier));
+      const count = Math.max(1, roundPatternCount(baseCount * countMultiplier));
       const lateral = scheduled.emitter.motionStack.find((entry) => entry.operator === "op.lateral_wall");
       for (const candidate of geometryCandidates(scheduled.emitter, scheduled.burstIndex, count)) {
         if (semantics === "declared-v4" && lateral && !lateralWallAllows(candidate.sourceIndex, count, lateral)) {
@@ -901,7 +936,9 @@ export function reachablePath(
     {length: Math.floor((LOGICAL_VIEW_WIDTH - 24) / gridStep) + 1},
     (_, index) => 12 + index * gridStep,
   );
-  const speed = focus ? 92 : 188;
+  const speed = focus
+    ? PLAYER_FOCUS_MAX_SPEED_PX_PER_SECOND
+    : PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND;
   const playerRadius = focus ? 2 : 3;
   let reachable = new Set([nearestIndex(positions, LOGICAL_VIEW_WIDTH / 2)]);
   const pathIndices: number[] = [];

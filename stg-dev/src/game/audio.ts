@@ -1,29 +1,9 @@
-import informationBedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/rooms/information-bed.wav?url";
-import forcedBedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/rooms/forced-alignment-bed.wav?url";
-import betweenBedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/rooms/in-between-bed.wav?url";
-import polarizedBedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/rooms/polarized-bed.wav?url";
-import grazeUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/graze-evidence.wav?url";
-import damageUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/player-damage.wav?url";
-import overrideUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/override-tear.wav?url";
-import deniedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/override-charge.wav?url";
-import protocolUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/protocol-withdraw.wav?url";
-
-const ROOM_BEDS: Record<string, string> = {
-  INFORMATION: informationBedUrl,
-  FORCED_ALIGNMENT: forcedBedUrl,
-  IN_BETWEEN: betweenBedUrl,
-  POLARIZED: polarizedBedUrl,
-  COMMON: informationBedUrl,
-  TRANSITION: betweenBedUrl,
-};
-
-const SFX: Record<string, string> = {
-  graze: grazeUrl,
-  damage: damageUrl,
-  override: overrideUrl,
-  "override-denied": deniedUrl,
-  protocol: protocolUrl,
-};
+import {
+  canonicalRunAssetRoom,
+  canonicalRunFeedbackAudio,
+  canonicalRunRoomBed,
+} from "../assets/chapters/canonical-run-v4";
+import type {V4RuntimeAsset} from "../assets/v4-runtime-asset";
 
 export class AudioTrace {
   private enabled = true;
@@ -44,23 +24,27 @@ export class AudioTrace {
   }
 
   setRoom(room: string): void {
-    if (room === this.currentRoom) return;
-    this.currentRoom = room;
+    const assetRoom = canonicalRunAssetRoom(room);
+    if (assetRoom === this.currentRoom) return;
+    this.currentRoom = assetRoom;
     this.bed?.pause();
-    const source = ROOM_BEDS[room] ?? ROOM_BEDS.INFORMATION;
-    if (!source) return;
-    this.bed = new Audio(source);
+    const source = canonicalRunRoomBed(assetRoom);
+    this.bed = new Audio(source.url);
     this.bed.loop = true;
     this.bed.volume = 0.16;
     if (this.enabled && this.unlocked) void this.bed.play().catch(() => undefined);
   }
 
   play(type: string): void {
+    const source = canonicalRunFeedbackAudio(type);
+    if (source === null) return;
+    this.playAsset(source, type === "damage" ? 0.34 : 0.24);
+  }
+
+  playAsset(source: Readonly<V4RuntimeAsset>, volume = 0.24): void {
     if (!this.enabled || !this.unlocked) return;
-    const source = SFX[type];
-    if (!source) return;
-    const sound = new Audio(source);
-    sound.volume = type === "damage" ? 0.34 : 0.24;
+    const sound = new Audio(source.url);
+    sound.volume = volume;
     void sound.play().catch(() => undefined);
   }
 }

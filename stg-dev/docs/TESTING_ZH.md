@@ -2,36 +2,90 @@
 
 状态：`FOUNDATION / GATES IN PROGRESS`
 
-原则：测试权威事实，不用截图替代玩法证明；视觉 QA 也不能反向决定碰撞。
+本文只拥有 QA 策略、测试选择、命令和发布门禁。精确 seed、event count、trace hash 与
+期望值属于可执行 fixture、V4 report 或不可变 CI artifact，不在叙述文档重复保存。
 
-## 1. 当前可执行命令
+原则：测试 gameplay authority，不用截图或表现状态替代碰撞、排序、确定性和生命周期证明。
 
-CI 从仓库根目录运行；`bun.lock` 必须已提交且不能在安装阶段漂移：
+## 1. 当前运行模式
+
+GitHub push/PR 自动 CI 在 `FOUNDATION` 阶段暂停，`.github/workflows/ci.yml` 只保留
+手动入口。本地提交前验证不因此减免。P0 权威闭环完成、进入 Alpha 候选且完整门禁稳定后，
+恢复自动 CI。
+
+所有 JavaScript/TypeScript 命令从 `stg-dev/` 运行，固定 Bun `1.3.14` 和唯一 lockfile：
 
 ```sh
-cd stg-dev
 bun install --frozen-lockfile
 bun run content:check
 bun run typecheck
 bun run test:unit
 bun run build
+bun run test:smoke
+bun run test:e2e
 bun run test:all
 ```
 
-本地首次安装使用 `bun install`。Playwright 浏览器安装与分层运行命令是：
+首次安装 Playwright Chromium：
 
 ```sh
-cd stg-dev
-bun install
-bunx --bun playwright install chromium
-bunx --bun playwright test
-bun run test:smoke
-bun run test:e2e
+bun --bun playwright install chromium
 ```
 
-`playwright.config.ts` 默认先做 production build，再在 `127.0.0.1:4173` 启动不会被复用的 Vite preview。并行任务用 `STG_E2E_PORT`；针对已启动 preview/部署地址用 `STG_E2E_BASE_URL`。失败产物在 `test-results/playwright/` 和 `playwright-report/`。
+`test:all` 串行运行 typecheck、全部 Vitest、production build、smoke 与 Chromium E2E；
+它不包含下面四个 V4 Python validators。
 
-V4 自身的四组契约验证必须从仓库根目录执行：
+## 2. 风险分层与命令选择
+
+默认反馈环是 focused tests + strict typecheck + whitespace check。完整门禁是里程碑证据，
+不是每个小 commit 的固定动作。
+
+| 改动类型 | 必跑 | 何时扩大 |
+|---|---|---|
+| 纯文档 | `git diff --check`；链接、命令、日期/状态归属检查 | 文档同时改 generated content、manifest、可执行示例或发布 artifact 时按对应类型扩大 |
+| 单 pattern / leaf authority | focused contract/lifecycle/determinism/hostile/profile cases；`typecheck`；`git diff --check` | public contract 变化时增加直接 consumer tests |
+| shared clock/event/projectile/player/schema/session/persistence | 先 focused reproduction，再跑所有直接受影响 suites；`typecheck` | consumer 面无法可靠枚举时跑一次 `test:unit` |
+| content/schema/bundle/PWA | focused tests、`content:check`、`typecheck`、`build` | 有用户路径时增加相关 Playwright spec |
+| 用户可见路径 | 相关 unit/integration + production-preview Playwright spec | boot/关键可用性进 smoke；完整流程进 E2E |
+| 里程碑/Alpha/发布候选/广泛重构 | targeted scopes 全绿后运行一次 `test:all`，并按需运行 V4 validators | 发布候选再加性能、soak、设备、离线升级与迁移 |
+
+Focused Vitest 示例：
+
+```sh
+bun run test -- <test-file> -t "<case or describe>"
+```
+
+Focused Playwright 示例：
+
+```sh
+bun --bun playwright test <spec-file> --project=chromium
+```
+
+不要并发运行重型 suites：CPU/GPU/浏览器争用会制造虚假的 timeout 与性能证据。廉价且互不
+争用的检查可以并行。
+
+## 3. Gameplay authority 测试设计
+
+新增或修改 authority 时，从以下责任中选择所有相关项，不按固定 case 数量凑测试：
+
+1. exact V4 contract、版本、ID、引用、descriptor 与 hostile shape fail-closed；
+2. seeded RNG 消费、entity/occurrence identity、cadence 与声明顺序；
+3. integer `tick120` due-time、nonzero start、30/60/144Hz 与 retained-backlog parity；
+4. 同 tick `collision-off → state/damage → collision-on → spawn → feedback` 顺序；
+5. warning/collision swept geometry、safe gap、contact/graze/Override 的共同路径；
+6. entity-owned arm/flight/cancel/residue/drain，包含晚 materialize、pool-full 和 failure atomicity；
+7. full/reduced-motion/flash-off 与 presentation weather 的 gameplay trace parity；
+8. intentional absence、inert hooks、not-ready handoff 和不拥有的 composer/session/renderer 边界。
+
+截图只能证明视觉结果；不能证明 collision、ordering、RNG、lifecycle 或 handoff。
+
+## 4. Oracle 与内容验证
+
+V4 authority 优先级保持为 manifests → runtime/reference → `sim_core.py` → production adapter。
+Python 30Hz、declared contract 与应用 120Hz 证据必须标明各自层级；不能把 deletion/intervention
+count 冒充 production identity/lifecycle parity。
+
+从仓库根目录运行不可变 V4 validators，并使用 `-B` 禁止 bytecode cache：
 
 ```sh
 python3 -B 1bit-stg-complete-asset-kit-v4/tools/qa/validate_v4_integration.py
@@ -40,121 +94,71 @@ python3 -B 1bit-stg-complete-asset-kit-v4/gameplay/tools/validate_gameplay_v4.py
 python3 -B 1bit-stg-complete-asset-kit-v4/narrative/validate_narrative_v4.py
 ```
 
-`test:e2e` 运行完整 Chromium 契约，`test:smoke` 运行最短默认 RUN 门禁；`test:all` 串行执行 typecheck、unit、build、smoke 与 E2E。CI 与文档只使用 Bun 1.3.14，不保留第二套包管理入口。
+不要用只返回预期 hash 的 wrapper 代替 oracle 执行。V4 tree 不因应用测试失败而修改。
 
-## 2. 分层测试矩阵
+## 5. Smoke、E2E 与探索性检查
 
-| 层 | 验证对象 | 现有证据 | 工业验收缺口 |
-|---|---|---|---|
-| Type/Build | strict TS、Vite/PWA 构建 | `typecheck`、`build` | 构建 metadata/content digest |
-| Unit | clock、event、content、pattern、projectile、player、laser、encounter/Boss、narrative 与既有 game 层 | 135 tests / 14 files | authority→application adapter、完整 Run、accessibility/perf |
-| Content contract | schema、ID、引用、hash、预算 | `content:check` + V4 validator；digest `ae2656e…a3b45` | release metadata/冻结流程 |
-| Runtime contract | 72 canonical events、state ordering | authority bus + V4 runtime validator | 旧应用 trace 尚未全量同构 |
-| Oracle parity | 同 fixture 对 V4 reference runtime | NORMAL 48/48 trace hash；96/96 safe-gap path | EASY/HARD 与增量 120Hz adapter |
-| Integration | Run→snapshot→archive→restore | authority fixture 已覆盖 16 state 与 material/ghost/residue/witness/input 顺序 | 真实 Run producers、archive、next-run restore、app/IndexedDB E2E |
-| Browser E2E | RUN/LAB、clock、pause、PWA manifest | 3 files / 6 Chromium tests | 新 authority 模块、完整 Run、生产离线/更新事务 |
-| Smoke | 默认 RUN 可启动、无 page error | 1 file / 1 smoke test | 发布包、弱网、缓存升级 |
-| Visual | atlas、safe gap、warning、overlay parity | 人工 QA 截图 | 自动像素契约/实机矩阵 |
-| Performance | tick budget、pool、GPU/内存 | 尚无基准 | 固定设备基线与回归阈值 |
+Smoke 只验证最短关键路径：production preview 可启动、默认 Run clock 前进、关键 manifest/asset
+可用、无未捕获 page/console/request failure。不要把完整 Run、离线升级或长流程塞进 smoke。
 
-## 3. Unit 与确定性契约
+E2E 负责用户可见的 production-preview 契约，包括：
 
-必须覆盖：
+- canonical boot、显式 seed fail-closed、输入 guard 与 pause；
+- 相关 room/Boss/narrative 路径达到其真实 handoff 边界；
+- PWA manifest、在线/离线启动与安全更新；
+- 完整 Run 的 accessibility trace parity；
+- persistence、reload、migration 与 corruption isolation。
 
-- 同 seed、初始状态与按 tick 输入得到完全相同 snapshot digest 与 event trace；
-- 不同 render cadence（30/60/120/144Hz）不改变 gameplay trace；
-- pause 期间 gameplay tick 不增长，恢复时不吸收 wall-clock；
-- large delta 遍历所有 crossed boundary，且 1024 边界保护可诊断；
-- 120Hz master 与 60Hz runtime due-time 长时间无漂移；
-- 同 timestamp 严格遵循 collision-off → state/damage commit → collision-on → spawn → feedback；
-- 同一 timestamp 多命中最多提交一个合法伤害；fatal/non-fatal 分支互斥；
-- graze 唯一键含 instance/generation/player，最多一次；
-- Override 证据不足拒绝，足够时只清除前方局部扇区，并写 typed scar；
-- accessibility profile、音频/触觉失败和 devicePixelRatio 不影响核心。
+Pattern Lab 是 QA 控制面，不能替代 production Run E2E。应用内浏览器/Chrome 适合探索性视觉、
+交互和登录态检查；Playwright 才是可重复仓库证据。操作细节见
+[E2E runbook](../e2e/README.md)。
 
-新 authority tests 已覆盖双速率、canonical event/batch 原子性、projectile/laser 生命周期、damage leases、同 tick 多 hit、graze generation、局部 Override、Boss phase、encounter 与 narrative reducer。`simulation.test.ts` 仍验证默认应用正在使用的旧 adapter；除 clock 外，新 authority 模块尚未装配进 `main.ts`，因此 135 个 unit tests 不等于完整 Run 已端到端完成。
+## 6. 失败处理与证据
 
-## 4. Content 与 oracle parity
+- 先用最窄命令复现，再修复并重跑同一 scope；focused 绿后才扩大范围。
+- 区分断言失败、真实性能回归、环境争用与 timeout。只有测量证明预算不足时才提高 timeout。
+- 禁止 skip、mute、弱化断言、替换 oracle 或把 flaky retry 当修复。
+- 记录实际运行的命令、scope 与结果；没有运行的 gate 不得宣称通过。
+- 旧 full-gate 结果只能在 source、fixtures、manifests、lockfile 与 build inputs 都未变化时复用，
+  并明确标注为复用证据。
+- 失败 trace、截图、视频与报告保持为临时 artifact，不提交到仓库；长期证据由不可变 CI/release
+  artifact 或测试 fixture 承担。
 
-P0 Content Authority 已建立 canonical content index，并断言：
+## 7. 性能与 soak 门禁
 
-- 48 pattern 分类数量为 BOSS 24、COMMON 2、ROOM 16、TRANSITION 3、WEATHER_ECHO 3；
-- 12 motion operator 均有可执行 fixture，不允许“未知 operator 静默忽略”；
-- 8 Boss 各正好 3 phase，phase pattern 和 resolution event 均可解析；
-- 8 laser geometry、4 room composer、72 event ID 全部可达且无孤儿引用；
-- 7 atlas、448 frame、16 reaction overlay、48 WAV 的文件 hash/尺寸/引用有效；
-- canonical room 只写 4 个新 ID；`INFO_OVERFLOW` 只允许 migration read；
-- schema warning、runtime failure、feedback→gameplay edge、fixed projectile timeout 均为 0。
+性能只在固定硬件、浏览器版本、seed、场景和采样方法下比较：
 
-当前 oracle 已对 NORMAL 完成 48/48 最终 trace SHA-256、emission/gap/split counters 和 96/96 normal/focus safe-gap path 的逐项精确同构，并另测 12 operator、13 geometry 与 swept warning primitive。EASY/HARD 和应用增量 120Hz adapter 仍须比较 burst due-time、实体稳定 ID、spawn 数量/顺序、初速度、operator 状态转移、impact/cancel/residue 事件；浮点比较只在 manifest 明确允许的数值域使用固定 epsilon，事件 ID/tick/order 必须精确相等。
+- 120Hz authority tick 的硬上限是 8.33ms；工程目标 P95 ≤ 4ms，为表现和系统抖动留余量；
+- 不得通过跳过 gameplay tick、减少 identity 或改变 trace 达标；
+- projectile/emitter/residue/pool 的 concurrent、cumulative 与 residue-inclusive 口径必须先有
+  V4/adapter policy，缺失时只记录 observation，不伪造 budget gate；
+- 10 分钟 mixed Run soak 后 heap、GPU resource 与 pool allocation 不持续增长；
+- Desktop Chrome presentation 目标 60fps；移动端可以降低表现质量，但 gameplay trace 不变；
+- 记录 draw calls、texture/atlas、JS heap、GC pause、shader compile stall 与 long task。
 
-## 5. E2E 与 Smoke
+Worker 或并发执行只能在 profile 证明瓶颈后进入路线图。
 
-现有浏览器测试职责：
+## 8. 实机输入与可访问性
 
-- 默认 `/`：面向玩家的 RUN，pattern 控件锁定，进入后 gameplay clock 前进；
-- `/?mode=pattern-lab`：48 pattern 可选、首尾循环、难度切换、pattern 重置；
-- Space pause：clock 精确冻结并恢复；
-- PWA manifest：standalone、192/512 any、512 maskable，图标可访问；
-- page error 必须为空。
+浏览器 mock 不能证明硬件兼容。每个发布候选记录 OS/浏览器、连接方式、设备/固件、mapping、
+结果和已知降级，最低覆盖 Xbox/XInput、DualShock/DualSense、Switch Pro、通用标准手柄与移动端
+Bluetooth controller。
 
-P0/P1 还要增加：
+每台设备验证冷启动已连接、运行中热插拔、dead zone、摇杆/D-pad 合并、动作 edge、Focus/Shoot
+持续输入、断线回退、重连清理和 haptics 缺席降级。Full/Reduced Motion/Flash-Off 的 gameplay
+trace 必须相同。
 
-- 固定 seed 的完整 Run 至 snapshot/archive，校验 route digest 与 end fact；
-- reload 后 next-run restore 顺序及 input return tick；
-- production `bun run preview` 的离线冷/热启动、未知 URL fallback；
-- service worker N→N+1 更新在 Run 边界生效，禁止混合 digest；
-- IndexedDB migration、quota、损坏记录隔离与导出；
-- reducedMotion/flashOff/full 的 trace parity；
-- 390px 移动视口无阻塞操作、focus 顺序和文本可读性。
+## 9. Alpha / 发布验收
 
-Smoke 必须保持短：启动、进入、clock 前进、无未捕获错误、关键资产/manifest 200。完整 Run、离线升级和视觉回归不塞进 smoke。
+Alpha 候选至少需要：
 
-## 6. 性能门禁
+- 完整 seeded Run 的 authority、browser 与 accessibility 闭环；
+- 48/48 production pattern、live rooms、Boss/narrative 与 durable restore；
+- `test:all`、四个 V4 validators、完整 Run E2E、基础性能/soak 全绿；
+- 自动 GitHub CI 恢复，并对 push/PR 运行稳定；
+- content/extension digest、commit 与版本可诊断。
 
-性能阈值在固定硬件/浏览器/场景上记录，不能用开发者主观“感觉流畅”替代。P1 建立以下基线：
-
-- 120Hz 核心单 tick 的 P95 小于 8.33ms，且不得靠跳过 gameplay tick 达标；推荐工程目标 P95 ≤ 4ms，为渲染和系统抖动留余量；
-- 每个 room tier 不超过 manifest 的 `maxProjectiles` / `maxEmitters`；越界是 contract failure；
-- projectile/shot/sprite 使用有上限的 pool，10 分钟 soak 后 heap 和 GPU resource 不持续增长；
-- Desktop Chrome 目标稳定 60fps presentation；中端移动设备允许降 presentation 质量/帧率，但权威 trace 不变；
-- atlas/material/texture 数量、draw calls、JS heap、GC pause 和 shader compile stall 写入 benchmark artifact；
-- Worker 迁移只能在 profile 证明主线程瓶颈后进入 P2，不能预先增加并发复杂度。
-
-建议固定场景：最高 manifest projectile budget、三段 Boss laser、room transition、snapshot/ghost replay，以及 10 分钟 mixed Run soak。
-
-## 7. 实机游戏手柄验收矩阵
-
-浏览器自动化无法代替实机 Gamepad API 验收。每个发布候选至少记录：OS/版本、浏览器/版本、连接方式、手柄固件、mapping 字符串、结果和已知降级。
-
-| 设备族 | 连接 | 平台最低覆盖 | 必测 |
-|---|---|---|---|
-| Xbox Wireless / XInput | USB、Bluetooth | Windows Chrome、macOS Chrome | standard mapping、摇杆/D-pad、A/B、LB/RB、Start、热插拔 |
-| DualShock 4 / DualSense | USB、Bluetooth | macOS Chrome、Windows Chrome | Cross/Circle 映射、dead zone、断线回退、可选振动 |
-| Switch Pro | USB、Bluetooth | macOS/Windows Chrome | mapping 差异识别，不猜测标签；必要时 remap |
-| 通用标准手柄 | USB | Chrome | 无品牌 ID、轴漂移、按钮 edge、无 haptics 降级 |
-| Mobile controller | Bluetooth | Android Chrome；iOS Safari 记录能力 | PWA standalone、重连、系统手势冲突 |
-
-每台设备执行：
-
-1. 冷启动前已连接与运行中热插拔；
-2. 0.18 区间内无漂移，满幅保持方向并 clamp；
-3. 摇杆和 D-pad 同时输入时择强一致；
-4. Override/Pause 每次实体按压只产生一个 edge；
-5. Focus 可持续按住，Shoot 可持续输入；
-6. 断开后键盘/指针仍可操作，重连不残留按键；
-7. haptics 拒绝/不存在时无异常且 trace 不变；
-8. Full/Reduced Motion/Flash-Off trace hash 相同。
-
-## 8. 发布验收单
-
-发布候选只有在以下证据均归档后可标记：
-
-- typecheck、unit、build、4 个 V4 validator、E2E、smoke 全绿；
-- 0 manifest warning、0 orphan ID、0 unknown operator；
-- canonical trace parity 与 accessibility parity 全绿；
-- 固定性能/soak artifact 无预算越界或泄漏；
-- 实机手柄矩阵有记录，未覆盖项明确列为风险；
-- PWA 在线/离线/升级/存档迁移通过；
-- 每个 V4 外扩展均有通过的 Extension ADR 与 provenance；
-- 版本、Git commit、content digest、extension digest 可从发布包诊断页读取。
+发布候选另外要求离线冷暖启动、N→N+1 更新、存档迁移/损坏隔离、固定设备性能、实机矩阵、
+回滚演练，以及 0 schema warning / unknown operator / orphan event / feedback→gameplay edge /
+fixed projectile flight timeout / accessibility trace mismatch。每个 V4 外扩展都必须通过
+[内容扩展治理](CONTENT_EXTENSION_ZH.md)，并有 accepted Extension ADR 与 provenance。

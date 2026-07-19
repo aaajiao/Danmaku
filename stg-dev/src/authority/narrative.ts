@@ -790,6 +790,18 @@ function payloadWeather(payload: JsonObject, eventId: string): NarrativeWeatherI
   return weather as NarrativeWeatherId;
 }
 
+function assertCanonicalPayloadEquals(
+  actual: unknown,
+  expected: unknown,
+  path: string,
+): void {
+  const actualCanonical = JSON.stringify(canonicalize(actual, `${path}.actual`));
+  const expectedCanonical = JSON.stringify(canonicalize(expected, `${path}.expected`));
+  if (actualCanonical !== expectedCanonical) {
+    throw new Error(`${path} does not match the validated record`);
+  }
+}
+
 function eventSources(event: CanonicalGameplayEvent): readonly string[] {
   const id = event.id as string;
   const sources: string[] = [];
@@ -893,11 +905,11 @@ const RESTORE_STAGE: Readonly<Record<string, number>> = Object.freeze({
   "deathTrace.rehydrate": 1,
   "burnIn.rehydrate": 2,
   "ghost.replay.begin": 3,
-  "ghost.replay.complete": 3,
-  "ghost.residue.write": 4,
-  "witness.turn": 5,
-  returnInput: 6,
-  "cross_run.restore.complete": 7,
+  "ghost.replay.complete": 4,
+  "ghost.residue.write": 5,
+  "witness.turn": 6,
+  returnInput: 7,
+  "cross_run.restore.complete": 8,
 });
 
 const MATERIAL_EVENT_KEY: Readonly<Record<string, keyof NarrativeRecord["materialMemory"]>> = Object.freeze({
@@ -906,10 +918,35 @@ const MATERIAL_EVENT_KEY: Readonly<Record<string, keyof NarrativeRecord["materia
   "burnIn.rehydrate": "burnIns",
 });
 
+const MATERIAL_EVENT_RECORD_TYPE: Readonly<Record<string, string>> = Object.freeze({
+  "overrideScar.rehydrate": "overrideScar",
+  "deathTrace.rehydrate": "deathTrace",
+  "burnIn.rehydrate": "burnIn",
+});
+
+const CROSS_RUN_WITNESS_PRIORITY = Object.freeze([
+  "nearbyOverrideScar",
+  "ghostEndpoint",
+  "resistanceTransmission",
+  "eclipse",
+  "resonance",
+  "clamp",
+  "idle",
+]);
+
 export interface NarrativeAuthorityOptions {
   readonly previousRun?: ValidatedNarrativeRecord;
   readonly snapshotRecord?: ValidatedNarrativeRecord;
 }
+
+type SnapshotNarrativeLifecycle = "idle" | "capturing" | "serialized" | "presenting" | "complete";
+
+type PreparedSnapshotEvent =
+  | Readonly<{readonly kind: "begin"; readonly runId: string}>
+  | Readonly<{readonly kind: "serialize"; readonly observations: readonly SelectedObservation[]}>
+  | Readonly<{readonly kind: "present"}>
+  | Readonly<{readonly kind: "persist"}>
+  | Readonly<{readonly kind: "complete"}>;
 
 /**
  * A deterministic one-way reducer. It consumes committed gameplay facts and
@@ -935,7 +972,8 @@ export class NarrativeAuthority {
   private restoreStage = -1;
   private restoreFromRunId: string | null = null;
   private restoreNextRunId: string | null = null;
-  private snapshotComplete = false;
+  private snapshotLifecycle: SnapshotNarrativeLifecycle = "idle";
+  private snapshotRunId: string | null = null;
   private persisted = false;
   private handoff = false;
 
@@ -959,6 +997,7 @@ export class NarrativeAuthority {
     if (this.lastEvent !== null && compareEvents(this.lastEvent, event) > 0) {
       throw new Error(`narrative event order regressed at occurrence: ${event.occurrenceKey}`);
     }
+    const preparedSnapshotEvent = this.#prepareSnapshotEvent(event);
     this.validateCanonicalReferences(event);
     this.consumeWeather(event);
     this.consumeRoom(event);
@@ -966,7 +1005,7 @@ export class NarrativeAuthority {
     this.consumeCrossRun(event);
     this.projectWorldReactions(event);
     this.advanceNarrativeState(event);
-    this.consumeSnapshot(event);
+    this.#commitPreparedSnapshotEvent(preparedSnapshotEvent);
     this.occurrenceFingerprints.set(event.occurrenceKey, fingerprint);
     this.lastEvent = event;
   }
@@ -1075,13 +1114,12 @@ export class NarrativeAuthority {
 
   private consumeCrossRun(event: CanonicalGameplayEvent): void {
     const id = event.id as string;
-    if (id === "cross_run.record.persist.commit") {
-      this.validateSnapshotRecordPayload(event);
-      this.persisted = true;
-      return;
-    }
     if (id === "cross_run.restore.begin") {
       const record = this.requirePreviousRun(id);
+      if (this.restoreFromRunId !== null || this.restoreNextRunId !== null) {
+        throw new Error("cross_run.restore.begin cannot restart an active or consumed restore");
+      }
+      this.requireGhostRoute(record, id);
       const fromRunId = payloadString(event.payload, "fromRunId", id);
       if (fromRunId !== record.run.id) throw new Error(`${id} fromRunId does not match the validated record`);
       this.validateRoutePayload(event.payload, record, id);
@@ -1097,7 +1135,7 @@ export class NarrativeAuthority {
     if (this.restoreFromRunId === null || this.restoreNextRunId === null) {
       throw new Error(`${id} arrived before cross_run.restore.begin`);
     }
-    if (stage < this.restoreStage || stage > this.restoreStage + 1) {
+    if (stage !== this.restoreStage + 1) {
       throw new Error(`${id} violates validated cross-run rehydration order`);
     }
     const fromRunId = payloadString(event.payload, "fromRunId", id);
@@ -1112,6 +1150,16 @@ export class NarrativeAuthority {
       if (payloadInteger(event.payload, "count", id) !== count) {
         throw new Error(`${id} count does not match the validated record`);
       }
+      const expectedRecordType = MATERIAL_EVENT_RECORD_TYPE[id];
+      if (expectedRecordType === undefined
+        || payloadString(event.payload, "recordType", id) !== expectedRecordType) {
+        throw new Error(`${id} recordType does not match the authored material type`);
+      }
+      assertCanonicalPayloadEquals(
+        event.payload.records,
+        record.materialMemory[materialKey],
+        `${id}.payload.records`,
+      );
     }
     if (id === "ghost.replay.begin" || id === "ghost.replay.complete"
       || id === "cross_run.restore.complete") {
@@ -1122,25 +1170,135 @@ export class NarrativeAuthority {
       if (payloadInteger(event.payload, "routeDurationMs", id) !== expectedDuration) {
         throw new Error("returnInput routeDurationMs does not match the validated record");
       }
+      if (event.payload.inputState !== "enabled") {
+        throw new Error("returnInput must restore the authored enabled input state");
+      }
     }
     if (id === "ghost.replay.begin") {
-      if (record.ghostRoute === null) throw new Error("ghost replay cannot read a validated record without a route");
-      if (payloadInteger(event.payload, "pointCount", id) !== record.ghostRoute.points.length) {
+      const route = this.requireGhostRoute(record, id);
+      if (payloadInteger(event.payload, "pointCount", id) !== route.points.length) {
         throw new Error("ghost replay point count does not match the validated record");
       }
-      if (event.payload.collisionClass !== "NONE" || event.payload.rewardClass !== "NONE") {
-        throw new Error("ghost replay must remain non-colliding and non-rewarding");
+      assertCanonicalPayloadEquals(event.payload.routePoints, route.points, "ghost.replay.begin.payload.routePoints");
+      if (event.payload.timeScale !== 1) {
+        throw new Error("ghost replay must retain authored timeScale 1");
+      }
+      if (event.payload.collisionClass !== "NONE"
+        || event.payload.rewardClass !== "NONE"
+        || event.payload.emitterClass !== "NONE") {
+        throw new Error("ghost replay collision, reward, and emitter classes must all remain NONE");
+      }
+    }
+    if (id === "ghost.replay.complete") {
+      const route = this.requireGhostRoute(record, id);
+      assertCanonicalPayloadEquals(
+        event.payload.finalPoint,
+        this.restoreFinalPoint(route, id),
+        "ghost.replay.complete.payload.finalPoint",
+      );
+      if (event.payload.burnAfterRead !== true) {
+        throw new Error("ghost replay completion must burn only after the actual route is read");
       }
     }
     if (id === "ghost.residue.write") {
-      const routeDigest = record.ghostRoute?.routeDigest ?? null;
-      if (payloadString(event.payload, "sourceRouteDigest", id) !== routeDigest) {
+      const route = this.requireGhostRoute(record, id);
+      if (payloadString(event.payload, "recordType", id) !== "ghostResidue") {
+        throw new Error("ghost residue recordType does not match the authored material type");
+      }
+      if (payloadString(event.payload, "residueId", id)
+        !== `ghost-residue:${record.run.id}:${this.restoreNextRunId}`) {
+        throw new Error("ghost residue identity does not match the validated restore identity");
+      }
+      if (payloadString(event.payload, "sourceRouteDigest", id) !== route.routeDigest) {
         throw new Error("ghost residue source does not match the validated route");
       }
       if (event.payload.createdAfterReplay !== true) throw new Error("ghost residue must follow replay");
+      if (payloadInteger(event.payload, "persistenceRuns", id) !== 1) {
+        throw new Error("ghost residue persistence must remain one run");
+      }
+      if (payloadInteger(event.payload, "priorGhostResidueCount", id)
+        !== record.materialMemory.ghostResidues.length) {
+        throw new Error("ghost residue prior count does not match the validated record");
+      }
+      assertCanonicalPayloadEquals(
+        event.payload.position,
+        this.restoreEndpoint(route, id),
+        "ghost.residue.write.payload.position",
+      );
+    }
+    if (id === "witness.turn") {
+      const route = this.requireGhostRoute(record, id);
+      if (event.payload.evaluatedAfterGhostResidue !== true) {
+        throw new Error("witness turn must be evaluated after ghost residue materialization");
+      }
+      const expectedScarIds = record.materialMemory.overrideScars.map((rawScar, index) =>
+        requireString(
+          requireRecord(rawScar, `validated narrative record.materialMemory.overrideScars[${index}]`).id,
+          `validated narrative record.materialMemory.overrideScars[${index}].id`,
+        ));
+      assertCanonicalPayloadEquals(
+        event.payload.overrideScarIds,
+        expectedScarIds,
+        "witness.turn.payload.overrideScarIds",
+      );
+      assertCanonicalPayloadEquals(
+        event.payload.ghostEndpoint,
+        this.restoreEndpoint(route, id),
+        "witness.turn.payload.ghostEndpoint",
+      );
+      assertCanonicalPayloadEquals(
+        event.payload.priority,
+        CROSS_RUN_WITNESS_PRIORITY,
+        "witness.turn.payload.priority",
+      );
     }
     this.restoreStage = Math.max(this.restoreStage, stage);
     this.appendCrossRunProjection(event, record, count);
+  }
+
+  private requireGhostRoute(
+    record: Readonly<NarrativeRecord>,
+    eventId: string,
+  ): NonNullable<NarrativeRecord["ghostRoute"]> {
+    if (record.ghostRoute === null) {
+      throw new Error(`${eventId} requires a validated actual ghost route`);
+    }
+    return record.ghostRoute;
+  }
+
+  private restoreFinalPoint(
+    route: NonNullable<NarrativeRecord["ghostRoute"]>,
+    eventId: string,
+  ): JsonObject {
+    const rawPoint = route.points.at(-1);
+    const point = requireRecord(rawPoint, `${eventId} validated route final point`);
+    const room = requireString(point.room, `${eventId} validated route final point.room`);
+    if (!NARRATIVE_ROOM_IDS.includes(room as NarrativeRoomId)) {
+      throw new Error(`${eventId} validated route final point has an unknown room`);
+    }
+    const xNorm = requireFiniteNumber(point.xNorm, `${eventId} validated route final point.xNorm`);
+    const yNorm = requireFiniteNumber(point.yNorm, `${eventId} validated route final point.yNorm`);
+    if (xNorm < 0 || xNorm > 1 || yNorm < 0 || yNorm > 1) {
+      throw new Error(`${eventId} validated route final point is outside normalized extent`);
+    }
+    return Object.freeze({
+      tMs: requireNonNegativeInteger(point.tMs, `${eventId} validated route final point.tMs`),
+      xNorm,
+      yNorm,
+      room,
+    });
+  }
+
+  private restoreEndpoint(
+    route: NonNullable<NarrativeRecord["ghostRoute"]>,
+    eventId: string,
+  ): JsonObject {
+    const finalPoint = this.restoreFinalPoint(route, eventId);
+    return Object.freeze({
+      room: finalPoint.room as JsonValue,
+      xNorm: finalPoint.xNorm as JsonValue,
+      yNorm: finalPoint.yNorm as JsonValue,
+    });
   }
 
   private appendCrossRunProjection(
@@ -1175,7 +1333,7 @@ export class NarrativeAuthority {
     }
   }
 
-  private validateSnapshotRecordPayload(event: CanonicalGameplayEvent): Readonly<NarrativeRecord> {
+  #validateSnapshotRecordPayload(event: CanonicalGameplayEvent): Readonly<NarrativeRecord> {
     if (this.snapshotRecord === null) throw new Error(`${event.id} requires a validated current-run record`);
     const record = this.snapshotRecord.read();
     const id = event.id as string;
@@ -1185,7 +1343,16 @@ export class NarrativeAuthority {
     if (event.payload.deterministicSeed !== record.run.seed) {
       throw new Error(`${id} deterministicSeed does not match the validated record`);
     }
+    if (payloadString(event.payload, "snapshotHash", id) !== record.fingerprint.digestSha256) {
+      throw new Error(`${id} snapshotHash does not match the validated record`);
+    }
     this.validateRoutePayload(event.payload, record, id);
+    assertCanonicalPayloadEquals(event.payload.materialCounts, {
+      overrideScars: record.materialMemory.overrideScars.length,
+      deathTraces: record.materialMemory.deathTraces.length,
+      burnIns: record.materialMemory.burnIns.length,
+      ghostResidues: record.materialMemory.ghostResidues.length,
+    }, `${id}.payload.materialCounts`);
     return record;
   }
 
@@ -1228,10 +1395,11 @@ export class NarrativeAuthority {
         if (this.currentState === "FIRST_EYE") this.transitionTo("FIRST_CLAMP_RECOVERY", event);
         break;
       case "gaze.clamp.release":
-        if (this.currentState === "FIRST_CLAMP_RECOVERY") this.transitionTo("ROOM_SAMPLING", event);
+        // V4's exit guard is conjunctive: gaze release is necessary but cannot
+        // stand in for the separately required, currently unauthored
+        // flower.recoveryComplete gameplay fact.
         break;
       case "room.transition.world_swap.commit":
-        if (this.currentState === "FIRST_CLAMP_RECOVERY") this.transitionTo("ROOM_SAMPLING", event);
         if (this.currentState === "ROOM_SAMPLING" && this.visited.size >= 2) {
           this.transitionTo("WORLD_RESPONSE", event);
         }
@@ -1265,6 +1433,9 @@ export class NarrativeAuthority {
         break;
       case "cross_run.record.persist.commit":
         if (this.currentState === "STATE_SNAPSHOT") this.transitionTo("CROSS_RUN_MATERIALIZATION", event);
+        if (this.currentState === "CROSS_RUN_MATERIALIZATION" && this.snapshotLifecycle === "complete") {
+          this.transitionTo("RUN_CYCLE_COMPLETE", event);
+        }
         break;
       case "snapshot.complete":
         if (this.currentState === "CROSS_RUN_MATERIALIZATION" && this.persisted) {
@@ -1292,26 +1463,113 @@ export class NarrativeAuthority {
     }));
   }
 
-  private consumeSnapshot(event: CanonicalGameplayEvent): void {
-    if (event.id === "snapshot.serialize.commit") {
-      const record = this.validateSnapshotRecordPayload(event);
-      this.selectedObservations = selectSnapshotObservations(this.snapshotRecord as ValidatedNarrativeRecord);
-      if (payloadString(event.payload, "snapshotHash", event.id) !== record.fingerprint.digestSha256) {
-        throw new Error("snapshotHash does not match the validated current-run fingerprint");
+  #prepareSnapshotEvent(event: CanonicalGameplayEvent): PreparedSnapshotEvent | null {
+    const id = event.id as string;
+    if (id === "snapshot.begin") {
+      if (this.snapshotLifecycle !== "idle") {
+        throw new Error(`snapshot.begin is out of order from ${this.snapshotLifecycle}`);
       }
+      const runId = payloadString(event.payload, "runId", id);
+      if (this.snapshotRecord !== null && runId !== this.snapshotRecord.read().run.id) {
+        throw new Error("snapshot.begin runId does not match the validated current-run record");
+      }
+      return Object.freeze({kind: "begin", runId});
     }
-    if (event.id === "snapshot.complete") {
-      if (this.snapshotRecord !== null
-        && payloadString(event.payload, "runId", event.id) !== this.snapshotRecord.read().run.id) {
+
+    if (id === "snapshot.serialize.commit") {
+      if (this.snapshotLifecycle !== "capturing" || this.snapshotRunId === null) {
+        throw new Error(`snapshot.serialize.commit is out of order from ${this.snapshotLifecycle}`);
+      }
+      const record = this.#validateSnapshotRecordPayload(event);
+      if (record.run.id !== this.snapshotRunId) {
+        throw new Error("snapshot.serialize.commit changed the active snapshot runId");
+      }
+      const recordToken = this.snapshotRecord;
+      if (recordToken === null) {
+        throw new Error("snapshot.serialize.commit requires a validated current-run record");
+      }
+      return Object.freeze({
+        kind: "serialize",
+        observations: selectSnapshotObservations(recordToken),
+      });
+    }
+
+    if (id === "snapshot.present.begin") {
+      if (this.snapshotLifecycle !== "serialized" || this.snapshotRunId === null) {
+        throw new Error(`snapshot.present.begin is out of order from ${this.snapshotLifecycle}`);
+      }
+      const runId = payloadString(event.payload, "runId", id);
+      if (runId !== this.snapshotRunId) {
+        throw new Error("snapshot.present.begin changed the active snapshot runId");
+      }
+      if (this.snapshotRecord === null
+        || payloadString(event.payload, "snapshotHash", id)
+          !== this.snapshotRecord.read().fingerprint.digestSha256) {
+        throw new Error("snapshot.present.begin snapshotHash does not match the validated record");
+      }
+      return Object.freeze({kind: "present"});
+    }
+
+    if (id === "cross_run.record.persist.commit") {
+      if (
+        this.snapshotLifecycle !== "serialized"
+        && this.snapshotLifecycle !== "presenting"
+        && this.snapshotLifecycle !== "complete"
+      ) {
+        throw new Error(`cross_run.record.persist.commit is out of order from ${this.snapshotLifecycle}`);
+      }
+      if (this.persisted) throw new Error("cross_run.record.persist.commit cannot persist twice");
+      const record = this.#validateSnapshotRecordPayload(event);
+      if (this.snapshotRunId === null || record.run.id !== this.snapshotRunId) {
+        throw new Error("cross_run.record.persist.commit changed the active snapshot runId");
+      }
+      return Object.freeze({kind: "persist"});
+    }
+
+    if (id === "snapshot.complete") {
+      if (this.snapshotLifecycle !== "presenting" || this.snapshotRunId === null) {
+        throw new Error(`snapshot.complete is out of order from ${this.snapshotLifecycle}`);
+      }
+      const runId = payloadString(event.payload, "runId", id);
+      if (runId !== this.snapshotRunId) {
+        throw new Error("snapshot.complete changed the active snapshot runId");
+      }
+      if (this.snapshotRecord !== null && runId !== this.snapshotRecord.read().run.id) {
         throw new Error("snapshot.complete runId does not match the validated current-run record");
       }
-      this.snapshotComplete = true;
-      this.handoff = this.selectedObservations.length > 0;
-      if (this.currentState === "CROSS_RUN_MATERIALIZATION" && this.persisted) {
-        this.handoff = true;
-      }
+      return Object.freeze({kind: "complete"});
     }
-    if (this.snapshotComplete && this.persisted) this.handoff = true;
+
+    return null;
+  }
+
+  #commitPreparedSnapshotEvent(prepared: PreparedSnapshotEvent | null): void {
+    if (prepared === null) return;
+    switch (prepared.kind) {
+      case "begin":
+        this.snapshotRunId = prepared.runId;
+        this.snapshotLifecycle = "capturing";
+        break;
+      case "serialize":
+        this.selectedObservations = prepared.observations;
+        this.snapshotLifecycle = "serialized";
+        break;
+      case "present":
+        this.snapshotLifecycle = "presenting";
+        break;
+      case "persist":
+        this.persisted = true;
+        break;
+      case "complete":
+        this.snapshotLifecycle = "complete";
+        break;
+    }
+    // Handoff is a projection of the authored terminal narrative path. The
+    // snapshot/archive facts are necessary, but cannot manufacture that path
+    // while the reducer is observing a standalone snapshot in BOOT_REHYDRATE.
+    this.handoff = this.currentState === "RUN_CYCLE_COMPLETE"
+      && this.snapshotLifecycle === "complete"
+      && this.persisted;
   }
 
   private nextProjectionOrder(): number {

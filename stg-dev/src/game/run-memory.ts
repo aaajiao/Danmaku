@@ -196,6 +196,15 @@ export interface RunMemory {
   rehydrationOrder: [...typeof REHYDRATION_ORDER];
 }
 
+type RecursiveReadonly<T> = T extends readonly unknown[]
+  ? {readonly [Index in keyof T]: RecursiveReadonly<T[Index]>}
+  : T extends object
+    ? {readonly [Key in keyof T]: RecursiveReadonly<T[Key]>}
+    : T;
+
+/** The recursively frozen record returned only by RunMemoryRecorder.finalize(). */
+export type FinalizedRunMemory = RecursiveReadonly<RunMemory>;
+
 export type BehaviorFactKind =
   | "LIGHT_SAMPLE"
   | "LIGHT_BAND_CHANGE"
@@ -618,6 +627,90 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+declare const recorderIssuedRunMemoryTokenBrand: unique symbol;
+
+/** Opaque proof that an unchanged in-memory recorder result owns its route provenance. */
+export interface RecorderIssuedRunMemoryToken {
+  readonly [recorderIssuedRunMemoryTokenBrand]: "RecorderIssuedRunMemoryToken";
+}
+
+interface RecorderIssuedRunMemoryProvenance {
+  readonly snapshot: FinalizedRunMemory;
+}
+
+const RECORDER_ISSUED_RUN_MEMORY = new WeakMap<object, RecorderIssuedRunMemoryProvenance>();
+const RECORDER_ISSUED_RUN_MEMORY_TOKENS = new WeakMap<
+  RecorderIssuedRunMemoryToken,
+  FinalizedRunMemory
+>();
+
+export const RUN_MEMORY_PROVENANCE_CONTRACT = Object.freeze({
+  trustedSource: "RunMemoryRecorder.finalize" as const,
+  capturePolicy: "unchanged-exact-in-memory-result-only" as const,
+  tokenPolicy: "opaque-weakmap-capability" as const,
+  tokenSnapshot: "immutable-finalize-time-copy" as const,
+  parsedOrPersistedAuthority: "unsupported" as const,
+  compressedRouteDigestRecomputation: "forbidden-uncompressed-samples-unavailable" as const,
+});
+
+function deepFreezeRunMemoryValue<T>(value: T): RecursiveReadonly<T> {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value as RecursiveReadonly<T>;
+  }
+  for (const key of Reflect.ownKeys(value)) {
+    deepFreezeRunMemoryValue((value as Record<PropertyKey, unknown>)[key]);
+  }
+  return Object.freeze(value) as RecursiveReadonly<T>;
+}
+
+function registerRecorderIssuedRunMemory(memory: RunMemory): FinalizedRunMemory {
+  const snapshot = deepFreezeRunMemoryValue(clone(memory));
+  // The exact recorder result is immutable before it becomes a provenance
+  // capability. Capture can therefore inspect only recorder-authored data
+  // properties; callers cannot substitute getters or stale values afterward.
+  const finalizedMemory = deepFreezeRunMemoryValue(memory);
+  RECORDER_ISSUED_RUN_MEMORY.set(finalizedMemory, Object.freeze({snapshot}));
+  return finalizedMemory;
+}
+
+/**
+ * Mint an authority capability only from the unchanged object returned by
+ * RunMemoryRecorder.finalize(). A parsed, cloned, or edited shape-valid record
+ * cannot recover the unavailable uncompressed route provenance.
+ */
+export function captureRecorderIssuedRunMemory(
+  value: unknown,
+): RecorderIssuedRunMemoryToken {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("trusted run memory capture requires a recorder-issued in-memory result");
+  }
+  const provenance = RECORDER_ISSUED_RUN_MEMORY.get(value);
+  if (provenance === undefined) {
+    throw new Error(
+      "trusted run memory capture rejects raw, cloned, parsed, or persisted records",
+    );
+  }
+  const token = Object.freeze(Object.create(null)) as RecorderIssuedRunMemoryToken;
+  RECORDER_ISSUED_RUN_MEMORY_TOKENS.set(token, provenance.snapshot);
+  return token;
+}
+
+/** Internal-authority read of a recorder-issued immutable snapshot. */
+export function readRecorderIssuedRunMemory(
+  tokenValue: unknown,
+): FinalizedRunMemory {
+  if (typeof tokenValue !== "object" || tokenValue === null) {
+    throw new Error("cross-run restore requires an opaque recorder-issued run memory token");
+  }
+  const memory = RECORDER_ISSUED_RUN_MEMORY_TOKENS.get(
+    tokenValue as RecorderIssuedRunMemoryToken,
+  );
+  if (memory === undefined) {
+    throw new Error("cross-run restore requires an opaque recorder-issued run memory token");
+  }
+  return memory;
+}
+
 function isEventPin(point: GhostPoint): boolean {
   return point.flags.length > 0;
 }
@@ -730,7 +823,7 @@ export class RunMemoryRecorder {
   addGhostResidue(value: GhostResidue): void { this.materialMemory.ghostResidues.push(clone(value)); }
   recordWitness(value: WitnessMemory): void { this.witnesses.push(clone(value)); }
 
-  finalize(options: RunMemoryFinalizeOptions): RunMemory {
+  finalize(options: RunMemoryFinalizeOptions): FinalizedRunMemory {
     if (!isIntegerAtLeast(options.endedAtTick, this.startedAtTick)) throw new Error("end tick precedes the run start");
     const durationMs = options.durationMs ?? Math.round((options.endedAtTick - this.startedAtTick) * 1000 / this.tickHz);
     if (!isIntegerAtLeast(durationMs, 0)) throw new Error("duration must be a non-negative integer");
@@ -781,7 +874,7 @@ export class RunMemoryRecorder {
       };
     }
     assertRunMemory(memory);
-    return memory;
+    return registerRecorderIssuedRunMemory(memory);
   }
 
   private buildGhostRoute(): GhostRoute | null {
@@ -941,7 +1034,7 @@ export class LocalStorageRunMemoryAdapter {
     private readonly key = "1bit.run-memory.v4",
   ) {}
 
-  save(memory: RunMemory): void {
+  save(memory: FinalizedRunMemory): void {
     assertRunMemory(memory);
     this.storage.setItem(this.key, stableStringify(memory));
   }

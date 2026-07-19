@@ -69,7 +69,7 @@ export interface Vec2 {
 }
 
 export interface BulletState {
-  id: number;
+  id: number | string;
   archetype: string;
   position: Vec2;
   previous: Vec2;
@@ -85,6 +85,9 @@ export interface BulletState {
   turned: Set<string>;
   origin: Vec2;
   motionStack: MotionDefinition[];
+  /** Explicit authority lifecycle for canonical projections; presentation only. */
+  lifecycleState?: "arm" | "flight" | "residue";
+  collisionEnabled?: boolean;
 }
 
 export interface ShotState {
@@ -97,6 +100,8 @@ export interface ShotState {
 export interface PlayerState {
   position: Vec2;
   focused: boolean;
+  /** Present for canonical authority projection; absent in the legacy Lab. */
+  lifeState?: "alive" | "dead" | "respawning" | "run-ended";
   evidence: number;
   expression: number;
   health: number;
@@ -116,6 +121,23 @@ export interface SimulationSnapshot {
   overrideUntilMs: number;
   paused: boolean;
   combatEnabled: boolean;
+  /** Optional committed V4 gaze state; presentation cannot infer this from time. */
+  gazeState?: "idle" | "acquiring" | "clamped" | "release-delay";
+  /** Optional committed release barrier; persistent presentation never infers it from a clip. */
+  gazeClampReleased?: boolean;
+  /** Target room only while the atomic room-transition FSM is active. */
+  roomThresholdTargetRoom?: string;
+  /** Optional phase-owned material presence, independent from projectile generation. */
+  targetVisible?: boolean;
+  /** Optional exact authority projection; legacy Lab computes these locally. */
+  safeGapCenterX?: number;
+  safeGapWidthPx?: number;
+  overrideView?: Readonly<{
+    active: boolean;
+    direction: Vec2;
+    radius: number;
+    halfAngleDegrees: number;
+  }>;
 }
 
 export type SimulationEvent =

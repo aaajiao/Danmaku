@@ -5,7 +5,13 @@ import roomManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/
 import runManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/run-director-v4.json";
 import eventSchemaJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/runtime/event-schema-v4.json";
 import {MASTER_TICK_HZ} from "./clock";
-import {CANONICAL_EVENT_IDS, CanonicalEventBus, type GameplayEventDraft} from "./events";
+import {
+  CANONICAL_EVENT_IDS,
+  CanonicalEventBus,
+  consumeCanonicalEventBatchReceipt,
+  type CanonicalEventBatchReceipt,
+  type GameplayEventDraft,
+} from "./events";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -57,6 +63,8 @@ export interface BossPhaseDefinition {
   readonly entryCondition: string;
   readonly exitCondition: string;
   readonly resolutionCondition: string | null;
+  readonly laserGeometry: string | null;
+  readonly spatialLaw: string;
 }
 
 export interface BossDefinition {
@@ -111,7 +119,7 @@ export interface EncounterAuthorityCatalog {
   bossesForRoom(roomId: string): readonly BossDefinition[];
 }
 
-export interface EncounterPlanOptions {
+export interface EncounterEnvelopeFixtureOptions {
   readonly seed: number;
   readonly roomCount?: number;
   readonly wavesPerRoom?: number;
@@ -175,7 +183,11 @@ export interface PlannedBoss {
   readonly phases: readonly PlannedBossPhase[];
 }
 
-export interface EncounterCombatPlan {
+/**
+ * Deterministic non-live envelope fixture retained for segment/catalog tests.
+ * It is not the V4 RunComposer oracle and must never write canonical events.
+ */
+export interface EncounterEnvelopeFixture {
   readonly id: string;
   readonly seed: number;
   readonly rooms: readonly PlannedRoom[];
@@ -239,7 +251,7 @@ function finite(value: unknown, path: string): number {
 
 function nonNegativeInteger(value: unknown, path: string): number {
   const parsed = finite(value, path);
-  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || Object.is(parsed, -0)) {
     throw new Error(`${path} must be a non-negative safe integer`);
   }
   return parsed;
@@ -533,6 +545,16 @@ function parseBosses(
               phase.resolutionCondition,
               `boss manifest.rigs[${index}].phases[${phaseIndex}].resolutionCondition`,
             ),
+          laserGeometry: phase.laserGeometry === null
+            ? null
+            : string(
+              phase.laserGeometry,
+              `boss manifest.rigs[${index}].phases[${phaseIndex}].laserGeometry`,
+            ),
+          spatialLaw: string(
+            phase.spatialLaw,
+            `boss manifest.rigs[${index}].phases[${phaseIndex}].spatialLaw`,
+          ),
         });
       },
     );
@@ -946,10 +968,15 @@ function behaviorWeight(
   return Math.max(0.0001, total);
 }
 
-export function compileEncounterCombatPlan(
-  options: EncounterPlanOptions,
+/**
+ * Compiles the repository's historical segment-envelope fixture. Its sampled
+ * segment durations and weather choices are not authored V4 RunComposer
+ * policy; live composition must use a separately resolved authority.
+ */
+export function compileEncounterEnvelopeFixture(
+  options: EncounterEnvelopeFixtureOptions,
   catalog: EncounterAuthorityCatalog = V4_ENCOUNTER_CATALOG,
-): EncounterCombatPlan {
+): EncounterEnvelopeFixture {
   const seed = requireSeed(options.seed);
   const roomCount = options.roomCount ?? catalog.maximumRoomsPerRun;
   if (
@@ -1091,7 +1118,7 @@ export function compileEncounterCombatPlan(
     phases: Object.freeze(bossPhases),
   });
   return Object.freeze({
-    id: `encounter-plan-v4-${seed.toString(16).padStart(8, "0")}`,
+    id: `encounter-envelope-fixture-v4-${seed.toString(16).padStart(8, "0")}`,
     seed,
     rooms: Object.freeze(plannedRooms),
     boss: plannedBoss,
@@ -1112,7 +1139,7 @@ function observation(
   return Object.freeze({stableOrder, kind, tick120, room, waveId, segmentId, patternId, bossId});
 }
 
-function compileObservationTimeline(plan: EncounterCombatPlan): readonly TimelineObservation[] {
+function compileObservationTimeline(plan: EncounterEnvelopeFixture): readonly TimelineObservation[] {
   const timeline: TimelineObservation[] = [];
   let stableOrder = 0;
   for (const room of plan.rooms) {
@@ -1192,99 +1219,13 @@ function publicObservation(value: TimelineObservation): EncounterObservation {
   });
 }
 
-export class RoomTransitionAuthority {
-  private active: Readonly<{
-    generation: number;
-    fromRoom: string;
-    toRoom: string;
-    beginTick120: number;
-  }> | null = null;
-  private lastGeneration = 0;
-
-  constructor(
-    private readonly bus: CanonicalEventBus,
-    private readonly occurrenceNamespace = "room-authority",
-  ) {}
-
-  begin(fromRoom: string, toRoom: string, tick120: number): number {
-    if (this.active !== null) throw new Error("room transition is locked until threshold commit");
-    if (fromRoom.length === 0 || toRoom.length === 0 || fromRoom === toRoom) {
-      throw new Error("room transition endpoints must be distinct non-empty IDs");
-    }
-    const tick = nonNegativeInteger(tick120, "room transition tick120");
-    const generation = this.lastGeneration + 1;
-    this.bus.enqueue({
-      id: "room.transition.begin",
-      tick120: tick,
-      entityStableId: `room-transition:${generation}`,
-      localSequence: 0,
-      occurrenceKey: `${this.occurrenceNamespace}:${generation}:begin`,
-      payload: {generation, fromRoom, toRoom},
-    });
-    this.lastGeneration = generation;
-    this.active = Object.freeze({generation, fromRoom, toRoom, beginTick120: tick});
-    return generation;
-  }
-
-  commitThreshold(tick120: number): void {
-    const active = this.active;
-    if (active === null) throw new Error("room transition has no locked threshold to commit");
-    const tick = nonNegativeInteger(tick120, "room threshold tick120");
-    if (tick < active.beginTick120) throw new Error("room threshold cannot commit before transition begin");
-    const base = {
-      tick120: tick,
-      entityStableId: `room-transition:${active.generation}`,
-    } as const;
-    const sequenceBase = tick === active.beginTick120 ? 1 : 0;
-    const drafts: readonly GameplayEventDraft[] = [
-      {
-        ...base,
-        id: "room.transition.world_swap.commit",
-        localSequence: sequenceBase,
-        occurrenceKey: `${this.occurrenceNamespace}:${active.generation}:world-swap`,
-        payload: {
-          generation: active.generation,
-          fromRoom: active.fromRoom,
-          toRoom: active.toRoom,
-        },
-      },
-      {
-        ...base,
-        id: "room.transition.room_ready",
-        localSequence: sequenceBase + 1,
-        occurrenceKey: `${this.occurrenceNamespace}:${active.generation}:room-ready`,
-        payload: {generation: active.generation, room: active.toRoom},
-      },
-      {
-        ...base,
-        id: "room.transition.complete",
-        localSequence: sequenceBase + 2,
-        occurrenceKey: `${this.occurrenceNamespace}:${active.generation}:complete`,
-        payload: {generation: active.generation, room: active.toRoom},
-      },
-    ];
-    for (const draft of drafts) this.bus.enqueue(draft);
-    this.active = null;
-  }
-
-  isLocked(): boolean {
-    return this.active !== null;
-  }
-}
-
-export class EncounterScheduleMachine {
+export class EncounterEnvelopeObservationMachine {
   private readonly timeline: readonly TimelineObservation[];
-  private readonly transitions: RoomTransitionAuthority;
   private cursor = 0;
   private lastAdvancedTick = -1;
-  private previousRoom = "RUN_ORIGIN";
 
-  constructor(
-    readonly plan: EncounterCombatPlan,
-    private readonly bus: CanonicalEventBus,
-  ) {
+  constructor(readonly plan: EncounterEnvelopeFixture) {
     this.timeline = compileObservationTimeline(plan);
-    this.transitions = new RoomTransitionAuthority(bus, plan.id);
   }
 
   advanceToTick(tick120: number): readonly EncounterObservation[] {
@@ -1294,11 +1235,6 @@ export class EncounterScheduleMachine {
     while (this.cursor < this.timeline.length) {
       const next = this.timeline[this.cursor];
       if (next === undefined || next.tick120 > tick) break;
-      if (next.kind === "room.enter") {
-        this.transitions.begin(this.previousRoom, next.room, next.tick120);
-        this.transitions.commitThreshold(next.tick120);
-        this.previousRoom = next.room;
-      }
       crossed.push(publicObservation(next));
       this.cursor += 1;
     }
@@ -1313,10 +1249,6 @@ export class EncounterScheduleMachine {
   observationsRemaining(): number {
     return this.timeline.length - this.cursor;
   }
-
-  canonicalBus(): CanonicalEventBus {
-    return this.bus;
-  }
 }
 
 export type BossResolutionKind = "authored-condition" | "authoritative-duration";
@@ -1329,11 +1261,8 @@ export interface BossAuthoritySnapshot {
   readonly phaseId: string | null;
   readonly transitionLocked: boolean;
   readonly collisionEnabled: boolean;
-  readonly structuralRupture: Readonly<{
-    tick120: number;
-    materialRemainder: string;
-    residueType: string;
-  }> | null;
+  /** No standalone V4 rupture event exists; material state commits with resolution. */
+  readonly structuralRupture: null;
   readonly resolution: Readonly<{
     kind: BossResolutionKind;
     tick120: number;
@@ -1344,6 +1273,60 @@ export interface BossAuthoritySnapshot {
   }> | null;
 }
 
+declare const preparedBossPhaseExitBrand: unique symbol;
+
+/**
+ * Opaque identity for one staged Boss phase exit. The proposal itself exposes
+ * no mutation port; a coordinator must ask the owning authority for its frozen
+ * view, append that view's drafts with every sibling proposal in one batch,
+ * then apply the proposal on the same synchronous authority turn.
+ */
+export interface PreparedBossPhaseExit {
+  readonly [preparedBossPhaseExitBrand]: "PreparedBossPhaseExit";
+}
+
+export interface PreparedBossPhaseExitView {
+  readonly authority: "v4-boss-phase-exit-proposal";
+  readonly bossId: string;
+  readonly generation: number;
+  readonly tick120: number;
+  readonly fromPhaseId: string;
+  readonly toPhaseId: string;
+  readonly attackPlanId: string;
+  readonly laserGeometry: string | null;
+  readonly spatialLaw: string;
+  readonly drafts: readonly GameplayEventDraft[];
+}
+
+interface PreparedBossPhaseExitRecord {
+  readonly owner: BossPhaseAuthority;
+  readonly bus: CanonicalEventBus;
+  readonly revision: number;
+  readonly nextRevision: number;
+  readonly nextPhaseIndex: number;
+  readonly view: PreparedBossPhaseExitView;
+  status: "prepared" | "applied";
+}
+
+const PREPARED_BOSS_PHASE_EXITS = new WeakMap<object, PreparedBossPhaseExitRecord>();
+const EXACT_BOSS_PHASE_AUTHORITIES = new WeakSet<BossPhaseAuthority>();
+const BOSS_PHASE_AUTHORITY_COMPOSITE_METHODS = Object.freeze([
+  "snapshot",
+  "preparePhaseExit",
+  "readPreparedPhaseExit",
+  "applyPreparedPhaseExit",
+] as const);
+
+/** Exact production identity used by cross-authority prepared composition. */
+export function isExactBossPhaseAuthority(value: unknown): value is BossPhaseAuthority {
+  return typeof value === "object"
+    && value !== null
+    && EXACT_BOSS_PHASE_AUTHORITIES.has(value as BossPhaseAuthority)
+    && Object.getPrototypeOf(value) === BossPhaseAuthority.prototype
+    && BOSS_PHASE_AUTHORITY_COMPOSITE_METHODS.every((method) =>
+      !Object.prototype.hasOwnProperty.call(value, method));
+}
+
 export class BossPhaseAuthority {
   readonly boss: BossDefinition;
   private readonly fallbackResolution: EncounterAuthorityCatalog["fallbackResolution"];
@@ -1352,8 +1335,8 @@ export class BossPhaseAuthority {
   private transitionLocked = false;
   private collisionEnabled = false;
   private lastTransitionTick = -1;
-  private rupture: BossAuthoritySnapshot["structuralRupture"] = null;
   private resolution: BossAuthoritySnapshot["resolution"] = null;
+  private revision = 0;
 
   constructor(
     bossId: string,
@@ -1366,6 +1349,7 @@ export class BossPhaseAuthority {
     }
     this.boss = catalog.requireBoss(bossId);
     this.fallbackResolution = catalog.fallbackResolution;
+    if (new.target === BossPhaseAuthority) EXACT_BOSS_PHASE_AUTHORITIES.add(this);
   }
 
   begin(tick120: number): void {
@@ -1374,84 +1358,96 @@ export class BossPhaseAuthority {
     const phase = this.boss.phases[0];
     if (phase === undefined) throw new Error("boss has no first phase");
     this.withTransition(() => {
-      this.enqueueBossEvent("boss.encounter.begin", tick, 0, "encounter-begin", {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseCount: this.boss.phases.length,
-      });
-      this.enqueueBossEvent("boss.phase.enter", tick, 1, `phase-enter:${phase.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseId: phase.id,
-        phaseIndex: 0,
-      });
-      this.enqueueBossEvent("boss.phase.attack_plan.commit", tick, 2, `attack-plan:${phase.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseId: phase.id,
-        attackPlanId: phase.patternId,
-      });
+      this.bus.enqueueBatch([
+        this.bossEventDraft("boss.encounter.begin", tick, 0, "encounter-begin", {
+          bossId: this.boss.id,
+          generation: this.generation,
+          phaseCount: this.boss.phases.length,
+        }),
+        this.bossEventDraft("boss.phase.enter", tick, 1, `phase-enter:${phase.id}`, {
+          bossId: this.boss.id,
+          generation: this.generation,
+          phaseId: phase.id,
+          phaseIndex: 0,
+        }),
+        this.bossEventDraft(
+          "boss.phase.attack_plan.commit",
+          tick,
+          2,
+          `attack-plan:${phase.id}`,
+          {
+            bossId: this.boss.id,
+            generation: this.generation,
+            phaseId: phase.id,
+            attackPlanId: phase.patternId,
+          },
+        ),
+      ]);
       this.state = "active";
       this.phaseIndex = 0;
       this.collisionEnabled = true;
       this.lastTransitionTick = tick;
+      this.revision += 1;
+    });
+  }
+
+  /**
+   * Stage the exact Boss facts and next-state assignment without touching the
+   * event bus or live machine. A future laser coordinator may combine the
+   * returned view's drafts with a laser-start proposal before either state is
+   * applied. This is a narrow prepared mutation, not a rollback transaction.
+   */
+  preparePhaseExit(
+    expectedPhaseId: string,
+    tick120: number,
+    cause: string,
+  ): PreparedBossPhaseExit {
+    return this.withTransition(() =>
+      this.preparePhaseExitUnlocked(expectedPhaseId, tick120, cause));
+  }
+
+  /**
+   * Read a frozen, plain-data proposal after verifying owner, bus, revision,
+   * and one-use state. Call this immediately before the combined append.
+   */
+  readPreparedPhaseExit(
+    proposal: PreparedBossPhaseExit,
+    expectedBus: CanonicalEventBus,
+  ): PreparedBossPhaseExitView {
+    return this.withTransition(() =>
+      this.requirePreparedPhaseExit(proposal, expectedBus).view);
+  }
+
+  /**
+   * Apply only the already-prepared scalar state assignment. The expected use
+   * is immediately after one combined `enqueueBatch()` has returned. Once the
+   * proposal is verified on this synchronous turn, the unchecked assignment
+   * performs no bus write, allocation, validation, callback, or flush.
+   */
+  applyPreparedPhaseExit(
+    proposal: PreparedBossPhaseExit,
+    expectedBus: CanonicalEventBus,
+    receipt: CanonicalEventBatchReceipt,
+  ): void {
+    this.withTransition(() => {
+      const prepared = this.requirePreparedPhaseExit(proposal, expectedBus);
+      consumeCanonicalEventBatchReceipt(receipt, expectedBus, prepared.view.drafts);
+      this.applyPreparedPhaseExitUnchecked(prepared);
     });
   }
 
   commitPhaseExit(expectedPhaseId: string, tick120: number, cause: string): void {
-    this.requireActivePhase(expectedPhaseId);
-    const tick = this.requireLaterTick(tick120, "boss phase exit tick120");
-    if (cause.trim().length === 0) throw new Error("boss phase exit cause must be non-empty");
-    const currentIndex = this.phaseIndex as number;
-    const current = this.boss.phases[currentIndex];
-    const next = this.boss.phases[currentIndex + 1];
-    if (current === undefined || next === undefined) {
-      throw new Error("final boss phase must use resolveFinal instead of phase exit");
-    }
     this.withTransition(() => {
-      this.enqueueBossEvent("boss.phase.exit", tick, 0, `phase-exit:${current.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseId: current.id,
-        cause,
-      });
-      this.enqueueBossEvent("boss.phase.swap", tick, 1, `phase-swap:${current.id}:${next.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        fromPhaseId: current.id,
-        toPhaseId: next.id,
-      });
-      this.enqueueBossEvent("boss.phase.enter", tick, 2, `phase-enter:${next.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseId: next.id,
-        phaseIndex: currentIndex + 1,
-      });
-      this.enqueueBossEvent("boss.phase.attack_plan.commit", tick, 3, `attack-plan:${next.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseId: next.id,
-        attackPlanId: next.patternId,
-      });
-      this.phaseIndex = currentIndex + 1;
-      this.lastTransitionTick = tick;
+      const proposal = this.preparePhaseExitUnlocked(expectedPhaseId, tick120, cause);
+      const prepared = this.requirePreparedPhaseExit(proposal, this.bus);
+      const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+        this.bus,
+        Object.freeze([prepared.view.drafts]),
+      );
+      const receipt = receipts[0] as CanonicalEventBatchReceipt;
+      consumeCanonicalEventBatchReceipt(receipt, this.bus, prepared.view.drafts);
+      this.applyPreparedPhaseExitUnchecked(prepared);
     });
-  }
-
-  recordStructuralRupture(tick120: number): void {
-    if (this.state !== "active" || this.phaseIndex === null) {
-      throw new Error("structural rupture requires an active boss protocol");
-    }
-    if (this.rupture !== null) throw new Error("structural rupture can be recorded only once");
-    const tick = nonNegativeInteger(tick120, "boss rupture tick120");
-    if (tick < this.lastTransitionTick) throw new Error("boss rupture cannot precede current phase");
-    this.collisionEnabled = false;
-    this.rupture = Object.freeze({
-      tick120: tick,
-      materialRemainder: this.boss.materialRemainder,
-      residueType: this.boss.residueType,
-    });
-    this.lastTransitionTick = tick;
   }
 
   resolveFinal(expectedPhaseId: string, tick120: number, kind: BossResolutionKind): void {
@@ -1483,23 +1479,27 @@ export class BossPhaseAuthority {
         terminalEvent: this.fallbackResolution.terminalEvent,
       });
     this.withTransition(() => {
-      // Collision authority changes first; canonical presentation consumes only the later committed facts.
+      this.bus.enqueueBatch([
+        this.bossEventDraft("boss.phase.exit", tick, 0, `phase-exit:${phase.id}`, {
+          bossId: this.boss.id,
+          generation: this.generation,
+          phaseId: phase.id,
+          cause: kind,
+        }),
+        this.bossEventDraft("boss.encounter.resolve", tick, 1, "encounter-resolve", {
+          bossId: this.boss.id,
+          generation: this.generation,
+          outcome: resolution.outcome,
+          finalPhaseId: phase.id,
+        }),
+      ]);
+      // Collision authority changes only after the complete canonical fact
+      // batch is accepted; a rejected occurrence leaves the active phase intact.
       this.collisionEnabled = false;
-      this.enqueueBossEvent("boss.phase.exit", tick, 0, `phase-exit:${phase.id}`, {
-        bossId: this.boss.id,
-        generation: this.generation,
-        phaseId: phase.id,
-        cause: kind,
-      });
-      this.enqueueBossEvent("boss.encounter.resolve", tick, 1, "encounter-resolve", {
-        bossId: this.boss.id,
-        generation: this.generation,
-        outcome: resolution.outcome,
-        finalPhaseId: phase.id,
-      });
       this.resolution = resolution;
       this.state = "resolved";
       this.lastTransitionTick = tick;
+      this.revision += 1;
     });
   }
 
@@ -1513,7 +1513,7 @@ export class BossPhaseAuthority {
       phaseId: phase?.id ?? null,
       transitionLocked: this.transitionLocked,
       collisionEnabled: this.collisionEnabled,
-      structuralRupture: this.rupture,
+      structuralRupture: null,
       resolution: this.resolution,
     });
   }
@@ -1534,30 +1534,137 @@ export class BossPhaseAuthority {
     return tick;
   }
 
-  private withTransition(commit: () => void): void {
+  private preparePhaseExitUnlocked(
+    expectedPhaseIdValue: string,
+    tick120Value: number,
+    causeValue: string,
+  ): PreparedBossPhaseExit {
+    const expectedPhaseId = string(expectedPhaseIdValue, "boss expected phaseId");
+    this.requireActivePhase(expectedPhaseId);
+    const tick = this.requireLaterTick(tick120Value, "boss phase exit tick120");
+    const cause = string(causeValue, "boss phase exit cause");
+    const currentIndex = this.phaseIndex as number;
+    const current = this.boss.phases[currentIndex];
+    const next = this.boss.phases[currentIndex + 1];
+    if (current === undefined || next === undefined) {
+      throw new Error("final boss phase must use resolveFinal instead of phase exit");
+    }
+    const nextRevision = this.revision + 1;
+    if (!Number.isSafeInteger(nextRevision)) {
+      throw new Error("boss authority revision exceeds the safe integer range");
+    }
+    const drafts = Object.freeze([
+      this.bossEventDraft("boss.phase.exit", tick, 0, `phase-exit:${current.id}`, {
+        bossId: this.boss.id,
+        generation: this.generation,
+        phaseId: current.id,
+        cause,
+      }),
+      this.bossEventDraft("boss.phase.swap", tick, 1, `phase-swap:${current.id}:${next.id}`, {
+        bossId: this.boss.id,
+        generation: this.generation,
+        fromPhaseId: current.id,
+        toPhaseId: next.id,
+      }),
+      this.bossEventDraft("boss.phase.enter", tick, 2, `phase-enter:${next.id}`, {
+        bossId: this.boss.id,
+        generation: this.generation,
+        phaseId: next.id,
+        phaseIndex: currentIndex + 1,
+      }),
+      this.bossEventDraft(
+        "boss.phase.attack_plan.commit",
+        tick,
+        3,
+        `attack-plan:${next.id}`,
+        {
+          bossId: this.boss.id,
+          generation: this.generation,
+          phaseId: next.id,
+          attackPlanId: next.patternId,
+        },
+      ),
+    ]);
+    const view: PreparedBossPhaseExitView = Object.freeze({
+      authority: "v4-boss-phase-exit-proposal" as const,
+      bossId: this.boss.id,
+      generation: this.generation,
+      tick120: tick,
+      fromPhaseId: current.id,
+      toPhaseId: next.id,
+      attackPlanId: next.patternId,
+      laserGeometry: next.laserGeometry,
+      spatialLaw: next.spatialLaw,
+      drafts,
+    });
+    const proposal = Object.freeze(Object.create(null)) as PreparedBossPhaseExit;
+    PREPARED_BOSS_PHASE_EXITS.set(proposal, {
+      owner: this,
+      bus: this.bus,
+      revision: this.revision,
+      nextRevision,
+      nextPhaseIndex: currentIndex + 1,
+      view,
+      status: "prepared",
+    });
+    return proposal;
+  }
+
+  private requirePreparedPhaseExit(
+    proposal: PreparedBossPhaseExit,
+    expectedBus: CanonicalEventBus,
+  ): PreparedBossPhaseExitRecord {
+    if (typeof (proposal as unknown) !== "object" || proposal === null) {
+      throw new Error("boss phase-exit proposal is not recognized");
+    }
+    const prepared = PREPARED_BOSS_PHASE_EXITS.get(proposal as object);
+    if (prepared === undefined || prepared.owner !== this) {
+      throw new Error("boss phase-exit proposal is not owned by this authority");
+    }
+    if (prepared.bus !== expectedBus) {
+      throw new Error("boss phase-exit proposal event bus does not match");
+    }
+    if (prepared.status !== "prepared") {
+      throw new Error("boss phase-exit proposal was already applied");
+    }
+    if (prepared.revision !== this.revision) {
+      throw new Error("boss phase-exit proposal is stale");
+    }
+    return prepared;
+  }
+
+  private applyPreparedPhaseExitUnchecked(prepared: PreparedBossPhaseExitRecord): void {
+    prepared.status = "applied";
+    this.phaseIndex = prepared.nextPhaseIndex;
+    this.lastTransitionTick = prepared.view.tick120;
+    this.revision = prepared.nextRevision;
+  }
+
+  private withTransition<Result>(commit: () => Result): Result {
     if (this.transitionLocked) throw new Error("boss phase transition is already locked");
     this.transitionLocked = true;
     try {
-      commit();
+      return commit();
     } finally {
       this.transitionLocked = false;
     }
   }
 
-  private enqueueBossEvent(
+  private bossEventDraft(
     id: string,
     tick120: number,
     localSequence: number,
     occurrenceSuffix: string,
     payload: GameplayEventDraft["payload"],
-  ): void {
-    this.bus.enqueue({
+  ): GameplayEventDraft {
+    const frozenPayload = Object.freeze({...record(payload, `boss event ${id} payload`)});
+    return Object.freeze({
       id,
       tick120,
       entityStableId: `boss:${this.boss.id}:generation:${this.generation}`,
       localSequence,
       occurrenceKey: `boss-authority:${this.boss.id}:${this.generation}:${occurrenceSuffix}`,
-      payload,
+      payload: frozenPayload,
     });
   }
 }

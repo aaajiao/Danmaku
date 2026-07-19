@@ -1,117 +1,151 @@
 # 1bit STG 游戏设计基线
 
-状态：`V4 CONTRACT + FOUNDATION WIP`
+状态：`V4 DESIGN CONTRACT`
 
-这不是 score attack，也不是善恶判定系统。玩家留下的是行为与材料事实，而不是等级证明。
+本文是设计 bible，只描述玩家可感知规则、体验结构、行为/材料语义和禁止项。
+当前工程完成度见[制作路线图](ROADMAP_ZH.md)，实现边界见[技术架构](ARCHITECTURE_ZH.md)，
+测试证据见[测试与验收](TESTING_ZH.md)。
+
+这不是 score attack，也不是善恶判定系统。玩家留下的是行为与材料事实，不是等级证明。
 
 ## 1. 不可约循环
 
-游戏的 metadata 不是“打倒更多敌人”，而是：
+> 读取规则 → 身体移动、凝视与擦弹 → 留下 evidence → 在局部撕开规则 → 世界留下材料痕迹
+> → 当前 Run 被观察和序列化 → 下一 Run 重新遇见这些事实。
 
-> 读取规则 → 身体移动/凝视/擦弹 → 留下 evidence → 在局部撕开规则 → 世界留下材料痕迹 → 当前 Run 被观察和序列化 → 下一 Run 重新遇见这些事实。
+内容是表面，行为是记录对象。系统记录玩家在哪里停留、如何移动、何时 Focus、看向什么、
+何时局部 Override、在哪里倒下，以及这些事实如何在下一次读取中留下痕迹。它不把这些维度
+压成一个总分。
 
-内容只是表面，行为才是记录对象。游戏不统计一个抽象分数来替代行为；它记录玩家停留在哪里、如何移动、何时聚焦、看向什么、何时打断规则、在哪里倒下，以及这些动作如何改变下一次读取。
+## 2. 设计支柱
 
-## 2. V4 Run 契约
+- **行为先于内容**：pattern、房间、Boss 和叙事都必须公开可观察的行为关系。
+- **数字—物质双螺旋**：数字事实可以投影为图像、声音、触觉、UI、叙事和记忆；表现不能
+  反写玩法 authority。
+- **局部而非全局控制**：Override 撕开局部规则，不是全屏清除、万能答案或资源最优解。
+- **缺席也是创作**：省略、停顿、中断、无反馈、残留、见证和交接与命中同等重要。
+- **结束是观察**：Run 在记录、余波与 handoff 中结束，不以 victory/defeat 总结。
 
-Canonical Run 不是线性关卡梯子，而是由 seed 和 behavior ledger 进行的精神房间抽样：
+## 3. Canonical Run 结构
 
-| 阶段 | 玩法事实 | 当前工程状态 |
-|---|---|---|
-| Quiet Awakening | 6–10 秒，无战斗；至少发生可辨认输入后才离开 | RunDirector 用 8 秒/两次 meaningful input 表达，WIP |
-| First Eye | 稀疏 `common.eye_acquisition`；解锁 Focus 与 graze evidence | pattern 可执行，Run 接线 WIP |
-| Mental Room Sampling | 从 4 房间中按 ledger 加权、不放回抽 2–4 个 | 纯逻辑 schedule 已有，完整 encounter parity 未完成 |
-| Local Override | `evidence >= cost` 时可进入；可选，不阻塞 Run | 基础局部扇区 Override 已有，材料写入未完成 |
-| Dusk / No Dusk | 达到目标时长或 terminal protocol 后停止新战斗生成 | Dusk schedule 基础；16-state 叙事未接入 |
-| State Snapshot | 无战斗、无 judgement；观察当前 Run | recorder/serializer WIP |
-| Cross-run Material Memory | 先材料，再 ghost，再 witness，最后返还输入 | 未完成端到端 hydrate/replay |
+Canonical Run 不是线性关卡梯子，而是由 seed 与 behavior ledger 驱动的精神房间抽样。
 
-硬约束：Run 至少 240,000ms、至少进入两个不同房间；Boss 每 Run 最多两个，按房间和行为匹配。Boss 的解法可以是 HP、存活、阅读或世界事实，`HP == 0` 不是全局必要条件。
+| 阶段 | 玩法契约 |
+|---|---|
+| Quiet Awakening | authored 目标窗口为 6–10 秒且无战斗；实际交接仍等待至少 6 秒与 2 次 meaningful-input rising edge，输入不足时可以继续延长 |
+| First Eye | 稀疏 `common.eye_acquisition`；玩家读取 gaze/clamp，并获得 Focus 与 graze evidence 的关系 |
+| First Clamp Recovery | gaze release 与 Flower recovery 是两个不同事实；缺一不可进入下一阶段 |
+| Mental Room Sampling | 从四种 canonical mental rooms 中按 ledger 加权、不放回抽取 2–4 个 |
+| Local Override | 达到显式 evidence/cost 条件后可选进入；不使用也不能阻塞 Run |
+| Dusk / No Dusk | 达到 authored duration 或 terminal protocol 后停止新战斗生成，保留已存在的身体与余波 |
+| State Snapshot | 在无战斗、无 judgement 的状态下观察与序列化当前 Run |
+| Cross-run Material Memory | 先恢复材料记录，再投影 ghost/residue/witness，最后归还玩家输入 |
 
-4 个 canonical room 是 `INFORMATION`、`FORCED_ALIGNMENT`、`IN_BETWEEN`、`POLARIZED`。它们是被抽样的精神状态，不对应“一关比一关高级”。难度只调弹体数量、速度、cadence 和 safe gap，不给玩家贴技能等级。
+完整 V4 Run 至少持续 240,000ms，并至少进入两个不同房间。每个 Run 最多出现两个 Boss，
+由房间和行为匹配；Boss 的 phase resolution 可以来自 HP、存活、阅读或世界事实，`HP == 0`
+不是全局必要条件。
 
-## 3. 禁止的评价语义
+四个 canonical room 是 `INFORMATION`、`FORCED_ALIGNMENT`、`IN_BETWEEN` 与
+`POLARIZED`。它们是被抽样的精神状态，不是从低到高的关卡，也不表达玩家等级。
 
-以下内容不得进入 Run schedule、存档字段、UI、遥测或结局命名：
+## 4. 禁止的评价语义
+
+以下内容不得进入 schedule、存档字段、UI、遥测、成就或结局命名：
 
 - score、high score、rank、grade、leaderboard；
-- victory/defeat；
-- good ending/bad ending；
+- victory/defeat、good ending/bad ending；
 - 用击杀数、资源量或单一路线定义“正确玩家”；
-- 用天气、可访问性选项、设备性能或手柄型号改变玩法结果。
+- 用天气、可访问性配置、设备性能或手柄型号改变玩法结果；
+- 把 Boss、房间或 pattern 的完成解释为道德、效率或技能评价。
 
-合法的 Run end 是已提交的事实，例如 `BODY_COLLAPSE`、`PROTOCOL_WITHDRAWAL`、`READING_FAILED`、`STABLE_INTERSECTION` 或 `NO_DUSK_WITHDRAWAL`。Snapshot 可以描述“发生了什么”，不能评价“做得好不好”。
+合法的 Run end 是已提交的事实，例如身体倒下、协议撤回、读取失败、稳定交点或无黄昏撤回。
+Snapshot 可以描述发生了什么，不能评价做得好不好。
 
-## 4. Behavior Ledger 与 Material Ledger
+## 5. Behavior Ledger
 
-### 4.1 Behavior Ledger
-
-当前 RunDirector 的基础字段是：
+完整 Run 的 Behavior Ledger 保留可解释、可追溯的维度：
 
 - `roomTimeMs`：各房间的权威停留时间；
 - `flower`：表达/信号强度的行为摘要；
-- `gaze`：凝视与 clamp 关系；
+- `gaze`：凝视、读取与 clamp 的关系；
 - `crack`：规则裂缝的发生事实；
 - `override`：局部 Override 的使用事实；
 - `contextSwitch`：玩家如何在规则上下文之间切换。
 
-Ledger 只用于抽样权重、witness/world response 和跨 Run 重遇。不得把多个维度压成一个“总分”；不得在 UI 中显示优劣排序。所有记录必须带单位、采样窗口、schema version 和来源事件，避免变成无法解释的数字。
+Ledger 只用于抽样权重、world response、witness 与跨 Run 重遇。每个记录必须保留单位、采样
+窗口、schema version 和来源事件；不得合并成总分或优劣排序。
 
-### 4.2 Material Ledger
+## 6. Material Ledger
 
-数字动作必须有物质对应，形成双螺旋：
-
-| 数字行为 | 材料事实 | 约束 |
+| 数字行为 | 材料事实 | 设计约束 |
 |---|---|---|
-| Directional Override | `overrideScar` | 有世界坐标/方向/类型；不是全屏清弹 |
-| 玩家倒下 | `deathTrace` | 与 scar 类型严格分离 |
-| 长时间/重复暴露 | `burnIn` | 是沉积，不是奖励倍率 |
-| 实际移动路线 | ghost route → `ghostResidue` | route duration 取最后一个权威点 |
-| Scar 与 ghost 的关系 | witness orientation | 发生在 ghost residue 之后 |
+| Directional Override | `overrideScar` | 保留世界坐标、方向与类型；不是全屏清弹 |
+| 玩家倒下 | `deathTrace` | 与 scar 类型严格分离，不写成失败徽章 |
+| 长时间或重复暴露 | `burnIn` | 是沉积，不是奖励倍率 |
+| 实际移动路线 | ghost route → `ghostResidue` | route duration 来自最后一个权威点 |
+| Scar 与 ghost 的关系 | witness orientation | 发生在 ghost residue 之后，不反向改变旧 Run |
 
-Restore 固定顺序为 `overrideScar → deathTrace → burnIn → actual ghost route → ghostResidue → witness → input return`。Ghost 的 collision、reward、emitter class 都不能偷偷恢复成敌人或奖励源。
+Restore 的 authored 顺序是：
 
-## 5. 战斗语法
+`overrideScar → deathTrace → burnIn → actual ghost route → ghostResidue → witness → input return`
 
-- V4 有 48 个 executable pattern：16 ROOM、2 COMMON、3 TRANSITION、3 WEATHER_ECHO、24 BOSS。
-- 8 个 Boss 各 3 phase：`observe → enforce → fail_to_totalize`；另有 8 种 laser geometry。
-- 弹体必须有显式 `spawn → arm → flight → impact/cancel → residue → cleanup`；flight 属于实体，不按视觉动画固定超时结束。
-- Graze 的唯一键是 projectile instance、generation 和 player；同一代弹体对同一玩家最多授予一次 evidence。
-- Safe gap 与 exact warning 是玩法契约，不是装饰。视觉关闭、闪烁关闭或降帧不能改变安全路径。
-- Directional Override 消耗 evidence，只在玩家前方局部扇区撕开规则；它不提供全局无敌。数字结果是 local-rule-tear，材料结果是带类型和坐标的 scar。
-- Weather/background 可以反馈世界状态，但 presentation 不能反向产生碰撞或 RNG。
+Ghost 的 collision、reward 与 emitter class 必须为 `NONE`；它是材料见证，不是敌人、奖励源或
+隐藏玩法状态。
 
-## 6. 输入设计
+## 7. 战斗语法
 
-| 行为 | 键盘 | 标准映射手柄 | 设计语义 |
-|---|---|---|---|
-| 移动 | WASD / 方向键 | 左摇杆 / D-pad | 连续身体事实 |
-| 表达/射击 | Z | Button 0（A/Cross） | 不是“确认正确答案” |
-| 局部 Override | X | Button 1（B/Circle） | edge-triggered，消耗 evidence |
-| Focus | Shift | Button 4/5（LB/RB） | 精细移动与读取 |
-| Pause | Space | Button 9（Start/Options） | 冻结 gameplay clock |
+V4 的 gameplay universe 包含 16 ROOM、2 COMMON、3 TRANSITION、3 WEATHER_ECHO 与
+24 BOSS patterns。分类是创作语汇，不代表生产实现进度。
 
-实现基线是浏览器原生 Gamepad API、0.18 径向死区、D-pad/摇杆择强、热插拔、断开回退和可用时的 dual-rumble。触觉是反馈 sink：不支持振动、权限拒绝或手柄断开都不能改变事件 trace。浏览器“standard mapping”以外的设备在 P1 通过显式 remap profile 支持，不能靠猜测按钮布局。
+- warning、arm、collision、movement、cancel 与 residue 是不同阶段；动画帧、alpha、声音或
+  reduced motion 不能替代它们。
+- 同一 generation 的 RNG、identity、运动与材料生命周期必须保持可追溯；省略的 candidate
+  没有数字身体，也不能凭空生成 residue。
+- motion operators 按 manifest 声明顺序执行。转向、seam、clock、phase gate 与 envelope 的
+  次序本身就是 pattern 行为，不能为了统一代码而重排。
+- safe gap 是几何与时间约束，不是善意护盾。被 phase mask 暂时撤回碰撞的身体仍可继续运动；
+  被 clock 关闭的身体保留 identity，并按该 clock 的规则停留。
+- authored late burst、空 lane、silent cadence、inert hook、未就绪 handoff 与排空中的 residue
+  都必须保留；不要用 cutoff、爆炸、提示、奖励或通用“成功反馈”填满。
+- 难度只调节 manifest 授权的数量、速度、cadence 与 safe gap，不给玩家贴等级标签。
+- WEATHER_ECHO 可以借用天气语汇，但真实 weather event、seed、动画和 accessibility profile
+  都不能触发或改写 gameplay RNG、弹体、碰撞或选择。
+- Boss pattern 的 family laser association 不自动启动 laser；只有 phase contract 明示的 geometry
+  和 authored phase facts 可以产生 active laser。
 
-触摸/指针按住拖动是平台替代输入。所有来源先归一成同一个按 tick `InputFrame`，回放只保存归一化事实和必要 edge，不保存设备品牌。
+## 8. Input 与身体语义
 
-## 7. PWA 与离线语义
+| 行为 | 设计意图 |
+|---|---|
+| Move | 身体位置与路线事实；不是摇杆强度分数 |
+| Express / Shoot | 表达信号与射击输入共享设备入口，但各自由 authority 解释 |
+| Focus | 改变读取/移动姿态；不能改变 seeded schedule |
+| Local Override | 在授权阶段对局部方向/区域形成一次行为边沿 |
+| Pause | 冻结 gameplay time，并丢弃暂停期间观察到的 wall time |
 
-PWA 不是包装层，而是可复现运行环境：
+Meaningful input 按 rising edge 记录；同一设备动作不能重复计数。键盘、pointer、touch 与 gamepad
+只是设备投影，必须汇入同一 gameplay input 语义。手柄标签、haptics 可用性和设备品牌都不能
+改变 trace。
 
-- manifest 提供 standalone、192/512 `any` 和 512 `maskable` 图标；
-- shortcut 显式进入 `?mode=pattern-lab`，默认 `/` 面向 RUN；
-- 核心脚本、V4 数据、必要图集/音频必须在发布版本可离线复现；
-- service worker 更新只能在安全边界提示/切换，不得在 Run 中途混用 content digest；
-- 离线与在线使用同一 seed/输入时必须产生同一 trace；
-- IndexedDB 存档必须绑定 content digest，迁移失败时保留可导出的原记录。
+## 9. 负空间与反馈
 
-现有 PWA 图标、manifest 与预缓存是基础；更新事务、存档迁移和自动离线回归仍是 P1。
+- 生成停止不等于现有实体消失；先观察 projectile/residue drain，再讨论 handoff。
+- collision-off、source withdrawal、pattern end、Override 与 out-of-bounds 保留不同的材料原因。
+- 缺少 resolution policy 时 hook 保持 inert；缺少 recovery timing 时 handoff 保持 not-ready。
+- 沉默区不补通用音效，空 lane 不补视觉粒子，中断不补“失败”文案。
+- UI 只显示当前可被玩家使用的事实，不把开发缺口、hash、测试数或系统状态暴露成玩法。
 
-## 8. 可访问性
+## 10. PWA、离线与可访问性
 
-Reduced Motion、Flash-Off 和 Full 是正交投影配置。必须满足：同事件 ID、同 simulation tick、同 payload、同顺序。可采用静态替代帧、轮廓、音频 fallback 或触觉 fallback，但不能改变 Boss timing、弹速、碰撞、RNG 和 input return tick。
+PWA 更新使用 waiting-worker 语义：运行中的 gameplay 不被新 worker 接管；版本切换只发生在
+安全 boot/Run 边界。离线缓存和安装状态不能改写 seed、clock、input 或 gameplay trace。
 
-教学也遵循信息边界：教程可以说明输入，不得提前揭露尚未由玩家行为发现的因果关系。
+`full`、`reducedMotion` 与 `flashOff` 是表现配置：
 
-任何 V4 外的玩法、素材、文案或图标扩展，先执行 [CONTENT_EXTENSION_ZH.md](./CONTENT_EXTENSION_ZH.md) 的 aaajiao Extension ADR；不得以“内容更多”为理由直接进入产品。
+- reduced motion 可减少抖动、拖尾、转场和视觉采样，不减少 gameplay tick 或 collider；
+- flash-off 可替换闪烁，不改变 warning/collision timing；
+- 音频缺席、haptics 拒绝、低帧率与设备断开都必须保持同一 authority trace；
+- 可访问性不是 easier/harder mode，也不进入 ledger 评价。
+
+任何 V4 外的新机制、文案、视觉/音频语言或材料资产必须先通过
+[内容扩展治理](CONTENT_EXTENSION_ZH.md)与 focused ADR，不能建立第二套 gameplay language。

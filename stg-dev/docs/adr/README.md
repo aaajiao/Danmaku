@@ -1,0 +1,52 @@
+# Architecture Decision Records
+
+本目录保存不可逆或跨模块的设计决定，以及 V4 外扩展所需的 provenance。ADR 不是 changelog、
+制作状态或测试总数账本；这些分别由 Git、`ROADMAP_ZH.md` 与可执行测试承担。
+
+## 状态
+
+- `PROPOSED`：正在评审，尚未成为工程约束。
+- `ACCEPTED`：决定生效；除状态、明确 supersession 或带日期勘误外保持不变。
+- `ACCEPTED / FROZEN`：历史 umbrella/provenance 记录，只读保留；后续决定使用 successor ADR。
+- `SUPERSEDED`：由新 ADR 取代；旧记录和 provenance 仍保留，并双向链接。
+- `REJECTED`：评审后未采用，保留拒绝原因。
+
+## 索引
+
+| ADR | 状态 | 责任 |
+|---|---|---|
+| [EXT-2026-001：PWA signal icon](EXT-2026-001-pwa-signal-icon.md) | ACCEPTED | V4 外 PWA identity、asset provenance 与回滚 |
+| [EXT-2026-002：Canonical Run fragment adapters](EXT-2026-002-canonical-run-fragment-adapters.md) | ACCEPTED / FROZEN at `8e99ab4` | 历史 umbrella adapter 决定与接受时 evidence/provenance |
+| [EXT-2026-003：Ash Memory history replay](EXT-2026-003-ash-memory-history-replay.md) | ACCEPTED | reverse history replay、离散 contact components 与 weather firewall |
+| [EXT-2026-004：First Eye recovery handoff](EXT-2026-004-first-eye-recovery-handoff.md) | ACCEPTED | device-neutral gaze intent、30-tick Flower recovery projection 与 typed `ROOM_SAMPLING` boundary |
+| [EXT-2026-005：首个 Forced Alignment 房间 bootstrap](EXT-2026-005-first-forced-room-bootstrap.md) | ACCEPTED | fixed non-composer bootstrap、seed domain、共享 authority 与完整 pre-read/READ 调度 |
+| [EXT-2026-006：Canonical Run rolling 原始行为事实账本](EXT-2026-006-canonical-run-behavior-facts.md) | ACCEPTED | accepted-tick 机械聚合、owner/request/commit 分栏、handoff 归属与显式 missing |
+| [EXT-2026-007：Canonical Run pre-room 行为事实冻结](EXT-2026-007-pre-room-behavior-capture.md) | ACCEPTED | H 后一次性 `[1,H]` raw-facts capture、exact-schema isolation 与 metric/composer firewall |
+| [EXT-2026-008：首个 room occurrence 观察闭合冻结](EXT-2026-008-first-occurrence-observation-capture.md) | ACCEPTED | H+1701 post-occurrence raw-facts capture；room completion/selection/transition 继续 withheld |
+| [EXT-2026-009：首个 fixed room 单 occurrence 关闭](EXT-2026-009-first-fixed-room-closure.md) | ACCEPTED | fixed bootstrap最小cardinality、H+1702 room closure与bounded typed visit fact；metric/selection/transition仍withheld |
+| [EXT-2026-010：首房 closure 的 typed metric projection](EXT-2026-010-first-room-metric-projection.md) | ACCEPTED | H+1702投影2项available ratio与12项typed missing；composer/selection继续withheld |
+| [EXT-2026-011：首房 recent input union](EXT-2026-011-first-room-recent-input-density.md) | ACCEPTED | 首房per-channel-consumed同tickactive union与`recentInputDensity`；projection仍partial |
+| [EXT-2026-012：首房 partial facts 的下一房 target](EXT-2026-012-first-continuation-room-target.md) | ACCEPTED | 保留typed missing，只用available bias和一次Mulberry32 draw冻结ordinal 1 target；不接transition |
+| [EXT-2026-013：首个 continuation target 的 room transition](EXT-2026-013-first-continuation-room-transition.md) | ACCEPTED | H+1703拼接atomic FSM与Room Threshold；650ms身份稳定、7800ms gameplay交接及material-only carryover |
+| [EXT-2026-014：首个 continuation transition 的输入归属](EXT-2026-014-first-continuation-transition-input-ownership.md) | ACCEPTED | 转场期间身体输入继续；Signal/Gaze请求留痕但不消费；Flower/Gaze authority冻结且不伪造旧提交 |
+| [EXT-2026-015：首个 continuation room plan 与联合池准入](EXT-2026-015-first-continuation-room-plan-and-pool-admission.md) | ACCEPTED | 固定target上规划ordinal 1首个occurrence；延续一次RNG draw并以carryover+新reservation原子准入 |
+| [EXT-2026-016：首个 continuation occurrence 终端材料归属](EXT-2026-016-first-continuation-terminal-material.md) | ACCEPTED | gameplay drain后释放occurrence；collisionless residue跨精确slice边界保留且Override继续锁定 |
+| [EXT-2026-017：首个 continuation room 的会话与双材料投影](EXT-2026-017-first-continuation-session-projection.md) | ACCEPTED | 同tick零事件admission接入正式Run；旧transition material与新successor combat/residue并行投影 |
+| [EXT-2026-018：Misregistration Corridor orbit/release](EXT-2026-018-misregistration-orbit-release.md) | ACCEPTED | 单候选draw相位、精确release分段、完整swept preflight与live capability准入 |
+| [EXT-2026-019：首个 continuation successor 材料转交](EXT-2026-019-first-continuation-successor-material-transfer.md) | ACCEPTED | slice close后零tick/event/RNG转交collisionless residue；显式capacity lease退休并保持下一准入withheld |
+| [EXT-2026-020：IN_BETWEEN 第二个 occurrence 的计划与准入](EXT-2026-020-second-in-between-occurrence-plan.md) | ACCEPTED | EXT-019 exact source延续draw 2，无放回选择Misregistration并提交encounter ordinal 1联合预算；执行与room close仍withheld |
+| [EXT-2026-021：IN_BETWEEN 第二个 occurrence 的双材料 pre-READ 与 READ start](EXT-2026-021-second-in-between-pre-read-and-read-start.md) | ACCEPTED | T+1..T+159同tick推进retained material/room/player并sole-flush；READ local0后置claim，READ advance仍withheld |
+| [EXT-2026-022：IN_BETWEEN 第二个 occurrence 的 READ 与 gameplay release](EXT-2026-022-second-in-between-read-release.md) | ACCEPTED | READ local1..1272同步执行；保留80-slot capacity audit，并在digital drain sole-flush后释放gameplay，材料tail另片 |
+| [EXT-2026-023：IN_BETWEEN 第二个 occurrence 的材料尾段与转交](EXT-2026-023-second-in-between-material-tail-transfer.md) | ACCEPTED | global8220..8519 material-cleanup/player-timer tail；按slice close保留63个residue并零tick/event/RNG转给新material owner，最终drain另片 |
+| [EXT-2026-024：IN_BETWEEN 第二个 occurrence 的 post-close 材料持有](EXT-2026-024-second-in-between-post-close-material-hold.md) | ACCEPTED | global8520..8682自然清理63个residue；8683空持有仍保留80-slot lease，第三occurrence与room close继续withheld |
+| [EXT-2026-025：IN_BETWEEN 第二个 occurrence 的 Session 与只读投影](EXT-2026-025-second-in-between-session-projection.md) | ACCEPTED | 判别式chapter owner把EXT-019—024接入同一Session；投影既有material/combat，不新增第三occurrence或room close |
+| [EXT-2026-026：弹幕因果 frame 原位替换](EXT-2026-026-projectile-causality-frame-replacement.md) | ACCEPTED | 同一projectile sprite按authority lifecycle/collision snapshot替换V4 arm/live frame；无overlay、playhead或gameplay写回 |
+
+## 新 ADR 规则
+
+1. 一个文件只回答一个 durable 决定：背景、选择、替代方案、后果、provenance、验证与回滚。
+2. 普通 capability 进度、coverage、测试输出和当前 backlog 不创建或更新 ADR。
+3. 新 adapter seam、V4 omission policy、外部资产/内容或持久化兼容决定使用新的 focused ADR，
+   并链接相关 architecture、tests、commit 与被继承的历史 ADR。
+4. 移动 provenance 前必须保留原记录、commit/digest 和双向链接；不得用“整理文档”为由删除来源。
+5. 命名保持 `EXT-YYYY-NNN-short-name.md`；状态变化写日期和 successor/predecessor。

@@ -1,16 +1,26 @@
 import {describe, expect, it} from "vitest";
 
 import {AuthorityClock} from "./clock";
-import {CanonicalEventBus} from "./events";
+import {
+  CanonicalEventBus,
+  type CanonicalEventBatchReceipt,
+  type GameplayEventDraft,
+} from "./events";
 import {
   DirectionalOverrideAuthority,
   EvidenceAuthority,
   GrazeEvidenceAuthority,
   PlayerDamageAuthority,
   V4_PLAYER_AUTHORITY_CONTRACT,
+  inspectPreparedPlayerCollisionBlockerMutation,
+  inspectPreparedPlayerDamageCommit,
+  isExactPlayerDamageAuthority,
+  playerInputEligibleAtTick,
   runtime60DeadlineTick,
   type DamageHit,
   type PlayerDamageConfig,
+  type PreparedPlayerCollisionBlockerMutation,
+  type PreparedPlayerDamageCommit,
 } from "./player";
 import {ProjectileAuthorityPool, type ProjectileHandle} from "./projectiles";
 
@@ -31,6 +41,13 @@ const FAST_OVERRIDE_CONFIG = {
   radius: 100,
   halfAngleDegrees: 30,
 } as const;
+
+function appendPrepared(
+  bus: CanonicalEventBus,
+  drafts: readonly GameplayEventDraft[],
+): CanonicalEventBatchReceipt {
+  return bus.enqueuePreparedBatch([drafts])[0] as CanonicalEventBatchReceipt;
+}
 
 function makeProjectilePool(bus: CanonicalEventBus, authorityId = "projectiles"): ProjectileAuthorityPool {
   return new ProjectileAuthorityPool(bus, {
@@ -78,6 +95,7 @@ describe("V4 player authority source", () => {
     expect(V4_PLAYER_AUTHORITY_CONTRACT).toEqual({
       schemaVersion: "4.0.0",
       playerDamageStates: ["alive", "dead", "respawning", "run-ended"],
+      blockerLeaseOwners: ["damage", "respawn", "room-transition", "cutscene", "system-handoff"],
       grazeAwardStates: ["unseen", "awarded"],
       grazeAwardKey: "projectileInstanceId:projectileGeneration:playerId",
       grazeAwardMaximumPerKey: 1,
@@ -107,8 +125,8 @@ describe("player collision and damage authority", () => {
   it("keeps collision blocked until the final owner lease releases", () => {
     const bus = new CanonicalEventBus();
     const player = new PlayerDamageAuthority(bus);
-    const room = player.acquireCollisionBlocker("room", "world-swap", 0);
-    const snapshot = player.acquireCollisionBlocker("snapshot", "serialize", 1);
+    const room = player.acquireCollisionBlocker("room-transition", "world-swap", 0);
+    const snapshot = player.acquireCollisionBlocker("system-handoff", "serialize", 1);
     expect(player.snapshot().collisionEnabled).toBe(false);
     player.releaseCollisionBlocker(room.token, 2);
     expect(player.snapshot().collisionEnabled).toBe(false);
@@ -121,6 +139,156 @@ describe("player collision and damage authority", () => {
       "player.collision.on",
     ]);
     expect(events.map((event) => event.tick120)).toEqual([0, 3]);
+  });
+
+  it("prepares opaque collision lease acquire/release mutations without early state or events", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {playerId: "player:transition"});
+    const before = player.snapshot();
+    const acquire = player.prepareCollisionBlockerAcquire(
+      "room-transition",
+      "atomic-world-swap",
+      1,
+    );
+    const acquireView = inspectPreparedPlayerCollisionBlockerMutation(acquire);
+
+    expect(Object.isFrozen(acquire)).toBe(true);
+    expect(Reflect.ownKeys(acquire)).toEqual([]);
+    expect(player.snapshot()).toEqual(before);
+    expect(bus.events()).toEqual([]);
+    expect(acquireView).toMatchObject({
+      owner: player,
+      eventBus: bus,
+      kind: "acquire",
+      tick120: 1,
+      revision: 0,
+      lease: {
+        token: "player:transition:lease:000000",
+        owner: "room-transition",
+        reason: "atomic-world-swap",
+        acquiredAtTick120: 1,
+      },
+      before: {tick120: 0, collisionEnabled: true, activeLeases: []},
+      preview: {tick120: 1, collisionEnabled: false},
+    });
+    expect(acquireView.drafts.map((draft) => draft.id)).toEqual(["player.collision.off"]);
+    expect(acquireView.drafts[0]?.payload).toEqual({
+      owner: "room-transition",
+      reason: "atomic-world-swap",
+    });
+    expect(Object.isFrozen(acquireView)).toBe(true);
+    expect(Object.isFrozen(acquireView.before)).toBe(true);
+    expect(Object.isFrozen(acquireView.preview)).toBe(true);
+    expect(Object.isFrozen(acquireView.preview.activeLeases)).toBe(true);
+
+    expect(() => player.applyPreparedCollisionBlockerAfterAppend(
+      acquire,
+      Object.freeze({}) as CanonicalEventBatchReceipt,
+    )).toThrow(/receipt is not recognized/);
+    expect(player.snapshot()).toEqual(before);
+    const acquireReceipt = appendPrepared(bus, acquireView.drafts);
+    expect(player.applyPreparedCollisionBlockerAfterAppend(acquire, acquireReceipt))
+      .toBe(acquireView.lease);
+    expect(player.snapshot()).toEqual(acquireView.preview);
+    expect(() => inspectPreparedPlayerCollisionBlockerMutation(acquire))
+      .toThrow(/already consumed/);
+
+    const release = player.prepareCollisionBlockerRelease(acquireView.lease.token, 2);
+    const releaseView = player.validatePreparedCollisionBlockerMutation(release);
+    expect(player.snapshot()).toEqual(acquireView.preview);
+    expect(releaseView).toMatchObject({
+      kind: "release",
+      tick120: 2,
+      revision: 1,
+      lease: acquireView.lease,
+      before: {tick120: 1, collisionEnabled: false},
+      preview: {tick120: 2, collisionEnabled: true, activeLeases: []},
+    });
+    expect(releaseView.drafts.map((draft) => draft.id)).toEqual(["player.collision.on"]);
+    expect(player.applyPreparedCollisionBlockerAfterAppend(
+      release,
+      appendPrepared(bus, releaseView.drafts),
+    )).toBe(acquireView.lease);
+    expect(player.snapshot()).toEqual(releaseView.preview);
+
+    const events = bus.flush();
+    expect(events.map((event) => [event.id, event.tick120, event.payload])).toEqual([
+      ["player.collision.off", 1, {owner: "room-transition", reason: "atomic-world-swap"}],
+      ["player.collision.on", 2, {owner: "room-transition", reason: "atomic-world-swap"}],
+    ]);
+  });
+
+  it("rejects unknown blocker owners and forged, cross-owner, stale, or mismatched lease proposals", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus);
+    const before = player.snapshot();
+    expect(() => player.prepareCollisionBlockerAcquire("room", "legacy-owner", 10))
+      .toThrow(/exact V4 blocker lease owners/);
+    expect(player.snapshot()).toEqual(before);
+    expect(bus.events()).toEqual([]);
+
+    const first = player.prepareCollisionBlockerAcquire("room-transition", "first", 1);
+    const second = player.prepareCollisionBlockerAcquire("cutscene", "second", 1);
+    const firstView = player.validatePreparedCollisionBlockerMutation(first);
+    const firstReceipt = appendPrepared(bus, firstView.drafts);
+    expect(() => player.applyPreparedCollisionBlockerAfterAppend(second, firstReceipt))
+      .toThrow(/does not cover/);
+    expect(player.snapshot()).toEqual(before);
+    player.applyPreparedCollisionBlockerAfterAppend(first, firstReceipt);
+    expect(() => player.validatePreparedCollisionBlockerMutation(second)).toThrow(/stale/);
+
+    const other = new PlayerDamageAuthority(new CanonicalEventBus());
+    const otherProposal = other.prepareCollisionBlockerAcquire("system-handoff", "other", 0);
+    expect(() => player.validatePreparedCollisionBlockerMutation(otherProposal))
+      .toThrow(/another player\/event bus/);
+    expect(() => player.validatePreparedCollisionBlockerMutation(
+      Object.freeze({}) as PreparedPlayerCollisionBlockerMutation,
+    )).toThrow(/unknown/);
+
+    const exactState = new PlayerDamageAuthority(new CanonicalEventBus());
+    const exactProposal = exactState.prepareCollisionBlockerAcquire("cutscene", "exact-state", 0);
+    (exactState as unknown as {healthValue: number}).healthValue = 2;
+    expect(() => exactState.validatePreparedCollisionBlockerMutation(exactProposal))
+      .toThrow(/stale/);
+    expect(() => inspectPreparedPlayerCollisionBlockerMutation(exactProposal))
+      .toThrow(/stale/);
+  });
+
+  it("keeps immediate collision lease APIs atomic when the event bus rejects their batch", () => {
+    const acquireBus = new CanonicalEventBus();
+    const acquirePlayer = new PlayerDamageAuthority(acquireBus);
+    acquireBus.enqueue({
+      id: "player.collision.off",
+      tick120: 0,
+      entityStableId: "fixture:acquire-conflict",
+      localSequence: 0,
+      occurrenceKey: "player:collision-off:player:lease:000000",
+      payload: {owner: "room-transition", reason: "occupied"},
+    });
+    const acquireBefore = acquirePlayer.snapshot();
+    expect(() => acquirePlayer.acquireCollisionBlocker(
+      "room-transition",
+      "atomic-world-swap",
+      0,
+    )).toThrow(/duplicate authoritative occurrence key/);
+    expect(acquirePlayer.snapshot()).toEqual(acquireBefore);
+
+    const releaseBus = new CanonicalEventBus();
+    const releasePlayer = new PlayerDamageAuthority(releaseBus);
+    const lease = releasePlayer.acquireCollisionBlocker("room-transition", "atomic-world-swap", 0);
+    releaseBus.flush();
+    releaseBus.enqueue({
+      id: "player.collision.on",
+      tick120: 2,
+      entityStableId: "fixture:release-conflict",
+      localSequence: 0,
+      occurrenceKey: `player:collision-on:${lease.token}`,
+      payload: {owner: "room-transition", reason: "occupied"},
+    });
+    const releaseBefore = releasePlayer.snapshot();
+    expect(() => releasePlayer.releaseCollisionBlocker(lease.token, 2))
+      .toThrow(/duplicate authoritative occurrence key/);
+    expect(releasePlayer.snapshot()).toEqual(releaseBefore);
   });
 
   it("sorts competing hits by stable source identity and commits at most one", () => {
@@ -147,6 +315,250 @@ describe("player collision and damage authority", () => {
     expect(() => player.commitDamageBatch(1, [
       {occurrenceKey: "late", sourceId: "source:late", amount: 1},
     ])).toThrow(/already committed for tick/);
+  });
+
+  it("prepares an opaque frozen one-use commit before a coordinator appends it", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {config: FAST_DAMAGE_CONFIG});
+    const before = player.snapshot();
+    const proposal = player.prepareDamageBatch(1, [
+      {occurrenceKey: "prepared", sourceId: "laser:prepared", amount: 1},
+    ]);
+    const view = inspectPreparedPlayerDamageCommit(proposal);
+
+    expect(isExactPlayerDamageAuthority(player)).toBe(true);
+    expect(Object.isFrozen(proposal)).toBe(true);
+    expect(Reflect.ownKeys(proposal)).toEqual([]);
+    expect(player.snapshot()).toEqual(before);
+    expect(view).toMatchObject({
+      owner: player,
+      eventBus: bus,
+      tick120: 1,
+      revision: 0,
+      result: {committedSourceId: "laser:prepared", branch: "non-fatal"},
+      preview: {tick120: 1, health: 1, collisionEnabled: false},
+    });
+    expect(Object.isFrozen(view)).toBe(true);
+    expect(Object.isFrozen(view.drafts)).toBe(true);
+    expect(Object.isFrozen(view.result)).toBe(true);
+    expect(Object.isFrozen(view.result.hits)).toBe(true);
+    expect(Object.isFrozen(view.preview)).toBe(true);
+    for (const draft of view.drafts) {
+      expect(Object.getPrototypeOf(draft)).toBe(Object.prototype);
+      expect(Object.keys(draft).sort()).toEqual([
+        "entityStableId",
+        "id",
+        "localSequence",
+        "occurrenceKey",
+        "payload",
+        "tick120",
+      ]);
+      expect(Object.isFrozen(draft)).toBe(true);
+      expect(Object.getPrototypeOf(draft.payload)).toBe(Object.prototype);
+      expect(Object.isFrozen(draft.payload)).toBe(true);
+    }
+
+    expect(player.validatePreparedDamageCommit(proposal)).toEqual(view);
+    expect(() => player.applyPreparedDamageAfterAppend(
+      proposal,
+      Object.freeze({}) as CanonicalEventBatchReceipt,
+    )).toThrow(/receipt is not recognized/);
+    expect(player.snapshot()).toEqual(before);
+    const receipt = appendPrepared(bus, view.drafts);
+    let applied: ReturnType<PlayerDamageAuthority["applyPreparedDamageAfterAppend"]> | null = null;
+    expect(() => {
+      applied = player.applyPreparedDamageAfterAppend(proposal, receipt);
+    }).not.toThrow();
+    expect(applied).toBe(view.result);
+    expect(player.snapshot()).toEqual(view.preview);
+    expect(() => player.applyPreparedDamageAfterAppend(proposal, receipt)).toThrow(/consumed/);
+    expect(() => inspectPreparedPlayerDamageCommit(proposal)).toThrow(/already consumed/);
+  });
+
+  it("stages exact recovery and respawn crossings without a stale collision-on", () => {
+    const recoveryBus = new CanonicalEventBus();
+    const recovering = new PlayerDamageAuthority(recoveryBus, {config: FAST_DAMAGE_CONFIG});
+    recovering.commitDamageBatch(1, [
+      {occurrenceKey: "recovery-first", sourceId: "projectile:first", amount: 1},
+    ]);
+    recoveryBus.flush();
+    const recoveryBefore = recovering.snapshot();
+    const recoveryProposal = recovering.prepareDamageBatch(14, [
+      {occurrenceKey: "recovery-boundary", sourceId: "laser:boundary", amount: 1},
+    ]);
+    const recoveryView = inspectPreparedPlayerDamageCommit(recoveryProposal);
+    expect(recovering.snapshot()).toEqual(recoveryBefore);
+    expect(recoveryView.drafts.map((draft) => draft.id)).toEqual([
+      "player.invulnerability.end",
+      "player.collision.off",
+      "player.death.commit",
+      "player.life.consume",
+    ]);
+    expect(recoveryView.drafts.some((draft) => draft.id === "player.collision.on")).toBe(false);
+    const recoveryReceipt = appendPrepared(recoveryBus, recoveryView.drafts);
+    recovering.applyPreparedDamageAfterAppend(recoveryProposal, recoveryReceipt);
+    expect(recovering.snapshot()).toEqual(recoveryView.preview);
+
+    const respawnBus = new CanonicalEventBus();
+    const respawning = new PlayerDamageAuthority(respawnBus, {config: FAST_DAMAGE_CONFIG});
+    respawning.commitDamageBatch(1, [
+      {occurrenceKey: "respawn-first", sourceId: "projectile:fatal", amount: 2},
+    ]);
+    respawnBus.flush();
+    const respawnBefore = respawning.snapshot();
+    const respawnProposal = respawning.prepareDamageBatch(28, [
+      {occurrenceKey: "respawn-boundary", sourceId: "laser:respawn", amount: 1},
+    ]);
+    const respawnView = inspectPreparedPlayerDamageCommit(respawnProposal);
+    expect(respawning.snapshot()).toEqual(respawnBefore);
+    expect(respawnView.drafts.map((draft) => [draft.id, draft.tick120])).toEqual([
+      ["player.respawn.place", 16],
+      ["player.invulnerability.begin", 16],
+      ["player.invulnerability.end", 28],
+      ["player.respawn.complete", 28],
+      ["player.collision.off", 28],
+      ["player.damage.commit", 28],
+      ["player.invulnerability.begin", 28],
+    ]);
+    expect(respawnView.drafts.some((draft) => draft.id === "player.collision.on")).toBe(false);
+    const respawnReceipt = appendPrepared(respawnBus, respawnView.drafts);
+    respawning.applyPreparedDamageAfterAppend(respawnProposal, respawnReceipt);
+    expect(respawning.snapshot()).toEqual(respawnView.preview);
+  });
+
+  it("commits every prepared hit claim and processed-tick effect, including blocked hits", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {config: FAST_DAMAGE_CONFIG});
+    const blocker = player.acquireCollisionBlocker("cutscene", "blocked-hit", 0);
+    bus.flush();
+    const proposal = player.prepareDamageBatch(1, [
+      {occurrenceKey: "blocked-claim", sourceId: "laser:blocked", amount: 1},
+    ]);
+    const view = inspectPreparedPlayerDamageCommit(proposal);
+    expect(view.drafts).toEqual([]);
+    expect(view.result.hits[0]?.disposition).toBe("blocked");
+    player.applyPreparedDamageAfterAppend(proposal, appendPrepared(bus, view.drafts));
+    expect(() => player.prepareDamageBatch(1, [
+      {occurrenceKey: "different", sourceId: "laser:different", amount: 1},
+    ])).toThrow(/already committed for tick/);
+    player.releaseCollisionBlocker(blocker.token, 2);
+    expect(() => player.prepareDamageBatch(3, [
+      {occurrenceKey: "blocked-claim", sourceId: "laser:replay", amount: 1},
+    ])).toThrow(/duplicate damage hit occurrence/);
+  });
+
+  it("rejects forged, cross-owner, stale, and replayed prepared commits", () => {
+    const firstBus = new CanonicalEventBus();
+    const first = new PlayerDamageAuthority(firstBus, {config: FAST_DAMAGE_CONFIG});
+    const second = new PlayerDamageAuthority(new CanonicalEventBus(), {config: FAST_DAMAGE_CONFIG});
+    const proposal = first.prepareDamageBatch(0, [
+      {occurrenceKey: "stale", sourceId: "laser:stale", amount: 1},
+    ]);
+    const forged = Object.freeze({}) as PreparedPlayerDamageCommit;
+    expect(() => first.validatePreparedDamageCommit(forged)).toThrow(/unknown/);
+    expect(() => second.validatePreparedDamageCommit(proposal)).toThrow(/another player\/event bus/);
+    first.advanceTo(0);
+    expect(() => first.validatePreparedDamageCommit(proposal)).toThrow(/stale/);
+    expect(() => inspectPreparedPlayerDamageCommit(proposal)).toThrow(/stale/);
+    expect(() => first.applyPreparedDamageAfterAppend(
+      proposal,
+      Object.freeze({}) as CanonicalEventBatchReceipt,
+    )).toThrow(/stale/);
+
+    const fresh = first.prepareDamageBatch(1, [
+      {occurrenceKey: "one-use", sourceId: "laser:one-use", amount: 1},
+    ]);
+    const freshView = first.validatePreparedDamageCommit(fresh);
+    const freshReceipt = appendPrepared(firstBus, freshView.drafts);
+    first.applyPreparedDamageAfterAppend(fresh, freshReceipt);
+    expect(() => first.validatePreparedDamageCommit(fresh)).toThrow(/consumed/);
+    expect(() => first.applyPreparedDamageAfterAppend(fresh, freshReceipt)).toThrow(/consumed/);
+  });
+
+  it("binds an accepted receipt to the exact same-revision proposal drafts", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {config: FAST_DAMAGE_CONFIG});
+    const first = player.prepareDamageBatch(1, [
+      {occurrenceKey: "receipt:first", sourceId: "laser:first", amount: 1},
+    ]);
+    const second = player.prepareDamageBatch(1, [
+      {occurrenceKey: "receipt:second", sourceId: "laser:second", amount: 1},
+    ]);
+    const firstView = player.validatePreparedDamageCommit(first);
+    const receipt = appendPrepared(bus, firstView.drafts);
+    expect(() => player.applyPreparedDamageAfterAppend(second, receipt)).toThrow(/does not cover/);
+    expect(player.snapshot()).toMatchObject({tick120: 0, health: 2, activeLeases: []});
+    expect(() => player.applyPreparedDamageAfterAppend(first, receipt)).not.toThrow();
+    expect(player.snapshot()).toMatchObject({tick120: 1, health: 1});
+  });
+
+  it("keeps distinct empty prepared groups non-interchangeable", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {config: FAST_DAMAGE_CONFIG});
+    player.acquireCollisionBlocker("cutscene", "empty-receipt", 0);
+    bus.flush();
+    const before = player.snapshot();
+    const first = player.prepareDamageBatch(1, [
+      {occurrenceKey: "empty:first", sourceId: "laser:first", amount: 1},
+    ]);
+    const second = player.prepareDamageBatch(2, [
+      {occurrenceKey: "empty:second", sourceId: "laser:second", amount: 1},
+    ]);
+    const firstView = player.validatePreparedDamageCommit(first);
+    const secondView = player.validatePreparedDamageCommit(second);
+    expect(firstView.drafts).toEqual([]);
+    expect(secondView.drafts).toEqual([]);
+    expect(firstView.drafts).not.toBe(secondView.drafts);
+    const receipt = appendPrepared(bus, firstView.drafts);
+    expect(() => player.applyPreparedDamageAfterAppend(second, receipt)).toThrow(/does not cover/);
+    expect(player.snapshot()).toEqual(before);
+    expect(() => player.applyPreparedDamageAfterAppend(first, receipt)).not.toThrow();
+    expect(player.snapshot()).toMatchObject({tick120: 1, health: 2});
+  });
+
+  it("captures own hit data and locks out descriptor-trap reentrancy", () => {
+    const player = new PlayerDamageAuthority(new CanonicalEventBus(), {config: FAST_DAMAGE_CONFIG});
+    const before = player.snapshot();
+    let accessorReads = 0;
+    const accessorHit = Object.defineProperty({
+      sourceId: "laser:accessor",
+      amount: 1,
+    }, "occurrenceKey", {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return "accessor";
+      },
+    });
+    expect(() => player.prepareDamageBatch(
+      0,
+      [accessorHit] as unknown as readonly DamageHit[],
+    )).toThrow(/own enumerable data property/);
+    expect(accessorReads).toBe(0);
+    expect(player.snapshot()).toEqual(before);
+
+    let reentryAttempts = 0;
+    const reentrantHits = new Proxy([{
+      occurrenceKey: "reentrant",
+      sourceId: "laser:reentrant",
+      amount: 1,
+    }], {
+      getOwnPropertyDescriptor(target, key) {
+        if (key === "0" && reentryAttempts === 0) {
+          reentryAttempts += 1;
+          player.advanceTo(0);
+        }
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+    });
+    expect(() => player.prepareDamageBatch(0, reentrantHits)).toThrow(/already in progress/);
+    expect(reentryAttempts).toBe(1);
+    expect(player.snapshot()).toEqual(before);
+    expect(() => player.prepareDamageBatch(0, [{
+      occurrenceKey: "after-reentry",
+      sourceId: "laser:after-reentry",
+      amount: 1,
+    }])).not.toThrow();
   });
 
   it("keeps non-fatal and fatal branches atomically exclusive", () => {
@@ -202,7 +614,7 @@ describe("player collision and damage authority", () => {
     player.commitDamageBatch(1, [
       {occurrenceKey: "fatal-respawn", sourceId: "projectile:heavy", amount: 2},
     ]);
-    const transition = player.acquireCollisionBlocker("room", "transition-stabilization", 2);
+    const transition = player.acquireCollisionBlocker("room-transition", "transition-stabilization", 2);
     const dead = player.snapshot();
     expect(dead.respawnPlaceAtTick120).toBe(16);
     expect(dead.respawnCompleteAtTick120).toBe(28);
@@ -224,6 +636,37 @@ describe("player collision and damage authority", () => {
     expect(events.find((event) => event.id === "player.respawn.complete")?.tick120).toBe(28);
     expect(events.filter((event) => event.id === "player.collision.on")).toHaveLength(1);
     expect(events.find((event) => event.id === "player.collision.on")?.tick120).toBe(10_001);
+  });
+
+  it("derives input eligibility from retained life state without advancing the player machine", () => {
+    const player = new PlayerDamageAuthority(new CanonicalEventBus(), {config: FAST_DAMAGE_CONFIG});
+    expect(playerInputEligibleAtTick(player.snapshot(), 10)).toBe(true);
+    player.commitDamageBatch(1, [
+      {occurrenceKey: "input-gate-fatal", sourceId: "projectile:input-gate", amount: 2},
+    ]);
+    const dead = player.snapshot();
+
+    expect(playerInputEligibleAtTick(dead, 15)).toBe(false);
+    expect(playerInputEligibleAtTick(dead, 16)).toBe(false);
+    expect(playerInputEligibleAtTick(dead, 27)).toBe(false);
+    expect(playerInputEligibleAtTick(dead, 28)).toBe(true);
+    expect(player.snapshot()).toEqual(dead);
+    expect(() => playerInputEligibleAtTick(dead, 0)).toThrow(/cannot inspect backward/);
+
+    player.advanceTo(16);
+    const respawning = player.snapshot();
+    expect(respawning.state).toBe("respawning");
+    expect(playerInputEligibleAtTick(respawning, 27)).toBe(false);
+    expect(playerInputEligibleAtTick(respawning, 28)).toBe(true);
+    expect(player.snapshot()).toEqual(respawning);
+
+    const exhausted = new PlayerDamageAuthority(new CanonicalEventBus(), {
+      config: {...FAST_DAMAGE_CONFIG, maxHealth: 1, initialLives: 1},
+    });
+    exhausted.commitDamageBatch(3, [
+      {occurrenceKey: "input-gate-run-end", sourceId: "projectile:last", amount: 1},
+    ]);
+    expect(playerInputEligibleAtTick(exhausted.snapshot(), 100_000)).toBe(false);
   });
 
   it("ends exhausted lives in an immutable handoff without stale respawn", () => {
@@ -276,7 +719,7 @@ describe("player collision and damage authority", () => {
       {occurrenceKey: "occupied", sourceId: "projectile:occupied", amount: 1},
     ])).toThrow(/duplicate authoritative occurrence key/);
     expect(player.snapshot()).toMatchObject({
-      tick120: 5,
+      tick120: 0,
       state: "alive",
       health: 3,
       collisionEnabled: true,
@@ -284,6 +727,50 @@ describe("player collision and damage authority", () => {
       recoveryAtTick120: null,
     });
     expect(bus.flush().map((event) => event.occurrenceKey)).toEqual(["player:damage:occupied"]);
+  });
+
+  it("leaves the recovery lease and deadlines intact when damage append is rejected", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {
+      config: {...FAST_DAMAGE_CONFIG, maxHealth: 3},
+    });
+    player.commitDamageBatch(1, [
+      {occurrenceKey: "first", sourceId: "projectile:first", amount: 1},
+    ]);
+    bus.flush();
+    const before = player.snapshot();
+    expect(before).toMatchObject({
+      tick120: 1,
+      health: 2,
+      collisionEnabled: false,
+      recoveryAtTick120: 14,
+    });
+
+    const recoveryTick = 14;
+    bus.enqueue({
+      id: "boss.encounter.resolve",
+      tick120: recoveryTick,
+      entityStableId: "fixture:recovery-conflict",
+      localSequence: 0,
+      occurrenceKey: "player:damage:recovery-conflict",
+      payload: {
+        bossId: "fixture.recovery-conflict",
+        generation: 1,
+        outcome: "occupied",
+        finalPhaseId: "fixture",
+      },
+    });
+    expect(() => player.commitDamageBatch(recoveryTick, [
+      {
+        occurrenceKey: "recovery-conflict",
+        sourceId: "projectile:recovery-conflict",
+        amount: 1,
+      },
+    ])).toThrow(/duplicate authoritative occurrence key/);
+    expect(player.snapshot()).toEqual(before);
+    expect(bus.flush().map((event) => event.occurrenceKey)).toEqual([
+      "player:damage:recovery-conflict",
+    ]);
   });
 
   it("drains zero-duration respawn boundaries at the current even tick", () => {
@@ -478,6 +965,225 @@ describe("directional Override authority", () => {
         "projectile.residue.begin",
       ]);
     }
+  });
+
+  it("cancels a projectile that sweeps through the local void at its entry coordinate", () => {
+    const bus = new CanonicalEventBus();
+    const pool = makeProjectilePool(bus, "override-sweep-pool");
+    const crossing = spawnProjectile(pool, "crossing", -150, 0, 0, 10);
+    const evidence = new EvidenceAuthority(bus, 2);
+    const override = new DirectionalOverrideAuthority(bus, evidence, {config: FAST_OVERRIDE_CONFIG});
+    override.press({origin: {x: 0, y: 0}, direction: {x: 1, y: 0}, roomId: "IN_BETWEEN"}, 0);
+    override.advanceTo(12);
+    pool.move(crossing, 13, {x: 150, y: 0});
+
+    const cancellations = override.cancelProjectiles(pool, 13);
+
+    expect(cancellations).toHaveLength(1);
+    expect(cancellations[0]?.position.x).toBeCloseTo(0, 10);
+    expect(cancellations[0]?.position.y).toBeCloseTo(0, 10);
+    expect(pool.snapshot(crossing)).toMatchObject({
+      state: "residue",
+      collisionEnabled: false,
+      position: {x: 0, y: 0},
+    });
+  });
+
+  it("uses ordered authority paths and relocates an endpoint hit before writing its scar", () => {
+    const bus = new CanonicalEventBus();
+    const pool = makeProjectilePool(bus, "override-path-pool");
+    const crossing = spawnProjectile(pool, "ordered-crossing", -20, 0, 0, 10);
+    pool.move(crossing, 13, {x: -20, y: 20});
+    const evidence = new EvidenceAuthority(bus, 2);
+    const override = new DirectionalOverrideAuthority(bus, evidence, {config: FAST_OVERRIDE_CONFIG});
+    override.press({origin: {x: 0, y: 0}, direction: {x: 1, y: 0}, roomId: "IN_BETWEEN"}, 0);
+    override.advanceTo(12);
+
+    const cancellations = override.cancelProjectilesAlongPaths(pool, [{
+      projectileId: crossing.instanceId,
+      projectileGeneration: crossing.generation,
+      segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        {from: {x: 0, y: 0}, to: {x: -20, y: 20}},
+      ],
+    }], 13);
+
+    expect(cancellations).toEqual([expect.objectContaining({
+      projectileId: crossing.instanceId,
+      projectileGeneration: crossing.generation,
+      position: {x: 0, y: 0},
+    })]);
+    expect(pool.snapshot(crossing)).toMatchObject({
+      state: "residue",
+      collisionEnabled: false,
+      position: {x: 0, y: 0},
+    });
+    override.advanceTo(36);
+    expect(override.overrideScars()).toEqual([expect.objectContaining({
+      position: {x: 0, y: 0},
+      cancellations: [expect.objectContaining({position: {x: 0, y: 0}})],
+    })]);
+  });
+
+  it("sweeps disconnected authority path components without inventing a connector", () => {
+    const bus = new CanonicalEventBus();
+    const pool = makeProjectilePool(bus, "override-component-path-pool");
+    const crossing = spawnProjectile(pool, "component-crossing", 50, -50, 0, 10);
+    pool.move(crossing, 13, {x: 50, y: 50});
+    const evidence = new EvidenceAuthority(bus, 2);
+    const override = new DirectionalOverrideAuthority(bus, evidence, {config: FAST_OVERRIDE_CONFIG});
+    override.press({origin: {x: 0, y: 0}, direction: {x: 1, y: 0}, roomId: "IN_BETWEEN"}, 0);
+    override.advanceTo(12);
+
+    expect(override.cancelProjectilesAlongPaths(pool, [{
+      projectileId: crossing.instanceId,
+      projectileGeneration: crossing.generation,
+      segments: [
+        {from: {x: 50, y: -50}, to: {x: 50, y: -50}},
+        {
+          from: {x: 50, y: 50},
+          to: {x: 50, y: 50},
+          startsNewComponent: true,
+        },
+      ],
+    }], 13)).toEqual([]);
+    expect(pool.snapshot(crossing)).toMatchObject({
+      state: "flight",
+      position: {x: 50, y: 50},
+    });
+  });
+
+  it("rejects hostile or non-authoritative paths without advancing Override or projectiles", () => {
+    const bus = new CanonicalEventBus();
+    const pool = makeProjectilePool(bus, "override-hostile-path-pool");
+    const flight = spawnProjectile(pool, "flight", -20, 0, 0, 10);
+    pool.move(flight, 13, {x: 20, y: 0});
+    const arm = spawnProjectile(pool, "arm", 40, 0, 13, 10);
+    const evidence = new EvidenceAuthority(bus, 2);
+    const override = new DirectionalOverrideAuthority(bus, evidence, {config: FAST_OVERRIDE_CONFIG});
+    override.press({origin: {x: 0, y: 0}, direction: {x: 1, y: 0}, roomId: "IN_BETWEEN"}, 0);
+    override.advanceTo(12);
+    const valid = {
+      projectileId: flight.instanceId,
+      projectileGeneration: flight.generation,
+      segments: [{from: {x: -20, y: 0}, to: {x: 20, y: 0}}],
+    } as const;
+    const cases: Array<readonly unknown[]> = [
+      [{...valid, projectileId: "missing"}],
+      [{...valid, projectileGeneration: flight.generation + 1}],
+      [{...valid, segments: [{from: {x: -19, y: 0}, to: {x: 20, y: 0}}]}],
+      [{...valid, segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        {from: {x: 1, y: 0}, to: {x: 20, y: 0}},
+      ]}],
+      [{...valid, segments: [{
+        from: {x: -20, y: 0},
+        to: {x: 20, y: 0},
+        startsNewComponent: true,
+      }]}],
+      [{...valid, segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        {
+          from: {x: 1, y: 0},
+          to: {x: 20, y: 0},
+          startsNewComponent: false,
+        },
+      ]}],
+      [{...valid, segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        {
+          from: {x: 0, y: 0},
+          to: {x: 20, y: 0},
+          startsNewComponent: true,
+        },
+      ]}],
+      [{
+        projectileId: arm.instanceId,
+        projectileGeneration: arm.generation,
+        segments: [{from: {x: 40, y: 0}, to: {x: 40, y: 0}}],
+      }],
+      [valid, valid],
+    ];
+    for (const paths of cases) {
+      const overrideBefore = override.snapshot();
+      const flightBefore = pool.snapshot(flight);
+      const armBefore = pool.snapshot(arm);
+      const eventCount = bus.events().length;
+      expect(() => override.cancelProjectilesAlongPaths(
+        pool,
+        paths as Parameters<DirectionalOverrideAuthority["cancelProjectilesAlongPaths"]>[1],
+        13,
+      )).toThrow();
+      expect(override.snapshot()).toEqual(overrideBefore);
+      expect(pool.snapshot(flight)).toEqual(flightBefore);
+      expect(pool.snapshot(arm)).toEqual(armBefore);
+      expect(bus.events()).toHaveLength(eventCount);
+    }
+    const beforeWrongTick = override.snapshot();
+    expect(() => override.cancelProjectilesAlongPaths(pool, [valid], 14)).toThrow(/moved on tick 14/);
+    expect(override.snapshot()).toEqual(beforeWrongTick);
+
+    let accessorReads = 0;
+    const accessor = Object.defineProperty({
+      projectileGeneration: flight.generation,
+      segments: valid.segments,
+    }, "projectileId", {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return flight.instanceId;
+      },
+    });
+    expect(() => override.cancelProjectilesAlongPaths(
+      pool,
+      [accessor] as unknown as Parameters<DirectionalOverrideAuthority["cancelProjectilesAlongPaths"]>[1],
+      13,
+    )).toThrow(/own enumerable data property/);
+    expect(accessorReads).toBe(0);
+    expect(override.snapshot()).toEqual(beforeWrongTick);
+
+    let componentAccessorReads = 0;
+    const componentBoundary = Object.defineProperty({
+      from: {x: 1, y: 0},
+      to: {x: 20, y: 0},
+    }, "startsNewComponent", {
+      enumerable: true,
+      get() {
+        componentAccessorReads += 1;
+        return true;
+      },
+    });
+    expect(() => override.cancelProjectilesAlongPaths(pool, [{
+      projectileId: flight.instanceId,
+      projectileGeneration: flight.generation,
+      segments: [
+        {from: {x: -20, y: 0}, to: {x: 0, y: 0}},
+        componentBoundary,
+      ],
+    }] as unknown as Parameters<DirectionalOverrideAuthority["cancelProjectilesAlongPaths"]>[1], 13))
+      .toThrow(/own enumerable data property/);
+    expect(componentAccessorReads).toBe(0);
+    expect(override.snapshot()).toEqual(beforeWrongTick);
+  });
+
+  it("does not replay a pre-activation projectile segment when the local void opens", () => {
+    const bus = new CanonicalEventBus();
+    const pool = makeProjectilePool(bus, "override-stale-sweep-pool");
+    const priorCrossing = spawnProjectile(pool, "prior-crossing", -150, 0, 0, 10);
+    pool.move(priorCrossing, 11, {x: 150, y: 0});
+    const evidence = new EvidenceAuthority(bus, 2);
+    const override = new DirectionalOverrideAuthority(bus, evidence, {config: FAST_OVERRIDE_CONFIG});
+    override.press({origin: {x: 0, y: 0}, direction: {x: 1, y: 0}, roomId: "IN_BETWEEN"}, 0);
+    override.advanceTo(12);
+
+    expect(override.cancelProjectiles(pool, 12)).toEqual([]);
+    expect(pool.snapshot(priorCrossing)).toMatchObject({
+      state: "flight",
+      collisionEnabled: true,
+      previousPosition: {x: 150, y: 0},
+      position: {x: 150, y: 0},
+      movedAtTick120: 11,
+    });
   });
 
   it("crosses active, sediment, and cooldown boundaries once under a large delta", () => {

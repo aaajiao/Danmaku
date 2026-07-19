@@ -3,6 +3,9 @@ import {
   AuthorityClock,
   CLOCK_BACKLOG_POLICY,
   MAXIMUM_BOUNDARIES_PER_ADVANCE,
+  elapsedWallDeltaMs,
+  runtime60DeadlineTick,
+  tick120ToMilliseconds,
   type Tick120Boundary,
 } from "./clock";
 
@@ -29,6 +32,17 @@ function driveForOneSecond(deltas: readonly number[]): string[] {
 }
 
 describe("dual-rate authority clock", () => {
+  it("rejects negative-zero gameplay time identity", () => {
+    expect(() => tick120ToMilliseconds(-0)).toThrow(/non-negative safe integer/);
+    expect(() => runtime60DeadlineTick(-0, 240)).toThrow(/non-negative safe integer/);
+  });
+
+  it("preserves a long presentation gap for the authority backlog", () => {
+    expect(elapsedWallDeltaMs(125, 10_125)).toBe(10_000);
+    expect(elapsedWallDeltaMs(10_125, 125)).toBe(0);
+    expect(() => elapsedWallDeltaMs(Number.NaN, 125)).toThrow(/finite/);
+  });
+
   it("derives exactly one 60 Hz due boundary from every two master ticks", () => {
     const master: Tick120Boundary<never>[] = [];
     const runtime: number[] = [];
