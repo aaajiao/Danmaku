@@ -26,8 +26,8 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment pre-read/Left–Right occurrence；共享身体、事件 trace 与 run state，不回退 legacy Run；尚无 room completion 或下一 handoff |
-| Room composition / execution | WIP（首个 live 切片） | 默认 Run 已消费 typed handoff，并以固定 non-composer bootstrap 执行一个全分段 occurrence slice；caller-resolved executors 仍保留为隔离证据。通用 metric producer、weighted selection、parallel/multi-pool、room completion 与 handoff 未完成 |
+| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence，并由 run-owned rolling ledger 记录 accepted-tick owner/request/commit/missing；共享身体、事件 trace 与 run state；尚无 room completion 或下一 handoff |
+| Room composition / execution | WIP（首个 live 切片） | fixed non-composer 首房与有界 raw behavior facts 已进入默认 Run；14 项 metric projection/capture、room count、weighted selection、parallel/multi-pool、room completion 与 handoff 未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
 | Renderer / input / PWA | DONE（基础） | Three.js 像素表现、键盘/触控/标准手柄、manifest、离线 warm reload 与图标已存在；完整 causal clips、升级迁移和实机矩阵未完成 |
@@ -47,7 +47,7 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | fixed non-composer 首房已进入默认 Run；下一步明确 live metric producer、room count、完整 difficulty mapping、weighted selection、parallel/weather、tier budget 与 safe-gap handoff producer；选择、排程、执行和完成均写 canonical facts |
+| P0-05 | Live room composer | WIP | fixed non-composer 首房和 accepted-tick raw-facts producer 已进入默认 Run；下一步明确 14 项 metric 的 window/denominator/missing/capture、room count、完整 difficulty mapping、weighted selection、parallel/weather、tier budget 与 safe-gap handoff producer |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
 | P0-07 | Canonical Run / narrative | WIP | quiet awakening、First Eye、typed `ROOM_SAMPLING` boundary 与固定首房 occurrence 已闭合；下一步建立 room completion/next handoff，再让其余 rooms、Boss、Dusk、witness 与 input return 均由 authored facts 驱动 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
@@ -58,8 +58,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 以已验收的 fixed 首房为执行基线，先建立真实 behavior-ledger producer、room count、完整 difficulty
-   mapping 与 weighted selection policy，再用 successor ADR 取代 non-composer bootstrap；不得复制测试 fixture。
+1. 以已验收的 fixed 首房与 rolling raw facts 为基线，先明确 14 项 metric 的 window、denominator、missing
+   和 capture boundary，再建立 room count、完整 difficulty mapping 与 weighted selection policy；用 successor
+   ADR 取代 non-composer bootstrap，不得复制测试 fixture。
 2. 建立首房 completion 与下一 handoff，同时继续补齐 live room 所需的 pattern authority；在 V4 缺失
    policy 明确前，不把 isolated capability 冒充 live room/Run。
 3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径。
