@@ -1,199 +1,193 @@
-import {expect, test} from "@playwright/test";
-import {enterSimulation, PATTERN_COUNT} from "./helpers/stg";
+import {expect, test, type Page} from "@playwright/test";
+import {
+  advanceControlledRunToPhase,
+  advanceControlledRunToTick,
+  advanceOneTick,
+  beginControlledRun,
+  openControlled,
+  pressMeaningfulInput,
+  readAuthorityTick,
+  RUN_AUTHORITY,
+  stepRaf,
+} from "./helpers/stg";
 
-const FIXED_RAW_RUN_SEED = 0x1234_5678;
+/*
+ * The authored opening, driven through the controlled frame source so the
+ * journey is tick-exact rather than wall-clock flaky. Every wait is on a fact
+ * the RunConductor published; nothing here reads back a rendered result to
+ * decide what to do next.
+ *
+ * Authored guards under test (narrative-state-machine-v4.json):
+ *   AWAKENING            exit: run.elapsedMs >= 6000 && player.meaningfulInputCount >= 2
+ *   FIRST_EYE            to FIRST_CLAMP_RECOVERY: gaze.pitchDeg > 45 && gaze.directness >= 0.55
+ *   FIRST_CLAMP_RECOVERY exit: gaze.clampReleased && flower.recoveryComplete
+ */
 
-test("default RUN hands the retained body into the fixed first room", async ({page}) => {
-  test.setTimeout(45_000);
+const FIXED_SEED = "305419896";
+const AWAKENING_MINIMUM_TICKS = 6 * 120;
 
+function watchForErrors(page: Page): {pageErrors: string[]; consoleErrors: string[]} {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
+  return {pageErrors, consoleErrors};
+}
 
-  const path = `/?seed=${FIXED_RAW_RUN_SEED}`;
-  const response = await page.goto(path, {waitUntil: "domcontentloaded"});
-  expect(response, `GET ${path} should return a document response`).not.toBeNull();
-  expect(response?.ok(), `GET ${path} should succeed`).toBe(true);
-  await expect(page).toHaveTitle("1bit / STG RUN 04");
-  await expect(page.locator("#pattern-select option")).toHaveCount(PATTERN_COUNT);
-
+test("the authored opening runs from the quiet awakening into room sampling", async ({page}) => {
+  test.slow();
+  const {pageErrors, consoleErrors} = watchForErrors(page);
+  await openControlled(page, `/?seed=${FIXED_SEED}`);
   const body = page.locator("body");
-  await expect(body).toHaveAttribute("data-mode", "run");
-  await expect(body).toHaveAttribute("data-authority", "canonical-run-session-v4");
-  await expect(body).toHaveAttribute("data-authority-owner", "quiet_awakening");
-  await expect(body).toHaveAttribute("data-run-phase", "quiet_awakening");
-  await expect(body).toHaveAttribute("data-authority-tick", "0");
-  await expect(body).toHaveAttribute("data-raw-run-seed-domain", "raw-run-seed");
-  await expect(body).toHaveAttribute("data-raw-run-seed", "305419896");
-  await expect(body).toHaveAttribute(
-    "data-first-eye-resolved-seed-domain",
-    "resolved-occurrence-seed",
-  );
-  await expect(body).toHaveAttribute("data-first-eye-resolved-seed", "2522533150");
-  await expect(body).toHaveAttribute("data-live-colliders", "0");
-  await expect(body).toHaveAttribute("data-meaningful-inputs", "0");
-  await expect(body).toHaveAttribute("data-signal-inputs", "0");
-  await expect(body).toHaveAttribute("data-handoff-ready", "false");
-  await expect(body).toHaveAttribute("data-handoff-state", "not_started");
-  await expect(body).toHaveAttribute("data-handoff-target", "ROOM_SAMPLING");
-  await expect(body).toHaveAttribute("data-handoff-at-tick", "");
-  await expect(body).toHaveAttribute("data-handoff-consumed", "false");
-  await expect(body).toHaveAttribute("data-handoff-consumed-at-tick", "");
-  await expect(body).toHaveAttribute("data-handoff-consumer-authority", "");
-  await expect(body).toHaveAttribute("data-room-composer", "");
-  await expect(body).toHaveAttribute("data-gaze-state", "idle");
-  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "false");
-  await expect(body).toHaveAttribute("data-gaze-clamp-released", "false");
-  await expect(body).toHaveAttribute("data-flower-recovery-complete", "false");
-  await expect(page.locator(".controls-strip")).toBeHidden();
-  await expect(page.locator(".lab-panel")).toBeHidden();
-  await expect(page.locator("#warning")).toBeHidden();
-  await expect(page.locator("#boot-action-label")).toHaveText("从没有留痕的条件开始");
-  await expect(page.locator("#boot-button")).toHaveAttribute("title", "BEGIN WITHOUT RETAINED MATTER");
-  await expect(page.locator("#boot-heading")).toBeHidden();
-  await expect(page.locator("#boot-meta")).toBeHidden();
-  await expect(page.locator("#signal-fallback")).toBeHidden();
-  await expect(page.locator("#pattern-intent")).toBeEmpty();
-  await expect(page.locator("#seed-value")).toHaveText("12345678");
+  const canvas = page.locator("#game-canvas");
 
-  await enterSimulation(page);
+  await beginControlledRun(page);
+  await expect(body).toHaveAttribute("data-authority", RUN_AUTHORITY);
+  // The run rehydrates the previous run's material before the player can act.
+  // With a fresh archive there is nothing to rehydrate and no route to replay,
+  // so those states pass through into the quiet awakening on their own.
+  await advanceControlledRunToTick(page, AWAKENING_MINIMUM_TICKS);
 
-  await expect
-    .poll(async () => Number(await body.getAttribute("data-authority-tick")))
-    .toBeGreaterThan(4);
-  await page.keyboard.press("Space");
-  await expect(body).toHaveClass(/\bpaused\b/);
-  const frozenTick = Number(await body.getAttribute("data-authority-tick"));
-  await page.waitForTimeout(350);
-  await expect(body).toHaveAttribute("data-authority-tick", String(frozenTick));
-  await page.keyboard.press("Space");
-  await expect(body).not.toHaveClass(/\bpaused\b/);
-  await expect
-    .poll(async () => Number(await body.getAttribute("data-authority-tick")))
-    .toBeGreaterThan(frozenTick);
+  // Half of the authored guard: the minimum duration alone does not hand off.
+  // The player has to have actually done something twice.
+  await expect(body).toHaveAttribute("data-run-phase", "AWAKENING");
 
-  await page.keyboard.down("d");
-  await expect(body).toHaveAttribute("data-meaningful-inputs", "1");
-  await page.keyboard.up("d");
-  await expect.poll(async () => Number(await body.getAttribute("data-authority-tick")))
-    .toBeGreaterThan(frozenTick + 2);
+  // A signal press is deliberately NOT a meaningful input: the authored guard
+  // counts movement/focus/gaze, and pressing signal alone must not hand off.
   await page.keyboard.down("z");
-  await expect(body).toHaveAttribute("data-meaningful-inputs", "2");
-  await expect(body).toHaveAttribute("data-signal-inputs", "1");
-  await expect.poll(async () => page.locator("#expression-meter").evaluate(
-    (node) => (node as HTMLElement).style.width,
-  )).toBe("50%");
+  await stepRaf(page, 0);
+  await advanceOneTick(page);
   await page.keyboard.up("z");
+  await stepRaf(page, 0);
+  await advanceOneTick(page);
+  await expect(body).toHaveAttribute("data-run-phase", "AWAKENING");
 
-  await expect(body).toHaveAttribute("data-run-phase", "first_eye", {timeout: 12_000});
-  await expect(body).toHaveAttribute("data-authority-owner", "first_eye");
-  await expect(page.locator("#pattern-name")).toHaveText("眼睛取样");
-  await expect(page.locator("#pattern-name-en")).toHaveText("EYE ACQUISITION");
-  await expect(body).toHaveAttribute("data-segment-start-tick", "960");
-  await expect(page.locator("#seed-value")).toHaveText("12345678");
-  await expect
-    .poll(async () => Number(await body.getAttribute("data-live-colliders")), {
-      message: "first_eye should expose entity-owned live colliders",
-      timeout: 5_000,
-    })
-    .toBeGreaterThan(0);
+  // First meaningful rising edge — still short of the authored count.
+  await pressMeaningfulInput(page, "d");
+  await expect(body).toHaveAttribute("data-run-phase", "AWAKENING");
 
+  // The second edge closes the guard.
+  await pressMeaningfulInput(page, "Shift");
+  await expect(body).toHaveAttribute("data-run-phase", "FIRST_EYE");
+
+  // The Eye is what the authority puts in the sky, and it arrives as authored
+  // content, not as a presentation flourish.
+  await expect(canvas).toHaveAttribute("data-presented-pattern-id", "common.eye_acquisition");
+  const eyeRoom = await canvas.getAttribute("data-presented-room");
+  expect(eyeRoom, "the First Eye is presented inside an authored room").toBeTruthy();
+
+  // Reading the Eye clamps the gaze. The device carries only a held intent, so
+  // the adapter resolves it to the extremum of the authored sample domain.
   await page.keyboard.down("g");
-  await expect(body).toHaveAttribute("data-run-phase", "first_clamp_recovery", {timeout: 4_000});
-  await expect(body).toHaveAttribute("data-gaze-state", "clamped");
-  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "true");
-  await expect.poll(async () => page.locator("#expression-meter").evaluate(
-    (node) => (node as HTMLElement).style.width,
-  )).toBe("10%");
+  await stepRaf(page, 0);
+  await advanceControlledRunToPhase(page, "FIRST_CLAMP_RECOVERY", 20);
   await page.keyboard.up("g");
+  await stepRaf(page, 0);
 
-  await expect(body).toHaveAttribute("data-gaze-clamp-released", "true", {timeout: 4_000});
-  await expect(body).toHaveAttribute("data-flower-recovery-complete", "true", {timeout: 4_000});
-  await expect.poll(async () => page.locator("#expression-meter").evaluate(
-    (node) => (node as HTMLElement).style.width,
-  )).toBe("30%");
+  // The authored lesson is bodily: the flower recovers later than the Eye
+  // releases it, so leaving this state is not immediate.
+  const clampTick120 = await readAuthorityTick(page);
+  const samplingTick120 = await advanceControlledRunToPhase(page, "ROOM_SAMPLING", 60);
+  expect(
+    samplingTick120,
+    "flower recovery outlasts the clamp release, so room sampling cannot start on the same tick",
+  ).toBeGreaterThan(clampTick120);
 
-  await expect(body).toHaveAttribute("data-run-phase", "room_sampling", {timeout: 18_000});
+  // Entering room sampling arms the room ledger; the composer's own selection
+  // reaches the world a moment later, so the Eye's pattern is still presented on
+  // the handoff tick itself.
+  await expect(canvas).toHaveAttribute("data-presented-pattern-id", "common.eye_acquisition");
+  await advanceControlledRunToTick(page, samplingTick120 + 120);
+
+  // Once sampling is under way the world presents a composer-selected room
+  // pattern. The room slug is deliberately NOT reconstructed from the room id
+  // here: the manifests disagree by design and only the asset bindings may
+  // resolve that mapping, so this asserts the authored shape and leaves the
+  // exact selection to the determinism test below.
+  await expect(canvas).toHaveAttribute("data-presented-room", /^[A-Z_]+$/u);
+  await expect(canvas).toHaveAttribute("data-presented-pattern-id", /^room\.[a-z0-9_]+\.[a-z0-9_]+$/u);
+
+  // Gameplay time never resumed from a refused tick.
+  await expect(body).not.toHaveAttribute("data-run-failure", /.+/u);
+  expect(pageErrors, "the authored opening should have no uncaught page errors").toEqual([]);
+  expect(consoleErrors, "the authored opening should have no error-level console messages").toEqual([]);
+});
+
+/*
+ * Retargeted from the deleted Pattern Lab spec. The value it carried was clock
+ * determinism, which was never lab-specific: pause freezes gameplay time and
+ * DISCARDS the wall time observed while paused, so resuming produces no
+ * catch-up burst.
+ */
+test("pause freezes gameplay time and resumes without a catch-up burst", async ({page}) => {
+  await openControlled(page, `/?seed=${FIXED_SEED}`);
+  const body = page.locator("body");
+
+  await beginControlledRun(page);
+  await advanceControlledRunToTick(page, 120);
+
   await page.keyboard.press("Space");
+  await stepRaf(page, 0);
   await expect(body).toHaveClass(/\bpaused\b/);
-  const roomPausedTick = Number(await body.getAttribute("data-authority-tick"));
-  await page.waitForTimeout(250);
-  await expect(body).toHaveAttribute("data-authority-tick", String(roomPausedTick));
+  const frozenTick120 = await readAuthorityTick(page);
 
-  await expect(body).toHaveAttribute("data-source-drained", "true");
-  await expect(body).toHaveAttribute("data-live-colliders", "0");
-  await expect(body).toHaveAttribute("data-projectile-entities", "0");
-  await expect(body).toHaveAttribute("data-handoff-ready", "true");
-  await expect(body).toHaveAttribute("data-handoff-state", "ready_for_room_sampling");
-  await expect(body).toHaveAttribute("data-handoff-target", "ROOM_SAMPLING");
-  await expect(body).toHaveAttribute("data-handoff-consumed", "true");
-  await expect(body).toHaveAttribute(
-    "data-handoff-consumer-authority",
-    "ext-005-first-forced-room-bootstrap",
-  );
-  const handoffAtTick = Number(await body.getAttribute("data-handoff-at-tick"));
-  expect(handoffAtTick).toBeGreaterThan(0);
-  expect(Number(await body.getAttribute("data-handoff-consumed-at-tick"))).toBe(handoffAtTick);
-  expect(Number(await body.getAttribute("data-room-start-tick"))).toBe(handoffAtTick);
-  expect(Number(await body.getAttribute("data-room-read-start-tick"))).toBe(handoffAtTick + 159);
-  await expect(body).toHaveAttribute("data-source-live-entities", "0");
-  await expect(body).toHaveAttribute("data-gaze-state", "idle");
-  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "true");
-  await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
-  await expect(body).toHaveAttribute("data-flower-recovery-complete", "true");
-  await expect(body).toHaveAttribute("data-authority-owner", "room_pre_read");
-  await expect(body).toHaveAttribute("data-room-phase", /^(telegraph|entry)$/);
-  await expect(body).toHaveAttribute("data-room-id", "FORCED_ALIGNMENT");
-  await expect(body).toHaveAttribute("data-room-pattern-id", "room.forced.left_right_gate");
-  await expect(body).toHaveAttribute(
-    "data-room-occurrence-id",
-    "room:0:encounter:0:room.forced.left_right_gate",
-  );
-  await expect(body).toHaveAttribute("data-room-tier", "listen");
-  await expect(body).toHaveAttribute("data-room-difficulty", "EASY");
-  await expect(body).toHaveAttribute(
-    "data-room-selection-authority",
-    "ext-005-fixed-first-room-bootstrap",
-  );
-  await expect(body).toHaveAttribute("data-room-selection-rng-draws", "0");
-  await expect(body).toHaveAttribute("data-room-composer", "false");
-  await expect(body).toHaveAttribute("data-room-resolved-seed-domain", "resolved-occurrence-seed");
-  await expect(body).toHaveAttribute("data-room-resolved-seed", "2021012721");
-  await expect(body).toHaveAttribute("data-room-combat-present", "false");
-  await expect(body).toHaveAttribute("data-room-complete", "false");
-  await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
-  await expect(page.locator("#pattern-time")).toHaveText("00.000");
-  await expect(page.locator("#pattern-name")).toHaveText("左右闸门");
-  await expect(page.locator("#pattern-name-en")).toHaveText("LEFT/RIGHT GATE");
-  await expect(page.locator("#seed-value")).toHaveText("12345678");
-  await expect(page.locator("#game-canvas")).toHaveAttribute(
-    "data-presented-room",
-    "FORCED_ALIGNMENT",
-  );
-  await expect(page.locator("#game-canvas")).toHaveAttribute(
-    "data-presented-pattern-id",
-    "room.forced.left_right_gate",
-  );
+  // Wall time keeps passing with the run paused.
+  await stepRaf(page, 1_000);
+  expect(await readAuthorityTick(page)).toBe(frozenTick120);
+  await stepRaf(page, 1_000);
+  expect(await readAuthorityTick(page)).toBe(frozenTick120);
 
+  // Resuming discards the paused interval instead of replaying it.
   await page.keyboard.press("Space");
+  await stepRaf(page, 1_000);
   await expect(body).not.toHaveClass(/\bpaused\b/);
-  await expect(body).toHaveAttribute("data-room-phase", "read", {timeout: 5_000});
-  await expect(body).toHaveAttribute("data-room-combat-present", "true");
-  await expect(body).toHaveAttribute("data-authority-owner", "room_pattern");
-  await expect.poll(async () => Number(await body.getAttribute("data-projectile-entities")), {
-    message: "first forced room should expose entity-owned projectiles",
-    timeout: 5_000,
-  }).toBeGreaterThan(0);
-  await expect.poll(async () => Number(await body.getAttribute("data-live-colliders")), {
-    message: "first forced room should arm its canonical colliders",
-    timeout: 5_000,
-  }).toBeGreaterThan(0);
-  expect(Number(await body.getAttribute("data-room-pattern-local-tick"))).toBeGreaterThan(0);
-  await expect(page.locator("#seed-value")).toHaveText("12345678");
+  expect(
+    await readAuthorityTick(page),
+    "the resume frame's own interval was observed while paused and is discarded",
+  ).toBe(frozenTick120);
 
-  expect(pageErrors, "canonical RUN should have no uncaught page errors").toEqual([]);
-  expect(consoleErrors, "canonical RUN should have no error-level console messages").toEqual([]);
+  // Gameplay time resumes from where it froze — forward, and without replaying
+  // the paused wall time as a burst.
+  await stepRaf(page, 100);
+  const resumedTick120 = await readAuthorityTick(page);
+  expect(resumedTick120).toBeGreaterThan(frozenTick120);
+  expect(resumedTick120 - frozenTick120).toBeLessThanOrEqual(12);
+});
+
+/*
+ * Also retargeted from the Pattern Lab spec, which proved determinism by
+ * switching authored patterns by hand. The product claim is stronger than that:
+ * one seed and one tick-exact input sequence produce one identical run.
+ */
+test("one seed and one tick-exact input sequence produce one identical opening", async ({page}) => {
+  test.slow();
+  const observed: Array<Record<string, string | null>> = [];
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await openControlled(page, `/?seed=${FIXED_SEED}`);
+    await beginControlledRun(page);
+    await advanceControlledRunToTick(page, AWAKENING_MINIMUM_TICKS);
+    await pressMeaningfulInput(page, "d");
+    await pressMeaningfulInput(page, "Shift");
+    await page.keyboard.down("g");
+    await stepRaf(page, 0);
+    await advanceControlledRunToPhase(page, "FIRST_CLAMP_RECOVERY", 20);
+    await page.keyboard.up("g");
+    await stepRaf(page, 0);
+    const samplingTick120 = await advanceControlledRunToPhase(page, "ROOM_SAMPLING", 60);
+    await advanceControlledRunToTick(page, samplingTick120 + 120);
+
+    observed.push(await page.evaluate(() => ({
+      tick120: document.body.dataset.authorityTick ?? null,
+      phase: document.body.dataset.runPhase ?? null,
+      seed: document.body.dataset.rawRunSeed ?? null,
+      room: document.getElementById("game-canvas")?.getAttribute("data-presented-room") ?? null,
+      patternId: document.getElementById("game-canvas")?.getAttribute("data-presented-pattern-id") ?? null,
+      clock: document.getElementById("header-clock")?.textContent ?? null,
+    })));
+  }
+
+  expect(observed[1]).toEqual(observed[0]);
 });

@@ -67,6 +67,7 @@ import {
   GrazeEvidenceAuthority,
   PlayerDamageAuthority,
   V4_PLAYER_AUTHORITY_CONTRACT,
+  isExactPlayerDamageAuthority,
   playerInputEligibleAtTick,
   type DirectionalOverrideSnapshot,
   type DamageBatchResult,
@@ -291,6 +292,23 @@ export interface CanonicalCombatKernelOptions {
   readonly projectileDamage: number;
   /** Adapter gap: V4 budgets pool classes but does not map archetype IDs to them. */
   readonly projectilePoolClasses: Readonly<Record<string, ProjectilePoolClass>>;
+  /**
+   * The run's own player damage authority, shared by every occurrence of one
+   * run. Supplying it makes the body a run-lived fact: health, lives, leases
+   * and life state carry across occurrences instead of restarting per kernel,
+   * which is what makes the authored body-collapse ending reachable.
+   *
+   * It requires `occurrenceId`, because the kernel then namespaces every
+   * authority identity it mints by that occurrence scope, so many occurrences
+   * can write onto ONE run event bus without colliding on occurrence keys.
+   * The authority must already be bound to the same bus this kernel writes to,
+   * and the run owner — not the kernel — advances it on ticks that no
+   * occurrence covers.
+   *
+   * Omitting it keeps the historical standalone identity (`player`, per-kernel
+   * evidence/graze/override ids) and therefore the historical trace bytes.
+   */
+  readonly runPlayer?: PlayerDamageAuthority;
 }
 
 export interface CanonicalCombatStepInput {
@@ -671,9 +689,11 @@ function captureCombatOptions(options: CanonicalCombatKernelOptions): CanonicalC
   const patternId = read("patternId", false);
   const occurrenceId = read("occurrenceId", false);
   const initialPlayerPosition = read("initialPlayerPosition", false);
+  const runPlayer = read("runPlayer", false);
   return Object.freeze({
     ...(patternId === undefined ? {} : {patternId: patternId as string}),
     ...(occurrenceId === undefined ? {} : {occurrenceId: occurrenceId as string}),
+    ...(runPlayer === undefined ? {} : {runPlayer: runPlayer as PlayerDamageAuthority}),
     seed: read("seed", true) as number,
     startTick120: read("startTick120", true) as number,
     roomId: read("roomId", true) as string,
@@ -8387,17 +8407,39 @@ export class CanonicalCombatKernel {
       "combat pattern completion tick120",
     );
     this.bus = eventBus;
-    this.player = new PlayerDamageAuthority(this.bus, {playerId: "player"});
-    this.evidence = new EvidenceAuthority(this.bus);
-    this.graze = new GrazeEvidenceAuthority(this.bus, this.evidence);
-    this.override = new DirectionalOverrideAuthority(this.bus, this.evidence, {
-      authorityId: "player-override",
-    });
-    this.player.advanceTo(this.currentTick120);
-    this.override.advanceTo(this.currentTick120);
     this.occurrenceScope = captured.occurrenceId === undefined
       ? null
       : occurrenceAuthorityId(occurrenceId, this.pattern.id);
+    if (captured.runPlayer === undefined) {
+      // Standalone identity: the body begins and ends with this kernel.
+      this.player = new PlayerDamageAuthority(this.bus, {playerId: "player"});
+      this.evidence = new EvidenceAuthority(this.bus);
+      this.graze = new GrazeEvidenceAuthority(this.bus, this.evidence);
+      this.override = new DirectionalOverrideAuthority(this.bus, this.evidence, {
+        authorityId: "player-override",
+      });
+    } else {
+      // Run identity: one body across every occurrence, every other authority
+      // namespaced by this occurrence so one run bus stays collision-free.
+      const scope = this.occurrenceScope;
+      if (scope === null) {
+        throw new Error("canonical combat runPlayer requires a run-scoped occurrenceId");
+      }
+      if (!isExactPlayerDamageAuthority(captured.runPlayer)) {
+        throw new Error("canonical combat runPlayer must be an exact PlayerDamageAuthority");
+      }
+      if (Reflect.get(captured.runPlayer, "bus") !== this.bus) {
+        throw new Error("canonical combat runPlayer must be bound to this kernel's event bus");
+      }
+      this.player = captured.runPlayer;
+      this.evidence = new EvidenceAuthority(this.bus, 0, `${scope}:evidence`);
+      this.graze = new GrazeEvidenceAuthority(this.bus, this.evidence, `${scope}:graze`);
+      this.override = new DirectionalOverrideAuthority(this.bus, this.evidence, {
+        authorityId: `${scope}:override`,
+      });
+    }
+    this.player.advanceTo(this.currentTick120);
+    this.override.advanceTo(this.currentTick120);
     this.projectiles = new ProjectileAuthorityPool(this.bus, {
       authorityId: this.occurrenceScope ?? `combat:${this.pattern.id}`,
       archetypes: archetypesFor(this.pattern, projectilePoolClasses),
@@ -8423,6 +8465,25 @@ export class CanonicalCombatKernel {
     } finally {
       this.advanceLocked = false;
     }
+  }
+
+  /**
+   * Close this kernel's tick WITHOUT closing the bus, for a kernel that shares
+   * a run event bus whose single canonical close belongs to the run owner.
+   * Every fact this kernel owns for the tick has already been written.
+   */
+  settleTick(tick120Value: number): void {
+    this.assertOperational();
+    const tick120 = requireSafeTick(tick120Value, "combat settle tick120");
+    if (tick120 !== this.currentTick120) {
+      throw new Error(
+        `canonical combat can settle only its current tick: ${this.currentTick120} !== ${tick120}`,
+      );
+    }
+    if (this.pendingFlushTick120 !== tick120) {
+      throw new Error(`combat tick ${tick120} has no prepared flush`);
+    }
+    this.pendingFlushTick120 = null;
   }
 
   /** Close the advanced tick with the single canonical event flush. */

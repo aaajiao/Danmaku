@@ -61,7 +61,14 @@ export default defineConfig({
         clientsClaim: false,
         skipWaiting: false,
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-        globPatterns: ["**/*.{js,css,html,png,ico,woff2,ttf,wav,json}"],
+        // The V4 UI typeface (NotoSansSC-Variable.ttf) is deliberately NOT
+        // precached: it is a 17.8 MB CJK variable font, and forcing it into the
+        // offline install would cost every first visit an 18 MB download before
+        // the game boots. It loads on demand through @font-face with
+        // font-display: swap, so the shell renders in the fallback stack and
+        // upgrades when the authored face arrives. Offline boot does not depend
+        // on it. Subsetting the face to the copy actually used is P1 hardening.
+        globPatterns: ["**/*.{js,css,html,png,ico,woff2,wav,json}"],
       },
       devOptions: {
         enabled: true,

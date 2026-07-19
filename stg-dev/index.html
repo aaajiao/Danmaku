@@ -15,16 +15,23 @@
     />
     <title>1bit / STG RUN 04</title>
   </head>
+  <!--
+    Element ids under #game-stage are produced by src/game/hud.ts:
+      hudElementId(screenId, layerId)  ->  #hud-<screen semantic>-<layer id>
+      the same id with a "-label" suffix receives the authored labelCopy
+      promptElementId(promptId)        ->  #hud-prompt-<prompt id>
+    All rects, labels and copy come from manifests/narrative/ui-layouts-v4.json
+    and ui-copy-v4.json. Never write copy or geometry into this file.
+  -->
   <body data-mode="run">
     <div id="app">
       <header class="site-header">
-        <a class="brand" href="#" aria-label="1bit STG Run 首页">
+        <span class="brand" aria-label="1bit STG Run">
           <span class="brand-mark">1<span>bit</span></span>
           <span class="brand-copy"><span id="surface-name">STG RUN</span> <i>04</i></span>
-        </a>
+        </span>
         <div class="system-state">
-          <span id="manifest-live-dot" class="live-dot" aria-hidden="true" hidden></span>
-          <span id="manifest-status" hidden>MANIFEST ONLINE</span>
+          <span id="run-phase-readout" class="run-phase">—</span>
           <span class="header-clock" id="header-clock">000.000</span>
         </div>
       </header>
@@ -32,123 +39,122 @@
       <main class="workspace">
         <section class="play-column" aria-label="游戏运行区">
           <div class="screen-frame">
-            <div class="hud hud-top" aria-label="游戏状态">
-              <div class="hud-unit hud-flower">
-                <span class="hud-label">FLOWER / 表达</span>
-                <div class="meter"><i id="expression-meter"></i></div>
-              </div>
-              <div class="hud-unit hud-reading">
-                <span class="hud-label">READ / 读取</span>
-                <div class="meter"><i id="protocol-meter"></i></div>
-              </div>
-              <div class="hud-counter">
-                <span>EVIDENCE</span>
-                <strong id="evidence-value">00</strong>
-              </div>
-            </div>
-
             <div id="game-stage" class="game-stage">
               <canvas id="game-canvas" aria-label="1bit STG 可玩画面"></canvas>
-              <div id="warning" class="warning-card" hidden aria-live="polite">
-                <span>EXACT WARNING</span>
-                <strong id="warning-shape">SPARSE PATH TICKS</strong>
+
+              <!-- gameplay_hud -->
+              <div id="hud-gameplay" class="hud-screen" aria-label="运行状态">
+                <span class="hud-layer hud-label" id="hud-gameplay-hud-flower-label"></span>
+                <span class="hud-layer hud-meter" id="hud-gameplay-hud-flower"></span>
+                <span class="hud-layer hud-label" id="hud-gameplay-hud-gaze-label"></span>
+                <span class="hud-layer hud-state" id="hud-gameplay-hud-gaze"></span>
+                <span class="hud-layer hud-label" id="hud-gameplay-hud-evidence-label"></span>
+                <strong class="hud-layer hud-count" id="hud-gameplay-hud-evidence"></strong>
+                <span class="hud-layer hud-label" id="hud-gameplay-hud-memory-label"></span>
+                <strong class="hud-layer hud-count" id="hud-gameplay-hud-memory"></strong>
+                <span class="hud-layer hud-label" id="hud-gameplay-hud-room-label"></span>
+                <strong class="hud-layer hud-token" id="hud-gameplay-hud-room"></strong>
+                <span
+                  class="hud-layer hud-text"
+                  id="hud-gameplay-hud-weather"
+                  aria-live="polite"
+                ></span>
               </div>
+
+              <!-- boss_hud -->
+              <div id="hud-boss" class="hud-screen" hidden aria-label="协议读取">
+                <span class="hud-layer hud-text" id="hud-boss-hud-protocol-name"></span>
+                <span class="hud-layer hud-interval" id="hud-boss-hud-protocol-interval"></span>
+                <span class="hud-layer hud-text" id="hud-boss-hud-read-state"></span>
+                <span class="hud-layer hud-text" id="hud-boss-hud-resolution-condition"></span>
+              </div>
+
+              <!-- discovery_prompts (these replace tutorials) -->
+              <div id="hud-prompts" class="hud-prompts" aria-live="polite">
+                <span class="hud-prompt" id="hud-prompt-signal-fallback" hidden></span>
+                <span class="hud-prompt hud-prompt-visual" id="hud-prompt-gaze-threshold" hidden></span>
+                <span class="hud-prompt" id="hud-prompt-override" hidden></span>
+                <span class="hud-prompt" id="hud-prompt-snapshot-trace" hidden></span>
+              </div>
+
+              <!-- Feedback cue surfaces. Empty unless a binding resolves; an
+                   unbound cue stays silent and writes nothing here. -->
+              <div id="warning" class="warning-card" hidden aria-live="polite"></div>
               <div id="toast" class="toast" aria-live="polite"></div>
-              <div id="signal-fallback" class="signal-fallback" hidden aria-live="polite"></div>
+
+              <!-- state_snapshot -->
+              <section id="hud-snapshot" class="run-screen" hidden aria-label="状态快照">
+                <h2 class="run-screen-title" id="snapshot-heading">状态快照</h2>
+                <div class="snapshot-fingerprint" id="hud-state-snapshot-fingerprint"></div>
+                <ol class="snapshot-observations" id="hud-state-snapshot-observations"></ol>
+                <div class="snapshot-traces" id="hud-state-snapshot-fact-traces"></div>
+                <div class="snapshot-material" id="hud-state-snapshot-material-memory"></div>
+                <div class="snapshot-resolution" id="hud-state-snapshot-resolution"></div>
+                <div class="run-screen-actions">
+                  <button id="snapshot-action-continue" type="button"></button>
+                  <button id="snapshot-action-export" type="button">PNG</button>
+                  <button id="snapshot-action-title" type="button"></button>
+                </div>
+              </section>
+
+              <!-- failure screen, authored semantic: run_interruption -->
+              <section id="hud-interruption" class="run-screen" hidden aria-label="路线中断">
+                <p class="interruption-fact" id="hud-run-interruption-interruption-fact"></p>
+                <p class="interruption-trace" id="hud-run-interruption-death-trace"></p>
+                <div class="snapshot-fingerprint" id="hud-run-interruption-fingerprint"></div>
+                <div class="run-screen-actions">
+                  <button id="interruption-action-snapshot" type="button"></button>
+                  <button id="interruption-action-continue" type="button"></button>
+                  <button id="interruption-action-title" type="button"></button>
+                </div>
+              </section>
+
+              <!-- cross_run_transition: the authored restore timeline -->
+              <section id="hud-cross-run" class="run-screen" hidden aria-label="跨局材料恢复">
+                <p class="cross-run-note" id="cross-run-note"></p>
+                <ol class="cross-run-timeline" id="cross-run-timeline"></ol>
+                <div class="run-screen-actions">
+                  <button id="cross-run-action-continue" type="button"></button>
+                  <button id="cross-run-action-fresh" type="button"></button>
+                </div>
+              </section>
+
               <div id="boot-overlay" class="boot-overlay">
-                <div id="boot-index" class="boot-index" hidden>04 / DEVELOPMENT TRACE</div>
-                <h1 id="boot-heading" hidden>先读取，<br />再穿过。</h1>
-                <p id="boot-description" hidden>
+                <div class="boot-index">04 / V4 AUTHORED RUN</div>
+                <h1 id="boot-heading">先读取，<br />再穿过。</h1>
+                <p id="boot-description">
                   弹幕不是装饰。每条轨迹都从 V4 manifest 编译，并在固定玩法时钟中发生。
                 </p>
-                <button
-                  id="boot-button"
-                  class="primary-button"
-                  type="button"
-                  title="BEGIN WITHOUT RETAINED MATTER"
-                >
-                  <span id="boot-action-label">从没有留痕的条件开始</span><kbd id="boot-key" hidden>ENTER</kbd>
+                <dl class="boot-seed">
+                  <dt>SEED</dt>
+                  <dd id="boot-seed">—</dd>
+                </dl>
+                <button id="boot-button" class="primary-button" type="button">
+                  <span id="boot-action-label">从没有留痕的条件开始</span>
+                  <kbd id="boot-key">ENTER</kbd>
                 </button>
-                <div id="boot-meta" class="boot-meta" hidden>
-                  <span>120 HZ</span><span>48 PATTERNS</span><span>V4 CONTENT VERIFIED</span>
+                <div class="boot-meta">
+                  <span>120 HZ</span><span id="boot-atlases">7 ATLASES</span
+                  ><span>V4 CONTENT VERIFIED</span>
                 </div>
               </div>
             </div>
-
-            <div class="hud hud-bottom">
-              <div>
-                <span class="hud-label">ROOM / 房间</span>
-                <strong id="room-value">INFORMATION</strong>
-              </div>
-              <div class="pattern-state">
-                <span id="pattern-sequence">01 / 48</span>
-                <i></i>
-                <span id="pattern-time">00.000</span>
-              </div>
-              <div class="right-align">
-                <span class="hud-label">BODY / 身体</span>
-                <strong id="health-value">● ● ●</strong>
-              </div>
-            </div>
           </div>
 
-          <div class="controls-strip" hidden aria-label="操作说明">
+          <div class="controls-strip" aria-label="操作说明">
             <span><kbd>WASD</kbd> 移动</span>
             <span><kbd>SHIFT</kbd> Focus</span>
             <span><kbd>Z</kbd> 表达</span>
+            <span><kbd>G</kbd> 读取</span>
             <span><kbd>X</kbd> Override</span>
             <span><kbd>SPACE</kbd> 暂停</span>
-            <span class="pad-map"><kbd>PAD</kbd> A 表达 · B Override · LB/RB Focus</span>
             <span id="gamepad-status" class="gamepad-status">○ GAMEPAD</span>
           </div>
-        </section>
 
-        <aside class="lab-panel" hidden aria-label="弹幕开发控制台">
-          <div class="panel-heading">
-            <div>
-              <span class="eyebrow">PATTERN COMPILER</span>
-              <h2>弹幕试验台</h2>
-            </div>
-            <span class="build-tag">V4.0</span>
-          </div>
-
-          <section class="panel-section pattern-section">
-            <label for="pattern-select">权威 Pattern</label>
-            <div class="select-wrap">
-              <select id="pattern-select"></select>
-            </div>
-            <div class="pattern-title">
-              <strong id="pattern-name">擦边校准</strong>
-              <span id="pattern-name-en">GRAZE CALIBRATION</span>
-            </div>
-            <p id="pattern-intent" class="pattern-intent"></p>
-            <div class="button-row">
-              <button id="previous-pattern" type="button">← 上一组</button>
-              <button id="restart-pattern" type="button">重启</button>
-              <button id="next-pattern" type="button">下一组 →</button>
-            </div>
-          </section>
-
-          <section class="panel-section manifest-grid" aria-label="Pattern 参数">
-            <div><span>GEOMETRY</span><strong id="geometry-value">FAN</strong></div>
-            <div><span>EMITTERS</span><strong id="emitter-value">01</strong></div>
-            <div><span>TICK</span><strong id="tick-value">120 HZ</strong></div>
-            <div><span>SEED</span><strong id="seed-value">—</strong></div>
-          </section>
-
-          <section class="panel-section">
-            <div class="section-title">
-              <span>DIFFICULTY / 密度</span>
-              <output id="difficulty-output">NORMAL</output>
-            </div>
-            <input id="difficulty" type="range" min="0" max="2" value="1" step="1" />
-            <div class="range-labels"><span>EASY</span><span>NORMAL</span><span>HARD</span></div>
-          </section>
-
-          <section class="panel-section switches">
-            <div class="section-title"><span>FEEDBACK ROUTER</span></div>
+          <section class="access-strip" aria-label="可访问性">
+            <p class="access-note">以下开关只改变表现，不改变玩法时刻与事件记录。</p>
             <label class="switch-row">
-              <span><strong>Reduced Motion</strong><small>只改变表现，不改变玩法时刻</small></span>
+              <span><strong>Reduced Motion</strong><small>减少抖动、拖尾与转场</small></span>
               <input id="reduced-motion" type="checkbox" /><i></i>
             </label>
             <label class="switch-row">
@@ -156,23 +162,11 @@
               <input id="flash-off" type="checkbox" /><i></i>
             </label>
             <label class="switch-row">
-              <span><strong>Audio Trace</strong><small>房间声床与权威事件提示</small></span>
+              <span><strong>Audio</strong><small>房间声床与权威事件提示</small></span>
               <input id="audio-enabled" type="checkbox" checked /><i></i>
             </label>
           </section>
-
-          <section class="panel-section event-section">
-            <div class="section-title">
-              <span>LOCAL OBSERVATION TRACE</span><button id="clear-events" type="button">CLEAR</button>
-            </div>
-            <ol id="event-log" class="event-log" aria-live="polite"></ol>
-          </section>
-
-          <footer class="panel-footer">
-            <span>7 ATLASES / 448 FRAMES</span>
-            <span class="status-pass">APP FOUNDATION</span>
-          </footer>
-        </aside>
+        </section>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>

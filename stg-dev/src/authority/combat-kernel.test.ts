@@ -10,7 +10,7 @@ import {
   type EncounterManifestSource,
 } from "./encounters";
 import {LaserAuthority, compileLaserGeometry} from "./lasers";
-import {sweepSegmentIntoSector} from "./player";
+import {PlayerDamageAuthority, sweepSegmentIntoSector} from "./player";
 import {
   createPatternSchedule,
   executablePattern,
@@ -63,6 +63,7 @@ import {
   validateSplitGenerationParameters,
   validateTurnOnceParameters,
   validateWallGeometryContract,
+  type CanonicalCombatKernelOptions,
   type CanonicalCombatStepInput,
   type CanonicalCombatPatternId,
 } from "./combat-kernel";
@@ -15274,5 +15275,114 @@ describe("admitted Borrowed Rule history-echo combat capability", () => {
         poolUsage: {liveColliders: 0, residueVisuals: 0},
       });
     }
+  });
+});
+
+/**
+ * A run has one body. Occurrences are episodes of that body's day, not
+ * separate bodies: what a room takes out of it is still gone in the next room.
+ */
+describe("run-scoped combat identity shares one run event bus", () => {
+  const DAMAGE_POSITION = Object.freeze({x: 90, y: 570});
+  const DAMAGE_RELATIVE_TICK120 = 485;
+
+  function runScopedOptions(
+    ordinal: number,
+    startTick120: number,
+    runPlayer: PlayerDamageAuthority,
+  ) {
+    return {
+      ...optionsFor("room.forced.left_right_gate"),
+      difficulty: "HARD" as const,
+      occurrenceId: `run-body:occurrence:${ordinal}`,
+      startTick120,
+      initialPlayerPosition: DAMAGE_POSITION,
+      runPlayer,
+    };
+  }
+
+  function driveToDamage(kernel: CanonicalCombatKernel, startTick120: number): void {
+    for (let offset = 1; offset <= DAMAGE_RELATIVE_TICK120; offset += 1) {
+      kernel.step({...inputAt(startTick120 + offset), focused: false});
+    }
+  }
+
+  it("carries the body across two occurrences without colliding on occurrence keys", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {playerId: "run:run-body:player"});
+
+    const first = new CanonicalCombatKernel(runScopedOptions(0, 0, player), bus);
+    expect(first.snapshot().player.health).toBe(3);
+    driveToDamage(first, 0);
+    expect(first.snapshot().player).toMatchObject({health: 2, lives: 3, state: "alive"});
+
+    // The second occurrence inherits the body it was handed, not a fresh one.
+    const secondStart = 486;
+    const second = new CanonicalCombatKernel(runScopedOptions(1, secondStart, player), bus);
+    expect(second.snapshot().player.health).toBe(2);
+    driveToDamage(second, secondStart);
+    expect(second.snapshot().player).toMatchObject({health: 1, lives: 3, state: "alive"});
+    expect(player.snapshot().health).toBe(1);
+
+    // Both damage batches landed on ONE bus: no mirror, no key collision.
+    const damage = bus.events().filter((event) => event.id === "player.damage.commit");
+    expect(damage).toHaveLength(2);
+    expect(damage.every((event) => event.entityStableId === "run:run-body:player")).toBe(true);
+    const collisionOff = bus.events()
+      .filter((event) => event.id === "player.collision.off")
+      .map((event) => event.occurrenceKey);
+    expect(collisionOff).toEqual([
+      "run:run-body:player:collision-off:run:run-body:player:lease:000000",
+      "run:run-body:player:collision-off:run:run-body:player:lease:000001",
+    ]);
+  });
+
+  it("namespaces every occurrence-owned authority identity by the occurrence", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {playerId: "run:run-body:player"});
+    const kernel = new CanonicalCombatKernel(runScopedOptions(0, 0, player), bus);
+    driveToDamage(kernel, 0);
+    const scope = "combat:21:run-body:occurrence:0:room.forced.left_right_gate";
+    const foreign = bus.events().filter((event) =>
+      event.entityStableId !== "run:run-body:player"
+      && !event.occurrenceKey.startsWith(scope)
+      && !event.entityStableId.startsWith(scope));
+    expect(foreign).toEqual([]);
+  });
+
+  it("fails closed when a run body arrives without a run-scoped occurrence", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(bus, {playerId: "run:run-body:player"});
+    const options = {...runScopedOptions(0, 0, player)} as Record<string, unknown>;
+    delete options["occurrenceId"];
+    expect(() => new CanonicalCombatKernel(
+      options as unknown as CanonicalCombatKernelOptions,
+      bus,
+    )).toThrow(/run-scoped occurrenceId/);
+  });
+
+  it("fails closed when the run body writes to a different bus", () => {
+    const bus = new CanonicalEventBus();
+    const player = new PlayerDamageAuthority(new CanonicalEventBus(), {playerId: "elsewhere"});
+    expect(() => new CanonicalCombatKernel(runScopedOptions(0, 0, player), bus))
+      .toThrow(/bound to this kernel's event bus/);
+  });
+
+  it("fails closed when the run body is not an exact damage authority", () => {
+    const bus = new CanonicalEventBus();
+    const impostor = Object.create(PlayerDamageAuthority.prototype) as PlayerDamageAuthority;
+    expect(() => new CanonicalCombatKernel(runScopedOptions(0, 0, impostor), bus))
+      .toThrow(/exact PlayerDamageAuthority/);
+  });
+
+  it("keeps the standalone kernel on its historical unscoped identity", () => {
+    const kernel = new CanonicalCombatKernel({
+      ...optionsFor("room.forced.left_right_gate"),
+      difficulty: "HARD",
+      initialPlayerPosition: DAMAGE_POSITION,
+    });
+    driveToDamage(kernel, 0);
+    expect(kernel.events().some((event) =>
+      event.occurrenceKey === "player:collision-off:player:lease:000000")).toBe(true);
   });
 });

@@ -68,6 +68,32 @@ export interface Vec2 {
   y: number;
 }
 
+/**
+ * The real projectile lifecycle owned by the authority (`projectile-lifecycle-v4`
+ * minus the `pooled` slot state, which has no gameplay snapshot). Presentation
+ * carries all seven honestly; it never infers one from time or animation.
+ */
+export type ProjectileAuthorityLifecycleState =
+  | "spawn"
+  | "arm"
+  | "flight"
+  | "impact"
+  | "cancel"
+  | "residue"
+  | "cleanup";
+
+/**
+ * The coarser vocabulary the renderer draws with. It is a strict projection of
+ * the authority lifecycle above (see PROJECTILE_VISUAL_LIFECYCLE_BY_AUTHORITY_STATE
+ * in presentation.ts) and is never the source of a collision fact — the
+ * collision-authority distinction always travels separately in
+ * `collisionEnabled`, which only `flight` may own.
+ */
+export type ProjectileVisualLifecycleState = "arm" | "flight" | "residue";
+
+/** Which terminal transition produced a residue body. */
+export type ProjectileTerminalCause = "impact" | "cancel";
+
 export interface BulletState {
   id: number | string;
   archetype: string;
@@ -86,7 +112,16 @@ export interface BulletState {
   origin: Vec2;
   motionStack: MotionDefinition[];
   /** Explicit authority lifecycle for canonical projections; presentation only. */
-  lifecycleState?: "arm" | "flight" | "residue";
+  lifecycleState?: ProjectileVisualLifecycleState;
+  /**
+   * The uncollapsed authority lifecycle state. Present whenever the source is a
+   * canonical authority snapshot; absent for legacy sources that own no
+   * lifecycle. Consumers that need the honest state read this, not
+   * `lifecycleState`.
+   */
+  authorityLifecycleState?: ProjectileAuthorityLifecycleState;
+  /** Authority-committed terminal cause; null while the body is still live. */
+  terminalCause?: ProjectileTerminalCause | null;
   collisionEnabled?: boolean;
 }
 
@@ -107,6 +142,87 @@ export interface PlayerState {
   health: number;
   lives: number;
   collisionEnabled: boolean;
+}
+
+/** Presentation-only weather facts. Weather never writes gameplay. */
+export interface PresentedWeatherFacts {
+  readonly authority: "weather-presentation";
+  readonly phase: "idle" | "cooldown" | "omen" | "active" | "aftermath";
+  readonly classId: string | null;
+  readonly biasView: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  readonly residues: readonly Readonly<{
+    weather: string;
+    residue: string;
+    cycle: number;
+    tick120: number;
+    persistence: "room-local";
+  }>[];
+  readonly witnessFacePlayerException: boolean;
+}
+
+/** Authority-owned HUD binds. The HUD displays these; it never derives them. */
+export interface PresentedHudFacts {
+  readonly inputPolicy: "held" | "movement-and-signal" | "full" | "snapshot-navigation";
+  readonly inputReturned: boolean;
+  readonly flowerIntensity: number;
+  readonly evidenceAvailable: number;
+  readonly gazeTotalMs: number;
+  readonly flowerForcedDimCount: number;
+  readonly overrideEligible: boolean;
+  readonly overrideActive: boolean;
+  readonly distinctRoomsVisited: number;
+  readonly runElapsedMs: number;
+}
+
+/** One selected snapshot observation, bilingual, with its authored trace. */
+export interface PresentedObservation {
+  readonly id: string;
+  readonly category: string;
+  readonly zhCN: string;
+  readonly en: string;
+  readonly trace: readonly Readonly<{path: string; value: unknown}>[];
+}
+
+export interface PresentedRestoreStep {
+  readonly phase: string;
+  readonly tick120: number;
+}
+
+export interface PresentedEntryOmen {
+  readonly tick120: number;
+  readonly roomId: string;
+  readonly event: string;
+  readonly distancePx: number;
+  readonly audioLeadTicks120: number;
+  readonly transitionRequestTick120: number;
+}
+
+/**
+ * Run/narrative context projected from a run-conductor snapshot. Present only
+ * when the source declares `authority: "run-conductor"`; a source without that
+ * marker projects no run block at all rather than a defaulted one.
+ *
+ * A run ends in observation and handoff. Nothing here ranks, scores or judges.
+ */
+export interface PresentedRunFacts {
+  readonly authority: "run-conductor";
+  readonly runId: string;
+  readonly runPhase: string;
+  readonly runComplete: boolean;
+  /** One of the eight authored resolution reasons, or null while the run lives. */
+  readonly runEndReason: string | null;
+  readonly roomId: string;
+  /** Target room only while the atomic room-transition FSM owns one. */
+  readonly roomThresholdTargetRoom: string | null;
+  readonly visitedRooms: readonly string[];
+  readonly weather: PresentedWeatherFacts;
+  readonly hud: PresentedHudFacts;
+  readonly observations: readonly PresentedObservation[];
+  /** The authored cross-run restore schedule. */
+  readonly restoreTimeline: readonly PresentedRestoreStep[];
+  /** The restore phases that have actually fired, in the order they fired. */
+  readonly restoreProgress: readonly PresentedRestoreStep[];
+  readonly entryOmens: readonly PresentedEntryOmen[];
 }
 
 export interface SimulationSnapshot {
@@ -138,6 +254,8 @@ export interface SimulationSnapshot {
     radius: number;
     halfAngleDegrees: number;
   }>;
+  /** Run/narrative context; present only for run-conductor sources. */
+  run?: PresentedRunFacts;
 }
 
 export type SimulationEvent =

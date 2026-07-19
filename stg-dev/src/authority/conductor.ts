@@ -68,6 +68,7 @@ import {
   validateNarrativeRecord,
   type SelectedObservation,
 } from "./narrative";
+import {PlayerDamageAuthority} from "./player";
 import type {ProjectilePoolClass} from "./projectiles";
 import {executablePattern} from "./pattern-executor";
 import type {CrossRunArchiveStore} from "./persistence";
@@ -290,25 +291,17 @@ export interface RunConductorOptions {
 
 type MutableFacts = Record<string, GuardFactValue>;
 
+/**
+ * One combat occurrence of this run. Every occurrence writes straight onto the
+ * run's single canonical bus: the kernel receives the run's own player damage
+ * authority plus a run-scoped occurrence id, so it namespaces every identity
+ * it mints and no two occurrences can collide on an occurrence key.
+ */
 interface ActiveOccurrence {
   readonly kernel: CanonicalCombatKernel;
-  /**
-   * Occurrence-local bus. CanonicalCombatKernel builds its player damage
-   * authority with a fixed `player` identity whose collision-lease occurrence
-   * keys restart at :000000 for every kernel, so two occurrences writing
-   * straight onto one run bus collide on the second damage batch. Run-scoped
-   * occurrence identity is the conductor's job, so each occurrence writes to
-   * its own bus and the conductor mirrors every committed fact onto the run
-   * bus under a run-unique occurrence key — same id, tick, entity, sequence
-   * and payload, so the canonical trace and the same-tick phase order are
-   * unchanged. (Cross-island note: a run-scoped player identity option on
-   * CanonicalCombatKernel would remove this mirror entirely.)
-   */
-  readonly bus: CanonicalEventBus;
   readonly patternId: string;
   readonly startTick120: number;
   readonly encounterOrdinal: number;
-  mirrorCursor: number;
 }
 
 interface ScheduledPlanEvent {
@@ -510,6 +503,12 @@ export class RunConductor {
   readonly #weather: WeatherScheduler;
   readonly #roomTransition: RoomTransitionAuthority;
   readonly #snapshotAuthority: SnapshotAuthority;
+  /**
+   * The run's body. One damage authority for the whole run, shared by every
+   * occurrence, so health and lives are run-lived facts rather than
+   * occurrence-lived ones — the only way the body can actually fall.
+   */
+  readonly #player: PlayerDamageAuthority;
   readonly #archive: CrossRunArchiveStore | null;
   readonly #previousRun: FinalizedRunMemory | null;
 
@@ -587,6 +586,7 @@ export class RunConductor {
     this.#weather = new WeatherScheduler(this.#bus, this.rawRunSeed);
     this.#roomTransition = new RoomTransitionAuthority(this.#bus, bootRoom);
     this.#snapshotAuthority = new SnapshotAuthority(this.#bus);
+    this.#player = new PlayerDamageAuthority(this.#bus, {playerId: `run:${this.runId}:player`});
     this.#metrics = new RunMetricsCollector({
       runId: this.runId,
       seed: this.rawRunSeed,
@@ -661,9 +661,9 @@ export class RunConductor {
     this.#enqueueRunEndCommit(tick120);
     this.#advanceSnapshotAuthority(tick120);
 
-    // Exactly one canonical close per tick: the occurrence bus first (so its
-    // facts can be mirrored under run-scoped identity), then the run bus.
-    this.#flushOccurrence(tick120);
+    // Exactly one canonical close per tick, owned by the run: the occurrence
+    // settles its own tick first, then the run bus closes.
+    this.#settleOccurrence(tick120);
     this.#bus.flush();
 
     // The record is closed once the run end is committed; the collector stops
@@ -681,6 +681,7 @@ export class RunConductor {
 
   snapshot(): ConductorSnapshot {
     const combat = this.#lastCombatSnapshot;
+    const player = this.#player.snapshot();
     const transition = this.#roomTransition.snapshot();
     const weather = this.#weather.snapshot();
     const localVoid = combat?.override.localVoid ?? null;
@@ -699,11 +700,13 @@ export class RunConductor {
       player: Object.freeze({
         position: freezeVec2(this.#playerPosition),
         focused: combat?.player.state === "alive" && this.#lastFocused,
-        damage: combat === null ? null : Object.freeze({
-          state: combat.player.state,
-          health: combat.player.health,
-          lives: combat.player.lives,
-          collisionEnabled: combat.player.collisionEnabled,
+        // The body is run-lived: it keeps its health and lives between
+        // occurrences, so it is reported even when no encounter is live.
+        damage: Object.freeze({
+          state: player.state,
+          health: player.health,
+          lives: player.lives,
+          collisionEnabled: player.collisionEnabled,
         }),
         evidence: this.#evidenceAvailable,
         expression: this.#flowerIntensity,
@@ -1185,12 +1188,14 @@ export class RunConductor {
     }
     this.#lastDifficulty = difficulty;
     this.#lastPatternId = patternId;
-    const occurrenceBus = new CanonicalEventBus();
     this.#occurrence = {
       kernel: new CanonicalCombatKernel(
         {
           patternId,
           occurrenceId: `${this.runId}:occurrence:${this.#encounterOrdinal}`,
+          // One body for the whole run: health, lives and life state carry
+          // across occurrences, which is what lets the body finally fall.
+          runPlayer: this.#player,
           // One Mulberry32 stream per occurrence, seeded by the composer's
           // manifest-derived encounter seed (runSeed ^ base ^ ordinals).
           seed: requireUint32(seed, "composer encounter seed"),
@@ -1202,18 +1207,25 @@ export class RunConductor {
           projectileDamage: COMBAT_PROJECTILE_DAMAGE,
           projectilePoolClasses: projectilePoolClassesFor(patternId),
         },
-        occurrenceBus,
+        this.#bus,
       ),
-      bus: occurrenceBus,
       patternId,
       startTick120: tick120,
       encounterOrdinal: this.#encounterOrdinal,
-      mirrorCursor: 0,
     };
     this.#lastCombatSnapshot = this.#occurrence.kernel.snapshot();
   }
 
   #advanceCombat(input: ConductorTickInput, tick120: number): void {
+    // The body lives on every tick of the run, not only inside an occurrence:
+    // invulnerability and respawn deadlines that fall between occurrences must
+    // still be written on their own tick, before that tick is closed.
+    this.#player.advanceTo(tick120);
+    // BODY_COLLAPSE is a committed fact from the damage authority, never a
+    // numeric threshold: lives exhausted is the only source in this slice.
+    if (this.#player.snapshot().state === "run-ended" && this.#runEndReason === null) {
+      this.#commitRunEndReason("BODY_COLLAPSE");
+    }
     const occurrence = this.#occurrence;
     if (occurrence === null) return;
     if (occurrence.startTick120 === tick120) return;
@@ -1230,8 +1242,7 @@ export class RunConductor {
     this.#evidenceAvailable = snapshot.evidence.amount;
     this.#facts["localVoid.active"] = snapshot.override.localVoid !== null;
     if (snapshot.override.localVoid !== null) this.#facts["override.activated"] = true;
-    // BODY_COLLAPSE is a committed fact from the damage authority, never a
-    // numeric threshold: lives exhausted is the only source in this slice.
+    // The body may have fallen on this very tick, inside the damage batch.
     if (snapshot.player.state === "run-ended" && this.#runEndReason === null) {
       this.#commitRunEndReason("BODY_COLLAPSE");
     }
@@ -1296,40 +1307,16 @@ export class RunConductor {
   }
 
   /**
-   * Close the occurrence bus for this tick and mirror its committed facts onto
-   * the run bus under run-scoped occurrence keys. Ids, ticks, entity ids,
-   * local sequences and payloads are carried verbatim; only the occurrence key
-   * gains the run/occurrence namespace the kernel cannot supply itself.
+   * Settle the occurrence for this tick. The occurrence wrote its facts onto
+   * the run bus directly, so it closes its own tick bookkeeping and leaves the
+   * single canonical close to the run.
    */
-  #flushOccurrence(tick120: number): void {
+  #settleOccurrence(tick120: number): void {
     const occurrence = this.#occurrence;
     if (occurrence === null) return;
-    if (occurrence.startTick120 === tick120) occurrence.bus.flush();
-    else occurrence.kernel.flushTick(tick120);
-
-    const committed = occurrence.bus.committedEventsFrom(occurrence.mirrorCursor);
-    occurrence.mirrorCursor += committed.length;
-    if (committed.length > 0) {
-      const prefix = `${this.runId}:occurrence:${occurrence.encounterOrdinal}`;
-      this.#bus.enqueueBatch(committed.map((event) => {
-        if (event.tick120 !== tick120) {
-          throw new Error(
-            `occurrence mirror received tick ${event.tick120} while closing tick ${tick120}`,
-          );
-        }
-        return {
-          id: event.id as string,
-          tick120: event.tick120,
-          entityStableId: event.entityStableId,
-          localSequence: event.localSequence,
-          occurrenceKey: `${prefix}:${event.occurrenceKey}`,
-          payload: event.payload,
-        };
-      }));
-    }
-    if (occurrence.startTick120 !== tick120 && occurrence.kernel.snapshot().handoffReady) {
-      this.#occurrence = null;
-    }
+    if (occurrence.startTick120 === tick120) return;
+    occurrence.kernel.settleTick(tick120);
+    if (occurrence.kernel.snapshot().handoffReady) this.#occurrence = null;
   }
 
   #observeMetrics(input: ConductorTickInput, tick120: number): void {
@@ -1387,7 +1374,12 @@ export class RunConductor {
         reaction: crossing.reaction,
         edge: crossing.edge,
       }));
-      if (crossing.edge === "enter") this.#metrics.observeRoomThresholdCrossing();
+      // The presentation fact above is still recorded after the run is sealed;
+      // only the collector stops, matching the run-end rule that a committed
+      // record never accumulates post-commit facts.
+      if (crossing.edge === "enter" && this.#finalizedRecord === null) {
+        this.#metrics.observeRoomThresholdCrossing();
+      }
     }
   }
 

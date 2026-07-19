@@ -1,7 +1,20 @@
 # Playwright E2E 与 Smoke Runbook
 
 这一层验证 production-preview 的用户路径，不复制 Vitest authority tests，也不向 gameplay
-注入时间或改写状态。默认 `/` 是玩家 Run；`/?mode=pattern-lab` 是显式 QA 控制面。
+注入时间或改写状态。只有 `/` 一个界面：由 `RunConductor` 驱动的玩家 Run。
+`?seed=<uint32>` 固定这一局的 RNG 身份；非法 seed 必须 fail closed，不得改用熵。
+
+页面本身不导出任何东西。这一层只依赖它公布的可观测面：
+`data-authority` / `data-authority-tick` / `data-raw-run-seed` / `data-mode` /
+`data-run-phase`，以及 canvas 上的 `data-presented-room` /
+`data-presented-pattern-id`。断言不要越过这个集合。
+
+需要 tick 级确定性的旅程用 `helpers/stg.ts` 的 controlled-RAF harness
+（`openControlled` → `beginControlledRun` → `advanceControlledRunToTick`）：
+它替换帧源，不向 gameplay 注入时间——每个 tick 仍由 AuthorityClock 从 wall delta 推出。
+
+`smoke` 只覆盖启动与关键可用性（boot、atlas、web manifest、离线再启动）；
+完整旅程属于 `chromium` project。
 
 测试选择与发布门禁见[测试与验收](../docs/TESTING_ZH.md)。
 

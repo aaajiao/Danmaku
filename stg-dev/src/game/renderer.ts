@@ -7,7 +7,16 @@ import {
   canonicalRunAssetRoom,
   canonicalRunRoomThresholdFrame,
 } from "../assets/chapters/canonical-run-v4";
-import {V4_SHARED_ASSETS} from "../assets/shared-v4";
+import {
+  V4_SHARED_ASSETS,
+  v4FrameOrNull,
+  v4RoomReaction,
+  v4RoomReactionOrNull,
+  type V4ReactionOverlay,
+  type V4ReactionState,
+} from "../assets/shared-v4";
+import entityVisualBindingsManifest from "../../../1bit-stg-complete-asset-kit-v4/manifests/integration/entity-visual-bindings-v4.json";
+import ghostReplayContract from "../../../1bit-stg-complete-asset-kit-v4/manifests/narrative/ghost-replay-contract-v4.json";
 import type {
   BulletState,
   FrameDefinition,
@@ -20,6 +29,31 @@ const FIRST_EYE_PATTERN_ID = "common.eye_acquisition";
 const LOGICAL_VIEW_WIDTH = 360;
 const LOGICAL_VIEW_HEIGHT = 640;
 const GAZE_WARNING_RADIUS = Math.hypot(LOGICAL_VIEW_WIDTH, LOGICAL_VIEW_HEIGHT) + 1;
+
+/** Presentation-only body cadence; never a gameplay clock. */
+const PRESENTATION_CYCLE_MS = 120;
+
+function reactionKey(roomId: string, state: string): string {
+  return `${roomId}:${state}`;
+}
+
+/** Projects a bound V4 frame into the renderer's atlas sub-rect shape. */
+function bindingAsFrameDefinition(semanticId: string): FrameDefinition | null {
+  const binding = v4FrameOrNull(semanticId);
+  if (binding === null) return null;
+  const [x, y, width, height] = binding.rect;
+  return {
+    semanticId: binding.semanticId,
+    atlas: binding.atlasId,
+    rect: [x, y, width, height],
+    logicalSize: binding.logicalSize,
+  };
+}
+
+function presentationCycleStep(nowMs: number): number {
+  if (!Number.isFinite(nowMs) || nowMs < 0) return 0;
+  return Math.floor(nowMs / PRESENTATION_CYCLE_MS);
+}
 
 function configureTexture(texture: THREE.Texture): THREE.Texture {
   texture.magFilter = THREE.NearestFilter;
@@ -308,6 +342,422 @@ export function targetPositionForPattern(pattern: PatternDefinition): Readonly<V
   });
 }
 
+// ---------------------------------------------------------------------------
+// Room reaction overlays (backgrounds-v4.json reactionOverlays)
+// ---------------------------------------------------------------------------
+
+/**
+ * Authoritative facts that can put a room into a reaction state. Every field is
+ * a fact the run authority already owns; presentation only reads them.
+ */
+export interface RoomReactionFacts {
+  /** The atomic room-threshold FSM is mid-transition. */
+  readonly roomThresholdActive: boolean;
+  /** Cross-run material memory is rehydrating into this run. */
+  readonly materialMemoryActive: boolean;
+  /** The weather scheduler is in its authored `aftermath` phase. */
+  readonly weatherAftermathActive: boolean;
+  /** The run director has entered dusk. */
+  readonly duskActive: boolean;
+}
+
+/**
+ * Exactly one overlay may show, and V4 authors no precedence, so the rule is
+ * stated here rather than invented per call site: the shorter-lived, more
+ * discrete world reaction wins over the longer-lived ambient one. A threshold
+ * crossing lasts a handful of ticks, a memory rehydrate spans a boot, a weather
+ * aftermath spans a cycle tail, and dusk spans the rest of the run. Overlays are
+ * switched, never blended, so a total order is required and this is it.
+ */
+export const ROOM_REACTION_PRECEDENCE: readonly V4ReactionState[] = Object.freeze([
+  "threshold",
+  "memory",
+  "aftermath",
+  "dusk",
+] as const);
+
+export function roomReactionStateForFacts(
+  facts: Readonly<RoomReactionFacts>,
+): V4ReactionState | null {
+  const held: Readonly<Record<V4ReactionState, boolean>> = {
+    threshold: facts.roomThresholdActive,
+    memory: facts.materialMemoryActive,
+    aftermath: facts.weatherAftermathActive,
+    dusk: facts.duskActive,
+  };
+  for (const state of ROOM_REACTION_PRECEDENCE) {
+    if (held[state]) return state;
+  }
+  return null;
+}
+
+/** Resolves the bound overlay asset; a room with no authored overlay stays bare. */
+export function roomReactionOverlayForFacts(
+  roomId: string,
+  facts: Readonly<RoomReactionFacts>,
+): Readonly<V4ReactionOverlay> | null {
+  const state = roomReactionStateForFacts(facts);
+  if (state === null) return null;
+  const overlay = v4RoomReactionOrNull(roomId, state);
+  if (overlay === null) return null;
+  if (overlay.state !== state) {
+    throw new Error(`Reaction overlay ${overlay.id} does not carry state ${state}`);
+  }
+  return overlay;
+}
+
+// ---------------------------------------------------------------------------
+// Entity visual bindings (entity-visual-bindings-v4.json)
+// ---------------------------------------------------------------------------
+
+export type FlowerBand = "QUIET" | "MIDDLE" | "LOUD" | "FOCUS";
+
+export interface EnemyVisualBinding {
+  readonly entityId: string;
+  readonly bodyFrame: string;
+  readonly entryCueFrame: string;
+  readonly movementCueFrame: string;
+  readonly attackCueFrame: string;
+  readonly shutdownCueFrame: string;
+  readonly residueFrame: string;
+  /** Authored proof that a body sprite swap can never move collision. */
+  readonly spriteAnimationMayMoveCollision: false;
+}
+
+export interface BossVisualBinding {
+  readonly entityId: string;
+  readonly baseFrames: readonly string[];
+  readonly phaseFrames: readonly string[];
+  readonly laserGeometryId: string;
+  readonly audioSignalId: string;
+  readonly forbiddenLegacyTerminalFrame: string;
+  readonly terminalFrame: string;
+  readonly materialFrame: string;
+}
+
+interface RawEnemyBinding {
+  readonly entityId: string;
+  readonly bodyFrame: string;
+  readonly entryCueFrame: string;
+  readonly movementCueFrame: string;
+  readonly attackCueFrame: string;
+  readonly shutdownCueFrame: string;
+  readonly residueFrame: string;
+  readonly spriteAnimationMayMoveCollision: boolean;
+}
+
+const ENTITY_VISUAL_BINDINGS = entityVisualBindingsManifest as unknown as {
+  readonly schemaVersion: string;
+  readonly player: {
+    readonly bodyFrame: string;
+    readonly hitboxFrame: string;
+    readonly shotsByFlowerBand: Readonly<Record<string, string>>;
+    readonly optionFrames: readonly string[];
+    readonly impactFrame: string;
+    readonly expressionResidueFrame: string;
+  };
+  readonly enemies: readonly RawEnemyBinding[];
+  readonly bosses: readonly BossVisualBinding[];
+};
+
+if (ENTITY_VISUAL_BINDINGS.schemaVersion !== "4.0.0-entity-visual-bindings") {
+  throw new Error(
+    `Entity visual bindings schema drifted: ${ENTITY_VISUAL_BINDINGS.schemaVersion}`,
+  );
+}
+
+const enemyBindingsById: ReadonlyMap<string, Readonly<EnemyVisualBinding>> = new Map(
+  ENTITY_VISUAL_BINDINGS.enemies.map((entry) => {
+    if (entry.spriteAnimationMayMoveCollision !== false) {
+      throw new Error(`Enemy ${entry.entityId} claims a sprite may move collision`);
+    }
+    return [entry.entityId, Object.freeze({...entry, spriteAnimationMayMoveCollision: false as const})];
+  }),
+);
+
+const bossBindingsById: ReadonlyMap<string, Readonly<BossVisualBinding>> = new Map(
+  ENTITY_VISUAL_BINDINGS.bosses.map((entry) => [
+    entry.entityId,
+    Object.freeze({
+      ...entry,
+      baseFrames: Object.freeze([...entry.baseFrames]),
+      phaseFrames: Object.freeze([...entry.phaseFrames]),
+    }),
+  ]),
+);
+
+/**
+ * The manifest forbids the legacy `.death` frames outright, so the renderer
+ * refuses them by identity instead of trusting call sites not to ask.
+ */
+const FORBIDDEN_LEGACY_TERMINAL_FRAMES: ReadonlySet<string> = new Set(
+  ENTITY_VISUAL_BINDINGS.bosses.map((entry) => entry.forbiddenLegacyTerminalFrame),
+);
+
+export function isForbiddenLegacyTerminalFrame(frameId: string): boolean {
+  return FORBIDDEN_LEGACY_TERMINAL_FRAMES.has(frameId);
+}
+
+export function playerShotFrameForFlowerBand(band: FlowerBand): string {
+  const frameId = ENTITY_VISUAL_BINDINGS.player.shotsByFlowerBand[band];
+  if (frameId === undefined) throw new Error(`V4 authors no player shot frame for band ${band}`);
+  return frameId;
+}
+
+export function playerBodyFrame(): string {
+  return ENTITY_VISUAL_BINDINGS.player.bodyFrame;
+}
+
+export function enemyVisualBinding(entityId: string): Readonly<EnemyVisualBinding> {
+  const binding = enemyBindingsById.get(entityId);
+  if (binding === undefined) throw new Error(`V4 authors no enemy visual binding for ${entityId}`);
+  return binding;
+}
+
+export function bossVisualBinding(canonicalId: string): Readonly<BossVisualBinding> {
+  const binding = bossBindingsById.get(canonicalId);
+  if (binding === undefined) throw new Error(`V4 authors no boss visual binding for ${canonicalId}`);
+  return binding;
+}
+
+export type BossPhaseStage = "establish" | "live";
+
+/**
+ * Phase 3 authors only `phase3_incomplete`: the boss loop never resolves into a
+ * live third phase, so the stage argument cannot manufacture one.
+ */
+export function bossPhaseFrame(
+  canonicalId: string,
+  phaseIndex: number,
+  stage: BossPhaseStage,
+): string {
+  const binding = bossVisualBinding(canonicalId);
+  if (!Number.isInteger(phaseIndex) || phaseIndex < 1 || phaseIndex > 3) {
+    throw new Error(`Boss phase index must be a 1-based integer in [1,3], received ${phaseIndex}`);
+  }
+  const slug = canonicalId.startsWith("boss.") ? canonicalId.slice("boss.".length) : canonicalId;
+  const frameId = phaseIndex === 3
+    ? `boss.${slug}.phase3_incomplete`
+    : `boss.${slug}.phase${phaseIndex}_${stage}`;
+  if (!binding.phaseFrames.includes(frameId)) {
+    throw new Error(`Boss ${canonicalId} authors no phase frame ${frameId}`);
+  }
+  return frameId;
+}
+
+/** The authored non-judgment terminal: protocol interrupted, never a death. */
+export function bossTerminalFrame(canonicalId: string): string {
+  const binding = bossVisualBinding(canonicalId);
+  if (isForbiddenLegacyTerminalFrame(binding.terminalFrame)) {
+    throw new Error(`Boss ${canonicalId} terminal frame resolved to a forbidden legacy frame`);
+  }
+  return binding.terminalFrame;
+}
+
+// ---------------------------------------------------------------------------
+// Weather bodies (presentation-only visual subscribers)
+// ---------------------------------------------------------------------------
+
+export type WeatherPresentationPhase = "idle" | "cooldown" | "omen" | "active" | "aftermath";
+
+interface WeatherBodyBinding {
+  readonly omenFrame: string;
+  readonly activeCycle: readonly string[];
+  /** Representative pose used whenever cyclic presentation is withheld. */
+  readonly steadyFrame: string;
+  /** `null` where V4 authors no aftermath body; absence stays absent. */
+  readonly aftermathFrame: string | null;
+}
+
+/**
+ * Every frame id below is authored in frame-index-v4.json; only the phase join
+ * is stated here. WIND authors no aftermath body — wind leaves no trace — so it
+ * stays null rather than borrowing another class's residue.
+ */
+const WEATHER_BODIES: Readonly<Record<string, WeatherBodyBinding>> = Object.freeze({
+  STATIC: Object.freeze({
+    omenFrame: "weather.static_warning",
+    activeCycle: Object.freeze(["weather.static.noise_0", "weather.static.noise_1"]),
+    steadyFrame: "weather.static.noise_0",
+    aftermathFrame: "weather.static.after",
+  }),
+  RAIN: Object.freeze({
+    omenFrame: "weather.rain_onset",
+    activeCycle: Object.freeze(["weather.rain_0", "weather.rain_1", "weather.rain_2"]),
+    steadyFrame: "weather.rain_0",
+    aftermathFrame: "weather.rain_ash_clear",
+  }),
+  ASH: Object.freeze({
+    omenFrame: "weather.ash_settle",
+    activeCycle: Object.freeze(["weather.ash_0", "weather.ash_1", "weather.ash_2"]),
+    steadyFrame: "weather.ash_0",
+    aftermathFrame: "weather.rain_ash_clear",
+  }),
+  WIND: Object.freeze({
+    omenFrame: "weather.wind_vector",
+    activeCycle: Object.freeze(["weather.wind_0", "weather.wind_1", "weather.wind_2"]),
+    steadyFrame: "weather.wind_0",
+    aftermathFrame: null,
+  }),
+  ECLIPSE: Object.freeze({
+    omenFrame: "weather.eclipse_occlusion",
+    activeCycle: Object.freeze(["weather.eclipse_0", "weather.eclipse_1", "weather.eclipse_2"]),
+    steadyFrame: "weather.eclipse_0",
+    aftermathFrame: "weather.eclipse_release",
+  }),
+});
+
+export const WEATHER_PRESENTATION_CLASS_IDS: readonly string[] = Object.freeze(
+  Object.keys(WEATHER_BODIES).sort(),
+);
+
+/**
+ * The phase is an authority fact and is the only thing that decides *which*
+ * body shows. `cyclic` decides only whether the active body animates within a
+ * phase, so withdrawing motion can never move a phase boundary.
+ */
+export function weatherBodyFrameFor(
+  classId: string | null,
+  phase: WeatherPresentationPhase,
+  cycleStep: number,
+  cyclic: boolean,
+): string | null {
+  if (classId === null) return null;
+  const body = WEATHER_BODIES[classId];
+  if (body === undefined) throw new Error(`V4 authors no weather body for class ${classId}`);
+  switch (phase) {
+    case "idle":
+    case "cooldown":
+      return null;
+    case "omen":
+      return body.omenFrame;
+    case "aftermath":
+      return body.aftermathFrame;
+    case "active": {
+      if (!cyclic) return body.steadyFrame;
+      if (!Number.isInteger(cycleStep) || cycleStep < 0) {
+        throw new Error(`Weather cycle step must be a non-negative integer, received ${cycleStep}`);
+      }
+      const frameId = body.activeCycle[cycleStep % body.activeCycle.length];
+      if (frameId === undefined) throw new Error(`Weather class ${classId} authors an empty cycle`);
+      return frameId;
+    }
+    default: {
+      const exhaustive: never = phase;
+      throw new Error(`Unknown weather presentation phase: ${String(exhaustive)}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Material remainders (player-world-behavior-v4 memory row)
+// ---------------------------------------------------------------------------
+
+export type MaterialRemainderKind = "overrideScar" | "deathTrace" | "burnIn" | "ghostResidue";
+
+const MATERIAL_REMAINDER_FRAMES: Readonly<Record<MaterialRemainderKind, string>> = Object.freeze({
+  overrideScar: "memory.override_scar",
+  deathTrace: "memory.death_trace",
+  burnIn: "memory.burnin",
+  ghostResidue: "memory.ghost_residue",
+});
+
+export function materialRemainderFrame(kind: MaterialRemainderKind): string {
+  const frameId = MATERIAL_REMAINDER_FRAMES[kind];
+  if (frameId === undefined) throw new Error(`V4 authors no material remainder frame for ${kind}`);
+  return frameId;
+}
+
+/** Rehydration order is authored by the ghost replay contract, not chosen here. */
+export const MATERIAL_REMAINDER_REHYDRATE_ORDER: readonly MaterialRemainderKind[] = Object.freeze(
+  (["overrideScar", "deathTrace", "burnIn"] as const).filter((kind) =>
+    (ghostReplayContract.ordering as readonly string[]).includes(`${kind}.rehydrate`)),
+);
+
+export interface PresentedMaterialRemainder {
+  readonly id: string;
+  readonly kind: MaterialRemainderKind;
+  readonly position: Readonly<Vec2>;
+}
+
+// ---------------------------------------------------------------------------
+// Ghost replay (ghost-replay-contract-v4.json)
+// ---------------------------------------------------------------------------
+
+export interface GhostReplayPoint {
+  /** Original gameplay timestamp. Accessibility modes never move this. */
+  readonly tMs: number;
+  readonly position: Readonly<Vec2>;
+  /** True where the capture pinned an authoritative event. */
+  readonly eventPin: boolean;
+}
+
+/** Structural restatement of the contract's replay clause. */
+export const GHOST_REPLAY_PRESENTATION = Object.freeze({
+  collisionEnabled: false,
+  rewardEnabled: false,
+  emitterEnabled: false,
+  authority: "visual-subscriber",
+} as const);
+
+if (
+  ghostReplayContract.replay.collisionClass !== "NONE"
+  || ghostReplayContract.replay.rewardClass !== "NONE"
+  || ghostReplayContract.replay.emitterClass !== "NONE"
+) {
+  throw new Error("Ghost replay contract no longer forbids collision, reward and emission");
+}
+
+const GHOST_TRAVEL_CYCLE: readonly string[] = Object.freeze(["ghost.walk_a", "ghost.walk_b"]);
+const GHOST_PIN_FRAME = "ghost.path_endpoint";
+const GHOST_STEADY_FRAME = "ghost.pause";
+export const GHOST_RESIDUE_FRAME = "ghost.material_residue";
+
+/**
+ * Reduced motion shows event pins and the final point at their original
+ * timestamps — the contract's own words. The returned points keep their `tMs`,
+ * so every retained sample still lands on the tick it was captured on.
+ */
+export function ghostReplayPointsForMode(
+  points: readonly GhostReplayPoint[],
+  reducedMotion: boolean,
+): readonly GhostReplayPoint[] {
+  if (!reducedMotion) return points;
+  const last = points.length - 1;
+  return Object.freeze(points.filter((point, index) => point.eventPin || index === last));
+}
+
+/** Flash-off is explicitly "same as full motion", so it is not a parameter here. */
+export function ghostReplayFrameFor(
+  point: Readonly<GhostReplayPoint>,
+  cycleStep: number,
+  cyclic: boolean,
+): string {
+  if (point.eventPin) return GHOST_PIN_FRAME;
+  if (!cyclic) return GHOST_STEADY_FRAME;
+  if (!Number.isInteger(cycleStep) || cycleStep < 0) {
+    throw new Error(`Ghost cycle step must be a non-negative integer, received ${cycleStep}`);
+  }
+  const frameId = GHOST_TRAVEL_CYCLE[cycleStep % GHOST_TRAVEL_CYCLE.length];
+  if (frameId === undefined) throw new Error("Ghost travel cycle is empty");
+  return frameId;
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Read-only presentation facts layered on top of the simulation snapshot. Every
+ * field is produced by the authority; the renderer never writes back.
+ */
+export interface PresentationLayerFacts {
+  readonly reaction: Readonly<RoomReactionFacts>;
+  readonly weather: Readonly<{classId: string | null; phase: WeatherPresentationPhase}>;
+  readonly materialRemainders: readonly PresentedMaterialRemainder[];
+  readonly ghostReplay: readonly GhostReplayPoint[];
+  /** Authority-owned index of the ghost head; presentation never advances it. */
+  readonly ghostHeadIndex: number;
+}
+
 export class GameView {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
@@ -317,9 +767,16 @@ export class GameView {
   private readonly atlasTextures = new Map<string, THREE.Texture>();
   private readonly frameMaterials = new Map<string, THREE.SpriteMaterial>();
   private readonly backgrounds = new Map<string, THREE.Texture>();
+  private readonly reactionTextures = new Map<string, THREE.Texture>();
   private readonly bulletSprites = new Map<number | string, THREE.Sprite>();
   private readonly shotSprites = new Map<number, THREE.Sprite>();
+  private readonly remainderSprites = new Map<string, THREE.Sprite>();
+  private readonly ghostSprites: THREE.Sprite[] = [];
   private backgroundSprite: THREE.Sprite | null = null;
+  private reactionSprite: THREE.Sprite | null = null;
+  private weatherSprite: THREE.Sprite | null = null;
+  private currentReactionKey = "";
+  private currentWeatherFrame = "";
   private roomThresholdSprite: THREE.Sprite | null = null;
   private playerSprite: THREE.Sprite | null = null;
   private targetSprite: THREE.Sprite | null = null;
@@ -386,12 +843,20 @@ export class GameView {
       return asset;
     });
     const backgroundEntries = Object.values(V4_SHARED_ASSETS.backgrounds);
+    const reactionEntries = V4_SHARED_ASSETS.roomIds.flatMap((roomId) =>
+      V4_SHARED_ASSETS.reactionStates.map((state) => ({
+        key: reactionKey(roomId, state),
+        asset: v4RoomReaction(roomId, state),
+      })));
     await Promise.all([
       ...atlasEntries.map(async (asset) => {
         this.atlasTextures.set(asset.id, configureTexture(await this.loader.loadAsync(asset.url)));
       }),
       ...backgroundEntries.map(async (asset) => {
         this.backgrounds.set(asset.id, configureTexture(await this.loader.loadAsync(asset.url)));
+      }),
+      ...reactionEntries.map(async ({key, asset}) => {
+        this.reactionTextures.set(key, configureTexture(await this.loader.loadAsync(asset.url)));
       }),
     ]);
 
@@ -401,6 +866,29 @@ export class GameView {
     this.backgroundSprite.scale.set(360, 640, 1);
     this.backgroundSprite.position.z = -10;
     this.scene.add(this.backgroundSprite);
+
+    // Reaction overlays are binary-alpha material facts: switched, never faded,
+    // and always drawn between the base composite and the gameplay sprites.
+    this.reactionSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      transparent: true,
+      depthWrite: false,
+      opacity: 1,
+    }));
+    this.reactionSprite.scale.set(360, 640, 1);
+    this.reactionSprite.position.z = -9;
+    this.reactionSprite.visible = false;
+    this.scene.add(this.reactionSprite);
+
+    // No arbitrary placeholder frame: the weather body stays unbound and
+    // invisible until an authoritative weather phase names one.
+    this.weatherSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      transparent: true,
+      depthWrite: false,
+    }));
+    this.weatherSprite.scale.set(360, 360, 1);
+    this.weatherSprite.position.z = 6;
+    this.weatherSprite.visible = false;
+    this.scene.add(this.weatherSprite);
 
     this.roomThresholdSprite = this.makeSprite(
       CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK.fallbackFrameId,
@@ -416,10 +904,21 @@ export class GameView {
     this.resize();
   }
 
-  render(snapshot: SimulationSnapshot, reducedMotion: boolean, flashOff = false): void {
+  render(
+    snapshot: SimulationSnapshot,
+    reducedMotion: boolean,
+    flashOff = false,
+    layers?: Readonly<PresentationLayerFacts>,
+  ): void {
     if (!this.playerSprite || !this.targetSprite) return;
     const cyclicPresentation = cyclicPresentationEnabled(reducedMotion, flashOff);
     this.updateBackground(snapshot.room);
+    if (layers !== undefined) {
+      this.updateReactionOverlay(snapshot.room, layers.reaction);
+      this.updateWeatherBody(layers.weather, snapshot.nowMs, cyclicPresentation);
+      this.syncMaterialRemainders(layers.materialRemainders);
+      this.syncGhostReplay(layers, snapshot.nowMs, reducedMotion, cyclicPresentation);
+    }
     this.updateRoomThreshold(snapshot);
     this.updateTarget(snapshot, reducedMotion);
     this.updateGazeWarning(snapshot);
@@ -493,6 +992,119 @@ export class GameView {
     this.currentRoom = normalizedRoom;
     this.backgroundSprite.material.map = background;
     this.backgroundSprite.material.needsUpdate = true;
+  }
+
+  /**
+   * Overlay changes are a hard switch. There is no tween, no opacity ramp and
+   * no cross-fade: a binary-alpha material fact is either present or it is not.
+   */
+  private updateReactionOverlay(room: string, facts: Readonly<RoomReactionFacts>): void {
+    if (!this.reactionSprite) return;
+    const roomId = canonicalRunAssetRoom(room);
+    const overlay = roomReactionOverlayForFacts(roomId, facts);
+    if (overlay === null) {
+      this.reactionSprite.visible = false;
+      this.currentReactionKey = "";
+      this.canvas.dataset.presentedRoomReaction = "";
+      return;
+    }
+    const key = reactionKey(roomId, overlay.state);
+    if (key !== this.currentReactionKey) {
+      const texture = this.reactionTextures.get(key);
+      if (!texture) throw new Error(`Reaction overlay is not loaded: ${key}`);
+      this.reactionSprite.material.map = texture;
+      this.reactionSprite.material.needsUpdate = true;
+      this.currentReactionKey = key;
+    }
+    this.reactionSprite.material.opacity = 1;
+    this.reactionSprite.visible = true;
+    this.canvas.dataset.presentedRoomReaction = key;
+  }
+
+  private updateWeatherBody(
+    weather: Readonly<{classId: string | null; phase: WeatherPresentationPhase}>,
+    nowMs: number,
+    cyclic: boolean,
+  ): void {
+    if (!this.weatherSprite) return;
+    const frameId = weatherBodyFrameFor(
+      weather.classId,
+      weather.phase,
+      presentationCycleStep(nowMs),
+      cyclic,
+    );
+    if (frameId === null) {
+      // Authored absence: a class with no body for this phase shows nothing.
+      this.weatherSprite.visible = false;
+      this.canvas.dataset.presentedWeatherFrame = "";
+      return;
+    }
+    if (frameId !== this.currentWeatherFrame) {
+      this.weatherSprite.material = this.materialFor(frameId);
+      this.currentWeatherFrame = frameId;
+    }
+    this.weatherSprite.visible = true;
+    this.canvas.dataset.presentedWeatherFrame = frameId;
+  }
+
+  private syncMaterialRemainders(
+    remainders: readonly PresentedMaterialRemainder[],
+  ): void {
+    const active = new Set(remainders.map((remainder) => remainder.id));
+    for (const [id, sprite] of this.remainderSprites) {
+      if (!active.has(id)) {
+        // Materials here are shared cache entries, so only the node is released.
+        this.scene.remove(sprite);
+        this.remainderSprites.delete(id);
+      }
+    }
+    for (const remainder of remainders) {
+      const frameId = materialRemainderFrame(remainder.kind);
+      let sprite = this.remainderSprites.get(remainder.id);
+      if (!sprite) {
+        sprite = this.makeSprite(frameId, 48, 0);
+        this.remainderSprites.set(remainder.id, sprite);
+        this.scene.add(sprite);
+      } else if (sprite.userData.frameId !== frameId) {
+        sprite.material = this.materialFor(frameId);
+        sprite.userData.frameId = frameId;
+      }
+      sprite.position.set(remainder.position.x, remainder.position.y, 0);
+    }
+    this.canvas.dataset.presentedMaterialRemainders = String(remainders.length);
+  }
+
+  /**
+   * Ghost points never collide, never reward and never emit. The head index is
+   * authority-owned, so this method only chooses which authored pose to show.
+   */
+  private syncGhostReplay(
+    layers: Readonly<PresentationLayerFacts>,
+    nowMs: number,
+    reducedMotion: boolean,
+    cyclic: boolean,
+  ): void {
+    const points = ghostReplayPointsForMode(layers.ghostReplay, reducedMotion);
+    const visible = points.filter((point) => point.tMs <= (layers.ghostReplay[layers.ghostHeadIndex]?.tMs ?? -1));
+    while (this.ghostSprites.length > visible.length) {
+      const sprite = this.ghostSprites.pop();
+      if (sprite) this.scene.remove(sprite);
+    }
+    const cycleStep = presentationCycleStep(nowMs);
+    visible.forEach((point, index) => {
+      let sprite = this.ghostSprites[index];
+      const frameId = ghostReplayFrameFor(point, cycleStep + index, cyclic);
+      if (!sprite) {
+        sprite = this.makeSprite(frameId, 40, 0.5);
+        this.ghostSprites[index] = sprite;
+        this.scene.add(sprite);
+      } else if (sprite.userData.frameId !== frameId) {
+        sprite.material = this.materialFor(frameId);
+        sprite.userData.frameId = frameId;
+      }
+      sprite.position.set(point.position.x, point.position.y, 0.5);
+    });
+    this.canvas.dataset.presentedGhostPoints = String(visible.length);
   }
 
   private updateRoomThreshold(snapshot: SimulationSnapshot): void {
@@ -636,9 +1248,14 @@ export class GameView {
   }
 
   private materialFor(frameId: string): THREE.SpriteMaterial {
+    if (isForbiddenLegacyTerminalFrame(frameId)) {
+      throw new Error(`Forbidden legacy terminal frame requested: ${frameId}`);
+    }
     const cached = this.frameMaterials.get(frameId);
     if (cached) return cached;
-    const frame = this.frameById.get(frameId);
+    // The injected list stays authoritative where it covers a frame; every other
+    // frame resolves through the V4 binding layer rather than being invented.
+    const frame = this.frameById.get(frameId) ?? bindingAsFrameDefinition(frameId);
     if (!frame) throw new Error(`Unknown frame: ${frameId}`);
     const source = this.atlasTextures.get(frame.atlas);
     if (!source) throw new Error(`Atlas is not loaded: ${frame.atlas}`);

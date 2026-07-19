@@ -528,3 +528,89 @@ describe("room threshold hysteresis is authored, not inferred", () => {
     expect(watcher.armedThresholdIds()).toHaveLength(0);
   });
 });
+
+/**
+ * The body belongs to the run, not to a room. A player who keeps walking into
+ * fire loses the same body a little at a time, across occurrences, until it
+ * finally falls — the authored ending the conductor could never reach while
+ * every occurrence handed out a fresh body.
+ */
+describe("the body is one run-lived fact across occurrences", () => {
+  /**
+   * Steer toward the nearest live collider. A pure function of the previous
+   * snapshot, so this tape is as replayable as the scripted one — it only
+   * presses a direction a player could press.
+   */
+  function walkIntoFire(
+    snapshot: ConductorSnapshot,
+    base: ConductorTickInput,
+  ): ConductorTickInput {
+    let nearest: {x: number; y: number; distance: number; id: string} | null = null;
+    for (const projectile of snapshot.projectiles) {
+      if (!projectile.collisionEnabled || projectile.state !== "flight") continue;
+      const dx = projectile.position.x - snapshot.player.position.x;
+      const dy = projectile.position.y - snapshot.player.position.y;
+      const distance = Math.hypot(dx, dy);
+      // Ties break on the stable instance id, never on iteration luck.
+      if (
+        nearest === null
+        || distance < nearest.distance
+        || (distance === nearest.distance && projectile.instanceId < nearest.id)
+      ) {
+        nearest = {x: dx, y: dy, distance, id: projectile.instanceId};
+      }
+    }
+    if (nearest === null || nearest.distance === 0) return base;
+    return {
+      ...base,
+      movement: {x: nearest.x / nearest.distance, y: nearest.y / nearest.distance},
+      focused: false,
+    };
+  }
+
+  it("depletes lives across two occurrences and ends the run in BODY_COLLAPSE", () => {
+    const conductor = new RunConductor({
+      runId: "run-body",
+      rawRunSeed: RUN_SEED,
+      previousRun: null,
+      roomCount: 2,
+    });
+    let clampTicks = 0;
+    let occurrenceIndex = -1;
+    let combatWasEnabled = false;
+    let lives = Number.POSITIVE_INFINITY;
+    let livesLostHere = 0;
+    const occurrencesThatTookALife = new Set<number>();
+    const livesAtOccurrenceEntry: number[] = [];
+    for (let tick = 0; tick < 20_000 && !conductor.complete; tick += 1) {
+      const phase = conductor.runPhase;
+      if (phase === "FIRST_CLAMP_RECOVERY") clampTicks += 1;
+      const scripted = tapeInput(phase, tick, clampTicks);
+      // One life per occurrence: after the body falls once here, stop walking
+      // into fire, so the next life can only be lost in a LATER occurrence.
+      const before = conductor.snapshot();
+      conductor.step(livesLostHere === 0 ? walkIntoFire(before, scripted) : scripted);
+      const snapshot = conductor.snapshot();
+      if (snapshot.combatEnabled && !combatWasEnabled) {
+        occurrenceIndex += 1;
+        livesLostHere = 0;
+        if (Number.isFinite(lives)) livesAtOccurrenceEntry.push(lives);
+      }
+      combatWasEnabled = snapshot.combatEnabled;
+      const damage = snapshot.player.damage;
+      if (damage !== null && damage.lives < lives) {
+        if (Number.isFinite(lives)) {
+          occurrencesThatTookALife.add(occurrenceIndex);
+          livesLostHere += 1;
+        }
+        lives = damage.lives;
+      }
+    }
+    // The body that entered a later occurrence was already a spent one.
+    expect(livesAtOccurrenceEntry.some((entry) => entry < 3)).toBe(true);
+    expect(conductor.snapshot().runEndReason).toBe("BODY_COLLAPSE");
+    expect(conductor.snapshot().player.damage).toMatchObject({lives: 0, state: "run-ended"});
+    expect(occurrencesThatTookALife.size).toBeGreaterThanOrEqual(2);
+    expect(conductor.canonicalTrace()).toContain("run.end.commit");
+  });
+});
