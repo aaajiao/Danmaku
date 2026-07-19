@@ -127,6 +127,9 @@ scheduled → materialized → armed → collision lease → terminal cancel/imp
 
 - arm 前不移动/碰撞；collision lease 只由 gameplay authority 改变。
 - contact、graze、Override、warning 与 rule clip 使用连续 swept geometry 和相同 ordered path。
+- 不连续的 authority path 必须显式分隔 collision components；consumer 只在 component 内 sweep，
+  不得跨 authored absence 自动补 connector。Ash Memory 的 accepted seam 见
+  [EXT-2026-003](adr/EXT-2026-003-ash-memory-history-replay.md)。
 - collision-off 必须先于同 tick terminal/cancel；residue 永不碰撞。
 - renderer frame、alpha、animation end、audio、reduced motion 或 pool visual 不能终止实体。
 - pool 满时拒绝新的 live collider；不得回收仍存活的 collider。
