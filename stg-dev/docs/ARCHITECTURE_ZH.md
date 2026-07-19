@@ -285,7 +285,8 @@ threshold lineage、room/player与Context Switch collisionless material，最后
 `T+63..T+158`为entry。`T+159`仍先关闭material/room tick，随后才安装空的Misregistration local-tick-zero
 kernel并claim encounter ordinal 1一次。material drain不释放retained pool lease。READ advance、Session、
 presentation与room completion继续withheld；契约见
-[EXT-2026-021](adr/EXT-2026-021-second-in-between-pre-read-and-read-start.md)。
+[EXT-2026-021](adr/EXT-2026-021-second-in-between-pre-read-and-read-start.md)，exact authority路径已由`83b3533`
+实现并停在typed `read-advance-withheld`边界。
 
 ## 11. Narrative、snapshot 与 cross-run restore
 

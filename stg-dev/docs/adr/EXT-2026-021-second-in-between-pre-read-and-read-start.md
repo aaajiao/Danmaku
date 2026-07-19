@@ -4,7 +4,7 @@
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
-- 实施 commit：待本扩展代码切片
+- 实施 commit：`83b3533`（`feat: start second occurrence read authority`）
 - 前置：[EXT-2026-019](EXT-2026-019-first-continuation-successor-material-transfer.md)、
   [EXT-2026-020](EXT-2026-020-second-in-between-occurrence-plan.md)
 - aaajiao skill：`1.1.1`；SHA-256
@@ -140,14 +140,17 @@ pre-READ允许的event suffix只有既有`projectile.residue.remove`和`projecti
 | `manifests/runtime/event-schema-v4.json` | V4 package / aaajiao | canonical JSON / 4.0.0 | cleanup event identity与same-tick order | repository license | `31c69e627e35e0c8dea828e1564592d6fc71059fa9ce654f92c660114648f0bb` |
 | `EXT-2026-020-second-in-between-occurrence-plan.md` | Danmaku / aaajiao + Codex | accepted ADR | exact owner、draw 2、plan与combined admission | repository license | `75677d6eac4b5eb10c115cc3264df789b959e62162a6e7582181f4cba843b9cf` |
 
-## 验证计划
+## 验证结果
 
-- 续写唯一真实seed-1 producer case，不新增第二条长fixture；证明`T=6788`和`T+1/+62/+63/+158/+159`。
-- 证明每tick一次flush、pre-READ只有material cleanup event、next occurrence在`T+158`仍unclaimed、`T+159`
-  claim一次且kernel local0为空。
-- 证明skip/repeat/Override/wrong phase在mutation前拒绝；material drain不改变80/160 allocated-slot accounting。
-- 运行一个filtered producer case、strict typecheck与`git diff --check`。Session/browser/accessibility/build留到对应
-  player-visible或runtime-integration切片。
+- 唯一真实seed-1 producer case通过，证明`T=6788`、`T+1/+62/+63/+78/+158/+159`，未新增第二条长fixture。
+- 46个Context Switch residue在`T+78`前恰好写92条既有cleanup event并drain；80-slot lease、160-slot
+  combined reservation与126 residue reservation保持不变。
+- `T+158`仍unclaimed；`T+159=6947` sole-flush后恰好claim一次，Misregistration kernel停在local tick 0，
+  entity与RNG消费均为0。snapshot明确写`read-advance-withheld`，未把READ tick 1冒充为已授权动作。
+- skip/repeat/Override/wrong phase在mutation前拒绝且状态不变；movement/Focus在accepted READ-start tick继续推进。
+- `bun --bun vitest run src/authority/run/chapters/first-continuation-transition.test.ts -t "installs READ, starts reserved successor combat, and closes its exact slice"`、
+  `bun run typecheck`与`git diff --check`通过。按风险边界未运行全套、build、browser或accessibility；本片没有
+  Session、presentation或runtime-build接线。
 
 ## 回滚与迁移
 
