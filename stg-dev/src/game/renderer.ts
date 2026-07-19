@@ -1,36 +1,15 @@
 import * as THREE from "three";
-import coreAtlasUrl from "../../../1bit-stg-complete-asset-kit-v4/atlases/core-grammar-v3.png?url";
-import bossAtlasUrl from "../../../1bit-stg-complete-asset-kit-v4/atlases/boss-topologies-v3.png?url";
-import causalityAtlasUrl from "../../../1bit-stg-complete-asset-kit-v4/atlases/combat-causality-v3.png?url";
-import combatAtlasUrl from "../../../1bit-stg-complete-asset-kit-v4/atlases/combat-behavior-cues-v4.png?url";
-import playerWorldAtlasUrl from "../../../1bit-stg-complete-asset-kit-v4/atlases/player-world-behavior-v4.png?url";
-import informationBackgroundUrl from "../../../1bit-stg-complete-asset-kit-v4/backgrounds/composites/information-gameplay.png?url";
-import forcedBackgroundUrl from "../../../1bit-stg-complete-asset-kit-v4/backgrounds/composites/forced_choice-gameplay.png?url";
-import betweenBackgroundUrl from "../../../1bit-stg-complete-asset-kit-v4/backgrounds/composites/in_between-gameplay.png?url";
-import polarizedBackgroundUrl from "../../../1bit-stg-complete-asset-kit-v4/backgrounds/composites/polarized-gameplay.png?url";
+import {
+  CANONICAL_RUN_V4_ASSETS,
+  canonicalRunAssetRoom,
+} from "../assets/chapters/canonical-run-v4";
+import {V4_SHARED_ASSETS} from "../assets/shared-v4";
 import type {FrameDefinition, PatternDefinition, SimulationSnapshot, Vec2} from "./types";
-
-const ATLAS_URLS: Record<string, string> = {
-  "core-grammar-v3": coreAtlasUrl,
-  "boss-topologies-v3": bossAtlasUrl,
-  "combat-causality-v3": causalityAtlasUrl,
-  "combat-behavior-cues-v4": combatAtlasUrl,
-  "player-world-behavior-v4": playerWorldAtlasUrl,
-};
 
 const FIRST_EYE_PATTERN_ID = "common.eye_acquisition";
 const LOGICAL_VIEW_WIDTH = 360;
 const LOGICAL_VIEW_HEIGHT = 640;
 const GAZE_WARNING_RADIUS = Math.hypot(LOGICAL_VIEW_WIDTH, LOGICAL_VIEW_HEIGHT) + 1;
-
-const BACKGROUND_URLS: Record<string, string> = {
-  INFORMATION: informationBackgroundUrl,
-  FORCED_ALIGNMENT: forcedBackgroundUrl,
-  IN_BETWEEN: betweenBackgroundUrl,
-  POLARIZED: polarizedBackgroundUrl,
-  COMMON: informationBackgroundUrl,
-  TRANSITION: betweenBackgroundUrl,
-};
 
 function configureTexture(texture: THREE.Texture): THREE.Texture {
   texture.magFilter = THREE.NearestFilter;
@@ -339,18 +318,24 @@ export class GameView {
   }
 
   async initialize(): Promise<void> {
-    const atlasEntries = Object.entries(ATLAS_URLS);
-    const backgroundEntries = Object.entries(BACKGROUND_URLS);
+    const atlasEntries = CANONICAL_RUN_V4_ASSETS.atlasIds.map((id) => {
+      const asset = V4_SHARED_ASSETS.atlases[id];
+      if (asset === undefined) throw new Error(`Canonical Run atlas is unavailable: ${id}`);
+      return asset;
+    });
+    const backgroundEntries = Object.values(V4_SHARED_ASSETS.backgrounds);
     await Promise.all([
-      ...atlasEntries.map(async ([id, url]) => {
-        this.atlasTextures.set(id, configureTexture(await this.loader.loadAsync(url)));
+      ...atlasEntries.map(async (asset) => {
+        this.atlasTextures.set(asset.id, configureTexture(await this.loader.loadAsync(asset.url)));
       }),
-      ...backgroundEntries.map(async ([id, url]) => {
-        this.backgrounds.set(id, configureTexture(await this.loader.loadAsync(url)));
+      ...backgroundEntries.map(async (asset) => {
+        this.backgrounds.set(asset.id, configureTexture(await this.loader.loadAsync(asset.url)));
       }),
     ]);
 
-    this.backgroundSprite = new THREE.Sprite(new THREE.SpriteMaterial({map: this.backgrounds.get("INFORMATION")}));
+    const initialBackground = this.backgrounds.get("INFORMATION");
+    if (!initialBackground) throw new Error("Canonical INFORMATION background is not loaded");
+    this.backgroundSprite = new THREE.Sprite(new THREE.SpriteMaterial({map: initialBackground}));
     this.backgroundSprite.scale.set(360, 640, 1);
     this.backgroundSprite.position.z = -10;
     this.scene.add(this.backgroundSprite);
@@ -430,10 +415,12 @@ export class GameView {
   }
 
   private updateBackground(room: string): void {
-    const normalizedRoom = BACKGROUND_URLS[room] ? room : "INFORMATION";
+    const normalizedRoom = canonicalRunAssetRoom(room);
     if (normalizedRoom === this.currentRoom || !this.backgroundSprite) return;
+    const background = this.backgrounds.get(normalizedRoom);
+    if (!background) throw new Error(`Canonical background is not loaded: ${normalizedRoom}`);
     this.currentRoom = normalizedRoom;
-    this.backgroundSprite.material.map = this.backgrounds.get(normalizedRoom) ?? this.backgrounds.get("INFORMATION") ?? null;
+    this.backgroundSprite.material.map = background;
     this.backgroundSprite.material.needsUpdate = true;
   }
 
@@ -542,14 +529,17 @@ export class GameView {
   private materialFor(frameId: string): THREE.SpriteMaterial {
     const cached = this.frameMaterials.get(frameId);
     if (cached) return cached;
-    const frame = this.frameById.get(frameId) ?? this.frameById.get("bullet.micro.notch_e");
+    const frame = this.frameById.get(frameId);
     if (!frame) throw new Error(`Unknown frame: ${frameId}`);
     const source = this.atlasTextures.get(frame.atlas);
     if (!source) throw new Error(`Atlas is not loaded: ${frame.atlas}`);
+    const atlas = V4_SHARED_ASSETS.atlases[frame.atlas];
+    if (!atlas?.size) throw new Error(`Atlas metadata is unavailable: ${frame.atlas}`);
+    const [atlasWidth, atlasHeight] = atlas.size;
     const texture = source.clone();
     const [x, y, width, height] = frame.rect;
-    texture.repeat.set(width / 1024, height / 1024);
-    texture.offset.set(x / 1024, 1 - (y + height) / 1024);
+    texture.repeat.set(width / atlasWidth, height / atlasHeight);
+    texture.offset.set(x / atlasWidth, 1 - (y + height) / atlasHeight);
     configureTexture(texture);
     const material = new THREE.SpriteMaterial({map: texture, transparent: true, depthWrite: false});
     this.frameMaterials.set(frameId, material);
