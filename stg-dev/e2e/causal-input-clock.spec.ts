@@ -290,7 +290,11 @@ test("first room hands through two occurrences into retained material", async ({
   expect(worldSwapTick120).toBeGreaterThan(transitionStartTick120);
   expect(completeTick120).toBeGreaterThan(worldSwapTick120);
   expect(patternCompleteTick120).toBeGreaterThan(completeTick120);
-  expect(targetRoom).toBeTruthy();
+  expect(targetRoom).toBe("IN_BETWEEN");
+  await expect(canvas).toHaveAttribute(
+    "data-presented-room-threshold-frame",
+    "threshold.in_between",
+  );
 
   await page.keyboard.up("a");
   await page.keyboard.up("Shift");
@@ -301,6 +305,10 @@ test("first room hands through two occurrences into retained material", async ({
   await expect(page.locator("#game-canvas")).toHaveAttribute(
     "data-presented-room",
     "FORCED_ALIGNMENT",
+  );
+  await expect(canvas).toHaveAttribute(
+    "data-presented-room-threshold-frame",
+    "threshold.in_between",
   );
   await expect(page.locator("#room-value")).toHaveText("FORCED ALIGNMENT");
   await advanceControlledRunToTick(page, worldSwapTick120);
@@ -314,14 +322,23 @@ test("first room hands through two occurrences into retained material", async ({
     "data-presented-pattern-id",
     "transition.room_threshold",
   );
+  await expect(canvas).toHaveAttribute(
+    "data-presented-room-threshold-frame",
+    "threshold.in_between",
+  );
   await expect(page.locator("#room-value")).toHaveText(
     (targetRoom ?? "").replaceAll("_", " "),
   );
 
   await advanceControlledRunToTick(page, completeTick120 - 1);
   await expect(body).toHaveAttribute("data-transition-collision-lease-released", "false");
+  await expect(canvas).toHaveAttribute(
+    "data-presented-room-threshold-frame",
+    "threshold.in_between",
+  );
   await advanceControlledRunToTick(page, completeTick120);
   await expect(body).toHaveAttribute("data-transition-collision-lease-released", "true");
+  await expect(canvas).toHaveAttribute("data-presented-room-threshold-frame", "");
 
   await advanceControlledRunToTick(page, transitionStartTick120 + 100);
   expect(Number(await body.getAttribute("data-projectile-entities"))).toBeGreaterThan(0);

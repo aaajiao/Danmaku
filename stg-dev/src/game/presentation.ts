@@ -325,6 +325,7 @@ export function projectCanonicalRunSession(
     ?? run.roomSampling?.difficulty
     ?? run.adapterPolicy.firstEye.difficulty;
   const safeWidth = safeGapWidth(executable, difficulty);
+  const roomThresholdTargetRoom = transition?.roomTransition.active?.toRoom;
 
   return Object.freeze({
     nowMs,
@@ -354,6 +355,7 @@ export function projectCanonicalRunSession(
     combatEnabled: combat !== null && !combat.patternComplete,
     gazeState: run.gaze.state,
     gazeClampReleased: run.handoff.barriers.gazeClampReleased,
+    ...(roomThresholdTargetRoom === undefined ? {} : {roomThresholdTargetRoom}),
     targetVisible: successor?.targetVisible
       ?? (run.phase === "first_eye" || run.phase === "first_clamp_recovery"),
     safeGapCenterX: safeCenter,

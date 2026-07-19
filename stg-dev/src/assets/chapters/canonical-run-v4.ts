@@ -3,6 +3,7 @@ import {
   requiredFeedbackResolver,
   requiredFrame,
   requiredHapticPulses,
+  requiredRoomSelector,
   requiredStringResolver,
 } from "../v4-feedback";
 import type {V4RuntimeAsset} from "../v4-runtime-asset";
@@ -115,6 +116,92 @@ export const CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK = Object.freeze({
     }),
   }),
 });
+
+const roomTransitionVisual = requiredFeedbackResolver(
+  "room-transition-visual",
+  "room.transition.begin",
+  "visual",
+);
+const roomWorldSwapVisual = requiredFeedbackResolver(
+  "room-world-swap-visual",
+  "room.transition.world_swap.commit",
+  "visual",
+);
+const roomTransitionFallback = roomTransitionVisual.resolver.accessibilityFallback;
+if (
+  roomTransitionFallback === undefined
+  || !roomTransitionFallback.when.includes("motion:reduced")
+) {
+  throw new Error("Canonical Run V4 room threshold requires its reduced-motion fallback");
+}
+const canonicalThresholdRooms = Object.freeze(
+  Object.keys(V4_SHARED_ASSETS.backgrounds).sort(compareCodePoints),
+);
+const roomThresholdFrames = requiredRoomSelector(
+  roomTransitionVisual.resolver.resolver,
+  roomTransitionVisual.binding.id,
+  "threshold.{roomSlug}",
+  canonicalThresholdRooms,
+  (frameId) => requiredFrame(frameId, roomTransitionVisual.binding.id),
+);
+const reducedRoomThresholdFrames = requiredRoomSelector(
+  roomTransitionFallback.resolver,
+  roomTransitionVisual.binding.id,
+  "threshold.{roomSlug}",
+  canonicalThresholdRooms,
+  (frameId) => requiredFrame(frameId, roomTransitionVisual.binding.id),
+);
+const worldSwapThresholdFrames = requiredRoomSelector(
+  roomWorldSwapVisual.resolver.resolver,
+  roomWorldSwapVisual.binding.id,
+  "threshold.{roomSlug}",
+  canonicalThresholdRooms,
+  (frameId) => requiredFrame(frameId, roomWorldSwapVisual.binding.id),
+);
+
+function sameRoomFrameSelection(
+  left: Readonly<Record<string, string>>,
+  right: Readonly<Record<string, string>>,
+): boolean {
+  const leftRooms = Object.keys(left);
+  const rightRooms = Object.keys(right);
+  return leftRooms.length === rightRooms.length
+    && leftRooms.every((room) => left[room] === right[room]);
+}
+
+if (
+  !sameRoomFrameSelection(roomThresholdFrames.byRoom, reducedRoomThresholdFrames.byRoom)
+  || !sameRoomFrameSelection(roomThresholdFrames.byRoom, worldSwapThresholdFrames.byRoom)
+  || roomThresholdFrames.fallback !== reducedRoomThresholdFrames.fallback
+  || roomThresholdFrames.fallback !== worldSwapThresholdFrames.fallback
+) {
+  throw new Error("Canonical Run V4 room threshold frame selection drifted across feedback profiles");
+}
+
+export const CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK = Object.freeze({
+  selector: roomThresholdFrames.selector,
+  frameByRoom: roomThresholdFrames.byRoom,
+  fallbackFrameId: roomThresholdFrames.fallback,
+  begin: Object.freeze({
+    eventId: roomTransitionVisual.binding.eventId,
+    bindingId: roomTransitionVisual.binding.id,
+    cueId: roomTransitionVisual.binding.sink.cueId,
+    reducedMotionCueId: roomTransitionFallback.cueId,
+  }),
+  worldSwap: Object.freeze({
+    eventId: roomWorldSwapVisual.binding.eventId,
+    bindingId: roomWorldSwapVisual.binding.id,
+    cueId: roomWorldSwapVisual.binding.sink.cueId,
+  }),
+});
+
+export function canonicalRunRoomThresholdFrame(room: string): string {
+  const frameId = CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK.frameByRoom[room];
+  if (frameId === undefined) {
+    throw new Error(`Canonical Run has no V4 room threshold projection for ${room}`);
+  }
+  return frameId;
+}
 
 for (const assetRoom of Object.values(roomAssetSource)) {
   requiredAsset(V4_SHARED_ASSETS.backgrounds, assetRoom, "background");

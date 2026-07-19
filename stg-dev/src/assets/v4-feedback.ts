@@ -31,6 +31,12 @@ export interface V4HapticPulse {
   readonly strength: number;
 }
 
+export interface V4RoomSelector<Resolved> {
+  readonly selector: string;
+  readonly byRoom: Readonly<Record<string, Resolved>>;
+  readonly fallback: Resolved;
+}
+
 const feedbackBindings = feedbackBindingsManifest.bindings as readonly FeedbackBindingContract[];
 const runtimeCueResolvers = assetBindingsManifest.runtimeCueResolvers as unknown as readonly RuntimeCueResolverContract[];
 const frameIds = new Set(frameIndexManifest.frames.map((frame) => frame.semanticId));
@@ -111,6 +117,57 @@ export function requiredFrame(value: unknown, bindingId: string): string {
     throw new Error(`V4 feedback ${bindingId} references unknown frame ${frameId}`);
   }
   return frameId;
+}
+
+export function requiredRoomSelector<Resolved>(
+  value: unknown,
+  bindingId: string,
+  expectedSelector: string,
+  expectedRooms: readonly string[],
+  resolve: (resolvedId: string) => Resolved,
+): Readonly<V4RoomSelector<Resolved>> {
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`V4 room selector is invalid for ${bindingId}`);
+  }
+  const {selector, fallback} = value as Record<string, unknown>;
+  if (
+    typeof selector !== "string"
+    || typeof fallback !== "string"
+    || selector !== expectedSelector
+    || selector.indexOf("{roomSlug}") < 0
+    || selector.indexOf("{roomSlug}") !== selector.lastIndexOf("{roomSlug}")
+  ) {
+    throw new Error(`V4 room selector contract drifted for ${bindingId}`);
+  }
+  const roomSlugs = assetBindingsManifest.selectors.roomSlug as Readonly<Record<string, unknown>>;
+  const roomIds = Object.keys(roomSlugs);
+  const expectedRoomSet = new Set(expectedRooms);
+  if (
+    expectedRoomSet.size !== expectedRooms.length
+    || roomIds.length !== expectedRooms.length
+    || roomIds.some((room) => !expectedRoomSet.has(room))
+  ) {
+    throw new Error(`V4 room selector room universe drifted for ${bindingId}`);
+  }
+  const slugs = new Set<string>();
+  const byRoom: Record<string, Resolved> = {};
+  for (const room of expectedRooms) {
+    const slug = roomSlugs[room];
+    if (typeof slug !== "string" || slug.length === 0 || slug.trim() !== slug) {
+      throw new Error(`V4 room selector has an invalid slug for ${room}`);
+    }
+    if (slugs.has(slug)) {
+      throw new Error(`V4 room selector reuses slug ${slug} for ${bindingId}`);
+    }
+    slugs.add(slug);
+    const resolvedId = selector.replace("{roomSlug}", slug);
+    byRoom[room] = resolve(resolvedId);
+  }
+  return Object.freeze({
+    selector,
+    byRoom: Object.freeze(byRoom),
+    fallback: resolve(fallback),
+  });
 }
 
 export function requiredHapticPulses(

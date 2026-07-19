@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import {
   CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK,
+  CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK,
   CANONICAL_RUN_V4_ASSETS,
   canonicalRunAssetRoom,
+  canonicalRunRoomThresholdFrame,
 } from "../assets/chapters/canonical-run-v4";
 import {V4_SHARED_ASSETS} from "../assets/shared-v4";
 import type {FrameDefinition, PatternDefinition, SimulationSnapshot, Vec2} from "./types";
@@ -267,9 +269,11 @@ export class GameView {
   private readonly bulletSprites = new Map<number | string, THREE.Sprite>();
   private readonly shotSprites = new Map<number, THREE.Sprite>();
   private backgroundSprite: THREE.Sprite | null = null;
+  private roomThresholdSprite: THREE.Sprite | null = null;
   private playerSprite: THREE.Sprite | null = null;
   private targetSprite: THREE.Sprite | null = null;
   private currentRoom = "";
+  private currentRoomThresholdFrame = "";
   private currentTargetFrame = "";
   private targetBaseY = 240;
   private readonly focusRing: THREE.Mesh;
@@ -347,6 +351,14 @@ export class GameView {
     this.backgroundSprite.position.z = -10;
     this.scene.add(this.backgroundSprite);
 
+    this.roomThresholdSprite = this.makeSprite(
+      CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK.fallbackFrameId,
+      128,
+      0,
+    );
+    this.roomThresholdSprite.visible = false;
+    this.scene.add(this.roomThresholdSprite);
+
     this.playerSprite = this.makeSprite("player.core.idle", 128, 3);
     this.scene.add(this.playerSprite);
     this.setTargetFrame("enemy.courier");
@@ -357,6 +369,7 @@ export class GameView {
     if (!this.playerSprite || !this.targetSprite) return;
     const cyclicPresentation = cyclicPresentationEnabled(reducedMotion, flashOff);
     this.updateBackground(snapshot.room);
+    this.updateRoomThreshold(snapshot);
     this.updateTarget(snapshot, reducedMotion);
     this.updateGazeWarning(snapshot);
     this.syncBulletSprites(snapshot);
@@ -429,6 +442,23 @@ export class GameView {
     this.currentRoom = normalizedRoom;
     this.backgroundSprite.material.map = background;
     this.backgroundSprite.material.needsUpdate = true;
+  }
+
+  private updateRoomThreshold(snapshot: SimulationSnapshot): void {
+    if (!this.roomThresholdSprite) return;
+    const targetRoom = snapshot.roomThresholdTargetRoom;
+    if (targetRoom === undefined) {
+      this.roomThresholdSprite.visible = false;
+      this.canvas.dataset.presentedRoomThresholdFrame = "";
+      return;
+    }
+    const frameId = canonicalRunRoomThresholdFrame(targetRoom);
+    if (frameId !== this.currentRoomThresholdFrame) {
+      this.currentRoomThresholdFrame = frameId;
+      this.roomThresholdSprite.material = this.materialFor(frameId);
+    }
+    this.roomThresholdSprite.visible = true;
+    this.canvas.dataset.presentedRoomThresholdFrame = frameId;
   }
 
   private updateTarget(snapshot: SimulationSnapshot, reducedMotion: boolean): void {

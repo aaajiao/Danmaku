@@ -5,11 +5,13 @@ import backgroundsManifest from "../../../1bit-stg-complete-asset-kit-v4/manifes
 import audioManifest from "../../../1bit-stg-complete-asset-kit-v4/manifests/narrative/audio-manifest-v4.json";
 import {
   CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK,
+  CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK,
   CANONICAL_RUN_V4_ASSETS,
   canonicalRunAssetRoom,
   canonicalRunBackground,
   canonicalRunFeedbackAudio,
   canonicalRunRoomBed,
+  canonicalRunRoomThresholdFrame,
 } from "./chapters/canonical-run-v4";
 import {V4_SHARED_ASSETS} from "./shared-v4";
 
@@ -85,11 +87,35 @@ describe("manifest-derived V4 runtime assets", () => {
       eventId: "gaze.clamp.release",
       visual: {bindingId: "gaze-release-visual", frameId: "eye.withdraw"},
     });
+    expect(CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK).toMatchObject({
+      selector: "threshold.{roomSlug}",
+      begin: {
+        eventId: "room.transition.begin",
+        bindingId: "room-transition-visual",
+        reducedMotionCueId: "room.threshold-steady",
+      },
+      worldSwap: {
+        eventId: "room.transition.world_swap.commit",
+        bindingId: "room-world-swap-visual",
+      },
+      fallbackFrameId: "threshold.information",
+    });
+    expect(CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK.frameByRoom).toEqual({
+      INFORMATION: "threshold.information",
+      FORCED_ALIGNMENT: "threshold.forced_choice",
+      IN_BETWEEN: "threshold.in_between",
+      POLARIZED: "threshold.polarized",
+    });
+    expect(canonicalRunRoomThresholdFrame("IN_BETWEEN")).toBe("threshold.in_between");
+    expect(() => canonicalRunRoomThresholdFrame("UNKNOWN_ROOM"))
+      .toThrow(/no V4 room threshold projection/);
 
     expect(Object.isFrozen(V4_SHARED_ASSETS)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp.haptic.pulses)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_ROOM_THRESHOLD_V4_FEEDBACK.frameByRoom)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS.atlasIds)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS.roomAssetSource)).toBe(true);
   });
