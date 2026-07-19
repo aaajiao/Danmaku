@@ -292,6 +292,18 @@ data, also run the replay regression. A change that alters replay output is eith
 a bug or a deliberate divergence — say which.
 
 Rendering changes need a browser check as well: `bun run dev`, then confirm the
-field actually draws. The two rendering bugs found so far — reversed winding and a
-spatial-hash collision — were both invisible to the type checker and silent in the
-console.
+field actually draws. The rendering bugs found so far — reversed winding, an inert
+`renderOrder`, a spatial-hash collision — were all invisible to the type checker
+and silent in the console.
+
+For layer ordering specifically there is a pixel-readback check, because only the
+framebuffer can answer it:
+
+```
+bun run test:visual     # → http://localhost:3006
+```
+
+It draws two overlapping quads on known layers, reads the pixel where they cross,
+and then repeats the measurement with `sortObjects` forced off to prove it can
+fail. `bun test` cannot do this — it has no GL context — so this one is run by
+hand after any change to `Stage`, `SpriteBatch`, or the `Layer` constants.

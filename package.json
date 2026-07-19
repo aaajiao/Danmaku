@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun ./index.html",
+    "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",
     "build": "bun build ./index.html --outdir=dist --production",
     "typecheck": "tsc --noEmit"
   },
