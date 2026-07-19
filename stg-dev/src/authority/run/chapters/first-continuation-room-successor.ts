@@ -1,5 +1,6 @@
 import {
   advanceCanonicalRunFirstContinuationDormantSuccessorPreReadTick,
+  advanceCanonicalRunFirstContinuationSuccessorReadTick,
   inspectCanonicalRunFirstContinuationDormantSuccessorBinding,
   startCanonicalRunFirstContinuationSuccessorRead as startCanonicalRunFirstContinuationSuccessorReadBinding,
   type CanonicalCombatSnapshot,
@@ -165,7 +166,7 @@ export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
     readonly gazeInput: "requested-unconsumed";
     readonly flowerAuthority: "frozen";
     readonly gazeAuthority: "frozen";
-    readonly override: "locked";
+    readonly override: "locked" | "active";
   }>;
 }
 
@@ -200,7 +201,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
   if (
     relativeTick120 < 0
     || (phase === "read"
-      ? binding.tick120 !== boundaryTicks120.readStartTick120
+      ? binding.tick120 < boundaryTicks120.readStartTick120
         || binding.combat === null
       : binding.tick120 >= boundaryTicks120.readStartTick120
         || binding.combat !== null)
@@ -228,7 +229,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
       : runCombat.activeOccurrenceId !== null)
     || runCombat.pendingFlushTick120 !== null
   ) {
-    throw new Error("first continuation successor pre-READ acquired combat or lost its flush");
+    throw new Error("first continuation successor lost its exact combat ownership or flush");
   }
   return Object.freeze({
     authority: OWNER_AUTHORITY,
@@ -266,7 +267,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
       gazeInput: "requested-unconsumed" as const,
       flowerAuthority: "frozen" as const,
       gazeAuthority: "frozen" as const,
-      override: "locked" as const,
+      override: phase === "read" ? "active" as const : "locked" as const,
     }),
   });
 }
@@ -349,6 +350,62 @@ export function startCanonicalRunFirstContinuationSuccessorRead(
       || after.nextMasterTickAction !== "advance-read"
     ) {
       throw new Error("first continuation successor READ local-tick-zero snapshot drifted");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted || record.runState.snapshot().faulted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function advanceCanonicalRunFirstContinuationSuccessorRead(
+  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation successor READ step is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      before.phase !== "read"
+      || before.nextMasterTickAction !== "advance-read"
+      || before.combat === null
+    ) {
+      throw new Error("first continuation successor READ advance requires its active READ owner");
+    }
+    const advanced = advanceCanonicalRunFirstContinuationSuccessorReadTick(
+      record.runState,
+      record.eventBus,
+      record.carryover,
+      owner,
+      input,
+    );
+    authoritativeTickAccepted = true;
+    const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      after.phase !== "read"
+      || after.tick120 !== before.tick120 + 1
+      || after.relativeTick120 !== before.relativeTick120 + 1
+      || after.combat === null
+      || after.combat.tick120 !== advanced.combat.tick120
+      || after.combat.relativeTick120 !== before.combat.relativeTick120 + 1
+      || after.combat.patternId !== after.plan.occurrence.patternId
+      || after.combat.occurrenceId !== after.plan.occurrence.occurrenceId
+      || after.material.tick120 !== after.tick120
+      || after.material.poolUsage.liveColliders !== 0
+      || after.runCombat.pendingFlushTick120 !== null
+      || after.nextMasterTickAction !== "advance-read"
+      || after.inputOwnership.override !== "active"
+    ) {
+      throw new Error("first continuation successor READ lost its exact one-tick advance");
     }
     return after;
   } catch (error) {

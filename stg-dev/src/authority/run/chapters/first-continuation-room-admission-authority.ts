@@ -32,6 +32,7 @@ import {registerCanonicalRunFirstContinuationSuccessorOwner} from
 
 export {
   advanceCanonicalRunFirstContinuationSuccessorPreRead,
+  advanceCanonicalRunFirstContinuationSuccessorRead,
   inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
   startCanonicalRunFirstContinuationSuccessorRead,
   type CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot,

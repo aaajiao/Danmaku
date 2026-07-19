@@ -36,6 +36,7 @@ import {
 } from "./first-continuation-transition";
 import {
   advanceCanonicalRunFirstContinuationSuccessorPreRead,
+  advanceCanonicalRunFirstContinuationSuccessorRead,
   cancelPreparedCanonicalRunFirstContinuationRoomAdmission,
   commitPreparedCanonicalRunFirstContinuationRoomAdmission,
   inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
@@ -450,7 +451,7 @@ describe("first continuation transition chapter owner", () => {
     )).toThrow(/dormant successor owner/);
   });
 
-  it("installs the planned READ kernel at H+159 without a binding gap", {
+  it("installs READ at H+159 and starts reserved successor combat at H+160", {
     timeout: 30_000,
   }, () => {
     const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
@@ -548,6 +549,69 @@ describe("first continuation transition chapter owner", () => {
     )).toThrow(/dormant successor owner/);
     expect(fixture.runState.snapshot()).toEqual(runAfterRead);
     expect(fixture.eventBus.events()).toEqual(eventsAfterRead);
+
+    const active = advanceCanonicalRunFirstContinuationSuccessorRead(
+      owner,
+      combatInput(handoffTick120 + 160),
+    );
+    expect(active).toMatchObject({
+      phase: "read",
+      tick120: handoffTick120 + 160,
+      relativeTick120: 160,
+      nextMasterTickAction: "advance-read",
+      runCombat: {
+        tick120: handoffTick120 + 160,
+        activeOccurrenceId: preparation.view.plan.occurrence.occurrenceId,
+        pendingFlushTick120: null,
+      },
+      combat: {
+        tick120: handoffTick120 + 160,
+        relativeTick120: 1,
+        patternId: preparation.view.plan.occurrence.patternId,
+        occurrenceId: preparation.view.plan.occurrence.occurrenceId,
+      },
+      material: {
+        tick120: handoffTick120 + 160,
+        poolUsage: {liveColliders: 0},
+      },
+      inputOwnership: {override: "active"},
+    });
+    if (active.combat === null) throw new Error("READ combat disappeared after H+160");
+    let firstProjectile = active;
+    while (
+      firstProjectile.combat !== null
+      && firstProjectile.combat.projectiles.length === 0
+      && firstProjectile.combat.relativeTick120 < 600
+    ) {
+      firstProjectile = advanceCanonicalRunFirstContinuationSuccessorRead(
+        owner,
+        combatInput(firstProjectile.tick120 + 1),
+      );
+    }
+    if (firstProjectile.combat === null) throw new Error("READ combat disappeared before spawn");
+    expect(firstProjectile.combat.projectiles.length).toBeGreaterThan(0);
+    const reservation = firstProjectile.combinedPoolAdmission.reservation;
+    const reservedClass = reservation.projectilePoolClass;
+    expect(firstProjectile.combat.poolUsage.allocatedSlots[reservedClass])
+      .toBeLessThanOrEqual(reservation.requestedProjectileSlots);
+    for (const poolClass of ["micro", "medium", "heavy", "splitChildren"] as const) {
+      expect(
+        firstProjectile.material.poolUsage.allocatedSlots[poolClass]
+          + firstProjectile.combat.poolUsage.allocatedSlots[poolClass],
+      ).toBeLessThanOrEqual(reservation.combinedAllocatedSlots[poolClass]);
+      if (poolClass !== reservedClass) {
+        expect(firstProjectile.combat.poolUsage.allocatedSlots[poolClass]).toBe(0);
+      }
+    }
+    expect(
+      firstProjectile.material.poolUsage.residueVisuals
+        + firstProjectile.combat.poolUsage.residueVisuals,
+    ).toBeLessThanOrEqual(reservation.combinedResidueVisuals);
+    expect(firstProjectile.material.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+    expect(fixture.eventBus.events().slice(eventsAfterRead.length).some((event) =>
+      event.id === "projectile.spawn.commit")).toBe(true);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
   });
 
   it("cancels a prepared admission without consuming the handoff, then retries", {

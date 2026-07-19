@@ -304,6 +304,49 @@ export const PROJECTILE_POOL_BUDGETS = LIFECYCLE_CONTRACT.poolBudgets;
 export const PLAYER_NORMAL_COLLISION_RADIUS_PX = LIFECYCLE_CONTRACT.playerNormalRadiusPx;
 export const PLAYER_FOCUS_COLLISION_RADIUS_PX = LIFECYCLE_CONTRACT.playerFocusRadiusPx;
 
+function captureProjectilePoolBudgets(
+  value: ProjectilePoolBudgets | undefined,
+): ProjectilePoolBudgets {
+  if (value === undefined) return PROJECTILE_POOL_BUDGETS;
+  const raw = requireRecord(value, "projectile authority poolBudgets");
+  const expectedKeys = [
+    "heavy",
+    "medium",
+    "micro",
+    "residueVisualOnly",
+    "splitChildren",
+  ] as const;
+  const actualKeys = Object.keys(raw).sort();
+  if (
+    actualKeys.length !== expectedKeys.length
+    || actualKeys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new Error("projectile authority poolBudgets field contract drifted");
+  }
+  const captured = Object.freeze({
+    micro: requireNonNegativeInteger(raw.micro, "projectile authority poolBudgets.micro"),
+    medium: requireNonNegativeInteger(raw.medium, "projectile authority poolBudgets.medium"),
+    heavy: requireNonNegativeInteger(raw.heavy, "projectile authority poolBudgets.heavy"),
+    splitChildren: requireNonNegativeInteger(
+      raw.splitChildren,
+      "projectile authority poolBudgets.splitChildren",
+    ),
+    residueVisualOnly: requireNonNegativeInteger(
+      raw.residueVisualOnly,
+      "projectile authority poolBudgets.residueVisualOnly",
+    ),
+  });
+  for (const poolClass of POOL_CLASS_ORDER) {
+    if (captured[poolClass] > PROJECTILE_POOL_BUDGETS[poolClass]) {
+      throw new Error(`projectile authority ${poolClass} budget exceeds the V4 pool`);
+    }
+  }
+  if (captured.residueVisualOnly > PROJECTILE_POOL_BUDGETS.residueVisualOnly) {
+    throw new Error("projectile authority residue budget exceeds the V4 pool");
+  }
+  return captured;
+}
+
 function validateVec2(value: Vec2, path: string): Vec2 {
   if (!isRecord(value)) throw new Error(`${path} must be a vector`);
   return Object.freeze({
@@ -601,6 +644,7 @@ function captureFlightCollisionChanges(
  */
 export class ProjectileAuthorityPool {
   private readonly authorityId: string;
+  private readonly poolBudgets: ProjectilePoolBudgets;
   private readonly archetypes = new Map<string, ProjectileArchetype>();
   private readonly slots: Record<ProjectilePoolClass, ProjectileSlot[]> = {
     micro: [],
@@ -619,9 +663,11 @@ export class ProjectileAuthorityPool {
     options: {
       readonly authorityId: string;
       readonly archetypes: readonly ProjectileArchetype[];
+      readonly poolBudgets?: ProjectilePoolBudgets;
     },
   ) {
     this.authorityId = requireString(options.authorityId, "projectile authorityId");
+    this.poolBudgets = captureProjectilePoolBudgets(options.poolBudgets);
     if (!Array.isArray(options.archetypes) || options.archetypes.length === 0) {
       throw new Error("projectile archetypes must be a non-empty array");
     }
@@ -658,7 +704,7 @@ export class ProjectileAuthorityPool {
     this.claimedSpawnOccurrences.add(occurrenceKey);
     const classSlots = this.slots[archetype.poolClass];
     let slot = classSlots.find((candidate) => candidate.state === "pooled");
-    if (slot === undefined && classSlots.length < PROJECTILE_POOL_BUDGETS[archetype.poolClass]) {
+    if (slot === undefined && classSlots.length < this.poolBudgets[archetype.poolClass]) {
       slot = this.createSlot(archetype.poolClass, classSlots.length);
       classSlots.push(slot);
     }
@@ -669,7 +715,7 @@ export class ProjectileAuthorityPool {
         kind: "projectile.spawn.rejected",
         poolClass: archetype.poolClass,
         archetypeId,
-        budget: PROJECTILE_POOL_BUDGETS[archetype.poolClass],
+        budget: this.poolBudgets[archetype.poolClass],
       });
       return null;
     }
@@ -1219,7 +1265,7 @@ export class ProjectileAuthorityPool {
     slot.state = "residue";
     slot.terminalCause = cause;
     slot.cleanupAtTick = tick120 + slot.residueTicks;
-    if (this.residueVisualCount < PROJECTILE_POOL_BUDGETS.residueVisualOnly) {
+    if (this.residueVisualCount < this.poolBudgets.residueVisualOnly) {
       this.residueVisualCount += 1;
       slot.residueVisualReserved = true;
     } else {
@@ -1229,7 +1275,7 @@ export class ProjectileAuthorityPool {
         kind: "projectile.residue-visual.rejected",
         poolClass: "residueVisualOnly",
         archetypeId: slot.archetype?.id ?? "unknown",
-        budget: PROJECTILE_POOL_BUDGETS.residueVisualOnly,
+        budget: this.poolBudgets.residueVisualOnly,
       });
     }
     this.emit(slot, "projectile.residue.begin", tick120, {
