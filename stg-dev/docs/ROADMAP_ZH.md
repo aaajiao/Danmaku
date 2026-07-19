@@ -26,11 +26,11 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 26/48；exported live-admission registry 为 21，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 3/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 首房关闭 → transition/material → successor首slice → material transfer → 同房encounter ordinal 1 telegraph/entry/READ local0已闭合；EXT-022已接受local1..1272与gameplay release规则但尚未实现，材料tail、Session消费与room completion/handoff仍未完成 |
+| Canonical Run | WIP | 首房关闭 → transition/material → successor首slice → material transfer → 同房encounter ordinal 1 telegraph/entry/READ/release已闭合到global8219；80个collisionless residue停在typed tail边界，材料tail、Session消费与room completion/handoff仍未完成 |
 | First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
 | First fixed room closure | DONE | EXT-2026-009 在H+1702原子关闭单occurrence bootstrap首房并冻结`1/1/0`与typed visit fact；closure自身仍不承载metric、selection、transition或handoff |
 | First-room metric projection | DONE（partial） | EXT-2026-010/011从exact H+1702来源投影`avgFlower`/`gazeRatio`/`recentInputDensity`，其余11项typed missing；整体不ready，不授权composer、RNG、target、selection或transition |
-| Room composition / execution | WIP（首个 live 切片） | ordinal 1首occurrence已推进到exact slice close；Misregistration encounter ordinal 1已由EXT-021安装到READ local0。EXT-022已冻结80-slot执行、capacity audit与global8219 release规则，代码、材料tail、Session消费、room count/order与完整multi-pool仍未完成 |
+| Room composition / execution | WIP（首个 live 切片） | ordinal 1首occurrence已推进到exact slice close；Misregistration encounter ordinal 1已完成80-slot READ与global8219 gameplay release，保留80个residue和唯一capacity audit。材料tail、Session消费、room count/order与完整multi-pool仍未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
 | Renderer / input / PWA | WIP（基础可用） | Three.js、键盘/触控/标准手柄、manifest、离线warm reload与图标已存在；V4源素材由构建直接打包，但runtime当前只接5/7图集、4个房间背景及部分音频，完整章节素材、causal clips、升级迁移和实机矩阵未完成 |
@@ -50,9 +50,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 26/48 完成到 48/48；EXT-018已把Misregistration Corridor的单draw相位、orbit/release分段、完整preflight与material drain接入live registry。近期缺口包含 `room.information.missing_ack`、`room.in_between.borrowed_rule` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition及EXT-015—017 successor plan/terminal/session已闭合首个ordinal 1 live slice；EXT-018—021已把下一合法Misregistration推进到READ local0。EXT-022已接受local1..1272、80-slot rejection与occurrence release规则但实现pending；tail、Session与room completion仍withheld |
+| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition及EXT-015—017 successor plan/terminal/session已闭合首个ordinal 1 live slice；EXT-018—022已把下一合法Misregistration推进到READ local1272并释放gameplay。material-only tail、Session与room completion仍withheld |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold及successor首slice已进入同一session/只读presentation；第二occurrence authority已推进到READ local0，READ/release决定已接受但代码与Session接线pending。room handoff和完整Run终点仍未授权 |
+| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold及successor首slice已进入同一session/只读presentation；第二occurrence direct authority已推进到global8219 release，但tail与Session接线pending。room handoff和完整Run终点仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
 | P0-09 | Presentation / accessibility | WIP | 建立`stg-dev/src/assets`运行时registry，源文件继续唯一指向V4；按共享/章节接完7张正式图集与实际流程所需音频。完整Run的full/reduced-motion/flash-off gameplay trace相同，UI、音频、触觉、天气只读投影，关键causal clips可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
@@ -61,9 +61,10 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 实施EXT-022：从EXT-021 `read-advance-withheld`边界推进Misregistration READ local`1..1272`，继续同步
-   retained material、room/player与新combat并由Run sole-flush；钉住80-slot唯一capacity audit与global`8219`
-   occurrence release。材料tail从`8220`另片处理，不顺带接Session、第三occurrence或room completion。
+1. 从EXT-022 `tail-advance-withheld`边界单独决定并实现Misregistration material-only tail：从global`8220`
+   同步推进两个drained lineage、80个新residue、room/player与Run sole-flush；保持rest start`8327`和slice close
+   `8519`，关闭时仍保留63个residue并显式转交，不能等待`8682` drain或强制清屏。不顺带接Session、第三
+   occurrence或room completion。
 2. 建立只引用V4唯一源文件的共享/章节素材registry，按实际Run章节补齐图集、背景、causal clip与音频；
    不复制二进制素材，不把preview/QA图当runtime资产，并让`dist`继续由部署阶段生成。
 3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room

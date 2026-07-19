@@ -4,7 +4,7 @@
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
-- 实施：PENDING（本 ADR 不声称代码已完成）
+- 实施 commit：`661c87e`（`feat: release second occurrence gameplay authority`）
 - 前置：[EXT-2026-018](EXT-2026-018-misregistration-orbit-release.md)、
   [EXT-2026-020](EXT-2026-020-second-in-between-occurrence-plan.md)、
   [EXT-2026-021](EXT-2026-021-second-in-between-pre-read-and-read-start.md)
@@ -185,20 +185,25 @@ cleanup: projectile.residue.remove → projectile.lifecycle.complete
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | immutable QA oracle / Python 3 `-B` | seed `4108513047`、EASY、30Hz reference | repository source | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
 | `EXT-2026-021-second-in-between-pre-read-and-read-start.md` | Danmaku / aaajiao + Codex | accepted ADR / implemented at `83b3533` | global6947/local0 exact owner | repository license | `180bfb62a04769af89f0b4b3104202cc8a03ae66015510814dbdf9c5b84bba34` |
 
-## 验证计划与现有审计
+## 验证结果
 
-- 当前只完成设计/source审计，implementation与focused acceptance test均为pending；不得把本ADR状态解释为代码
-  已推进到global `8219`。
 - `python3 -B` QA oracle确认seed/EASY为21 burst、126 candidate，reference trace SHA-256为
   `1751456508b5d5898d03036d7038b4d1499aa0d9805a53cff27769046e03fd59`；其30Hz endpoint与golden-ordinal
   orbit phase只作reference，不替代EXT-018 production swept adapter。
-- 实施时扩展现有唯一seed-1真实producer，从EXT-021 local0推进到local1272；覆盖首spawn/arm/collision、最后
-  burst、唯一capacity audit、合法player damage分支、Override hostile edge、pattern-end order与sole-flush release。
-- acceptance path必须证明126 RNG、82 entity、`24 OOB + 58 pattern_end`、release时80 collisionless residue，
-  并证明local1272后旧READ port不可再step；damage path只证明共享damage/lifecycle与同一release barrier，不复制
-  第二条长producer fixture。
-- 完成代码切片运行一个filtered producer case、strict typecheck与`git diff --check`。本片不改Session、bundle或
-  player-visible路径，因此不运行build、smoke、E2E或browser；这些在对应接线里程碑补齐。
+- 现有seed-1真实producer已从EXT-021 local0推进到local1272。无伤safe-gap路径证明local90首spawn、local95
+  首次armed/flight/collision-on、local1264最后collision-on、local1267最后OOB，以及release tick先58条
+  collision-off再58组cancel/residue事实。
+- 无伤路径精确得到126 RNG、82 entity、`24 OOB + 58 pattern_end`；local1259只有一条冻结的
+  `budget_exhausted` pool audit，canonical event中没有伪spawn；global8219保留80个collisionless residue、
+  0 live collider与80 allocated `micro` slots，combined allocated峰值160。
+- 同一filtered case另用original admission/owner producer执行真实contact路径；它产生`player.damage.commit`，
+  release时`runTimedStateQuiescent=false`且recovery/respawn deadline仍存在，但occurrence仍在global8219释放。
+  这证明player timer不是digital-body release门。
+- Override hostile edge与skip tick均在mutation前拒绝；release后READ port再次调用也零修改拒绝。claim始终一次，
+  old material/predecessor/room每tick同步，tail明确停在`tail-advance-withheld`。
+- `bun --bun vitest run src/authority/run/chapters/first-continuation-transition.test.ts -t "installs READ, starts reserved successor combat, and closes its exact slice"`、
+  `bun run typecheck`与`git diff --check`通过；filtered case约13秒。本片未改Session、bundle或player-visible路径，
+  因此按风险边界未运行build、smoke、E2E或browser；这些在对应接线里程碑补齐。
 
 ## 回滚与迁移
 
@@ -208,7 +213,7 @@ cleanup: projectile.residue.remove → projectile.lifecycle.complete
 
 ## 决策
 
-ACCEPTED，implementation pending。第二个IN_BETWEEN occurrence从EXT-021 global `6947` / local 0继续，
+ACCEPTED，implemented at `661c87e`。第二个IN_BETWEEN occurrence从EXT-021 global `6947` / local 0继续，
 只推进local `1..1272`并在global `8219` digital drain与sole-flush后释放gameplay authority。80-slot capacity
 拒绝、合法player damage与collisionless residue各自保留真实原因；material tail从global `8220`另片处理，
 Session、presentation、第三occurrence与room completion继续withheld。
