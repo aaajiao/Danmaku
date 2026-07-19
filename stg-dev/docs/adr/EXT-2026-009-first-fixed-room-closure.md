@@ -1,9 +1,9 @@
 # EXT-2026-009：首个 fixed room 单 occurrence 关闭
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
-- 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 分支 / 实现提交：`agent/canonical-run-integration` / `8e6ef94`
 - 前置记录：[EXT-2026-008](EXT-2026-008-first-occurrence-observation-capture.md)
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
@@ -77,6 +77,11 @@ application policy，而不是胜利、清场、玩家水平、presentation cue 
 `H+1703` 及更晚 accepted ticks可继续进入 live rolling ledger，但不得改写 closure capture。rejected 或
 faulted `H+1702` 不得公开半份 room-complete state或半份 capture。
 
+closure capture不接受caller拼装的普通facts对象。`CanonicalRunBehaviorFactLedger`只在accepted tick已经
+完整记录后签发opaque receipt；模块私有`WeakMap`把receipt绑定到ledger私有方法生成的exact frozen
+snapshot。capture factory先解析该receipt，再校验source window与room authority，因此伪造receipt、重写
+公开`snapshot()`或事后推进rolling ledger都不能替换H+1702来源。
+
 ### 4. canonical event 与 transition firewall
 
 - event schema没有 `room.complete`、`room.withdraw`、`room.enter` 或 `encounter.begin` canonical ID；
@@ -135,8 +140,8 @@ distinct rooms或150000ms，Run end仍要求至少240000ms与两个 distinct roo
 
 ## 治理与非单一化
 
-- 本提案等待 aaajiao 接受 fixed bootstrap采用最小1 slot；接受后 Codex只实现exact tick、source
-  isolation与fail-stop验证。后续playtest若证明房间过短，必须用successor ADR显式增加occurrence，
+- aaajiao已接受fixed bootstrap采用最小1 slot；实现只增加exact tick、source isolation与fail-stop验证。
+  后续playtest若证明房间过短，必须用successor ADR显式增加occurrence，
   不能静默改trace。
 - one-occurrence只约束首次bootstrap，不让所有rooms同长、同顺序或同一解释。
 - position、Flower、Gaze、damage、scar或input density不被解释为能力、阵营、好坏或最优路线。
@@ -167,22 +172,31 @@ distinct rooms或150000ms，Run end仍要求至少240000ms与两个 distinct roo
 | `narrative/narrative-state-machine-v4.json` | V4 package / aaajiao | authored JSON / V4 4.0.0 | distinct/time exit与minimum run facts | repository license | `1b8d80a930c5338603f63620d40fc1b2dc44f37643d9f9cc73006185b5db6daf` |
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | Python QA oracle / V4 4.0.0 | hard-coded3-pattern fixture仅作反证 | repository license | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
 | `src/authority/live-run-admission.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | caller-resolved1..3 capability gate；非default scheduler | repository license | `51885d411e518e072e9402cb44ab5fabe15a7631e634b623f22c0cf07eba7757` |
-| `src/authority/run-room-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1699 drain与H+1701 fixed slice baseline | repository license | `c36d27002aa9203c5a8b9f897f76222940905fc272d9a0b998167cf352b31e5e` |
-| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | owner/ledger/capture ordering seam | repository license | `36c1685cb5b2e7a24e97cc507f6dfeb31d1cceb755406b03e1b23a92b494ebc6` |
-| `src/authority/run-behavior-capture.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1701 frozen observation baseline | repository license | `6b90f68b3a19aeadf9a5dbd7b6a932cee59e7698dfae99e5b038921eeb999524` |
+| `src/authority/run-room-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1702 preflight/idle/postflight原子room closure与event suffix gate | repository license | `c753d2a6caa0480669f3f634bc1b428f08b7a643232001988ba69688b567f929` |
+| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1701 byte复验、ledger记录与closure capture排序 | repository license | `fb113a9752d005ef70d2c4ac239aa84e4288cd94812aa2e792b33992ac55c2f7` |
+| `src/authority/run-behavior-facts.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | ledger-private exact snapshot与opaque receipt | repository license | `079ba851f7b353adea2421d9fc6ab28fb6fe76f86918903148d4e6f628f37f90` |
+| `src/authority/run-behavior-capture.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1702 bounded closure capture与完整source validation | repository license | `9c150389b1e6dd8a36729aa5b2214c3c98abfb3f27d82900774100ca3fb27620` |
+| `src/authority/run-room-session.test.ts` | Danmaku / aaajiao + Codex | Vitest / Bun 1.3.14 | exact closure、幂等、terminal/transition failure | repository license | `2331d751afedc4addfcec346244e09c48cc5e91c4ad9aac09bb9d99eef77a9d6` |
+| `src/authority/run-session.test.ts` | Danmaku / aaajiao + Codex | Vitest / Bun 1.3.14 | public missing sentinel与Run consumer回归 | repository license | `c55d028aedad202dec4b758fc9b0717cbc14682243ef3ca250f54c4bd048670a` |
+| `src/authority/run-behavior-facts.test.ts` | Danmaku / aaajiao + Codex | Vitest / Bun 1.3.14 | receipt exactness、stability与伪造拒绝 | repository license | `86f5bb0865f892b253d9caa57dbdacfe1498064c1837ab28661a50fa9fca054e` |
+| `src/authority/run-behavior-capture.test.ts` | Danmaku / aaajiao + Codex | Vitest / Bun 1.3.14 | exact capture、source provenance与composite fail-stop | repository license | `497f96ac19c5c00c94484513a1e3317d4a36c15e65bcdba1ffd48c3e6579861c` |
+| `e2e/causal-input-clock.spec.ts` | Danmaku / aaajiao + Codex | Playwright / Chromium | controlled-RAF H+1701→H+1702→H+1703可见路径 | repository license | `da06895ab565fe1e1513f7cdacd14f84559ed38ba3efd0dea8760b382ea3e845` |
 
-V4 source tree保持只读。application hashes是提案基线；接受时补充implementation/test与最终hashes。
+V4 source tree保持只读。application与test hashes对应实现提交`8e6ef94`。
 
-## 验证证据（待实现）
+## 验证证据
 
-- H+1700/H+1701仍`roomComplete=false`；H+1702恰好true且closure capture available；H+1703幂等；
-- zero entities、required rest、retained combat drain/quiescence、shared run null/null与claimed IDs精确；
-- closure前后canonical event bytes只受既有Gaze/Flower影响，closure/capture自身写0；RNG/target/transition不变；
-- closure capture的H+1701 provenance、behavior facts、planned/completed/remaining occurrence counts、
-  `distinctVisitedDelta=1`与所有firewall精确且deep frozen；
-- early/late、hostile source与composite failure无半份room complete/capture；同seed/input bytes一致；
-- focused room/capture/session tests、strict typecheck、content/build、`git diff --check`通过；
-- 若`data-room-complete`路径改变，运行controlled-RAF production-preview单例；不跑无关full suites。
+- focused Vitest：`run-room-session`、`run-behavior-facts`、`run-behavior-capture`、`run-session`共
+  4 files / 43 tests通过，约19.19秒；覆盖H+1701 false、H+1702 true、H+1703幂等、source receipt、
+  event whitelist、transition拒绝、完整provenance与composite fail-stop。
+- H+1701 observation既有序列化基线保持5567 bytes，SHA-256
+  `a31c3b06dd17ce5403865fac265f86d04345da08524f51d0951f67e061b5fa29`；H+1702 closure在后续tick不变。
+- `bun run build`通过；其中strict typecheck、content check、778 checksum rows与production build全部通过，
+  content digest仍为`f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`。
+- production-preview controlled-RAF单例通过：Chromium 1 test，H+1701→H+1702→H+1703 exact可见路径，
+  test 2.7秒、总计4.9秒；room handoff始终false。
+- `git diff --check`通过；独立只读复核无阻塞正确性问题。按风险测试策略未运行无关full unit、smoke、
+  complete E2E或`test:all`。
 
 ## 回滚与迁移
 
@@ -195,5 +209,5 @@ successor ADR；不得从current rolling facts或presentation推断。
 
 ## 决策
 
-PROPOSED。fixed bootstrap首房采用V4-compatible最小1 occurrence，并在独立H+1702 authority tick提交
+ACCEPTED。fixed bootstrap首房采用V4-compatible最小1 occurrence，并在独立H+1702 authority tick提交
 room closure与typed visit fact；所有下一房、metric、selection和transition权限继续withheld。
