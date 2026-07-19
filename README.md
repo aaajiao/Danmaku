@@ -57,8 +57,11 @@ every subtle way to break this project runs through breaking one of them.
 
 ## Licence
 
-Our code and assets: see `LICENSE` (to be added).
+MIT — see [`LICENSE`](./LICENSE). **It covers our work only.**
 
-`toho-like-js/` is third-party, has no licence file of its own, and its art and
-audio are Touhou Project derivatives. It is present for reference only — nothing
-under it may ship, and no asset from it may be used. See `CLAUDE.md` rule 6.
+`toho-like-js/` is vendored third-party code with no licence of its own, and its
+art and audio are Touhou Project derivatives. We hold no rights to it and cannot
+license it onward. It is present as a read-only reference — nothing under it may
+ship, and no asset from it may be used.
+
+[`NOTICE`](./NOTICE) states the scope precisely. See also `CLAUDE.md` rule 7.
