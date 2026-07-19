@@ -381,7 +381,7 @@ describe("EXT-013 Room Threshold run-combat seam", () => {
     expect(() => context.runState.advanceIdleTick(inputAt(detachTick120 + 1), "INFORMATION"))
       .toThrow(/reserved by the active EXT-013/);
     expect(() => claimSuccessor(context.runState, "INFORMATION"))
-      .toThrow(/material ownership releases/);
+      .toThrow(/successor admission releases/);
 
     const beforeDetachProjectiles = started.kernel.snapshot().projectiles;
     const carryover = commitCanonicalRoomThresholdMaterialDetachAfterFlush(detach);
@@ -443,8 +443,27 @@ describe("EXT-013 Room Threshold run-combat seam", () => {
     ]));
     expect(materialEvents.filter((event) => event.id === "projectile.residue.remove"))
       .toHaveLength(detached.materialCount);
-    context.runState.advanceIdleTick(inputAt(tick120 + 1), "INFORMATION");
+    expect(() => context.runState.advanceIdleTick(inputAt(tick120 + 1), "INFORMATION"))
+      .toThrow(/reserved by the active EXT-013/);
+    expect(() => claimSuccessor(context.runState, "INFORMATION"))
+      .toThrow(/successor admission releases/);
+    advanceCanonicalRunIdleWithRoomThresholdMaterial(
+      context.runState,
+      carryover,
+      inputAt(tick120 + 1),
+      "INFORMATION",
+    );
     expect(context.runState.flushTick(tick120 + 1)).toEqual([]);
+    expect(carryover.snapshot()).toMatchObject({
+      tick120: tick120 + 1,
+      materialCount: 0,
+      drained: true,
+    });
+    expect(prepared.roomTransition.snapshot()).toMatchObject({
+      tick120: tick120 + 1,
+      state: "idle",
+      currentRoom: "INFORMATION",
+    });
   });
 
   it("admits IN_BETWEEN, releases the exact lease, and rejects a dirty material queue", {

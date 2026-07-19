@@ -683,7 +683,7 @@ interface Ext013RoomThresholdRunBinding {
   readonly lease: CollisionBlockerLease;
   readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
   readonly completeTick120: number;
-  phase: "transition" | "detach-release-requested" | "material";
+  phase: "transition" | "detach-release-requested" | "material" | "target-room-idle";
   carryover: CanonicalRoomThresholdMaterialCarryover | null;
   materialRoomEventCount: number | null;
   expectedFlushTick120: number | null;
@@ -7372,7 +7372,7 @@ function claimRunCombatOccurrence(
   assertRunCombatStateOperational(internals);
   if (EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(state)) {
     throw new Error(
-      "run combat cannot claim a new occurrence before EXT-013 material ownership releases",
+      "run combat cannot claim a new occurrence before EXT-013 successor admission releases",
     );
   }
   if (internals.currentTick120 !== startTick120) {
@@ -8553,7 +8553,7 @@ export class CanonicalRunCombatState {
         internals.fault = error;
         throw error;
       }
-    } else if (binding?.phase === "material") {
+    } else if (binding?.phase === "material" || binding?.phase === "target-room-idle") {
       const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
       const material = binding.carryover?.snapshot() ?? null;
       if (
@@ -8589,7 +8589,7 @@ export class CanonicalRunCombatState {
         binding.expectedFlushTick120 = null;
         binding.expectedPendingEventCount = null;
         if (binding.phase === "material" && binding.carryover?.snapshot().drained === true) {
-          EXT013_ROOM_THRESHOLD_RUN_BINDINGS.delete(this);
+          binding.phase = "target-room-idle";
         }
       }
       return flushed;
@@ -10780,7 +10780,7 @@ export function advanceCanonicalRunIdleWithRoomThresholdMaterial(
   }
   const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
   if (
-    binding?.phase !== "material"
+    (binding?.phase !== "material" && binding?.phase !== "target-room-idle")
     || binding.carryover !== carryover
     || binding.kernel[ROOM_THRESHOLD_RUN_STATE_PROOF]() !== runState
     || binding.expectedFlushTick120 !== null
@@ -10844,6 +10844,7 @@ export function advanceCanonicalRunIdleWithRoomThresholdMaterial(
       || beforeOverride.state !== "idle"
       || beforeOverride.deadlineTick120 !== null
       || beforeOverride.localVoid !== null
+      || (binding.phase === "target-room-idle" && !beforeMaterial.drained)
     ) {
       const error = new Error(
         "material carryover, target-room FSM, or Override lost its sealed idle boundary",
@@ -10914,6 +10915,7 @@ export function advanceCanonicalRunIdleWithRoomThresholdMaterial(
         afterMaterial.poolUsage.liveColliders !== 0
         || afterMaterial.projectiles.some((projectile) =>
           projectile.state !== "residue" || projectile.collisionEnabled)
+        || (binding.phase === "target-room-idle" && !afterMaterial.drained)
       ) {
         throw new Error("material carryover produced gameplay-capable state");
       }
