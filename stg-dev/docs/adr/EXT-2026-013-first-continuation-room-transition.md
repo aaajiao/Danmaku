@@ -1,12 +1,12 @@
 # EXT-2026-013：首个 continuation target 的 room transition
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
 - 前置记录：[EXT-2026-009](EXT-2026-009-first-fixed-room-closure.md)、
   [EXT-2026-012](EXT-2026-012-first-continuation-room-target.md)
-- 稳定边界：[ARCHITECTURE_ZH §10](../ARCHITECTURE_ZH.md)；本提案接受后才更新其中completion/handoff规则
+- 稳定边界：[ARCHITECTURE_ZH §10](../ARCHITECTURE_ZH.md)；接受时同步更新completion/handoff窄例外
 - aaajiao skill：`1.1.1`；SHA-256
   `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256
@@ -126,8 +126,7 @@ pattern 管可碰撞行为与材料，pattern complete 后只把无碰撞 sedime
 - 这是对稳定架构“entity/residue drain后才handoff”的唯一窄例外：transition occurrence的gameplay entity、
   collider与spawn/RNG权已经drain，尚存residue不是被遗弃或宣称complete，而是以opaque receipt原子转移给
   material-only owner继续完整生命周期。其他COMMON/ROOM/BOSS/WEATHER/TRANSITION occurrence仍须自身
-  entity/residue全部drain后才能handoff。EXT-013接受时必须同步更新`ARCHITECTURE_ZH.md` §10并回链本ADR；
-  PROPOSED状态不先改写稳定架构。
+  entity/residue全部drain后才能handoff。本次接受已同步更新`ARCHITECTURE_ZH.md` §10并回链本ADR。
 - `CanonicalCombatKernel`新增仅对`transition.room_threshold`开放的opaque detach proposal：relative936先
   复验pattern complete、全部active entity都已是collisionless residue且live collider为0，flush前登记
   occurrence release，flush成功后才铸造carryover capability。旧kernel随后永久禁止再走advance/spawn/RNG/
@@ -218,7 +217,7 @@ pattern 管可碰撞行为与材料，pattern complete 后只把无碰撞 sedime
 | `src/authority/room-transition.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | exact atomic FSM adapter；当前未接Run | repository license | `25d3a388780d08a9fd210a42a373b299250bd511c49ec415f3e330504346909a` |
 | `src/authority/combat-kernel.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | Room Threshold direct capability与shared state；当前join withheld | repository license | `15e97d1d1a55d3a276a3e2d9ea23efdf93b3cbf7ca19966ccecb962098d83da1` |
 
-## 计划验证证据
+## 实施验收门
 
 - source integrity：V4 schema/ID/timing/pattern/seed/lease owner/residue contract与全部SHA-256 fail-fast。
 - pure receipt/join：三target、clone/forgery/reuse/concurrent proposal、wrong boundary/content/seed/state/bus/
@@ -244,6 +243,7 @@ room fixture静默接到旧target。
 
 ## 决策
 
-PROPOSED。V4没有写atomic FSM与Room Threshold的composition；“H+1703同tick启动、650ms只稳定身份、
-7800ms释放gameplay入口、无碰撞sediment跨房carryover”是本扩展新增的最小连接规则。目标房
-pattern/tier/difficulty与真正的ordinal 1 room session继续由后继决定。
+ACCEPTED。V4没有写atomic FSM与Room Threshold的composition；“H+1703 prepared同tick启动、650ms只
+稳定身份、7800ms释放gameplay入口、无碰撞sediment跨房carryover”接受为本扩展新增的最小连接规则。
+authority、实现可行性与文档/provenance三路复核关闭全部P0/P1；实现仍须通过上列验收门才可提交。目标房
+pattern/tier/difficulty、combined pool admission与真正的ordinal 1 room session继续由后继决定。
