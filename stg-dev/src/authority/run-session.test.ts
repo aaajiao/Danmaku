@@ -11,7 +11,7 @@ import {
 } from "./run-session";
 
 const OPTIONS = Object.freeze({
-  seed: 0x1b17c0de,
+  rawRunSeed: Object.freeze({domain: "raw-run-seed" as const, value: 0x1b17c0de}),
   grazeRadiusPx: 18,
   projectileDamage: 1,
   projectilePoolClasses: Object.freeze({"bullet.micro.notch_e": "micro" as const}),
@@ -94,7 +94,8 @@ describe("manifest-backed canonical V4 run session prologue", () => {
 
     expect(snapshot).toMatchObject({
       authority: "canonical-run-session-v4",
-      seed: OPTIONS.seed,
+      rawRunSeed: OPTIONS.rawRunSeed,
+      firstEyeResolvedSeed: {domain: "resolved-occurrence-seed", value: 0x9f795bb8},
       phase: "quiet_awakening",
       tick120: 0,
       segmentTick120: 0,
@@ -132,6 +133,9 @@ describe("manifest-backed canonical V4 run session prologue", () => {
         ready: false,
         sourcePatternId: "common.eye_acquisition",
         atTick120: null,
+        consumed: false,
+        consumedAtTick120: null,
+        consumerAuthority: null,
         barriers: {
           combatDrained: false,
           gazeClampCommitted: false,
@@ -146,6 +150,7 @@ describe("manifest-backed canonical V4 run session prologue", () => {
         },
         sourceCombat: null,
       },
+      roomSampling: null,
       adapterPolicy: {
         provenance: "application-policy-within-v4-contract",
         awakeningDurationMs: 8000,
@@ -215,7 +220,9 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           tickClosure: "irreversible-exact-next-tick",
           postReleaseTimers: "shared-idle-advance",
           roomDifficultyProvenance: "application-required-v4-omission",
-          seedAuthority: "caller-resolved-v4-encounter-seed",
+          seedAuthority: "raw-run-seed+ext-005-difficulty-salt",
+          difficultySalt: 0x0100,
+          seedComposition: "rawRunSeed xor patternBase xor encounterOrdinal xor difficultySalt",
           manifestDurationRangeMs: [7000, 12000],
           authoredPatternDurationMs: 8600,
           exit: "combat-drain+gaze-release+flower-recovery",
@@ -408,7 +415,11 @@ describe("manifest-backed canonical V4 run session prologue", () => {
   });
 
   it("gates movement, Focus, and Flower signal while the retained player is non-alive", () => {
-    const session = new CanonicalRunSession({...OPTIONS, seed: 1, projectileDamage: 3});
+    const session = new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "raw-run-seed", value: 1},
+      projectileDamage: 3,
+    });
     stepTo(session, 960);
     let snapshot = session.snapshot();
     while (snapshot.player.damage?.state !== "dead" && snapshot.tick120 < 1900) {
@@ -476,7 +487,11 @@ describe("manifest-backed canonical V4 run session prologue", () => {
   });
 
   it("never rewrites qualified gaze into a release when the player body dies", () => {
-    const session = new CanonicalRunSession({...OPTIONS, seed: 1, projectileDamage: 3});
+    const session = new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "raw-run-seed", value: 1},
+      projectileDamage: 3,
+    });
     stepTo(session, 960);
     let snapshot = session.snapshot();
     for (let tick120 = 961; tick120 <= 1021; tick120 += 1) {
@@ -651,13 +666,17 @@ describe("manifest-backed canonical V4 run session prologue", () => {
     sourceFirst = session.step(neutralInput(recoveryTick120 + 1));
     expect(sourceFirst).toMatchObject({
       tick120: recoveryTick120 + 1,
-      phase: "first_clamp_recovery",
+      phase: "room_sampling",
       gaze: {state: "idle", clampActive: false, cycle: 2, deadlineTick120: null},
+      combat: null,
       handoff: {
         state: "ready_for_room_sampling",
         targetNarrativeState: "ROOM_SAMPLING",
         ready: true,
         atTick120: recoveryTick120 + 1,
+        consumed: true,
+        consumedAtTick120: recoveryTick120 + 1,
+        consumerAuthority: "ext-005-first-forced-room-bootstrap",
         barriers: {
           combatDrained: true,
           gazeClampCommitted: true,
@@ -666,7 +685,44 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           gazeTimedStateQuiescent: true,
         },
       },
+      roomSampling: {
+        phase: "telegraph",
+        tick120: recoveryTick120 + 1,
+        relativeTick120: 0,
+        roomId: "FORCED_ALIGNMENT",
+        patternId: "room.forced.left_right_gate",
+        composer: false,
+        selectionRngDraws: 0,
+        boundaryTicks120: {start: recoveryTick120 + 1},
+        combat: null,
+        runCombat: {tick120: recoveryTick120 + 1, activeOccurrenceId: null},
+      },
     });
+
+    const roomStartPosition = sourceFirst.player.position;
+    sourceFirst = session.step({
+      ...neutralInput(recoveryTick120 + 2),
+      movement: {x: 1, y: 0},
+      signalActive: true,
+      focused: true,
+    });
+    expect(sourceFirst).toMatchObject({
+      phase: "room_sampling",
+      tick120: recoveryTick120 + 2,
+      roomSampling: {
+        phase: "telegraph",
+        relativeTick120: 1,
+        runCombat: {tick120: recoveryTick120 + 2, activeOccurrenceId: null},
+      },
+      handoff: {
+        ready: true,
+        atTick120: recoveryTick120 + 1,
+        consumed: true,
+        consumedAtTick120: recoveryTick120 + 1,
+      },
+      player: {focused: true, flower: {resolution: {source: "focus", targetIntensity: 0.35}}},
+    });
+    expect(sourceFirst.player.position.x).toBeGreaterThan(roomStartPosition.x);
   });
 
   it("derives handoff from current shared timers after the occurrence engine releases", () => {
@@ -850,12 +906,15 @@ describe("manifest-backed canonical V4 run session prologue", () => {
       snapshot = session.step(neutralInput(snapshot.tick120 + 1));
     }
     expect(snapshot).toMatchObject({
-      phase: "first_clamp_recovery",
+      phase: "room_sampling",
       handoff: {
         state: "ready_for_room_sampling",
         targetNarrativeState: "ROOM_SAMPLING",
         ready: true,
         atTick120: snapshot.tick120,
+        consumed: true,
+        consumedAtTick120: snapshot.tick120,
+        consumerAuthority: "ext-005-first-forced-room-bootstrap",
         barriers: {
           combatDrained: true,
           gazeClampCommitted: true,
@@ -871,29 +930,75 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           liveColliders: 0,
         },
       },
+      combat: null,
+      roomSampling: {
+        phase: "telegraph",
+        relativeTick120: 0,
+        roomId: "FORCED_ALIGNMENT",
+        patternId: "room.forced.left_right_gate",
+        composer: false,
+        selectionRngDraws: 0,
+        combat: null,
+      },
     });
 
     const readyAtTick120 = snapshot.handoff.atTick120;
-    const frozenEvents = session.canonicalEventSerialization();
-    const frozenGaze = snapshot.gaze;
-    const frozenFlower = snapshot.player.flower;
-    const frozenPosition = snapshot.player.position;
-    for (let offset = 1; offset <= 5; offset += 1) {
-      snapshot = session.step(qualifiedGazeInput(snapshot.tick120 + 1));
-    }
+    if (readyAtTick120 === null) throw new Error("room fixture lost its handoff tick");
+    const positionAtHandoff = snapshot.player.position;
+    snapshot = session.step({
+      ...neutralInput(readyAtTick120 + 1),
+      movement: {x: 1, y: 0},
+      signalActive: true,
+      focused: true,
+    });
     expect(snapshot).toMatchObject({
-      tick120: (readyAtTick120 ?? 0) + 5,
-      phase: "first_clamp_recovery",
-      gaze: frozenGaze,
-      player: {flower: frozenFlower, position: frozenPosition},
+      tick120: readyAtTick120 + 1,
+      phase: "room_sampling",
+      player: {focused: true, flower: {resolution: {source: "focus", targetIntensity: 0.35}}},
       handoff: {
         state: "ready_for_room_sampling",
         targetNarrativeState: "ROOM_SAMPLING",
         ready: true,
         atTick120: readyAtTick120,
+        consumed: true,
+        consumedAtTick120: readyAtTick120,
+      },
+      roomSampling: {phase: "telegraph", relativeTick120: 1, combat: null},
+    });
+    expect(snapshot.player.position.x).toBeGreaterThan(positionAtHandoff.x);
+
+    while (snapshot.tick120 < readyAtTick120 + 63) {
+      snapshot = session.step(neutralInput(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      roomSampling: {phase: "entry", relativeTick120: 63, combat: null},
+      combat: null,
+    });
+
+    while (snapshot.tick120 < readyAtTick120 + 159) {
+      snapshot = session.step(neutralInput(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      phase: "room_sampling",
+      roomSampling: {
+        phase: "read",
+        relativeTick120: 159,
+        combat: {
+          patternId: "room.forced.left_right_gate",
+          occurrenceId: "room:0:encounter:0:room.forced.left_right_gate",
+          relativeTick120: 0,
+        },
+        runCombat: {
+          tick120: readyAtTick120 + 159,
+          activeOccurrenceId: "room:0:encounter:0:room.forced.left_right_gate",
+        },
+      },
+      combat: {
+        patternId: "room.forced.left_right_gate",
+        occurrenceId: "room:0:encounter:0:room.forced.left_right_gate",
+        relativeTick120: 0,
       },
     });
-    expect(session.canonicalEventSerialization()).toBe(frozenEvents);
   });
 
   it("invalidates a completed recovery when gaze clamps again before handoff", () => {
@@ -1057,8 +1162,30 @@ describe("manifest-backed canonical V4 run session prologue", () => {
   });
 
   it("validates adapter options before the first tick and snapshots a defensive pool mapping", () => {
-    expect(() => new CanonicalRunSession({...OPTIONS, seed: -1})).toThrow(/uint32/);
-    expect(() => new CanonicalRunSession({...OPTIONS, seed: 0x1_0000_0000})).toThrow(/uint32/);
+    expect(() => new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: 1,
+    } as unknown as CanonicalRunSessionOptions)).toThrow(/tagged identity/);
+    expect(() => new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "resolved-occurrence-seed", value: 1},
+    } as unknown as CanonicalRunSessionOptions)).toThrow(/raw-run-seed domain/);
+    expect(() => new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "raw-run-seed", value: 1, occurrence: 0},
+    } as unknown as CanonicalRunSessionOptions)).toThrow(/only domain and value/);
+    expect(() => new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "raw-run-seed", value: -1},
+    })).toThrow(/uint32/);
+    expect(() => new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "raw-run-seed", value: -0},
+    })).toThrow(/uint32/);
+    expect(() => new CanonicalRunSession({
+      ...OPTIONS,
+      rawRunSeed: {domain: "raw-run-seed", value: 0x1_0000_0000},
+    })).toThrow(/uint32/);
     expect(() => new CanonicalRunSession({...OPTIONS, grazeRadiusPx: 1})).toThrow(/grazeRadiusPx/);
     expect(() => new CanonicalRunSession({...OPTIONS, projectileDamage: 0})).toThrow(/projectileDamage/);
     expect(() => new CanonicalRunSession({...OPTIONS, projectilePoolClasses: {}}))

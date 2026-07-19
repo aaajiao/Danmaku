@@ -35,6 +35,10 @@ import {
   type Vec2,
 } from "./projectiles";
 import {playerInputEligibleAtTick} from "./player";
+import {
+  CanonicalRunRoomSession,
+  type CanonicalRunRoomSessionSnapshot,
+} from "./run-room-session";
 
 const TICKS_PER_SECOND = 120;
 const UINT32_MAX = 0xffff_ffff;
@@ -50,6 +54,7 @@ const FIRST_EYE_PATTERN_ID = "common.eye_acquisition";
 const FIRST_EYE_OCCURRENCE_ID = "run:first-eye:0";
 const FIRST_EYE_ROOM_ID = "INFORMATION";
 const FIRST_EYE_DIFFICULTY = "EASY";
+const FIRST_EYE_DIFFICULTY_SALT = 0x0100;
 const GAZE_INTENT_PITCH_DEGREES = 60;
 const GAZE_INTENT_ALIGNMENT = 1;
 const FLOWER_RECOVERY_DELAY_TICKS120 = 30;
@@ -133,11 +138,15 @@ interface EventProjectionManifest {
 export type CanonicalRunSessionPhase =
   | "quiet_awakening"
   | "first_eye"
-  | "first_clamp_recovery";
+  | "first_clamp_recovery"
+  | "room_sampling";
 
 export interface CanonicalRunSessionOptions {
-  /** Fully resolved first-eye encounter seed; no absent difficulty salt is inferred. */
-  readonly seed: number;
+  /** Domain-tagged raw Run seed; occurrence seeds are resolved by recorded adapter policy. */
+  readonly rawRunSeed: Readonly<{
+    readonly domain: "raw-run-seed";
+    readonly value: number;
+  }>;
   /** Adapter gap: V4 names graze evidence, but does not declare its radius. */
   readonly grazeRadiusPx: number;
   /** Adapter gap: V4 does not declare one universal projectile damage amount. */
@@ -180,6 +189,9 @@ export interface CanonicalRunSessionHandoffSnapshot {
   readonly ready: boolean;
   readonly sourcePatternId: typeof FIRST_EYE_PATTERN_ID;
   readonly atTick120: number | null;
+  readonly consumed: boolean;
+  readonly consumedAtTick120: number | null;
+  readonly consumerAuthority: "ext-005-first-forced-room-bootstrap" | null;
   readonly barriers: Readonly<{
     readonly combatDrained: boolean;
     readonly gazeClampCommitted: boolean;
@@ -275,7 +287,9 @@ export interface CanonicalRunSessionAdapterPolicy {
     tickClosure: "irreversible-exact-next-tick";
     postReleaseTimers: "shared-idle-advance";
     roomDifficultyProvenance: "application-required-v4-omission";
-    seedAuthority: "caller-resolved-v4-encounter-seed";
+    seedAuthority: "raw-run-seed+ext-005-difficulty-salt";
+    difficultySalt: typeof FIRST_EYE_DIFFICULTY_SALT;
+    seedComposition: "rawRunSeed xor patternBase xor encounterOrdinal xor difficultySalt";
     manifestDurationRangeMs: readonly [7000, 12000];
     authoredPatternDurationMs: number;
     exit: "combat-drain+gaze-release+flower-recovery";
@@ -308,7 +322,11 @@ export interface CanonicalRunSessionAdapterPolicy {
 
 export interface CanonicalRunSessionSnapshot {
   readonly authority: "canonical-run-session-v4";
-  readonly seed: number;
+  readonly rawRunSeed: CanonicalRunSessionOptions["rawRunSeed"];
+  readonly firstEyeResolvedSeed: Readonly<{
+    readonly domain: "resolved-occurrence-seed";
+    readonly value: number;
+  }>;
   readonly phase: CanonicalRunSessionPhase;
   readonly tick120: number;
   readonly segmentTick120: number;
@@ -322,6 +340,7 @@ export interface CanonicalRunSessionSnapshot {
     readonly signalFallbackVisible: boolean;
   }>;
   readonly handoff: CanonicalRunSessionHandoffSnapshot;
+  readonly roomSampling: CanonicalRunRoomSessionSnapshot | null;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -671,7 +690,9 @@ export const CANONICAL_RUN_SESSION_ADAPTER_POLICY: CanonicalRunSessionAdapterPol
     tickClosure: "irreversible-exact-next-tick",
     postReleaseTimers: "shared-idle-advance",
     roomDifficultyProvenance: "application-required-v4-omission",
-    seedAuthority: "caller-resolved-v4-encounter-seed",
+    seedAuthority: "raw-run-seed+ext-005-difficulty-salt",
+    difficultySalt: FIRST_EYE_DIFFICULTY_SALT,
+    seedComposition: "rawRunSeed xor patternBase xor encounterOrdinal xor difficultySalt",
     manifestDurationRangeMs: [7000, 12000],
     authoredPatternDurationMs: executablePattern(FIRST_EYE_PATTERN_ID).durationMs,
     exit: "combat-drain+gaze-release+flower-recovery",
@@ -731,9 +752,65 @@ function validateOptions(options: CanonicalRunSessionOptions): Readonly<Canonica
   if (typeof options !== "object" || options === null || Array.isArray(options)) {
     throw new Error("canonical run session options must be an object");
   }
-  const seed = ownData(options, "seed", "run session seed", true);
-  if (!Number.isSafeInteger(seed) || (seed as number) < 0 || (seed as number) > UINT32_MAX) {
-    throw new Error("run session resolved first-eye seed must be a uint32");
+  const optionsPrototype = Object.getPrototypeOf(options) as object | null;
+  if (optionsPrototype !== Object.prototype && optionsPrototype !== null) {
+    throw new Error("canonical run session options must be a plain object");
+  }
+  const optionKeys = Object.keys(options);
+  const expectedOptionKeys = [
+    "rawRunSeed",
+    "grazeRadiusPx",
+    "projectileDamage",
+    "projectilePoolClasses",
+  ];
+  if (
+    optionKeys.length !== expectedOptionKeys.length
+    || optionKeys.some((key) => !expectedOptionKeys.includes(key))
+    || Object.getOwnPropertySymbols(options).length > 0
+  ) {
+    throw new Error("canonical run session options must contain the exact authority fields");
+  }
+  const rawRunSeedValue = ownData(options, "rawRunSeed", "run session rawRunSeed", true);
+  if (
+    typeof rawRunSeedValue !== "object"
+    || rawRunSeedValue === null
+    || Array.isArray(rawRunSeedValue)
+  ) {
+    throw new Error("run session rawRunSeed must be a tagged identity");
+  }
+  const rawRunSeedRecord = rawRunSeedValue as Record<string, unknown>;
+  const rawRunSeedPrototype = Object.getPrototypeOf(rawRunSeedRecord) as object | null;
+  if (
+    (rawRunSeedPrototype !== Object.prototype && rawRunSeedPrototype !== null)
+    || Object.keys(rawRunSeedRecord).length !== 2
+    || !Object.prototype.hasOwnProperty.call(rawRunSeedRecord, "domain")
+    || !Object.prototype.hasOwnProperty.call(rawRunSeedRecord, "value")
+    || Object.getOwnPropertySymbols(rawRunSeedRecord).length > 0
+  ) {
+    throw new Error("run session rawRunSeed must contain only domain and value");
+  }
+  const rawRunSeedDomain = ownData(
+    rawRunSeedRecord,
+    "domain",
+    "run session rawRunSeed.domain",
+    true,
+  );
+  if (rawRunSeedDomain !== "raw-run-seed") {
+    throw new Error("run session rawRunSeed must use the raw-run-seed domain");
+  }
+  const rawRunSeed = ownData(
+    rawRunSeedRecord,
+    "value",
+    "run session rawRunSeed.value",
+    true,
+  );
+  if (
+    !Number.isSafeInteger(rawRunSeed)
+    || (rawRunSeed as number) < 0
+    || (rawRunSeed as number) > UINT32_MAX
+    || Object.is(rawRunSeed, -0)
+  ) {
+    throw new Error("run session raw Run seed must be a uint32 without negative zero");
   }
   const grazeRadiusPx = requirePositiveFinite(
     ownData(options, "grazeRadiusPx", "run session grazeRadiusPx", true),
@@ -750,7 +827,7 @@ function validateOptions(options: CanonicalRunSessionOptions): Readonly<Canonica
     ownData(options, "projectilePoolClasses", "run session projectilePoolClasses", true),
   );
   return Object.freeze({
-    seed: seed as number,
+    rawRunSeed: Object.freeze({domain: "raw-run-seed" as const, value: rawRunSeed as number}),
     grazeRadiusPx,
     projectileDamage,
     projectilePoolClasses,
@@ -863,17 +940,27 @@ function signalIntensity(signalActive: boolean): number {
   return signalActive ? ACTIVE_SIGNAL_INTENSITY : INACTIVE_SIGNAL_INTENSITY;
 }
 
+function resolveFirstEyeSeed(rawRunSeed: number): CanonicalRunSessionSnapshot["firstEyeResolvedSeed"] {
+  const patternBase = executablePattern(FIRST_EYE_PATTERN_ID).seed.base;
+  return Object.freeze({
+    domain: "resolved-occurrence-seed",
+    value: (rawRunSeed ^ patternBase ^ 0 ^ FIRST_EYE_DIFFICULTY_SALT) >>> 0,
+  });
+}
+
 /**
  * The manifest-backed, renderer-independent V4 prologue authority. The quiet
  * interval preserves absence; First Eye retains combat while the independent
  * gaze clamp/release barrier advances. The application-authored recovery delay
- * is isolated at the V4 narrative projection seam and ends at a typed handoff;
- * it does not invent the ROOM_SAMPLING consumer.
+ * is isolated at the V4 narrative projection seam. EXT-005 consumes the typed
+ * handoff with one explicit non-composer room bootstrap while retaining the
+ * same run-scoped body, event bus, and occurrence ledger.
  */
 export class CanonicalRunSession {
   readonly adapterPolicy = CANONICAL_RUN_SESSION_ADAPTER_POLICY;
 
   private readonly options: Readonly<CanonicalRunSessionOptions>;
+  private readonly firstEyeResolvedSeed: CanonicalRunSessionSnapshot["firstEyeResolvedSeed"];
   private readonly bus = new CanonicalEventBus();
   private readonly flower = new FlowerIntensityAuthority(this.bus, {authorityId: "player-flower"});
   private readonly gaze = new GazeAuthority(this.bus);
@@ -886,6 +973,7 @@ export class CanonicalRunSession {
   private combatState: CanonicalRunCombatState | null = null;
   private combat: CanonicalCombatKernel | null = null;
   private latestCombatSnapshot: CanonicalCombatSnapshot | null = null;
+  private roomSession: CanonicalRunRoomSession | null = null;
   private gazeClampCommittedAtTick120: number | null = null;
   private gazeClampReleasedAtTick120: number | null = null;
   private flowerRecoveryDueAtTick120: number | null = null;
@@ -901,6 +989,7 @@ export class CanonicalRunSession {
 
   constructor(options: CanonicalRunSessionOptions) {
     this.options = validateOptions(options);
+    this.firstEyeResolvedSeed = resolveFirstEyeSeed(this.options.rawRunSeed.value);
     this.flower.resolve({
       signalIntensity: INACTIVE_SIGNAL_INTENSITY,
       focusActive: false,
@@ -922,7 +1011,7 @@ export class CanonicalRunSession {
       const validated = validateStepInput(input, this.currentTick120);
       try {
         if (this.phaseValue === "quiet_awakening") return this.stepAwakening(validated);
-        if (this.handoffReadyAtTick120 !== null) return this.stepReadyBoundary(validated);
+        if (this.phaseValue === "room_sampling") return this.stepRoomSampling(validated);
         return this.stepFirstEye(validated);
       } catch (error) {
         this.fatalError = error instanceof Error ? error : new Error(String(error));
@@ -936,7 +1025,10 @@ export class CanonicalRunSession {
   snapshot(): CanonicalRunSessionSnapshot {
     this.assertOperational();
     const gaze = this.gaze.snapshot();
-    const retainedCombat = this.latestCombatSnapshot ?? this.combat?.snapshot() ?? null;
+    const roomSampling = this.roomSession?.snapshot() ?? null;
+    const retainedCombat = this.phaseValue === "room_sampling"
+      ? roomSampling?.combat ?? null
+      : this.latestCombatSnapshot ?? this.combat?.snapshot() ?? null;
     const retainedRunCombat = this.combatState?.snapshot() ?? null;
     const combat = this.phaseValue === "quiet_awakening" ? null : retainedCombat;
     const playerInputEligible = this.playerDamage === null
@@ -952,7 +1044,8 @@ export class CanonicalRunSession {
           : "awaiting_first_eye_barriers";
     return deepFreezeJson({
       authority: "canonical-run-session-v4",
-      seed: this.options.seed,
+      rawRunSeed: this.options.rawRunSeed,
+      firstEyeResolvedSeed: this.firstEyeResolvedSeed,
       phase: this.phaseValue,
       tick120: this.currentTick120,
       segmentTick120: this.currentTick120 - this.phaseStartTick120,
@@ -980,6 +1073,11 @@ export class CanonicalRunSession {
         ready: this.handoffReadyAtTick120 !== null,
         sourcePatternId: FIRST_EYE_PATTERN_ID,
         atTick120: this.handoffReadyAtTick120,
+        consumed: roomSampling !== null,
+        consumedAtTick120: roomSampling?.boundaryTicks120.start ?? null,
+        consumerAuthority: roomSampling === null
+          ? null
+          : "ext-005-first-forced-room-bootstrap",
         barriers: {
           combatDrained: this.handoffSourceCombat !== null,
           gazeClampCommitted: this.gazeClampCommittedAtTick120 !== null,
@@ -994,6 +1092,7 @@ export class CanonicalRunSession {
         },
         sourceCombat: this.handoffSourceCombat,
       },
+      roomSampling,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1063,7 +1162,7 @@ export class CanonicalRunSession {
     const combatOptions = Object.freeze({
       patternId: FIRST_EYE_PATTERN_ID,
       occurrenceId: FIRST_EYE_OCCURRENCE_ID,
-      seed: this.options.seed,
+      seed: this.firstEyeResolvedSeed.value,
       startTick120: input.tick120,
       roomId: FIRST_EYE_ROOM_ID,
       difficulty: FIRST_EYE_DIFFICULTY,
@@ -1250,14 +1349,57 @@ export class CanonicalRunSession {
     ) {
       this.handoffReadyAtTick120 = input.tick120;
     }
+    if (this.handoffReadyAtTick120 !== null && this.roomSession === null) {
+      const handoff = this.snapshot().handoff;
+      const roomSession = new CanonicalRunRoomSession({
+        rawRunSeed: this.options.rawRunSeed,
+        handoff,
+        eventBus: this.bus,
+        runState: combatState,
+      });
+      const room = roomSession.snapshot();
+      if (
+        room.tick120 !== input.tick120
+        || room.phase !== "telegraph"
+        || room.combat !== null
+        || room.runCombat.tick120 !== input.tick120
+      ) {
+        throw new Error("ROOM_SAMPLING bootstrap did not install at the closed handoff tick");
+      }
+      this.roomSession = roomSession;
+      this.combat = null;
+      this.phaseValue = "room_sampling";
+      this.phaseStartTick120 = input.tick120;
+    }
     return this.snapshot();
   }
 
-  private stepReadyBoundary(input: ValidatedStepInput): CanonicalRunSessionSnapshot {
-    // ROOM_SAMPLING has no admitted consumer yet. Once the handoff is latched,
-    // the source owner advances only its public clock and cannot consume later
-    // movement, gaze, Flower, combat, or presentation input.
+  private stepRoomSampling(input: ValidatedStepInput): CanonicalRunSessionSnapshot {
+    const roomSession = this.roomSession;
+    if (roomSession === null) throw new Error("ROOM_SAMPLING lost its fixed bootstrap authority");
+    const combatState = this.combatState;
+    if (combatState === null) throw new Error("ROOM_SAMPLING lost its shared run combat state");
+    const before = combatState.snapshot();
+    const inputEligible = playerInputEligibleAtTick(before.player, input.tick120);
+    const gazeAfter = this.gaze.observe(input.gaze, input.tick120);
+    this.resolveFlower(input, true, gazeAfter.clampActive, inputEligible);
+    const room = roomSession.step(Object.freeze({
+      tick120: input.tick120,
+      movement: input.movement,
+      focused: inputEligible && input.focused,
+      // ROOM_SAMPLING precedes LOCAL_RESISTANCE_AVAILABLE. The browser may
+      // retain an edge, but this owner cannot route it into gameplay yet.
+      overridePressed: false,
+      overrideReleased: false,
+    }));
+    if (room.tick120 !== input.tick120 || room.runCombat.tick120 !== input.tick120) {
+      throw new Error("ROOM_SAMPLING bootstrap did not close exactly one master tick");
+    }
     this.currentTick120 = input.tick120;
+    this.playerPosition = room.runCombat.playerPosition;
+    this.focused = room.runCombat.focused;
+    this.playerDamage = room.runCombat.player;
+    if (room.combat !== null) this.latestCombatSnapshot = room.combat;
     return this.snapshot();
   }
 }

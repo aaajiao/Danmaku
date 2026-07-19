@@ -1,9 +1,9 @@
 import {expect, test} from "@playwright/test";
 import {enterSimulation, PATTERN_COUNT} from "./helpers/stg";
 
-const FIXED_ENCOUNTER_SEED = 0x1234_5678;
+const FIXED_RAW_RUN_SEED = 0x1234_5678;
 
-test("default RUN completes First Eye and exposes the typed room-sampling handoff", async ({page}) => {
+test("default RUN hands the retained body into the fixed first room", async ({page}) => {
   test.setTimeout(45_000);
 
   const pageErrors: string[] = [];
@@ -13,7 +13,7 @@ test("default RUN completes First Eye and exposes the typed room-sampling handof
     if (message.type() === "error") consoleErrors.push(message.text());
   });
 
-  const path = `/?seed=${FIXED_ENCOUNTER_SEED}`;
+  const path = `/?seed=${FIXED_RAW_RUN_SEED}`;
   const response = await page.goto(path, {waitUntil: "domcontentloaded"});
   expect(response, `GET ${path} should return a document response`).not.toBeNull();
   expect(response?.ok(), `GET ${path} should succeed`).toBe(true);
@@ -23,8 +23,16 @@ test("default RUN completes First Eye and exposes the typed room-sampling handof
   const body = page.locator("body");
   await expect(body).toHaveAttribute("data-mode", "run");
   await expect(body).toHaveAttribute("data-authority", "canonical-run-session-v4");
+  await expect(body).toHaveAttribute("data-authority-owner", "quiet_awakening");
   await expect(body).toHaveAttribute("data-run-phase", "quiet_awakening");
   await expect(body).toHaveAttribute("data-authority-tick", "0");
+  await expect(body).toHaveAttribute("data-raw-run-seed-domain", "raw-run-seed");
+  await expect(body).toHaveAttribute("data-raw-run-seed", "305419896");
+  await expect(body).toHaveAttribute(
+    "data-first-eye-resolved-seed-domain",
+    "resolved-occurrence-seed",
+  );
+  await expect(body).toHaveAttribute("data-first-eye-resolved-seed", "2522533150");
   await expect(body).toHaveAttribute("data-live-colliders", "0");
   await expect(body).toHaveAttribute("data-meaningful-inputs", "0");
   await expect(body).toHaveAttribute("data-signal-inputs", "0");
@@ -32,6 +40,10 @@ test("default RUN completes First Eye and exposes the typed room-sampling handof
   await expect(body).toHaveAttribute("data-handoff-state", "not_started");
   await expect(body).toHaveAttribute("data-handoff-target", "ROOM_SAMPLING");
   await expect(body).toHaveAttribute("data-handoff-at-tick", "");
+  await expect(body).toHaveAttribute("data-handoff-consumed", "false");
+  await expect(body).toHaveAttribute("data-handoff-consumed-at-tick", "");
+  await expect(body).toHaveAttribute("data-handoff-consumer-authority", "");
+  await expect(body).toHaveAttribute("data-room-composer", "");
   await expect(body).toHaveAttribute("data-gaze-state", "idle");
   await expect(body).toHaveAttribute("data-gaze-clamp-committed", "false");
   await expect(body).toHaveAttribute("data-gaze-clamp-released", "false");
@@ -77,9 +89,11 @@ test("default RUN completes First Eye and exposes the typed room-sampling handof
   await page.keyboard.up("z");
 
   await expect(body).toHaveAttribute("data-run-phase", "first_eye", {timeout: 12_000});
+  await expect(body).toHaveAttribute("data-authority-owner", "first_eye");
   await expect(page.locator("#pattern-name")).toHaveText("眼睛取样");
   await expect(page.locator("#pattern-name-en")).toHaveText("EYE ACQUISITION");
   await expect(body).toHaveAttribute("data-segment-start-tick", "960");
+  await expect(page.locator("#seed-value")).toHaveText("12345678");
   await expect
     .poll(async () => Number(await body.getAttribute("data-live-colliders")), {
       message: "first_eye should expose entity-owned live colliders",
@@ -102,21 +116,83 @@ test("default RUN completes First Eye and exposes the typed room-sampling handof
     (node) => (node as HTMLElement).style.width,
   )).toBe("30%");
 
-  await expect(body).toHaveAttribute("data-source-drained", "true", {timeout: 18_000});
-  await expect(body).toHaveAttribute("data-run-phase", "first_clamp_recovery");
+  await expect(body).toHaveAttribute("data-run-phase", "room_sampling", {timeout: 18_000});
+  await page.keyboard.press("Space");
+  await expect(body).toHaveClass(/\bpaused\b/);
+  const roomPausedTick = Number(await body.getAttribute("data-authority-tick"));
+  await page.waitForTimeout(250);
+  await expect(body).toHaveAttribute("data-authority-tick", String(roomPausedTick));
+
+  await expect(body).toHaveAttribute("data-source-drained", "true");
   await expect(body).toHaveAttribute("data-live-colliders", "0");
+  await expect(body).toHaveAttribute("data-projectile-entities", "0");
   await expect(body).toHaveAttribute("data-handoff-ready", "true");
   await expect(body).toHaveAttribute("data-handoff-state", "ready_for_room_sampling");
   await expect(body).toHaveAttribute("data-handoff-target", "ROOM_SAMPLING");
-  await expect.poll(async () => Number(await body.getAttribute("data-handoff-at-tick")))
-    .toBeGreaterThan(0);
+  await expect(body).toHaveAttribute("data-handoff-consumed", "true");
+  await expect(body).toHaveAttribute(
+    "data-handoff-consumer-authority",
+    "ext-005-first-forced-room-bootstrap",
+  );
+  const handoffAtTick = Number(await body.getAttribute("data-handoff-at-tick"));
+  expect(handoffAtTick).toBeGreaterThan(0);
+  expect(Number(await body.getAttribute("data-handoff-consumed-at-tick"))).toBe(handoffAtTick);
+  expect(Number(await body.getAttribute("data-room-start-tick"))).toBe(handoffAtTick);
+  expect(Number(await body.getAttribute("data-room-read-start-tick"))).toBe(handoffAtTick + 159);
   await expect(body).toHaveAttribute("data-source-live-entities", "0");
   await expect(body).toHaveAttribute("data-gaze-state", "idle");
   await expect(body).toHaveAttribute("data-gaze-clamp-committed", "true");
   await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
   await expect(body).toHaveAttribute("data-flower-recovery-complete", "true");
-  await expect(page.locator("#pattern-name")).toHaveText("眼睛取样");
-  await expect(page.locator("#pattern-name-en")).toHaveText("EYE ACQUISITION");
+  await expect(body).toHaveAttribute("data-authority-owner", "room_pre_read");
+  await expect(body).toHaveAttribute("data-room-phase", /^(telegraph|entry)$/);
+  await expect(body).toHaveAttribute("data-room-id", "FORCED_ALIGNMENT");
+  await expect(body).toHaveAttribute("data-room-pattern-id", "room.forced.left_right_gate");
+  await expect(body).toHaveAttribute(
+    "data-room-occurrence-id",
+    "room:0:encounter:0:room.forced.left_right_gate",
+  );
+  await expect(body).toHaveAttribute("data-room-tier", "listen");
+  await expect(body).toHaveAttribute("data-room-difficulty", "EASY");
+  await expect(body).toHaveAttribute(
+    "data-room-selection-authority",
+    "ext-005-fixed-first-room-bootstrap",
+  );
+  await expect(body).toHaveAttribute("data-room-selection-rng-draws", "0");
+  await expect(body).toHaveAttribute("data-room-composer", "false");
+  await expect(body).toHaveAttribute("data-room-resolved-seed-domain", "resolved-occurrence-seed");
+  await expect(body).toHaveAttribute("data-room-resolved-seed", "2021012721");
+  await expect(body).toHaveAttribute("data-room-combat-present", "false");
+  await expect(body).toHaveAttribute("data-room-complete", "false");
+  await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
+  await expect(page.locator("#pattern-time")).toHaveText("00.000");
+  await expect(page.locator("#pattern-name")).toHaveText("左右闸门");
+  await expect(page.locator("#pattern-name-en")).toHaveText("LEFT/RIGHT GATE");
+  await expect(page.locator("#seed-value")).toHaveText("12345678");
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-room",
+    "FORCED_ALIGNMENT",
+  );
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-pattern-id",
+    "room.forced.left_right_gate",
+  );
+
+  await page.keyboard.press("Space");
+  await expect(body).not.toHaveClass(/\bpaused\b/);
+  await expect(body).toHaveAttribute("data-room-phase", "read", {timeout: 5_000});
+  await expect(body).toHaveAttribute("data-room-combat-present", "true");
+  await expect(body).toHaveAttribute("data-authority-owner", "room_pattern");
+  await expect.poll(async () => Number(await body.getAttribute("data-projectile-entities")), {
+    message: "first forced room should expose entity-owned projectiles",
+    timeout: 5_000,
+  }).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await body.getAttribute("data-live-colliders")), {
+    message: "first forced room should arm its canonical colliders",
+    timeout: 5_000,
+  }).toBeGreaterThan(0);
+  expect(Number(await body.getAttribute("data-room-pattern-local-tick"))).toBeGreaterThan(0);
+  await expect(page.locator("#seed-value")).toHaveText("12345678");
 
   expect(pageErrors, "canonical RUN should have no uncaught page errors").toEqual([]);
   expect(consoleErrors, "canonical RUN should have no error-level console messages").toEqual([]);

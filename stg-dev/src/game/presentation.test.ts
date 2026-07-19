@@ -13,8 +13,10 @@ import {
 
 const FIRST_EYE = (patternsManifest.patterns as PatternDefinition[])
   .find((pattern) => pattern.id === "common.eye_acquisition")!;
+const FIRST_ROOM = (patternsManifest.patterns as PatternDefinition[])
+  .find((pattern) => pattern.id === "room.forced.left_right_gate")!;
 const OPTIONS = Object.freeze({
-  seed: 0x1b17c0de,
+  rawRunSeed: Object.freeze({domain: "raw-run-seed" as const, value: 0x1b17c0de}),
   grazeRadiusPx: 18,
   projectileDamage: 1,
   projectilePoolClasses: Object.freeze({"bullet.micro.notch_e": "micro" as const}),
@@ -35,6 +37,32 @@ function stepTo(session: CanonicalRunSession, targetTick120: number): void {
       gaze: NEUTRAL_GAZE,
     });
   }
+}
+
+function stepToFirstRoomHandoff(session: CanonicalRunSession): CanonicalRunSessionSnapshot {
+  stepTo(session, 960);
+  for (let tick120 = 961; tick120 <= 1021; tick120 += 1) {
+    session.step({
+      tick120,
+      movement: {x: 0, y: 0},
+      signalActive: false,
+      focused: false,
+      gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+    });
+  }
+  let snapshot = session.snapshot();
+  while (snapshot.roomSampling === null && snapshot.tick120 < 2800) {
+    session.step({
+      tick120: snapshot.tick120 + 1,
+      movement: {x: 0, y: 0},
+      signalActive: false,
+      focused: false,
+      gaze: NEUTRAL_GAZE,
+    });
+    snapshot = session.snapshot();
+  }
+  if (snapshot.roomSampling === null) throw new Error("room projection fixture missed handoff");
+  return snapshot;
 }
 
 describe("canonical run presentation", () => {
@@ -134,6 +162,63 @@ describe("canonical run presentation", () => {
     const projected = projectCanonicalRunSession(snapshot, FIRST_EYE);
     expect(snapshot).toMatchObject({phase: "first_eye", handoff: {ready: false}});
     expect(projected).toMatchObject({combatEnabled: false, targetVisible: true, gazeState: "idle"});
+  });
+
+  it("projects the fixed first room from READ local zero without stale First Eye authority", () => {
+    const session = new CanonicalRunSession(OPTIONS);
+    let snapshot = stepToFirstRoomHandoff(session);
+    const eventTraceAtHandoff = session.canonicalEventSerialization();
+    expect(projectCanonicalRunSession(snapshot, FIRST_ROOM)).toMatchObject({
+      room: "FORCED_ALIGNMENT",
+      patternElapsedMs: 0,
+      combatEnabled: false,
+      targetVisible: false,
+      bullets: [],
+    });
+    expect(session.canonicalEventSerialization()).toBe(eventTraceAtHandoff);
+
+    const readTick120 = snapshot.roomSampling?.boundaryTicks120.read ?? 0;
+    while (snapshot.tick120 < readTick120) {
+      session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+      snapshot = session.snapshot();
+    }
+    expect(projectCanonicalRunSession(snapshot, FIRST_ROOM)).toMatchObject({
+      room: "FORCED_ALIGNMENT",
+      patternElapsedMs: 0,
+      combatEnabled: true,
+      targetVisible: false,
+      bullets: [],
+    });
+
+    const firstSpawnTick120 = readTick120 + 88;
+    while (snapshot.tick120 < firstSpawnTick120) {
+      session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+      snapshot = session.snapshot();
+    }
+    const projected = projectCanonicalRunSession(snapshot, FIRST_ROOM);
+    expect(projected.pattern.id).toBe("room.forced.left_right_gate");
+    expect(projected.bullets.length).toBeGreaterThan(0);
+
+    const combat = snapshot.combat;
+    if (combat === null) throw new Error("room projection fixture lost READ combat");
+    const staleCombat = {
+      ...snapshot,
+      combat: {...combat, patternId: "common.eye_acquisition"},
+    } as unknown as CanonicalRunSessionSnapshot;
+    expect(() => projectCanonicalRunSession(staleCombat, FIRST_ROOM))
+      .toThrow(/combat pattern identity drifted/);
   });
 
   it("projects retained life state and never presents a non-alive player as focused", () => {

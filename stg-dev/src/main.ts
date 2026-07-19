@@ -9,7 +9,7 @@ import {
   elapsedWallDeltaMs,
   type Tick120Boundary,
 } from "./authority/clock";
-import {resolveEncounterSeed} from "./authority/encounter-seed";
+import {resolveRawRunSeed} from "./authority/run-seed";
 import {AudioTrace} from "./game/audio";
 import {InputManager, type InputFrame} from "./game/input";
 import {projectCanonicalRunSession} from "./game/presentation";
@@ -33,9 +33,9 @@ function element<T extends HTMLElement>(id: string): T {
   return value as T;
 }
 
-function resolveCanonicalEncounterSeed(params: URLSearchParams): number {
+function resolveCanonicalRawRunSeed(params: URLSearchParams): number {
   try {
-    return resolveEncounterSeed(params.get("seed"), () => {
+    return resolveRawRunSeed(params.get("seed"), () => {
       const generated = new Uint32Array(1);
       crypto.getRandomValues(generated);
       return generated[0] ?? 0;
@@ -74,10 +74,7 @@ if (!["full", "reduced-motion", "flash-off"].includes(requestedPresentationProfi
 }
 const presentationProfile = requestedPresentationProfile as "full" | "reduced-motion" | "flash-off";
 const patterns = patternsManifest.patterns as PatternDefinition[];
-const firstEyePattern = patterns.find((pattern) => pattern.id === "common.eye_acquisition")
-  ?? (() => {
-    throw new Error("V4 manifest is missing common.eye_acquisition");
-  })();
+const patternById = new Map(patterns.map((pattern) => [pattern.id, pattern]));
 const frames = frameIndex.frames as unknown as FrameDefinition[];
 const canvas = element<HTMLCanvasElement>("game-canvas");
 const bootOverlay = element<HTMLDivElement>("boot-overlay");
@@ -137,9 +134,12 @@ const simulation = patternLabMode ? new GameSimulation(patterns, logEvent) : nul
 const canonicalRun = patternLabMode
   ? null
   : new CanonicalRunSession({
-      // The URL seed is already the resolved first-eye encounter seed. V4 does
-      // not provide a numeric difficulty salt, so this boundary does not invent one.
-      seed: resolveCanonicalEncounterSeed(params),
+      // URL seed is the raw Run identity. Occurrence seeds are resolved inside
+      // the authority boundary with the explicit EXT-005 salt policy.
+      rawRunSeed: Object.freeze({
+        domain: "raw-run-seed" as const,
+        value: resolveCanonicalRawRunSeed(params),
+      }),
       grazeRadiusPx: 18,
       projectileDamage: 1,
       projectilePoolClasses: {"bullet.micro.notch_e": "micro"},
@@ -198,21 +198,34 @@ function selectPattern(index: number): void {
   audio.setRoom(simulation.snapshot().room);
 }
 
+function activeCanonicalPattern(run: CanonicalRunSessionSnapshot): PatternDefinition {
+  const patternId = run.roomSampling?.patternId ?? run.adapterPolicy.firstEye.patternId;
+  const pattern = patternById.get(patternId);
+  if (pattern === undefined) throw new Error(`canonical Run references unknown pattern ${patternId}`);
+  return pattern;
+}
+
 function canonicalPresentation(run: CanonicalRunSessionSnapshot): SimulationSnapshot {
-  return Object.freeze({...projectCanonicalRunSession(run, firstEyePattern), paused});
+  return Object.freeze({...projectCanonicalRunSession(run, activeCanonicalPattern(run)), paused});
 }
 
 function applyCanonicalPhase(run: CanonicalRunSessionSnapshot): void {
   if (run.phase === canonicalPhase) return;
   canonicalPhase = run.phase;
   document.body.dataset.runPhase = run.phase;
-  const patternIndex = patterns.indexOf(firstEyePattern);
+  const activePattern = activeCanonicalPattern(run);
+  const patternIndex = patterns.indexOf(activePattern);
   patternSelect.value = String(patternIndex);
-  element("seed-value").textContent = run.seed.toString(16).padStart(8, "0").toUpperCase();
-  element<HTMLOutputElement>("difficulty-output").value = run.adapterPolicy.firstEye.difficulty;
+  element<HTMLOutputElement>("difficulty-output").value = run.roomSampling?.difficulty
+    ?? run.adapterPolicy.firstEye.difficulty;
   difficultyInput.value = "0";
 
-  if (run.phase === "first_eye" || run.phase === "first_clamp_recovery") {
+  if (run.phase === "room_sampling") {
+    updatePatternPanel(canonicalPresentation(run));
+    element("pattern-sequence").textContent = "03 / —";
+    element("room-value").textContent = run.roomSampling?.roomId ?? "FORCED_ALIGNMENT";
+    audio.setRoom(run.roomSampling?.roomId ?? "FORCED_ALIGNMENT");
+  } else if (run.phase === "first_eye" || run.phase === "first_clamp_recovery") {
     updatePatternPanel(canonicalPresentation(run));
     element("pattern-sequence").textContent = "02 / —";
     element("room-value").textContent = run.adapterPolicy.firstEye.roomId;
@@ -231,6 +244,12 @@ function applyCanonicalPhase(run: CanonicalRunSessionSnapshot): void {
     element("room-value").textContent = "AWAKENING";
     audio.setRoom("INFORMATION");
   }
+  // Pattern metadata carries its own seed base, but the Run surface exposes
+  // the reproducible raw Run identity at every phase boundary.
+  element("seed-value").textContent = run.rawRunSeed.value
+    .toString(16)
+    .padStart(8, "0")
+    .toUpperCase();
 }
 
 function projectCanonicalEvents(): void {
@@ -263,8 +282,9 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
   element("health-value").textContent = [0, 1, 2]
     .map((index) => index < snapshot.player.health ? "●" : "○")
     .join(" ");
-  const segmentElapsedMs = run ? run.segmentTick120 * 1000 / MASTER_TICK_HZ : snapshot.patternElapsedMs;
-  element("pattern-time").textContent = (segmentElapsedMs / 1000).toFixed(3).padStart(6, "0");
+  element("pattern-time").textContent = (snapshot.patternElapsedMs / 1000)
+    .toFixed(3)
+    .padStart(6, "0");
   element("header-clock").textContent = ((run ? run.tick120 * 1000 / MASTER_TICK_HZ : snapshot.nowMs) / 1000)
     .toFixed(3).padStart(7, "0");
   warning.classList.toggle(
@@ -278,6 +298,10 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
   if (run) {
     document.body.dataset.authority = run.authority;
     document.body.dataset.authorityTick = String(run.tick120);
+    document.body.dataset.rawRunSeedDomain = run.rawRunSeed.domain;
+    document.body.dataset.rawRunSeed = String(run.rawRunSeed.value);
+    document.body.dataset.firstEyeResolvedSeedDomain = run.firstEyeResolvedSeed.domain;
+    document.body.dataset.firstEyeResolvedSeed = String(run.firstEyeResolvedSeed.value);
     document.body.dataset.segmentStartTick = String(run.tick120 - run.segmentTick120);
     document.body.dataset.liveColliders = String(run.combat?.poolUsage.liveColliders ?? 0);
     document.body.dataset.meaningfulInputs = String(run.player.meaningfulInputCount);
@@ -288,6 +312,11 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
     document.body.dataset.handoffAtTick = run.handoff.atTick120 === null
       ? ""
       : String(run.handoff.atTick120);
+    document.body.dataset.handoffConsumed = String(run.handoff.consumed);
+    document.body.dataset.handoffConsumedAtTick = run.handoff.consumedAtTick120 === null
+      ? ""
+      : String(run.handoff.consumedAtTick120);
+    document.body.dataset.handoffConsumerAuthority = run.handoff.consumerAuthority ?? "";
     document.body.dataset.gazeState = run.gaze.state;
     document.body.dataset.gazeClampCommitted = String(run.handoff.barriers.gazeClampCommitted);
     document.body.dataset.gazeClampReleased = String(run.handoff.barriers.gazeClampReleased);
@@ -300,6 +329,42 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
     document.body.dataset.sourceLiveEntities = run.handoff.sourceCombat === null
       ? ""
       : String(run.handoff.sourceCombat.liveEntities);
+    const room = run.roomSampling;
+    document.body.dataset.authorityOwner = run.phase === "quiet_awakening"
+      ? "quiet_awakening"
+      : room === null
+        ? "first_eye"
+        : room.combat === null
+          ? "room_pre_read"
+          : room.runCombat.activeOccurrenceId === room.occurrenceId
+            ? "room_pattern"
+            : room.fixedSliceComplete
+              ? "room_post_slice_idle"
+              : "room_neutral_tail";
+    document.body.dataset.roomId = room?.roomId ?? "";
+    document.body.dataset.roomPhase = room?.phase ?? "";
+    document.body.dataset.roomStartTick = room === null ? "" : String(room.boundaryTicks120.start);
+    document.body.dataset.roomReadStartTick = room === null ? "" : String(room.boundaryTicks120.read);
+    document.body.dataset.roomPatternId = room?.patternId ?? "";
+    document.body.dataset.roomOccurrenceId = room?.occurrenceId ?? "";
+    document.body.dataset.roomTier = room?.tierId ?? "";
+    document.body.dataset.roomDifficulty = room?.difficulty ?? "";
+    document.body.dataset.roomSelectionAuthority = room?.selectionAuthority ?? "";
+    document.body.dataset.roomSelectionRngDraws = room === null ? "" : String(room.selectionRngDraws);
+    document.body.dataset.roomComposer = room === null ? "" : String(room.composer);
+    document.body.dataset.roomResolvedSeedDomain = room?.resolvedSeed.domain ?? "";
+    document.body.dataset.roomResolvedSeed = room === null ? "" : String(room.resolvedSeed.value);
+    document.body.dataset.roomCombatPresent = String(room !== null && room.combat !== null);
+    document.body.dataset.roomPatternLocalTick = room?.combat === null || room === null
+      ? ""
+      : String(room.combat.relativeTick120);
+    document.body.dataset.roomFixedSliceComplete = room === null
+      ? ""
+      : String(room.fixedSliceComplete);
+    document.body.dataset.roomComplete = room === null ? "" : String(room.roomComplete);
+    document.body.dataset.roomHandoffReady = room === null ? "" : String(room.handoffReady);
+    document.body.dataset.projectileEntities = String(run.combat?.projectiles.length ?? 0);
+    document.body.dataset.residueVisuals = String(run.combat?.poolUsage.residueVisuals ?? 0);
     signalFallback.hidden = !run.discovery.signalFallbackVisible;
   }
   document.body.dataset.clockBacklog = String(authorityClock.snapshot().backlogTicks);
@@ -580,6 +645,8 @@ function frame(time: number): void {
   document.body.dataset.reducedMotion = String(reducedMotion);
   document.body.dataset.flashOff = String(flashOff);
   view.render(snapshot, reducedMotion, flashOff);
+  canvas.dataset.presentedRoom = snapshot.room;
+  canvas.dataset.presentedPatternId = snapshot.pattern.id;
   updateHud(snapshot, runSnapshot);
   requestAnimationFrame(frame);
 }

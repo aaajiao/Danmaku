@@ -59,19 +59,35 @@ function projectileVelocity(
  */
 export function projectCanonicalRunSession(
   run: CanonicalRunSessionSnapshot,
-  firstEyePattern: PatternDefinition,
+  activePattern: PatternDefinition,
 ): SimulationSnapshot {
   if (run.authority !== "canonical-run-session-v4") {
     throw new Error("canonical presentation requires a canonical run-session snapshot");
   }
-  if (firstEyePattern.id !== run.adapterPolicy.firstEye.patternId) {
+  const expectedPatternId = run.roomSampling?.patternId ?? run.adapterPolicy.firstEye.patternId;
+  if (activePattern.id !== expectedPatternId) {
     throw new Error("canonical presentation pattern identity drifted");
   }
   const nowMs = run.tick120 * 1000 / TICKS_PER_SECOND;
   const combat = run.combat;
+  if (combat !== null && combat.patternId !== expectedPatternId) {
+    throw new Error("canonical presentation combat pattern identity drifted");
+  }
+  if (
+    run.roomSampling !== null
+    && combat !== null
+    && (
+      combat.occurrenceId !== run.roomSampling.occurrenceId
+      || combat.difficulty !== run.roomSampling.difficulty
+      || combat.seed !== run.roomSampling.resolvedSeed.value
+      || combat.startTick120 !== run.roomSampling.boundaryTicks120.read
+    )
+  ) {
+    throw new Error("canonical presentation room combat identity drifted");
+  }
   const relativeTick120 = combat?.relativeTick120 ?? 0;
   const patternElapsedMs = relativeTick120 * 1000 / TICKS_PER_SECOND;
-  const emitterById = new Map(firstEyePattern.emitters.map((emitter) => [emitter.id, emitter]));
+  const emitterById = new Map(activePattern.emitters.map((emitter) => [emitter.id, emitter]));
   const bullets = (combat?.projectiles ?? []).map((projectile): BulletState => {
     const emitter = emitterById.get(projectile.sourceId);
     const position = canonicalPositionToView(projectile.position);
@@ -116,15 +132,16 @@ export function projectCanonicalRunSession(
   const playerPosition = canonicalPositionToView(run.player.position);
   const override = run.override;
   const localVoid = override?.localVoid ?? null;
-  const executable = firstEyePattern as unknown as ExecutablePattern;
+  const executable = activePattern as unknown as ExecutablePattern;
   const safeCenter = safeGapCenter(executable, patternElapsedMs) - LOGICAL_VIEW_WIDTH / 2;
-  const safeWidth = safeGapWidth(executable, run.adapterPolicy.firstEye.difficulty);
+  const difficulty = run.roomSampling?.difficulty ?? run.adapterPolicy.firstEye.difficulty;
+  const safeWidth = safeGapWidth(executable, difficulty);
 
   return Object.freeze({
     nowMs,
     patternElapsedMs,
-    pattern: firstEyePattern,
-    room: run.adapterPolicy.firstEye.roomId,
+    pattern: activePattern,
+    room: run.roomSampling?.roomId ?? run.adapterPolicy.firstEye.roomId,
     bullets: Object.freeze(bullets),
     shots: Object.freeze([]),
     player: Object.freeze({
@@ -144,7 +161,7 @@ export function projectCanonicalRunSession(
     paused: false,
     combatEnabled: combat !== null && !combat.patternComplete,
     gazeState: run.gaze.state,
-    targetVisible: run.phase !== "quiet_awakening",
+    targetVisible: run.phase === "first_eye" || run.phase === "first_clamp_recovery",
     safeGapCenterX: safeCenter,
     safeGapWidthPx: safeWidth,
     overrideView: localVoid === null

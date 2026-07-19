@@ -24,7 +24,7 @@ test("an invalid explicit RUN seed fails closed instead of selecting entropy", a
   const response = await page.goto("/?seed=not-a-uint32", {waitUntil: "domcontentloaded"});
 
   expect(response?.ok()).toBe(true);
-  expect((await pageError).message).toBe("explicit encounter seed must be a decimal uint32");
+  expect((await pageError).message).toBe("explicit raw Run seed must be a decimal uint32");
   await expect(page.locator("body")).not.toHaveAttribute("data-authority", /.+/u);
   await expect(page.locator("body")).toHaveAttribute("data-startup-failure", "invalid-seed");
   await expect(page.locator("#boot-button")).toBeDisabled();
