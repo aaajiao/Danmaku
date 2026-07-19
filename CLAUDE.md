@@ -11,7 +11,7 @@ implementation and a source of proven mechanisms; the destination is our own gam
 
 ```
 toho-like-js/     Frozen upstream baseline. READ-ONLY — never edit.
-src/              Our code. Vite + TypeScript + ESM + three.js.
+src/              Our code. Bun + TypeScript + ESM + three.js.
 ```
 
 `toho-like-js/` exists so that any behaviour can be diffed against a working
@@ -21,12 +21,25 @@ believe it needs changing, you actually need to change something in `src/`.
 ## Stack
 
 - **three.js** — rendering
-- **Vite** — dev server and build
+- **Bun** — package manager, dev server, bundler, test runner. One tool, no Node,
+  no Vite, no separate test framework.
 - **TypeScript, ESM** — no globals, no script-tag load order
 
 Upstream is ES5 with 38 ordered `<script>` tags and ~12 browser globals
 (`__randomizer`, `__moveVectorManager`, `__bulletsParams`, `__game`, …). None of
 that survives the port.
+
+### Stay bundler-agnostic
+
+Bun is chosen because this project needs no framework plugins — one HTML
+entrypoint, plain ESM modules, static image/audio assets. Shaders stay **inline
+template strings** (as upstream already does), so there is no GLSL-loader
+dependency.
+
+Keep it that way. Use standard ESM imports and standard asset URLs
+(`new URL('./x.png', import.meta.url)`). Do not couple code to bundler-specific
+import magic. If Bun ever falls short, swapping in another bundler should be a
+config change, not a refactor.
 
 ---
 
@@ -61,13 +74,30 @@ in `data/` and destroy reproducibility.
 - RNG *call order* is part of the contract. Reordering calls changes outcomes even
   with an identical seed.
 
-### 3. Depth testing is off — draw order is explicit
+### 3. Input is sampled once per tick, as digital bits
+
+The simulation never touches a device. It reads a button bitmask produced by
+`src/core/input.ts`, sampled exactly once at the top of each tick. A replay is a
+frame-indexed log of that mask and nothing else.
+
+- **Never poll a gamepad from render.** Gamepads are polled, not evented; polling
+  per frame instead of per tick makes the sampled value frame-rate dependent.
+- **Never let an analog value reach the sim.** Stick axes are quantized against a
+  fixed deadzone at sample time. The threshold is a constant, not a setting — a
+  user-tunable deadzone would make replays unreproducible between machines.
+- **Taps must latch.** A press and release that both land between two ticks is
+  invisible to a naive `sample()`, which silently drops bombs and shots.
+  `Input` latches presses so a tap is always seen for at least one tick.
+- New input sources (touch, remote peer, AI) join by contributing to the same
+  mask. Nothing else in the codebase may learn that they exist.
+
+### 4. Depth testing is off — draw order is explicit
 
 Upstream disables `DEPTH_TEST` and relies purely on call sequence. In three.js,
 replicate that ordering with `renderOrder`. Do not reintroduce depth-based sorting
 for sprites.
 
-### 4. Porting content data is where the parse-time traps are
+### 5. Porting content data is where the parse-time traps are
 
 `data/` is ~2,350 lines of hand-authored JS literals and is the most valuable
 thing upstream has — the motion DSL (`MoveVector`: `r`/`theta`/`w`, accelerations,
@@ -83,7 +113,7 @@ Two load-order side effects must be handled deliberately when converting to ESM:
 Module evaluation order or any lazy/dynamic import changes these values silently.
 Make the generation explicit and eagerly evaluated; do not rely on import order.
 
-### 5. Assets must be original
+### 6. Assets must be original
 
 Upstream art and audio are Touhou Project derivatives, and the upstream repo has
 **no LICENSE file** (default: all rights reserved). Upstream assets are for local
@@ -159,10 +189,13 @@ let stale fixtures silently rot into ignored failures.
 Run before declaring any change done, and show the output:
 
 ```
-npm run typecheck
-npm run test
-npm run build
+bun run typecheck     # tsc --noEmit
+bun test
+bun run build
 ```
+
+Dev server: `bun run dev`. Install: `bun install` (never `npm install` — the
+lockfile is `bun.lock`).
 
 If a change touches the simulation, motion DSL, RNG, or content data, also run the
 replay regression. A change that alters replay output is either a bug or a

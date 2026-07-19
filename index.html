@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Danmaku</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <!-- Upstream's two-layer structure: WebGL for the play field, Canvas2D on
+         top for HUD and sidebar. Only the WebGL layer is three.js. -->
+    <div id="stage">
+      <canvas id="field" width="480" height="480"></canvas>
+      <canvas id="overlay" width="640" height="480"></canvas>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

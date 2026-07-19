@@ -1,0 +1,35 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+#stage {
+  position: relative;
+  width: 640px;
+  height: 480px;
+  image-rendering: pixelated;
+}
+
+/* Play field sits inset at the left, matching upstream's 480x480 WebGL canvas
+   inside a 640x480 frame. The remaining 160px is the score sidebar, drawn by
+   the 2D overlay. */
+/* Explicit CSS size: the renderer scales the backing store by devicePixelRatio,
+   so the intrinsic canvas size is not the layout size we want. */
+#field {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 480px;
+  height: 480px;
+  z-index: 1;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
