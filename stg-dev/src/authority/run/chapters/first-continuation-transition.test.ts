@@ -1,7 +1,11 @@
 import {beforeAll, describe, expect, it} from "vitest";
 
 import {
+  advanceCanonicalRunFirstContinuationSuccessorMaterialHold,
   CanonicalRunCombatState,
+  commitPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer,
+  inspectPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer,
+  prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer,
   type CanonicalCombatSnapshot,
   type CanonicalCombatStepInput,
 } from "../../combat-kernel";
@@ -666,6 +670,15 @@ describe("first continuation transition chapter owner", () => {
         pendingFlushTick120: null,
       },
     });
+    const runBeforeCloseTransfer = fixture.runState.snapshot();
+    const eventsBeforeCloseTransfer = fixture.eventBus.events();
+    const eventSerializationBeforeCloseTransfer = fixture.eventBus.canonicalSerialization();
+    expect(() => prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer(owner))
+      .toThrow(/exact flushed slice-close boundary/);
+    expect(fixture.runState.snapshot()).toEqual(runBeforeCloseTransfer);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeCloseTransfer);
+    expect(fixture.eventBus.canonicalSerialization())
+      .toBe(eventSerializationBeforeCloseTransfer);
 
     const complete = closeCanonicalRunFirstContinuationSuccessorSlice(
       owner,
@@ -696,36 +709,134 @@ describe("first continuation transition chapter owner", () => {
       projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
     expect(complete.combat?.projectiles.length).toBeGreaterThan(0);
     expect(complete.combat?.projectileLifecycleDrained).toBe(false);
-
-    let held = complete;
-    while ((held.combat?.projectiles.length ?? 0) > 0) {
-      held = advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
-        owner,
-        combatInput(held.tick120 + 1),
-      );
+    expect(complete.material.poolUsage.allocatedSlots).toEqual({
+      micro: 78,
+      medium: 0,
+      heavy: 0,
+      splitChildren: 0,
+    });
+    if (complete.combat === null) {
+      throw new Error("successor slice close lost its collisionless material");
     }
-    expect(held).toMatchObject({
-      phase: "complete",
-      nextMasterTickAction: "advance-complete-hold",
-      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
-      combat: {
-        patternComplete: true,
-        digitalBodiesDrained: true,
-        projectileLifecycleDrained: true,
-        projectiles: [],
-        poolUsage: {liveColliders: 0},
+    expect(complete.combat.projectiles).toHaveLength(46);
+    expect(complete.combat.poolUsage).toEqual({
+      active: {micro: 46, medium: 0, heavy: 0, splitChildren: 0},
+      allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+      liveColliders: 0,
+      residueVisuals: 46,
+    });
+
+    const closeProjectiles = complete.combat.projectiles;
+    const closeRngCallsConsumed = complete.combat.rngCallsConsumed;
+    const closeClaims = complete.runCombat.claimedOccurrenceIds;
+    const closeEventSerialization = fixture.eventBus.canonicalSerialization();
+    const transfer = prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer(owner);
+    expect(inspectPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer(transfer))
+      .toMatchObject({
+        authority:
+          "canonical-run-first-continuation-successor-material-transfer-v1",
+        extensionPolicy: "EXT-2026-019",
+        tick120: complete.tick120,
+        sourcePatternId: preparation.view.plan.occurrence.patternId,
+        sourceOccurrenceId: preparation.view.plan.occurrence.occurrenceId,
+        materialCount: 46,
+        poolUsage: {
+          active: {micro: 46, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 46,
+        },
+        predecessorMaterialLease: "retire-on-commit",
+        gameplayAuthority: "released",
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+        nextOccurrenceAdmission:
+          "withheld-pending-plan-and-combined-pool-admission",
+        canonicalEventWrites: 0,
+        rngCallsConsumedByTransfer: 0,
+        tickAdvance: 0,
+      });
+    expect(() => prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer(owner))
+      .toThrow(/in-flight|prepared lease/);
+    expect(fixture.runState.snapshot()).toEqual(complete.runCombat);
+    expect(fixture.eventBus.canonicalSerialization()).toBe(closeEventSerialization);
+
+    const materialOwner =
+      commitPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer(transfer);
+    const transferredMaterial = materialOwner.snapshot();
+    expect(transferredMaterial).toMatchObject({
+      authority: "canonical-run-occurrence-material-carryover-v1",
+      extensionPolicy: "EXT-2026-019",
+      sourcePatternId: preparation.view.plan.occurrence.patternId,
+      sourceOccurrenceId: preparation.view.plan.occurrence.occurrenceId,
+      transferredAtTick120: complete.tick120,
+      tick120: complete.tick120,
+      materialCount: 46,
+      drained: false,
+      poolUsage: {
+        active: {micro: 46, medium: 0, heavy: 0, splitChildren: 0},
+        allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+        liveColliders: 0,
+        residueVisuals: 46,
+      },
+      rngCallsConsumed: closeRngCallsConsumed,
+      predecessorMaterialLease: "retired",
+      gameplayAuthority: "released",
+      roomCompletion: "withheld",
+      roomHandoff: "withheld",
+      nextOccurrenceAdmission:
+        "withheld-pending-plan-and-combined-pool-admission",
+    });
+    expect(transferredMaterial.projectiles).toEqual(closeProjectiles);
+    transferredMaterial.projectiles.forEach((projectile, index) => {
+      expect(projectile).toMatchObject({
+        instanceId: closeProjectiles[index]?.instanceId,
+        generation: closeProjectiles[index]?.generation,
+        sourceId: closeProjectiles[index]?.sourceId,
+        sourceIndex: closeProjectiles[index]?.sourceIndex,
+        burstIndex: closeProjectiles[index]?.burstIndex,
+        terminalCause: closeProjectiles[index]?.terminalCause,
+      });
+    });
+    expect(fixture.eventBus.canonicalSerialization()).toBe(closeEventSerialization);
+    expect(fixture.runState.snapshot().claimedOccurrenceIds).toEqual(closeClaims);
+    expect(() => commitPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer(transfer))
+      .toThrow(/committed/);
+
+    const runBeforeRejectedOldOwner = fixture.runState.snapshot();
+    const eventsBeforeRejectedOldOwner = fixture.eventBus.events();
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
+      owner,
+      combatInput(complete.tick120 + 1),
+    )).toThrow(/binding|transferred|owner/);
+    expect(fixture.runState.snapshot()).toEqual(runBeforeRejectedOldOwner);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeRejectedOldOwner);
+
+    const materialHold = advanceCanonicalRunFirstContinuationSuccessorMaterialHold(
+      materialOwner,
+      combatInput(complete.tick120 + 1),
+    );
+    expect(materialHold).toMatchObject({
+      runCombat: {
+        tick120: complete.tick120 + 1,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+        claimedOccurrenceIds: closeClaims,
+      },
+      material: {
+        tick120: complete.tick120 + 1,
+        materialCount: 46,
+        drained: false,
+        rngCallsConsumed: closeRngCallsConsumed,
+        poolUsage: {
+          active: {micro: 46, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 46,
+        },
       },
     });
-    const quietHold = advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
-      owner,
-      combatInput(held.tick120 + 1),
-    );
-    expect(quietHold.tick120).toBe(held.tick120 + 1);
-    expect(quietHold.combat).toMatchObject({
-      projectileLifecycleDrained: true,
-      projectiles: [],
-      poolUsage: {liveColliders: 0},
-    });
+    expect(materialHold.material.projectiles).toEqual(closeProjectiles);
     expect(complete.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
       occurrenceId === preparation.view.plan.occurrence.occurrenceId)).toHaveLength(1);
     expect(fixture.eventBus.events().slice(eventsBeforeRead.length).some((event) =>
