@@ -20,6 +20,7 @@
 | [EXT-2026-003：Ash Memory history replay](EXT-2026-003-ash-memory-history-replay.md) | ACCEPTED | reverse history replay、离散 contact components 与 weather firewall |
 | [EXT-2026-004：First Eye recovery handoff](EXT-2026-004-first-eye-recovery-handoff.md) | ACCEPTED | device-neutral gaze intent、30-tick Flower recovery projection 与 typed `ROOM_SAMPLING` boundary |
 | [EXT-2026-005：首个 Forced Alignment 房间 bootstrap](EXT-2026-005-first-forced-room-bootstrap.md) | ACCEPTED | fixed non-composer bootstrap、seed domain、共享 authority 与完整 pre-read/READ 调度 |
+| [EXT-2026-006：Canonical Run rolling 原始行为事实账本](EXT-2026-006-canonical-run-behavior-facts.md) | PROPOSED | accepted-tick 机械聚合、owner/request/commit 分栏、handoff 归属与显式 missing |
 
 ## 新 ADR 规则
 
