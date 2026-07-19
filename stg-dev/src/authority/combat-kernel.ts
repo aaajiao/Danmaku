@@ -106,6 +106,7 @@ const SUPPORTED_OPERATOR_SET: ReadonlySet<string> = new Set([
   "op.orbit_release",
   "op.speed_envelope",
   "op.seam_transform",
+  "op.split_generation",
   "op.turn_once",
 ]);
 const SUPPORTED_OPERATOR_SIGNATURES: ReadonlySet<string> = new Set([
@@ -116,6 +117,7 @@ const SUPPORTED_OPERATOR_SIGNATURES: ReadonlySet<string> = new Set([
   "op.lateral_wall>op.linear",
   "op.lateral_wall>op.speed_envelope>op.linear",
   "op.linear>op.speed_envelope",
+  "op.linear>op.split_generation",
   "op.lateral_wall>op.local_vector_bias>op.linear",
   "op.local_vector_bias>op.linear",
   "op.speed_envelope>op.linear",
@@ -235,6 +237,9 @@ interface RuntimeProjectile {
   readonly authoredSpawnMs: number;
   readonly motion: readonly PatternMotion[];
   readonly historyReplay: HistoryReplayContract | undefined;
+  readonly splitGeneration: SplitGenerationContract | undefined;
+  readonly archetypeId: string;
+  splitApplied: boolean;
   readonly authoredSpawnOrdinal: number;
   position: Vec2;
   previousPosition: Vec2;
@@ -459,6 +464,28 @@ export interface CanonicalCombatSnapshot {
       resolutionHook: "validated-inert-no-metric-or-room-completion";
       roomAuthority: "withheld-no-composer-session-handoff-renderer-or-default-run";
       completeTickTie: "pattern-end-cancels-live-identities-before-gate-update";
+    }>;
+    missingAckSplitPhaseGate?: Readonly<{
+      candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity";
+      effectiveGate: "continuous-pulse-triangle-collision-mask";
+      pulsePathSweep: "exact-cusp-segmented-linear";
+      phaseGapBehavior: "same-generation-motion-retained-collision-off";
+      collisionLease: "reversible-entity-owned-canonical-events";
+      splitOrder: "parent-move>children-spawn-at-resolved-point>parent-source-withdrawn-cancel";
+      childIdentity: "inherited-source-no-rng-draw-resolved-speed-times-authored-multiplier";
+      childPoolClass: "authored-archetype-mapping-splitChildren-budget-unbound";
+      completeTickTie: "pattern-end-cancels-live-identities-before-split-or-mask-update";
+    }>;
+    borrowedRuleHistoryEcho?: Readonly<{
+      candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity";
+      spawnOrdinal: "occurrence-local-emitter-burst-source-order-starting-at-one";
+      armPolicy: "anchor-spawn-then-first-flight-tick-sweeps-to-authored-path-head";
+      replayClock: "authored-spawn-age-with-delay-held-at-authored-path-head";
+      pathSweep: "absolute-polyline-split-at-authored-vertices";
+      crossSideEntry: "safe-prefix-plus-disconnected-snapped-endpoint-no-interior-contact";
+      redirectPolicy: "absolute-replay-before-repeatable-operator-constraint";
+      releasePolicy: "first-fixed-tick-after-replay-end-continues-at-owned-heading-and-speed";
+      completeTickTie: "pattern-end-cancels-live-identities-before-replay-update";
     }>;
     roomThresholdPhaseGate?: Readonly<{
       candidateIdentity: "all-authored-candidates-retain-rng-and-entity-identity";
@@ -1098,7 +1125,7 @@ interface HistoryReplayPoint {
 interface HistoryReplayContract {
   readonly points: readonly HistoryReplayPoint[];
   readonly delayMs: number;
-  readonly mode: "reverse";
+  readonly mode: "reverse" | "echo";
   readonly replayDurationMs: number;
 }
 
@@ -1107,8 +1134,10 @@ function captureHistoryReplay(
   path: string,
 ): HistoryReplayContract {
   const captured = ownPlainDataRecord(motionEntry.params, ["delayMs", "mode", "points"], path);
-  if (captured.mode !== "reverse") {
-    throw new Error(`${path}.mode must be reverse for the admitted Ash Memory slice`);
+  if (captured.mode !== "reverse" && captured.mode !== "echo") {
+    throw new Error(
+      `${path}.mode must be reverse or echo for the admitted history-replay slices`,
+    );
   }
   const delayMs = requireNonNegativeInteger(captured.delayMs as number, `${path}.delayMs`);
   const rawPoints = ownDenseDataArray(captured.points, `${path}.points`);
@@ -1140,17 +1169,21 @@ function captureHistoryReplay(
   if (replayDurationMs === undefined || replayDurationMs <= 0) {
     throw new Error(`${path}.points require a positive replay duration`);
   }
-  const points = authoredPoints
-    .map((point) => Object.freeze({
-      x: point.x,
-      y: point.y,
-      atMs: replayDurationMs - point.atMs,
-    }))
-    .reverse();
+  // `reverse` replays the serialized path from its tail; `echo` replays the
+  // authored direction. Both sample the identical strictly-ordered clock.
+  const points = captured.mode === "reverse"
+    ? authoredPoints
+        .map((point) => Object.freeze({
+          x: point.x,
+          y: point.y,
+          atMs: replayDurationMs - point.atMs,
+        }))
+        .reverse()
+    : [...authoredPoints];
   return Object.freeze({
     points: Object.freeze(points),
     delayMs,
-    mode: "reverse",
+    mode: captured.mode,
     replayDurationMs,
   });
 }
@@ -1168,6 +1201,51 @@ function historyReplayContract(
 ): HistoryReplayContract | undefined {
   const historyReplay = motionStack.find((entry) => entry.operator === "op.history_replay");
   return historyReplay === undefined ? undefined : captureHistoryReplay(historyReplay, path);
+}
+
+interface SplitGenerationContract {
+  readonly atMs: number;
+  readonly children: number;
+  readonly spreadDeg: number;
+  readonly speedMultiplier: number;
+  readonly maxGeneration: 1;
+}
+
+function captureSplitGeneration(
+  motionEntry: Pick<PatternMotion, "params">,
+  path: string,
+): SplitGenerationContract {
+  const captured = ownPlainDataRecord(
+    motionEntry.params,
+    ["atMs", "children", "maxGeneration", "speedMultiplier", "spreadDeg"],
+    path,
+  );
+  const atMs = requirePositiveInteger(captured.atMs as number, `${path}.atMs`);
+  const children = requirePositiveInteger(captured.children as number, `${path}.children`);
+  const spreadDeg = requireNonNegativeFinite(captured.spreadDeg as number, `${path}.spreadDeg`);
+  const speedMultiplier = requirePositiveFinite(
+    captured.speedMultiplier as number,
+    `${path}.speedMultiplier`,
+  );
+  if (captured.maxGeneration !== 1) {
+    throw new Error(`${path}.maxGeneration must be one for the admitted single-split slice`);
+  }
+  return Object.freeze({atMs, children, spreadDeg, speedMultiplier, maxGeneration: 1 as const});
+}
+
+/** Exported for descriptor-hostile parameter tests; production uses this exact capture path. */
+export function validateSplitGenerationParameters(
+  params: Readonly<Record<string, unknown>>,
+): void {
+  captureSplitGeneration({params}, "op.split_generation");
+}
+
+function splitGenerationContract(
+  motionStack: readonly PatternMotion[],
+  path: string,
+): SplitGenerationContract | undefined {
+  const split = motionStack.find((entry) => entry.operator === "op.split_generation");
+  return split === undefined ? undefined : captureSplitGeneration(split, path);
 }
 
 function historyReplayOffsetX(authoredSpawnOrdinal: number): number {
@@ -2004,7 +2082,9 @@ function applyOperatorConstraint(
   // Exact oracle tie policy: an endpoint on the center belongs to the left.
   const side: -1 | 1 = position.x <= center ? -1 : 1;
   const crossesSides = side !== safeGapEntry.side;
-  if (crossesSides && pattern.id !== "encounter.weather_echo.ash_memory") {
+  const ownsAbsoluteReplayCrossSide = pattern.id === "encounter.weather_echo.ash_memory"
+    || pattern.id === "room.in_between.borrowed_rule";
+  if (crossesSides && !ownsAbsoluteReplayCrossSide) {
     throw new Error(
       `${pattern.id} operator constraint crossed the entire protected corridor within one tick`,
     );
@@ -6016,6 +6096,253 @@ export function validateAshMemoryPatternContract(patternValue: unknown): void {
   );
 }
 
+const MISSING_ACK_PATTERN_CONTRACT = deepFreezeJson({
+  id: "room.information.missing_ack",
+  category: "ROOM",
+  room: "INFORMATION",
+  name: {zh: "缺失确认", en: "Missing acknowledgement"},
+  intent: "每个信号分裂，但没有任何一代收到确认。",
+  durationMs: 10800,
+  clock: {
+    authority: "GAMEPLAY",
+    tickHz: 120,
+    eventDispatch: "crossed-time-exactly-once",
+    pausePolicy: "freeze",
+    visualClockSeparated: true,
+  },
+  timeline: [
+    {atMs: 0, event: "warning.begin"},
+    {atMs: 729, event: "collision.arm"},
+    {atMs: 729, event: "emit.begin"},
+    {atMs: 5400, event: "pattern.midpoint"},
+    {atMs: 10100, event: "emit.end"},
+    {atMs: 10380, event: "residue.commit"},
+    {atMs: 10800, event: "pattern.complete"},
+  ],
+  emitters: [
+    {
+      id: "ack-seeds",
+      kind: "projectile",
+      anchor: {space: "viewport-normalized", x: 0.5, y: 0.17},
+      geometry: {
+        type: "arc",
+        variant: "gapped-ack-arc",
+        count: 9,
+        baseAngleDeg: 90,
+        spreadDeg: 148,
+        ordering: "clockwise-then-source-index",
+      },
+      cadence: {startMs: 729, intervalMs: 1260, bursts: 8, intraBurstMs: 0},
+      projectile: {
+        archetype: "bullet.micro.seed",
+        collisionRadiusPx: 2,
+        armDelayMs: 40,
+      },
+      speedCurve: {type: "piecewise-linear", keys: [{atMs: 0, pxPerSec: 136}]},
+      motionStack: [
+        {operator: "op.linear", params: {}},
+        {
+          operator: "op.split_generation",
+          params: {
+            atMs: 980,
+            children: 3,
+            spreadDeg: 34,
+            speedMultiplier: 0.86,
+            maxGeneration: 1,
+          },
+        },
+      ],
+    },
+  ],
+  safeGap: {
+    type: "pulse_gate",
+    minimumWidthPx: 36,
+    focusMinimumWidthPx: 28,
+    path: {
+      centerX: 180,
+      amplitudePx: 24,
+      periodMs: 5000,
+      phase: 0,
+      laneX: [],
+      maxTravelPxPerSec: 78,
+    },
+    enforcement: "phase_gate",
+    compileRule:
+      "omit, gate, redirect, or visibly cancel any candidate whose swept circle violates the corridor envelope",
+    readability: {leadMs: 520, neverColorOnly: true},
+  },
+  warning: {
+    durationMs: 729,
+    shape: "branching_causal_tree",
+    coversSweptArea: true,
+    collisionEnabled: false,
+    flashIndependent: true,
+  },
+  cancel: {
+    triggers: ["pattern_end", "source_withdrawn", "override_void", "room_transition"],
+    mode: "digital_cancel_to_material_residue",
+    collisionOffBeforeVisual: true,
+    eventIdempotent: true,
+  },
+  residue: {
+    type: "packet_dust",
+    lifetimeMs: 3530,
+    density: 0.3,
+    inheritsSourceId: true,
+    gameplayCollision: false,
+  },
+  difficulty: {
+    EASY: {countMultiplier: 0.78, speedMultiplier: 0.88, cadenceMultiplier: 1.16, gapDeltaPx: 8},
+    NORMAL: {countMultiplier: 1, speedMultiplier: 1, cadenceMultiplier: 1, gapDeltaPx: 0},
+    HARD: {countMultiplier: 1.18, speedMultiplier: 1.12, cadenceMultiplier: 0.88, gapDeltaPx: -4},
+  },
+  seed: {
+    algorithm: "mulberry32-v1",
+    base: 1105232455,
+    composition: "runSeed xor base xor encounterOrdinal xor difficultySalt",
+    randomCalls: "emitter-order then burst-order then projectile-order",
+  },
+  accessibility: {
+    reducedMotionGameplayParity: true,
+    flashOffGameplayParity: true,
+    telegraphNeverColorOnly: true,
+  },
+});
+
+/** Exact descriptor-safe V4 contract for the admitted Missing Ack authority. */
+export function validateMissingAckPatternContract(patternValue: unknown): void {
+  assertExactDataContract(
+    patternValue,
+    MISSING_ACK_PATTERN_CONTRACT,
+    "room.information.missing_ack",
+  );
+}
+
+const BORROWED_RULE_PATTERN_CONTRACT = deepFreezeJson({
+  id: "room.in_between.borrowed_rule",
+  category: "ROOM",
+  room: "IN_BETWEEN",
+  name: {zh: "借来的规则", en: "Borrowed rule"},
+  intent: "当前攻击沿上一段玩家路径回放；旧适应在新语境里成为风险。",
+  durationMs: 11800,
+  clock: {
+    authority: "GAMEPLAY",
+    tickHz: 120,
+    eventDispatch: "crossed-time-exactly-once",
+    pausePolicy: "freeze",
+    visualClockSeparated: true,
+  },
+  timeline: [
+    {atMs: 0, event: "warning.begin"},
+    {atMs: 597, event: "collision.arm"},
+    {atMs: 597, event: "emit.begin"},
+    {atMs: 5900, event: "pattern.midpoint"},
+    {atMs: 11100, event: "emit.end"},
+    {atMs: 11380, event: "residue.commit"},
+    {atMs: 11800, event: "pattern.complete"},
+  ],
+  emitters: [
+    {
+      id: "path-echo",
+      kind: "projectile",
+      anchor: {space: "viewport-normalized", x: 0.5, y: 0.1},
+      geometry: {
+        type: "history_chain",
+        variant: "serialized-polyline",
+        count: 14,
+        baseAngleDeg: 90,
+        spreadDeg: 0,
+        ordering: "clockwise-then-source-index",
+      },
+      cadence: {startMs: 597, intervalMs: 1700, bursts: 6, intraBurstMs: 0},
+      projectile: {
+        archetype: "bullet.micro.shard",
+        collisionRadiusPx: 2,
+        armDelayMs: 40,
+      },
+      speedCurve: {type: "piecewise-linear", keys: [{atMs: 0, pxPerSec: 132}]},
+      motionStack: [
+        {
+          operator: "op.history_replay",
+          params: {
+            points: [
+              [92, 80, 0],
+              [144, 190, 420],
+              [112, 310, 860],
+              [188, 450, 1320],
+              [236, 590, 1780],
+            ],
+            delayMs: 260,
+            mode: "echo",
+          },
+        },
+      ],
+    },
+  ],
+  safeGap: {
+    type: "history_counterpath",
+    minimumWidthPx: 38,
+    focusMinimumWidthPx: 30,
+    path: {
+      centerX: 180,
+      amplitudePx: 52,
+      periodMs: 9000,
+      phase: 0,
+      laneX: [],
+      maxTravelPxPerSec: 78,
+    },
+    enforcement: "operator_constraint",
+    compileRule:
+      "omit, gate, redirect, or visibly cancel any candidate whose swept circle violates the corridor envelope",
+    readability: {leadMs: 520, neverColorOnly: true},
+  },
+  warning: {
+    durationMs: 597,
+    shape: "future_history_polyline",
+    coversSweptArea: true,
+    collisionEnabled: false,
+    flashIndependent: true,
+  },
+  cancel: {
+    triggers: ["pattern_end", "source_withdrawn", "override_void", "room_transition"],
+    mode: "digital_cancel_to_material_residue",
+    collisionOffBeforeVisual: true,
+    eventIdempotent: true,
+  },
+  residue: {
+    type: "misregistration_flake",
+    lifetimeMs: 3302,
+    density: 0.34,
+    inheritsSourceId: true,
+    gameplayCollision: false,
+  },
+  difficulty: {
+    EASY: {countMultiplier: 0.78, speedMultiplier: 0.88, cadenceMultiplier: 1.16, gapDeltaPx: 8},
+    NORMAL: {countMultiplier: 1, speedMultiplier: 1, cadenceMultiplier: 1, gapDeltaPx: 0},
+    HARD: {countMultiplier: 1.18, speedMultiplier: 1.12, cadenceMultiplier: 0.88, gapDeltaPx: -4},
+  },
+  seed: {
+    algorithm: "mulberry32-v1",
+    base: 3089493050,
+    composition: "runSeed xor base xor encounterOrdinal xor difficultySalt",
+    randomCalls: "emitter-order then burst-order then projectile-order",
+  },
+  accessibility: {
+    reducedMotionGameplayParity: true,
+    flashOffGameplayParity: true,
+    telegraphNeverColorOnly: true,
+  },
+});
+
+/** Exact descriptor-safe V4 contract for the admitted Borrowed Rule authority. */
+export function validateBorrowedRulePatternContract(patternValue: unknown): void {
+  assertExactDataContract(
+    patternValue,
+    BORROWED_RULE_PATTERN_CONTRACT,
+    "room.in_between.borrowed_rule",
+  );
+}
+
 function validatePattern(pattern: CombatPattern): void {
   if (EXECUTABLE_PATTERN_MANIFEST.schemaVersion !== "4.0.0") {
     throw new Error("canonical combat requires executable pattern schema 4.0.0");
@@ -6040,6 +6367,12 @@ function validatePattern(pattern: CombatPattern): void {
   }
   if (pattern.id === "encounter.weather_echo.ash_memory") {
     validateAshMemoryPatternContract(pattern);
+  }
+  if (pattern.id === "room.information.missing_ack") {
+    validateMissingAckPatternContract(pattern);
+  }
+  if (pattern.id === "room.in_between.borrowed_rule") {
+    validateBorrowedRulePatternContract(pattern);
   }
   if (pattern.id === "boss.one_sun_one_rule.phase1") {
     validateOneSunOneRulePatternContract(pattern);
@@ -6164,6 +6497,7 @@ function validatePattern(pattern: CombatPattern): void {
     && pattern.id !== "room.in_between.context_switch"
     && pattern.id !== "boss.one_sun_one_rule.phase1"
     && pattern.id !== "encounter.weather_echo.ash_memory"
+    && pattern.id !== "room.in_between.borrowed_rule"
   ) {
     throw new Error(`${pattern.id} operator-constraint capability ownership drifted`);
   }
@@ -6174,6 +6508,7 @@ function validatePattern(pattern: CombatPattern): void {
     && pattern.id !== "room.polarized.no_dusk_grid"
     && pattern.id !== "room.in_between.stable_intersection"
     && pattern.id !== "transition.room_threshold"
+    && pattern.id !== "room.information.missing_ack"
   ) {
     throw new Error(`${pattern.id} phase-gate capability ownership drifted`);
   }
@@ -6224,8 +6559,10 @@ function validatePattern(pattern: CombatPattern): void {
       && emitter.geometry.type === "lattice";
     const ownsMisregistrationSpiral = pattern.id === "room.in_between.misregistration_corridor"
       && emitter.geometry.type === "spiral";
-    const ownsAshMemoryHistoryChain = pattern.id === "encounter.weather_echo.ash_memory"
-      && emitter.geometry.type === "history_chain";
+    const ownsAshMemoryHistoryChain = (
+      pattern.id === "encounter.weather_echo.ash_memory"
+      || pattern.id === "room.in_between.borrowed_rule"
+    ) && emitter.geometry.type === "history_chain";
     if (
       !SUPPORTED_GEOMETRY_SET.has(emitter.geometry.type)
       && !ownsClockDecreeShutter
@@ -6293,6 +6630,7 @@ function validatePattern(pattern: CombatPattern): void {
     } else if (
       emitter.geometry.type === "history_chain"
       && pattern.id !== "encounter.weather_echo.ash_memory"
+      && pattern.id !== "room.in_between.borrowed_rule"
     ) {
       throw new Error(`${pattern.id}/${emitter.id} history-chain capability ownership drifted`);
     }
@@ -6332,9 +6670,19 @@ function validatePattern(pattern: CombatPattern): void {
     const linear = emitter.motionStack.find((entry) => entry.operator === "op.linear");
     const historyReplay = emitter.motionStack.find((entry) => entry.operator === "op.history_replay");
     const orbitRelease = emitter.motionStack.find((entry) => entry.operator === "op.orbit_release");
-    const ownsAshMemoryHistoryReplay = pattern.id === "encounter.weather_echo.ash_memory";
-    if (ownsAshMemoryHistoryReplay !== (historyReplay !== undefined)) {
+    const splitGeneration = emitter.motionStack.find((entry) =>
+      entry.operator === "op.split_generation");
+    const ownsHistoryReplay = pattern.id === "encounter.weather_echo.ash_memory"
+      || pattern.id === "room.in_between.borrowed_rule";
+    if (ownsHistoryReplay !== (historyReplay !== undefined)) {
       throw new Error(`${pattern.id}/${emitter.id} history-replay capability ownership drifted`);
+    }
+    const ownsSplitGeneration = pattern.id === "room.information.missing_ack";
+    if (ownsSplitGeneration !== (splitGeneration !== undefined)) {
+      throw new Error(`${pattern.id}/${emitter.id} split-generation capability ownership drifted`);
+    }
+    if (splitGeneration !== undefined) {
+      captureSplitGeneration(splitGeneration, `${emitter.id}.split_generation`);
     }
     if (historyReplay !== undefined) {
       captureHistoryReplay(historyReplay, `${emitter.id}.history_replay`);
@@ -6595,18 +6943,21 @@ function candidateViolatesSafeGap(
       || pattern.id === "room.polarized.clock_decree"
       || pattern.id === "room.polarized.no_dusk_grid"
       || pattern.id === "room.in_between.stable_intersection"
-      || pattern.id === "transition.room_threshold";
-    const ownsIndependentRoomThresholdGate = pattern.id === "transition.room_threshold";
+      || pattern.id === "transition.room_threshold"
+      || pattern.id === "room.information.missing_ack";
+    const ownsIndependentPhaseGate = pattern.id === "transition.room_threshold"
+      || pattern.id === "room.information.missing_ack";
     if (
       !ownsPhaseGate
-      || (ownsIndependentRoomThresholdGate && dualClockGate !== undefined)
-      || (!ownsIndependentRoomThresholdGate && dualClockGate === undefined)
+      || (ownsIndependentPhaseGate && dualClockGate !== undefined)
+      || (!ownsIndependentPhaseGate && dualClockGate === undefined)
     ) {
       throw new Error(`${pattern.id} phase-gate preflight ownership drifted`);
     }
     // A phase gate retains the authored RNG and entity identities. Its
     // reversible corridor mask is evaluated on each owned 120Hz body; Room
-    // Threshold owns no clock and therefore never freezes or omits motion.
+    // Threshold and Missing Ack own no clock and therefore never freeze or
+    // omit motion.
     return false;
   }
   if (pattern.safeGap.enforcement === "operator_constraint") {
@@ -6974,6 +7325,66 @@ function reversiblePhaseGateAllowsCollision(
       startMs,
       endMs,
     )) return false;
+  }
+  return true;
+}
+
+/**
+ * Missing Ack's corridor is the authored pulse-gate triangle, not a clock.
+ * Every generation (parent signals and their split children) keeps its
+ * declaration-ordered motion and stable identity; only its entity-owned
+ * collision lease is masked while an exact cusp-segmented movement piece
+ * overlaps the radius-expanded corridor envelope.
+ */
+function independentPulseGatePhaseGateAllowsCollision(
+  pattern: CombatPattern,
+  difficulty: PatternDifficulty,
+  segments: readonly KinematicMotionSegment[],
+  collisionRadiusPx: number,
+): boolean {
+  if (
+    pattern.id !== "room.information.missing_ack"
+    || pattern.safeGap.type !== "pulse_gate"
+    || pattern.safeGap.enforcement !== "phase_gate"
+    || pattern.safeGap.path.laneX.length !== 0
+    || segments.length === 0
+  ) {
+    throw new Error(`${pattern.id} independent pulse-gate ownership drifted`);
+  }
+  for (const segment of segments) {
+    const boundaries = [
+      segment.previousRelativeMs,
+      ...quantizedTrianglePathBreakpoints(
+        pattern,
+        segment.previousRelativeMs,
+        segment.relativeMs,
+      ),
+      segment.relativeMs,
+    ];
+    const durationMs = segment.relativeMs - segment.previousRelativeMs;
+    const positionAt = (atMs: number): Vec2 => {
+      const progress = durationMs <= 0
+        ? 1
+        : (atMs - segment.previousRelativeMs) / durationMs;
+      return Object.freeze({
+        x: segment.from.x + (segment.to.x - segment.from.x) * progress,
+        y: segment.from.y + (segment.to.y - segment.from.y) * progress,
+      });
+    };
+    for (let index = 0; index < boundaries.length - 1; index += 1) {
+      const startMs = boundaries[index];
+      const endMs = boundaries[index + 1];
+      if (startMs === undefined || endMs === undefined) continue;
+      if (linearPhaseGapSegmentViolatesSafeGap(
+        pattern,
+        difficulty,
+        positionAt(startMs),
+        positionAt(endMs),
+        collisionRadiusPx,
+        startMs,
+        endMs,
+      )) return false;
+    }
   }
   return true;
 }
@@ -7708,6 +8119,22 @@ export class CanonicalCombatKernel {
         "encounter.weather_echo.ash_memory requires bullet.micro.shard in the micro pool class",
       );
     }
+    if (
+      this.pattern.id === "room.information.missing_ack"
+      && projectilePoolClasses["bullet.micro.seed"] !== "micro"
+    ) {
+      throw new Error(
+        "room.information.missing_ack requires bullet.micro.seed in the micro pool class",
+      );
+    }
+    if (
+      this.pattern.id === "room.in_between.borrowed_rule"
+      && projectilePoolClasses["bullet.micro.shard"] !== "micro"
+    ) {
+      throw new Error(
+        "room.in_between.borrowed_rule requires bullet.micro.shard in the micro pool class",
+      );
+    }
     this.options = Object.freeze({
       ...captured,
       patternId,
@@ -7893,6 +8320,45 @@ export class CanonicalCombatKernel {
               "withheld-no-composer-session-handoff-renderer-or-default-run" as const,
             completeTickTie:
               "pattern-end-cancels-live-identities-before-gate-update" as const,
+          })}
+        : {}),
+      ...(this.pattern.id === "room.information.missing_ack"
+        ? {missingAckSplitPhaseGate: Object.freeze({
+            candidateIdentity:
+              "all-authored-candidates-retain-rng-and-entity-identity" as const,
+            effectiveGate: "continuous-pulse-triangle-collision-mask" as const,
+            pulsePathSweep: "exact-cusp-segmented-linear" as const,
+            phaseGapBehavior: "same-generation-motion-retained-collision-off" as const,
+            collisionLease: "reversible-entity-owned-canonical-events" as const,
+            splitOrder:
+              "parent-move>children-spawn-at-resolved-point>parent-source-withdrawn-cancel" as const,
+            childIdentity:
+              "inherited-source-no-rng-draw-resolved-speed-times-authored-multiplier" as const,
+            childPoolClass:
+              "authored-archetype-mapping-splitChildren-budget-unbound" as const,
+            completeTickTie:
+              "pattern-end-cancels-live-identities-before-split-or-mask-update" as const,
+          })}
+        : {}),
+      ...(this.pattern.id === "room.in_between.borrowed_rule"
+        ? {borrowedRuleHistoryEcho: Object.freeze({
+            candidateIdentity:
+              "all-authored-candidates-retain-rng-and-entity-identity" as const,
+            spawnOrdinal:
+              "occurrence-local-emitter-burst-source-order-starting-at-one" as const,
+            armPolicy:
+              "anchor-spawn-then-first-flight-tick-sweeps-to-authored-path-head" as const,
+            replayClock:
+              "authored-spawn-age-with-delay-held-at-authored-path-head" as const,
+            pathSweep: "absolute-polyline-split-at-authored-vertices" as const,
+            crossSideEntry:
+              "safe-prefix-plus-disconnected-snapped-endpoint-no-interior-contact" as const,
+            redirectPolicy:
+              "absolute-replay-before-repeatable-operator-constraint" as const,
+            releasePolicy:
+              "first-fixed-tick-after-replay-end-continues-at-owned-heading-and-speed" as const,
+            completeTickTie:
+              "pattern-end-cancels-live-identities-before-replay-update" as const,
           })}
         : {}),
       ...(this.pattern.id === "transition.room_threshold"
@@ -8197,6 +8663,10 @@ export class CanonicalCombatKernel {
       emitter.motionStack,
       `${this.pattern.id}/${emitter.id}.orbit_release`,
     );
+    const splitGeneration = splitGenerationContract(
+      emitter.motionStack,
+      `${this.pattern.id}/${emitter.id}.split_generation`,
+    );
     for (const candidate of candidates) {
       // `op.lateral_wall` defines the opening as an absent spawn candidate.
       // The omitted lane therefore owns neither an entity identity nor an RNG call.
@@ -8277,6 +8747,9 @@ export class CanonicalCombatKernel {
         authoredSpawnMs: authoredAtMs,
         motion: emitter.motionStack,
         historyReplay,
+        splitGeneration,
+        archetypeId: emitter.projectile.archetype,
+        splitApplied: false,
         authoredSpawnOrdinal,
         orbitRelease,
         orbitOrigin: position,
@@ -8313,6 +8786,89 @@ export class CanonicalCombatKernel {
   private nextRandom(): number {
     this.rngCallsConsumedValue += 1;
     return this.random.random();
+  }
+
+  /**
+   * op.split_generation adapter: symmetric children inherit the parent's
+   * source identity and its split-instant resolved speed times the authored
+   * multiplier. Child order is clockwise and stable; each child arms at the
+   * end of the split tick, so its first motion/contact interval begins on the
+   * following master tick — after the parent's collision lease has closed.
+   */
+  private spawnSplitChildren(
+    parent: RuntimeProjectile,
+    tick120: number,
+    relativeMs: number,
+  ): void {
+    const split = parent.splitGeneration;
+    if (split === undefined) {
+      throw new Error(`${this.pattern.id} split spawn lost its validated contract`);
+    }
+    const childSpeedPxPerSecond = parent.speedPxPerSecond * split.speedMultiplier;
+    requirePositiveFinite(childSpeedPxPerSecond, `${this.pattern.id} split child speed`);
+    const childSpeedCurve: SpeedCurveContract = Object.freeze({
+      type: "piecewise-linear" as const,
+      keys: Object.freeze([Object.freeze({atMs: 0, pxPerSec: childSpeedPxPerSecond})]),
+    });
+    const childMotion = Object.freeze(
+      parent.motion.filter((entry) => entry.operator !== "op.split_generation"),
+    );
+    for (let childIndex = 0; childIndex < split.children; childIndex += 1) {
+      const headingOffset = split.children === 1
+        ? 0
+        : split.spreadDeg * (childIndex / (split.children - 1) - 0.5);
+      const occurrenceSuffix =
+        `${parent.sourceId}:${parent.burstIndex}:${parent.sourceIndex}:split:${childIndex}`;
+      const handle = this.projectiles.spawn({
+        tick120,
+        occurrenceKey: this.occurrenceScope !== null
+          ? `${this.occurrenceScope}:${occurrenceSuffix}`
+          : `${this.pattern.id}:${occurrenceSuffix}`,
+        archetypeId: parent.archetypeId,
+        position: parent.position,
+        armDelayTicks: 0,
+        residueTicks: this.residueTicks,
+        collisionEnabledAtArm: true,
+      });
+      if (handle === null) continue;
+      const childRuntime: RuntimeProjectile = {
+        handle,
+        sourceId: parent.sourceId,
+        sourceIndex: parent.sourceIndex,
+        burstIndex: parent.burstIndex,
+        spawnTick120: tick120,
+        authoredSpawnMs: relativeMs,
+        motion: childMotion,
+        historyReplay: undefined,
+        splitGeneration: undefined,
+        archetypeId: parent.archetypeId,
+        splitApplied: true,
+        authoredSpawnOrdinal: parent.authoredSpawnOrdinal,
+        orbitRelease: undefined,
+        orbitOrigin: parent.position,
+        orbitPhaseRadians: 0,
+        orbitStarted: false,
+        position: parent.position,
+        previousPosition: parent.position,
+        headingDegrees: parent.headingDegrees + headingOffset,
+        speedCurve: childSpeedCurve,
+        speedMultiplier: 1,
+        localVectorBias: undefined,
+        dualClockGate: undefined,
+        dualClockActive: true,
+        speedPxPerSecond: childSpeedPxPerSecond,
+        collisionEnabledAtTick120: null,
+        desiredCollisionEnabled: null,
+        desiredCollisionReason: null,
+        aimLocked: false,
+        turnApplied: false,
+        seamTransformed: false,
+        nextHomingSample: 0,
+        movementSegmentsAtTick120: null,
+        movementSegments: Object.freeze([]),
+      };
+      this.runtimeProjectiles.set(keyFor(handle), childRuntime);
+    }
   }
 
   private advanceRuntimeProjectiles(tick120: number): void {
@@ -8437,6 +8993,10 @@ export class CanonicalCombatKernel {
       const usesOperatorConstraint = this.pattern.safeGap.enforcement === "operator_constraint";
       const usesIndependentRoomThresholdPhaseGate =
         this.pattern.id === "transition.room_threshold";
+      const usesIndependentPulseGatePhaseGate =
+        this.pattern.id === "room.information.missing_ack";
+      const usesIndependentPhaseGate = usesIndependentRoomThresholdPhaseGate
+        || usesIndependentPulseGatePhaseGate;
       const linearIndex = runtime.motion.findIndex((entry) => entry.operator === "op.linear");
       const turnIndex = runtime.motion.findIndex((entry) => entry.operator === "op.turn_once");
       const turnDeclaredAfterLinear = turnIndex >= 0
@@ -8580,7 +9140,7 @@ export class CanonicalCombatKernel {
         runtime.speedPxPerSecond = integrated.resolvedSpeedPxPerSecond;
         runtime.movementSegmentsAtTick120 = tick120;
         runtime.movementSegments = integrated.segments;
-        violatesSafeGap = usesIndependentRoomThresholdPhaseGate
+        violatesSafeGap = usesIndependentPhaseGate
           ? false
           : integrated.segments.some((segment) => sweptSegmentViolatesSafeGap(
               this.pattern,
@@ -8623,8 +9183,36 @@ export class CanonicalCombatKernel {
           snapshot.collisionRadiusPx,
         );
         runtime.desiredCollisionReason = "phase_gate";
+      } else if (usesIndependentPulseGatePhaseGate) {
+        runtime.desiredCollisionEnabled = independentPulseGatePhaseGateAllowsCollision(
+          this.pattern,
+          this.options.difficulty,
+          runtime.movementSegments,
+          snapshot.collisionRadiusPx,
+        );
+        runtime.desiredCollisionReason = "phase_gate";
       }
-      const runtimeViolatesSafeGap = !usesIndependentRoomThresholdPhaseGate && (violatesSafeGap || (
+      if (
+        runtime.splitGeneration !== undefined
+        && !runtime.splitApplied
+        && ageTick120 >= crossedOffsetTickCount(
+          runtime.authoredSpawnMs,
+          runtime.splitGeneration.atMs,
+        )
+      ) {
+        // op.split_generation: the parent completes this tick's declared
+        // motion, spawns its symmetric resolved-speed children at the exact
+        // split point, and cancels into source-withdrawn material before the
+        // children arm. Children consume no RNG draw; candidate accounting
+        // stays one draw per authored candidate.
+        runtime.splitApplied = true;
+        this.spawnSplitChildren(runtime, tick120, relativeMs);
+        runtime.desiredCollisionEnabled = null;
+        runtime.desiredCollisionReason = null;
+        this.projectiles.cancel(runtime.handle, tick120, "source_withdrawn");
+        continue;
+      }
+      const runtimeViolatesSafeGap = !usesIndependentPhaseGate && (violatesSafeGap || (
         seamTransform === undefined
         && !usesOperatorConstraint
         && !usesAnalyticKinematics
