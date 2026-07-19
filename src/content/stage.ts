@@ -1,0 +1,381 @@
+/**
+ * Stages: the declarative surface a designer authors a level in.
+ *
+ * A stage is a list of waves, and a wave is "at this tick, put this enemy
+ * here". Everything else — what the enemy does, how it moves, what it fires —
+ * belongs to its `EnemySpec`. That split is the point: a stage is a score, not
+ * a script. It says when things enter, never how they behave, so retuning an
+ * enemy retunes it everywhere without touching a single stage file.
+ *
+ * Upstream had no stage data at all. `Stage.js` hard-coded its waves as
+ * imperative spawn calls inside a `switch` on the stage number, which is why
+ * adding an enemy there meant editing the runner. Here a stage is data, and
+ * the runner knows nothing about any particular one.
+ *
+ * ## Timing is exact
+ *
+ * A wave at tick 120 spawns on tick 120 of every run, on every machine. The
+ * runner counts its own ticks and never reads a clock — per CLAUDE.md rule 1,
+ * nothing on this path may know what a second is. `at` is ticks, and 60 ticks
+ * is a second because the loop says so, not because anything here measures it.
+ */
+
+import { sim, type Random } from '../core/random';
+import { EnemySystem, getEnemySpec } from '../sim/enemy';
+
+export interface WaveEntry {
+  /** Tick, relative to the stage start. */
+  at: number;
+  enemy: string;
+  x: number;
+  y: number;
+  /** Spawn several, spaced by this many ticks. */
+  count?: number;
+  interval?: number;
+  /** Offset each successive spawn. */
+  stepX?: number;
+  stepY?: number;
+}
+
+export interface StageSpec {
+  name: string;
+  /**
+   * The seed a run of this stage starts from.
+   *
+   * The runner deliberately does not apply it — reseeding `sim` mid-run would
+   * stomp a stream the replay system owns. Whoever starts the run applies it,
+   * once, with `seedRun(spec.seed)` from `core/random`.
+   */
+  seed?: number;
+  waves: readonly WaveEntry[];
+  /** Ticks after the last wave before the stage is considered complete. */
+  outro?: number;
+}
+
+const registry = new Map<string, StageSpec>();
+
+/**
+ * Register a stage. Waves are sorted by `at`, so they may be authored in any
+ * order — grouped by role, by lane, or by whatever reads best.
+ */
+export function defineStage(name: string, spec: StageSpec): void {
+  if (registry.has(name)) {
+    throw new Error(`stage "${name}" is already defined`);
+  }
+  // A stage whose registry key and `name` disagree is a copy-paste that got
+  // half-renamed. Tooling shows one and lookups use the other, so the lie
+  // would surface far from its cause.
+  if (spec.name !== name) {
+    throw new Error(
+      `stage "${name}" declares name "${spec.name}"; the two must match`,
+    );
+  }
+
+  validate(spec);
+
+  // Sorted and copied at definition, so an author mutating their own array
+  // afterwards cannot change a registered stage, and `getStage` always hands
+  // back waves in the order they will actually fire.
+  registry.set(name, { ...spec, waves: sortWaves(spec.waves) });
+}
+
+export function getStage(name: string): StageSpec {
+  const spec = registry.get(name);
+  if (!spec) throw new Error(`unknown stage "${name}"`);
+  return spec;
+}
+
+export function stageNames(): readonly string[] {
+  return [...registry.keys()];
+}
+
+/**
+ * `Array.prototype.sort` is stable per spec, which is load-bearing here rather
+ * than incidental: two waves sharing an `at` spawn in the order they were
+ * written, and spawn order is draw order in `EnemySystem`.
+ */
+function sortWaves(waves: readonly WaveEntry[]): WaveEntry[] {
+  return [...waves].sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Reject what would otherwise go wrong quietly.
+ *
+ * Only whole ticks are checked, not taste. `at: 12.5` is never reached by a
+ * tick counter that moves in whole steps, and a fractional `interval` makes a
+ * wave's repeats land on ticks that are neither evenly spaced nor the ones
+ * written down. Both produce a stage that looks authored and plays wrong.
+ */
+function validate(spec: StageSpec): void {
+  const outro = spec.outro ?? 0;
+  if (!Number.isInteger(outro) || outro < 0) {
+    throw new Error(`stage "${spec.name}": outro must be a whole tick count`);
+  }
+
+  for (let i = 0; i < spec.waves.length; i++) {
+    const wave = spec.waves[i];
+    if (wave === undefined) continue;
+    const where = `stage "${spec.name}" wave ${i} (${wave.enemy})`;
+
+    if (!Number.isInteger(wave.at) || wave.at < 0) {
+      throw new Error(`${where}: "at" must be a whole tick count, got ${wave.at}`);
+    }
+    const count = wave.count ?? 1;
+    if (!Number.isInteger(count) || count < 1) {
+      throw new Error(`${where}: "count" must be a positive whole number, got ${count}`);
+    }
+    const interval = wave.interval ?? 0;
+    if (!Number.isInteger(interval) || interval < 0) {
+      throw new Error(
+        `${where}: "interval" must be a whole tick count, got ${interval}`,
+      );
+    }
+  }
+}
+
+/** One resolved spawn: a wave's repeats flattened out. */
+interface StageSpawn {
+  tick: number;
+  enemy: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * Flatten waves into the exact spawn list a run will replay.
+ *
+ * Repeat `k` of a wave lands at `at + k * interval`, offset by `k` steps —
+ * so `count: 1` is the wave itself and nothing more, and `interval: 0` puts
+ * the whole group on one tick, which is how a formation is written.
+ */
+function expand(spec: StageSpec): StageSpawn[] {
+  const spawns: StageSpawn[] = [];
+
+  for (const wave of sortWaves(spec.waves)) {
+    const count = wave.count ?? 1;
+    const interval = wave.interval ?? 0;
+    const stepX = wave.stepX ?? 0;
+    const stepY = wave.stepY ?? 0;
+
+    for (let k = 0; k < count; k++) {
+      spawns.push({
+        tick: wave.at + k * interval,
+        enemy: wave.enemy,
+        x: wave.x + k * stepX,
+        y: wave.y + k * stepY,
+      });
+    }
+  }
+
+  // Sorting waves is not enough: a long wave's later repeats interleave with
+  // waves that start after it. Stable, so a formation keeps its written order
+  // and two waves sharing a tick keep theirs.
+  return spawns.sort((a, b) => a.tick - b.tick);
+}
+
+/**
+ * Drives a stage's spawn schedule against an `EnemySystem`.
+ *
+ * It spawns and nothing else. It does not step the enemies it created, does
+ * not touch bullets, and does not care whether anything it spawned is still
+ * alive — a stage is over when its script is over, and clearing the field is
+ * the game's business. Keeping those separate is what lets a stage be tested
+ * headlessly against a spawn log.
+ */
+export class StageRunner {
+  readonly #enemies: EnemySystem;
+  readonly #spawns: readonly StageSpawn[];
+
+  /** Last tick on which this stage is still running. See `finished`. */
+  readonly #endTick: number;
+
+  #tick = 0;
+
+  /** Index of the next spawn owed. The schedule is sorted, so this only moves forward. */
+  #cursor = 0;
+
+  constructor(spec: StageSpec, enemies: EnemySystem) {
+    this.#enemies = enemies;
+    validate(spec);
+    this.#spawns = expand(spec);
+
+    // Resolve every enemy name now. `EnemySystem.spawn` would throw on a typo
+    // anyway, but forty seconds into the stage, from a wave the player was
+    // about to meet. Checking at construction fails before the stage starts.
+    //
+    // This is deliberately not done in `defineStage`: a content file that
+    // defines its own enemies would then have to be imported in the right
+    // order, and load-order dependence is the exact trap `patterns.ts` was
+    // written to avoid.
+    const seen = new Set<string>();
+    for (const spawn of this.#spawns) {
+      if (seen.has(spawn.enemy)) continue;
+      seen.add(spawn.enemy);
+      getEnemySpec(spawn.enemy);
+    }
+
+    const last = this.#spawns[this.#spawns.length - 1];
+    this.#endTick = (last?.tick ?? -1) + (spec.outro ?? 0);
+  }
+
+  /**
+   * Advance one tick, spawning everything due on it.
+   *
+   * `rng` is passed through to the enemy system, which draws from it for any
+   * randomized motion parameter. Nothing here draws on its own: the schedule
+   * is fixed data, and a stage that consumed the sim stream would shift every
+   * subsequent bullet by how many enemies it happened to have spawned.
+   */
+  step(rng: Random = sim): void {
+    while (this.#cursor < this.#spawns.length) {
+      const spawn = this.#spawns[this.#cursor];
+      if (spawn === undefined || spawn.tick > this.#tick) break;
+
+      // A refused spawn (pool at its ceiling) still consumes the entry.
+      // Retrying it on a later tick would make authored timing depend on how
+      // busy the field was, which is exactly the determinism the schedule
+      // exists to provide. `EnemySystem.droppedSpawns` already counts these.
+      this.#enemies.spawn(spawn.enemy, spawn.x, spawn.y, rng);
+      this.#cursor++;
+    }
+
+    this.#tick++;
+  }
+
+  /** Ticks elapsed — equivalently, the tick the next `step` will process. */
+  get tick(): number {
+    return this.#tick;
+  }
+
+  /**
+   * True once the last wave has spawned and the outro has fully elapsed.
+   *
+   * The outro is counted in ticks *after* the tick that spawned the last wave,
+   * so `outro: 0` finishes the moment that spawn happens and `outro: 60`
+   * finishes exactly one second later. A stage with no waves at all is over
+   * before it starts.
+   *
+   * Survivors are not consulted. Whether the player still has enemies to clear
+   * is a question about the field, not about the script.
+   */
+  get finished(): boolean {
+    return this.#tick > this.#endTick;
+  }
+
+  /** Rewind the schedule. Does not clear the field — the game owns what it spawned. */
+  reset(): void {
+    this.#tick = 0;
+    this.#cursor = 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Example content                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Stage 1 — about thirty seconds of real play, built from the enemies in
+ * `sim/enemy.ts`. It exists to prove the whole engine composes, so it is
+ * paced like a stage rather than sized like a fixture.
+ *
+ * The field is 480×480 and enemies enter from above, so every `y` here is
+ * negative: a wave is authored where it *starts*, offscreen, and flies in.
+ *
+ * Shape:
+ *
+ * ```
+ *   0    columns          learn to dodge a stream           easy
+ * 360    weavers          arcs that loop back through you   moving targets
+ * 760    turret           a wall of hp that must be killed  first real check
+ * 1160   mixed pressure   formations over a fed centre      the squeeze
+ * 1500   twin turrets     two rings crossing, plus a sweep  climax
+ * 1710   last spawn
+ * 1890   finished         (3s outro)
+ * ```
+ *
+ * Two things about the cast shaped the layout, both worth knowing before
+ * moving anything:
+ *
+ * - `weaver` sweeps **right** (its middle segment is `theta: 0` with `w: 3`),
+ *   loops, then leaves upward around tick 90. It has no mirrored twin, so
+ *   weavers are placed left of where they should end up, never hard right.
+ * - `turret` descends at 0.4px/tick and carries a 96px despawn margin, so it
+ *   will not leave on its own inside the length of this stage. It is a wall:
+ *   the player kills it or fights everything after it at the same time.
+ */
+const LEFT = 90;
+const CENTRE = 240;
+const RIGHT = 390;
+
+/** Above the field by more than the tallest sprite's half-height. */
+const ENTRY_Y = -24;
+const TURRET_ENTRY_Y = -60;
+
+defineStage('stage-1', {
+  name: 'stage-1',
+  seed: 0x5747a1,
+  outro: 180,
+  waves: [
+    /* Opening: two columns, offset, so the player is taught to move sideways
+       rather than to sit still and shoot. */
+    { at: 0, enemy: 'grunt', x: LEFT + 30, y: ENTRY_Y, count: 5, interval: 20 },
+    { at: 30, enemy: 'grunt', x: RIGHT - 30, y: ENTRY_Y, count: 5, interval: 20 },
+
+    /* An echelon: `interval: 0` puts all five on one tick, and `stepY` staggers
+       them in space instead of in time, so they arrive as a diagonal wall. */
+    {
+      at: 200,
+      enemy: 'grunt',
+      x: 150,
+      y: ENTRY_Y,
+      count: 5,
+      interval: 0,
+      stepX: 45,
+      stepY: -18,
+    },
+
+    /* Weavers. They loop back through the space they just crossed, which is
+       the first time aiming has to lead a target. */
+    { at: 360, enemy: 'weaver', x: 140, y: -30 },
+    { at: 380, enemy: 'weaver', x: 300, y: -30 },
+    { at: 440, enemy: 'grunt', x: CENTRE, y: ENTRY_Y, count: 4, interval: 24 },
+    { at: 560, enemy: 'weaver', x: 100, y: -30, count: 3, interval: 30, stepX: 70 },
+
+    /* First turret. Its ring fire is slow and readable alone; the flanking
+       columns are what make it a problem. */
+    { at: 760, enemy: 'turret', x: CENTRE, y: TURRET_ENTRY_Y },
+    { at: 820, enemy: 'grunt', x: 60, y: ENTRY_Y, count: 4, interval: 40 },
+    { at: 840, enemy: 'grunt', x: 420, y: ENTRY_Y, count: 4, interval: 40 },
+    { at: 1000, enemy: 'weaver', x: 180, y: -30 },
+
+    /* The squeeze: a six-wide wall, then weavers from both edges, then a
+       drifting centre stream that walks across the field as it falls. */
+    {
+      at: 1160,
+      enemy: 'grunt',
+      x: 90,
+      y: ENTRY_Y,
+      count: 6,
+      interval: 0,
+      stepX: 60,
+      stepY: -20,
+    },
+    { at: 1240, enemy: 'weaver', x: 120, y: -30, count: 2, interval: 40, stepX: 200 },
+    {
+      at: 1320,
+      enemy: 'grunt',
+      x: 300,
+      y: ENTRY_Y,
+      count: 8,
+      interval: 14,
+      stepX: -18,
+    },
+
+    /* Climax: two turrets on the same tick. Their rings interfere, and the
+       gaps between them are the only safe ground. */
+    { at: 1500, enemy: 'turret', x: 140, y: TURRET_ENTRY_Y },
+    { at: 1500, enemy: 'turret', x: 340, y: TURRET_ENTRY_Y },
+    { at: 1560, enemy: 'weaver', x: CENTRE, y: -30, count: 2, interval: 50 },
+    { at: 1620, enemy: 'grunt', x: 60, y: ENTRY_Y, count: 6, interval: 18, stepX: 72 },
+  ],
+});

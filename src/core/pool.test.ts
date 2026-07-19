@@ -34,7 +34,7 @@ function harness(options: Partial<PoolOptions<Cell>> & { initial: number }) {
 }
 
 /** Acquire `n` objects, asserting none were refused. */
-function take<T>(pool: Pool<T>, n: number): T[] {
+function take<T extends object>(pool: Pool<T>, n: number): T[] {
   const out: T[] = [];
   for (let i = 0; i < n; i++) {
     const item = pool.acquire();

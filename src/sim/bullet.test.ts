@@ -7,6 +7,7 @@ import {
   type BulletSystemOptions,
   type FieldBounds,
 } from './bullet';
+import { circlesOverlap } from './collision';
 import { defineBehaviour, type MotionContext, type MotionSegment } from './motion';
 
 const FIELD: FieldBounds = { width: 480, height: 480, margin: 32 };
@@ -214,6 +215,43 @@ describe('step: motion', () => {
 
     stepTimes(system, 4);
     expect(bullet.angle).toBeCloseTo(1, 9);
+  });
+
+  test('orientToHeading wins over spin when a style sets both', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(
+      100,
+      100,
+      makeSpec({
+        style: { sprite: 'needle', orientToHeading: true, spin: 0.25 },
+        motion: { r: 1, theta: 180 },
+      }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    stepTimes(system, 4);
+    // Locked to the heading, not 4 * 0.25 accumulated on top of it.
+    expect(bullet.angle).toBeCloseTo(Math.PI, 9);
+  });
+
+  test('orientToHeading tracks a turning bullet every tick', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(
+      240,
+      240,
+      makeSpec({
+        style: { sprite: 'needle', orientToHeading: true },
+        motion: { r: 1, theta: 0, w: 10 },
+      }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    for (let tick = 1; tick <= 6; tick++) {
+      system.step(0, 0, rng());
+      expect(bullet.angle).toBeCloseTo((tick * 10 * Math.PI) / 180, 9);
+    }
   });
 
   test('a plain style leaves angle alone', () => {
@@ -705,6 +743,86 @@ describe('bouncing', () => {
     expect(bouncesBeforeDeath(6)).toBe(7);
   });
 
+  test('the bounce allowance survives a timeline changing the motion', () => {
+    // The allowance belongs to the bullet. Counting it on the vector instead
+    // lets every segment re-init refill it, and the bullet never dies —
+    // a pattern that quietly leaks bullets until the pool is exhausted.
+    const system = new BulletSystem({ bounds: SMALL, initial: 8 });
+    const timeline: MotionSegment[] = [
+      { count: 5, motion: { r: 5, theta: 180 } },
+      { count: 5, jump: 0 },
+    ];
+    const bullet = system.spawn(
+      20,
+      20,
+      makeSpec({ motion: { r: 5, theta: 180 }, timeline, bounce: true, maxBounces: 1 }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    for (let i = 0; i < 400 && system.count > 0; i++) system.step(0, 0, rng());
+
+    expect(system.count).toBe(0);
+    expect(bullet.alive).toBe(false);
+    expect(bullet.bounceCount).toBe(2);
+  });
+
+  test('bounceCount counts wall contacts and resets with the slot', () => {
+    const system = new BulletSystem({ bounds: SMALL, initial: 1, max: 1 });
+    const first = system.spawn(
+      20,
+      20,
+      makeSpec({ motion: { r: 5, theta: 180 }, bounce: true, life: 12 }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    stepTimes(system, 12);
+    expect(first.bounceCount).toBeGreaterThan(0);
+
+    const second = system.spawn(20, 20, makeSpec(), 'enemy', rng()) as Bullet;
+    expect(second).toBe(first);
+    expect(second.bounceCount).toBe(0);
+  });
+
+  test('a corner bounce counts as two', () => {
+    const system = new BulletSystem({ bounds: SMALL, initial: 8 });
+    const bullet = system.spawn(
+      10,
+      10,
+      makeSpec({ motion: { r: 5, theta: 225 }, bounce: true }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    stepTimes(system, 2);
+    expect(bullet.bounceCount).toBe(2);
+  });
+
+  test('gravity drift reverses with the bounce that caused it', () => {
+    // reflectY flips driftY too; if it did not, a falling bullet would stick
+    // to the floor, bouncing every tick forever.
+    const system = new BulletSystem({ bounds: SMALL, initial: 8 });
+    const bullet = system.spawn(
+      20,
+      4,
+      makeSpec({ motion: { r: 0, theta: 90, gravity: { y: 0.5 } }, bounce: true }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    let ticksAtFloor = 0;
+    for (let i = 0; i < 40; i++) {
+      system.step(0, 0, rng());
+      if (bullet.y >= SMALL.height - bullet.radius - 1e-9) ticksAtFloor++;
+    }
+
+    expect(bullet.bounceCount).toBeGreaterThan(0);
+    // It leaves the floor again rather than grinding along it.
+    expect(ticksAtFloor).toBeLessThan(20);
+    expect(bullet.vector.driftY).toBeLessThan(0.5 * 40);
+  });
+
   test('maxBounces on a non-bouncing bullet does not keep it alive', () => {
     const system = new BulletSystem({ bounds: SMALL, initial: 8 });
     system.spawn(
@@ -803,6 +921,47 @@ describe('spawnAimed', () => {
     system.step(0, 0, rng());
     expect(Number.isNaN(bullet.x)).toBe(false);
     expect(Number.isNaN(bullet.y)).toBe(false);
+  });
+
+  test('a timeline segment due on tick 0 overrides the aim', () => {
+    // Documented, not accidental: BulletSpec says a timeline overrides
+    // `motion`, and the aim is written into the same vector. Pinning it so
+    // that a pattern author combining the two sees a stable rule.
+    const system = makeSystem();
+    const timeline: MotionSegment[] = [{ count: 0, motion: { r: 3, theta: 270 } }];
+    const bullet = system.spawnAimed(
+      240,
+      240,
+      240,
+      480,
+      makeSpec({ motion: { r: 3, theta: 0 }, timeline }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    expect(bullet.vector.theta).toBeCloseTo(90, 9);
+
+    system.step(240, 480, rng());
+    expect(bullet.vector.theta).toBe(270);
+    expect(bullet.y).toBeCloseTo(237, 9);
+  });
+
+  test('a timeline segment due later leaves the aim intact until then', () => {
+    const system = makeSystem();
+    const timeline: MotionSegment[] = [{ count: 3, motion: { r: 3, theta: 270 } }];
+    const bullet = system.spawnAimed(
+      240,
+      240,
+      240,
+      480,
+      makeSpec({ motion: { r: 3, theta: 0 }, timeline }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    stepTimes(system, 3);
+    expect(bullet.vector.theta).toBeCloseTo(90, 9);
+    expect(bullet.y).toBeCloseTo(249, 9);
   });
 
   test('it drops gracefully when the pool is at its ceiling', () => {
@@ -909,21 +1068,89 @@ describe('hitTest', () => {
     for (const b of all) expect(b.alive).toBe(true);
   });
 
-  test('a dense field returns a bullet that genuinely overlaps', () => {
+  /**
+   * The broad phase may only ever add candidates, never hide one. Asserting
+   * that a returned hit is genuine is not enough — an implementation that
+   * always returned undefined would satisfy it. Every case below compares
+   * against a brute-force scan of the live list in both directions.
+   */
+  const bruteForce = (
+    system: BulletSystem,
+    x: number,
+    y: number,
+    radius: number,
+    faction: 'player' | 'enemy',
+  ): Bullet[] =>
+    system.bullets.filter(
+      (b) =>
+        b.faction === faction && circlesOverlap(x, y, radius, b.x, b.y, b.radius),
+    );
+
+  test('a dense field agrees with a brute-force scan on every probe', () => {
     const system = makeSystem();
     const r = rng(99);
     for (let i = 0; i < 600; i++) {
       system.spawn(r.range(0, 480), r.range(0, 480), makeSpec({ radius: 3 }), 'enemy', r);
     }
 
-    for (let i = 0; i < 40; i++) {
+    let found = 0;
+    for (let i = 0; i < 400; i++) {
       const x = r.range(0, 480);
       const y = r.range(0, 480);
       const hit = system.hitTest(x, y, 6, 'enemy');
+      const expected = bruteForce(system, x, y, 6, 'enemy');
+
+      expect(hit === undefined).toBe(expected.length === 0);
       if (hit !== undefined) {
-        expect(Math.hypot(hit.x - x, hit.y - y)).toBeLessThanOrEqual(6 + hit.radius);
+        found++;
+        expect(expected).toContain(hit);
         expect(hit.faction).toBe('enemy');
       }
+    }
+
+    // Guards the assertions above against passing vacuously.
+    expect(found).toBeGreaterThan(20);
+  });
+
+  test('a bullet larger than a grid cell is still found', () => {
+    // The broad phase indexes centres. With a fixed reach, a bullet this size
+    // overlaps the query circle while its centre sits in an unvisited cell —
+    // the "large laser misses a small hitbox" bug collision.ts exists to avoid.
+    const system = makeSystem();
+    const big = system.spawn(240, 240, makeSpec({ radius: 80 }), 'enemy', rng()) as Bullet;
+
+    expect(system.hitTest(240, 315, 2, 'enemy')).toBe(big);
+    expect(system.hitTest(315, 240, 2, 'enemy')).toBe(big);
+    expect(system.hitTest(240, 165, 2, 'enemy')).toBe(big);
+    expect(system.hitTest(165, 240, 2, 'enemy')).toBe(big);
+
+    // Just past the radius sum it must still miss — reach is not a free pass.
+    expect(system.hitTest(240, 323, 2, 'enemy')).toBeUndefined();
+  });
+
+  test('mixed radii agree with brute force regardless of cell size', () => {
+    for (const cellSize of [8, 32, 128]) {
+      const system = new BulletSystem({ bounds: FIELD, initial: 64, cellSize });
+      const r = rng(7);
+      for (let i = 0; i < 200; i++) {
+        const radius = [2, 3, 12, 40, 90][i % 5] as number;
+        system.spawn(r.range(0, 480), r.range(0, 480), makeSpec({ radius }), 'enemy', r);
+      }
+
+      let found = 0;
+      for (let i = 0; i < 200; i++) {
+        const x = r.range(0, 480);
+        const y = r.range(0, 480);
+        const hit = system.hitTest(x, y, 4, 'enemy');
+        const expected = bruteForce(system, x, y, 4, 'enemy');
+
+        expect(hit === undefined).toBe(expected.length === 0);
+        if (hit !== undefined) {
+          found++;
+          expect(expected).toContain(hit);
+        }
+      }
+      expect(found).toBeGreaterThan(20);
     }
   });
 });

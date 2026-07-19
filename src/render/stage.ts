@@ -83,8 +83,16 @@ export class Stage {
     this.renderer.setSize(this.width, this.height, false);
     this.renderer.setClearColor(0x000000, 1);
 
-    // Order is explicit via renderOrder; three.js must not reorder for us.
-    this.renderer.sortObjects = false;
+    // `renderOrder` IS three.js's reordering mechanism: it is read only by the
+    // render-list comparators, which `sortObjects = false` skips entirely. With
+    // sorting off, draw order silently degrades to scene-graph insertion order
+    // and every `Layer` value becomes decorative. Sorting must stay on for the
+    // explicit ordering rule (CLAUDE.md, rule 4) to mean anything.
+    //
+    // This does not reintroduce depth sorting: sprite materials keep
+    // `depthTest: false`, and renderOrder is the comparators' first key, so z
+    // is only ever a tie-break between objects sharing a layer.
+    this.renderer.sortObjects = true;
 
     this.camera = new THREE.OrthographicCamera(
       0,

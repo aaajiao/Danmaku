@@ -19,13 +19,13 @@ export interface Region {
   y: number;
   w: number;
   h: number;
-  /**
-   * Pivot in cell-relative units, 0..1. Defaults to centre. Bullets pivot
-   * centrally; a character sprite may want its feet.
-   */
-  pivotX?: number;
-  pivotY?: number;
 }
+
+// A pivot field lived here and was never read — SpriteBatch always centres the
+// quad, and rotation happens about that centre in the vertex shader. Adding one
+// means widening an instance attribute to carry the offset and applying it
+// before rotation, which is worth doing when a sprite actually needs an
+// off-centre origin, and not before.
 
 /** UV rect, ready for an instance attribute: (offsetU, offsetV, scaleU, scaleV). */
 export type UVRect = readonly [number, number, number, number];

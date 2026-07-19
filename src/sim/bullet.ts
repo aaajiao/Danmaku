@@ -99,6 +99,7 @@ export class Bullet {
     this.bounce = spec.bounce ?? false;
     this.maxBounces = spec.maxBounces ?? 0;
     this.angle = 0;
+    this.bounceCount = 0;
 
     this.vector.init(spec.motion, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -209,7 +210,7 @@ export class BulletSystem {
         b.x > width + margin ||
         b.y < -margin ||
         b.y > height + margin ||
-        (b.maxBounces > 0 && b.vector.reflectCount > b.maxBounces);
+        (b.maxBounces > 0 && b.bounceCount > b.maxBounces);
 
       if (expired) {
         b.alive = false;
@@ -227,16 +228,20 @@ export class BulletSystem {
     if (b.x < b.radius) {
       b.x = b.radius;
       b.vector.reflectX();
+      b.bounceCount++;
     } else if (b.x > width - b.radius) {
       b.x = width - b.radius;
       b.vector.reflectX();
+      b.bounceCount++;
     }
     if (b.y < b.radius) {
       b.y = b.radius;
       b.vector.reflectY();
+      b.bounceCount++;
     } else if (b.y > height - b.radius) {
       b.y = height - b.radius;
       b.vector.reflectY();
+      b.bounceCount++;
     }
   }
 
@@ -246,12 +251,19 @@ export class BulletSystem {
    */
   hitTest(x: number, y: number, radius: number, faction: Faction): Bullet | undefined {
     this.#grid.clear();
+    // The broad phase indexes centres, so the query must reach out by the
+    // largest radius present or a big bullet overlapping the circle is never
+    // visited — the very miss `collision.ts` exists to avoid. Tracking the
+    // real maximum also beats a fixed slack: typical fire is 3px, not 32.
+    let maxRadius = 0;
     for (const b of this.bullets) {
-      if (b.faction === faction) this.#grid.insert(b.x, b.y, b);
+      if (b.faction !== faction) continue;
+      this.#grid.insert(b.x, b.y, b);
+      if (b.radius > maxRadius) maxRadius = b.radius;
     }
 
     let hit: Bullet | undefined;
-    const reach = radius + 32;
+    const reach = radius + maxRadius;
     this.#grid.query(x, y, reach, (b) => {
       if (hit || !b.alive) return;
       if (circlesOverlap(x, y, radius, b.x, b.y, b.radius)) hit = b;

@@ -27,8 +27,31 @@ export interface PoolOptions<T> {
   reset?: (item: T) => void;
 }
 
-export class Pool<T> {
+/**
+ * Whether to pay for double-release detection.
+ *
+ * Releasing an object twice puts it on the free list twice, and the pool then
+ * hands the same object to two live owners — which presents as two bullets
+ * moving in lockstep, or one vanishing when the other dies. It is a genuinely
+ * horrible bug to diagnose from the symptom.
+ *
+ * Guarding costs a set lookup on every release, in the hottest loop in the
+ * game, so it is not something to pay for permanently. But the bug can only be
+ * *introduced* while developing, and that is exactly when the check is cheap:
+ * on in development, compiled out in production.
+ */
+const POOL_CHECKS =
+  typeof process !== 'undefined' && process.env['NODE_ENV'] !== 'production';
+
+/**
+ * `T extends object` because the release guard tracks identity in a WeakSet.
+ * Everything pooled here is a class instance, so this costs nothing in practice
+ * and is more honest than casting a primitive-capable `T` at the call site.
+ */
+export class Pool<T extends object> {
   readonly #create: () => T;
+  /** Only populated when POOL_CHECKS is on. Weak, so it never retains objects. */
+  readonly #released = new WeakSet<T>();
   readonly #reset: ((item: T) => void) | undefined;
   readonly #max: number;
   readonly #growBy: number | undefined;
@@ -79,11 +102,24 @@ export class Pool<T> {
     const live = this.#size - this.#free.length;
     if (live > this.peakLive) this.peakLive = live;
 
+    // Handing it back out clears its released mark, so the next legitimate
+    // release is not mistaken for a double one.
+    if (POOL_CHECKS) this.#released.delete(item);
+
     this.#reset?.(item);
     return item;
   }
 
   release(item: T): void {
+    if (POOL_CHECKS) {
+      if (this.#released.has(item)) {
+        throw new Error(
+          'Pool.release called twice on the same object: it would enter the free ' +
+            'list twice and later be handed to two live owners at once.',
+        );
+      }
+      this.#released.add(item);
+    }
     this.#free.push(item);
   }
 

@@ -63,8 +63,15 @@ export class Loop {
       steps++;
     }
 
-    // Dropped time after a long stall: discard rather than fast-forward.
-    if (this.#accumulator > STEP_MS * MAX_CATCHUP) this.#accumulator = 0;
+    // A stall we could not fully absorb within MAX_CATCHUP: discard the
+    // remainder rather than fast-forwarding.
+    //
+    // The threshold has to be one step, not MAX_CATCHUP steps. Anything left
+    // over is time the loop has already refused to simulate, and it feeds
+    // `alpha` directly — leaving up to MAX_CATCHUP steps behind hands render()
+    // an alpha of up to MAX_CATCHUP, which extrapolates rather than
+    // interpolates and throws every view position wildly past its target.
+    if (this.#accumulator > STEP_MS) this.#accumulator = 0;
 
     this.#callbacks.render(this.#accumulator / STEP_MS);
   };
