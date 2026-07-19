@@ -64,7 +64,16 @@ export function projectCanonicalRunSession(
   if (run.authority !== "canonical-run-session-v4") {
     throw new Error("canonical presentation requires a canonical run-session snapshot");
   }
-  const expectedPatternId = run.roomSampling?.patternId ?? run.adapterPolicy.firstEye.patternId;
+  const transition = run.firstContinuationTransition;
+  if (
+    (run.phase === "first_continuation_transition")
+    !== (transition !== null)
+  ) {
+    throw new Error("canonical presentation transition phase identity drifted");
+  }
+  const expectedPatternId = transition?.patternId
+    ?? run.roomSampling?.patternId
+    ?? run.adapterPolicy.firstEye.patternId;
   if (activePattern.id !== expectedPatternId) {
     throw new Error("canonical presentation pattern identity drifted");
   }
@@ -73,8 +82,20 @@ export function projectCanonicalRunSession(
   if (combat !== null && combat.patternId !== expectedPatternId) {
     throw new Error("canonical presentation combat pattern identity drifted");
   }
+  if (transition !== null && (
+    combat === null
+    || transition.worldRoom !== transition.roomTransition.currentRoom
+    || combat.occurrenceId !== transition.occurrenceId
+    || combat.difficulty !== transition.difficulty
+    || combat.seed !== transition.resolvedSeed.value
+    || combat.startTick120 !== transition.startTick120
+    || combat.tick120 !== transition.combat.tick120
+  )) {
+    throw new Error("canonical presentation transition combat identity drifted");
+  }
   if (
-    run.roomSampling !== null
+    transition === null
+    && run.roomSampling !== null
     && combat !== null
     && (
       combat.occurrenceId !== run.roomSampling.occurrenceId
@@ -85,10 +106,25 @@ export function projectCanonicalRunSession(
   ) {
     throw new Error("canonical presentation room combat identity drifted");
   }
+  const material = transition?.material ?? null;
+  if (material !== null && (
+    material.sourcePatternId !== transition?.patternId
+    || material.sourceOccurrenceId !== transition.occurrenceId
+    || material.detachedAtTick120 !== transition.timeline.patternCompleteTick120
+    || material.tick120 !== run.tick120
+    || material.materialCount !== material.projectiles.length
+    || material.poolUsage.residueVisuals !== material.projectiles.length
+    || material.poolUsage.liveColliders !== 0
+    || material.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+  )) {
+    throw new Error("canonical presentation transition material identity drifted");
+  }
   const relativeTick120 = combat?.relativeTick120 ?? 0;
   const patternElapsedMs = relativeTick120 * 1000 / TICKS_PER_SECOND;
   const emitterById = new Map(activePattern.emitters.map((emitter) => [emitter.id, emitter]));
-  const bullets = (combat?.projectiles ?? []).map((projectile): BulletState => {
+  const projectileSnapshots = material?.projectiles ?? combat?.projectiles ?? [];
+  const bullets = projectileSnapshots.map((projectile): BulletState => {
     const emitter = emitterById.get(projectile.sourceId);
     const position = canonicalPositionToView(projectile.position);
     const previous = canonicalPositionToView(projectile.previousPosition);
@@ -134,14 +170,18 @@ export function projectCanonicalRunSession(
   const localVoid = override?.localVoid ?? null;
   const executable = activePattern as unknown as ExecutablePattern;
   const safeCenter = safeGapCenter(executable, patternElapsedMs) - LOGICAL_VIEW_WIDTH / 2;
-  const difficulty = run.roomSampling?.difficulty ?? run.adapterPolicy.firstEye.difficulty;
+  const difficulty = transition?.difficulty
+    ?? run.roomSampling?.difficulty
+    ?? run.adapterPolicy.firstEye.difficulty;
   const safeWidth = safeGapWidth(executable, difficulty);
 
   return Object.freeze({
     nowMs,
     patternElapsedMs,
     pattern: activePattern,
-    room: run.roomSampling?.roomId ?? run.adapterPolicy.firstEye.roomId,
+    room: transition?.worldRoom
+      ?? run.roomSampling?.roomId
+      ?? run.adapterPolicy.firstEye.roomId,
     bullets: Object.freeze(bullets),
     shots: Object.freeze([]),
     player: Object.freeze({

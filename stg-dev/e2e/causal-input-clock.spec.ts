@@ -136,9 +136,13 @@ test("RUN samples forward across boot, backlog, pause, and Focus boundaries", as
   expect(pageErrors, "controlled RUN should have no uncaught page errors").toEqual([]);
 });
 
-test("first fixed room closure commits only at H+1702", async ({page}) => {
+test("first room closes at H+1702 and hands into its owned transition", async ({page}) => {
   const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
   await openControlled(page, "/?seed=305419896");
   const body = page.locator("body");
 
@@ -179,6 +183,9 @@ test("first fixed room closure commits only at H+1702", async ({page}) => {
   const handoffTick120 = Number(await body.getAttribute("data-room-start-tick"));
   expect(handoffTick120).toBeGreaterThan(0);
 
+  await advanceControlledRunToTick(page, handoffTick120 + 1587);
+  await page.keyboard.down("a");
+  await stepRaf(page, 0);
   await advanceControlledRunToTick(page, handoffTick120 + 1701);
   await expect(body).toHaveAttribute("data-room-complete", "false");
   await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
@@ -191,10 +198,125 @@ test("first fixed room closure commits only at H+1702", async ({page}) => {
   await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
   await expect(body).toHaveAttribute("data-handoff-ready", "true");
 
+  const flowerAuthorityTick = await body.getAttribute("data-flower-authority-tick");
+  const gazeAuthorityTick = await body.getAttribute("data-gaze-authority-tick");
+  const expressionWidth = await page.locator("#expression-meter").evaluate(
+    (node) => (node as HTMLElement).style.width,
+  );
+  const playerX = Number(await body.getAttribute("data-player-x"));
+  await page.keyboard.down("Shift");
+  await page.keyboard.down("z");
+  await page.keyboard.down("g");
+  await stepRaf(page, 0);
   await advanceControlledRunToTick(page, handoffTick120 + 1703);
-  await expect(body).toHaveAttribute("data-room-complete", "true");
-  await expect(body).toHaveAttribute("data-room-handoff-ready", "false");
+  await expect(body).toHaveAttribute("data-run-phase", "first_continuation_transition");
+  await expect(body).toHaveAttribute("data-authority-owner", "first_continuation_transition");
+  await expect(body).toHaveAttribute("data-transition-present", "true");
+  await expect(body).toHaveAttribute("data-transition-phase", "transition_gameplay");
+  await expect(body).toHaveAttribute("data-transition-pattern-id", "transition.room_threshold");
+  await expect(body).toHaveAttribute(
+    "data-transition-occurrence-id",
+    "run:room:0-to-1:transition:transition.room_threshold",
+  );
+  await expect(body).toHaveAttribute("data-transition-world-room", "FORCED_ALIGNMENT");
+  await expect(body).toHaveAttribute("data-room-id", "FORCED_ALIGNMENT");
+  await expect(body).toHaveAttribute("data-room-pattern-id", "transition.room_threshold");
+  await expect(body).toHaveAttribute("data-room-difficulty", "NORMAL");
+  await expect(body).toHaveAttribute("data-room-composer", "");
+  await expect(body).toHaveAttribute("data-player-focused", "true");
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-pattern-id",
+    "transition.room_threshold",
+  );
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-room",
+    "FORCED_ALIGNMENT",
+  );
+  await expect(page.locator("#room-value")).toHaveText("FORCED ALIGNMENT");
+  expect(Number(await body.getAttribute("data-player-x"))).toBeLessThan(playerX);
+  await expect(body).toHaveAttribute("data-flower-authority-tick", flowerAuthorityTick ?? "");
+  await expect(body).toHaveAttribute("data-gaze-authority-tick", gazeAuthorityTick ?? "");
+  await expect.poll(() => page.locator("#expression-meter").evaluate(
+    (node) => (node as HTMLElement).style.width,
+  )).toBe(expressionWidth);
+
+  const transitionStartTick120 = Number(await body.getAttribute("data-transition-start-tick"));
+  const worldSwapTick120 = Number(await body.getAttribute("data-transition-world-swap-tick"));
+  const completeTick120 = Number(await body.getAttribute("data-transition-complete-tick"));
+  const patternCompleteTick120 = Number(
+    await body.getAttribute("data-transition-pattern-complete-tick"),
+  );
+  const targetRoom = await body.getAttribute("data-transition-target-room");
+  expect(transitionStartTick120).toBe(handoffTick120 + 1703);
+  expect(worldSwapTick120).toBeGreaterThan(transitionStartTick120);
+  expect(completeTick120).toBeGreaterThan(worldSwapTick120);
+  expect(patternCompleteTick120).toBeGreaterThan(completeTick120);
+  expect(targetRoom).toBeTruthy();
+
+  await page.keyboard.up("a");
+  await page.keyboard.up("Shift");
+  await stepRaf(page, 0);
+  await advanceControlledRunToTick(page, worldSwapTick120 - 1);
+  await expect(body).toHaveAttribute("data-transition-world-room", "FORCED_ALIGNMENT");
+  await expect(body).toHaveAttribute("data-transition-collision-lease-released", "false");
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-room",
+    "FORCED_ALIGNMENT",
+  );
+  await expect(page.locator("#room-value")).toHaveText("FORCED ALIGNMENT");
+  await advanceControlledRunToTick(page, worldSwapTick120);
+  await expect(body).toHaveAttribute("data-transition-world-room", targetRoom ?? "");
+  await expect(body).toHaveAttribute("data-room-id", targetRoom ?? "");
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-room",
+    targetRoom ?? "",
+  );
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-pattern-id",
+    "transition.room_threshold",
+  );
+  await expect(page.locator("#room-value")).toHaveText(
+    (targetRoom ?? "").replaceAll("_", " "),
+  );
+
+  await advanceControlledRunToTick(page, completeTick120 - 1);
+  await expect(body).toHaveAttribute("data-transition-collision-lease-released", "false");
+  await advanceControlledRunToTick(page, completeTick120);
+  await expect(body).toHaveAttribute("data-transition-collision-lease-released", "true");
+
+  await advanceControlledRunToTick(page, transitionStartTick120 + 100);
+  expect(Number(await body.getAttribute("data-projectile-entities"))).toBeGreaterThan(0);
+  expect(Number(await body.getAttribute("data-live-colliders"))).toBeGreaterThan(0);
+
+  await advanceControlledRunToTick(page, patternCompleteTick120 - 1);
+  await expect(body).toHaveAttribute("data-transition-phase", "transition_gameplay");
+  await expect(body).toHaveAttribute("data-transition-material-count", "");
+  await expect(body).toHaveAttribute("data-transition-handoff-ready", "false");
+  await advanceControlledRunToTick(page, patternCompleteTick120);
+  await expect(body).toHaveAttribute("data-transition-phase", "material_carryover");
+  expect(Number(await body.getAttribute("data-transition-material-count"))).toBeGreaterThan(0);
+  await expect(body).toHaveAttribute("data-live-colliders", "0");
+  await expect(body).toHaveAttribute("data-transition-handoff-ready", "true");
+  await expect(body).toHaveAttribute(
+    "data-transition-handoff-state",
+    "ready-pending-room-plan-and-combined-pool-budget",
+  );
+  await expect(body).toHaveAttribute(
+    "data-transition-next-room-admission",
+    "withheld-pending-room-plan-and-combined-pool-budget",
+  );
+  await advanceControlledRunToTick(page, patternCompleteTick120 + 1);
+  await expect(body).toHaveAttribute("data-flower-authority-tick", flowerAuthorityTick ?? "");
+  await expect(body).toHaveAttribute("data-gaze-authority-tick", gazeAuthorityTick ?? "");
+  await expect.poll(() => page.locator("#expression-meter").evaluate(
+    (node) => (node as HTMLElement).style.width,
+  )).toBe(expressionWidth);
+  await page.keyboard.up("z");
+  await page.keyboard.up("g");
+  await stepRaf(page, 0);
+
   expect(pageErrors, "controlled first-room closure should have no uncaught errors").toEqual([]);
+  expect(consoleErrors, "controlled transition should have no console errors").toEqual([]);
 });
 
 test("pause preserves the pre-pause sample while retained backlog drains", async ({page}) => {

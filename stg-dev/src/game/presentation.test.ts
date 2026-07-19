@@ -15,6 +15,8 @@ const FIRST_EYE = (patternsManifest.patterns as PatternDefinition[])
   .find((pattern) => pattern.id === "common.eye_acquisition")!;
 const FIRST_ROOM = (patternsManifest.patterns as PatternDefinition[])
   .find((pattern) => pattern.id === "room.forced.left_right_gate")!;
+const FIRST_TRANSITION = (patternsManifest.patterns as PatternDefinition[])
+  .find((pattern) => pattern.id === "transition.room_threshold")!;
 const OPTIONS = Object.freeze({
   rawRunSeed: Object.freeze({domain: "raw-run-seed" as const, value: 0x1b17c0de}),
   grazeRadiusPx: 18,
@@ -164,7 +166,9 @@ describe("canonical run presentation", () => {
     expect(projected).toMatchObject({combatEnabled: false, targetVisible: true, gazeState: "idle"});
   });
 
-  it("projects the fixed first room from READ local zero without stale First Eye authority", () => {
+  it("projects the fixed first room and continuation transition from their exact owners", {
+    timeout: 30_000,
+  }, () => {
     const session = new CanonicalRunSession(OPTIONS);
     let snapshot = stepToFirstRoomHandoff(session);
     const eventTraceAtHandoff = session.canonicalEventSerialization();
@@ -219,6 +223,159 @@ describe("canonical run presentation", () => {
     } as unknown as CanonicalRunSessionSnapshot;
     expect(() => projectCanonicalRunSession(staleCombat, FIRST_ROOM))
       .toThrow(/combat pattern identity drifted/);
+
+    const firstRoomStartTick120 = snapshot.roomSampling?.boundaryTicks120.start;
+    if (firstRoomStartTick120 === undefined) throw new Error("room projection lost H");
+    while (snapshot.tick120 < firstRoomStartTick120 + 1_702) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    const formalTarget = snapshot.firstContinuationRoomTarget;
+    if (formalTarget.availability !== "available") {
+      throw new Error("room projection lost its formal continuation target");
+    }
+    snapshot = session.step({
+      tick120: snapshot.tick120 + 1,
+      movement: {x: 0, y: 0},
+      signalActive: true,
+      focused: true,
+      gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+    });
+    let transitionProjection = projectCanonicalRunSession(snapshot, FIRST_TRANSITION);
+    expect(transitionProjection).toMatchObject({
+      pattern: {id: "transition.room_threshold"},
+      room: "FORCED_ALIGNMENT",
+      patternElapsedMs: 0,
+      combatEnabled: true,
+      targetVisible: false,
+      player: {focused: true},
+    });
+    const transition = snapshot.firstContinuationTransition;
+    if (transition === null) throw new Error("transition projection lost its chapter snapshot");
+    while (snapshot.tick120 < transition.timeline.worldSwapTick120 - 1) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    expect(projectCanonicalRunSession(snapshot, FIRST_TRANSITION).room)
+      .toBe("FORCED_ALIGNMENT");
+    snapshot = session.step({
+      tick120: snapshot.tick120 + 1,
+      movement: {x: 0, y: 0},
+      signalActive: false,
+      focused: false,
+      gaze: NEUTRAL_GAZE,
+    });
+    expect(projectCanonicalRunSession(snapshot, FIRST_TRANSITION).room)
+      .toBe(formalTarget.targetRoom);
+
+    while (snapshot.tick120 < transition.startTick120 + 100) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    transitionProjection = projectCanonicalRunSession(snapshot, FIRST_TRANSITION);
+    expect(transitionProjection.bullets.length).toBeGreaterThan(0);
+    expect(transitionProjection.bullets.some((bullet) => bullet.collisionEnabled)).toBe(true);
+
+    while (snapshot.tick120 < transition.timeline.patternCompleteTick120 - 1) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    expect(snapshot.firstContinuationTransition).toMatchObject({
+      phase: "transition_gameplay",
+      material: null,
+      gameplayExit: null,
+    });
+    snapshot = session.step({
+      tick120: snapshot.tick120 + 1,
+      movement: {x: 0, y: 0},
+      signalActive: false,
+      focused: false,
+      gaze: NEUTRAL_GAZE,
+    });
+    const material = snapshot.firstContinuationTransition?.material;
+    if (material === null || material === undefined) {
+      throw new Error("transition projection lost material carryover");
+    }
+    transitionProjection = projectCanonicalRunSession(snapshot, FIRST_TRANSITION);
+    expect(transitionProjection).toMatchObject({
+      pattern: {id: "transition.room_threshold"},
+      room: formalTarget.targetRoom,
+      patternElapsedMs: 7_800,
+      combatEnabled: false,
+    });
+    expect(transitionProjection.bullets).toHaveLength(material.materialCount);
+    expect(transitionProjection.bullets.every((bullet) =>
+      bullet.lifecycleState === "residue" && bullet.collisionEnabled === false)).toBe(true);
+
+    const hostileMaterial = {
+      ...snapshot,
+      firstContinuationTransition: {
+        ...snapshot.firstContinuationTransition,
+        material: {...material, materialCount: material.materialCount + 1},
+      },
+    } as unknown as CanonicalRunSessionSnapshot;
+    expect(() => projectCanonicalRunSession(hostileMaterial, FIRST_TRANSITION))
+      .toThrow(/material identity drifted/);
+
+    const detachedMaterialCount = material.materialCount;
+    while (
+      (snapshot.firstContinuationTransition?.material?.materialCount ?? 0)
+        === detachedMaterialCount
+      && snapshot.tick120 < transition.timeline.patternCompleteTick120 + 500
+    ) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    const drainingMaterial = snapshot.firstContinuationTransition?.material;
+    if (drainingMaterial === null || drainingMaterial === undefined) {
+      throw new Error("transition projection lost draining material");
+    }
+    expect(snapshot.combat?.projectiles.length).toBeGreaterThan(drainingMaterial.materialCount);
+    expect(projectCanonicalRunSession(snapshot, FIRST_TRANSITION).bullets)
+      .toHaveLength(drainingMaterial.materialCount);
+
+    while (
+      snapshot.firstContinuationTransition?.material?.drained === false
+      && snapshot.tick120 < transition.timeline.patternCompleteTick120 + 500
+    ) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    expect(snapshot.firstContinuationTransition).toMatchObject({
+      phase: "target_room_idle",
+      material: {drained: true, materialCount: 0},
+    });
+    expect(projectCanonicalRunSession(snapshot, FIRST_TRANSITION).bullets).toEqual([]);
   });
 
   it("projects retained life state and never presents a non-alive player as focused", () => {
