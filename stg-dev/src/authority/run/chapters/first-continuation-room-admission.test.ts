@@ -213,6 +213,31 @@ describe("EXT-2026-015 combined pool admission evaluator", () => {
     });
   });
 
+  it("rejects hidden mapping values and accessors without executing them", () => {
+    const hidden = Object.freeze(Object.defineProperty({}, "bullet.micro.notch_e", {
+      value: "rogue",
+      enumerable: false,
+    })) as Readonly<Record<string, "micro">>;
+    expect(() => evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbranded(
+      inputFixture(),
+      hidden,
+    )).toThrow(/own enumerable V4 data mapping/);
+
+    let getterReads = 0;
+    const accessor = Object.freeze(Object.defineProperty({}, "bullet.micro.notch_e", {
+      get: () => {
+        getterReads += 1;
+        return "micro";
+      },
+      enumerable: true,
+    })) as Readonly<Record<string, "micro">>;
+    expect(() => evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbranded(
+      inputFixture(),
+      accessor,
+    )).toThrow(/own enumerable V4 data mapping/);
+    expect(getterReads).toBe(0);
+  });
+
   it.each([
     [
       "unsupported capability",
@@ -227,6 +252,7 @@ describe("EXT-2026-015 combined pool admission evaluator", () => {
       "missing split upper bound",
       {
         patternId: "room.information.missing_ack",
+        capability: "unsupported" as const,
         requestState: "withheld-missing-split-child-upper-bound" as const,
         splitChildren: true,
       },

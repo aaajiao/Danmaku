@@ -176,18 +176,20 @@ function validatePoolClassMapping(
     prototype === Object.prototype || prototype === null,
     "pool-class mapping must be a frozen plain object",
   );
-  invariant(Object.getOwnPropertySymbols(value).length === 0, "pool-class mapping must not contain symbols");
-  for (const key of Object.keys(value)) {
+  const captured: Record<string, ProjectilePoolClass> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    invariant(typeof key === "string", "pool-class mapping must not contain symbols");
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     invariant(
       descriptor !== undefined
         && "value" in descriptor
         && descriptor.enumerable === true
         && (POOL_CLASS_ORDER as readonly string[]).includes(descriptor.value as string),
-      `pool-class mapping ${key} must be an own V4 data mapping`,
+      `pool-class mapping ${key} must be an own enumerable V4 data mapping`,
     );
+    captured[key] = descriptor.value as ProjectilePoolClass;
   }
-  return value;
+  return Object.freeze(captured);
 }
 
 function deepFreeze<T>(value: T): T {
@@ -209,6 +211,14 @@ export function evaluateCanonicalRunFirstContinuationCombinedPoolAdmissionUnbran
   projectilePoolClasses: Readonly<Record<string, ProjectilePoolClass>>,
 ): CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation {
   const request = input.poolReservationRequest;
+  invariant(
+    [
+      "withheld-pending-combined-pool-admission",
+      "withheld-missing-split-child-upper-bound",
+      "withheld-unsupported-pattern-capability",
+    ].includes(request.state),
+    "reservation request state is unknown",
+  );
   const carryoverAllocated = poolCounts(
     request.carryover.allocatedSlots,
     "carryover.allocatedSlots",
