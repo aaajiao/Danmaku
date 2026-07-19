@@ -61,9 +61,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 为EXT-023新material owner冻结下一个真实consumer：先决定post-close material hold、第三occurrence或room
-   composer中谁取得所有权，再实现对应exact tick/lease；不得自动等到`8682`、清屏、释放80-slot capacity或提前
-   声称room completion。
+1. 实施[EXT-2026-024](adr/EXT-2026-024-second-in-between-post-close-material-hold.md)：让EXT-023 material owner
+   从global `8520`自然推进residue并sole-flush；drain不自动释放80-slot capacity，也不授权第三occurrence、
+   room completion或handoff。
 2. 沿进入真实Run的章节事件逐项补causal clip、音频与reaction；只在章节声明中选择共享V4 ID，不复制素材，
    不把preview/QA图当runtime资产，`dist`继续由部署阶段生成。
 3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
