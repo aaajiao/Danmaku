@@ -34,6 +34,7 @@
 | [EXT-2026-017：首个 continuation room 的会话与双材料投影](EXT-2026-017-first-continuation-session-projection.md) | ACCEPTED | 同tick零事件admission接入正式Run；旧transition material与新successor combat/residue并行投影 |
 | [EXT-2026-018：Misregistration Corridor orbit/release](EXT-2026-018-misregistration-orbit-release.md) | ACCEPTED | 单候选draw相位、精确release分段、完整swept preflight与live capability准入 |
 | [EXT-2026-019：首个 continuation successor 材料转交](EXT-2026-019-first-continuation-successor-material-transfer.md) | ACCEPTED | slice close后零tick/event/RNG转交collisionless residue；显式capacity lease退休并保持下一准入withheld |
+| [EXT-2026-020：IN_BETWEEN 第二个 occurrence 的计划与准入](EXT-2026-020-second-in-between-occurrence-plan.md) | ACCEPTED | EXT-019 exact source延续draw 2，无放回选择Misregistration并提交encounter ordinal 1联合预算；执行与room close仍withheld |
 
 ## 新 ADR 规则
 
