@@ -23,10 +23,10 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-- `http://127.0.0.1:5173/`：canonical RUN 序章。
+- `http://127.0.0.1:5173/`：canonical RUN（觉醒 → First Eye → 固定首房切片）。
 - `http://127.0.0.1:5173/?mode=pattern-lab`：显式开发/QA 控制面。
-- `?seed=4088`：调用方已解析的 First Eye encounter 十进制 uint32 seed；它不是 raw V4
-  Run seed，也不在 URL 层推导 difficulty salt；非法值 fail closed。
+- `?seed=4088`：十进制 uint32 raw Run seed。Run authority 以显式 domain 和 EXT-005 salt policy
+  分别解析 First Eye 与固定首房 occurrence seed；非法值 fail closed。
 - `?profile=reduced-motion` / `?profile=flash-off`：只读表现配置。
 
 检查 production PWA 构建：

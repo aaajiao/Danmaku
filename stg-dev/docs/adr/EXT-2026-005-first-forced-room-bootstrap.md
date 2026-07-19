@@ -1,9 +1,12 @@
 # EXT-2026-005：首个 Forced Alignment 房间 bootstrap
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 设计提交：`3b94a6baab6425260222886b701cef937e973430`
+- 实现提交：`db5f6a76781a573f690795dbd31cd2db5bd4e380`
+- 确定性证据提交：`7269a5b38134b73ba777e852f725d85307deb799`
 - 前置记录：[EXT-2026-004](EXT-2026-004-first-eye-recovery-handoff.md)
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
@@ -12,7 +15,7 @@
 ## 不可约事实（Metadata）
 
 EXT-2026-004 只证明 First Eye 在 source combat、Gaze 与 Flower 全部完成后，可以把 authority
-交给 `ROOM_SAMPLING`。当前默认 RUN 在该 tick 之后仍没有 consumer。仓库已有的
+交给 `ROOM_SAMPLING`。本扩展前，默认 RUN 在该 tick 之后仍没有 consumer。仓库已有的
 `CanonicalLiveRoomExecutionFragment` 不能直接接入：它从 caller-established READ 开始，跳过
 telegraph/entry，并创建新的 event bus 与 run combat state，因此会丢失玩家位置、生命、证据、Override
 和 occurrence ledger。
@@ -26,7 +29,7 @@ spawn/collider 的预读时间，进入首个真实 room pattern；来源 trace 
 
 ## 负空间（Behavior > Content）
 
-界面已经能显示 Forced Alignment 的音床、pattern 名称与独立 Lab 预览，但这些内容不能证明默认 RUN
+本扩展前的界面已经能显示 Forced Alignment 的音床、pattern 名称与独立 Lab 预览，但这些内容不能证明默认 RUN
 实际进入了房间。扩展不新增房间图标、说明文案、过场动画或奖励；它让“source 排空—无碰撞预读—
 同一身体进入下一 occurrence”成为可执行、可重放的 authority 关系。
 
@@ -82,8 +85,9 @@ spawn/collider 的预读时间，进入首个真实 room pattern；来源 trace 
 - First Eye handoff 在 `H` 已证明 live entities/colliders/residue 为零；`H..H+62` 不创建 room kernel，
   因而 520ms incoming handoff 是 collider-free temporal absence。截图或 alpha 不参与该证明。
 - Left/Right `seam_filament` 的 2631ms lifetime 在 READ start 后 `+1540` master ticks 排空，早于
-  slice complete `+1542`；最后两个 tick 只作 eventless neutral closure。若 lifecycle、run-owned timer
-  或 occurrence 尚未 quiescent，slice fail-stop，不提前完成。
+  slice complete `+1542`；最后两个 tick 对 room occurrence / shared run-combat 只作 eventless neutral
+  closure。独立 Gaze/Flower 仍可通过同一 sole flush 写自己的 canonical facts，但不参与或提前完成该
+  room slice。若 lifecycle、run-owned timer 或 occurrence 尚未 quiescent，slice fail-stop，不提前完成。
 - 预算沿用已验证 counting policy：active arm/flight peak `56 <= listen 80 <= EASY director 120`；
   含 residue authority entities peak `77` 只作观察，不把累计 spawn 当并发 budget。pool 满时仍拒绝回收
   live collider。
@@ -113,8 +117,8 @@ spawn/collider 的预读时间，进入首个真实 room pattern；来源 trace 
 - 已删除的提案：复制 `test.behavior-ledger`、把 QA room count `3` 当 live policy、伪造 14 项 metric、
   复用 `CanonicalLiveRoomExecutionFragment` 的新 bus、房间 enter event、transition 动画、parallel weather、
   新 copy 与新素材。
-- 仍需新增：两个 difficulty salt、一个 fixed bootstrap plan/scheduler snapshot、同 session 的 owner switch、
-  room presentation projection。
+- 已新增：两个显式 difficulty salt、fixed bootstrap plan/scheduler snapshot、同 session owner switch 与
+  room presentation projection；没有把它们写回 V4。
 - 新增预算：canonical event `0`；asset `0 bytes`；dependency `0`；selection RNG draw `0`；
   persistence field `0`。
 
@@ -144,18 +148,35 @@ spawn/collider 的预读时间，进入首个真实 room pattern；来源 trace 
 | `manifests/gameplay/executable-patterns-v4.json` | V4 package / aaajiao | authored JSON / V4 4.0.0 | First Eye + Left/Right seed/lifecycle | repository license | `38224009f8ddb3ccd1b4a3d05351d4a37429188cb72da939fb340ea897b56614` |
 | `narrative/narrative-state-machine-v4.json` | V4 package / aaajiao | authored JSON / V4 4.0.0 | ROOM_SAMPLING boundary | repository license | `1b8d80a930c5338603f63620d40fc1b2dc44f37643d9f9cc73006185b5db6daf` |
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | Python QA oracle / V4 4.0.0 | inspected, not used as live policy | repository license | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
+| `src/authority/run-seed.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | raw Run URL boundary | repository license | `1c34e4c606925d0095d08dbef961d558490250b1701e2f4273b3f5927487e98e` |
+| `src/authority/run-seed.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | raw/tagged seed validation | repository license | `160b7c52524823521a84984d3efc68803f75524cf0f36bce6ae2fbc82620084f` |
+| `src/authority/run-room-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | fixed room plan, pre-read, READ and terminal tail | repository license | `c36d27002aa9203c5a8b9f897f76222940905fc272d9a0b998167cf352b31e5e` |
+| `src/authority/run-room-session.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | exact ownership, lifecycle, budget and relative replay | repository license | `28420bbaaaeb883296fef2e9555710e778726fb81317b131d0c858539c7ac7a8` |
+| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | First Eye consumer switch on shared bus/state | repository license | `0dcaa565e265dfff97be26b3a9a5ed2c5855f68ddc086a501d0dc120ffa6efc8` |
+| `src/authority/run-session.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | handoff and room integration evidence | repository license | `6940105a5dcb1be64ea96918192a2c7e3f19c6f1f825627f1db017b70bd14e0b` |
+| `src/game/presentation.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | one-way active room/pattern projection | repository license | `a558474e71ad53a33133479e6d484d0821257d77ce68a53b815a755bfcfe986c` |
+| `src/game/presentation.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | pre-read, READ and stale identity rejection | repository license | `ca04fc6bc6b1395a20e862bc5faf75e84e45377cc149c539f9a0fe48d77a4b25` |
+| `src/main.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | raw seed, owner switch, HUD and observability wiring | repository license | `c7e403683241d9438acdae0ddcbc14cdb43bc44a16336cb2042d985df9adf948` |
+| `e2e/canonical-run.spec.ts` | Danmaku / aaajiao + Codex | Playwright / Chromium | production preview through live room collider | repository license | `44d2298c17d796730bf9d0c7860725eda5d12bcf9ace7401a6491514a7b916cc` |
+| `e2e/startup.spec.ts` | Danmaku / aaajiao + Codex | Playwright / Chromium | raw seed startup/fail-closed boundary | repository license | `28f0e2fc03f914671b3fc94fcd5c88817fedd5a750e9a6108a69ca77bf9d8a24` |
 
-V4 source tree 保持只读。application artifacts 与实现提交在 ACCEPTED 时补入。
+V4 source tree 保持只读。application hashes 对应实现提交 `db5f6a7`；更新后的相对 replay 测试
+对应确定性证据提交 `7269a5b`。
 
-## 验证计划
+## 验证证据
 
-- focused unit：seed domain/formula、hostile values、`H/H+63/H+159` ownership、source trace prefix、共享
-  player/evidence/Override/position、pre-read 0 spawn/collider、READ first spawn/arm、residue drain、neutral close；
-- deterministic：同 raw seed/input 在不同 start tick 与 clock cadence 得到相同 relative trace；
-- projection：Forced room/pattern/safe gap/实体来自 authority snapshot，profile parity 不改 gameplay；
-- production preview：真实 boot → gaze clamp/release/recovery → typed handoff → Forced telegraph/entry/READ →
-  live projectile/collider，且 pause 冻结；
-- `typecheck`、`content:check`、`build`、`git diff --check`。本切片不跑全量 `test:all`。
+- focused Vitest 4 文件共 43 条通过：raw/tagged seed、hostile values、`H/H+63/H+159` ownership、
+  source trace prefix、共享 player/evidence/Override/position、pre-read 0 spawn/collider、READ first
+  spawn/arm、`H+1699/H+1701` drain/neutral close，以及 active/all-authority peak `56/77`；
+- 同 raw seed/input 在 `H=240` 与 `H=481` 得到相同 room-relative event、entity 与 projectile state；
+- presentation unit 证明 handoff H 的 pre-read absence、READ local 0、首个真实 projectile，以及 stale
+  pattern/occurrence/difficulty/seed/READ-start identity fail closed；
+- strict `typecheck` 与 `git diff --check` 通过；`bun run build` 内含 `content:check`、strict TypeScript
+  与 production PWA build，V4 的 778 个 checksum row 与 content digest 保持通过；
+- production-preview Playwright 3 条通过：raw seed startup/fail-closed，以及真实 boot → gaze
+  clamp/release/recovery → H 同 tick room install → paused pre-read → READ → live projectile/collider；
+- 按仓库风险分层策略没有运行全量 `test:all`；本切片未改跨模块 persistence、Boss 或 PWA 更新事务，
+  不以重复的全量测试替代上述针对性证据。
 
 ## 回滚与迁移
 
@@ -165,6 +186,7 @@ handoff必须新建 successor ADR，并明确 supersede bootstrap 的哪些 poli
 
 ## 决策
 
-PROPOSED。实现前已确认 V4 不指定首房、首 pattern、difficulty salt、live metric producer、room count 或
-canonical room-enter event。固定 bootstrap 是为了先闭合同一身体/事件 trace 的真实 room execution，且不会
-把 QA fixture 或 UI 呈现冒充完整 composer。
+ACCEPTED。默认 RUN 已在同一 typed handoff tick 安装 fixed non-composer bootstrap，并以同一个玩家身体、
+event bus、run combat state 与 occurrence ledger 进入 Forced Alignment 的真实 Left/Right READ。V4 仍未指定
+首房、live metric producer、room count、完整 difficulty mapping 或 canonical room-enter event；因此本记录
+不授权把固定切片称为 weighted composer、room complete 或下一房 handoff。

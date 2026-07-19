@@ -19,7 +19,7 @@
 | [EXT-2026-002：Canonical Run fragment adapters](EXT-2026-002-canonical-run-fragment-adapters.md) | ACCEPTED / FROZEN at `8e99ab4` | 历史 umbrella adapter 决定与接受时 evidence/provenance |
 | [EXT-2026-003：Ash Memory history replay](EXT-2026-003-ash-memory-history-replay.md) | ACCEPTED | reverse history replay、离散 contact components 与 weather firewall |
 | [EXT-2026-004：First Eye recovery handoff](EXT-2026-004-first-eye-recovery-handoff.md) | ACCEPTED | device-neutral gaze intent、30-tick Flower recovery projection 与 typed `ROOM_SAMPLING` boundary |
-| [EXT-2026-005：首个 Forced Alignment 房间 bootstrap](EXT-2026-005-first-forced-room-bootstrap.md) | PROPOSED | fixed non-composer bootstrap、seed domain、共享 authority 与完整 pre-read/READ 调度 |
+| [EXT-2026-005：首个 Forced Alignment 房间 bootstrap](EXT-2026-005-first-forced-room-bootstrap.md) | ACCEPTED | fixed non-composer bootstrap、seed domain、共享 authority 与完整 pre-read/READ 调度 |
 
 ## 新 ADR 规则
 
