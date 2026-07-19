@@ -434,6 +434,51 @@ describe("run room exact pre-read and READ ownership", () => {
     expect(serializeCanonicalEvents(session.events().slice(0, source.sourceEvents.length)))
       .toBe(source.sourceSerialization);
   });
+
+  it("keeps one relative room trace and entity state across nonzero handoff origins", () => {
+    const execute = (handoffTick120: number) => {
+      const source = sourceFixture(handoffTick120);
+      const session = new CanonicalRunRoomSession(optionsFor(source));
+      const snapshot = stepTo(session, handoffTick120 + 252);
+      const handoffMs = handoffTick120 * 1000 / 120;
+      const relativePayload = (payload: CanonicalGameplayEvent["payload"]) =>
+        Object.fromEntries(Object.entries(payload).map(([key, value]) => [
+          key,
+          typeof value === "number" && key.endsWith("AtMs")
+            ? Math.round((value - handoffMs) * 1e9) / 1e9
+            : value,
+        ]));
+      return {
+        phase: snapshot.phase,
+        relativeTick120: snapshot.relativeTick120,
+        rawRunSeed: snapshot.rawRunSeed,
+        resolvedSeed: snapshot.resolvedSeed,
+        entities: snapshot.entities,
+        playerPosition: snapshot.runCombat.playerPosition,
+        roomEvents: session.events().slice(source.sourceEvents.length).map((event) => ({
+          id: event.id,
+          relativeTick120: event.tick120 - handoffTick120,
+          entityStableId: event.entityStableId,
+          localSequence: event.localSequence,
+          occurrenceKey: event.occurrenceKey,
+          payload: relativePayload(event.payload),
+        })),
+        projectiles: snapshot.combat?.projectiles.map((projectile) => ({
+          instanceId: projectile.instanceId,
+          generation: projectile.generation,
+          sourceId: projectile.sourceId,
+          sourceIndex: projectile.sourceIndex,
+          burstIndex: projectile.burstIndex,
+          state: projectile.state,
+          collisionEnabled: projectile.collisionEnabled,
+          position: projectile.position,
+          previousPosition: projectile.previousPosition,
+        })),
+      };
+    };
+
+    expect(execute(481)).toEqual(execute(240));
+  });
 });
 
 describe("run room terminal tail and honest completion", () => {
