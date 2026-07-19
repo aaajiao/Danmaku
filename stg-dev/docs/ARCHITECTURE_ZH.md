@@ -224,6 +224,15 @@ transition tick的rolling room context为null，不进入旧房或目标房metri
 只允许target-room idle与carryover。契约与provenance见
 [EXT-2026-013](adr/EXT-2026-013-first-continuation-room-transition.md)。
 
+EXT-015只在该opaque handoff之后规划ordinal 1首个occurrence：以正式partial facts计算V4 intensity，
+`overrideRatio`的QA fallback显式标为未观察；沿EXT-012 continuation Mulberry32 stream消费draw 1，完整保留
+target composer pool且不按当前实现能力重抽。plan使用最小V4 segment边界、固定`0x2200` occurrence salt与
+parallel none，不决定后续encounter或room completion。准入按Run合并retained carryover allocated slots、
+residue visual与新tier concurrent reservation；material未排空也可安全接管，drain不是新gate。handoff tick仍
+归transition，post-flush原子换成持有预算的dormant successor owner，下一tick才开始step。movement/Focus按
+既有身体权继续；Signal/Gaze/Flower在另有原子successor input决定前保持EXT-014冻结。契约与provenance见
+[EXT-2026-015](adr/EXT-2026-015-first-continuation-room-plan-and-pool-admission.md)。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与

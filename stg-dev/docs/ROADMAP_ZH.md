@@ -50,9 +50,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | EXT-012已从3 available / 11 missing的正式projection选择ordinal 1 target，保留三房base weight与typed absence；下一步以独立ADR接transition和target-room live admission |
+| P0-05 | Live room composer | WIP | EXT-012 target与EXT-013 transition已进入真实Run；EXT-015已冻结ordinal 1首occurrence plan、RNG continuation与combined pool语义，下一步实现plan/admission及successor chapter |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、`ROOM_SAMPLING`、固定首房occurrence、H/H+1701/H+1702 captures、partial metric snapshot与next target已闭合；下一步接transition/target-room execution，handoff仍未授权 |
+| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target与完整Room Threshold/material handoff已闭合；下一步原子接管target-room首owner，后续room completion仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
 | P0-09 | Presentation / accessibility | WIP | 完整 Run 的 full/reduced-motion/flash-off gameplay trace 相同；UI、音频、触觉、天气只读投影，关键 causal clips 可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
@@ -61,8 +61,8 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 以EXT-012已冻结的ordinal 1 target为source，独立定义transition gameplay occurrence与atomic room FSM
-   join，再让下一房的真实mechanism产生其可观察facts；不得复制QA fixture、用默认0填missing，或从表现反推。
+1. 实现EXT-015的formal plan、combined pool reservation与next-tick successor接管；旧material允许并行消退，
+   不得复制QA fixture、按当前capability重抽pattern、用默认0伪造完整metrics或从表现反推。
 2. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
    count、完整room order、difficulty与RNG continuation在各自消费边界明确，禁止再次形成“后置事实先齐”的门。
 3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
