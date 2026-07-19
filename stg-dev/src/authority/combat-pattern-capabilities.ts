@@ -10,6 +10,7 @@ export const SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS = Object.freeze([
   "encounter.weather_echo.rain_packets",
   "encounter.weather_echo.wind_bias",
   "room.in_between.context_switch",
+  "room.in_between.misregistration_corridor",
   "transition.dusk_settle",
   "transition.override_void",
   "room.forced.ballot_shift",

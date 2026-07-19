@@ -143,6 +143,7 @@ function optionsFor(patternId: CanonicalCombatPatternId) {
         : OPTIONS.projectilePoolClasses,
     roomId: patternId === "boss.misreader.phase1"
       || patternId === "room.in_between.context_switch"
+      || patternId === "room.in_between.misregistration_corridor"
       || patternId === "room.in_between.stable_intersection"
       ? "IN_BETWEEN"
       : patternId === "boss.one_sun_one_rule.phase1"
@@ -878,6 +879,7 @@ describe("canonical combat kernel capability families", () => {
       "encounter.weather_echo.rain_packets",
       "encounter.weather_echo.wind_bias",
       "room.in_between.context_switch",
+      "room.in_between.misregistration_corridor",
       "transition.dusk_settle",
       "transition.override_void",
       "room.forced.ballot_shift",
@@ -7565,10 +7567,12 @@ describe("isolated Crack Fall Loop combat capability", () => {
       oraclePolicy: "python-endpoint-edge-snap-plus-signed-eight-degrees",
     });
     expect(new CanonicalCombatKernel(OPTIONS).snapshot().adapterGaps.seamTopology).toBeUndefined();
-    expect(() => new CanonicalCombatKernel({
+    expect(new CanonicalCombatKernel({
       ...OPTIONS,
       patternId: "room.in_between.misregistration_corridor",
-    })).toThrow(/does not yet support pattern/);
+      roomId: "IN_BETWEEN",
+      projectilePoolClasses: {"bullet.micro.notch_e": "micro"},
+    }).snapshot().patternId).toBe("room.in_between.misregistration_corridor");
     expect(new CanonicalCombatKernel({
       ...OPTIONS,
       patternId: "transition.override_void",

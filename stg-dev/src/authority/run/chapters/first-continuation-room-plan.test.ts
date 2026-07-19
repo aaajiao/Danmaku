@@ -262,6 +262,31 @@ describe("EXT-2026-015 first continuation room pure plan", () => {
     expect(plan.selection.capabilityFilteringApplied).toBe(false);
   });
 
+  it("admits the selected Misregistration capability without filtering or reroll", () => {
+    const plan = deriveCanonicalRunFirstContinuationRoomPlanUnbranded(
+      sourceFixture("IN_BETWEEN", 8),
+    );
+
+    expect(plan.selection.selectedPatternId).toBe("room.in_between.misregistration_corridor");
+    expect(plan.patternCapability).toEqual({
+      patternId: "room.in_between.misregistration_corridor",
+      source: "SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS",
+      status: "supported",
+    });
+    expect(plan.poolReservationRequest).toMatchObject({
+      state: "withheld-pending-combined-pool-admission",
+      successor: {
+        patternId: "room.in_between.misregistration_corridor",
+        projectileArchetypeId: "bullet.micro.notch_e",
+        emitterCount: 2,
+      },
+      combinedAdmissionEvaluated: false,
+      reservationCommitted: false,
+    });
+    expect(plan.selection.rerollCount).toBe(0);
+    expect(plan.selection.capabilityFilteringApplied).toBe(false);
+  });
+
   it("withholds missing_ack for its independently parsed split-child upper-bound gap", () => {
     const plan = deriveCanonicalRunFirstContinuationRoomPlanUnbranded(
       sourceFixture("INFORMATION", 5),

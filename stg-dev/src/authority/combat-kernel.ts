@@ -1,5 +1,12 @@
 import bossRigsJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/boss-rigs-v4.json";
 import {SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS} from "./combat-pattern-capabilities";
+import {validateMisregistrationCorridorPatternContract} from
+  "./combat-patterns/misregistration-corridor";
+import {
+  assertExactDataContract,
+  ownDenseDataArray,
+  ownPlainDataRecord,
+} from "./exact-data-contract";
 import {
   AUTHORED_PLAYER_Y,
   LOGICAL_VIEW_HEIGHT,
@@ -130,6 +137,7 @@ const SUPPORTED_OPERATOR_SET: ReadonlySet<string> = new Set([
   "op.limited_homing",
   "op.linear",
   "op.local_vector_bias",
+  "op.orbit_release",
   "op.speed_envelope",
   "op.seam_transform",
   "op.turn_once",
@@ -149,6 +157,7 @@ const SUPPORTED_OPERATOR_SIGNATURES: ReadonlySet<string> = new Set([
   "op.history_replay",
   "op.aim_lock>op.linear",
   "op.aim_lock>op.limited_homing>op.linear",
+  "op.orbit_release>op.linear",
 ]);
 const SUPPORTED_GEOMETRY_SET: ReadonlySet<string> = new Set([
   "arc",
@@ -244,6 +253,13 @@ interface BossRigManifestContract {
   readonly rigs: readonly BossRigContract[];
 }
 
+interface OrbitReleaseContract {
+  readonly radiusPx: number;
+  readonly angularDegPerSec: number;
+  readonly releaseAtMs: number;
+  readonly releaseHeadingDeg: number;
+}
+
 interface RuntimeProjectile {
   readonly handle: ProjectileHandle;
   readonly sourceId: string;
@@ -261,6 +277,10 @@ interface RuntimeProjectile {
   readonly speedMultiplier: number;
   readonly localVectorBias: LocalVectorBiasContract | undefined;
   readonly dualClockGate: DualClockGateContract | undefined;
+  readonly orbitRelease: OrbitReleaseContract | undefined;
+  readonly orbitOrigin: Vec2;
+  readonly orbitPhaseRadians: number;
+  orbitStarted: boolean;
   dualClockActive: boolean;
   /** Last resolved flight-motion speed; collisionless arm retains the age-zero sample. */
   speedPxPerSecond: number;
@@ -377,6 +397,17 @@ export interface CanonicalCombatSnapshot {
       order:
         "geometry-source-index>one-rng-jitter>full-declaration-order-swept-preflight>entity-spawn";
       crossedTurnTick: "old-heading-sweep>zero-time-turn>new-heading-next-tick";
+      spawnIdentity: "assigned-only-after-preflight-pass";
+      residue: "omitted-candidates-have-no-events-or-residue";
+      runtimeViolation: "fail-stop-never-source-withdrawn";
+    }>;
+    misregistrationOrbitRelease?: Readonly<{
+      order:
+        "geometry-source-index>one-rng-jitter>full-orbit-release-swept-preflight>entity-spawn";
+      phasePolicy: "ext-018-one-candidate-draw-times-tau";
+      referenceDivergence: "qa-golden-ordinal-phase-remains-reference-only";
+      releasePolicy: "exact-release-boundary>authored-absolute-heading>linear-remainder";
+      armPolicy: "anchor-spawn>first-live-tick-radial-to-orbit-sweep";
       spawnIdentity: "assigned-only-after-preflight-pass";
       residue: "omitted-candidates-have-no-events-or-residue";
       runtimeViolation: "fail-stop-never-source-withdrawn";
@@ -1051,56 +1082,6 @@ function compareText(left: string, right: string): number {
   return leftScalars.length - rightScalars.length;
 }
 
-function ownPlainDataRecord(
-  value: Readonly<Record<string, unknown>>,
-  expectedKeys: readonly string[],
-  path: string,
-): Readonly<Record<string, unknown>> {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} must be a plain object`);
-  }
-  let isArray: boolean;
-  let prototype: object | null;
-  let symbols: readonly symbol[];
-  let descriptors: PropertyDescriptorMap;
-  try {
-    isArray = Array.isArray(value);
-    prototype = Object.getPrototypeOf(value) as object | null;
-    symbols = Object.getOwnPropertySymbols(value);
-    descriptors = Object.getOwnPropertyDescriptors(value);
-  } catch {
-    throw new Error(`${path} could not be inspected safely`);
-  }
-  if (isArray) throw new Error(`${path} must be a plain object`);
-  if (prototype !== Object.prototype && prototype !== null) {
-    throw new Error(`${path} must be a plain object`);
-  }
-  if (symbols.length > 0) {
-    throw new Error(`${path} must not contain symbol keys`);
-  }
-  const actualKeys = Object.keys(descriptors).sort(compareText);
-  const expected = [...expectedKeys].sort(compareText);
-  if (
-    actualKeys.length !== expected.length
-    || actualKeys.some((key, index) => key !== expected[index])
-  ) {
-    throw new Error(`${path} parameter contract drifted`);
-  }
-  const result: Record<string, unknown> = {};
-  for (const key of expected) {
-    const descriptor = descriptors[key];
-    if (
-      descriptor === undefined
-      || !("value" in descriptor)
-      || descriptor.enumerable !== true
-    ) {
-      throw new Error(`${path}.${key} must be an enumerable own data property`);
-    }
-    result[key] = descriptor.value;
-  }
-  return Object.freeze(result);
-}
-
 function requireUnicodeScalarString(value: unknown, path: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${path} must be a non-empty string`);
@@ -1213,83 +1194,6 @@ function captureMisreaderEnforceEntryOptions(
 function occurrenceAuthorityId(occurrenceId: string, patternId: string): string {
   const byteLength = new TextEncoder().encode(occurrenceId).byteLength;
   return `combat:${byteLength}:${occurrenceId}:${patternId}`;
-}
-
-function ownDenseDataArray(value: unknown, path: string): readonly unknown[] {
-  let isArray: boolean;
-  let prototype: object | null;
-  let symbols: readonly symbol[];
-  let descriptors: PropertyDescriptorMap;
-  try {
-    isArray = Array.isArray(value);
-    prototype = Object.getPrototypeOf(value) as object | null;
-    symbols = Object.getOwnPropertySymbols(value);
-    descriptors = Object.getOwnPropertyDescriptors(value);
-  } catch {
-    throw new Error(`${path} could not be inspected safely`);
-  }
-  if (!isArray || prototype !== Array.prototype) {
-    throw new Error(`${path} must be a plain array`);
-  }
-  if (symbols.length > 0) {
-    throw new Error(`${path} must not contain symbol keys`);
-  }
-  const lengthDescriptor = descriptors.length;
-  if (
-    lengthDescriptor === undefined
-    || !("value" in lengthDescriptor)
-    || !Number.isSafeInteger(lengthDescriptor.value)
-    || lengthDescriptor.value < 0
-  ) {
-    throw new Error(`${path}.length must be an own non-negative safe integer`);
-  }
-  const length = lengthDescriptor.value as number;
-  if (length > 16) throw new Error(`${path}.length must not exceed 16`);
-  const expectedKeys = Array.from({length}, (_, index) => String(index)).sort(compareText);
-  const actualKeys = Object.keys(descriptors).filter((key) => key !== "length").sort(compareText);
-  if (
-    actualKeys.length !== expectedKeys.length
-    || actualKeys.some((key, index) => key !== expectedKeys[index])
-  ) {
-    throw new Error(`${path} must be dense and contain no metadata`);
-  }
-  const captured: unknown[] = [];
-  for (let index = 0; index < length; index += 1) {
-    const descriptor = descriptors[String(index)];
-    if (descriptor === undefined || !("value" in descriptor) || descriptor.enumerable !== true) {
-      throw new Error(`${path}[${index}] must be an own enumerable data element`);
-    }
-    captured.push(descriptor.value);
-  }
-  return Object.freeze(captured);
-}
-
-/** Descriptor-safe deep equality for one explicitly admitted immutable V4 slice. */
-function assertExactDataContract(actual: unknown, expected: unknown, path: string): void {
-  if (Array.isArray(expected)) {
-    const captured = ownDenseDataArray(actual, path);
-    if (captured.length !== expected.length) {
-      throw new Error(`${path} exact contract drifted`);
-    }
-    for (let index = 0; index < expected.length; index += 1) {
-      assertExactDataContract(captured[index], expected[index], `${path}[${index}]`);
-    }
-    return;
-  }
-  if (typeof expected === "object" && expected !== null) {
-    const expectedRecord = expected as Readonly<Record<string, unknown>>;
-    const expectedKeys = Object.keys(expectedRecord);
-    const captured = ownPlainDataRecord(
-      actual as Readonly<Record<string, unknown>>,
-      expectedKeys,
-      path,
-    );
-    for (const key of expectedKeys) {
-      assertExactDataContract(captured[key], expectedRecord[key], `${path}.${key}`);
-    }
-    return;
-  }
-  if (!Object.is(actual, expected)) throw new Error(`${path} exact contract drifted`);
 }
 
 interface SpeedCurveKey {
@@ -1954,6 +1858,162 @@ function motionSegment(
   });
 }
 
+const ORBIT_SWEEP_MAX_SAGITTA_PX = 0.0001;
+
+function orbitPhaseRadiansFromCandidateDraw(draw: number): number {
+  if (!Number.isFinite(draw) || draw < 0 || draw >= 1 || Object.is(draw, -0)) {
+    throw new Error("orbit phase draw must be in [0,1) without negative zero");
+  }
+  return draw * Math.PI * 2;
+}
+
+function orbitPositionAtAge(
+  origin: Vec2,
+  orbit: OrbitReleaseContract,
+  phaseRadians: number,
+  ageMs: number,
+): Vec2 {
+  const theta = phaseRadians
+    + degreesToRadians(orbit.angularDegPerSec) * ageMs / 1000;
+  return Object.freeze({
+    x: origin.x + Math.cos(theta) * orbit.radiusPx,
+    y: origin.y + Math.sin(theta) * orbit.radiusPx,
+  });
+}
+
+function appendOrbitArcSegments(
+  segments: KinematicMotionSegment[],
+  origin: Vec2,
+  orbit: OrbitReleaseContract,
+  phaseRadians: number,
+  fromPosition: Vec2,
+  fromAgeMs: number,
+  toAgeMs: number,
+  authoredSpawnMs: number,
+): Vec2 {
+  const deltaRadians = Math.abs(degreesToRadians(orbit.angularDegPerSec))
+    * (toAgeMs - fromAgeMs) / 1000;
+  const maximumRadians = 2 * Math.acos(
+    Math.max(-1, 1 - ORBIT_SWEEP_MAX_SAGITTA_PX / orbit.radiusPx),
+  );
+  const count = Math.max(1, Math.ceil(deltaRadians / maximumRadians));
+  const tangentSpeedPxPerSecond = orbit.radiusPx
+    * Math.abs(degreesToRadians(orbit.angularDegPerSec));
+  let cursor = fromPosition;
+  let fromMs = authoredSpawnMs + fromAgeMs;
+  for (let index = 1; index <= count; index += 1) {
+    const fraction = index / count;
+    const sampleAgeMs = fromAgeMs + (toAgeMs - fromAgeMs) * fraction;
+    const sampleMs = authoredSpawnMs + sampleAgeMs;
+    const target = orbitPositionAtAge(origin, orbit, phaseRadians, sampleAgeMs);
+    segments.push(motionSegment(
+      cursor,
+      target,
+      fromMs,
+      sampleMs,
+      tangentSpeedPxPerSecond,
+    ));
+    cursor = target;
+    fromMs = sampleMs;
+  }
+  return cursor;
+}
+
+/**
+ * Integrate one declaration-order orbit/release interval. The first armed
+ * interval retains the reference adapter's anchor-to-orbit radial sweep; later
+ * orbit arcs use bounded deterministic chords, and a crossed release boundary
+ * becomes a distinct authored-heading linear primitive.
+ */
+function integrateOrbitReleaseMotion(
+  position: Vec2,
+  origin: Vec2,
+  orbit: OrbitReleaseContract,
+  phaseRadians: number,
+  orbitStarted: boolean,
+  linearSpeedPxPerSecond: number,
+  authoredSpawnMs: number,
+  previousRelativeMs: number,
+  relativeMs: number,
+): Readonly<{
+  readonly position: Vec2;
+  readonly headingDegrees: number | null;
+  readonly orbitStarted: boolean;
+  readonly released: boolean;
+  readonly resolvedSpeedPxPerSecond: number;
+  readonly segments: readonly KinematicMotionSegment[];
+}> {
+  const previousAgeMs = Math.max(0, previousRelativeMs - authoredSpawnMs);
+  const ageMs = Math.max(0, relativeMs - authoredSpawnMs);
+  if (ageMs < previousAgeMs) throw new Error("orbit/release time must be monotonic");
+  const releaseRelativeMs = authoredSpawnMs + orbit.releaseAtMs;
+  const segments: KinematicMotionSegment[] = [];
+  let cursor = position;
+  let started = orbitStarted;
+  if (previousAgeMs < orbit.releaseAtMs) {
+    const orbitEndAgeMs = Math.min(ageMs, orbit.releaseAtMs);
+    if (orbitEndAgeMs > previousAgeMs) {
+      if (!started) {
+        const orbitEnd = orbitPositionAtAge(origin, orbit, phaseRadians, orbitEndAgeMs);
+        segments.push(motionSegment(
+          cursor,
+          orbitEnd,
+          previousRelativeMs,
+          authoredSpawnMs + orbitEndAgeMs,
+          orbit.radiusPx * Math.abs(degreesToRadians(orbit.angularDegPerSec)),
+        ));
+        cursor = orbitEnd;
+        started = true;
+      } else {
+        cursor = appendOrbitArcSegments(
+          segments,
+          origin,
+          orbit,
+          phaseRadians,
+          cursor,
+          previousAgeMs,
+          orbitEndAgeMs,
+          authoredSpawnMs,
+        );
+      }
+    }
+  } else if (!started) {
+    throw new Error("orbit/release reached release before its owned orbit began");
+  }
+  const released = ageMs >= orbit.releaseAtMs;
+  if (released && relativeMs > releaseRelativeMs) {
+    const linearFromMs = Math.max(previousRelativeMs, releaseRelativeMs);
+    const seconds = (relativeMs - linearFromMs) / 1000;
+    const radians = degreesToRadians(orbit.releaseHeadingDeg);
+    const next = Object.freeze({
+      x: cursor.x + Math.cos(radians) * linearSpeedPxPerSecond * seconds,
+      y: cursor.y + Math.sin(radians) * linearSpeedPxPerSecond * seconds,
+    });
+    segments.push(motionSegment(
+      cursor,
+      next,
+      linearFromMs,
+      relativeMs,
+      linearSpeedPxPerSecond,
+      previousRelativeMs < releaseRelativeMs,
+    ));
+    cursor = next;
+  }
+  if (segments.length === 0) {
+    throw new Error("orbit/release integration produced no owned movement segment");
+  }
+  return Object.freeze({
+    position: cursor,
+    headingDegrees: released ? orbit.releaseHeadingDeg : null,
+    orbitStarted: started,
+    released,
+    resolvedSpeedPxPerSecond: released
+      ? linearSpeedPxPerSecond
+      : orbit.radiusPx * Math.abs(degreesToRadians(orbit.angularDegPerSec)),
+    segments: Object.freeze(segments),
+  });
+}
+
 /** Earliest strict entry into the moving, radius-expanded player corridor. */
 function firstSafeGapEntryOnSegment(
   pattern: CombatPattern,
@@ -2462,6 +2522,39 @@ function validateMotionParameters(
       throw new Error(`${path}.${key} must be finite`);
     }
   }
+}
+
+function captureOrbitRelease(
+  motionEntry: Pick<PatternMotion, "params">,
+  path: string,
+): OrbitReleaseContract {
+  validateMotionParameters(
+    motionEntry,
+    ["angularDegPerSec", "radiusPx", "releaseAtMs", "releaseHeadingDeg"],
+    path,
+  );
+  const radiusPx = requirePositiveFinite(motionEntry.params.radiusPx as number, `${path}.radiusPx`);
+  const angularDegPerSec = motionEntry.params.angularDegPerSec as number;
+  if (angularDegPerSec === 0 || Object.is(angularDegPerSec, -0)) {
+    throw new Error(`${path}.angularDegPerSec must be non-zero without negative zero`);
+  }
+  const releaseAtMs = requirePositiveFinite(
+    motionEntry.params.releaseAtMs as number,
+    `${path}.releaseAtMs`,
+  );
+  const releaseHeadingDeg = motionEntry.params.releaseHeadingDeg as number;
+  if (Object.is(releaseHeadingDeg, -0)) {
+    throw new Error(`${path}.releaseHeadingDeg must not be negative zero`);
+  }
+  return Object.freeze({radiusPx, angularDegPerSec, releaseAtMs, releaseHeadingDeg});
+}
+
+function orbitReleaseContract(
+  motionStack: readonly PatternMotion[],
+  path: string,
+): OrbitReleaseContract | undefined {
+  const orbit = motionStack.find((entry) => entry.operator === "op.orbit_release");
+  return orbit === undefined ? undefined : captureOrbitRelease(orbit, path);
 }
 
 function assertTurnOnceMotion(
@@ -6349,6 +6442,9 @@ function validatePattern(pattern: CombatPattern): void {
   if (pattern.id === "room.in_between.stable_intersection") {
     validateStableIntersectionPatternContract(pattern);
   }
+  if (pattern.id === "room.in_between.misregistration_corridor") {
+    validateMisregistrationCorridorPatternContract(pattern);
+  }
   if (pattern.id === "transition.room_threshold") {
     validateRoomThresholdPatternContract(pattern);
   }
@@ -6536,6 +6632,8 @@ function validatePattern(pattern: CombatPattern): void {
       && emitter.geometry.type === "cross";
     const ownsStableIntersectionLattice = pattern.id === "room.in_between.stable_intersection"
       && emitter.geometry.type === "lattice";
+    const ownsMisregistrationSpiral = pattern.id === "room.in_between.misregistration_corridor"
+      && emitter.geometry.type === "spiral";
     const ownsAshMemoryHistoryChain = pattern.id === "encounter.weather_echo.ash_memory"
       && emitter.geometry.type === "history_chain";
     if (
@@ -6543,6 +6641,7 @@ function validatePattern(pattern: CombatPattern): void {
       && !ownsClockDecreeShutter
       && !ownsNoDuskCross
       && !ownsStableIntersectionLattice
+      && !ownsMisregistrationSpiral
       && !ownsAshMemoryHistoryChain
     ) {
       throw new Error(`${pattern.id}/${emitter.id} requires an unsupported geometry`);
@@ -6642,6 +6741,7 @@ function validatePattern(pattern: CombatPattern): void {
     const seamTransform = emitter.motionStack.find((entry) => entry.operator === "op.seam_transform");
     const linear = emitter.motionStack.find((entry) => entry.operator === "op.linear");
     const historyReplay = emitter.motionStack.find((entry) => entry.operator === "op.history_replay");
+    const orbitRelease = emitter.motionStack.find((entry) => entry.operator === "op.orbit_release");
     const ownsAshMemoryHistoryReplay = pattern.id === "encounter.weather_echo.ash_memory";
     if (ownsAshMemoryHistoryReplay !== (historyReplay !== undefined)) {
       throw new Error(`${pattern.id}/${emitter.id} history-replay capability ownership drifted`);
@@ -6654,6 +6754,13 @@ function validatePattern(pattern: CombatPattern): void {
     } else {
       if (linear === undefined) throw new Error(`${pattern.id}/${emitter.id} motion stack is incomplete`);
       validateMotionParameters(linear, [], `${emitter.id}.linear`);
+    }
+    const ownsOrbitRelease = pattern.id === "room.in_between.misregistration_corridor";
+    if (ownsOrbitRelease !== (orbitRelease !== undefined)) {
+      throw new Error(`${pattern.id}/${emitter.id} orbit-release capability ownership drifted`);
+    }
+    if (orbitRelease !== undefined) {
+      captureOrbitRelease(orbitRelease, `${emitter.id}.orbit_release`);
     }
     if (aim !== undefined) {
       validateMotionParameters(aim, ["lockAtMs", "leadMs", "maxTurnDeg"], `${emitter.id}.aim_lock`);
@@ -6824,6 +6931,7 @@ function candidateViolatesSafeGap(
   speedCurve: SpeedCurveContract,
   speedMultiplier: number,
   spawnRelativeMs: number,
+  orbitPhaseRadians: number | null,
 ): boolean {
   const turn = emitter.motionStack.find((entry) => entry.operator === "op.turn_once");
   const lateral = emitter.motionStack.find((entry) => entry.operator === "op.lateral_wall");
@@ -6831,11 +6939,67 @@ function candidateViolatesSafeGap(
   const localVectorBias = localVectorBiasContract(emitter.motionStack);
   const seamTransform = emitter.motionStack.find((entry) => entry.operator === "op.seam_transform");
   const dualClockGate = emitter.motionStack.find((entry) => entry.operator === "op.dual_clock_gate");
+  const orbitRelease = orbitReleaseContract(
+    emitter.motionStack,
+    `${pattern.id}/${emitter.id}.orbit_release`,
+  );
   const linearIndex = emitter.motionStack.findIndex((entry) => entry.operator === "op.linear");
   const turnIndex = emitter.motionStack.findIndex((entry) => entry.operator === "op.turn_once");
   const turnDeclaredAfterLinear = turnIndex >= 0
     && linearIndex >= 0
     && turnIndex > linearIndex;
+  if (orbitRelease !== undefined) {
+    if (
+      pattern.id !== "room.in_between.misregistration_corridor"
+      || pattern.safeGap.enforcement !== "spawn_omission"
+      || orbitPhaseRadians === null
+    ) {
+      throw new Error(`${pattern.id} orbit/release preflight ownership drifted`);
+    }
+    const spawnTick120 = crossedTickCount(spawnRelativeMs);
+    const armAtTick120 = spawnTick120 + crossedOffsetTickCount(
+      spawnRelativeMs,
+      emitter.projectile.armDelayMs,
+    );
+    const patternEndTick120 = crossedTickCount(pattern.durationMs);
+    const linearSpeedPxPerSecond = speedCurveAt(speedCurve, 0) * speedMultiplier;
+    let previous = position;
+    let orbitStarted = false;
+    for (let relativeTick120 = spawnTick120 + 1;
+      relativeTick120 < patternEndTick120;
+      relativeTick120 += 1) {
+      if (relativeTick120 <= armAtTick120) continue;
+      const previousMs = (relativeTick120 - 1) * 1000 / TICKS_PER_SECOND;
+      const currentMs = relativeTick120 * 1000 / TICKS_PER_SECOND;
+      const integrated = integrateOrbitReleaseMotion(
+        previous,
+        position,
+        orbitRelease,
+        orbitPhaseRadians,
+        orbitStarted,
+        linearSpeedPxPerSecond,
+        spawnRelativeMs,
+        previousMs,
+        currentMs,
+      );
+      if (integrated.segments.some((segment) => sweptSegmentViolatesSafeGap(
+        pattern,
+        difficulty,
+        segment.from,
+        segment.to,
+        emitter.projectile.collisionRadiusPx,
+        segment.previousRelativeMs,
+        segment.relativeMs,
+      ))) return true;
+      previous = integrated.position;
+      orbitStarted = integrated.orbitStarted;
+      if (outOfBounds(previous)) return false;
+    }
+    return false;
+  }
+  if (orbitPhaseRadians !== null) {
+    throw new Error(`${pattern.id} received an orbit phase without orbit authority`);
+  }
   if (pattern.safeGap.enforcement === "phase_gate") {
     const ownsPhaseGate = pattern.id === "room.forced.ballot_shift"
       || pattern.id === "room.polarized.clock_decree"
@@ -9463,6 +9627,22 @@ export class CanonicalCombatKernel {
             runtimeViolation: "fail-stop-never-source-withdrawn" as const,
           })}
         : {}),
+      ...(this.pattern.id === "room.in_between.misregistration_corridor"
+        ? {misregistrationOrbitRelease: Object.freeze({
+            order: (
+              "geometry-source-index>one-rng-jitter>full-orbit-release-swept-preflight>entity-spawn"
+            ) as const,
+            phasePolicy: "ext-018-one-candidate-draw-times-tau" as const,
+            referenceDivergence:
+              "qa-golden-ordinal-phase-remains-reference-only" as const,
+            releasePolicy:
+              "exact-release-boundary>authored-absolute-heading>linear-remainder" as const,
+            armPolicy: "anchor-spawn>first-live-tick-radial-to-orbit-sweep" as const,
+            spawnIdentity: "assigned-only-after-preflight-pass" as const,
+            residue: "omitted-candidates-have-no-events-or-residue" as const,
+            runtimeViolation: "fail-stop-never-source-withdrawn" as const,
+          })}
+        : {}),
       ...(this.pattern.id === "room.forced.crack_fall_loop"
         ? {seamTopology: Object.freeze({
             crossing: "inclusive-arrival-or-departure-first-crossing-per-generation" as const,
@@ -10354,11 +10534,19 @@ export class CanonicalCombatKernel {
       emitter.motionStack,
       `${this.pattern.id}/${emitter.id}.history_replay`,
     );
+    const orbitRelease = orbitReleaseContract(
+      emitter.motionStack,
+      `${this.pattern.id}/${emitter.id}.orbit_release`,
+    );
     for (const candidate of candidates) {
       // `op.lateral_wall` defines the opening as an absent spawn candidate.
       // The omitted lane therefore owns neither an entity identity nor an RNG call.
       if (lateral !== undefined && !lateralWallAllows(candidate.sourceIndex, count, lateral)) continue;
-      const jitter = (this.nextRandom() - 0.5)
+      const candidateDraw = this.nextRandom();
+      const orbitPhaseRadians = orbitRelease === undefined
+        ? null
+        : orbitPhaseRadiansFromCandidateDraw(candidateDraw);
+      const jitter = (candidateDraw - 0.5)
         * Math.min(3, emitter.geometry.spreadDeg * 0.012);
       const position = Object.freeze({x: candidate.x, y: candidate.y});
       const aim = emitter.motionStack.find((entry) => entry.operator === "op.aim_lock");
@@ -10394,6 +10582,7 @@ export class CanonicalCombatKernel {
           speedCurve,
           speedMultiplier,
           authoredAtMs,
+          orbitPhaseRadians,
         )
       ) continue;
       const armDelayTicks = crossedOffsetTickCount(authoredAtMs, emitter.projectile.armDelayMs);
@@ -10430,6 +10619,10 @@ export class CanonicalCombatKernel {
         motion: emitter.motionStack,
         historyReplay,
         authoredSpawnOrdinal,
+        orbitRelease,
+        orbitOrigin: position,
+        orbitPhaseRadians: orbitPhaseRadians ?? 0,
+        orbitStarted: false,
         position,
         previousPosition: position,
         headingDegrees,
@@ -10531,6 +10724,53 @@ export class CanonicalCombatKernel {
         if (outOfBounds(proposed)) {
           runtime.desiredCollisionEnabled = null;
           runtime.desiredCollisionReason = null;
+          this.projectiles.cancel(runtime.handle, tick120, "out_of_bounds");
+        }
+        continue;
+      }
+      if (runtime.orbitRelease !== undefined) {
+        if (this.pattern.id !== "room.in_between.misregistration_corridor") {
+          throw new Error(`${this.pattern.id} runtime acquired unowned orbit/release motion`);
+        }
+        const linearSpeedPxPerSecond = speedCurveAt(
+          runtime.speedCurve,
+          Math.max(0, relativeMs - runtime.authoredSpawnMs),
+        ) * runtime.speedMultiplier;
+        const integrated = integrateOrbitReleaseMotion(
+          runtime.position,
+          runtime.orbitOrigin,
+          runtime.orbitRelease,
+          runtime.orbitPhaseRadians,
+          runtime.orbitStarted,
+          linearSpeedPxPerSecond,
+          runtime.authoredSpawnMs,
+          previousRelativeMs,
+          relativeMs,
+        );
+        if (integrated.segments.some((segment) => sweptSegmentViolatesSafeGap(
+          this.pattern,
+          this.options.difficulty,
+          segment.from,
+          segment.to,
+          snapshot.collisionRadiusPx,
+          segment.previousRelativeMs,
+          segment.relativeMs,
+        ))) {
+          throw new Error(
+            `${this.pattern.id} admitted orbit/release projectile violated its complete swept preflight`,
+          );
+        }
+        runtime.previousPosition = runtime.position;
+        runtime.position = integrated.position;
+        runtime.orbitStarted = integrated.orbitStarted;
+        if (integrated.headingDegrees !== null) {
+          runtime.headingDegrees = integrated.headingDegrees;
+        }
+        runtime.speedPxPerSecond = integrated.resolvedSpeedPxPerSecond;
+        runtime.movementSegmentsAtTick120 = tick120;
+        runtime.movementSegments = integrated.segments;
+        this.projectiles.move(runtime.handle, tick120, integrated.position);
+        if (outOfBounds(integrated.position)) {
           this.projectiles.cancel(runtime.handle, tick120, "out_of_bounds");
         }
         continue;
@@ -10849,6 +11089,7 @@ export class CanonicalCombatKernel {
     if (
       this.pattern.id !== "room.forced.crack_fall_loop"
       && this.pattern.id !== "room.in_between.context_switch"
+      && this.pattern.id !== "room.in_between.misregistration_corridor"
       && this.pattern.id !== "transition.override_void"
       && this.pattern.id !== "encounter.weather_echo.ash_memory"
     ) {
