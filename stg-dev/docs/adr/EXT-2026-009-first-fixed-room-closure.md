@@ -20,9 +20,10 @@ material settle、required rest 与 residue drain 均已闭合。V4 没有规定
 `occurrenceCount=1 / remainingOccurrenceCount=0`；`H+1701` 仍只是 EXT-2026-008 的 observation boundary，
 到下一个独立 room-owned tick `H+1702` 才提交 room closure 与一次 typed visit fact。
 
-无形容词机制句：`CanonicalRunRoomSession` 在 `H+1702` 复验首 occurrence、required rest、entity/run-state
-drain 与 H+1701 observation 后，用同一 run state/event bus 关闭一个 idle tick；parent ledger 记录该 tick
-后原子冻结 `[1,H+1702]` closure capture，room completion 不自动取得下一房选择或 transition 权限。
+无形容词机制句：`CanonicalRunSession` 在 `H+1702` 前复验 H+1701 observation；
+`CanonicalRunRoomSession` 只复验首 occurrence、required rest与自身entity/run-state drain，再用同一run
+state/event bus关闭一个idle tick；parent ledger记录该tick后原子冻结 `[1,H+1702]` closure capture，room
+completion不自动取得下一房选择或transition权限。
 
 ## 负空间（Behavior > Content）
 
@@ -45,8 +46,8 @@ application policy，而不是胜利、清场、玩家水平、presentation cue 
 
 - `H+1701` 顺序与公开结果保持 EXT-2026-008 不变：fixed slice close → rolling facts 写入 → observation
   capture；该 snapshot 仍为 `roomComplete=false / handoffReady=false`。
-- `H+1702` 由 `room_sampling` owner 消费。room authority 必须先复验：
-  - H+1701 observation capture available、identity/content/raw seed一致且 bytes 未变；
+- `H+1702` 由 `room_sampling` owner 消费。parent必须在任何H+1702 authority mutation前复验H+1701
+  observation capture available、identity/content/raw seed一致且frozen bytes未变；room authority只复验：
   - fixed slice 与 required rest 已关闭；
   - digital body、live collider、residue visual 均为 0；
   - retained combat pattern complete、projectile lifecycle drained、run timers quiescent、occurrence handoff-ready；
@@ -64,8 +65,10 @@ application policy，而不是胜利、清场、玩家水平、presentation cue 
 
 - source epoch 为 `current-run-through-first-room-closure`，window 为 accepted ticks `[1,H+1702]`；
 - 记录 raw Run seed、共享 V4 content identity、pre-room H、H+1701 observation、closure tick、
-  room ID/ordinal、`occurrenceCount=1` 与一份 recursively frozen behavior-facts snapshot；
-- 提交 `roomComplete=true`、`completedRoom=FORCED_ALIGNMENT` 与 `distinctVisitedDelta=1`。
+  room ID/ordinal、`plannedOccurrenceCount=1`、`completedOccurrenceCount=1`、
+  `remainingOccurrenceCount=0` 与一份 recursively frozen behavior-facts snapshot；
+- 提交 `roomComplete=true`、`completedRoomVisit={roomId: FORCED_ALIGNMENT, roomOrdinal: 0}` 与
+  `distinctVisitedDelta=1`。
   该 delta 是首次完成一个唯一 room category 的待消费 typed fact，不是进度、奖励或评价；本切片
   不读取或改写 narrative distinct-room ledger；
 - `metricProjection=false`、`selectionAllowed=false`、`transitionAllowed=false`、
@@ -92,7 +95,8 @@ successor ADR 依次负责：
 2. 明确 room count、difficulty/tier/salt、remaining room candidates 与单一 RNG stream；
 3. 消耗并记录 selection RNG，冻结 target；
 4. join transition gameplay occurrence与atomic room FSM，再发 canonical transition events；
-5. target room ready后才把 closure visit fact交给 narrative distinct-room ledger。
+5. 明确closure visit fact、destination `world_swap.commit`与narrative distinct-room ledger的exact consume/order；
+   本 ADR不预先规定它是在target ready前还是后发生。
 
 禁止把 `distinctVisitedDelta=1` 当作允许 ROOM_SAMPLING 退出的单独条件；V4 narrative仍要求至少两个
 distinct rooms或150000ms，Run end仍要求至少240000ms与两个 distinct rooms。
@@ -174,7 +178,8 @@ V4 source tree保持只读。application hashes是提案基线；接受时补充
 - H+1700/H+1701仍`roomComplete=false`；H+1702恰好true且closure capture available；H+1703幂等；
 - zero entities、required rest、retained combat drain/quiescence、shared run null/null与claimed IDs精确；
 - closure前后canonical event bytes只受既有Gaze/Flower影响，closure/capture自身写0；RNG/target/transition不变；
-- closure capture的H+1701 provenance、behavior facts、`distinctVisitedDelta=1`与所有firewall精确且deep frozen；
+- closure capture的H+1701 provenance、behavior facts、planned/completed/remaining occurrence counts、
+  `distinctVisitedDelta=1`与所有firewall精确且deep frozen；
 - early/late、hostile source与composite failure无半份room complete/capture；同seed/input bytes一致；
 - focused room/capture/session tests、strict typecheck、content/build、`git diff --check`通过；
 - 若`data-room-complete`路径改变，运行controlled-RAF production-preview单例；不跑无关full suites。
