@@ -38,6 +38,7 @@ export {
   closeCanonicalRunFirstContinuationSuccessorSlice,
   inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
   startCanonicalRunFirstContinuationSuccessorRead,
+  stepCanonicalRunFirstContinuationSuccessor,
   type CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot,
   type CanonicalRunFirstContinuationSuccessorPreReadPhase,
 } from "./first-continuation-room-successor";

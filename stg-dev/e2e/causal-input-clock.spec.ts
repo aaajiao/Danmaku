@@ -136,14 +136,17 @@ test("RUN samples forward across boot, backlog, pause, and Focus boundaries", as
   expect(pageErrors, "controlled RUN should have no uncaught page errors").toEqual([]);
 });
 
-test("first room closes at H+1702 and hands into its owned transition", async ({page}) => {
+test("first room closes at H+1702 and hands through transition into its successor", async ({page}) => {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
-  await openControlled(page, "/?seed=305419896");
+  // Seed 1 formally selects the currently admitted notch_e successor. Seeds
+  // that select an unsupported/pool-unmapped plan remain typed-withheld and
+  // must not be rerolled merely to make this success-path scenario pass.
+  await openControlled(page, "/?seed=1");
   const body = page.locator("body");
 
   await page.locator("#boot-button").click();
@@ -305,7 +308,28 @@ test("first room closes at H+1702 and hands into its owned transition", async ({
     "data-transition-next-room-admission",
     "withheld-pending-room-plan-and-combined-pool-budget",
   );
+  await expect(body).toHaveAttribute("data-run-phase", "first_continuation_room");
+  await expect(body).toHaveAttribute("data-authority-owner", "first_continuation_room_pre_read");
+  await expect(body).toHaveAttribute("data-successor-present", "true");
+  await expect(body).toHaveAttribute("data-successor-phase", "dormant");
+  await expect(body).toHaveAttribute("data-successor-admission-withheld-reason", "");
+  const successorPatternId = await body.getAttribute("data-successor-pattern-id");
+  expect(successorPatternId).toBeTruthy();
+  await expect(body).toHaveAttribute("data-room-pattern-id", successorPatternId ?? "");
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-pattern-id",
+    successorPatternId ?? "",
+  );
+  expect(Number(await body.getAttribute("data-projectile-entities"))).toBe(
+    Number(await body.getAttribute("data-transition-material-count")),
+  );
   await advanceControlledRunToTick(page, patternCompleteTick120 + 1);
+  await expect(body).toHaveAttribute("data-successor-phase", "telegraph");
+  await expect(body).toHaveAttribute("data-authority-owner", "first_continuation_room_pre_read");
+  await expect(page.locator("#game-canvas")).toHaveAttribute(
+    "data-presented-pattern-id",
+    successorPatternId ?? "",
+  );
   await expect(body).toHaveAttribute("data-flower-authority-tick", flowerAuthorityTick ?? "");
   await expect(body).toHaveAttribute("data-gaze-authority-tick", gazeAuthorityTick ?? "");
   await expect.poll(() => page.locator("#expression-meter").evaluate(

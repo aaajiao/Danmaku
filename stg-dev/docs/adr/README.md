@@ -31,6 +31,7 @@
 | [EXT-2026-014：首个 continuation transition 的输入归属](EXT-2026-014-first-continuation-transition-input-ownership.md) | ACCEPTED | 转场期间身体输入继续；Signal/Gaze请求留痕但不消费；Flower/Gaze authority冻结且不伪造旧提交 |
 | [EXT-2026-015：首个 continuation room plan 与联合池准入](EXT-2026-015-first-continuation-room-plan-and-pool-admission.md) | ACCEPTED | 固定target上规划ordinal 1首个occurrence；延续一次RNG draw并以carryover+新reservation原子准入 |
 | [EXT-2026-016：首个 continuation occurrence 终端材料归属](EXT-2026-016-first-continuation-terminal-material.md) | ACCEPTED | gameplay drain后释放occurrence；collisionless residue跨精确slice边界保留且Override继续锁定 |
+| [EXT-2026-017：首个 continuation room 的会话与双材料投影](EXT-2026-017-first-continuation-session-projection.md) | ACCEPTED | 同tick零事件admission接入正式Run；旧transition material与新successor combat/residue并行投影 |
 
 ## 新 ADR 规则
 

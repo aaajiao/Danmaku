@@ -148,6 +148,7 @@ const view = new GameView(canvas, frames);
 let canonicalEventCursor = 0;
 let canonicalPhase: CanonicalRunSessionSnapshot["phase"] | null = null;
 let canonicalWorldRoom: string | null = null;
+let canonicalPatternId: string | null = null;
 let paused = false;
 
 function populatePatternSelect(): void {
@@ -200,7 +201,8 @@ function selectPattern(index: number): void {
 }
 
 function activeCanonicalPattern(run: CanonicalRunSessionSnapshot): PatternDefinition {
-  const patternId = run.firstContinuationTransition?.patternId
+  const patternId = run.firstContinuationRoom?.patternId
+    ?? run.firstContinuationTransition?.patternId
     ?? run.roomSampling?.patternId
     ?? run.adapterPolicy.firstEye.patternId;
   const pattern = patternById.get(patternId);
@@ -209,7 +211,8 @@ function activeCanonicalPattern(run: CanonicalRunSessionSnapshot): PatternDefini
 }
 
 function activeCanonicalWorldRoom(run: CanonicalRunSessionSnapshot): string {
-  return run.firstContinuationTransition?.worldRoom
+  return run.firstContinuationRoom?.worldRoom
+    ?? run.firstContinuationTransition?.worldRoom
     ?? run.roomSampling?.roomId
     ?? (run.phase === "quiet_awakening" ? "AWAKENING" : run.adapterPolicy.firstEye.roomId);
 }
@@ -220,19 +223,30 @@ function canonicalPresentation(run: CanonicalRunSessionSnapshot): SimulationSnap
 
 function applyCanonicalPhase(run: CanonicalRunSessionSnapshot): void {
   const worldRoom = activeCanonicalWorldRoom(run);
-  if (run.phase === canonicalPhase && worldRoom === canonicalWorldRoom) return;
+  const activePattern = activeCanonicalPattern(run);
+  if (
+    run.phase === canonicalPhase
+    && worldRoom === canonicalWorldRoom
+    && activePattern.id === canonicalPatternId
+  ) return;
   canonicalPhase = run.phase;
   canonicalWorldRoom = worldRoom;
+  canonicalPatternId = activePattern.id;
   document.body.dataset.runPhase = run.phase;
-  const activePattern = activeCanonicalPattern(run);
   const patternIndex = patterns.indexOf(activePattern);
   patternSelect.value = String(patternIndex);
-  element<HTMLOutputElement>("difficulty-output").value = run.firstContinuationTransition?.difficulty
+  element<HTMLOutputElement>("difficulty-output").value = run.firstContinuationRoom?.difficulty
+    ?? run.firstContinuationTransition?.difficulty
     ?? run.roomSampling?.difficulty
     ?? run.adapterPolicy.firstEye.difficulty;
   difficultyInput.value = "0";
 
-  if (run.phase === "first_continuation_transition") {
+  if (run.phase === "first_continuation_room") {
+    updatePatternPanel(canonicalPresentation(run));
+    element("pattern-sequence").textContent = "— / —";
+    element("room-value").textContent = worldRoom.replaceAll("_", " ");
+    audio.setRoom(worldRoom);
+  } else if (run.phase === "first_continuation_transition") {
     updatePatternPanel(canonicalPresentation(run));
     element("pattern-sequence").textContent = "04 / —";
     element("room-value").textContent = worldRoom.replaceAll("_", " ");
@@ -314,7 +328,8 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
   document.body.classList.toggle("paused", paused || snapshot.paused);
   if (run) {
     const transition = run.firstContinuationTransition;
-    const material = transition?.material ?? null;
+    const successor = run.firstContinuationRoom;
+    const material = successor?.material ?? transition?.material ?? null;
     document.body.dataset.authority = run.authority;
     document.body.dataset.authorityTick = String(run.tick120);
     document.body.dataset.rawRunSeedDomain = run.rawRunSeed.domain;
@@ -322,9 +337,7 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
     document.body.dataset.firstEyeResolvedSeedDomain = run.firstEyeResolvedSeed.domain;
     document.body.dataset.firstEyeResolvedSeed = String(run.firstEyeResolvedSeed.value);
     document.body.dataset.segmentStartTick = String(run.tick120 - run.segmentTick120);
-    document.body.dataset.liveColliders = String(
-      material?.poolUsage.liveColliders ?? run.combat?.poolUsage.liveColliders ?? 0,
-    );
+    document.body.dataset.liveColliders = String(run.combat?.poolUsage.liveColliders ?? 0);
     document.body.dataset.meaningfulInputs = String(run.player.meaningfulInputCount);
     document.body.dataset.signalInputs = String(run.player.signalInputCount);
     document.body.dataset.handoffReady = String(run.handoff.ready);
@@ -351,8 +364,21 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
       ? ""
       : String(run.handoff.sourceCombat.liveEntities);
     const room = run.roomSampling;
-    document.body.dataset.authorityOwner = transition !== null
-      ? "first_continuation_transition"
+    const currentRoomCombat = successor !== null
+      ? successor.combat
+      : transition?.combat ?? room?.combat ?? null;
+    document.body.dataset.authorityOwner = successor !== null
+      ? successor.phase === "dormant"
+          || successor.phase === "telegraph"
+          || successor.phase === "entry"
+        ? "first_continuation_room_pre_read"
+        : successor.phase === "complete"
+          ? "first_continuation_room_complete_hold"
+          : successor.phase === "read"
+            ? "first_continuation_room_pattern"
+            : "first_continuation_room_tail"
+      : transition !== null
+        ? "first_continuation_transition"
       : run.phase === "quiet_awakening"
       ? "quiet_awakening"
       : room === null
@@ -364,55 +390,84 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
             : room.fixedSliceComplete
               ? "room_post_slice_idle"
               : "room_neutral_tail";
-    document.body.dataset.roomId = transition?.worldRoom ?? room?.roomId ?? "";
-    document.body.dataset.roomPhase = transition?.phase ?? room?.phase ?? "";
-    document.body.dataset.roomStartTick = transition !== null
-      ? String(transition.startTick120)
-      : room === null ? "" : String(room.boundaryTicks120.start);
-    document.body.dataset.roomReadStartTick = transition !== null || room === null
-      ? ""
-      : String(room.boundaryTicks120.read);
-    document.body.dataset.roomPatternId = transition?.patternId ?? room?.patternId ?? "";
-    document.body.dataset.roomOccurrenceId = transition?.occurrenceId ?? room?.occurrenceId ?? "";
-    document.body.dataset.roomTier = transition === null ? room?.tierId ?? "" : "";
-    document.body.dataset.roomDifficulty = transition?.difficulty ?? room?.difficulty ?? "";
-    document.body.dataset.roomSelectionAuthority = transition === null
-      ? room?.selectionAuthority ?? ""
-      : "";
-    document.body.dataset.roomSelectionRngDraws = transition !== null || room === null
-      ? ""
-      : String(room.selectionRngDraws);
-    document.body.dataset.roomComposer = transition !== null
+    document.body.dataset.roomId = successor?.worldRoom
+      ?? transition?.worldRoom
+      ?? room?.roomId
+      ?? "";
+    document.body.dataset.roomPhase = successor?.phase
+      ?? transition?.phase
+      ?? room?.phase
+      ?? "";
+    document.body.dataset.roomStartTick = successor !== null
+      ? String(successor.boundaryTicks120.handoffTick120)
+      : transition !== null
+        ? String(transition.startTick120)
+        : room === null ? "" : String(room.boundaryTicks120.start);
+    document.body.dataset.roomReadStartTick = successor !== null
+      ? String(successor.boundaryTicks120.readStartTick120)
+      : transition !== null || room === null
+        ? ""
+        : String(room.boundaryTicks120.read);
+    document.body.dataset.roomPatternId = successor?.patternId
+      ?? transition?.patternId
+      ?? room?.patternId
+      ?? "";
+    document.body.dataset.roomOccurrenceId = successor?.occurrenceId
+      ?? transition?.occurrenceId
+      ?? room?.occurrenceId
+      ?? "";
+    document.body.dataset.roomTier = successor?.plan.intensity.tierId
+      ?? (transition === null ? room?.tierId ?? "" : "");
+    document.body.dataset.roomDifficulty = successor?.difficulty
+      ?? transition?.difficulty
+      ?? room?.difficulty
+      ?? "";
+    document.body.dataset.roomSelectionAuthority = successor?.plan.authority
+      ?? (transition === null ? room?.selectionAuthority ?? "" : "");
+    document.body.dataset.roomSelectionRngDraws = successor !== null
+      ? String(successor.plan.selection.rng.selectionRngDrawsTotal)
+      : transition !== null || room === null
+        ? ""
+        : String(room.selectionRngDraws);
+    document.body.dataset.roomComposer = successor !== null || transition !== null
       ? ""
       : room === null ? "" : String(room.composer);
-    document.body.dataset.roomResolvedSeedDomain = transition?.resolvedSeed.domain
+    document.body.dataset.roomResolvedSeedDomain = successor?.plan.occurrence.resolvedSeed.domain
+      ?? transition?.resolvedSeed.domain
       ?? room?.resolvedSeed.domain
       ?? "";
-    document.body.dataset.roomResolvedSeed = transition !== null
-      ? String(transition.resolvedSeed.value)
-      : room === null ? "" : String(room.resolvedSeed.value);
-    document.body.dataset.roomCombatPresent = String(
-      transition !== null || (room !== null && room.combat !== null),
-    );
-    document.body.dataset.roomPatternLocalTick = transition !== null
-      ? String(transition.combat.relativeTick120)
-      : room?.combat === null || room === null
-        ? ""
-        : String(room.combat.relativeTick120);
-    document.body.dataset.roomFixedSliceComplete = transition !== null || room === null
+    document.body.dataset.roomResolvedSeed = successor !== null
+      ? String(successor.plan.occurrence.resolvedSeed.value)
+      : transition !== null
+        ? String(transition.resolvedSeed.value)
+        : room === null ? "" : String(room.resolvedSeed.value);
+    document.body.dataset.roomCombatPresent = String(currentRoomCombat !== null);
+    document.body.dataset.roomPatternLocalTick = currentRoomCombat === null
       ? ""
-      : String(room.fixedSliceComplete);
-    document.body.dataset.roomComplete = transition !== null || room === null
+      : String(currentRoomCombat.relativeTick120);
+    document.body.dataset.roomFixedSliceComplete = successor !== null
+      ? String(successor.phase === "complete")
+      : transition !== null || room === null
+        ? ""
+        : String(room.fixedSliceComplete);
+    document.body.dataset.roomComplete = successor !== null || transition !== null || room === null
       ? ""
       : String(room.roomComplete);
-    document.body.dataset.roomHandoffReady = transition !== null
-      ? String(transition.handoff.ready)
-      : room === null ? "" : String(room.handoffReady);
+    document.body.dataset.roomHandoffReady = successor !== null
+      ? ""
+      : transition !== null
+        ? String(transition.handoff.ready)
+        : room === null ? "" : String(room.handoffReady);
     document.body.dataset.projectileEntities = String(
-      material?.projectiles.length ?? run.combat?.projectiles.length ?? 0,
+      successor === null
+        ? material?.projectiles.length ?? run.combat?.projectiles.length ?? 0
+        : successor.material.projectiles.length + (successor.combat?.projectiles.length ?? 0),
     );
     document.body.dataset.residueVisuals = String(
-      material?.poolUsage.residueVisuals ?? run.combat?.poolUsage.residueVisuals ?? 0,
+      successor === null
+        ? material?.poolUsage.residueVisuals ?? run.combat?.poolUsage.residueVisuals ?? 0
+        : successor.material.poolUsage.residueVisuals
+          + (successor.combat?.poolUsage.residueVisuals ?? 0),
     );
     document.body.dataset.transitionPresent = String(transition !== null);
     document.body.dataset.transitionPhase = transition?.phase ?? "";
@@ -451,6 +506,15 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
       : String(transition.handoff.atTick120);
     document.body.dataset.transitionNextRoomAdmission =
       transition?.handoff.nextRoomAdmission ?? "";
+    document.body.dataset.successorPresent = String(successor !== null);
+    document.body.dataset.successorPhase = successor?.phase ?? "";
+    document.body.dataset.successorPatternId = successor?.patternId ?? "";
+    document.body.dataset.successorOccurrenceId = successor?.occurrenceId ?? "";
+    document.body.dataset.successorSliceCompleteTick = successor === null
+      ? ""
+      : String(successor.boundaryTicks120.sliceCompleteTick120);
+    document.body.dataset.successorAdmissionWithheldReason =
+      run.firstContinuationRoomAdmissionWithheld?.reason ?? "";
     document.body.dataset.flowerAuthorityTick = String(run.player.flower.tick120);
     document.body.dataset.gazeAuthorityTick = run.gaze.tick120 === null
       ? ""

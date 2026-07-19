@@ -602,3 +602,28 @@ export function advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
     record.stepping = false;
   }
 }
+
+/** Single session-facing port; the opaque owner remains the only segment router. */
+export function stepCanonicalRunFirstContinuationSuccessor(
+  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
+  const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+  switch (before.nextMasterTickAction) {
+    case "telegraph":
+    case "continue-telegraph":
+    case "entry":
+    case "continue-entry":
+      return advanceCanonicalRunFirstContinuationSuccessorPreRead(owner, input);
+    case "claim-read":
+      return startCanonicalRunFirstContinuationSuccessorRead(owner, input);
+    case "advance-read":
+      return advanceCanonicalRunFirstContinuationSuccessorRead(owner, input);
+    case "advance-tail":
+      return advanceCanonicalRunFirstContinuationSuccessorTail(owner, input);
+    case "close-slice":
+      return closeCanonicalRunFirstContinuationSuccessorSlice(owner, input);
+    case "advance-complete-hold":
+      return advanceCanonicalRunFirstContinuationSuccessorCompleteHold(owner, input);
+  }
+}

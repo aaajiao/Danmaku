@@ -69,7 +69,7 @@ function availableSampleCount(
 }
 
 describe("first continuation transition session integration", () => {
-  it("continues body input while freezing Signal, Gaze, and Flower through material handoff", {
+  it("hands one session owner from transition through successor READ and material hold", {
     timeout: 30_000,
   }, () => {
     const session = new CanonicalRunSession(OPTIONS);
@@ -201,10 +201,13 @@ describe("first continuation transition session integration", () => {
       }));
     }
     expect(snapshot).toMatchObject({
-      phase: "first_continuation_transition",
+      phase: "first_continuation_room",
       tick120: patternCompleteTick120,
+      segmentTick120: 0,
       player: {focused: true},
+      combat: null,
       firstContinuationTransition: {
+        ownership: "transferred-to-dormant-successor",
         phase: "material_carryover",
         worldRoom: target.targetRoom,
         collisionLeaseReleased: true,
@@ -229,8 +232,29 @@ describe("first continuation transition session integration", () => {
           nextRoomAdmission: "withheld-pending-room-plan-and-combined-pool-budget",
         },
       },
+      firstContinuationRoom: {
+        phase: "dormant",
+        tick120: patternCompleteTick120,
+        relativeTick120: 0,
+        targetRoom: target.targetRoom,
+        worldRoom: target.targetRoom,
+        patternId: "room.in_between.context_switch",
+        combat: null,
+        targetVisible: false,
+        nextMasterTickAction: "telegraph",
+        combinedPoolAdmission: {
+          state: "committed",
+          reservationCommitted: true,
+          canonicalEventWrites: 0,
+          tickAdvance: 0,
+        },
+      },
+      firstContinuationRoomAdmissionWithheld: null,
     });
     expect(snapshot.firstContinuationTransition?.material?.materialCount).toBeGreaterThan(0);
+    expect(snapshot.firstContinuationRoom?.material).toEqual(
+      snapshot.firstContinuationTransition?.material,
+    );
     expect(JSON.stringify(snapshot.player.flower)).toBe(frozenFlower);
     expect(JSON.stringify(snapshot.gaze)).toBe(frozenGaze);
     expect(JSON.stringify(snapshot.behaviorFacts.committed.flower)).toBe(frozenFlowerFacts);
@@ -255,23 +279,154 @@ describe("first continuation transition session integration", () => {
       || event.id === "gaze.clamp.commit"
       || event.id === "gaze.clamp.release")).toBe(false);
 
+    const successorAtHandoff = snapshot.firstContinuationRoom;
+    if (successorAtHandoff === null) throw new Error("successor owner was not admitted");
+    const roomTransitionCompleteCount = session.events().filter((event) =>
+      event.id === "room.transition.complete").length;
+    const overridePressesAtHandoff = snapshot.behaviorFacts.requested.availability === "available"
+      ? snapshot.behaviorFacts.requested.aggregate.overridePressedEdgeCount
+      : 0;
+
     snapshot = session.step(input(patternCompleteTick120 + 1, {
       signalActive: true,
       focused: true,
       gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+      overridePressed: true,
+      overrideDirection: {x: 1, y: 0},
     }));
     expect(snapshot).toMatchObject({
-      phase: "first_continuation_transition",
+      phase: "first_continuation_room",
       tick120: patternCompleteTick120 + 1,
       firstContinuationTransition: {
+        ownership: "transferred-to-dormant-successor",
         phase: "material_carryover",
         handoff: {ready: true, atTick120: patternCompleteTick120},
       },
+      firstContinuationRoom: {
+        phase: "telegraph",
+        relativeTick120: 1,
+        combat: null,
+        nextMasterTickAction: "continue-telegraph",
+        inputOwnership: {override: "locked"},
+      },
+      combat: null,
+      override: {state: "idle", localVoid: null},
+    });
+    expect(snapshot.behaviorFacts.requested).toMatchObject({
+      availability: "available",
+      aggregate: {overridePressedEdgeCount: overridePressesAtHandoff + 1},
     });
     expect(JSON.stringify(snapshot.player.flower)).toBe(frozenFlower);
     expect(JSON.stringify(snapshot.gaze)).toBe(frozenGaze);
     expect(JSON.stringify(snapshot.behaviorFacts.committed.flower)).toBe(frozenFlowerFacts);
     expect(JSON.stringify(snapshot.behaviorFacts.committed.gaze)).toBe(frozenGazeFacts);
     expect(JSON.stringify(snapshot.behaviorFacts.context.room)).toBe(frozenRoomFacts);
+
+    const readStartTick120 = successorAtHandoff.boundaryTicks120.readStartTick120;
+    while (snapshot.tick120 < readStartTick120) {
+      snapshot = session.step(input(snapshot.tick120 + 1, {
+        signalActive: true,
+        focused: true,
+        gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+        overrideReleased: snapshot.tick120 === patternCompleteTick120 + 1,
+      }));
+    }
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: readStartTick120,
+      firstContinuationRoom: {
+        phase: "read",
+        relativeTick120: 159,
+        combat: {
+          relativeTick120: 0,
+          patternId: "room.in_between.context_switch",
+          projectiles: [],
+        },
+      },
+      combat: {
+        relativeTick120: 0,
+        patternId: "room.in_between.context_switch",
+        projectiles: [],
+      },
+      override: {state: "idle", localVoid: null},
+    });
+
+    while (
+      (snapshot.firstContinuationRoom?.combat?.projectiles.length ?? 0) === 0
+      && snapshot.tick120 < readStartTick120 + 600
+    ) {
+      snapshot = session.step(input(snapshot.tick120 + 1));
+    }
+    expect(snapshot.firstContinuationRoom?.combat?.projectiles.length).toBeGreaterThan(0);
+    const reservation = snapshot.firstContinuationRoom?.combinedPoolAdmission.reservation;
+    if (reservation === undefined) throw new Error("successor pool reservation disappeared");
+    expect(
+      (snapshot.firstContinuationRoom?.material.poolUsage.residueVisuals ?? 0)
+        + (snapshot.firstContinuationRoom?.combat?.poolUsage.residueVisuals ?? 0),
+    ).toBeLessThanOrEqual(reservation.combinedResidueVisuals);
+
+    const sliceCompleteTick120 = successorAtHandoff.boundaryTicks120.sliceCompleteTick120;
+    while (snapshot.tick120 < sliceCompleteTick120) {
+      snapshot = session.step(input(snapshot.tick120 + 1, {
+        signalActive: true,
+        focused: true,
+        gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+      }));
+    }
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: sliceCompleteTick120,
+      firstContinuationTransition: {
+        ownership: "transferred-to-dormant-successor",
+        material: {drained: true, materialCount: 0},
+      },
+      firstContinuationRoom: {
+        phase: "complete",
+        nextMasterTickAction: "advance-complete-hold",
+        material: {drained: true, materialCount: 0},
+        runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+        combat: {
+          patternComplete: true,
+          digitalBodiesDrained: true,
+          poolUsage: {liveColliders: 0},
+        },
+      },
+    });
+    expect(snapshot.firstContinuationRoom?.combat?.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+    expect(snapshot.firstContinuationRoom?.combat?.projectiles.length).toBeGreaterThan(0);
+
+    while ((snapshot.firstContinuationRoom?.combat?.projectiles.length ?? 0) > 0) {
+      snapshot = session.step(input(snapshot.tick120 + 1));
+    }
+    const drainedAtTick120 = snapshot.tick120;
+    snapshot = session.step(input(drainedAtTick120 + 1));
+    expect(snapshot).toMatchObject({
+      phase: "first_continuation_room",
+      tick120: drainedAtTick120 + 1,
+      firstContinuationRoom: {
+        phase: "complete",
+        nextMasterTickAction: "advance-complete-hold",
+        combat: {
+          projectileLifecycleDrained: true,
+          projectiles: [],
+          poolUsage: {liveColliders: 0},
+        },
+      },
+    });
+    expect(snapshot.firstContinuationRoom?.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === snapshot.firstContinuationRoom?.occurrenceId)).toHaveLength(1);
+    expect(session.events().filter((event) => event.id === "room.transition.complete"))
+      .toHaveLength(roomTransitionCompleteCount);
+    expect(session.events().some((event) => event.id === "player.override.local_void.open"))
+      .toBe(false);
+    expect(JSON.stringify(snapshot.player.flower)).toBe(frozenFlower);
+    expect(JSON.stringify(snapshot.gaze)).toBe(frozenGaze);
+    expect(JSON.stringify(snapshot.behaviorFacts.committed.flower)).toBe(frozenFlowerFacts);
+    expect(JSON.stringify(snapshot.behaviorFacts.committed.gaze)).toBe(frozenGazeFacts);
+    expect(JSON.stringify(snapshot.behaviorFacts.context.room)).toBe(frozenRoomFacts);
+    expect(JSON.stringify(snapshot.firstRoomClosureCapture)).toBe(frozenClosure);
+    expect(JSON.stringify(snapshot.firstRoomMetricProjection)).toBe(frozenProjection);
+    expect(JSON.stringify(snapshot.firstContinuationRoomTarget)).toBe(frozenTarget);
   });
 });

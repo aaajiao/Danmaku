@@ -316,16 +316,28 @@ describe("canonical run presentation", () => {
     if (material === null || material === undefined) {
       throw new Error("transition projection lost material carryover");
     }
-    transitionProjection = projectCanonicalRunSession(snapshot, FIRST_TRANSITION);
-    expect(transitionProjection).toMatchObject({
-      pattern: {id: "transition.room_threshold"},
+    const successorAtHandoff = snapshot.firstContinuationRoom;
+    if (successorAtHandoff === null) {
+      throw new Error("presentation fixture lost the admitted successor");
+    }
+    const successorPattern = (patternsManifest.patterns as PatternDefinition[])
+      .find((pattern) => pattern.id === successorAtHandoff.patternId);
+    if (successorPattern === undefined) {
+      throw new Error("presentation fixture selected an unknown successor pattern");
+    }
+    let successorProjection = projectCanonicalRunSession(snapshot, successorPattern);
+    expect(successorProjection).toMatchObject({
+      pattern: {id: successorAtHandoff.patternId},
       room: formalTarget.targetRoom,
-      patternElapsedMs: 7_800,
+      patternElapsedMs: 0,
       combatEnabled: false,
+      targetVisible: false,
     });
-    expect(transitionProjection.bullets).toHaveLength(material.materialCount);
-    expect(transitionProjection.bullets.every((bullet) =>
+    expect(successorProjection.bullets).toHaveLength(material.materialCount);
+    expect(successorProjection.bullets.every((bullet) =>
       bullet.lifecycleState === "residue" && bullet.collisionEnabled === false)).toBe(true);
+    expect(() => projectCanonicalRunSession(snapshot, FIRST_TRANSITION))
+      .toThrow(/pattern identity drifted/);
 
     const hostileMaterial = {
       ...snapshot,
@@ -334,14 +346,32 @@ describe("canonical run presentation", () => {
         material: {...material, materialCount: material.materialCount + 1},
       },
     } as unknown as CanonicalRunSessionSnapshot;
-    expect(() => projectCanonicalRunSession(hostileMaterial, FIRST_TRANSITION))
+    expect(() => projectCanonicalRunSession(hostileMaterial, successorPattern))
       .toThrow(/material identity drifted/);
 
-    const detachedMaterialCount = material.materialCount;
+    const readStartTick120 = successorAtHandoff.boundaryTicks120.readStartTick120;
+    while (snapshot.tick120 < readStartTick120) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    successorProjection = projectCanonicalRunSession(snapshot, successorPattern);
+    expect(successorProjection).toMatchObject({
+      patternElapsedMs: 0,
+      combatEnabled: true,
+      targetVisible: false,
+    });
+    const successorAtRead = snapshot.firstContinuationRoom;
+    if (successorAtRead === null) throw new Error("successor disappeared at READ");
+    expect(successorProjection.bullets).toHaveLength(successorAtRead.material.materialCount);
+
     while (
-      (snapshot.firstContinuationTransition?.material?.materialCount ?? 0)
-        === detachedMaterialCount
-      && snapshot.tick120 < transition.timeline.patternCompleteTick120 + 500
+      (snapshot.firstContinuationRoom?.combat?.projectiles.length ?? 0) === 0
+      && snapshot.tick120 < readStartTick120 + 600
     ) {
       snapshot = session.step({
         tick120: snapshot.tick120 + 1,
@@ -351,18 +381,23 @@ describe("canonical run presentation", () => {
         gaze: NEUTRAL_GAZE,
       });
     }
-    const drainingMaterial = snapshot.firstContinuationTransition?.material;
-    if (drainingMaterial === null || drainingMaterial === undefined) {
-      throw new Error("transition projection lost draining material");
+    const liveSuccessor = snapshot.firstContinuationRoom;
+    if (liveSuccessor?.combat === null || liveSuccessor === null) {
+      throw new Error("successor projection lost READ combat");
     }
-    expect(snapshot.combat?.projectiles.length).toBeGreaterThan(drainingMaterial.materialCount);
-    expect(projectCanonicalRunSession(snapshot, FIRST_TRANSITION).bullets)
-      .toHaveLength(drainingMaterial.materialCount);
+    expect(liveSuccessor.combat.projectiles.length).toBeGreaterThan(0);
+    expect(liveSuccessor.material.materialCount).toBeGreaterThan(0);
+    successorProjection = projectCanonicalRunSession(snapshot, successorPattern);
+    expect(successorProjection.bullets).toHaveLength(
+      liveSuccessor.material.materialCount + liveSuccessor.combat.projectiles.length,
+    );
+    expect(successorProjection.bullets.slice(0, liveSuccessor.material.materialCount)
+      .every((bullet) =>
+        bullet.lifecycleState === "residue" && bullet.collisionEnabled === false)).toBe(true);
+    expect(new Set(successorProjection.bullets.map((bullet) => bullet.id)).size)
+      .toBe(successorProjection.bullets.length);
 
-    while (
-      snapshot.firstContinuationTransition?.material?.drained === false
-      && snapshot.tick120 < transition.timeline.patternCompleteTick120 + 500
-    ) {
+    while (snapshot.tick120 < successorAtHandoff.boundaryTicks120.sliceCompleteTick120) {
       snapshot = session.step({
         tick120: snapshot.tick120 + 1,
         movement: {x: 0, y: 0},
@@ -375,7 +410,30 @@ describe("canonical run presentation", () => {
       phase: "target_room_idle",
       material: {drained: true, materialCount: 0},
     });
-    expect(projectCanonicalRunSession(snapshot, FIRST_TRANSITION).bullets).toEqual([]);
+    expect(snapshot.firstContinuationRoom).toMatchObject({
+      phase: "complete",
+      material: {drained: true, materialCount: 0},
+      combat: {
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        poolUsage: {liveColliders: 0},
+      },
+    });
+    successorProjection = projectCanonicalRunSession(snapshot, successorPattern);
+    expect(successorProjection.bullets.length).toBeGreaterThan(0);
+    expect(successorProjection.bullets.every((bullet) =>
+      bullet.lifecycleState === "residue" && bullet.collisionEnabled === false)).toBe(true);
+
+    while ((snapshot.firstContinuationRoom?.combat?.projectiles.length ?? 0) > 0) {
+      snapshot = session.step({
+        tick120: snapshot.tick120 + 1,
+        movement: {x: 0, y: 0},
+        signalActive: false,
+        focused: false,
+        gaze: NEUTRAL_GAZE,
+      });
+    }
+    expect(projectCanonicalRunSession(snapshot, successorPattern).bullets).toEqual([]);
   });
 
   it("projects retained life state and never presents a non-alive player as focused", () => {

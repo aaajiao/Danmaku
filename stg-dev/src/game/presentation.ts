@@ -15,6 +15,62 @@ const TICKS_PER_SECOND = 120;
 const LOGICAL_VIEW_WIDTH = 360;
 const LOGICAL_VIEW_HEIGHT = 640;
 
+type TransitionMaterial = NonNullable<
+  NonNullable<CanonicalRunSessionSnapshot["firstContinuationTransition"]>["material"]
+>;
+
+function sameNumberRecord(
+  left: Readonly<Record<string, number>>,
+  right: Readonly<Record<string, number>>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key) => left[key] === right[key]);
+}
+
+function sameTransitionMaterial(
+  left: TransitionMaterial,
+  right: TransitionMaterial,
+): boolean {
+  return left.authority === right.authority
+    && left.sourcePatternId === right.sourcePatternId
+    && left.sourceOccurrenceId === right.sourceOccurrenceId
+    && left.detachedAtTick120 === right.detachedAtTick120
+    && left.tick120 === right.tick120
+    && left.materialCount === right.materialCount
+    && left.drained === right.drained
+    && left.poolUsage.liveColliders === right.poolUsage.liveColliders
+    && left.poolUsage.residueVisuals === right.poolUsage.residueVisuals
+    && sameNumberRecord(left.poolUsage.active, right.poolUsage.active)
+    && sameNumberRecord(left.poolUsage.allocatedSlots, right.poolUsage.allocatedSlots)
+    && left.projectiles.length === right.projectiles.length
+    && left.projectiles.every((projectile, index) => {
+      const other = right.projectiles[index];
+      return other !== undefined
+        && projectile.instanceId === other.instanceId
+        && projectile.generation === other.generation
+        && projectile.archetypeId === other.archetypeId
+        && projectile.poolClass === other.poolClass
+        && projectile.collisionRadiusPx === other.collisionRadiusPx
+        && projectile.state === other.state
+        && projectile.collisionEnabled === other.collisionEnabled
+        && projectile.previousPosition.x === other.previousPosition.x
+        && projectile.previousPosition.y === other.previousPosition.y
+        && projectile.position.x === other.position.x
+        && projectile.position.y === other.position.y
+        && projectile.movedAtTick120 === other.movedAtTick120
+        && projectile.spawnedAtTick === other.spawnedAtTick
+        && projectile.armAtTick === other.armAtTick
+        && projectile.terminalCause === other.terminalCause
+        && projectile.sourceId === other.sourceId
+        && projectile.sourceIndex === other.sourceIndex
+        && projectile.burstIndex === other.burstIndex
+        && projectile.headingDegrees === other.headingDegrees
+        && projectile.speedPxPerSecond === other.speedPxPerSecond;
+    });
+}
+
 function freezeVec2(value: Vec2): Vec2 {
   return Object.freeze({x: value.x, y: value.y});
 }
@@ -65,13 +121,24 @@ export function projectCanonicalRunSession(
     throw new Error("canonical presentation requires a canonical run-session snapshot");
   }
   const transition = run.firstContinuationTransition;
+  const successor = run.firstContinuationRoom;
+  const transitionPhase = run.phase === "first_continuation_transition";
+  const successorPhase = run.phase === "first_continuation_room";
   if (
-    (run.phase === "first_continuation_transition")
-    !== (transition !== null)
+    transitionPhase
+      ? transition === null
+        || successor !== null
+        || transition.ownership !== "active"
+      : successorPhase
+        ? transition === null
+          || successor === null
+          || transition.ownership !== "transferred-to-dormant-successor"
+        : transition !== null || successor !== null
   ) {
-    throw new Error("canonical presentation transition phase identity drifted");
+    throw new Error("canonical presentation first continuation phase identity drifted");
   }
-  const expectedPatternId = transition?.patternId
+  const expectedPatternId = successor?.patternId
+    ?? transition?.patternId
     ?? run.roomSampling?.patternId
     ?? run.adapterPolicy.firstEye.patternId;
   if (activePattern.id !== expectedPatternId) {
@@ -82,7 +149,7 @@ export function projectCanonicalRunSession(
   if (combat !== null && combat.patternId !== expectedPatternId) {
     throw new Error("canonical presentation combat pattern identity drifted");
   }
-  if (transition !== null && (
+  if (transitionPhase && transition !== null && (
     combat === null
     || transition.worldRoom !== transition.roomTransition.currentRoom
     || combat.occurrenceId !== transition.occurrenceId
@@ -93,8 +160,31 @@ export function projectCanonicalRunSession(
   )) {
     throw new Error("canonical presentation transition combat identity drifted");
   }
+  if (successorPhase && successor !== null && transition !== null && (
+    transition.targetRoom !== successor.targetRoom
+    || transition.worldRoom !== successor.worldRoom
+    || transition.roomTransition.currentRoom !== successor.worldRoom
+    || successor.tick120 !== run.tick120
+    || successor.runCombat.tick120 !== run.tick120
+    || successor.targetVisible
+    || (combat === null) !== (successor.combat === null)
+    || (combat !== null && successor.combat !== null && (
+      combat.patternId !== successor.patternId
+      || combat.occurrenceId !== successor.occurrenceId
+      || combat.difficulty !== successor.difficulty
+      || combat.startTick120 !== successor.boundaryTicks120.readStartTick120
+      || combat.tick120 !== successor.combat.tick120
+      || combat.relativeTick120 !== successor.combat.relativeTick120
+      || combat.patternComplete !== successor.combat.patternComplete
+      || combat.digitalBodiesDrained !== successor.combat.digitalBodiesDrained
+      || combat.projectiles.length !== successor.combat.projectiles.length
+    ))
+  )) {
+    throw new Error("canonical presentation successor combat identity drifted");
+  }
   if (
     transition === null
+    && successor === null
     && run.roomSampling !== null
     && combat !== null
     && (
@@ -120,10 +210,19 @@ export function projectCanonicalRunSession(
   )) {
     throw new Error("canonical presentation transition material identity drifted");
   }
+  if (
+    successor !== null
+    && (material === null || !sameTransitionMaterial(material, successor.material))
+  ) {
+    throw new Error("canonical presentation successor material lineage drifted");
+  }
   const relativeTick120 = combat?.relativeTick120 ?? 0;
   const patternElapsedMs = relativeTick120 * 1000 / TICKS_PER_SECOND;
   const emitterById = new Map(activePattern.emitters.map((emitter) => [emitter.id, emitter]));
-  const projectileSnapshots = material?.projectiles ?? combat?.projectiles ?? [];
+  const projectileSnapshots = successor === null
+    ? material?.projectiles ?? combat?.projectiles ?? []
+    : [...successor.material.projectiles, ...(combat?.projectiles ?? [])];
+  const projectedProjectileIds = new Set<string>();
   const bullets = projectileSnapshots.map((projectile): BulletState => {
     const emitter = emitterById.get(projectile.sourceId);
     const position = canonicalPositionToView(projectile.position);
@@ -139,8 +238,13 @@ export function projectCanonicalRunSession(
       : projectile.state === "arm" || projectile.state === "spawn"
         ? "arm" as const
         : "residue" as const;
+    const projectedId = `${projectile.instanceId}:${projectile.generation}`;
+    if (projectedProjectileIds.has(projectedId)) {
+      throw new Error("canonical presentation projectile identity collided across material tracks");
+    }
+    projectedProjectileIds.add(projectedId);
     return Object.freeze({
-      id: `${projectile.instanceId}:${projectile.generation}`,
+      id: projectedId,
       archetype: projectile.archetypeId,
       position,
       previous,
@@ -170,7 +274,8 @@ export function projectCanonicalRunSession(
   const localVoid = override?.localVoid ?? null;
   const executable = activePattern as unknown as ExecutablePattern;
   const safeCenter = safeGapCenter(executable, patternElapsedMs) - LOGICAL_VIEW_WIDTH / 2;
-  const difficulty = transition?.difficulty
+  const difficulty = successor?.difficulty
+    ?? transition?.difficulty
     ?? run.roomSampling?.difficulty
     ?? run.adapterPolicy.firstEye.difficulty;
   const safeWidth = safeGapWidth(executable, difficulty);
@@ -179,7 +284,8 @@ export function projectCanonicalRunSession(
     nowMs,
     patternElapsedMs,
     pattern: activePattern,
-    room: transition?.worldRoom
+    room: successor?.worldRoom
+      ?? transition?.worldRoom
       ?? run.roomSampling?.roomId
       ?? run.adapterPolicy.firstEye.roomId,
     bullets: Object.freeze(bullets),
@@ -201,7 +307,8 @@ export function projectCanonicalRunSession(
     paused: false,
     combatEnabled: combat !== null && !combat.patternComplete,
     gazeState: run.gaze.state,
-    targetVisible: run.phase === "first_eye" || run.phase === "first_clamp_recovery",
+    targetVisible: successor?.targetVisible
+      ?? (run.phase === "first_eye" || run.phase === "first_clamp_recovery"),
     safeGapCenterX: safeCenter,
     safeGapWidthPx: safeWidth,
     overrideView: localVoid === null

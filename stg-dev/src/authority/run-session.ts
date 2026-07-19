@@ -75,6 +75,15 @@ import {
   CanonicalRunFirstContinuationTransitionChapter,
   type CanonicalRunFirstContinuationTransitionSnapshot,
 } from "./run/chapters/first-continuation-transition";
+import {
+  commitPreparedCanonicalRunFirstContinuationRoomAdmission,
+  inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
+  prepareCanonicalRunFirstContinuationRoomAdmission,
+  stepCanonicalRunFirstContinuationSuccessor,
+  type CanonicalRunFirstContinuationDormantSuccessorOwner,
+  type CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot,
+  type CanonicalRunFirstContinuationRoomAdmissionWithheld,
+} from "./run/chapters/first-continuation-room-admission-authority";
 
 const TICKS_PER_SECOND = 120;
 const UINT32_MAX = 0xffff_ffff;
@@ -176,7 +185,8 @@ export type CanonicalRunSessionPhase =
   | "first_eye"
   | "first_clamp_recovery"
   | "room_sampling"
-  | "first_continuation_transition";
+  | "first_continuation_transition"
+  | "first_continuation_room";
 
 export interface CanonicalRunSessionOptions {
   /** Domain-tagged raw Run seed; occurrence seeds are resolved by recorded adapter policy. */
@@ -392,6 +402,12 @@ export interface CanonicalRunSessionSnapshot {
   readonly firstContinuationRoomTarget: CanonicalRunFirstContinuationRoomTarget;
   /** EXT-013/014 own the roomless transition after the first room closes. */
   readonly firstContinuationTransition: CanonicalRunFirstContinuationTransitionSnapshot | null;
+  /** EXT-015/016 own the admitted successor and its post-slice material hold. */
+  readonly firstContinuationRoom:
+    CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot | null;
+  /** Typed absence only; a withheld exact handoff is never silently retried or reselected. */
+  readonly firstContinuationRoomAdmissionWithheld:
+    CanonicalRunFirstContinuationRoomAdmissionWithheld | null;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -1018,6 +1034,8 @@ function resolveFirstEyeSeed(rawRunSeed: number): CanonicalRunSessionSnapshot["f
  * advances. EXT-005 consumes that handoff into the fixed first room; EXT-013
  * and EXT-014 then retain the same body, event bus, and occurrence ledger
  * across the roomless transition without inventing Flower or Gaze commits.
+ * EXT-015 through EXT-017 then hand the same authorities to one sealed
+ * successor owner while retaining the transition's material lineage.
  */
 export class CanonicalRunSession {
   readonly adapterPolicy = CANONICAL_RUN_SESSION_ADAPTER_POLICY;
@@ -1047,6 +1065,10 @@ export class CanonicalRunSession {
   private roomSession: CanonicalRunRoomSession | null = null;
   private firstContinuationTransitionChapter:
     CanonicalRunFirstContinuationTransitionChapter | null = null;
+  private firstContinuationSuccessorOwner:
+    CanonicalRunFirstContinuationDormantSuccessorOwner | null = null;
+  private firstContinuationRoomAdmissionWithheldValue:
+    CanonicalRunFirstContinuationRoomAdmissionWithheld | null = null;
   private gazeClampCommittedAtTick120: number | null = null;
   private gazeClampReleasedAtTick120: number | null = null;
   private flowerRecoveryDueAtTick120: number | null = null;
@@ -1090,15 +1112,15 @@ export class CanonicalRunSession {
       try {
         // Resolve the owner once, before mutation, then reuse that decision for
         // consumption, routing, and observation of this exact accepted tick.
-        const transitionOwnsTick = this.firstContinuationTransitionOwnsTick(validated.tick120);
+        const continuationOwnsTick = this.firstContinuationOwnsTick(validated.tick120);
         const ownerPhase = this.behaviorOwnerPhaseForStep();
         const inputConsumption = this.captureBehaviorInputConsumption(
           ownerPhase,
           validated,
-          transitionOwnsTick,
+          continuationOwnsTick,
         );
         if (this.phaseValue === "quiet_awakening") this.stepAwakening(validated);
-        else if (transitionOwnsTick) this.stepFirstContinuationTransition(validated);
+        else if (continuationOwnsTick) this.stepFirstContinuation(validated);
         else if (this.phaseValue === "room_sampling") this.stepRoomSampling(validated);
         else this.stepFirstEye(validated);
         this.recordBehaviorFacts(
@@ -1106,7 +1128,7 @@ export class CanonicalRunSession {
           inputConsumption,
           validated,
           eventCountBefore,
-          transitionOwnsTick,
+          continuationOwnsTick,
         );
         this.capturePreRoomBehaviorFacts(ownerPhase);
         this.captureFirstOccurrenceObservation(ownerPhase);
@@ -1127,16 +1149,34 @@ export class CanonicalRunSession {
     const roomSampling = this.roomSession?.snapshot() ?? null;
     const firstContinuationTransition =
       this.firstContinuationTransitionChapter?.snapshot() ?? null;
+    const firstContinuationRoom = this.firstContinuationSuccessorOwner === null
+      ? null
+      : inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
+        this.firstContinuationSuccessorOwner,
+      );
+    const transitionPhase = this.phaseValue === "first_continuation_transition";
+    const successorPhase = this.phaseValue === "first_continuation_room";
     if (
-      (this.phaseValue === "first_continuation_transition")
-      !== (firstContinuationTransition !== null)
+      transitionPhase
+        ? firstContinuationTransition === null
+          || firstContinuationRoom !== null
+          || firstContinuationTransition.ownership !== "active"
+        : successorPhase
+          ? firstContinuationTransition === null
+            || firstContinuationRoom === null
+            || firstContinuationTransition.ownership
+              !== "transferred-to-dormant-successor"
+          : firstContinuationTransition !== null || firstContinuationRoom !== null
     ) {
-      throw new Error("canonical Run transition phase lost its chapter owner");
+      throw new Error("canonical Run first continuation lost its exact chapter ownership");
     }
-    const retainedCombat = firstContinuationTransition?.combat
-      ?? (this.phaseValue === "room_sampling"
-        ? roomSampling?.combat ?? null
-        : this.latestCombatSnapshot ?? this.combat?.snapshot() ?? null);
+    const retainedCombat = successorPhase
+      ? firstContinuationRoom?.combat ?? null
+      : transitionPhase
+        ? firstContinuationTransition?.combat ?? null
+        : this.phaseValue === "room_sampling"
+          ? roomSampling?.combat ?? null
+          : this.latestCombatSnapshot ?? this.combat?.snapshot() ?? null;
     const retainedRunCombat = this.combatState?.snapshot() ?? null;
     const combat = this.phaseValue === "quiet_awakening" ? null : retainedCombat;
     const playerInputEligible = this.playerDamage === null
@@ -1213,6 +1253,9 @@ export class CanonicalRunSession {
       firstContinuationRoomTarget: this.firstContinuationRoomTargetValue
         ?? CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING,
       firstContinuationTransition,
+      firstContinuationRoom,
+      firstContinuationRoomAdmissionWithheld:
+        this.firstContinuationRoomAdmissionWithheldValue,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1242,20 +1285,28 @@ export class CanonicalRunSession {
 
   private behaviorOwnerPhaseForStep(): CanonicalRunBehaviorOwnerPhase {
     return this.phaseValue === "first_continuation_transition"
+      || this.phaseValue === "first_continuation_room"
       ? "room_sampling"
       : this.phaseValue;
   }
 
-  private firstContinuationTransitionOwnsTick(nextTick120: number): boolean {
+  private firstContinuationOwnsTick(nextTick120: number): boolean {
     const chapterInstalled = this.firstContinuationTransitionChapter !== null;
+    const successorInstalled = this.firstContinuationSuccessorOwner !== null;
     if (this.phaseValue === "first_continuation_transition") {
-      if (!chapterInstalled) {
+      if (!chapterInstalled || successorInstalled) {
         throw new Error("first continuation transition phase lost its chapter owner");
       }
       return true;
     }
-    if (chapterInstalled) {
-      throw new Error("first continuation transition chapter escaped its session phase");
+    if (this.phaseValue === "first_continuation_room") {
+      if (!chapterInstalled || !successorInstalled) {
+        throw new Error("first continuation room phase lost its successor owner");
+      }
+      return true;
+    }
+    if (chapterInstalled || successorInstalled) {
+      throw new Error("first continuation authority escaped its session phase");
     }
     if (this.phaseValue !== "room_sampling") return false;
     const target = this.firstContinuationRoomTargetValue;
@@ -1271,7 +1322,7 @@ export class CanonicalRunSession {
     inputConsumption: Readonly<CanonicalRunBehaviorInputConsumption>,
     input: ValidatedStepInput,
     eventCountBefore: number,
-    transitionOwnsTick: boolean,
+    continuationOwnsTick: boolean,
   ): void {
     const sourceEventCount = this.bus.committedEventCount();
     if (eventCountBefore < 0 || eventCountBefore > sourceEventCount) {
@@ -1280,14 +1331,14 @@ export class CanonicalRunSession {
     const canonicalEvents = this.bus.committedEventsFrom(eventCountBefore);
     const runCombat = this.combatState?.snapshot() ?? null;
     const ownerConsumesRunCombat = ownerPhase !== "quiet_awakening" && runCombat !== null;
-    const roomId = ownerPhase === "room_sampling" && !transitionOwnsTick
+    const roomId = ownerPhase === "room_sampling" && !continuationOwnsTick
       ? this.roomSession?.snapshot().roomId ?? null
       : null;
-    if (ownerPhase === "room_sampling" && roomId === null && !transitionOwnsTick) {
+    if (ownerPhase === "room_sampling" && roomId === null && !continuationOwnsTick) {
       throw new Error("ROOM_SAMPLING behavior facts lost its current room context");
     }
-    if (transitionOwnsTick && ownerPhase !== "room_sampling") {
-      throw new Error("first continuation transition lost its ROOM_SAMPLING behavior owner");
+    if (continuationOwnsTick && ownerPhase !== "room_sampling") {
+      throw new Error("first continuation lost its ROOM_SAMPLING behavior owner");
     }
     const inputEnabled = this.playerDamage === null
       || playerInputEligibleAtTick(this.playerDamage, this.currentTick120);
@@ -1311,8 +1362,8 @@ export class CanonicalRunSession {
           focused: inputEnabled && this.focused,
           lifeState: this.playerDamage?.state ?? null,
         },
-        flower: transitionOwnsTick ? null : this.flower.snapshot(),
-        gaze: transitionOwnsTick ? null : this.gaze.snapshot(),
+        flower: continuationOwnsTick ? null : this.flower.snapshot(),
+        gaze: continuationOwnsTick ? null : this.gaze.snapshot(),
         override: ownerConsumesRunCombat ? runCombat.override : null,
         roomId,
         runCombatAvailable: ownerConsumesRunCombat,
@@ -1326,19 +1377,19 @@ export class CanonicalRunSession {
   private captureBehaviorInputConsumption(
     ownerPhase: CanonicalRunBehaviorOwnerPhase,
     input: ValidatedStepInput,
-    transitionOwnsTick: boolean,
+    continuationOwnsTick: boolean,
   ): Readonly<CanonicalRunBehaviorInputConsumption> {
     if (ownerPhase === "quiet_awakening") {
       return Object.freeze({movement: true, signal: true, focus: false, gaze: false});
     }
 
-    if (transitionOwnsTick) {
+    if (continuationOwnsTick) {
       if (ownerPhase !== "room_sampling") {
-        throw new Error("first continuation transition input lost its ROOM_SAMPLING owner");
+        throw new Error("first continuation input lost its ROOM_SAMPLING owner");
       }
       const combatState = this.combatState;
       if (combatState === null) {
-        throw new Error("first continuation transition input lost its shared Run combat state");
+        throw new Error("first continuation input lost its shared Run combat state");
       }
       const bodyInputEligible = playerInputEligibleAtTick(
         combatState.snapshot().player,
@@ -1777,13 +1828,11 @@ export class CanonicalRunSession {
     if (room.combat !== null) this.latestCombatSnapshot = room.combat;
   }
 
-  private stepFirstContinuationTransition(input: ValidatedStepInput): void {
+  private stepFirstContinuation(input: ValidatedStepInput): void {
     const combatState = this.combatState;
     if (combatState === null) {
-      throw new Error("first continuation transition lost its shared Run combat state");
+      throw new Error("first continuation lost its shared Run combat state");
     }
-    const chapter = this.firstContinuationTransitionChapter;
-    let transition: CanonicalRunFirstContinuationTransitionSnapshot;
     const combatInput = Object.freeze({
       tick120: input.tick120,
       movement: input.movement,
@@ -1793,6 +1842,38 @@ export class CanonicalRunSession {
       overridePressed: false,
       overrideReleased: false,
     });
+    const successorOwner = this.firstContinuationSuccessorOwner;
+    if (successorOwner !== null) {
+      if (this.phaseValue !== "first_continuation_room") {
+        throw new Error("first continuation successor escaped its session phase");
+      }
+      const successor = stepCanonicalRunFirstContinuationSuccessor(
+        successorOwner,
+        combatInput,
+      );
+      const runCombat = combatState.snapshot();
+      if (
+        successor.tick120 !== input.tick120
+        || successor.runCombat.tick120 !== input.tick120
+        || runCombat.tick120 !== input.tick120
+        || successor.runCombat.activeOccurrenceId !== runCombat.activeOccurrenceId
+        || successor.runCombat.pendingFlushTick120 !== null
+      ) {
+        throw new Error("first continuation successor did not close exactly one master tick");
+      }
+      this.currentTick120 = input.tick120;
+      this.playerPosition = runCombat.playerPosition;
+      this.focused = runCombat.focused;
+      this.playerDamage = runCombat.player;
+      this.latestCombatSnapshot = successor.combat;
+      return;
+    }
+
+    if (this.phaseValue === "first_continuation_room") {
+      throw new Error("first continuation room phase lost its successor owner");
+    }
+    const chapter = this.firstContinuationTransitionChapter;
+    let transition: CanonicalRunFirstContinuationTransitionSnapshot;
     if (chapter === null) {
       const target = this.firstContinuationRoomTargetValue;
       if (target === null || target.availability !== "available") {
@@ -1832,6 +1913,54 @@ export class CanonicalRunSession {
     this.focused = runCombat.focused;
     this.playerDamage = runCombat.player;
     this.latestCombatSnapshot = transition.combat;
+
+    if (
+      !transition.handoff.ready
+      || this.firstContinuationRoomAdmissionWithheldValue !== null
+    ) return;
+    const transitionChapter = this.firstContinuationTransitionChapter;
+    if (transitionChapter === null) {
+      throw new Error("first continuation admission lost its transition chapter");
+    }
+    const handoffReceipt = transitionChapter.handoff();
+    if (handoffReceipt === null) {
+      throw new Error("first continuation admission lost its exact handoff receipt");
+    }
+    const admissionTick120 = runCombat.tick120;
+    const canonicalEventCount = this.bus.committedEventCount();
+    const preparation = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (preparation.state === "withheld") {
+      if (
+        combatState.snapshot().tick120 !== admissionTick120
+        || this.bus.committedEventCount() !== canonicalEventCount
+      ) {
+        throw new Error("withheld first continuation admission mutated authority");
+      }
+      this.firstContinuationRoomAdmissionWithheldValue = preparation;
+      return;
+    }
+    const owner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    );
+    const successor = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    const transferredTransition = transitionChapter.snapshot();
+    if (
+      combatState.snapshot().tick120 !== admissionTick120
+      || this.bus.committedEventCount() !== canonicalEventCount
+      || successor.phase !== "dormant"
+      || successor.tick120 !== admissionTick120
+      || successor.relativeTick120 !== 0
+      || successor.combat !== null
+      || successor.nextMasterTickAction !== "telegraph"
+      || successor.canonicalEventCount !== canonicalEventCount
+      || transferredTransition.ownership !== "transferred-to-dormant-successor"
+    ) {
+      throw new Error("first continuation admission did not preserve its zero-tick handoff");
+    }
+    this.firstContinuationSuccessorOwner = owner;
+    this.latestCombatSnapshot = null;
+    this.phaseValue = "first_continuation_room";
+    this.phaseStartTick120 = admissionTick120;
   }
 
   private assertFirstRoomClosurePreflight(nextTick120: number): void {
