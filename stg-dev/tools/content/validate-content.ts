@@ -7,7 +7,27 @@ import {
   contentAuthorityFailureReport,
   loadContentAuthority,
   stableStringify,
+  type ContentAuthoritySnapshot,
 } from "../../src/content/content-authority.ts";
+import {V4_CONTENT_IDENTITY} from "../../src/content/v4-content-identity.ts";
+
+function assertPinnedV4ContentIdentity(snapshot: ContentAuthoritySnapshot): void {
+  const actual = {
+    contentAuthoritySchemaVersion: snapshot.schemaVersion,
+    packageId: snapshot.packageId,
+    packageSchemaVersion: snapshot.packageSchemaVersion,
+    packageManifestSha256: snapshot.packageManifestSha256,
+    contentDigestSha256: snapshot.contentDigestSha256,
+  } as const;
+
+  for (const field of Object.keys(V4_CONTENT_IDENTITY) as Array<keyof typeof V4_CONTENT_IDENTITY>) {
+    if (actual[field] !== V4_CONTENT_IDENTITY[field]) {
+      throw new Error(
+        `V4 content identity drift at ${field}: expected ${V4_CONTENT_IDENTITY[field]}, received ${actual[field]}`,
+      );
+    }
+  }
+}
 
 const defaultRoot = fileURLToPath(new URL("../../../1bit-stg-complete-asset-kit-v4/", import.meta.url));
 const args = process.argv.slice(2);
@@ -29,6 +49,7 @@ for (let index = 0; index < args.length; index += 1) {
 
 try {
   const report = await loadContentAuthority(packageRoot);
+  assertPinnedV4ContentIdentity(report.snapshot);
   const serialized = `${stableStringify(report, 2)}\n`;
   if (outputPath) {
     await mkdir(dirname(outputPath), {recursive: true});
