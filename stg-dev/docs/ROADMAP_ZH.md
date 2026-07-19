@@ -26,14 +26,14 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 独立authority已完成首房关闭 → transition/material → H+1…H+158 telegraph/entry → H+159原子安装下一房READ local tick 0；尚未接回session，也未从H+160开始推进新combat与旧material并行流 |
+| Canonical Run | WIP | 独立authority已完成首房关闭 → transition/material → H+1…H+158 telegraph/entry → H+159原子安装下一房READ → H+160起单tick/单flush推进新combat与旧material，并已到首个真实projectile；尚未接回session，READ terminal tail未闭合 |
 | First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
 | First fixed room closure | DONE | EXT-2026-009 在H+1702原子关闭单occurrence bootstrap首房并冻结`1/1/0`与typed visit fact；closure自身仍不承载metric、selection、transition或handoff |
 | First-room metric projection | DONE（partial） | EXT-2026-010/011从exact H+1702来源投影`avgFlower`/`gazeRatio`/`recentInputDensity`，其余11项typed missing；整体不ready，不授权composer、RNG、target、selection或transition |
-| Room composition / execution | WIP（首个 live 切片） | ordinal 1首occurrence plan/admission、pre-READ与H+159 exact-plan kernel claim已闭合且无binding空窗；H+160起的预算受控execution、后续room count/order与完整multi-pool仍未完成 |
+| Room composition / execution | WIP（首个 live 切片） | ordinal 1首occurrence plan/admission、pre-READ、H+159 exact-plan claim及H+160预算受控execution已闭合且无binding空窗；READ结束、material settle/rest、后续room count/order与完整multi-pool仍未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
-| Renderer / input / PWA | DONE（基础） | Three.js 像素表现、键盘/触控/标准手柄、manifest、离线 warm reload 与图标已存在；完整 causal clips、升级迁移和实机矩阵未完成 |
+| Renderer / input / PWA | WIP（基础可用） | Three.js、键盘/触控/标准手柄、manifest、离线warm reload与图标已存在；V4源素材由构建直接打包，但runtime当前只接5/7图集、4个房间背景及部分音频，完整章节素材、causal clips、升级迁移和实机矩阵未完成 |
 | QA / release evidence | WIP | focused/unit/content/build/smoke/E2E 与 V4 validators 可运行；完整 Run、性能、soak、设备和升级证据未闭合 |
 | GitHub 自动 CI | PAUSED（FOUNDATION） | push/PR 自动触发暂停，手动 workflow 保留；进入 Alpha 候选且完整门禁稳定后恢复 |
 
@@ -50,25 +50,28 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition、EXT-015 admission/pre-READ及H+159 READ claim已闭合；下一步用committed reservation限制新kernel并从H+160协调combat+旧material的单tick/单flush |
+| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition、EXT-015 admission/pre-READ、H+159 READ claim及H+160预算受控combat/material单tick/单flush已闭合；下一步关闭READ lifecycle、material settle/rest与occurrence release |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold/material handoff与dormant successor原子接管已闭合；下一步把telegraph/entry接回session，后续room completion仍未授权 |
+| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold/material handoff及successor首个真实弹体已闭合；下一步在terminal tail稳定后把telegraph/entry/READ接回session，后续room completion仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
-| P0-09 | Presentation / accessibility | WIP | 完整 Run 的 full/reduced-motion/flash-off gameplay trace 相同；UI、音频、触觉、天气只读投影，关键 causal clips 可追溯到事件/tick |
+| P0-09 | Presentation / accessibility | WIP | 建立`stg-dev/src/assets`运行时registry，源文件继续唯一指向V4；按共享/章节接完7张正式图集与实际流程所需音频。完整Run的full/reduced-motion/flash-off gameplay trace相同，UI、音频、触觉、天气只读投影，关键causal clips可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
 | P0-11 | PWA release path | WIP | 在线/离线冷暖启动、N→N+1 service-worker 更新、存档迁移、未知 URL fallback 与安装路径通过 |
 | P0-12 | 文档与扩展治理 | DONE（基础） | GDD/TDD/Roadmap/QA 单一职责；每个 V4 外扩展都有 focused ADR 与 provenance |
 
 ### 当前生产顺序
 
-1. 从EXT-015的H+160开始，以committed reservation限制新kernel实际池容量，并用一个coordinator推进新combat、
-   旧material、player与room FSM后唯一flush；不得复制QA fixture、重抽pattern、扩大预算或从表现反推。
-2. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
+1. 沿当前successor coordinator关闭首个动态READ的pattern end、projectile/material lifecycle、occurrence release、
+   material settle与rest；不得重抽pattern、扩大已commit预算或从表现反推。
+2. 把完成的telegraph/entry/READ接回session和renderer；建立只引用V4唯一源文件的共享/章节素材registry，
+   不复制二进制素材，不把preview/QA图当runtime资产，并让构建产物继续由部署阶段生成。
+3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
    count、完整room order、difficulty与RNG continuation在各自消费边界明确，禁止再次形成“后置事实先齐”的门。
-3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
+4. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
    isolated capability 冒充 live room/Run。
-4. 接 durable cross-run persistence，再完成完整 Run browser/accessibility/performance 证据。
-5. P0 闭合、完整门禁稳定后恢复 GitHub push/PR 自动 CI，并进入 Alpha 候选。
+5. 接 durable cross-run persistence，再完成完整 Run browser/accessibility/performance 证据。
+6. P0 闭合、完整门禁稳定后恢复 GitHub push/PR 自动 CI，并进入 Alpha 候选；GitHub Pages用部署阶段构建的
+   `stg-dev/dist` artifact，不把hash产物提交进开发分支。
 
 ## 4. P1：生产硬化（Beta 候选）
 
