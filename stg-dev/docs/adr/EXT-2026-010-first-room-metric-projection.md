@@ -6,6 +6,8 @@
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
 - 实施 commit：`01e5b6b`（已推送）
 - 前置记录：[EXT-2026-009](EXT-2026-009-first-fixed-room-closure.md)
+- 后续顺序更新：[EXT-2026-012](EXT-2026-012-first-continuation-room-target.md)接受partial available bias消费，
+  不再要求14项全部available后才选择ordinal 1 target；本ADR的projection artifact与typed missing不变
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
 - 影响层：bounded projection / source authenticity / typed missing；不修改 V4、room count、composer、selection、RNG、transition、narrative、asset、dependency 或 persistence

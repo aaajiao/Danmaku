@@ -1,6 +1,6 @@
 # EXT-2026-012：首房 partial facts 的下一房 target
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
@@ -62,8 +62,10 @@ base-plus-available-bias，消耗一个Mulberry32 draw并冻结room ordinal 1的
   1 + Σ(projection中available metric value × 该room的V4 authored metric weight)
   ```
 
-- 只枚举available且该room实际引用的term，不按available数量或authored weight总和归一化，不clamp、不round。
-  值、权重、乘积、total必须为finite且total至少为1，否则fail-stop。
+- 只枚举available且该room实际引用的term，并按metric ID stable code-point order从`behaviorBias=0`累加；
+  完成全部term后才计算`totalWeight=1+behaviorBias`，与V4 oracle的浮点运算顺序一致。不得从base 1开始逐项
+  累加，不按available数量或authored weight总和归一化，不clamp、不round。值、权重、乘积、bias与total
+  必须为finite且total至少为1，否则fail-stop。
 - missing entry继续是`{id, availability:"missing", reason}`，不创建numeric 0、neutral sample、默认history或
   完整metrics object。数学上没有增量的候选只使用base 1；这复用`sim_core.py`的base-plus-bias结果，但不把
   QA `metrics.get(..., 0)`升级为live producer事实。
@@ -72,10 +74,12 @@ base-plus-available-bias，消耗一个Mulberry32 draw并冻结room ordinal 1的
 
 ### 3. first-continuation RNG domain
 
-- domain tag固定为`ext-012-first-continuation-room-selection`，numeric seed精确为source `rawRunSeed`；不使用
-  occurrence resolved seed、difficulty salt、wall time、profile、frame cadence或caller salt。
-- algorithm精确为V4 `mulberry32-v1`。EXT-005/009/010/011已证明此前selection RNG draws为0，本切片只消费
-  draw ordinal 0；cursor为`randomValue × candidateTotalWeight`，按manifest order逐项减weight，首个
+- 只有`mulberry32-v1` primitive与raw-seed QA依据来自V4；“fixed bootstrap之后、在remaining candidates上使用
+  raw Run seed draw 0”是EXT-012新增policy。domain tag固定为
+  `ext-012-first-continuation-room-selection`，只作identity metadata，不是salt；numeric seed精确为source
+  `rawRunSeed`，不使用occurrence resolved seed、difficulty salt、wall time、profile、frame cadence或caller salt。
+- EXT-005/009/010/011已证明此前selection RNG draws为0，本切片只消费draw ordinal 0；cursor为
+  `randomValue × candidateTotalWeight`，按run-director与composer一致的manifest room order逐项减weight，首个
   `cursor <= 0`者入选，浮点尾差fallback最后一项。
 - output记录seed domain/value、draw ordinal、draw value、draws consumed `1`及draw后的uint32 state。该draw
   不得被重放给另一个target。完整room-order、pattern与Boss RNG顺序仍未授权；successor必须显式继续或
@@ -135,7 +139,7 @@ base-plus-available-bias，消耗一个Mulberry32 draw并冻结room ordinal 1的
 | `src/authority/run-metric-projection.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | 3 available / 11 typed missing formal projection | repository license | `623c1c68075d4efb3b97402b0494ce00dc24a65af31d5e53a83df062c50afc4e` |
 | `src/authority/run-composer.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | QA-only exact-14/full-plan isolation | repository license | `930295610620fb5e392e251fde91f50f419b6fab6c099b074ff5c29ea1dc3335` |
 
-## 计划验证证据
+## 实施验收门
 
 - 新selection pure contract：exact schema、candidate order、三房available/missing term明细、权重与cursor边界；
   固定seed覆盖每个remaining room可达、同source byte-identical与profile parity。
@@ -155,5 +159,6 @@ successor ADR。
 
 ## 决策
 
-PROPOSED。评审重点是：partial facts是否可以只形成V4-authored bias增量，以及raw Run seed draw 0是否应作为
-fixed bootstrap之后的窄first-continuation domain。未接受前不实现target或消费RNG。
+ACCEPTED。partial facts只形成V4-authored bias增量，missing保留absence；使用raw Run seed draw 0遍历
+post-bootstrap remaining candidates明确属于EXT-012窄domain，不冒充V4 full-composer cursor。总room count、
+difficulty、pattern/Boss RNG、transition与handoff继续未决；实现必须先通过上列验收门才可提交。

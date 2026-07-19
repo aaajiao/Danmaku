@@ -50,7 +50,7 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | 首房closure与3 available / 11 missing的partial metric snapshot已进入默认Run；审计确认“14项全齐再选房”会被后续room事实循环阻塞，当前先评审EXT-012的partial消费与ordinal 1 target，transition仍后置 |
+| P0-05 | Live room composer | WIP | 首房closure与3 available / 11 missing的partial metric snapshot已进入默认Run；EXT-012已接受partial消费与ordinal 1 target规则，当前实现并验收该窄selection，transition仍后置 |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
 | P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、`ROOM_SAMPLING`、固定首房occurrence、H/H+1701/H+1702 captures与partial metric snapshot已闭合；下一步先解除partial facts与下一房target之间的循环门，再接transition/next handoff |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
@@ -61,8 +61,8 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 先评审EXT-012：从正式H+1702 partial projection只消费available bias，missing保持absence；利用V4最小2房
-   约束冻结ordinal 1 target，不先猜总room count、difficulty或transition。
+1. 实施并验收EXT-012：从正式H+1702 partial projection只消费available bias，missing保持absence；利用V4
+   最小2房约束冻结ordinal 1 target，不先猜总room count、difficulty或transition。
 2. target authority通过后，独立定义transition gameplay occurrence与atomic room FSM join，再让下一房的真实
    mechanism产生其可观察facts；不得复制QA fixture、用默认0填missing，或从表现反推。
 3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room

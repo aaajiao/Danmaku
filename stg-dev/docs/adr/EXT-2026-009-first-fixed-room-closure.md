@@ -5,6 +5,8 @@
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / 实现提交：`agent/canonical-run-integration` / `8e6ef94`
 - 前置记录：[EXT-2026-008](EXT-2026-008-first-occurrence-observation-capture.md)
+- 后续顺序更新：[EXT-2026-012](EXT-2026-012-first-continuation-room-target.md)接受利用V4最小2房约束先选择
+  ordinal 1 target，不再要求先解析完整room count；本ADR的closure artifact与历史证据不变
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
 - 影响层：first fixed room closure / bounded source-window capture / typed visit fact；不修改 V4、metric projection、composer、room count、difficulty、selection、transition、asset、dependency 或 persistence schema
