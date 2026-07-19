@@ -33,6 +33,7 @@
 | [EXT-2026-016：首个 continuation occurrence 终端材料归属](EXT-2026-016-first-continuation-terminal-material.md) | ACCEPTED | gameplay drain后释放occurrence；collisionless residue跨精确slice边界保留且Override继续锁定 |
 | [EXT-2026-017：首个 continuation room 的会话与双材料投影](EXT-2026-017-first-continuation-session-projection.md) | ACCEPTED | 同tick零事件admission接入正式Run；旧transition material与新successor combat/residue并行投影 |
 | [EXT-2026-018：Misregistration Corridor orbit/release](EXT-2026-018-misregistration-orbit-release.md) | ACCEPTED | 单候选draw相位、精确release分段、完整swept preflight与live capability准入 |
+| [EXT-2026-019：首个 continuation successor 材料转交](EXT-2026-019-first-continuation-successor-material-transfer.md) | ACCEPTED | slice close后零tick/event/RNG转交collisionless residue；显式capacity lease退休并保持下一准入withheld |
 
 ## 新 ADR 规则
 
