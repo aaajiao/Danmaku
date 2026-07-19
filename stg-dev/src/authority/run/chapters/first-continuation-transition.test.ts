@@ -35,6 +35,7 @@ import {
   inspectCanonicalRunFirstContinuationRoomHandoffReceipt,
 } from "./first-continuation-transition";
 import {
+  advanceCanonicalRunFirstContinuationSuccessorPreRead,
   cancelPreparedCanonicalRunFirstContinuationRoomAdmission,
   commitPreparedCanonicalRunFirstContinuationRoomAdmission,
   inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
@@ -314,6 +315,138 @@ describe("first continuation transition chapter owner", () => {
     )).toThrow(/proposal is committed/);
     expect(fixture.runState.snapshot()).toEqual(runBefore);
     expect(fixture.eventBus.events()).toHaveLength(eventsBefore);
+  });
+
+  it("owns H+1 through H+158 as collisionless telegraph and entry", {
+    timeout: 30_000,
+  }, () => {
+    const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
+    const preparation = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (preparation.state !== "prepared") {
+      throw new Error(`expected admissible fixture, received ${preparation.reason}`);
+    }
+    const owner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    );
+    const dormant = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    const handoffTick120 = transition.combat.tick120;
+    const runAtHandoff = fixture.runState.snapshot();
+    const eventsAtHandoff = fixture.eventBus.events();
+    const reservationAtHandoff = JSON.stringify(dormant.combinedPoolAdmission.reservation);
+    expect(dormant).toMatchObject({
+      phase: "dormant",
+      tick120: handoffTick120,
+      relativeTick120: 0,
+      boundaryTicks120: {
+        handoffTick120,
+        telegraphStartTick120: handoffTick120 + 1,
+        entryStartTick120: handoffTick120 + 63,
+        readStartTick120: handoffTick120 + 159,
+      },
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      material: {poolUsage: {liveColliders: 0}},
+      combat: null,
+      targetVisible: false,
+      nextMasterTickAction: "telegraph",
+    });
+
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorPreRead(
+      owner,
+      combatInput(handoffTick120),
+    )).toThrow(/advance one tick at a time/);
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorPreRead(owner, {
+      ...combatInput(handoffTick120 + 1),
+      overridePressed: true,
+      overrideDirection: {x: 1, y: 0},
+    })).toThrow(/cannot admit an Override edge/);
+    expect(fixture.runState.snapshot()).toEqual(runAtHandoff);
+    expect(fixture.eventBus.events()).toEqual(eventsAtHandoff);
+    expect(inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner)).toEqual(dormant);
+
+    const initialX = runAtHandoff.playerPosition.x;
+    let successor = advanceCanonicalRunFirstContinuationSuccessorPreRead(owner, {
+      ...combatInput(handoffTick120 + 1),
+      movement: {x: 1, y: 0},
+      focused: true,
+    });
+    expect(successor).toMatchObject({
+      phase: "telegraph",
+      tick120: handoffTick120 + 1,
+      relativeTick120: 1,
+      runCombat: {
+        focused: true,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+      },
+      combat: null,
+    });
+    expect(successor.runCombat.playerPosition.x).toBeGreaterThan(initialX);
+    expect(successor.material.materialCount).toBeGreaterThan(0);
+
+    while (successor.tick120 < handoffTick120 + 62) {
+      successor = advanceCanonicalRunFirstContinuationSuccessorPreRead(
+        owner,
+        combatInput(successor.tick120 + 1),
+      );
+      expect(successor.material.poolUsage.liveColliders).toBe(0);
+      expect(successor.runCombat.activeOccurrenceId).toBeNull();
+      expect(successor.combat).toBeNull();
+    }
+    expect(successor).toMatchObject({
+      phase: "telegraph",
+      tick120: handoffTick120 + 62,
+      nextMasterTickAction: "entry",
+    });
+
+    successor = advanceCanonicalRunFirstContinuationSuccessorPreRead(
+      owner,
+      combatInput(handoffTick120 + 63),
+    );
+    expect(successor).toMatchObject({
+      phase: "entry",
+      tick120: handoffTick120 + 63,
+      nextMasterTickAction: "continue-entry",
+    });
+    while (successor.tick120 < handoffTick120 + 158) {
+      successor = advanceCanonicalRunFirstContinuationSuccessorPreRead(
+        owner,
+        combatInput(successor.tick120 + 1),
+      );
+      expect(successor.material.poolUsage.liveColliders).toBe(0);
+      expect(successor.runCombat.activeOccurrenceId).toBeNull();
+      expect(successor.combat).toBeNull();
+    }
+    expect(successor).toMatchObject({
+      phase: "entry",
+      tick120: handoffTick120 + 158,
+      relativeTick120: 158,
+      nextMasterTickAction: "claim-read",
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      combat: null,
+      targetVisible: false,
+    });
+    expect(JSON.stringify(successor.combinedPoolAdmission.reservation))
+      .toBe(reservationAtHandoff);
+    expect(successor.plan).toBe(dormant.plan);
+    const preReadEvents = fixture.eventBus.events().slice(eventsAtHandoff.length);
+    expect(preReadEvents.every((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete")).toBe(true);
+
+    const runBeforeRead = fixture.runState.snapshot();
+    const eventsBeforeRead = fixture.eventBus.events();
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorPreRead(
+      owner,
+      combatInput(handoffTick120 + 159),
+    )).toThrow(/stops before the exact READ claim tick/);
+    expect(fixture.runState.snapshot()).toEqual(runBeforeRead);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeRead);
+    expect(() => chapter.step(combatInput(handoffTick120 + 159)))
+      .toThrow(/ownership was transferred/);
+    expect(() => fixture.runState.stepIdle(
+      combatInput(handoffTick120 + 159),
+      fixture.formalTarget.targetRoom,
+    )).toThrow(/dormant successor owner/);
   });
 
   it("cancels a prepared admission without consuming the handoff, then retries", {

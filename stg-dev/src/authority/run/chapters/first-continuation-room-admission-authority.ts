@@ -4,10 +4,8 @@ import {
   bindCanonicalRunFirstContinuationDormantSuccessorTransferCapability,
   cancelPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
   commitPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
-  inspectCanonicalRunFirstContinuationDormantSuccessorBinding,
   inspectPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
   prepareCanonicalRunFirstContinuationDormantSuccessorTransfer,
-  type CanonicalRunFirstContinuationDormantSuccessorReservation,
   type CanonicalRunFirstContinuationDormantSuccessorTransferCapability,
   type PreparedCanonicalRunFirstContinuationDormantSuccessorTransfer,
 } from "../../combat-kernel";
@@ -29,12 +27,20 @@ import {
 } from "./first-continuation-room-plan";
 import {deriveCanonicalRunFirstContinuationRoomPlanSourceUnbranded} from
   "./first-continuation-room-plan-source";
+import {registerCanonicalRunFirstContinuationSuccessorOwner} from
+  "./first-continuation-room-successor";
+
+export {
+  advanceCanonicalRunFirstContinuationSuccessorPreRead,
+  inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
+  type CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot,
+  type CanonicalRunFirstContinuationSuccessorPreReadPhase,
+} from "./first-continuation-room-successor";
 
 const NEXT_ROOM_ADMISSION =
   "withheld-pending-room-plan-and-combined-pool-budget" as const;
 const HANDOFF_AUTHORITY = "canonical-run-first-continuation-room-handoff-v1" as const;
 const PROPOSAL_AUTHORITY = "canonical-run-first-continuation-room-admission-proposal-v1" as const;
-const OWNER_AUTHORITY = "canonical-run-first-continuation-room-dormant-owner-v1" as const;
 const EXTENSION_POLICY = "EXT-2026-015" as const;
 
 declare const canonicalRunFirstContinuationRoomHandoffReceiptBrand: unique symbol;
@@ -311,17 +317,6 @@ export type CanonicalRunFirstContinuationDormantSuccessorOwner = Readonly<{
   readonly [dormantSuccessorOwnerBrand]: true;
 }>;
 
-interface DormantSuccessorOwnerRecord {
-  readonly handoff: HandoffRecord;
-  readonly plan: CanonicalRunFirstContinuationRoomPlanPayload;
-  readonly evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
-}
-
-const DORMANT_SUCCESSOR_OWNERS = new WeakMap<
-  CanonicalRunFirstContinuationDormantSuccessorOwner,
-  DormantSuccessorOwnerRecord
->();
-
 export function prepareCanonicalRunFirstContinuationRoomAdmission(
   handoffReceipt: CanonicalRunFirstContinuationRoomHandoffReceipt,
 ): CanonicalRunFirstContinuationRoomAdmissionPreparation {
@@ -437,6 +432,14 @@ export function commitPreparedCanonicalRunFirstContinuationRoomAdmission(
       evaluation.admissible && sameJson(evaluation, record.evaluation),
       "prepared combined pool admission became stale",
     );
+    registerCanonicalRunFirstContinuationSuccessorOwner({
+      owner: record.successorOwner,
+      runState: handoff.runState,
+      eventBus: handoff.eventBus,
+      carryover: handoff.carryover,
+      plan: record.view.transfer.plan,
+      evaluation: record.view.transfer.combinedPoolAdmission,
+    });
     kernelCommitAttempted = true;
     commitPreparedCanonicalRunFirstContinuationDormantSuccessorTransfer(
       record.kernelProposal,
@@ -444,11 +447,6 @@ export function commitPreparedCanonicalRunFirstContinuationRoomAdmission(
     record.status = "committed";
     handoff.status = "committed";
     handoff.activeProposal = null;
-    DORMANT_SUCCESSOR_OWNERS.set(record.successorOwner, {
-      handoff,
-      plan: record.plan,
-      evaluation: record.evaluation,
-    });
     return record.successorOwner;
   } catch (error) {
     if (!kernelCommitAttempted) {
@@ -460,93 +458,4 @@ export function commitPreparedCanonicalRunFirstContinuationRoomAdmission(
     record.handoff.activeProposal = null;
     throw error;
   }
-}
-
-export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
-  readonly authority: typeof OWNER_AUTHORITY;
-  readonly extensionPolicy: typeof EXTENSION_POLICY;
-  readonly phase: "dormant";
-  readonly tick120: number;
-  readonly targetRoom: CanonicalRunFirstContinuationRoomPlanPayload["targetRoom"];
-  readonly patternId: string;
-  readonly occurrenceId: string;
-  readonly difficulty: CanonicalRunFirstContinuationRoomPlanPayload["occurrence"]["difficulty"];
-  readonly plan: CanonicalRunFirstContinuationRoomPlanPayload;
-  readonly combinedPoolAdmission: Readonly<{
-    readonly authority: "canonical-run-first-continuation-combined-pool-admission-commit-v1";
-    readonly extensionPolicy: typeof EXTENSION_POLICY;
-    readonly state: "committed";
-    readonly evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation;
-    readonly reservation: CanonicalRunFirstContinuationDormantSuccessorReservation;
-    readonly reservationCommitted: true;
-    readonly canonicalEventWrites: 0;
-    readonly tickAdvance: 0;
-  }>;
-  readonly material: ReturnType<CanonicalRoomThresholdMaterialCarryover["snapshot"]>;
-  readonly combat: null;
-  readonly targetVisible: false;
-  readonly nextMasterTickAction: "telegraph";
-  readonly inputOwnership: Readonly<{
-    readonly movement: "continued";
-    readonly focus: "continued";
-    readonly signal: "requested-unconsumed";
-    readonly gazeInput: "requested-unconsumed";
-    readonly flowerAuthority: "frozen";
-    readonly gazeAuthority: "frozen";
-    readonly override: "locked";
-  }>;
-}
-
-export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
-  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
-): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
-  invariant(typeof owner === "object" && owner !== null, "dormant owner must be opaque");
-  const record = DORMANT_SUCCESSOR_OWNERS.get(owner);
-  invariant(record !== undefined, "dormant owner is not registered");
-  const binding = inspectCanonicalRunFirstContinuationDormantSuccessorBinding(
-    record.handoff.runState,
-    record.handoff.eventBus,
-    record.handoff.carryover,
-    owner,
-  );
-  invariant(
-    binding.targetRoom === record.plan.targetRoom
-      && binding.reservation.occurrenceId === record.plan.occurrence.occurrenceId
-      && binding.reservation.patternId === record.plan.occurrence.patternId,
-    "dormant owner binding and formal plan diverged",
-  );
-  return Object.freeze({
-    authority: OWNER_AUTHORITY,
-    extensionPolicy: EXTENSION_POLICY,
-    phase: "dormant" as const,
-    tick120: binding.tick120,
-    targetRoom: binding.targetRoom,
-    patternId: record.plan.occurrence.patternId,
-    occurrenceId: record.plan.occurrence.occurrenceId,
-    difficulty: record.plan.occurrence.difficulty,
-    plan: record.plan,
-    combinedPoolAdmission: Object.freeze({
-      authority: "canonical-run-first-continuation-combined-pool-admission-commit-v1" as const,
-      extensionPolicy: EXTENSION_POLICY,
-      state: "committed" as const,
-      evaluation: record.evaluation,
-      reservation: binding.reservation,
-      reservationCommitted: true as const,
-      canonicalEventWrites: 0 as const,
-      tickAdvance: 0 as const,
-    }),
-    material: binding.material,
-    combat: null,
-    targetVisible: false as const,
-    nextMasterTickAction: "telegraph" as const,
-    inputOwnership: Object.freeze({
-      movement: "continued" as const,
-      focus: "continued" as const,
-      signal: "requested-unconsumed" as const,
-      gazeInput: "requested-unconsumed" as const,
-      flowerAuthority: "frozen" as const,
-      gazeAuthority: "frozen" as const,
-      override: "locked" as const,
-    }),
-  });
 }
