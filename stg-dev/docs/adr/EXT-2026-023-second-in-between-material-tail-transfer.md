@@ -1,9 +1,10 @@
 # EXT-2026-023：IN_BETWEEN 第二个 occurrence 的材料尾段与转交
 
-- 状态：ACCEPTED（实施 pending）
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 实施 commit：`902e57d`（`feat: close second occurrence material tail`）
 - 前置：[EXT-2026-019](EXT-2026-019-first-continuation-successor-material-transfer.md)、
   [EXT-2026-020](EXT-2026-020-second-in-between-occurrence-plan.md)、
   [EXT-2026-022](EXT-2026-022-second-in-between-read-release.md)
@@ -25,8 +26,9 @@ lineage虽已排空，仍须和同一 Run tick 保持同步。V4 composer 同时
 但不会替应用层决定完成 occurrence 后的 owner 更换。
 
 无形容词机制句：global `8220..8519`逐 tick 推进 Run player、idle room、两个已排空 lineage 与
-Misregistration residue，只允许 entity-owned cleanup event；global `8519`按 composer 边界关闭 slice，退休旧
-Context Switch material lease，并把仍在场的63个 residue 原样交给新的 sealed material owner。
+Misregistration residue；材料lineage只允许entity-owned cleanup，Run-owned player deadline event继续；global
+`8519`按composer边界关闭slice，退休旧Context Switch material lease，并把仍在场的63个residue原样交给新的
+sealed material owner。
 
 ## 负空间（Behavior > Content）
 
@@ -94,8 +96,9 @@ full residue drain                       8682  (combat local 1735; 本片之外)
 - 同一Run transaction依次推进shared player/Run clock、已drain Room Threshold predecessor、已drain Context Switch
   material、Misregistration residue与idle room，封存expected event count后只由Run flush一次。
 - 旧lineage必须保持drained并且不产生event；新lineage只能产生
-  `projectile.residue.remove → projectile.lifecycle.complete`。不得spawn、arm、恢复collision、消费RNG、contact、
-  damage、graze、metric、selection或room transition。
+  `projectile.residue.remove → projectile.lifecycle.complete`。整个Run flush另可包含由既有player deadline自然产生的
+  collision恢复、无敌结束或复活事件；不得产生新的spawn、arm、projectile collision、RNG、contact、damage、
+  graze、metric、selection或room transition。
 - cleanup保持canonical same-tick phase与稳定entity order；每个remove必须紧邻同identity的lifecycle complete，
   不能把未来cleanup倒写到release或slice-close tick。
 - movement/Focus与player timer继续。Override press/release edge在任何mutation前拒绝；tail不要求player
@@ -149,25 +152,33 @@ full residue drain                       8682  (combat local 1735; 本片之外)
 | `manifests/runtime/runtime-contract-v4.json` | V4 package / aaajiao | immutable source kit / 4.0.0 | material不得恢复gameplay authority | repository source | `29c97a1c3c20b15b90b9d6c70e3c9cb5f41b5ca9fe2a2831c9a961e768d12306` |
 | `EXT-2026-022-second-in-between-read-release.md` | Danmaku / aaajiao + Codex | accepted ADR / `661c87e` | global8219 original owner | repository license | `c6a78842ecfefe1606ff2c2617f50ad3c6fb31fe144f094687842a7ed975f548` |
 
-## 验证计划
+## 验证结果
 
-- 复用同一真实producer，从EXT-022 owner推进global `8220..8519`；断言rest start、slice close、old lineage同步、
-  cleanup-only event、0新增RNG/spawn/collision/damage、63 residue与80-slot lease。
-- 覆盖skip/repeat tick、Override edge、过早close/transfer、重复prepare/commit与old owner失效；失败前后的Run、
-  event serialization和owner snapshot必须相同。
-- transfer前后比较tick、canonical event bytes、RNG cursor、projectile identity/deadline/pool；证明只改owner与旧
-  material lease归属。
-- focused producer、strict typecheck与`git diff --check`作为实现gate。本片不改bundle或player-visible路径，
-  不运行build、smoke、E2E或browser；这些留给Session/presentation接线。
+- 同一seed-1 / EASY真实producer从EXT-022 original owner推进global `8220..8519`。global `8327`进入rest并剩74个
+  residue；global `8519`精确close并剩63个residue、80个allocated `micro` slots、0 live collider与126 RNG。
+- 无伤tail只产生17组相邻同identity
+  `projectile.residue.remove → projectile.lifecycle.complete`；cleanup tick精确为`8246, 8260, 8293, 8306,
+  8326, 8327, 8331, 8334, 8336, 8372, 8376, 8377, 8422, 8451, 8468, 8474, 8480`，`8481..8519`
+  无材料事件，也没有spawn、damage或room transition。
+- 真实damage producer从global `8219`继续到`8519`，跨过既有invulnerability deadline；Run sole-flush正常写入
+  `player.invulnerability.end`与`player.collision.on`，没有新damage，证明player timer不是tail门。允许表由已验证的
+  V4 player deadline transitions派生，不把damage、death、life consume或resolution混入白名单。
+- skip/repeat tick、Override edge与过早close/transfer均在mutation前拒绝；prepare cancel/retry、重复prepare/
+  commit、旧Context material port与旧next-occurrence owner失效均有正式断言。transfer前后tick、event bytes、
+  claims、RNG、63个projectile snapshot与80-slot pool不变。
+- `bun --bun vitest run src/authority/run/chapters/first-continuation-transition.test.ts -t "installs READ, starts reserved successor combat, and closes its exact slice"`、
+  `bun run typecheck`与`git diff --check`通过；focused producer约11秒。独立authority审查发现并复验了player timer
+  allowlist修正，最终无P0/P1。本片未改Session、bundle或player-visible路径，因此按风险边界未运行build、smoke、
+  E2E或browser；这些留给对应接线里程碑。
 
 ## 回滚与迁移
 
-实现前回滚只删除本ADR索引和架构/路线图引用，EXT-022 owner仍安全停在`tail-advance-withheld`。实现后回滚时
-移除tail/close/transfer consumer，保留EXT-022 exact source、V4 content digest与历史canonical trace；不得以
-回滚为由等待drain、清屏、缩短deadline或自动释放capacity。未来若统一多generation material chain，以新ADR
-supersede并保留本决定及首次实施commit。
+回滚`902e57d`时移除tail/close/transfer consumer，使EXT-022 owner重新停在原`tail-advance-withheld`边界；保留
+EXT-022 exact source、V4 content digest与历史canonical trace。不得以回滚为由等待drain、清屏、缩短deadline或
+自动释放capacity。未来若统一多generation material chain，以新ADR supersede并保留本决定及首次实施commit。
 
 ## 决策
 
-ACCEPTED，implementation pending。章节时间在global `8519`关闭，材料时间继续；63个在场residue与80-slot lease
-必须显式转给新的opaque owner。最后drain `8682`、Session、第三occurrence、room completion与handoff继续withheld。
+ACCEPTED，implemented at `902e57d`。章节时间在global `8519`关闭，材料时间继续；63个在场residue与80-slot
+lease已显式转给新的opaque owner。最后drain `8682`、Session、第三occurrence、room completion与handoff继续
+withheld。
