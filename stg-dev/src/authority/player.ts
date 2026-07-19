@@ -431,6 +431,13 @@ const EXPECTED_DAMAGE_TRANSITIONS: readonly MachineTransitionSignature[] = Objec
   ])}),
 ]);
 
+/** Canonical events that can be emitted by advancing an already-owned player timer. */
+export const PLAYER_TIMER_ADVANCE_EVENT_IDS: readonly string[] = Object.freeze(
+  [...new Set(EXPECTED_DAMAGE_TRANSITIONS
+    .filter((transition) => transition.trigger.endsWith("deadline"))
+    .flatMap((transition) => transition.events))].sort(),
+);
+
 const EXPECTED_GRAZE_TRANSITIONS: readonly MachineTransitionSignature[] = Object.freeze([
   Object.freeze({from: "unseen", to: "awarded", trigger: "valid-graze-overlap", events: Object.freeze([
     "projectile.graze.commit", "evidence.gain.commit",

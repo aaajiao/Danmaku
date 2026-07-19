@@ -3,10 +3,14 @@ import {beforeAll, describe, expect, it} from "vitest";
 import {
   advanceCanonicalRunFirstContinuationSuccessorMaterialHold,
   CanonicalRunCombatState,
+  cancelPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
+  commitPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
   commitPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
   commitPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer,
+  inspectPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
   inspectPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission,
   inspectPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer,
+  prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
   prepareCanonicalRunFirstContinuationNextOccurrenceAdmission,
   prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer,
   type CanonicalCombatSnapshot,
@@ -19,6 +23,7 @@ import {
   PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND,
   safeGapCenter,
 } from "../../pattern-executor";
+import {PLAYER_TIMER_ADVANCE_EVENT_IDS} from "../../player";
 import {
   issueCanonicalRunFirstRoomMetricSourceReceipt,
   type CanonicalRunFirstRoomClosureCaptureAvailable,
@@ -60,6 +65,8 @@ import {
 import {
   advanceCanonicalRunFirstContinuationNextOccurrencePreRead,
   advanceCanonicalRunFirstContinuationNextOccurrenceRead,
+  advanceCanonicalRunFirstContinuationNextOccurrenceTail,
+  closeCanonicalRunFirstContinuationNextOccurrenceSlice,
   inspectCanonicalRunFirstContinuationNextOccurrenceOwner,
   startCanonicalRunFirstContinuationNextOccurrenceRead,
 } from "./first-continuation-next-occurrence";
@@ -1429,7 +1436,7 @@ describe("first continuation transition chapter owner", () => {
       tick120: 8_219,
       relativeTick120: 1_431,
       boundaryTicks120: {materialSettleStartTick120: 8_219},
-      nextMasterTickAction: "tail-advance-withheld",
+      nextMasterTickAction: "advance-material-settle",
       material: {
         tick120: 8_219,
         drained: true,
@@ -1520,6 +1527,336 @@ describe("first continuation transition chapter owner", () => {
     expect(inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner))
       .toEqual(releasedOwner);
 
+    if (releasedOwner.combat === null) {
+      throw new Error("released second occurrence lost its material lineage");
+    }
+    const releaseProjectiles = releasedOwner.combat.projectiles;
+    const releaseRngCalls = releasedOwner.combat.rngCallsConsumed;
+    const releasedEventSerialization = fixture.eventBus.canonicalSerialization();
+    expect(() => prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      nextOwner,
+    )).toThrow(/exact flushed slice-close boundary/);
+    expect(() => closeCanonicalRunFirstContinuationNextOccurrenceSlice(
+      nextOwner,
+      combatInput(activeNextRead.tick120 + 1),
+    )).toThrow(/exact final rest tick/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+      nextOwner,
+      combatInput(activeNextRead.tick120 + 2),
+    )).toThrow(/advance one tick|one-tick/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+      nextOwner,
+      combatInput(activeNextRead.tick120),
+    )).toThrow(/advance one tick|one-tick/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceTail(nextOwner, {
+      ...combatInput(activeNextRead.tick120 + 1),
+      overridePressed: true,
+      overrideDirection: {x: 1, y: 0},
+    })).toThrow(/Override locked/);
+    expect(fixture.runState.snapshot()).toEqual(releasedRun);
+    expect(fixture.eventBus.events()).toEqual(releasedEvents);
+    expect(fixture.eventBus.canonicalSerialization()).toBe(releasedEventSerialization);
+    expect(inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner))
+      .toEqual(releasedOwner);
+
+    let materialTail = advanceCanonicalRunFirstContinuationNextOccurrenceTail(nextOwner, {
+      ...combatInput(activeNextRead.tick120 + 1),
+      movement: {x: 1, y: 0},
+      focused: true,
+    });
+    expect(materialTail).toMatchObject({
+      terminalPolicy: "EXT-2026-023",
+      phase: "tail",
+      authoredPhase: "material-settle",
+      tick120: 8_220,
+      relativeTick120: 1_432,
+      nextMasterTickAction: "advance-material-settle",
+      runCombat: {
+        tick120: 8_220,
+        focused: true,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+      },
+      combat: {
+        tick120: 8_220,
+        relativeTick120: 1_273,
+        rngCallsConsumed: 126,
+        poolUsage: {liveColliders: 0, residueVisuals: 80},
+      },
+    });
+    expect(materialTail.runCombat.playerPosition.x)
+      .toBeGreaterThan(releasedOwner.runCombat.playerPosition.x);
+
+    while (materialTail.tick120 < 8_327) {
+      materialTail = advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+        nextOwner,
+        combatInput(materialTail.tick120 + 1),
+      );
+    }
+    expect(materialTail).toMatchObject({
+      phase: "tail",
+      authoredPhase: "rest",
+      tick120: 8_327,
+      relativeTick120: 1_539,
+      boundaryTicks120: {restStartTick120: 8_327},
+      nextMasterTickAction: "advance-rest",
+      material: {drained: true, materialCount: 0, poolUsage: {liveColliders: 0}},
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      combat: {
+        tick120: 8_327,
+        relativeTick120: 1_380,
+        rngCallsConsumed: 126,
+        poolUsage: {
+          active: {micro: 74, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 74,
+        },
+      },
+    });
+
+    while (materialTail.tick120 < 8_518) {
+      materialTail = advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+        nextOwner,
+        combatInput(materialTail.tick120 + 1),
+      );
+    }
+    expect(materialTail).toMatchObject({
+      phase: "tail",
+      authoredPhase: "rest",
+      tick120: 8_518,
+      nextMasterTickAction: "close-slice",
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+    });
+    const beforeRejectedTailClose = fixture.runState.snapshot();
+    const eventsBeforeRejectedTailClose = fixture.eventBus.events();
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+      nextOwner,
+      combatInput(8_519),
+    )).toThrow(/stops before slice close/);
+    expect(() => prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      nextOwner,
+    )).toThrow(/exact flushed slice-close boundary/);
+    expect(fixture.runState.snapshot()).toEqual(beforeRejectedTailClose);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeRejectedTailClose);
+
+    const nextComplete = closeCanonicalRunFirstContinuationNextOccurrenceSlice(
+      nextOwner,
+      combatInput(8_519),
+    );
+    expect(nextComplete).toMatchObject({
+      terminalPolicy: "EXT-2026-023",
+      phase: "complete",
+      authoredPhase: "rest",
+      tick120: 8_519,
+      relativeTick120: 1_731,
+      boundaryTicks120: {sliceCompleteTick120: 8_519},
+      nextMasterTickAction: "transfer-material",
+      material: {
+        drained: true,
+        materialCount: 0,
+        poolUsage: {
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 0,
+        },
+      },
+      runCombat: {
+        tick120: 8_519,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+      },
+      combat: {
+        tick120: 8_519,
+        relativeTick120: 1_572,
+        occurrenceId: nextOccurrenceId,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        projectileLifecycleDrained: false,
+        rngCallsConsumed: 126,
+        poolUsage: {
+          active: {micro: 63, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 63,
+        },
+      },
+    });
+    if (nextComplete.combat === null) {
+      throw new Error("second occurrence slice close lost its collisionless material");
+    }
+    expect(nextComplete.combat.projectiles).toHaveLength(63);
+    expect(nextComplete.combat.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+    expect(nextComplete.projectilePoolAudit).toHaveLength(1);
+    expect(nextComplete.combat.rngCallsConsumed).toBe(releaseRngCalls);
+    const releaseIdentities = new Set(releaseProjectiles.map((projectile) =>
+      `${projectile.instanceId}:${projectile.generation}`));
+    const closeIdentities = new Set(nextComplete.combat.projectiles.map((projectile) =>
+      `${projectile.instanceId}:${projectile.generation}`));
+    expect(closeIdentities.size).toBe(63);
+    expect([...closeIdentities].every((identity) => releaseIdentities.has(identity))).toBe(true);
+    expect([...releaseIdentities].filter((identity) => !closeIdentities.has(identity)))
+      .toHaveLength(17);
+
+    const materialTailEvents = fixture.eventBus.events().slice(releasedEvents.length);
+    expect(materialTailEvents).toHaveLength(34);
+    expect(materialTailEvents.map((event) => event.id)).toEqual(
+      Array.from({length: 17}, () => [
+        "projectile.residue.remove",
+        "projectile.lifecycle.complete",
+      ]).flat(),
+    );
+    expect(materialTailEvents.filter((event) =>
+      event.id === "projectile.residue.remove").map((event) => event.tick120)).toEqual([
+      8_246,
+      8_260,
+      8_293,
+      8_306,
+      8_326,
+      8_327,
+      8_331,
+      8_334,
+      8_336,
+      8_372,
+      8_376,
+      8_377,
+      8_422,
+      8_451,
+      8_468,
+      8_474,
+      8_480,
+    ]);
+    for (let index = 0; index < materialTailEvents.length; index += 2) {
+      const remove = materialTailEvents[index];
+      const lifecycleComplete = materialTailEvents[index + 1];
+      expect(remove?.tick120).toBe(lifecycleComplete?.tick120);
+      expect(remove?.entityStableId).toBe(lifecycleComplete?.entityStableId);
+      expect(remove?.payload.instanceId).toBe(lifecycleComplete?.payload.instanceId);
+      expect(remove?.payload.generation).toBe(lifecycleComplete?.payload.generation);
+    }
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+
+    const nextCloseProjectiles = nextComplete.combat.projectiles;
+    const nextCloseRunSerialization = JSON.stringify(fixture.runState.snapshot());
+    const nextCloseEventSerialization = fixture.eventBus.canonicalSerialization();
+    const nextCloseClaims = nextComplete.runCombat.claimedOccurrenceIds;
+    const nextMaterialTransfer =
+      prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(nextOwner);
+    const nextMaterialTransferView =
+      inspectPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+        nextMaterialTransfer,
+      );
+    expect(nextMaterialTransferView).toMatchObject({
+      authority:
+        "canonical-run-first-continuation-next-occurrence-material-transfer-v1",
+      extensionPolicy: "EXT-2026-023",
+      tick120: 8_519,
+      sourcePatternId: nextView.plan.occurrence.patternId,
+      sourceOccurrenceId: nextOccurrenceId,
+      materialCount: 63,
+      poolUsage: {
+        active: {micro: 63, medium: 0, heavy: 0, splitChildren: 0},
+        allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+        liveColliders: 0,
+        residueVisuals: 63,
+      },
+      predecessorOccurrenceMaterialLease: "retire-on-commit",
+      transitionMaterialLease: "retired",
+      gameplayAuthority: "released",
+      roomCompletion: "withheld",
+      roomHandoff: "withheld",
+      nextOccurrenceAdmission: "withheld-pending-decision",
+      canonicalEventWrites: 0,
+      rngCallsConsumedByTransfer: 0,
+      tickAdvance: 0,
+    });
+    expect(Object.isFrozen(nextMaterialTransfer)).toBe(true);
+    expect(Object.isFrozen(nextMaterialTransferView)).toBe(true);
+    expect(() => prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      nextOwner,
+    )).toThrow(/prepared lease/);
+    expect(JSON.stringify(fixture.runState.snapshot())).toBe(nextCloseRunSerialization);
+    expect(fixture.eventBus.canonicalSerialization()).toBe(nextCloseEventSerialization);
+
+    cancelPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      nextMaterialTransfer,
+    );
+    expect(() => commitPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      nextMaterialTransfer,
+    )).toThrow(/cancelled/);
+    expect(JSON.stringify(fixture.runState.snapshot())).toBe(nextCloseRunSerialization);
+    expect(fixture.eventBus.canonicalSerialization()).toBe(nextCloseEventSerialization);
+    const retryNextMaterialTransfer =
+      prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(nextOwner);
+    expect(inspectPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      retryNextMaterialTransfer,
+    )).toEqual(nextMaterialTransferView);
+
+    const nextMaterialOwner =
+      commitPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+        retryNextMaterialTransfer,
+      );
+    const transferredNextMaterial = nextMaterialOwner.snapshot();
+    expect(transferredNextMaterial).toMatchObject({
+      authority:
+        "canonical-run-first-continuation-next-occurrence-material-carryover-v1",
+      extensionPolicy: "EXT-2026-023",
+      sourcePatternId: nextView.plan.occurrence.patternId,
+      sourceOccurrenceId: nextOccurrenceId,
+      transferredAtTick120: 8_519,
+      tick120: 8_519,
+      materialCount: 63,
+      drained: false,
+      poolUsage: {
+        active: {micro: 63, medium: 0, heavy: 0, splitChildren: 0},
+        allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+        liveColliders: 0,
+        residueVisuals: 63,
+      },
+      rngCallsConsumed: 126,
+      predecessorOccurrenceMaterialLease: "retired",
+      transitionMaterialLease: "retired",
+      gameplayAuthority: "released",
+      roomCompletion: "withheld",
+      roomHandoff: "withheld",
+      nextOccurrenceAdmission: "withheld-pending-decision",
+    });
+    expect(transferredNextMaterial.projectiles).toEqual(nextCloseProjectiles);
+    expect(Object.isFrozen(transferredNextMaterial)).toBe(true);
+    expect(Object.isFrozen(transferredNextMaterial.projectiles)).toBe(true);
+    expect(JSON.stringify(fixture.runState.snapshot())).toBe(nextCloseRunSerialization);
+    expect(fixture.runState.snapshot().claimedOccurrenceIds).toEqual(nextCloseClaims);
+    expect(fixture.eventBus.canonicalSerialization()).toBe(nextCloseEventSerialization);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+
+    const runAfterNextMaterialTransfer = fixture.runState.snapshot();
+    const eventsAfterNextMaterialTransfer = fixture.eventBus.events();
+    expect(() => materialOwner.snapshot()).toThrow(/sealed binding/);
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorMaterialHold(
+      materialOwner,
+      combatInput(8_520),
+    )).toThrow(/owner lease/);
+    expect(() => inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner))
+      .toThrow(/committed binding/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceRead(
+      nextOwner,
+      combatInput(8_520),
+    )).toThrow(/committed binding/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+      nextOwner,
+      combatInput(8_520),
+    )).toThrow(/committed binding/);
+    expect(() => closeCanonicalRunFirstContinuationNextOccurrenceSlice(
+      nextOwner,
+      combatInput(8_520),
+    )).toThrow(/committed binding/);
+    expect(() => commitPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+      retryNextMaterialTransfer,
+    )).toThrow(/committed/);
+    expect(fixture.runState.snapshot()).toEqual(runAfterNextMaterialTransfer);
+    expect(fixture.eventBus.events()).toEqual(eventsAfterNextMaterialTransfer);
+
     const damageBranch = reachSecondOccurrenceReadStart();
     const damagePattern = executablePattern(
       damageBranch.nextView.plan.occurrence.patternId,
@@ -1559,7 +1896,7 @@ describe("first continuation transition chapter owner", () => {
     expect(damagedRead).toMatchObject({
       phase: "tail",
       tick120: 8_219,
-      nextMasterTickAction: "tail-advance-withheld",
+      nextMasterTickAction: "advance-material-settle",
       runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
       combat: {
         relativeTick120: 1_272,
@@ -1572,6 +1909,63 @@ describe("first continuation transition chapter owner", () => {
     expect(damagedRead.combat?.player.recoveryAtTick120 !== null
       || damagedRead.combat?.player.respawnPlaceAtTick120 !== null
       || damagedRead.combat?.player.respawnCompleteAtTick120 !== null).toBe(true);
+    const damageTailEventsStart = damageBranch.fixture.eventBus.events().length;
+    let damagedTail = advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+      damageBranch.nextOwner,
+      combatInput(8_220),
+    );
+    expect(damagedTail).toMatchObject({
+      phase: "tail",
+      authoredPhase: "material-settle",
+      tick120: 8_220,
+      nextMasterTickAction: "advance-material-settle",
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      combat: {
+        relativeTick120: 1_273,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        runTimedStateQuiescent: false,
+        poolUsage: {liveColliders: 0},
+      },
+    });
+    expect(damagedTail.combat?.player.recoveryAtTick120 !== null
+      || damagedTail.combat?.player.respawnPlaceAtTick120 !== null
+      || damagedTail.combat?.player.respawnCompleteAtTick120 !== null).toBe(true);
+    while (damagedTail.tick120 < 8_518) {
+      damagedTail = advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+        damageBranch.nextOwner,
+        combatInput(damagedTail.tick120 + 1),
+      );
+    }
+    const damagedComplete = closeCanonicalRunFirstContinuationNextOccurrenceSlice(
+      damageBranch.nextOwner,
+      combatInput(8_519),
+    );
+    expect(damagedComplete).toMatchObject({
+      phase: "complete",
+      authoredPhase: "rest",
+      tick120: 8_519,
+      nextMasterTickAction: "transfer-material",
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      combat: {
+        relativeTick120: 1_572,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        runTimedStateQuiescent: true,
+        poolUsage: {liveColliders: 0},
+      },
+    });
+    const damageTailEvents = damageBranch.fixture.eventBus.events()
+      .slice(damageTailEventsStart);
+    expect(damageTailEvents.some((event) =>
+      event.id === "player.invulnerability.end")).toBe(true);
+    expect(damageTailEvents.some((event) => event.id === "player.collision.on")).toBe(true);
+    expect(damageTailEvents.every((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete"
+      || PLAYER_TIMER_ADVANCE_EVENT_IDS.includes(event.id))).toBe(true);
+    expect(damageTailEvents.some((event) => event.id === "player.damage.commit")).toBe(false);
+    expect(damageBranch.fixture.eventBus.pendingEventCount()).toBe(0);
     expect(damagedRead.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
       occurrenceId === damageBranch.nextView.plan.occurrence.occurrenceId))
       .toHaveLength(1);

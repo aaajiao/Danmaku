@@ -68,6 +68,7 @@ import {
   DirectionalOverrideAuthority,
   EvidenceAuthority,
   GrazeEvidenceAuthority,
+  PLAYER_TIMER_ADVANCE_EVENT_IDS,
   PlayerDamageAuthority,
   V4_PLAYER_AUTHORITY_CONTRACT,
   inspectPreparedPlayerCollisionBlockerMutation,
@@ -188,6 +189,16 @@ const CANONICAL_PROJECTILE_ARCHETYPE_SET: ReadonlySet<string> = new Set(
     pattern.emitters.map((emitter) => emitter.projectile.archetype)),
 );
 const INPUT_MAGNITUDE_TOLERANCE = 1e-9;
+const NEXT_OCCURRENCE_TAIL_MATERIAL_EVENT_IDS = Object.freeze([
+  "projectile.residue.remove",
+  "projectile.lifecycle.complete",
+] as const);
+
+function isNextOccurrenceTailEventAllowed(eventId: string): boolean {
+  return NEXT_OCCURRENCE_TAIL_MATERIAL_EVENT_IDS.includes(
+    eventId as (typeof NEXT_OCCURRENCE_TAIL_MATERIAL_EVENT_IDS)[number],
+  ) || PLAYER_TIMER_ADVANCE_EVENT_IDS.includes(eventId);
+}
 
 interface CombatPattern extends ExecutablePattern {
   readonly category: "COMMON" | "ROOM" | "BOSS" | "WEATHER_ECHO" | "TRANSITION";
@@ -710,6 +721,9 @@ const SEALED_FIRST_CONTINUATION_READ_ADVANCE = Symbol(
 const SEALED_FIRST_CONTINUATION_NEXT_READ_ADVANCE = Symbol(
   "sealed-first-continuation-next-read-advance",
 );
+const SEALED_FIRST_CONTINUATION_NEXT_MATERIAL_ADVANCE = Symbol(
+  "sealed-first-continuation-next-material-advance",
+);
 const SEALED_FIRST_CONTINUATION_MATERIAL_ADVANCE = Symbol(
   "sealed-first-continuation-material-advance",
 );
@@ -742,7 +756,9 @@ interface Ext013RoomThresholdRunBinding {
     | "successor-next-pre-read"
     | "successor-next-read"
     | "successor-next-release-requested"
-    | "successor-next-tail";
+    | "successor-next-tail"
+    | "successor-next-complete"
+    | "successor-next-material";
   carryover: CanonicalRoomThresholdMaterialCarryover | null;
   materialRoomEventCount: number | null;
   successorOwner: object | null;
@@ -757,6 +773,9 @@ interface Ext013RoomThresholdRunBinding {
   nextSuccessorAdmission: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation | null;
   nextSuccessorKernel: CanonicalCombatKernel | null;
   nextSuccessorFinalCombat: CanonicalCombatSnapshot | null;
+  nextSuccessorMaterial:
+    CanonicalRunFirstContinuationNextOccurrenceMaterialCarryover | null;
+  successorMaterialCapacityLeaseRetiredAtTick120: number | null;
   expectedFlushTick120: number | null;
   expectedPendingEventCount: number | null;
 }
@@ -1036,13 +1055,15 @@ export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot
   readonly extensionPolicy: "EXT-2026-020";
   readonly executionPolicy: "EXT-2026-021";
   readonly readPolicy: "EXT-2026-022";
-  readonly phase: "dormant" | "pre-read" | "read" | "tail";
+  readonly terminalPolicy: "EXT-2026-023";
+  readonly phase: "dormant" | "pre-read" | "read" | "tail" | "complete";
   readonly authoredPhase:
     | "dormant"
     | "telegraph"
     | "entry"
     | "read"
-    | "material-settle";
+    | "material-settle"
+    | "rest";
   readonly tick120: number;
   readonly relativeTick120: number;
   readonly boundaryTicks120: Readonly<CanonicalRunFirstContinuationSuccessorBoundaryTicks>;
@@ -1054,7 +1075,10 @@ export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot
     | "continue-entry"
     | "claim-read"
     | "advance-read"
-    | "tail-advance-withheld";
+    | "advance-material-settle"
+    | "advance-rest"
+    | "close-slice"
+    | "transfer-material";
   readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
   readonly combinedPoolAdmission: Readonly<{
     readonly state: "committed";
@@ -1068,6 +1092,54 @@ export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot
   readonly canonicalEventCount: number;
   readonly roomCompletion: "withheld";
   readonly roomHandoff: "withheld";
+}
+
+declare const preparedNextOccurrenceMaterialTransferBrand: unique symbol;
+
+export interface PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer {
+  readonly [preparedNextOccurrenceMaterialTransferBrand]:
+    "PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer";
+}
+
+export interface PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransferView {
+  readonly authority:
+    "canonical-run-first-continuation-next-occurrence-material-transfer-v1";
+  readonly extensionPolicy: "EXT-2026-023";
+  readonly tick120: number;
+  readonly sourcePatternId: string;
+  readonly sourceOccurrenceId: string;
+  readonly materialCount: number;
+  readonly poolUsage: ProjectilePoolUsage;
+  readonly predecessorOccurrenceMaterialLease: "retire-on-commit";
+  readonly transitionMaterialLease: "retired";
+  readonly gameplayAuthority: "released";
+  readonly roomCompletion: "withheld";
+  readonly roomHandoff: "withheld";
+  readonly nextOccurrenceAdmission: "withheld-pending-decision";
+  readonly canonicalEventWrites: 0;
+  readonly rngCallsConsumedByTransfer: 0;
+  readonly tickAdvance: 0;
+}
+
+export interface CanonicalRunFirstContinuationNextOccurrenceMaterialCarryoverSnapshot {
+  readonly authority:
+    "canonical-run-first-continuation-next-occurrence-material-carryover-v1";
+  readonly extensionPolicy: "EXT-2026-023";
+  readonly sourcePatternId: string;
+  readonly sourceOccurrenceId: string;
+  readonly transferredAtTick120: number;
+  readonly tick120: number;
+  readonly materialCount: number;
+  readonly drained: boolean;
+  readonly poolUsage: ProjectilePoolUsage;
+  readonly projectiles: readonly CombatProjectileSnapshot[];
+  readonly rngCallsConsumed: number;
+  readonly predecessorOccurrenceMaterialLease: "retired";
+  readonly transitionMaterialLease: "retired";
+  readonly gameplayAuthority: "released";
+  readonly roomCompletion: "withheld";
+  readonly roomHandoff: "withheld";
+  readonly nextOccurrenceAdmission: "withheld-pending-decision";
 }
 
 interface PreparedRoomThresholdMaterialDetachRecord {
@@ -1140,6 +1212,35 @@ interface PreparedNextOccurrenceAdmissionRecord {
   status: "prepared" | "committed" | "cancelled" | "failed";
 }
 
+interface NextOccurrenceMaterialCarryoverRecord {
+  readonly runState: CanonicalRunCombatState;
+  readonly eventBus: CanonicalEventBus;
+  readonly predecessor: CanonicalRunOccurrenceMaterialCarryover;
+  readonly predecessorRecord: RunOccurrenceMaterialCarryoverRecord;
+  readonly predecessorOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner;
+  readonly transitionPredecessor: CanonicalRoomThresholdMaterialCarryover;
+  readonly kernel: CanonicalCombatKernel;
+  readonly sourcePatternId: string;
+  readonly sourceOccurrenceId: string;
+  readonly transferredAtTick120: number;
+}
+
+interface PreparedNextOccurrenceMaterialTransferRecord {
+  readonly runState: CanonicalRunCombatState;
+  readonly eventBus: CanonicalEventBus;
+  readonly predecessor: CanonicalRunOccurrenceMaterialCarryover;
+  readonly predecessorOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner;
+  readonly transitionPredecessor: CanonicalRoomThresholdMaterialCarryover;
+  readonly kernel: CanonicalCombatKernel;
+  readonly capturedRunSerialization: string;
+  readonly capturedPredecessorSerialization: string;
+  readonly capturedTransitionSerialization: string;
+  readonly capturedCombatSerialization: string;
+  readonly capturedEventSerialization: string;
+  readonly view: PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransferView;
+  status: "prepared" | "committed" | "cancelled" | "failed";
+}
+
 const ROOM_THRESHOLD_MATERIAL_CARRYOVERS = new WeakMap<
   CanonicalRoomThresholdMaterialCarryover,
   RoomThresholdMaterialCarryoverRecord
@@ -1168,11 +1269,26 @@ const RUN_STATE_BY_NEXT_OCCURRENCE_OWNER = new WeakMap<
   CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
   CanonicalRunCombatState
 >();
+const NEXT_OCCURRENCE_MATERIAL_CARRYOVERS = new WeakMap<
+  CanonicalRunFirstContinuationNextOccurrenceMaterialCarryover,
+  NextOccurrenceMaterialCarryoverRecord
+>();
+const PREPARED_NEXT_OCCURRENCE_MATERIAL_TRANSFERS = new WeakMap<
+  PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
+  PreparedNextOccurrenceMaterialTransferRecord
+>();
+const ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE = new WeakMap<
+  CanonicalRunCombatState,
+  PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer
+>();
 const CREATE_ROOM_THRESHOLD_MATERIAL_CARRYOVER = Symbol(
   "create-room-threshold-material-carryover",
 );
 const CREATE_RUN_OCCURRENCE_MATERIAL_CARRYOVER = Symbol(
   "create-run-occurrence-material-carryover",
+);
+const CREATE_NEXT_OCCURRENCE_MATERIAL_CARRYOVER = Symbol(
+  "create-next-occurrence-material-carryover",
 );
 
 interface ValidatedCombatStepInput {
@@ -9409,6 +9525,85 @@ export class CanonicalRunCombatState {
         internals.fault = error;
         throw error;
       }
+    } else if (binding?.phase === "successor-next-tail") {
+      const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+      const transitionMaterial = binding.carryover?.snapshot() ?? null;
+      const sourceMaterialOwner = binding.successorMaterial;
+      const sourceMaterial = sourceMaterialOwner?.snapshot() ?? null;
+      const sourceCombat = binding.successorFinalCombat;
+      const plan = binding.nextSuccessorPlan;
+      const evaluation = binding.nextSuccessorAdmission;
+      const combat = binding.nextSuccessorFinalCombat;
+      const player = internals.player.snapshot();
+      const override = internals.override.snapshot();
+      if (
+        binding.nextSuccessorOwner === null
+        || plan === null
+        || evaluation === null
+        || binding.nextSuccessorKernel === null
+        || combat === null
+        || binding.nextSuccessorMaterial !== null
+        || binding.successorMaterialCapacityLeaseRetiredAtTick120 !== null
+        || binding.successorOwner === null
+        || binding.successorPlan === null
+        || binding.successorReservation === null
+        || binding.successorKernel === null
+        || sourceCombat === null
+        || sourceMaterialOwner === null
+        || binding.predecessorMaterialLeaseRetiredAtTick120 === null
+        || internals.activeOccurrenceId !== null
+        || internals.pendingReleaseOccurrenceId !== null
+        || binding.materialRoomEventCount === null
+        || room.tick120 !== tick120
+        || room.state !== "idle"
+        || room.currentRoom !== plan.targetRoom
+        || room.currentRoom !== binding.targetRoom
+        || room.targetRoom !== null
+        || room.generation !== 1
+        || room.eventCount !== binding.materialRoomEventCount
+        || room.active !== null
+        || transitionMaterial === null
+        || transitionMaterial.tick120 !== tick120
+        || !transitionMaterial.drained
+        || transitionMaterial.materialCount !== 0
+        || transitionMaterial.poolUsage.liveColliders !== 0
+        || sourceMaterial === null
+        || sourceMaterial.tick120 !== tick120
+        || !sourceMaterial.drained
+        || sourceMaterial.materialCount !== 0
+        || sourceMaterial.poolUsage.liveColliders !== 0
+        || sourceCombat.tick120 !== tick120
+        || !sourceCombat.patternComplete
+        || !sourceCombat.digitalBodiesDrained
+        || sourceCombat.poolUsage.liveColliders !== 0
+        || sourceCombat.projectiles.length !== 0
+        || combat.tick120 !== tick120
+        || combat.patternId !== plan.occurrence.patternId
+        || combat.occurrenceId !== plan.occurrence.occurrenceId
+        || !combat.patternComplete
+        || !combat.digitalBodiesDrained
+        || combat.poolUsage.liveColliders !== 0
+        || combat.projectiles.some((projectile) =>
+          projectile.state !== "residue" || projectile.collisionEnabled)
+        || combat.playerPosition.x !== internals.currentPlayerPosition.x
+        || combat.playerPosition.y !== internals.currentPlayerPosition.y
+        || combat.player.tick120 !== tick120
+        || combat.player.state !== player.state
+        || combat.player.collisionEnabled !== player.collisionEnabled
+        || combat.override.state !== override.state
+        || combat.override.deadlineTick120 !== override.deadlineTick120
+        || combat.override.localVoid !== null
+        || override.state !== "idle"
+        || override.deadlineTick120 !== null
+        || override.localVoid !== null
+        || !nextOccurrencePoolUsageFitsAdmission(sourceMaterial, combat, evaluation)
+      ) {
+        const error = new Error(
+          "next occurrence tail lost its three-lineage material/room synchronization",
+        );
+        internals.fault = error;
+        throw error;
+      }
     }
     try {
       const flushed = internals.tickFlushAuthority.flushTick(tick120);
@@ -10358,6 +10553,8 @@ export class CanonicalCombatKernel {
       nextSuccessorAdmission: null,
       nextSuccessorKernel: null,
       nextSuccessorFinalCombat: null,
+      nextSuccessorMaterial: null,
+      successorMaterialCapacityLeaseRetiredAtTick120: null,
       expectedFlushTick120: null,
       expectedPendingEventCount: null,
     });
@@ -10808,6 +11005,82 @@ export class CanonicalCombatKernel {
       );
     }
     return this.advanceTickWithLock(input);
+  }
+
+  /** Advance only the released second occurrence's collisionless residue. */
+  [SEALED_FIRST_CONTINUATION_NEXT_MATERIAL_ADVANCE](
+    nextOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+    tick120Value: number,
+  ): CanonicalCombatSnapshot {
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(this.runState);
+    const runInternals = runCombatStateInternals(this.runState);
+    const plan = binding?.nextSuccessorPlan ?? null;
+    const evaluation = binding?.nextSuccessorAdmission ?? null;
+    const tick120 = requireSafeTick(tick120Value, "next occurrence material tick120");
+    const before = CanonicalCombatKernel.prototype.snapshot.call(this);
+    if (
+      this.advanceLocked
+      || !this.sharedRunState
+      || !this.sharedOccurrenceReleased
+      || this.deferredFirstContinuationReadInstallPending
+      || this.deferredFirstContinuationNextReadInstallPending
+      || binding?.phase !== "successor-next-tail"
+      || binding.nextSuccessorOwner !== nextOwner
+      || binding.nextSuccessorKernel !== this
+      || binding.nextSuccessorFinalCombat === null
+      || binding.nextSuccessorMaterial !== null
+      || binding.successorMaterialCapacityLeaseRetiredAtTick120 !== null
+      || plan === null
+      || evaluation === null
+      || evaluation.state !== "admissible"
+      || !evaluation.admissible
+      || evaluation.evaluatedAtTick120 !== plan.plannedAtTick120
+      || evaluation.occurrence.occurrenceId !== plan.occurrence.occurrenceId
+      || evaluation.occurrence.patternId !== plan.occurrence.patternId
+      || runInternals.activeOccurrenceId !== null
+      || runInternals.pendingReleaseOccurrenceId !== null
+      || runInternals.currentTick120 !== tick120
+      || runInternals.pendingFlushTick120 !== tick120
+      || before.tick120 !== tick120 - 1
+      || before.patternId !== plan.occurrence.patternId
+      || before.occurrenceId !== plan.occurrence.occurrenceId
+      || !before.patternComplete
+      || !before.digitalBodiesDrained
+      || before.poolUsage.liveColliders !== 0
+      || before.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+    ) {
+      throw new Error(
+        "sealed next-occurrence material advance lost its collisionless owner boundary",
+      );
+    }
+    this.advanceLocked = true;
+    try {
+      this.previousPlayerPosition = this.currentPlayerPosition;
+      this.currentPlayerPosition = runInternals.currentPlayerPosition;
+      this.focused = runInternals.focused;
+      this.currentTick120 = tick120;
+      this.projectiles.advanceTo(tick120);
+      this.removeCompletedRuntimeProjectiles();
+      const after = CanonicalCombatKernel.prototype.snapshot.call(this);
+      if (
+        after.tick120 !== tick120
+        || after.rngCallsConsumed !== before.rngCallsConsumed
+        || !after.patternComplete
+        || !after.digitalBodiesDrained
+        || after.poolUsage.liveColliders !== 0
+        || after.projectiles.some((projectile) =>
+          projectile.state !== "residue" || projectile.collisionEnabled)
+      ) {
+        throw new Error("next-occurrence material advance produced gameplay-capable state");
+      }
+      return after;
+    } catch (error) {
+      runInternals.fault = error instanceof Error ? error : new Error(String(error));
+      throw error;
+    } finally {
+      this.advanceLocked = false;
+    }
   }
 
   /** Advance only collisionless successor residue after gameplay ownership releases. */
@@ -12365,7 +12638,8 @@ export class CanonicalRunOccurrenceMaterialCarryover {
         && binding?.phase !== "successor-next-pre-read"
         && binding?.phase !== "successor-next-read"
         && binding?.phase !== "successor-next-release-requested"
-        && binding?.phase !== "successor-next-tail")
+        && binding?.phase !== "successor-next-tail"
+        && binding?.phase !== "successor-next-complete")
       || binding.successorMaterial !== this
       || binding.successorKernel !== record.kernel
       || binding.predecessorMaterialLeaseRetiredAtTick120 !== record.transferredAtTick120
@@ -12752,7 +13026,8 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     || (binding?.phase !== "successor-next-dormant"
       && binding?.phase !== "successor-next-pre-read"
       && binding?.phase !== "successor-next-read"
-      && binding?.phase !== "successor-next-tail")
+      && binding?.phase !== "successor-next-tail"
+      && binding?.phase !== "successor-next-complete")
     || binding.nextSuccessorOwner !== owner
     || binding.nextSuccessorPlan === null
     || binding.nextSuccessorAdmission === null
@@ -12765,6 +13040,8 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
           || binding.nextSuccessorFinalCombat !== null
         : binding.nextSuccessorKernel === null
           || binding.nextSuccessorFinalCombat === null)
+    || binding.nextSuccessorMaterial !== null
+    || binding.successorMaterialCapacityLeaseRetiredAtTick120 !== null
     || materialOwner === null
     || materialRecord?.runState !== runState
     || ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.has(materialOwner)
@@ -12784,6 +13061,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
   const boundaries = successorBoundaryTicks(plan);
   const relativeTick120 = runCombat.tick120 - plan.plannedAtTick120;
   const combat = binding.phase === "successor-next-tail"
+    || binding.phase === "successor-next-complete"
     ? binding.nextSuccessorFinalCombat
     : binding.nextSuccessorKernel?.snapshot() ?? null;
   const projectilePoolAudit = binding.nextSuccessorKernel?.projectilePoolAudit()
@@ -12797,11 +13075,15 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
       ? "pre-read" as const
       : binding.phase === "successor-next-read"
         ? "read" as const
-        : "tail" as const;
+        : binding.phase === "successor-next-tail"
+          ? "tail" as const
+          : "complete" as const;
   const authoredPhase = phase === "dormant"
     ? "dormant" as const
-    : phase === "tail"
-      ? "material-settle" as const
+    : phase === "tail" || phase === "complete"
+      ? runCombat.tick120 < boundaries.restStartTick120
+        ? "material-settle" as const
+        : "rest" as const
     : phase === "read"
       ? "read" as const
       : runCombat.tick120 < boundaries.entryStartTick120
@@ -12815,7 +13097,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     || internals.bus !== materialRecord.eventBus
     || internals.bus.pendingEventCount() !== 0
     || relativeTick120 < 0
-    || relativeTick120 > boundaries.materialSettleStartTick120 - plan.plannedAtTick120
+    || relativeTick120 > boundaries.sliceCompleteTick120 - plan.plannedAtTick120
     || (phase === "dormant"
       ? relativeTick120 !== 0 || combat !== null || claimedCount !== 0
       : phase === "pre-read"
@@ -12828,9 +13110,14 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
             || runCombat.tick120 >= boundaries.materialSettleStartTick120
             || combat === null
             || claimedCount !== 1
-          : runCombat.tick120 !== boundaries.materialSettleStartTick120
-            || combat === null
-            || claimedCount !== 1)
+          : phase === "tail"
+            ? runCombat.tick120 < boundaries.materialSettleStartTick120
+              || runCombat.tick120 >= boundaries.sliceCompleteTick120
+              || combat === null
+              || claimedCount !== 1
+            : runCombat.tick120 !== boundaries.sliceCompleteTick120
+              || combat === null
+              || claimedCount !== 1)
     || (phase === "read"
       ? runCombat.activeOccurrenceId !== plan.occurrence.occurrenceId
       : runCombat.activeOccurrenceId !== null)
@@ -12882,7 +13169,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
         || combat.override.deadlineTick120 !== override.deadlineTick120
         || combat.override.localVoid !== null
         || !nextOccurrencePoolUsageFitsAdmission(material, combat, evaluation)
-        || (phase === "tail"
+        || ((phase === "tail" || phase === "complete")
           && (!combat.patternComplete
             || !combat.digitalBodiesDrained
             || combat.poolUsage.liveColliders !== 0
@@ -12898,7 +13185,13 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     : phase === "read"
       ? "advance-read" as const
       : phase === "tail"
-        ? "tail-advance-withheld" as const
+        ? runCombat.tick120 === boundaries.sliceCompleteTick120 - 1
+          ? "close-slice" as const
+          : runCombat.tick120 < boundaries.restStartTick120
+            ? "advance-material-settle" as const
+            : "advance-rest" as const
+      : phase === "complete"
+        ? "transfer-material" as const
       : runCombat.tick120 === boundaries.readStartTick120 - 1
         ? "claim-read" as const
         : runCombat.tick120 === boundaries.entryStartTick120 - 1
@@ -12912,6 +13205,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     extensionPolicy: "EXT-2026-020" as const,
     executionPolicy: "EXT-2026-021" as const,
     readPolicy: "EXT-2026-022" as const,
+    terminalPolicy: "EXT-2026-023" as const,
     phase,
     authoredPhase,
     tick120: runCombat.tick120,
@@ -13477,6 +13771,575 @@ export function advanceCanonicalRunFirstContinuationNextOccurrenceReadTick(
   }
 }
 
+export interface CanonicalRunFirstContinuationNextOccurrenceTailTickResult {
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly combat: CanonicalCombatSnapshot;
+  readonly flushedEvents: readonly CanonicalGameplayEvent[];
+  readonly sliceComplete: boolean;
+}
+
+/**
+ * Advance the released Misregistration material, both older drained lineages,
+ * idle room, shared player, and sole Run flush through the exact slice close.
+ */
+export function advanceCanonicalRunFirstContinuationNextOccurrenceTailTick(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  input: CanonicalCombatStepInput,
+  mode: "advance" | "close",
+): CanonicalRunFirstContinuationNextOccurrenceTailTickResult {
+  if (mode !== "advance" && mode !== "close") {
+    throw new Error("next occurrence tail requires an exact advance or close mode");
+  }
+  const runState = RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.get(owner);
+  const binding = runState === undefined
+    ? undefined
+    : EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const materialOwner = binding?.successorMaterial ?? null;
+  const materialRecord = materialOwner === null
+    ? undefined
+    : RUN_OCCURRENCE_MATERIAL_CARRYOVERS.get(materialOwner);
+  const predecessor = binding?.carryover ?? null;
+  const predecessorRecord = predecessor === null
+    ? undefined
+    : ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(predecessor);
+  const kernel = binding?.nextSuccessorKernel ?? null;
+  const plan = binding?.nextSuccessorPlan ?? null;
+  const evaluation = binding?.nextSuccessorAdmission ?? null;
+  if (
+    runState === undefined
+    || binding?.phase !== "successor-next-tail"
+    || binding.nextSuccessorOwner !== owner
+    || plan === null
+    || evaluation === null
+    || kernel === null
+    || binding.nextSuccessorFinalCombat === null
+    || binding.nextSuccessorMaterial !== null
+    || binding.successorMaterialCapacityLeaseRetiredAtTick120 !== null
+    || materialOwner === null
+    || materialRecord?.runState !== runState
+    || materialRecord.eventBus !== runCombatStateInternals(runState).bus
+    || materialRecord.kernel !== binding.successorKernel
+    || predecessor === null
+    || predecessorRecord?.runState !== runState
+    || materialRecord.predecessor !== predecessor
+    || binding.successorFinalCombat === null
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+    || ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.has(runState)
+  ) {
+    throw new Error("next occurrence tail lost its exact released owner lease");
+  }
+  const internals = runCombatStateInternals(runState);
+  const eventBus = materialRecord.eventBus;
+  const before = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+  const boundaries = successorBoundaryTicks(plan);
+  const nextTick120 = requireSafeTick(
+    internals.currentTick120 + 1,
+    "next occurrence tail next tick",
+  );
+  if (
+    before.phase !== "tail"
+    || before.combat === null
+    || (mode === "advance" && nextTick120 >= boundaries.sliceCompleteTick120)
+    || (mode === "close" && nextTick120 !== boundaries.sliceCompleteTick120)
+  ) {
+    throw new Error(
+      mode === "advance"
+        ? "next occurrence tail terminal boundary requires close"
+        : "next occurrence tail close requires the exact slice-complete boundary",
+    );
+  }
+  const beforeRngCalls = before.combat.rngCallsConsumed;
+  let authoritativeTickAccepted = false;
+  try {
+    const advanced = advanceCanonicalRunIdleWithContinuationMaterial(
+      runState,
+      predecessor,
+      input,
+      binding.targetRoom,
+      binding,
+      predecessorRecord,
+      Object.freeze({
+        label: "next occurrence tail" as const,
+        requireDrained: true,
+        requireOverrideQuiescent: true,
+        latestTick120: boundaries.sliceCompleteTick120,
+      }),
+    );
+    authoritativeTickAccepted = true;
+    const sourceCombat = materialRecord.kernel[SEALED_FIRST_CONTINUATION_MATERIAL_ADVANCE](
+      materialOwner,
+      advanced.runCombat.tick120,
+    );
+    binding.successorFinalCombat = sourceCombat;
+    const combat = kernel[SEALED_FIRST_CONTINUATION_NEXT_MATERIAL_ADVANCE](
+      owner,
+      advanced.runCombat.tick120,
+    );
+    binding.nextSuccessorFinalCombat = combat;
+    binding.expectedPendingEventCount = internals.bus.pendingEventCount();
+    const flushedEvents = runState.flushTick(advanced.runCombat.tick120);
+    if (flushedEvents.some((event) => !isNextOccurrenceTailEventAllowed(event.id))) {
+      throw new Error("next occurrence tail emitted an unowned gameplay event");
+    }
+    const runCombat = runState.snapshot();
+    const material = materialOwner.snapshot();
+    const transitionMaterial = predecessor.snapshot();
+    const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+    if (
+      runCombat.tick120 !== nextTick120
+      || runCombat.pendingFlushTick120 !== null
+      || runCombat.activeOccurrenceId !== null
+      || eventBus.pendingEventCount() !== 0
+      || transitionMaterial.tick120 !== nextTick120
+      || !transitionMaterial.drained
+      || transitionMaterial.materialCount !== 0
+      || transitionMaterial.poolUsage.liveColliders !== 0
+      || material.tick120 !== nextTick120
+      || !material.drained
+      || material.materialCount !== 0
+      || material.poolUsage.liveColliders !== 0
+      || sourceCombat.tick120 !== nextTick120
+      || !sourceCombat.patternComplete
+      || !sourceCombat.digitalBodiesDrained
+      || sourceCombat.poolUsage.liveColliders !== 0
+      || sourceCombat.projectiles.length !== 0
+      || combat.tick120 !== nextTick120
+      || combat.rngCallsConsumed !== beforeRngCalls
+      || !combat.patternComplete
+      || !combat.digitalBodiesDrained
+      || combat.poolUsage.liveColliders !== 0
+      || combat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || !nextOccurrencePoolUsageFitsAdmission(material, combat, evaluation)
+      || room.tick120 !== nextTick120
+      || room.state !== "idle"
+      || room.currentRoom !== plan.targetRoom
+      || room.targetRoom !== null
+      || room.active !== null
+    ) {
+      throw new Error("next occurrence tail did not close its exact three-lineage tick");
+    }
+    if (mode === "close") binding.phase = "successor-next-complete";
+    return Object.freeze({
+      runCombat,
+      material,
+      combat,
+      flushedEvents,
+      sliceComplete: mode === "close",
+    });
+  } catch (error) {
+    if (authoritativeTickAccepted && internals.fault === null) {
+      internals.fault = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  }
+}
+
+interface NextOccurrenceMaterialTransferBoundary {
+  readonly binding: Ext013RoomThresholdRunBinding;
+  readonly kernel: CanonicalCombatKernel;
+  readonly predecessor: CanonicalRunOccurrenceMaterialCarryover;
+  readonly predecessorRecord: RunOccurrenceMaterialCarryoverRecord;
+  readonly predecessorSnapshot: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly transitionPredecessor: CanonicalRoomThresholdMaterialCarryover;
+  readonly transitionSnapshot: CanonicalRoomThresholdMaterialCarryoverSnapshot;
+  readonly combat: CanonicalCombatSnapshot;
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+}
+
+function requireNextOccurrenceMaterialTransferBoundary(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  expectedProposal:
+    PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer | null,
+): NextOccurrenceMaterialTransferBoundary {
+  const runState = RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.get(owner);
+  if (runState === undefined || !isExactCanonicalRunCombatState(runState)) {
+    throw new Error("next occurrence material transfer requires its exact opaque owner");
+  }
+  const activeProposal =
+    ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.get(runState) ?? null;
+  if (activeProposal !== expectedProposal) {
+    throw new Error("next occurrence material transfer lost its exclusive prepared lease");
+  }
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const predecessor = binding?.successorMaterial ?? null;
+  const predecessorRecord = predecessor === null
+    ? undefined
+    : RUN_OCCURRENCE_MATERIAL_CARRYOVERS.get(predecessor);
+  const transitionPredecessor = binding?.carryover ?? null;
+  const transitionRecord = transitionPredecessor === null
+    ? undefined
+    : ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(transitionPredecessor);
+  const kernel = binding?.nextSuccessorKernel ?? null;
+  const internals = runCombatStateInternals(runState);
+  const eventBus = internals.bus;
+  const runCombat = runState.snapshot();
+  const predecessorSnapshot = predecessor?.snapshot() ?? null;
+  const transitionSnapshot = transitionPredecessor?.snapshot() ?? null;
+  const combat = kernel === null
+    ? null
+    : CanonicalCombatKernel.prototype.snapshot.call(kernel);
+  const sourceCombat = predecessorRecord === undefined
+    ? null
+    : CanonicalCombatKernel.prototype.snapshot.call(predecessorRecord.kernel);
+  const room = binding === undefined
+    ? null
+    : RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+  const player = internals.player.snapshot();
+  const override = internals.override.snapshot();
+  const plan = binding?.nextSuccessorPlan ?? null;
+  const evaluation = binding?.nextSuccessorAdmission ?? null;
+  if (
+    !isExactCanonicalEventBus(eventBus)
+    || binding?.phase !== "successor-next-complete"
+    || binding.nextSuccessorOwner !== owner
+    || plan === null
+    || evaluation === null
+    || evaluation.state !== "admissible"
+    || !evaluation.admissible
+    || kernel === null
+    || binding.nextSuccessorFinalCombat === null
+    || binding.nextSuccessorMaterial !== null
+    || binding.successorMaterialCapacityLeaseRetiredAtTick120 !== null
+    || predecessor === null
+    || predecessorRecord?.runState !== runState
+    || predecessorRecord.eventBus !== eventBus
+    || predecessorRecord.kernel !== binding.successorKernel
+    || transitionPredecessor === null
+    || transitionRecord?.runState !== runState
+    || predecessorRecord.predecessor !== transitionPredecessor
+    || binding.predecessorMaterialLeaseRetiredAtTick120 === null
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+    || internals.fault !== null
+    || internals.advanceLocked
+    || internals.activeOccurrenceId !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.pendingFlushTick120 !== null
+    || eventBus.pendingEventCount() !== 0
+    || runCombat.tick120 !== internals.currentTick120
+    || runCombat.activeOccurrenceId !== null
+    || runCombat.pendingFlushTick120 !== null
+    || runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === plan.occurrence.occurrenceId).length !== 1
+    || predecessorSnapshot === null
+    || predecessorSnapshot.tick120 !== internals.currentTick120
+    || !predecessorSnapshot.drained
+    || predecessorSnapshot.materialCount !== 0
+    || predecessorSnapshot.poolUsage.liveColliders !== 0
+    || predecessorSnapshot.nextOccurrenceAdmission
+      !== "committed-to-dormant-next-occurrence"
+    || sourceCombat === null
+    || sourceCombat.tick120 !== internals.currentTick120
+    || !sourceCombat.patternComplete
+    || !sourceCombat.digitalBodiesDrained
+    || sourceCombat.projectiles.length !== 0
+    || sourceCombat.poolUsage.liveColliders !== 0
+    || transitionSnapshot === null
+    || transitionSnapshot.tick120 !== internals.currentTick120
+    || !transitionSnapshot.drained
+    || transitionSnapshot.materialCount !== 0
+    || transitionSnapshot.poolUsage.liveColliders !== 0
+    || combat === null
+    || JSON.stringify(combat) !== JSON.stringify(binding.nextSuccessorFinalCombat)
+    || combat.tick120 !== internals.currentTick120
+    || combat.patternId !== plan.occurrence.patternId
+    || combat.occurrenceId !== plan.occurrence.occurrenceId
+    || !combat.patternComplete
+    || !combat.digitalBodiesDrained
+    || combat.poolUsage.liveColliders !== 0
+    || combat.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+    || successorBoundaryTicks(plan).sliceCompleteTick120 !== internals.currentTick120
+    || !nextOccurrencePoolUsageFitsAdmission(predecessorSnapshot, combat, evaluation)
+    || room === null
+    || room.tick120 !== internals.currentTick120
+    || room.state !== "idle"
+    || room.currentRoom !== plan.targetRoom
+    || room.currentRoom !== binding.targetRoom
+    || room.targetRoom !== null
+    || room.generation !== 1
+    || binding.materialRoomEventCount === null
+    || room.eventCount !== binding.materialRoomEventCount
+    || room.active !== null
+    || player.tick120 !== internals.currentTick120
+    || override.state !== "idle"
+    || override.deadlineTick120 !== null
+    || override.localVoid !== null
+  ) {
+    throw new Error(
+      "next occurrence material transfer requires the exact flushed slice-close boundary",
+    );
+  }
+  return Object.freeze({
+    binding,
+    kernel,
+    predecessor,
+    predecessorRecord,
+    predecessorSnapshot,
+    transitionPredecessor,
+    transitionSnapshot,
+    combat,
+    runCombat,
+  });
+}
+
+/** Reserve the exact flushed EXT-023 slice-close owner replacement. */
+export function prepareCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+): PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer {
+  if (typeof owner !== "object" || owner === null) {
+    throw new Error("next occurrence material transfer owner must be opaque");
+  }
+  const boundary = requireNextOccurrenceMaterialTransferBoundary(owner, null);
+  const runState = RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.get(owner);
+  if (runState === undefined) {
+    throw new Error("next occurrence material transfer owner is not registered");
+  }
+  const eventBus = runCombatStateInternals(runState).bus;
+  const proposal = Object.freeze({}) as
+    PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer;
+  const view = Object.freeze({
+    authority:
+      "canonical-run-first-continuation-next-occurrence-material-transfer-v1" as const,
+    extensionPolicy: "EXT-2026-023" as const,
+    tick120: boundary.combat.tick120,
+    sourcePatternId: boundary.combat.patternId,
+    sourceOccurrenceId: boundary.combat.occurrenceId,
+    materialCount: boundary.combat.projectiles.length,
+    poolUsage: boundary.combat.poolUsage,
+    predecessorOccurrenceMaterialLease: "retire-on-commit" as const,
+    transitionMaterialLease: "retired" as const,
+    gameplayAuthority: "released" as const,
+    roomCompletion: "withheld" as const,
+    roomHandoff: "withheld" as const,
+    nextOccurrenceAdmission: "withheld-pending-decision" as const,
+    canonicalEventWrites: 0 as const,
+    rngCallsConsumedByTransfer: 0 as const,
+    tickAdvance: 0 as const,
+  });
+  PREPARED_NEXT_OCCURRENCE_MATERIAL_TRANSFERS.set(proposal, {
+    runState,
+    eventBus,
+    predecessor: boundary.predecessor,
+    predecessorOwner: owner,
+    transitionPredecessor: boundary.transitionPredecessor,
+    kernel: boundary.kernel,
+    capturedRunSerialization: JSON.stringify(boundary.runCombat),
+    capturedPredecessorSerialization: JSON.stringify(boundary.predecessorSnapshot),
+    capturedTransitionSerialization: JSON.stringify(boundary.transitionSnapshot),
+    capturedCombatSerialization: JSON.stringify(boundary.combat),
+    capturedEventSerialization: runState.canonicalEventSerialization(),
+    view,
+    status: "prepared",
+  });
+  ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.set(runState, proposal);
+  return proposal;
+}
+
+function requirePreparedNextOccurrenceMaterialTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
+  expectedStatus: PreparedNextOccurrenceMaterialTransferRecord["status"] = "prepared",
+): PreparedNextOccurrenceMaterialTransferRecord {
+  if (typeof proposal !== "object" || proposal === null) {
+    throw new Error("next occurrence material transfer proposal must be opaque");
+  }
+  const record = PREPARED_NEXT_OCCURRENCE_MATERIAL_TRANSFERS.get(proposal);
+  if (record === undefined) {
+    throw new Error("next occurrence material transfer proposal is not registered");
+  }
+  if (record.status !== expectedStatus) {
+    throw new Error(`next occurrence material transfer proposal is ${record.status}`);
+  }
+  return record;
+}
+
+export function inspectPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
+): PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransferView {
+  return requirePreparedNextOccurrenceMaterialTransfer(proposal).view;
+}
+
+/**
+ * Retire the drained Context Switch lease and retain the original
+ * Misregistration pool/identities under one new collisionless material owner.
+ */
+export function commitPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
+): CanonicalRunFirstContinuationNextOccurrenceMaterialCarryover {
+  const record = requirePreparedNextOccurrenceMaterialTransfer(proposal);
+  try {
+    const boundary = requireNextOccurrenceMaterialTransferBoundary(
+      record.predecessorOwner,
+      proposal,
+    );
+    if (
+      boundary.kernel !== record.kernel
+      || boundary.predecessor !== record.predecessor
+      || boundary.transitionPredecessor !== record.transitionPredecessor
+      || JSON.stringify(boundary.runCombat) !== record.capturedRunSerialization
+      || JSON.stringify(boundary.predecessorSnapshot)
+        !== record.capturedPredecessorSerialization
+      || JSON.stringify(boundary.transitionSnapshot)
+        !== record.capturedTransitionSerialization
+      || JSON.stringify(boundary.combat) !== record.capturedCombatSerialization
+      || record.runState.canonicalEventSerialization() !== record.capturedEventSerialization
+    ) {
+      throw new Error("prepared next occurrence material transfer became stale");
+    }
+    const carryover = new CanonicalRunFirstContinuationNextOccurrenceMaterialCarryover(
+      record.runState,
+      record.eventBus,
+      record.predecessor,
+      boundary.predecessorRecord,
+      record.predecessorOwner,
+      record.transitionPredecessor,
+      record.kernel,
+      boundary.combat.patternId,
+      boundary.combat.occurrenceId,
+      boundary.combat.tick120,
+      CREATE_NEXT_OCCURRENCE_MATERIAL_CARRYOVER,
+    );
+    boundary.binding.nextSuccessorMaterial = carryover;
+    boundary.binding.successorMaterialCapacityLeaseRetiredAtTick120 =
+      boundary.combat.tick120;
+    boundary.binding.phase = "successor-next-material";
+    RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.delete(record.predecessorOwner);
+    record.status = "committed";
+    ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.delete(record.runState);
+    return carryover;
+  } catch (error) {
+    record.status = "failed";
+    ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.delete(record.runState);
+    throw error;
+  }
+}
+
+export function cancelPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer(
+  proposal: PreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
+): void {
+  const record = requirePreparedNextOccurrenceMaterialTransfer(proposal);
+  if (
+    ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.get(record.runState)
+      !== proposal
+  ) {
+    throw new Error("next occurrence material transfer lost its exclusive prepared lease");
+  }
+  record.status = "cancelled";
+  ACTIVE_NEXT_OCCURRENCE_MATERIAL_TRANSFER_BY_RUN_STATE.delete(record.runState);
+}
+
+/** Opaque collisionless material owner for the released second occurrence. */
+export class CanonicalRunFirstContinuationNextOccurrenceMaterialCarryover {
+  constructor(
+    runState: CanonicalRunCombatState,
+    eventBus: CanonicalEventBus,
+    predecessor: CanonicalRunOccurrenceMaterialCarryover,
+    predecessorRecord: RunOccurrenceMaterialCarryoverRecord,
+    predecessorOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+    transitionPredecessor: CanonicalRoomThresholdMaterialCarryover,
+    kernel: CanonicalCombatKernel,
+    sourcePatternId: string,
+    sourceOccurrenceId: string,
+    transferredAtTick120: number,
+    creationToken?: symbol,
+  ) {
+    if (creationToken !== CREATE_NEXT_OCCURRENCE_MATERIAL_CARRYOVER) {
+      throw new Error("next occurrence material carryover requires a committed transfer");
+    }
+    NEXT_OCCURRENCE_MATERIAL_CARRYOVERS.set(this, {
+      runState,
+      eventBus,
+      predecessor,
+      predecessorRecord,
+      predecessorOwner,
+      transitionPredecessor,
+      kernel,
+      sourcePatternId,
+      sourceOccurrenceId,
+      transferredAtTick120,
+    });
+    Object.freeze(this);
+  }
+
+  snapshot(): CanonicalRunFirstContinuationNextOccurrenceMaterialCarryoverSnapshot {
+    const record = NEXT_OCCURRENCE_MATERIAL_CARRYOVERS.get(this);
+    const binding = record === undefined
+      ? undefined
+      : EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(record.runState);
+    if (
+      record === undefined
+      || binding?.phase !== "successor-next-material"
+      || binding.nextSuccessorMaterial !== this
+      || binding.nextSuccessorKernel !== record.kernel
+      || binding.nextSuccessorOwner !== record.predecessorOwner
+      || binding.successorMaterial !== record.predecessor
+      || binding.carryover !== record.transitionPredecessor
+      || binding.successorMaterialCapacityLeaseRetiredAtTick120
+        !== record.transferredAtTick120
+      || binding.predecessorMaterialLeaseRetiredAtTick120 === null
+      || binding.expectedFlushTick120 !== null
+      || binding.expectedPendingEventCount !== null
+      || runCombatStateInternals(record.runState).bus !== record.eventBus
+      || record.eventBus.pendingEventCount() !== 0
+    ) {
+      throw new Error("next occurrence material carryover lost its sealed binding");
+    }
+    const runCombat = record.runState.snapshot();
+    const combat = CanonicalCombatKernel.prototype.snapshot.call(record.kernel);
+    const predecessorCombat = CanonicalCombatKernel.prototype.snapshot.call(
+      record.predecessorRecord.kernel,
+    );
+    const transition = record.transitionPredecessor.snapshot();
+    if (
+      runCombat.tick120 !== record.transferredAtTick120
+      || runCombat.activeOccurrenceId !== null
+      || runCombat.pendingFlushTick120 !== null
+      || combat.tick120 !== runCombat.tick120
+      || combat.patternId !== record.sourcePatternId
+      || combat.occurrenceId !== record.sourceOccurrenceId
+      || !combat.patternComplete
+      || !combat.digitalBodiesDrained
+      || combat.poolUsage.liveColliders !== 0
+      || combat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || predecessorCombat.tick120 !== runCombat.tick120
+      || !predecessorCombat.patternComplete
+      || !predecessorCombat.digitalBodiesDrained
+      || predecessorCombat.projectiles.length !== 0
+      || predecessorCombat.poolUsage.liveColliders !== 0
+      || transition.tick120 !== runCombat.tick120
+      || !transition.drained
+      || transition.materialCount !== 0
+      || transition.poolUsage.liveColliders !== 0
+    ) {
+      throw new Error("next occurrence material carryover acquired gameplay-capable state");
+    }
+    return Object.freeze({
+      authority:
+        "canonical-run-first-continuation-next-occurrence-material-carryover-v1" as const,
+      extensionPolicy: "EXT-2026-023" as const,
+      sourcePatternId: record.sourcePatternId,
+      sourceOccurrenceId: record.sourceOccurrenceId,
+      transferredAtTick120: record.transferredAtTick120,
+      tick120: combat.tick120,
+      materialCount: combat.projectiles.length,
+      drained: combat.projectileLifecycleDrained,
+      poolUsage: combat.poolUsage,
+      projectiles: combat.projectiles,
+      rngCallsConsumed: combat.rngCallsConsumed,
+      predecessorOccurrenceMaterialLease: "retired" as const,
+      transitionMaterialLease: "retired" as const,
+      gameplayAuthority: "released" as const,
+      roomCompletion: "withheld" as const,
+      roomHandoff: "withheld" as const,
+      nextOccurrenceAdmission: "withheld-pending-decision" as const,
+    });
+  }
+}
+
 /**
  * Advance one target-room idle tick with the old room's collisionless material
  * on the same bus. Validation completes before either authority mutates.
@@ -13599,7 +14462,8 @@ interface ContinuationMaterialIdleAdvancePolicy {
     | "successor complete hold"
     | "successor transferred material hold"
     | "next occurrence pre-READ"
-    | "next occurrence READ start";
+    | "next occurrence READ start"
+    | "next occurrence tail";
   readonly requireDrained: boolean;
   readonly requireOverrideQuiescent: boolean;
   readonly latestTick120: number | null;

@@ -1,14 +1,16 @@
 import {
   advanceCanonicalRunFirstContinuationNextOccurrencePreReadTick,
   advanceCanonicalRunFirstContinuationNextOccurrenceReadTick,
+  advanceCanonicalRunFirstContinuationNextOccurrenceTailTick,
   inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner,
   startCanonicalRunFirstContinuationNextOccurrenceReadBinding,
   type CanonicalCombatStepInput,
   type CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
   type CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot,
 } from "../../combat-kernel";
+import {PLAYER_TIMER_ADVANCE_EVENT_IDS} from "../../player";
 
-const ALLOWED_PRE_READ_EVENT_IDS = Object.freeze([
+const ALLOWED_MATERIAL_EVENT_IDS = Object.freeze([
   "projectile.residue.remove",
   "projectile.lifecycle.complete",
 ] as const);
@@ -47,10 +49,23 @@ function requireOwner(
 function requireCleanupOnly(
   events: readonly Readonly<{readonly id: string}>[],
 ): void {
-  if (events.some((event) => !ALLOWED_PRE_READ_EVENT_IDS.includes(
-    event.id as (typeof ALLOWED_PRE_READ_EVENT_IDS)[number],
+  if (events.some((event) => !ALLOWED_MATERIAL_EVENT_IDS.includes(
+    event.id as (typeof ALLOWED_MATERIAL_EVENT_IDS)[number],
   ))) {
-    throw new Error("first continuation next occurrence pre-READ emitted a non-material event");
+    throw new Error("first continuation next occurrence emitted a non-material event");
+  }
+}
+
+function requireMaterialOrPlayerTimerOnly(
+  events: readonly Readonly<{readonly id: string}>[],
+): void {
+  if (events.some((event) =>
+    !ALLOWED_MATERIAL_EVENT_IDS.includes(
+      event.id as (typeof ALLOWED_MATERIAL_EVENT_IDS)[number],
+    ) && !PLAYER_TIMER_ADVANCE_EVENT_IDS.includes(event.id))) {
+    throw new Error(
+      "first continuation next occurrence tail emitted an unowned gameplay event",
+    );
   }
 }
 
@@ -77,7 +92,10 @@ export function advanceCanonicalRunFirstContinuationNextOccurrencePreRead(
       before.combat !== null
       || before.nextMasterTickAction === "claim-read"
       || before.nextMasterTickAction === "advance-read"
-      || before.nextMasterTickAction === "tail-advance-withheld"
+      || before.nextMasterTickAction === "advance-material-settle"
+      || before.nextMasterTickAction === "advance-rest"
+      || before.nextMasterTickAction === "close-slice"
+      || before.nextMasterTickAction === "transfer-material"
     ) {
       throw new Error(
         "first continuation next occurrence pre-READ stops before the exact READ claim tick",
@@ -228,7 +246,7 @@ export function advanceCanonicalRunFirstContinuationNextOccurrenceRead(
       || after.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
         occurrenceId === after.plan.occurrence.occurrenceId).length !== 1
       || (after.nextMasterTickAction !== "advance-read"
-        && after.nextMasterTickAction !== "tail-advance-withheld")
+        && after.nextMasterTickAction !== "advance-material-settle")
       || (after.nextMasterTickAction === "advance-read"
         ? after.phase !== "read"
           || after.authoredPhase !== "read"
@@ -244,6 +262,134 @@ export function advanceCanonicalRunFirstContinuationNextOccurrenceRead(
             projectile.state !== "residue" || projectile.collisionEnabled))
     ) {
       throw new Error("first continuation next occurrence READ lost its one-tick boundary");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function advanceCanonicalRunFirstContinuationNextOccurrenceTail(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation next occurrence material-tail step is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+    if (
+      before.phase !== "tail"
+      || before.combat === null
+      || (before.nextMasterTickAction !== "advance-material-settle"
+        && before.nextMasterTickAction !== "advance-rest")
+    ) {
+      throw new Error(
+        "first continuation next occurrence material tail stops before slice close",
+      );
+    }
+    const advanced = advanceCanonicalRunFirstContinuationNextOccurrenceTailTick(
+      owner,
+      input,
+      "advance",
+    );
+    authoritativeTickAccepted = true;
+    requireMaterialOrPlayerTimerOnly(advanced.flushedEvents);
+    const after = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+    if (
+      advanced.sliceComplete
+      || after.tick120 !== before.tick120 + 1
+      || after.relativeTick120 !== before.relativeTick120 + 1
+      || after.phase !== "tail"
+      || (after.authoredPhase !== "material-settle" && after.authoredPhase !== "rest")
+      || after.combat === null
+      || after.combat.tick120 !== after.tick120
+      || after.combat.rngCallsConsumed !== before.combat.rngCallsConsumed
+      || after.combat.poolUsage.liveColliders !== 0
+      || after.combat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || (after.nextMasterTickAction !== "advance-material-settle"
+        && after.nextMasterTickAction !== "advance-rest"
+        && after.nextMasterTickAction !== "close-slice")
+      || advanced.combat.tick120 !== after.tick120
+      || advanced.runCombat.tick120 !== after.tick120
+      || advanced.material.tick120 !== after.tick120
+      || after.runCombat.pendingFlushTick120 !== null
+    ) {
+      throw new Error(
+        "first continuation next occurrence material tail lost its one-tick boundary",
+      );
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function closeCanonicalRunFirstContinuationNextOccurrenceSlice(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation next occurrence slice close is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+    if (
+      before.phase !== "tail"
+      || before.authoredPhase !== "rest"
+      || before.nextMasterTickAction !== "close-slice"
+      || before.combat === null
+    ) {
+      throw new Error(
+        "first continuation next occurrence slice close requires its exact final rest tick",
+      );
+    }
+    const advanced = advanceCanonicalRunFirstContinuationNextOccurrenceTailTick(
+      owner,
+      input,
+      "close",
+    );
+    authoritativeTickAccepted = true;
+    requireMaterialOrPlayerTimerOnly(advanced.flushedEvents);
+    const after = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+    if (
+      !advanced.sliceComplete
+      || after.tick120 !== before.tick120 + 1
+      || after.tick120 !== after.boundaryTicks120.sliceCompleteTick120
+      || after.phase !== "complete"
+      || after.authoredPhase !== "rest"
+      || after.nextMasterTickAction !== "transfer-material"
+      || after.combat === null
+      || after.combat.tick120 !== after.tick120
+      || after.combat.rngCallsConsumed !== before.combat.rngCallsConsumed
+      || after.combat.poolUsage.liveColliders !== 0
+      || after.combat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || advanced.combat.tick120 !== after.tick120
+      || advanced.runCombat.tick120 !== after.tick120
+      || advanced.material.tick120 !== after.tick120
+      || after.runCombat.pendingFlushTick120 !== null
+    ) {
+      throw new Error(
+        "first continuation next occurrence slice close lost its exact transfer boundary",
+      );
     }
     return after;
   } catch (error) {
