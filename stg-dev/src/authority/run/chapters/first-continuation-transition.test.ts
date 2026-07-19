@@ -1,6 +1,7 @@
 import {beforeAll, describe, expect, it} from "vitest";
 
 import {
+  advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold,
   advanceCanonicalRunFirstContinuationSuccessorMaterialHold,
   CanonicalRunCombatState,
   cancelPreparedCanonicalRunFirstContinuationNextOccurrenceMaterialTransfer,
@@ -1856,6 +1857,147 @@ describe("first continuation transition chapter owner", () => {
     )).toThrow(/committed/);
     expect(fixture.runState.snapshot()).toEqual(runAfterNextMaterialTransfer);
     expect(fixture.eventBus.events()).toEqual(eventsAfterNextMaterialTransfer);
+
+    const postTransferRunSerialization = JSON.stringify(fixture.runState.snapshot());
+    const postTransferMaterialSerialization = JSON.stringify(nextMaterialOwner.snapshot());
+    const postTransferEventSerialization = fixture.eventBus.canonicalSerialization();
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+      Object.freeze({}) as typeof nextMaterialOwner,
+      combatInput(8_520),
+    )).toThrow(/exact material owner/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+      nextMaterialOwner,
+      combatInput(8_521),
+    )).toThrow(/advance one tick/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+      nextMaterialOwner,
+      combatInput(8_519),
+    )).toThrow(/advance one tick/);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+      nextMaterialOwner,
+      {
+        ...combatInput(8_520),
+        overridePressed: true,
+        overrideDirection: {x: 1, y: 0},
+      },
+    )).toThrow(/Override edge/);
+    expect(JSON.stringify(fixture.runState.snapshot())).toBe(postTransferRunSerialization);
+    expect(JSON.stringify(nextMaterialOwner.snapshot())).toBe(
+      postTransferMaterialSerialization,
+    );
+    expect(fixture.eventBus.canonicalSerialization()).toBe(
+      postTransferEventSerialization,
+    );
+
+    const postCloseEventsStart = fixture.eventBus.events().length;
+    let nextMaterialHold =
+      advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+        nextMaterialOwner,
+        combatInput(8_520),
+      );
+    while (nextMaterialHold.material.tick120 < 8_682) {
+      nextMaterialHold =
+        advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+          nextMaterialOwner,
+          combatInput(nextMaterialHold.material.tick120 + 1),
+        );
+    }
+    expect(nextMaterialHold).toMatchObject({
+      runCombat: {
+        tick120: 8_682,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+        claimedOccurrenceIds: nextCloseClaims,
+      },
+      material: {
+        authority:
+          "canonical-run-first-continuation-next-occurrence-material-carryover-v1",
+        extensionPolicy: "EXT-2026-023",
+        transferredAtTick120: 8_519,
+        tick120: 8_682,
+        materialCount: 0,
+        drained: true,
+        rngCallsConsumed: 126,
+        poolUsage: {
+          active: {micro: 0, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 0,
+        },
+        predecessorOccurrenceMaterialLease: "retired",
+        transitionMaterialLease: "retired",
+        gameplayAuthority: "released",
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+        nextOccurrenceAdmission: "withheld-pending-decision",
+      },
+    });
+    expect(nextMaterialHold.material.projectiles).toEqual([]);
+
+    const postCloseEvents = fixture.eventBus.events().slice(postCloseEventsStart);
+    expect(postCloseEvents.every((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete"
+      || PLAYER_TIMER_ADVANCE_EVENT_IDS.includes(event.id))).toBe(true);
+    const postCloseMaterialEvents = postCloseEvents.filter((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete");
+    expect(postCloseMaterialEvents).toHaveLength(126);
+    expect(postCloseMaterialEvents.map((event) => event.id)).toEqual(
+      Array.from({length: 63}, () => [
+        "projectile.residue.remove",
+        "projectile.lifecycle.complete",
+      ]).flat(),
+    );
+    const postCloseRemovedIdentities = new Set<string>();
+    for (let index = 0; index < postCloseMaterialEvents.length; index += 2) {
+      const remove = postCloseMaterialEvents[index];
+      const lifecycleComplete = postCloseMaterialEvents[index + 1];
+      expect(remove?.tick120).toBe(lifecycleComplete?.tick120);
+      expect(remove?.entityStableId).toBe(lifecycleComplete?.entityStableId);
+      expect(remove?.payload.instanceId).toBe(lifecycleComplete?.payload.instanceId);
+      expect(remove?.payload.generation).toBe(lifecycleComplete?.payload.generation);
+      if (remove !== undefined) {
+        postCloseRemovedIdentities.add(
+          `${remove.payload.instanceId}:${remove.payload.generation}`,
+        );
+      }
+    }
+    expect(postCloseMaterialEvents.filter((event) =>
+      event.id === "projectile.residue.remove").at(-1)?.tick120).toBe(8_682);
+    expect(postCloseRemovedIdentities).toEqual(closeIdentities);
+
+    const emptyHold = advanceCanonicalRunFirstContinuationNextOccurrenceMaterialHold(
+      nextMaterialOwner,
+      combatInput(8_683),
+    );
+    expect(emptyHold).toMatchObject({
+      runCombat: {
+        tick120: 8_683,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+        claimedOccurrenceIds: nextCloseClaims,
+      },
+      material: {
+        tick120: 8_683,
+        materialCount: 0,
+        drained: true,
+        rngCallsConsumed: 126,
+        poolUsage: {
+          active: {micro: 0, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 0,
+        },
+        roomCompletion: "withheld",
+        roomHandoff: "withheld",
+        nextOccurrenceAdmission: "withheld-pending-decision",
+      },
+    });
+    expect(emptyHold.flushedEvents.filter((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete")).toEqual([]);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
 
     const damageBranch = reachSecondOccurrenceReadStart();
     const damagePattern = executablePattern(
