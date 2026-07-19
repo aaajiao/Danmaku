@@ -47,11 +47,13 @@ bun run preview
 | 表达 / 射击 | Z | A / Cross（button 0） |
 | 局部 Override | X | B / Circle（button 1） |
 | Focus | Shift | LB / RB（button 4 / 5） |
+| 凝视意图（按住） | G | Y / Triangle（button 3） |
 | 暂停 | Space | Start / Options（button 9） |
 
 手柄由浏览器原生 Gamepad API 读取；触觉反馈是可选投影，不影响 gameplay trace。
 实机支持范围只能由已记录的设备矩阵证明。触屏支持在画面内单指按住/拖动，移动与 signal
-由同一次 pointer 输入投影，不产生双份 gameplay fact。
+由同一次 pointer 输入投影，不产生双份 gameplay fact；First Eye 中双指按住产生独立 gaze intent，
+不会改写 Focus，首个仍接触的 pointer 继续拥有移动目标。
 
 ## 目录职责
 

@@ -26,7 +26,7 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 默认路径为 guarded awakening → First Eye → first-clamp recovery 边界；V4 未给出 Flower recovery timing，因此后续 handoff 保持 not-ready，不回退 legacy Run |
+| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery，并暴露 typed `ROOM_SAMPLING` ready boundary；尚无真实 room consumer，不回退 legacy Run |
 | Room composition / execution | WIP（隔离切片） | caller-resolved admission 与两条 exact READ-through-rest executor 已存在；仍无通用 composer、selection、scheduler、parallel/multi-pool、room completion 或 handoff |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
@@ -49,7 +49,7 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
 | P0-05 | Live room composer | WIP | 明确 room count、difficulty salt、segments、parallel/weather、tier budget 与 safe-gap handoff producer；选择、排程、执行和完成均写 canonical facts |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | quiet awakening 至 observation/handoff 的完整路径可玩；Flower recovery、rooms、Boss、Dusk、witness 与 input return 均由 authored facts 驱动 |
+| P0-07 | Canonical Run / narrative | WIP | quiet awakening、First Eye 与 typed `ROOM_SAMPLING` boundary 已闭合；下一步消费该 handoff，随后让 rooms、Boss、Dusk、witness 与 input return 均由 authored facts 驱动 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
 | P0-09 | Presentation / accessibility | WIP | 完整 Run 的 full/reduced-motion/flash-off gameplay trace 相同；UI、音频、触觉、天气只读投影，关键 causal clips 可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
@@ -58,9 +58,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 继续以单 pattern/单 authority seam 完成 direct kernel，保持 focused evidence。
-2. 在 V4 缺失 policy 明确前，不把 isolated capability 冒充 live room/Run。
-3. pattern authority 足够后闭合 composer、room、Boss 与 narrative 的单一 Run 路径。
+1. 以 typed `ROOM_SAMPLING` handoff 为入口，闭合首个 Forced Alignment room composer/scheduler。
+2. 继续补齐为 live room 所需的 pattern authority；在 V4 缺失 policy 明确前，不把 isolated capability 冒充 live room/Run。
+3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径。
 4. 接 durable cross-run persistence，再完成完整 Run browser/accessibility/performance 证据。
 5. P0 闭合、完整门禁稳定后恢复 GitHub push/PR 自动 CI，并进入 Alpha 候选。
 
