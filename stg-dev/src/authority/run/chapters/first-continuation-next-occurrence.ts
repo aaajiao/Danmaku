@@ -1,5 +1,6 @@
 import {
   advanceCanonicalRunFirstContinuationNextOccurrencePreReadTick,
+  advanceCanonicalRunFirstContinuationNextOccurrenceReadTick,
   inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner,
   startCanonicalRunFirstContinuationNextOccurrenceReadBinding,
   type CanonicalCombatStepInput,
@@ -75,7 +76,8 @@ export function advanceCanonicalRunFirstContinuationNextOccurrencePreRead(
     if (
       before.combat !== null
       || before.nextMasterTickAction === "claim-read"
-      || before.nextMasterTickAction === "read-advance-withheld"
+      || before.nextMasterTickAction === "advance-read"
+      || before.nextMasterTickAction === "tail-advance-withheld"
     ) {
       throw new Error(
         "first continuation next occurrence pre-READ stops before the exact READ claim tick",
@@ -151,7 +153,8 @@ export function startCanonicalRunFirstContinuationNextOccurrenceRead(
       || after.tick120 !== after.boundaryTicks120.readStartTick120
       || after.phase !== "read"
       || after.authoredPhase !== "read"
-      || after.nextMasterTickAction !== "read-advance-withheld"
+      || after.readPolicy !== "EXT-2026-022"
+      || after.nextMasterTickAction !== "advance-read"
       || after.combat === null
       || advanced.combat === null
       || after.combat.tick120 !== after.tick120
@@ -169,6 +172,78 @@ export function startCanonicalRunFirstContinuationNextOccurrenceRead(
         occurrenceId === after.plan.occurrence.occurrenceId).length !== 1
     ) {
       throw new Error("first continuation next occurrence READ local-tick-zero drifted");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function advanceCanonicalRunFirstContinuationNextOccurrenceRead(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation next occurrence READ step is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+    if (
+      before.phase !== "read"
+      || before.authoredPhase !== "read"
+      || before.nextMasterTickAction !== "advance-read"
+      || before.combat === null
+    ) {
+      throw new Error(
+        "first continuation next occurrence READ advance requires its active READ owner",
+      );
+    }
+    const advanced = advanceCanonicalRunFirstContinuationNextOccurrenceReadTick(
+      owner,
+      input,
+    );
+    authoritativeTickAccepted = true;
+    const after = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+    if (
+      after.tick120 !== before.tick120 + 1
+      || after.relativeTick120 !== before.relativeTick120 + 1
+      || after.combat === null
+      || advanced.combat === null
+      || after.combat.tick120 !== advanced.combat.tick120
+      || after.combat.relativeTick120 !== before.combat.relativeTick120 + 1
+      || after.combat.patternId !== after.plan.occurrence.patternId
+      || after.combat.occurrenceId !== after.plan.occurrence.occurrenceId
+      || after.material.tick120 !== after.tick120
+      || advanced.material.tick120 !== after.tick120
+      || advanced.runCombat.tick120 !== after.tick120
+      || after.runCombat.pendingFlushTick120 !== null
+      || after.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+        occurrenceId === after.plan.occurrence.occurrenceId).length !== 1
+      || (after.nextMasterTickAction !== "advance-read"
+        && after.nextMasterTickAction !== "tail-advance-withheld")
+      || (after.nextMasterTickAction === "advance-read"
+        ? after.phase !== "read"
+          || after.authoredPhase !== "read"
+          || after.runCombat.activeOccurrenceId
+            !== after.plan.occurrence.occurrenceId
+        : after.phase !== "tail"
+          || after.authoredPhase !== "material-settle"
+          || after.runCombat.activeOccurrenceId !== null
+          || !after.combat.patternComplete
+          || !after.combat.digitalBodiesDrained
+          || after.combat.poolUsage.liveColliders !== 0
+          || after.combat.projectiles.some((projectile) =>
+            projectile.state !== "residue" || projectile.collisionEnabled))
+    ) {
+      throw new Error("first continuation next occurrence READ lost its one-tick boundary");
     }
     return after;
   } catch (error) {

@@ -707,6 +707,9 @@ const SEALED_ROOM_THRESHOLD_ADVANCE = Symbol("sealed-room-threshold-advance");
 const SEALED_FIRST_CONTINUATION_READ_ADVANCE = Symbol(
   "sealed-first-continuation-read-advance",
 );
+const SEALED_FIRST_CONTINUATION_NEXT_READ_ADVANCE = Symbol(
+  "sealed-first-continuation-next-read-advance",
+);
 const SEALED_FIRST_CONTINUATION_MATERIAL_ADVANCE = Symbol(
   "sealed-first-continuation-material-advance",
 );
@@ -737,7 +740,9 @@ interface Ext013RoomThresholdRunBinding {
     | "successor-material"
     | "successor-next-dormant"
     | "successor-next-pre-read"
-    | "successor-next-read";
+    | "successor-next-read"
+    | "successor-next-release-requested"
+    | "successor-next-tail";
   carryover: CanonicalRoomThresholdMaterialCarryover | null;
   materialRoomEventCount: number | null;
   successorOwner: object | null;
@@ -751,6 +756,7 @@ interface Ext013RoomThresholdRunBinding {
   nextSuccessorPlan: CanonicalRunFirstContinuationNextOccurrencePlanPayload | null;
   nextSuccessorAdmission: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation | null;
   nextSuccessorKernel: CanonicalCombatKernel | null;
+  nextSuccessorFinalCombat: CanonicalCombatSnapshot | null;
   expectedFlushTick120: number | null;
   expectedPendingEventCount: number | null;
 }
@@ -1029,8 +1035,14 @@ export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot
     "canonical-run-first-continuation-next-occurrence-dormant-owner-v1";
   readonly extensionPolicy: "EXT-2026-020";
   readonly executionPolicy: "EXT-2026-021";
-  readonly phase: "dormant" | "pre-read" | "read";
-  readonly authoredPhase: "dormant" | "telegraph" | "entry" | "read";
+  readonly readPolicy: "EXT-2026-022";
+  readonly phase: "dormant" | "pre-read" | "read" | "tail";
+  readonly authoredPhase:
+    | "dormant"
+    | "telegraph"
+    | "entry"
+    | "read"
+    | "material-settle";
   readonly tick120: number;
   readonly relativeTick120: number;
   readonly boundaryTicks120: Readonly<CanonicalRunFirstContinuationSuccessorBoundaryTicks>;
@@ -1041,7 +1053,8 @@ export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot
     | "entry"
     | "continue-entry"
     | "claim-read"
-    | "read-advance-withheld";
+    | "advance-read"
+    | "tail-advance-withheld";
   readonly plan: CanonicalRunFirstContinuationNextOccurrencePlanPayload;
   readonly combinedPoolAdmission: Readonly<{
     readonly state: "committed";
@@ -1051,6 +1064,7 @@ export interface CanonicalRunFirstContinuationNextOccurrenceDormantOwnerSnapshot
   readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
   readonly runCombat: CanonicalRunCombatStateSnapshot;
   readonly combat: CanonicalCombatSnapshot | null;
+  readonly projectilePoolAudit: readonly ProjectilePoolAuditRecord[];
   readonly canonicalEventCount: number;
   readonly roomCompletion: "withheld";
   readonly roomHandoff: "withheld";
@@ -9247,6 +9261,7 @@ export class CanonicalRunCombatState {
         || plan === null
         || evaluation === null
         || binding.nextSuccessorKernel !== null
+        || binding.nextSuccessorFinalCombat !== null
         || binding.successorOwner === null
         || binding.successorPlan === null
         || binding.successorReservation === null
@@ -9303,6 +9318,93 @@ export class CanonicalRunCombatState {
       ) {
         const error = new Error(
           "next occurrence pre-READ material, room, and Run tick lost sealed synchronization",
+        );
+        internals.fault = error;
+        throw error;
+      }
+    } else if (
+      binding?.phase === "successor-next-read"
+      || binding?.phase === "successor-next-release-requested"
+    ) {
+      const releaseRequested = binding.phase === "successor-next-release-requested";
+      const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+      const predecessor = binding.carryover?.snapshot() ?? null;
+      const materialOwner = binding.successorMaterial;
+      const material = materialOwner?.snapshot() ?? null;
+      const sourceCombat = binding.successorFinalCombat;
+      const plan = binding.nextSuccessorPlan;
+      const evaluation = binding.nextSuccessorAdmission;
+      const combat = binding.nextSuccessorKernel?.snapshot() ?? null;
+      const player = internals.player.snapshot();
+      const override = internals.override.snapshot();
+      if (
+        binding.nextSuccessorOwner === null
+        || plan === null
+        || evaluation === null
+        || binding.nextSuccessorKernel === null
+        || binding.nextSuccessorFinalCombat !== null
+        || binding.successorOwner === null
+        || binding.successorPlan === null
+        || binding.successorReservation === null
+        || binding.successorKernel === null
+        || sourceCombat === null
+        || materialOwner === null
+        || binding.predecessorMaterialLeaseRetiredAtTick120 === null
+        || internals.activeOccurrenceId !== plan.occurrence.occurrenceId
+        || (releaseRequested
+          ? internals.pendingReleaseOccurrenceId !== plan.occurrence.occurrenceId
+            || combat?.patternComplete !== true
+            || combat.digitalBodiesDrained !== true
+            || combat.poolUsage.liveColliders !== 0
+            || combat.projectiles.some((projectile) =>
+              projectile.state !== "residue" || projectile.collisionEnabled)
+          : internals.pendingReleaseOccurrenceId !== null)
+        || binding.materialRoomEventCount === null
+        || room.tick120 !== tick120
+        || room.state !== "idle"
+        || room.currentRoom !== plan.targetRoom
+        || room.currentRoom !== binding.targetRoom
+        || room.targetRoom !== null
+        || room.generation !== 1
+        || room.eventCount !== binding.materialRoomEventCount
+        || room.active !== null
+        || predecessor === null
+        || predecessor.tick120 !== tick120
+        || !predecessor.drained
+        || predecessor.materialCount !== 0
+        || predecessor.poolUsage.liveColliders !== 0
+        || material === null
+        || material.tick120 !== tick120
+        || material.sourcePatternId !== sourceCombat.patternId
+        || material.sourceOccurrenceId !== sourceCombat.occurrenceId
+        || material.poolUsage.liveColliders !== 0
+        || material.projectiles.some((projectile) =>
+          projectile.state !== "residue" || projectile.collisionEnabled)
+        || sourceCombat.tick120 !== tick120
+        || !sourceCombat.patternComplete
+        || !sourceCombat.digitalBodiesDrained
+        || sourceCombat.poolUsage.liveColliders !== 0
+        || sourceCombat.projectiles.some((projectile) =>
+          projectile.state !== "residue" || projectile.collisionEnabled)
+        || combat === null
+        || combat.tick120 !== tick120
+        || combat.patternId !== plan.occurrence.patternId
+        || combat.occurrenceId !== plan.occurrence.occurrenceId
+        || combat.playerPosition.x !== internals.currentPlayerPosition.x
+        || combat.playerPosition.y !== internals.currentPlayerPosition.y
+        || combat.player.tick120 !== tick120
+        || combat.player.state !== player.state
+        || combat.player.collisionEnabled !== player.collisionEnabled
+        || combat.override.state !== override.state
+        || combat.override.deadlineTick120 !== override.deadlineTick120
+        || combat.override.localVoid !== null
+        || override.state !== "idle"
+        || override.deadlineTick120 !== null
+        || override.localVoid !== null
+        || !nextOccurrencePoolUsageFitsAdmission(material, combat, evaluation)
+      ) {
+        const error = new Error(
+          "next occurrence READ/release combat, retained material, room, and Run tick lost sealed synchronization",
         );
         internals.fault = error;
         throw error;
@@ -10255,6 +10357,7 @@ export class CanonicalCombatKernel {
       nextSuccessorPlan: null,
       nextSuccessorAdmission: null,
       nextSuccessorKernel: null,
+      nextSuccessorFinalCombat: null,
       expectedFlushTick120: null,
       expectedPendingEventCount: null,
     });
@@ -10365,6 +10468,7 @@ export class CanonicalCombatKernel {
       || binding.nextSuccessorPlan !== plan
       || binding.nextSuccessorAdmission !== evaluation
       || binding.nextSuccessorKernel !== null
+      || binding.nextSuccessorFinalCombat !== null
       || materialOwner === null
       || materialRecord?.runState !== runState
       || binding.successorKernel !== materialRecord.kernel
@@ -10670,6 +10774,42 @@ export class CanonicalCombatKernel {
     return this.advanceTickWithLock(input);
   }
 
+  [SEALED_FIRST_CONTINUATION_NEXT_READ_ADVANCE](
+    nextOwner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+    input: CanonicalCombatStepInput,
+  ): CanonicalCombatSnapshot {
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(this.runState);
+    const plan = binding?.nextSuccessorPlan ?? null;
+    const evaluation = binding?.nextSuccessorAdmission ?? null;
+    if (
+      !this.sharedRunState
+      || this.deferredFirstContinuationReadInstallPending
+      || this.deferredFirstContinuationNextReadInstallPending
+      || binding?.phase !== "successor-next-read"
+      || binding.nextSuccessorOwner !== nextOwner
+      || binding.nextSuccessorKernel !== this
+      || binding.nextSuccessorFinalCombat !== null
+      || plan === null
+      || evaluation === null
+      || evaluation.state !== "admissible"
+      || !evaluation.admissible
+      || evaluation.evaluatedAtTick120 !== plan.plannedAtTick120
+      || evaluation.occurrence.occurrenceId !== plan.occurrence.occurrenceId
+      || evaluation.occurrence.patternId !== plan.occurrence.patternId
+      || this.pattern.id !== plan.occurrence.patternId
+      || this.occurrenceId !== plan.occurrence.occurrenceId
+      || this.options.seed !== plan.occurrence.resolvedSeed.value
+      || this.options.startTick120 !== successorBoundaryTicks(plan).readStartTick120
+      || this.options.roomId !== plan.targetRoom
+      || this.options.difficulty !== plan.occurrence.difficulty
+    ) {
+      throw new Error(
+        "sealed next-occurrence READ advance requires its exact active owner and admission",
+      );
+    }
+    return this.advanceTickWithLock(input);
+  }
+
   /** Advance only collisionless successor residue after gameplay ownership releases. */
   [SEALED_FIRST_CONTINUATION_MATERIAL_ADVANCE](
     materialOwner: object,
@@ -10691,6 +10831,8 @@ export class CanonicalCombatKernel {
       || binding?.phase === "successor-next-dormant"
       || binding?.phase === "successor-next-pre-read"
       || binding?.phase === "successor-next-read"
+      || binding?.phase === "successor-next-release-requested"
+      || binding?.phase === "successor-next-tail"
     )
       && binding.successorMaterial === materialOwner
       && transferredMaterialRecord?.runState === this.runState
@@ -10897,9 +11039,12 @@ export class CanonicalCombatKernel {
       const continuationBinding = this.sharedRunState
         ? EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(this.runState)
         : undefined;
-      const successorGameplayDrained = continuationBinding?.phase === "successor-read"
+      const successorGameplayDrained = (
+        continuationBinding?.phase === "successor-read"
         && continuationBinding.successorKernel === this
-        && snapshot.digitalBodiesDrained;
+        || continuationBinding?.phase === "successor-next-read"
+        && continuationBinding.nextSuccessorKernel === this
+      ) && snapshot.digitalBodiesDrained;
       if (
         this.sharedRunState
         && (snapshot.projectileLifecycleDrained || successorGameplayDrained)
@@ -11977,6 +12122,7 @@ function requireSuccessorMaterialTransferBoundary(
     || binding.nextSuccessorPlan !== null
     || binding.nextSuccessorAdmission !== null
     || binding.nextSuccessorKernel !== null
+    || binding.nextSuccessorFinalCombat !== null
     || binding.expectedFlushTick120 !== null
     || binding.expectedPendingEventCount !== null
     || predecessorRecord?.runState !== runState
@@ -12217,17 +12363,31 @@ export class CanonicalRunOccurrenceMaterialCarryover {
       || (binding?.phase !== "successor-material"
         && binding?.phase !== "successor-next-dormant"
         && binding?.phase !== "successor-next-pre-read"
-        && binding?.phase !== "successor-next-read")
+        && binding?.phase !== "successor-next-read"
+        && binding?.phase !== "successor-next-release-requested"
+        && binding?.phase !== "successor-next-tail")
       || binding.successorMaterial !== this
       || binding.successorKernel !== record.kernel
       || binding.predecessorMaterialLeaseRetiredAtTick120 !== record.transferredAtTick120
-      || (binding.phase !== "successor-material"
-        && (binding.nextSuccessorOwner === null
+      || (binding.phase === "successor-material"
+        ? binding.nextSuccessorOwner !== null
+          || binding.nextSuccessorPlan !== null
+          || binding.nextSuccessorAdmission !== null
+          || binding.nextSuccessorKernel !== null
+          || binding.nextSuccessorFinalCombat !== null
+        : binding.nextSuccessorOwner === null
           || binding.nextSuccessorPlan === null
           || binding.nextSuccessorAdmission === null
-          || (binding.phase === "successor-next-read"
-            ? binding.nextSuccessorKernel === null
-            : binding.nextSuccessorKernel !== null)))
+          || (binding.phase === "successor-next-dormant"
+            || binding.phase === "successor-next-pre-read"
+            ? binding.nextSuccessorKernel !== null
+              || binding.nextSuccessorFinalCombat !== null
+            : binding.phase === "successor-next-read"
+              || binding.phase === "successor-next-release-requested"
+              ? binding.nextSuccessorKernel === null
+                || binding.nextSuccessorFinalCombat !== null
+              : binding.nextSuccessorKernel === null
+                || binding.nextSuccessorFinalCombat === null))
     ) {
       throw new Error("Run occurrence material carryover lost its sealed binding");
     }
@@ -12323,6 +12483,7 @@ function requireNextOccurrenceAdmissionBoundary(
     || binding.nextSuccessorPlan !== null
     || binding.nextSuccessorAdmission !== null
     || binding.nextSuccessorKernel !== null
+    || binding.nextSuccessorFinalCombat !== null
     || binding.expectedFlushTick120 !== null
     || binding.expectedPendingEventCount !== null
     || predecessorRecord?.runState !== runState
@@ -12590,13 +12751,20 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     runState === undefined
     || (binding?.phase !== "successor-next-dormant"
       && binding?.phase !== "successor-next-pre-read"
-      && binding?.phase !== "successor-next-read")
+      && binding?.phase !== "successor-next-read"
+      && binding?.phase !== "successor-next-tail")
     || binding.nextSuccessorOwner !== owner
     || binding.nextSuccessorPlan === null
     || binding.nextSuccessorAdmission === null
-    || (binding.phase === "successor-next-read"
-      ? binding.nextSuccessorKernel === null
-      : binding.nextSuccessorKernel !== null)
+    || (binding.phase === "successor-next-dormant"
+      || binding.phase === "successor-next-pre-read"
+      ? binding.nextSuccessorKernel !== null
+        || binding.nextSuccessorFinalCombat !== null
+      : binding.phase === "successor-next-read"
+        ? binding.nextSuccessorKernel === null
+          || binding.nextSuccessorFinalCombat !== null
+        : binding.nextSuccessorKernel === null
+          || binding.nextSuccessorFinalCombat === null)
     || materialOwner === null
     || materialRecord?.runState !== runState
     || ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.has(materialOwner)
@@ -12615,7 +12783,11 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
   const evaluation = binding.nextSuccessorAdmission;
   const boundaries = successorBoundaryTicks(plan);
   const relativeTick120 = runCombat.tick120 - plan.plannedAtTick120;
-  const combat = binding.nextSuccessorKernel?.snapshot() ?? null;
+  const combat = binding.phase === "successor-next-tail"
+    ? binding.nextSuccessorFinalCombat
+    : binding.nextSuccessorKernel?.snapshot() ?? null;
+  const projectilePoolAudit = binding.nextSuccessorKernel?.projectilePoolAudit()
+    ?? Object.freeze([]);
   const predecessor = binding.carryover?.snapshot() ?? null;
   const claimedCount = runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
     occurrenceId === plan.occurrence.occurrenceId).length;
@@ -12623,9 +12795,13 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     ? "dormant" as const
     : binding.phase === "successor-next-pre-read"
       ? "pre-read" as const
-      : "read" as const;
+      : binding.phase === "successor-next-read"
+        ? "read" as const
+        : "tail" as const;
   const authoredPhase = phase === "dormant"
     ? "dormant" as const
+    : phase === "tail"
+      ? "material-settle" as const
     : phase === "read"
       ? "read" as const
       : runCombat.tick120 < boundaries.entryStartTick120
@@ -12639,7 +12815,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     || internals.bus !== materialRecord.eventBus
     || internals.bus.pendingEventCount() !== 0
     || relativeTick120 < 0
-    || relativeTick120 > 159
+    || relativeTick120 > boundaries.materialSettleStartTick120 - plan.plannedAtTick120
     || (phase === "dormant"
       ? relativeTick120 !== 0 || combat !== null || claimedCount !== 0
       : phase === "pre-read"
@@ -12647,9 +12823,14 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
           || runCombat.tick120 >= boundaries.readStartTick120
           || combat !== null
           || claimedCount !== 0
-        : runCombat.tick120 !== boundaries.readStartTick120
-          || combat === null
-          || claimedCount !== 1)
+        : phase === "read"
+          ? runCombat.tick120 < boundaries.readStartTick120
+            || runCombat.tick120 >= boundaries.materialSettleStartTick120
+            || combat === null
+            || claimedCount !== 1
+          : runCombat.tick120 !== boundaries.materialSettleStartTick120
+            || combat === null
+            || claimedCount !== 1)
     || (phase === "read"
       ? runCombat.activeOccurrenceId !== plan.occurrence.occurrenceId
       : runCombat.activeOccurrenceId !== null)
@@ -12680,31 +12861,44 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     || room.targetRoom !== null
     || room.active !== null
     || player.tick120 !== runCombat.tick120
-    || player.state !== "alive"
-    || !player.collisionEnabled
-    || player.activeLeases.length !== 0
     || override.state !== "idle"
     || override.deadlineTick120 !== null
     || override.localVoid !== null
-    || (combat !== null
-      && (combat.tick120 !== boundaries.readStartTick120
-        || combat.relativeTick120 !== 0
+    || (phase === "dormant" || phase === "pre-read"
+      ? player.state !== "alive"
+        || !player.collisionEnabled
+        || player.activeLeases.length !== 0
+      : combat === null
+        || combat.tick120 !== runCombat.tick120
+        || combat.relativeTick120 !== runCombat.tick120 - boundaries.readStartTick120
         || combat.patternId !== plan.occurrence.patternId
         || combat.occurrenceId !== plan.occurrence.occurrenceId
-        || combat.projectiles.length !== 0
-        || combat.rngCallsConsumed !== 0
-        || combat.poolUsage.liveColliders !== 0
-        || DORMANT_SUCCESSOR_POOL_CLASS_ORDER.some((poolClass) =>
-          combat.poolUsage.active[poolClass] !== 0
-          || combat.poolUsage.allocatedSlots[poolClass] !== 0)
-        || combat.poolUsage.residueVisuals !== 0))
+        || combat.playerPosition.x !== runCombat.playerPosition.x
+        || combat.playerPosition.y !== runCombat.playerPosition.y
+        || combat.player.tick120 !== runCombat.tick120
+        || combat.player.state !== player.state
+        || combat.player.collisionEnabled !== player.collisionEnabled
+        || combat.override.state !== override.state
+        || combat.override.deadlineTick120 !== override.deadlineTick120
+        || combat.override.localVoid !== null
+        || !nextOccurrencePoolUsageFitsAdmission(material, combat, evaluation)
+        || (phase === "tail"
+          && (!combat.patternComplete
+            || !combat.digitalBodiesDrained
+            || combat.poolUsage.liveColliders !== 0
+            || combat.projectiles.some((projectile) =>
+              projectile.state !== "residue" || projectile.collisionEnabled))))
   ) {
-    throw new Error("next occurrence owner left its exact dormant/pre-READ/READ boundary");
+    throw new Error(
+      "next occurrence owner left its exact dormant/pre-READ/READ/release boundary",
+    );
   }
   const nextMasterTickAction = phase === "dormant"
     ? "telegraph" as const
     : phase === "read"
-      ? "read-advance-withheld" as const
+      ? "advance-read" as const
+      : phase === "tail"
+        ? "tail-advance-withheld" as const
       : runCombat.tick120 === boundaries.readStartTick120 - 1
         ? "claim-read" as const
         : runCombat.tick120 === boundaries.entryStartTick120 - 1
@@ -12717,6 +12911,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
       "canonical-run-first-continuation-next-occurrence-dormant-owner-v1" as const,
     extensionPolicy: "EXT-2026-020" as const,
     executionPolicy: "EXT-2026-021" as const,
+    readPolicy: "EXT-2026-022" as const,
     phase,
     authoredPhase,
     tick120: runCombat.tick120,
@@ -12733,6 +12928,7 @@ export function inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(
     material,
     runCombat,
     combat,
+    projectilePoolAudit,
     canonicalEventCount: materialRecord.eventBus.events().length,
     roomCompletion: "withheld" as const,
     roomHandoff: "withheld" as const,
@@ -12747,6 +12943,13 @@ export interface CanonicalRunFirstContinuationNextOccurrencePreReadTickResult {
 }
 
 export interface CanonicalRunFirstContinuationNextOccurrenceReadStartResult {
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
+  readonly combat: CanonicalCombatSnapshot;
+  readonly flushedEvents: readonly CanonicalGameplayEvent[];
+}
+
+export interface CanonicalRunFirstContinuationNextOccurrenceReadTickResult {
   readonly runCombat: CanonicalRunCombatStateSnapshot;
   readonly material: CanonicalRunOccurrenceMaterialCarryoverSnapshot;
   readonly combat: CanonicalCombatSnapshot;
@@ -12790,6 +12993,7 @@ function requireNextOccurrenceExecutionBoundary(
     || binding.nextSuccessorPlan === null
     || binding.nextSuccessorAdmission === null
     || binding.nextSuccessorKernel !== null
+    || binding.nextSuccessorFinalCombat !== null
     || materialOwner === null
     || materialRecord?.runState !== runState
     || materialRecord.eventBus !== runCombatStateInternals(runState).bus
@@ -12980,7 +13184,7 @@ export function startCanonicalRunFirstContinuationNextOccurrenceReadBinding(
       || snapshot.authoredPhase !== "read"
       || snapshot.tick120 !== boundaries.readStartTick120
       || snapshot.relativeTick120 !== 159
-      || snapshot.nextMasterTickAction !== "read-advance-withheld"
+      || snapshot.nextMasterTickAction !== "advance-read"
       || snapshot.combat === null
       || snapshot.combat.relativeTick120 !== 0
       || snapshot.combat.projectiles.length !== 0
@@ -13000,6 +13204,276 @@ export function startCanonicalRunFirstContinuationNextOccurrenceReadBinding(
       internals.fault = error instanceof Error ? error : new Error(String(error));
     }
     throw error;
+  }
+}
+
+interface NextOccurrenceReadExecutionBoundary extends NextOccurrenceExecutionBoundary {
+  readonly nextKernel: CanonicalCombatKernel;
+}
+
+function requireNextOccurrenceReadExecutionBoundary(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+): NextOccurrenceReadExecutionBoundary {
+  const runState = RUN_STATE_BY_NEXT_OCCURRENCE_OWNER.get(owner);
+  const binding = runState === undefined
+    ? undefined
+    : EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  const materialOwner = binding?.successorMaterial ?? null;
+  const materialRecord = materialOwner === null
+    ? undefined
+    : RUN_OCCURRENCE_MATERIAL_CARRYOVERS.get(materialOwner);
+  const predecessor = binding?.carryover ?? null;
+  const predecessorRecord = predecessor === null
+    ? undefined
+    : ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(predecessor);
+  const nextKernel = binding?.nextSuccessorKernel ?? null;
+  if (
+    runState === undefined
+    || binding?.phase !== "successor-next-read"
+    || binding.nextSuccessorOwner !== owner
+    || binding.nextSuccessorPlan === null
+    || binding.nextSuccessorAdmission === null
+    || nextKernel === null
+    || binding.nextSuccessorFinalCombat !== null
+    || materialOwner === null
+    || materialRecord?.runState !== runState
+    || materialRecord.eventBus !== runCombatStateInternals(runState).bus
+    || materialRecord.kernel !== binding.successorKernel
+    || predecessor === null
+    || predecessorRecord?.runState !== runState
+    || materialRecord.predecessor !== predecessor
+    || binding.successorFinalCombat === null
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+    || ACTIVE_NEXT_OCCURRENCE_ADMISSION_BY_MATERIAL.has(materialOwner)
+  ) {
+    throw new Error("next occurrence READ lost its exact active owner lease");
+  }
+  const snapshot = inspectCanonicalRunFirstContinuationNextOccurrenceDormantOwner(owner);
+  if (
+    snapshot.phase !== "read"
+    || snapshot.nextMasterTickAction !== "advance-read"
+    || snapshot.combat === null
+  ) {
+    throw new Error("next occurrence READ requires its exact flushed active boundary");
+  }
+  return Object.freeze({
+    runState,
+    binding,
+    internals: runCombatStateInternals(runState),
+    materialOwner,
+    materialRecord,
+    predecessor,
+    predecessorRecord,
+    plan: binding.nextSuccessorPlan,
+    evaluation: binding.nextSuccessorAdmission,
+    boundaries: successorBoundaryTicks(binding.nextSuccessorPlan),
+    nextKernel,
+  });
+}
+
+/**
+ * Advance the second occurrence combat, retained first-occurrence material,
+ * drained transition lineage, idle room, shared player, and sole Run flush as
+ * one exact READ tick. Gameplay releases before collisionless residue drains.
+ */
+export function advanceCanonicalRunFirstContinuationNextOccurrenceReadTick(
+  owner: CanonicalRunFirstContinuationNextOccurrenceDormantOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationNextOccurrenceReadTickResult {
+  const boundary = requireNextOccurrenceReadExecutionBoundary(owner);
+  const {
+    runState,
+    binding,
+    internals,
+    materialOwner,
+    materialRecord,
+    predecessor,
+    predecessorRecord,
+    plan,
+    evaluation,
+    boundaries,
+    nextKernel,
+  } = boundary;
+  if (internals.advanceLocked) {
+    throw new Error("next occurrence READ advance is already in progress");
+  }
+  assertRunCombatStateOperational(internals);
+  if (
+    internals.pendingFlushTick120 !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.activeOccurrenceId !== plan.occurrence.occurrenceId
+    || internals.bus.pendingEventCount() !== 0
+  ) {
+    throw new Error("next occurrence READ requires a flushed active occurrence boundary");
+  }
+  const validated = validateCombatStepAgainstRunState(input, internals);
+  if (validated.overridePressed || validated.overrideReleased) {
+    throw new Error("next occurrence READ cannot admit an Override edge; Override locked");
+  }
+  if (validated.tick120 > boundaries.materialSettleStartTick120) {
+    throw new Error("next occurrence READ stops at the exact gameplay release boundary");
+  }
+  const beforeMaterial = materialOwner.snapshot();
+  const beforePredecessor = predecessor.snapshot();
+  const beforeSourceCombat = binding.successorFinalCombat;
+  const beforeCombat = CanonicalCombatKernel.prototype.snapshot.call(nextKernel);
+  const beforeRoom = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+  if (
+    beforeSourceCombat === null
+    || beforeCombat.tick120 !== internals.currentTick120
+    || beforeCombat.patternId !== plan.occurrence.patternId
+    || beforeCombat.occurrenceId !== plan.occurrence.occurrenceId
+    || beforeMaterial.tick120 !== internals.currentTick120
+    || beforeMaterial.poolUsage.liveColliders !== 0
+    || beforeMaterial.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+    || !nextOccurrencePoolUsageFitsAdmission(beforeMaterial, beforeCombat, evaluation)
+    || beforePredecessor.tick120 !== internals.currentTick120
+    || !beforePredecessor.drained
+    || beforePredecessor.materialCount !== 0
+    || beforePredecessor.poolUsage.liveColliders !== 0
+    || beforeSourceCombat.tick120 !== internals.currentTick120
+    || !beforeSourceCombat.patternComplete
+    || !beforeSourceCombat.digitalBodiesDrained
+    || beforeSourceCombat.poolUsage.liveColliders !== 0
+    || beforeSourceCombat.projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)
+    || binding.materialRoomEventCount === null
+    || beforeRoom.tick120 !== internals.currentTick120
+    || beforeRoom.state !== "idle"
+    || beforeRoom.currentRoom !== plan.targetRoom
+    || beforeRoom.currentRoom !== binding.targetRoom
+    || beforeRoom.targetRoom !== null
+    || beforeRoom.generation !== 1
+    || beforeRoom.eventCount !== binding.materialRoomEventCount
+    || beforeRoom.active !== null
+  ) {
+    throw new Error("next occurrence READ authorities lost their sealed pre-tick boundary");
+  }
+  const roomProposal = RoomTransitionAuthority.prototype.prepareAdvance.call(
+    binding.roomTransition,
+    validated.tick120,
+  );
+  const roomView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+    binding.roomTransition,
+    roomProposal,
+    internals.bus,
+  );
+  if (
+    roomView.kind !== "advance"
+    || roomView.eventBus !== internals.bus
+    || roomView.tick120 !== validated.tick120
+    || roomView.drafts.length !== 0
+    || roomView.preview.tick120 !== validated.tick120
+    || roomView.preview.state !== "idle"
+    || roomView.preview.currentRoom !== plan.targetRoom
+    || roomView.preview.currentRoom !== binding.targetRoom
+    || roomView.preview.targetRoom !== null
+    || roomView.preview.generation !== 1
+    || roomView.preview.eventCount !== binding.materialRoomEventCount
+    || roomView.preview.active !== null
+  ) {
+    throw new Error("next occurrence READ target-room FSM proposal drifted");
+  }
+
+  internals.advanceLocked = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const combat = nextKernel[SEALED_FIRST_CONTINUATION_NEXT_READ_ADVANCE](owner, input);
+    authoritativeTickAccepted = true;
+    const combatPendingEventCount = internals.bus.pendingEventCount();
+    predecessorRecord.projectiles.advanceTo(validated.tick120);
+    predecessorRecord.currentTick120 = validated.tick120;
+    const sourceCombat = materialRecord.kernel[SEALED_FIRST_CONTINUATION_MATERIAL_ADVANCE](
+      materialOwner,
+      validated.tick120,
+    );
+    binding.successorFinalCombat = sourceCombat;
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      internals.bus,
+      Object.freeze([roomView.drafts]),
+    );
+    RoomTransitionAuthority.prototype.applyPreparedMutationAfterAppend.call(
+      binding.roomTransition,
+      roomProposal,
+      internals.bus,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+    const material = materialOwner.snapshot();
+    const predecessorAfter = predecessor.snapshot();
+    const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+    const releasesOccurrence = combat.digitalBodiesDrained;
+    if (
+      combat.tick120 !== validated.tick120
+      || combat.patternId !== plan.occurrence.patternId
+      || combat.occurrenceId !== plan.occurrence.occurrenceId
+      || internals.currentTick120 !== validated.tick120
+      || internals.pendingFlushTick120 !== validated.tick120
+      || internals.activeOccurrenceId !== plan.occurrence.occurrenceId
+      || (releasesOccurrence
+        ? validated.tick120 !== boundaries.materialSettleStartTick120
+          || internals.pendingReleaseOccurrenceId !== plan.occurrence.occurrenceId
+          || !combat.patternComplete
+          || combat.poolUsage.liveColliders !== 0
+          || combat.projectiles.some((projectile) =>
+            projectile.state !== "residue" || projectile.collisionEnabled)
+        : validated.tick120 >= boundaries.materialSettleStartTick120
+          || internals.pendingReleaseOccurrenceId !== null)
+      || material.tick120 !== validated.tick120
+      || material.poolUsage.liveColliders !== 0
+      || material.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || !nextOccurrencePoolUsageFitsAdmission(material, combat, evaluation)
+      || predecessorAfter.tick120 !== validated.tick120
+      || !predecessorAfter.drained
+      || predecessorAfter.materialCount !== 0
+      || predecessorAfter.poolUsage.liveColliders !== 0
+      || sourceCombat.tick120 !== validated.tick120
+      || !sourceCombat.patternComplete
+      || !sourceCombat.digitalBodiesDrained
+      || sourceCombat.poolUsage.liveColliders !== 0
+      || sourceCombat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || room.tick120 !== validated.tick120
+      || room.state !== "idle"
+      || room.currentRoom !== plan.targetRoom
+      || room.currentRoom !== binding.targetRoom
+      || room.targetRoom !== null
+      || room.generation !== 1
+      || room.eventCount !== binding.materialRoomEventCount
+      || room.active !== null
+      || internals.bus.pendingEventCount() !== combatPendingEventCount
+    ) {
+      throw new Error("next occurrence READ tick lost combat/material/room synchronization");
+    }
+    if (releasesOccurrence) binding.phase = "successor-next-release-requested";
+    binding.expectedFlushTick120 = validated.tick120;
+    binding.expectedPendingEventCount = internals.bus.pendingEventCount();
+    const flushedEvents = runState.flushTick(validated.tick120);
+    const runCombat = runState.snapshot();
+    if (
+      runCombat.tick120 !== validated.tick120
+      || runCombat.pendingFlushTick120 !== null
+      || (releasesOccurrence
+        ? runCombat.activeOccurrenceId !== null
+        : runCombat.activeOccurrenceId !== plan.occurrence.occurrenceId)
+      || internals.bus.pendingEventCount() !== 0
+    ) {
+      throw new Error("next occurrence READ tick did not close its sole Run-owned flush");
+    }
+    if (releasesOccurrence) {
+      binding.nextSuccessorFinalCombat = combat;
+      binding.phase = "successor-next-tail";
+    }
+    return Object.freeze({runCombat, material, combat, flushedEvents});
+  } catch (error) {
+    if (authoritativeTickAccepted && internals.fault === null) {
+      internals.fault = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    internals.advanceLocked = false;
   }
 }
 
@@ -14000,6 +14474,37 @@ function nextOccurrenceProjectilePoolBudgets(
     splitChildren: reservation.splitChildren,
     residueVisualOnly: requestedResidueVisualSlots,
   });
+}
+
+function nextOccurrencePoolUsageFitsAdmission(
+  material: CanonicalRunOccurrenceMaterialCarryoverSnapshot,
+  combat: CanonicalCombatSnapshot,
+  evaluation: CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation,
+): boolean {
+  const reservation = evaluation.successor.reservationByClass;
+  const combined = evaluation.combined;
+  if (
+    evaluation.state !== "admissible"
+    || !evaluation.admissible
+    || evaluation.poolClassResolution.state !== "resolved"
+    || reservation === null
+    || combined === null
+  ) {
+    return false;
+  }
+  return DORMANT_SUCCESSOR_POOL_CLASS_ORDER.every((poolClass) =>
+    material.poolUsage.allocatedSlots[poolClass]
+        === evaluation.carryover.allocatedSlots[poolClass]
+      && combat.poolUsage.active[poolClass] <= reservation[poolClass]
+      && combat.poolUsage.allocatedSlots[poolClass] <= reservation[poolClass]
+      && material.poolUsage.allocatedSlots[poolClass]
+        + combat.poolUsage.allocatedSlots[poolClass]
+        <= combined.allocatedSlots[poolClass])
+    && material.poolUsage.residueVisuals <= evaluation.carryover.residueVisuals
+    && combat.poolUsage.residueVisuals
+      <= evaluation.successor.requestedResidueVisualSlots
+    && material.poolUsage.residueVisuals + combat.poolUsage.residueVisuals
+      <= combined.residueVisuals;
 }
 
 function successorPoolUsageFitsReservation(

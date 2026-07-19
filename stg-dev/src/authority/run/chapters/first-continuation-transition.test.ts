@@ -14,7 +14,11 @@ import {
 } from "../../combat-kernel";
 import {runtime60DeadlineTick} from "../../clock";
 import {CanonicalEventBus} from "../../events";
-import {PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND} from "../../pattern-executor";
+import {
+  executablePattern,
+  PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND,
+  safeGapCenter,
+} from "../../pattern-executor";
 import {
   issueCanonicalRunFirstRoomMetricSourceReceipt,
   type CanonicalRunFirstRoomClosureCaptureAvailable,
@@ -55,6 +59,7 @@ import {
 } from "./first-continuation-room-admission-authority";
 import {
   advanceCanonicalRunFirstContinuationNextOccurrencePreRead,
+  advanceCanonicalRunFirstContinuationNextOccurrenceRead,
   inspectCanonicalRunFirstContinuationNextOccurrenceOwner,
   startCanonicalRunFirstContinuationNextOccurrenceRead,
 } from "./first-continuation-next-occurrence";
@@ -112,6 +117,18 @@ function moveTowardPoint(
       PLAYER_NORMAL_MAX_SPEED_PX_PER_SECOND / 120,
     ),
   };
+}
+
+function followCombatSafeGap(
+  combat: CanonicalCombatSnapshot,
+  pattern: ReturnType<typeof executablePattern>,
+): CanonicalCombatStepInput {
+  const tick120 = combat.tick120 + 1;
+  const nextRelativeTick120 = combat.relativeTick120 + 1;
+  return moveTowardPoint(combat, tick120, {
+    x: safeGapCenter(pattern, nextRelativeTick120 * 1000 / 120),
+    y: combat.playerPosition.y,
+  });
 }
 
 interface FormalTargetSource {
@@ -222,6 +239,82 @@ function reachLiveMaterialHandoff() {
   const handoffReceipt = chapter.handoff();
   if (handoffReceipt === null) throw new Error("formal admission fixture lost its handoff");
   return Object.freeze({fixture, chapter, transition, handoffReceipt});
+}
+
+function reachSecondOccurrenceReadStart() {
+  const {fixture, transition, handoffReceipt} = reachLiveMaterialHandoff();
+  const firstPreparation = prepareCanonicalRunFirstContinuationRoomAdmission(
+    handoffReceipt,
+  );
+  if (firstPreparation.state !== "prepared") {
+    throw new Error(`expected first occurrence admission, received ${firstPreparation.reason}`);
+  }
+  const firstOwner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+    firstPreparation.proposal,
+  );
+  const handoffTick120 = transition.combat.tick120;
+  let firstOccurrence = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
+    firstOwner,
+  );
+  while (firstOccurrence.tick120 < handoffTick120 + 158) {
+    firstOccurrence = advanceCanonicalRunFirstContinuationSuccessorPreRead(
+      firstOwner,
+      combatInput(firstOccurrence.tick120 + 1),
+    );
+  }
+  firstOccurrence = startCanonicalRunFirstContinuationSuccessorRead(
+    firstOwner,
+    combatInput(firstOccurrence.tick120 + 1),
+  );
+  while (firstOccurrence.nextMasterTickAction === "advance-read") {
+    firstOccurrence = advanceCanonicalRunFirstContinuationSuccessorRead(
+      firstOwner,
+      combatInput(firstOccurrence.tick120 + 1),
+    );
+  }
+  while (firstOccurrence.nextMasterTickAction === "advance-tail") {
+    firstOccurrence = advanceCanonicalRunFirstContinuationSuccessorTail(
+      firstOwner,
+      combatInput(firstOccurrence.tick120 + 1),
+    );
+  }
+  if (firstOccurrence.nextMasterTickAction !== "close-slice") {
+    throw new Error("first occurrence did not reach its exact slice-close boundary");
+  }
+  const firstComplete = closeCanonicalRunFirstContinuationSuccessorSlice(
+    firstOwner,
+    combatInput(firstOccurrence.tick120 + 1),
+  );
+  const transfer = prepareCanonicalRunFirstContinuationSuccessorMaterialTransfer(
+    firstOwner,
+  );
+  const materialOwner =
+    commitPreparedCanonicalRunFirstContinuationSuccessorMaterialTransfer(transfer);
+  const nextPreparation = prepareCanonicalRunFirstContinuationNextOccurrenceAdmission(
+    materialOwner,
+  );
+  if (nextPreparation.state !== "prepared") {
+    throw new Error(`expected second occurrence admission, received ${nextPreparation.reason}`);
+  }
+  const nextView = inspectPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+    nextPreparation.proposal,
+  );
+  const nextOwner =
+    commitPreparedCanonicalRunFirstContinuationNextOccurrenceAdmission(
+      nextPreparation.proposal,
+    );
+  let nextOccurrence = inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner);
+  while (nextOccurrence.tick120 < firstComplete.tick120 + 158) {
+    nextOccurrence = advanceCanonicalRunFirstContinuationNextOccurrencePreRead(
+      nextOwner,
+      combatInput(nextOccurrence.tick120 + 1),
+    );
+  }
+  const nextRead = startCanonicalRunFirstContinuationNextOccurrenceRead(
+    nextOwner,
+    combatInput(nextOccurrence.tick120 + 1),
+  );
+  return Object.freeze({fixture, nextOwner, nextRead, nextView});
 }
 
 describe("first continuation transition chapter owner", () => {
@@ -1171,11 +1264,12 @@ describe("first continuation transition chapter owner", () => {
     });
     expect(nextRead).toMatchObject({
       executionPolicy: "EXT-2026-021",
+      readPolicy: "EXT-2026-022",
       phase: "read",
       authoredPhase: "read",
       tick120: 6_947,
       relativeTick120: 159,
-      nextMasterTickAction: "read-advance-withheld",
+      nextMasterTickAction: "advance-read",
       material: {
         drained: true,
         materialCount: 0,
@@ -1229,6 +1323,258 @@ describe("first continuation transition chapter owner", () => {
     expect(fixture.runState.snapshot()).toEqual(runAfterNextRead);
     expect(fixture.eventBus.events()).toEqual(eventsAfterNextRead);
     expect(inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner)).toEqual(nextRead);
+
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceRead(nextOwner, {
+      ...combatInput(nextRead.tick120 + 1),
+      overridePressed: true,
+      overrideDirection: {x: 1, y: 0},
+    })).toThrow(/Override locked/);
+    expect(fixture.runState.snapshot()).toEqual(runAfterNextRead);
+    expect(fixture.eventBus.events()).toEqual(eventsAfterNextRead);
+    expect(inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner)).toEqual(nextRead);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceRead(
+      nextOwner,
+      combatInput(nextRead.tick120 + 2),
+    )).toThrow(/advance one tick|one-tick/);
+    expect(fixture.runState.snapshot()).toEqual(runAfterNextRead);
+    expect(fixture.eventBus.events()).toEqual(eventsAfterNextRead);
+    expect(inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner)).toEqual(nextRead);
+
+    const nextPattern = executablePattern(nextView.plan.occurrence.patternId);
+    let activeNextRead = nextRead;
+    let maximumActiveMicro = 0;
+    let maximumAllocatedMicro = 0;
+    let maximumResidueVisuals = 0;
+    let maximumCombinedAllocatedMicro = 0;
+    let retainedMaterialStayedSynchronized = true;
+    while ((activeNextRead.combat?.relativeTick120 ?? -1) < 1_272) {
+      if (activeNextRead.combat === null) {
+        throw new Error("second occurrence READ combat disappeared before release");
+      }
+      activeNextRead = advanceCanonicalRunFirstContinuationNextOccurrenceRead(
+        nextOwner,
+        followCombatSafeGap(activeNextRead.combat, nextPattern),
+      );
+      if (activeNextRead.combat === null) {
+        throw new Error("second occurrence READ combat disappeared after advance");
+      }
+      const combatPool = activeNextRead.combat.poolUsage;
+      maximumActiveMicro = Math.max(maximumActiveMicro, combatPool.active.micro);
+      maximumAllocatedMicro = Math.max(
+        maximumAllocatedMicro,
+        combatPool.allocatedSlots.micro,
+      );
+      maximumResidueVisuals = Math.max(
+        maximumResidueVisuals,
+        combatPool.residueVisuals,
+      );
+      maximumCombinedAllocatedMicro = Math.max(
+        maximumCombinedAllocatedMicro,
+        activeNextRead.material.poolUsage.allocatedSlots.micro
+          + combatPool.allocatedSlots.micro,
+      );
+      retainedMaterialStayedSynchronized &&=
+        activeNextRead.material.tick120 === activeNextRead.tick120
+        && activeNextRead.material.drained
+        && activeNextRead.material.materialCount === 0
+        && activeNextRead.material.poolUsage.allocatedSlots.micro === 80
+        && activeNextRead.material.poolUsage.liveColliders === 0;
+
+      if (activeNextRead.combat.relativeTick120 === 90) {
+        expect(activeNextRead).toMatchObject({
+          tick120: 7_037,
+          phase: "read",
+          authoredPhase: "read",
+          nextMasterTickAction: "advance-read",
+          combat: {
+            relativeTick120: 90,
+            rngCallsConsumed: 6,
+          },
+        });
+        expect(activeNextRead.combat.projectiles).toHaveLength(1);
+        expect(fixture.eventBus.events().slice(eventsAfterNextRead.length).filter((event) =>
+          event.id === "projectile.spawn.commit")).toHaveLength(1);
+      }
+      if (activeNextRead.combat.relativeTick120 === 1_258) {
+        expect(activeNextRead.projectilePoolAudit).toEqual([]);
+      }
+      if (activeNextRead.combat.relativeTick120 === 1_259) {
+        expect(activeNextRead.projectilePoolAudit).toHaveLength(1);
+        expect(activeNextRead.projectilePoolAudit[0]).toMatchObject({
+          sequence: 0,
+          tick120: nextRead.tick120 + 1_259,
+          kind: "projectile.spawn.rejected",
+          reason: "budget_exhausted",
+          poolClass: "micro",
+          archetypeId: "bullet.micro.notch_e",
+          budget: 80,
+        });
+        expect(activeNextRead.projectilePoolAudit[0]?.occurrenceKey)
+          .toContain(":print-a:10:5:spawn-rejected");
+        expect(Object.isFrozen(activeNextRead.projectilePoolAudit)).toBe(true);
+        expect(Object.isFrozen(activeNextRead.projectilePoolAudit[0])).toBe(true);
+      }
+    }
+
+    expect(maximumActiveMicro).toBe(80);
+    expect(maximumAllocatedMicro).toBe(80);
+    expect(maximumResidueVisuals).toBe(80);
+    expect(maximumCombinedAllocatedMicro).toBe(160);
+    expect(retainedMaterialStayedSynchronized).toBe(true);
+    expect(activeNextRead).toMatchObject({
+      executionPolicy: "EXT-2026-021",
+      readPolicy: "EXT-2026-022",
+      phase: "tail",
+      authoredPhase: "material-settle",
+      tick120: 8_219,
+      relativeTick120: 1_431,
+      boundaryTicks120: {materialSettleStartTick120: 8_219},
+      nextMasterTickAction: "tail-advance-withheld",
+      material: {
+        tick120: 8_219,
+        drained: true,
+        materialCount: 0,
+        poolUsage: {
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 0,
+        },
+      },
+      runCombat: {
+        tick120: 8_219,
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+      },
+      combat: {
+        tick120: 8_219,
+        relativeTick120: 1_272,
+        occurrenceId: nextOccurrenceId,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        projectileLifecycleDrained: false,
+        rngCallsConsumed: 126,
+        poolUsage: {
+          active: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          allocatedSlots: {micro: 80, medium: 0, heavy: 0, splitChildren: 0},
+          liveColliders: 0,
+          residueVisuals: 80,
+        },
+      },
+    });
+    expect(activeNextRead.combat?.projectiles).toHaveLength(80);
+    expect(activeNextRead.combat?.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+    expect(activeNextRead.projectilePoolAudit).toHaveLength(1);
+    expect(activeNextRead.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === nextOccurrenceId)).toHaveLength(1);
+
+    const nextReadEvents = fixture.eventBus.events().slice(eventsAfterNextRead.length);
+    const nextSpawnEvents = nextReadEvents.filter((event) =>
+      event.id === "projectile.spawn.commit");
+    expect(nextSpawnEvents).toHaveLength(82);
+    expect(new Set(nextSpawnEvents.map((event) => event.occurrenceKey)).size).toBe(82);
+    const firstArmedTick120 = nextRead.tick120 + 95;
+    expect(nextReadEvents.some((event) =>
+      event.tick120 === firstArmedTick120 && event.id === "projectile.armed")).toBe(true);
+    expect(nextReadEvents.some((event) =>
+      event.tick120 === firstArmedTick120 && event.id === "projectile.flight.begin")).toBe(true);
+    expect(nextReadEvents.some((event) =>
+      event.tick120 === firstArmedTick120 && event.id === "projectile.collision.on")).toBe(true);
+    expect(Math.max(...nextReadEvents.filter((event) =>
+      event.id === "projectile.collision.on").map((event) => event.tick120)))
+      .toBe(nextRead.tick120 + 1_264);
+    const cancellationCount = (reason: string): number => nextReadEvents.filter((event) =>
+      event.id === "projectile.cancel.commit" && event.payload.reason === reason).length;
+    expect(cancellationCount("out_of_bounds")).toBe(24);
+    expect(cancellationCount("pattern_end")).toBe(58);
+    expect(Math.max(...nextReadEvents.filter((event) =>
+      event.id === "projectile.cancel.commit"
+      && event.payload.reason === "out_of_bounds").map((event) => event.tick120)))
+      .toBe(nextRead.tick120 + 1_267);
+    const releaseTickEvents = nextReadEvents.filter((event) => event.tick120 === 8_219);
+    const releaseCollisionOff = releaseTickEvents.map((event) => String(event.id))
+      .lastIndexOf("projectile.collision.off");
+    const releaseFirstCancel = releaseTickEvents.findIndex((event) =>
+      event.id === "projectile.cancel.commit");
+    expect(releaseTickEvents.filter((event) =>
+      event.id === "projectile.collision.off")).toHaveLength(58);
+    expect(releaseTickEvents.filter((event) =>
+      event.id === "projectile.cancel.commit")).toHaveLength(58);
+    expect(releaseTickEvents.filter((event) =>
+      event.id === "projectile.residue.begin")).toHaveLength(58);
+    expect(releaseCollisionOff).toBeGreaterThanOrEqual(0);
+    expect(releaseFirstCancel).toBeGreaterThan(releaseCollisionOff);
+    expect(nextReadEvents.some((event) => event.id === "player.damage.commit")).toBe(false);
+    expect(nextReadEvents.some((event) => event.id === "room.transition.complete")).toBe(false);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+
+    const releasedRun = fixture.runState.snapshot();
+    const releasedEvents = fixture.eventBus.events();
+    const releasedOwner = inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner);
+    expect(() => advanceCanonicalRunFirstContinuationNextOccurrenceRead(
+      nextOwner,
+      combatInput(activeNextRead.tick120 + 1),
+    )).toThrow(/active READ owner/);
+    expect(fixture.runState.snapshot()).toEqual(releasedRun);
+    expect(fixture.eventBus.events()).toEqual(releasedEvents);
+    expect(inspectCanonicalRunFirstContinuationNextOccurrenceOwner(nextOwner))
+      .toEqual(releasedOwner);
+
+    const damageBranch = reachSecondOccurrenceReadStart();
+    const damagePattern = executablePattern(
+      damageBranch.nextView.plan.occurrence.patternId,
+    );
+    const damageEventsStart = damageBranch.fixture.eventBus.events().length;
+    let damagedRead = damageBranch.nextRead;
+    while ((damagedRead.combat?.relativeTick120 ?? -1) < 1_272) {
+      if (damagedRead.combat === null) {
+        throw new Error("damage branch lost second occurrence combat before release");
+      }
+      const combat = damagedRead.combat;
+      const collisionTargets = combat.relativeTick120 >= 1_100
+        ? combat.projectiles.filter((projectile) => projectile.collisionEnabled)
+        : [];
+      const target = collisionTargets.reduce<(typeof collisionTargets)[number] | null>(
+        (nearest, projectile) => nearest === null
+          || Math.hypot(
+            projectile.position.x - combat.playerPosition.x,
+            projectile.position.y - combat.playerPosition.y,
+          ) < Math.hypot(
+            nearest.position.x - combat.playerPosition.x,
+            nearest.position.y - combat.playerPosition.y,
+          )
+          ? projectile
+          : nearest,
+        null,
+      );
+      damagedRead = advanceCanonicalRunFirstContinuationNextOccurrenceRead(
+        damageBranch.nextOwner,
+        target === null
+          ? followCombatSafeGap(combat, damagePattern)
+          : moveTowardPoint(combat, combat.tick120 + 1, target.position),
+      );
+    }
+    const damageEvents = damageBranch.fixture.eventBus.events().slice(damageEventsStart);
+    expect(damageEvents.some((event) => event.id === "player.damage.commit")).toBe(true);
+    expect(damagedRead).toMatchObject({
+      phase: "tail",
+      tick120: 8_219,
+      nextMasterTickAction: "tail-advance-withheld",
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      combat: {
+        relativeTick120: 1_272,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        runTimedStateQuiescent: false,
+        poolUsage: {liveColliders: 0},
+      },
+    });
+    expect(damagedRead.combat?.player.recoveryAtTick120 !== null
+      || damagedRead.combat?.player.respawnPlaceAtTick120 !== null
+      || damagedRead.combat?.player.respawnCompleteAtTick120 !== null).toBe(true);
+    expect(damagedRead.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === damageBranch.nextView.plan.occurrence.occurrenceId))
+      .toHaveLength(1);
     expect(complete.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
       occurrenceId === preparation.view.plan.occurrence.occurrenceId)).toHaveLength(1);
     expect(fixture.eventBus.events().slice(eventsBeforeRead.length).some((event) =>
