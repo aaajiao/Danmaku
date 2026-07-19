@@ -99,17 +99,20 @@ export class Player {
   #previous: Buttons = 0;
 
   /**
-   * Bullets inside the graze circle as of the previous `checkGraze`. A bullet
-   * scores on the tick it *enters*, so this set is what stops a bullet drifting
-   * alongside the ship from paying every tick it is nearby.
+   * Bullets inside the graze circle as of the previous `checkGraze`, each
+   * mapped to the life it was in. A bullet scores on the tick it *enters*, so
+   * this is what stops a bullet drifting alongside the ship from paying every
+   * tick it is nearby.
    *
-   * Holding only the last tick's neighbours — rather than every bullet ever
-   * grazed — is also what makes this safe against pooling: a slot released and
-   * handed to a fresh bullet cannot be mistaken for its previous occupant
-   * unless both were in range on consecutive ticks.
+   * The generation is load-bearing, not defensive. Holding only the last tick's
+   * neighbours is *not* on its own enough to be safe against pooling: the free
+   * list is LIFO, so a bullet that despawns hands its slot straight to the next
+   * spawn, and a wave firing from close range routinely lands that fresh bullet
+   * inside the circle on the very next tick. Keyed on identity alone, the new
+   * bullet reads as the old one still lingering and the graze is silently lost.
    */
-  #grazed = new Set<Bullet>();
-  #grazing = new Set<Bullet>();
+  #grazed = new Map<Bullet, number>();
+  #grazing = new Map<Bullet, number>();
 
   constructor(config: PlayerConfig) {
     this.#config = config;
@@ -240,8 +243,10 @@ export class Player {
       ) {
         continue;
       }
-      current.add(bullet);
-      if (!previous.has(bullet)) counted++;
+      current.set(bullet, bullet.generation);
+      // A slot present under an older generation is a different bullet, and a
+      // different bullet entering the circle is a fresh near miss.
+      if (previous.get(bullet) !== bullet.generation) counted++;
     }
 
     this.#grazed = current;

@@ -172,6 +172,58 @@ describe('gamepad', () => {
   });
 });
 
+describe('reset', () => {
+  // The reset this guards: a latched tap held into game over must not survive
+  // into tick 0 of the next run.
+  test('a latched tap does not survive a reset', () => {
+    const { input, down, up } = harness();
+    input.sample();
+
+    down('KeyX');
+    up('KeyX');
+    input.reset();
+
+    expect(input.sample() & Button.Bomb).toBeFalsy();
+  });
+
+  test('a held key does not survive a reset', () => {
+    const { input, down } = harness();
+    down('ArrowLeft');
+    input.sample();
+
+    input.reset();
+
+    expect(input.sample() & Button.Left).toBeFalsy();
+  });
+
+  // #previous must be cleared too, or the tick after a reset can compute a
+  // pressed/released edge against state from before the reset rather than
+  // against genuine silence.
+  test('edge detection does not fire spuriously on the tick after a reset', () => {
+    const { input, down } = harness();
+    down('ArrowUp');
+    input.sample();
+    input.sample();
+
+    input.reset();
+
+    input.sample();
+    expect(input.pressed(Button.Up)).toBe(false);
+    expect(input.released(Button.Up)).toBe(false);
+  });
+
+  test('a genuine press after a reset is still detected as pressed', () => {
+    const { input, down } = harness();
+    down('ArrowUp');
+    input.sample();
+    input.reset();
+
+    down('ArrowRight');
+    input.sample();
+    expect(input.pressed(Button.Right)).toBe(true);
+  });
+});
+
 describe('replay override', () => {
   test('override replaces live input', () => {
     const { input, down } = harness();

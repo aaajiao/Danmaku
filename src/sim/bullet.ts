@@ -47,7 +47,7 @@ export interface BulletSpec {
   life?: number;
   /** Bounce off the field edges instead of despawning. */
   bounce?: boolean;
-  /** Maximum bounces before it despawns anyway. */
+  /** Bounces allowed before the bullet despawns. 0 (default) means unlimited. */
   maxBounces?: number;
   damage?: number;
 }
@@ -60,6 +60,14 @@ export class Bullet {
   radius = 3;
   damage = 1;
   faction: Faction = 'enemy';
+
+  /**
+   * Whether this bullet is live. System-owned: `BulletSystem.step` and
+   * `BulletSystem.despawn` are the only writers. A caller that wants a
+   * bullet gone must call `despawn`, not set this directly — removing a
+   * bullet also means unlinking it from the live list and freeing its pool
+   * slot, which a flag flip alone does not do.
+   */
   alive = false;
   bounce = false;
   maxBounces = 0;
@@ -71,6 +79,18 @@ export class Bullet {
    * and leave a bouncing bullet immortal.
    */
   bounceCount = 0;
+
+  /**
+   * Which life of this slot is currently running. Incremented on every spawn
+   * and deliberately **not** cleared by `reset`.
+   *
+   * Object identity is not enough to tell two bullets apart once pooling is in
+   * play, and the free list is LIFO: the slot released this tick is the very
+   * next one handed out. Anything remembering a bullet across ticks — graze
+   * bookkeeping in `sim/player.ts` — must compare this alongside the reference,
+   * or it will mistake a fresh bullet for the one that just despawned.
+   */
+  generation = 0;
 
   readonly vector = new MoveVector();
   readonly timeline = new MotionTimeline();
@@ -100,6 +120,7 @@ export class Bullet {
     this.maxBounces = spec.maxBounces ?? 0;
     this.angle = 0;
     this.bounceCount = 0;
+    this.generation++;
 
     this.vector.init(spec.motion, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -210,7 +231,7 @@ export class BulletSystem {
         b.x > width + margin ||
         b.y < -margin ||
         b.y > height + margin ||
-        (b.maxBounces > 0 && b.bounceCount > b.maxBounces);
+        (b.maxBounces > 0 && b.bounceCount >= b.maxBounces);
 
       if (expired) {
         b.alive = false;
@@ -269,6 +290,37 @@ export class BulletSystem {
       if (circlesOverlap(x, y, radius, b.x, b.y, b.radius)) hit = b;
     });
     return hit;
+  }
+
+  /**
+   * Remove a single bullet: unlink it from the live list and return its slot
+   * to the pool. This is the only way to end one bullet's life from outside
+   * `step()` — `alive` is set here, not by the caller, because removal has
+   * two other parts (the live-list splice, the pool release) that a flag
+   * flip alone cannot perform.
+   *
+   * A no-op if the bullet is already gone, so a collision loop that finds
+   * the same bullet twice in one sweep — two overlapping queries, say —
+   * cannot double-release it into the pool's free list.
+   *
+   * Safe to call while iterating `bullets`, which is where hit resolution
+   * naturally lives, but note a forward `for...of` that despawns as it goes
+   * can still skip visiting one shifted-in survivor per removal in that same
+   * pass — an artefact of mutating an array while iterating it forward, not
+   * a defect here. A second pass (or next tick's `step()`) catches it; a
+   * loop that must catch everything in one pass should walk backwards by
+   * index instead, where a removal only shifts already-visited slots.
+   */
+  despawn(bullet: Bullet): void {
+    if (!bullet.alive) return;
+    bullet.alive = false;
+
+    const index = this.bullets.indexOf(bullet);
+    // splice, not swap-remove: spawn order is draw order (main.ts's render
+    // loop walks `bullets` directly), and a swap would make it jump.
+    if (index >= 0) this.bullets.splice(index, 1);
+
+    this.#pool.release(bullet);
   }
 
   clear(): void {

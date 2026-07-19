@@ -163,4 +163,20 @@ export class Input {
     this.#previous = this.#current;
     this.#current = buttons;
   }
+
+  /**
+   * Clear all state for a fresh run.
+   *
+   * A button held or latched at game over would otherwise survive into tick 0
+   * of the next run — `#keys` and `#latched` are only ever mutated by device
+   * events, so nothing else clears them. `#previous` is cleared too, so the
+   * tick after a reset cannot read a spurious `pressed`/`released` edge
+   * against whatever was true before the reset.
+   */
+  reset(): void {
+    this.#keys = 0;
+    this.#latched = 0;
+    this.#current = 0;
+    this.#previous = 0;
+  }
 }

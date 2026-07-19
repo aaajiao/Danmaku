@@ -620,6 +620,30 @@ describe('graze', () => {
     expect(player.graze).toBe(2);
   });
 
+  test('a slot despawned and respawned inside one tick still grazes', () => {
+    const player = makePlayer();
+    const bullets = new BulletSystem({ bounds: FIELD, initial: 1, max: 1 });
+
+    const first = bullets.spawn(
+      250,
+      400,
+      { ...enemySpec(), life: 1 },
+      'enemy',
+      new Random(1),
+    ) as Bullet;
+    expect(player.checkGraze(bullets)).toBe(1);
+
+    // The real tick order: step despawns the bullet and the next spawn takes
+    // its slot back, with no `checkGraze` in between to forget the old one.
+    // Nothing observes the gap, so identity alone cannot tell the two apart.
+    bullets.step(0, 0, new Random(1));
+    const second = bullets.spawn(250, 400, enemySpec(), 'enemy', new Random(1)) as Bullet;
+    expect(second).toBe(first);
+
+    expect(player.checkGraze(bullets)).toBe(1);
+    expect(player.graze).toBe(2);
+  });
+
   test('a stream of bullets passing by grazes once each, not once per tick', () => {
     const player = makePlayer();
     const bullets = makeBullets();

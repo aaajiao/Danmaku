@@ -433,8 +433,8 @@ defineEnemy('grunt', {
   ],
   drops: { power: 1, score: 100 },
   scoreValue: 100,
-  onHit: 'enemy.hit',
-  onDeath: 'enemy.burst',
+  onHit: 'hit',
+  onDeath: 'explosion',
 });
 
 defineEnemy('weaver', {
@@ -458,8 +458,8 @@ defineEnemy('weaver', {
   ],
   drops: { power: 2, score: 300 },
   scoreValue: 300,
-  onHit: 'enemy.hit',
-  onDeath: 'enemy.burst',
+  onHit: 'hit',
+  onDeath: 'explosion',
 });
 
 defineEnemy('turret', {
@@ -486,6 +486,7 @@ defineEnemy('turret', {
   despawnMargin: 96,
   drops: { power: 3, score: 1000 },
   scoreValue: 1000,
-  onHit: 'enemy.hit',
-  onDeath: 'enemy.shatter',
+  onHit: 'hit',
+  // The heaviest thing in the cast, so it gets the heaviest death.
+  onDeath: 'death.big',
 });

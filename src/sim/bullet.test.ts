@@ -700,7 +700,7 @@ describe('bouncing', () => {
     expect(bullet.vector.reflectCount).toBeGreaterThan(10);
   });
 
-  test('maxBounces despawns the bullet on the bounce past its allowance', () => {
+  test('maxBounces despawns the bullet on its Nth bounce, not the N+1th', () => {
     const system = new BulletSystem({ bounds: SMALL, initial: 8 });
     const bullet = system.spawn(
       20,
@@ -710,16 +710,17 @@ describe('bouncing', () => {
       rng(),
     ) as Bullet;
 
-    // It survives its allowed bounce.
-    stepTimes(system, 4);
+    // Nothing has hit a wall yet.
+    stepTimes(system, 3);
     expect(system.count).toBe(1);
-    expect(bullet.vector.reflectCount).toBe(1);
+    expect(bullet.vector.reflectCount).toBe(0);
 
-    // And dies on the next one rather than reflecting again.
-    stepTimes(system, 7);
+    // maxBounces: 1 means exactly one bounce — it despawns on the same tick
+    // that bounce happens, rather than reflecting once more first.
+    system.step(0, 0, rng());
     expect(system.count).toBe(0);
     expect(bullet.alive).toBe(false);
-    expect(bullet.vector.reflectCount).toBe(2);
+    expect(bullet.vector.reflectCount).toBe(1);
   });
 
   test('a larger maxBounces allows proportionally more bounces', () => {
@@ -738,9 +739,9 @@ describe('bouncing', () => {
       return bullet.vector.reflectCount;
     };
 
-    expect(bouncesBeforeDeath(1)).toBe(2);
-    expect(bouncesBeforeDeath(3)).toBe(4);
-    expect(bouncesBeforeDeath(6)).toBe(7);
+    expect(bouncesBeforeDeath(1)).toBe(1);
+    expect(bouncesBeforeDeath(3)).toBe(3);
+    expect(bouncesBeforeDeath(6)).toBe(6);
   });
 
   test('the bounce allowance survives a timeline changing the motion', () => {
@@ -764,7 +765,7 @@ describe('bouncing', () => {
 
     expect(system.count).toBe(0);
     expect(bullet.alive).toBe(false);
-    expect(bullet.bounceCount).toBe(2);
+    expect(bullet.bounceCount).toBe(1);
   });
 
   test('bounceCount counts wall contacts and resets with the slot', () => {
@@ -1152,6 +1153,131 @@ describe('hitTest', () => {
       }
       expect(found).toBeGreaterThan(20);
     }
+  });
+});
+
+describe('despawn', () => {
+  test('removes exactly the given bullet, alive, from the live list, and returns it to the pool', () => {
+    const system = makeSystem({ initial: 3, max: 3 });
+    const all = [0, 1, 2].map(
+      (i) => system.spawn(10 * i, 10, makeSpec(), 'enemy', rng()) as Bullet,
+    );
+
+    system.despawn(all[1] as Bullet);
+
+    expect(system.count).toBe(2);
+    expect((all[1] as Bullet).alive).toBe(false);
+    expect((all[0] as Bullet).alive).toBe(true);
+    expect((all[2] as Bullet).alive).toBe(true);
+    // Order preserved among survivors — draw order should not jump.
+    expect(slots(system.bullets, all)).toEqual([0, 2]);
+  });
+
+  test('the freed slot is reused on the next spawn, like natural expiry', () => {
+    const system = makeSystem({ initial: 1, max: 1 });
+    const first = system.spawn(100, 100, makeSpec(), 'enemy', rng()) as Bullet;
+
+    system.despawn(first);
+    expect(system.count).toBe(0);
+    expect(system.poolGrowth).toBe(0);
+
+    const second = system.spawn(200, 200, makeSpec(), 'enemy', rng());
+    expect(second).toBe(first);
+    expect(system.poolSize).toBe(1);
+    expect(system.poolGrowth).toBe(0);
+  });
+
+  test('despawning a bullet twice is a no-op the second time', () => {
+    // The pool's development-mode double-release guard throws if the same
+    // object reaches release() twice; despawn must not let a second call
+    // through to it.
+    const system = makeSystem({ initial: 2, max: 2 });
+    const bullet = system.spawn(100, 100, makeSpec(), 'enemy', rng()) as Bullet;
+    const other = system.spawn(120, 100, makeSpec(), 'enemy', rng()) as Bullet;
+
+    expect(() => system.despawn(bullet)).not.toThrow();
+    expect(() => system.despawn(bullet)).not.toThrow();
+
+    expect(system.count).toBe(1);
+    expect(system.bullets).toContain(other);
+    expect(system.poolSize).toBe(2);
+
+    // The slot was freed exactly once, not twice: one more spawn fits, a
+    // second does not.
+    expect(system.spawn(0, 0, makeSpec(), 'enemy', rng())).toBeDefined();
+    expect(system.spawn(0, 0, makeSpec(), 'enemy', rng())).toBeUndefined();
+  });
+
+  test('despawning a bullet that already expired naturally is a no-op', () => {
+    const system = makeSystem({ initial: 2, max: 2 });
+    const bullet = system.spawn(100, 100, makeSpec({ life: 1 }), 'enemy', rng()) as Bullet;
+    system.step(0, 0, rng());
+    expect(bullet.alive).toBe(false);
+
+    expect(() => system.despawn(bullet)).not.toThrow();
+    expect(system.count).toBe(0);
+    expect(system.poolSize).toBe(2);
+  });
+
+  test('despawning during a for-of loop over the live list stays safe', () => {
+    // The natural caller is a collision loop: walk the live bullets, despawn
+    // the ones that were hit. That loop mutates the very array it walks, so
+    // this proves despawn holds its invariants under that — not that every
+    // match is caught in a single forward pass, which no in-place array
+    // removal can promise (removing the current element shifts the next one
+    // into its place, and a forward iterator has already moved past that
+    // index). A later pass, or next tick's step(), catches what a given pass
+    // misses — pinned by the second sweep below.
+    const system = makeSystem({ initial: 10, max: 10 });
+    for (let i = 0; i < 10; i++) {
+      system.spawn(10 * i, 100, makeSpec(), i % 2 === 0 ? 'enemy' : 'player', rng());
+    }
+
+    expect(() => {
+      for (const bullet of system.bullets) {
+        if (bullet.faction === 'enemy') system.despawn(bullet);
+      }
+    }).not.toThrow();
+
+    // Whatever survived the pass is coherent: no duplicate slots, nothing
+    // half-dead, and the pool's own accounting still balances.
+    expect(new Set(system.bullets).size).toBe(system.bullets.length);
+    for (const b of system.bullets) expect(b.alive).toBe(true);
+    expect(system.poolSize).toBe(10);
+    expect(system.droppedSpawns).toBe(0);
+
+    // A second sweep finishes what the first pass's array-mutation hazard
+    // could have left behind.
+    for (const bullet of system.bullets) {
+      if (bullet.faction === 'enemy') system.despawn(bullet);
+    }
+    expect(system.bullets.every((b) => b.faction === 'player')).toBe(true);
+
+    // Every freed slot is genuinely free: refilling to capacity never grows
+    // the pool or drops a spawn.
+    for (let i = 0; i < 10 - system.count; i++) {
+      expect(system.spawn(0, 0, makeSpec(), 'enemy', rng())).toBeDefined();
+    }
+    expect(system.poolGrowth).toBe(0);
+    expect(system.droppedSpawns).toBe(0);
+  });
+
+  test('despawning while walking backwards by index catches every match in one pass', () => {
+    // The safe idiom for a collision loop that must not miss anything this
+    // tick: walk by index from the end. Removing the current element only
+    // shifts already-visited indices, so nothing is skipped.
+    const system = makeSystem({ initial: 8, max: 8 });
+    for (let i = 0; i < 8; i++) {
+      system.spawn(10 * i, 100, makeSpec(), i % 2 === 0 ? 'enemy' : 'player', rng());
+    }
+
+    for (let i = system.bullets.length - 1; i >= 0; i--) {
+      const bullet = system.bullets[i];
+      if (bullet !== undefined && bullet.faction === 'enemy') system.despawn(bullet);
+    }
+
+    expect(system.bullets).toHaveLength(4);
+    expect(system.bullets.every((b) => b.faction === 'player')).toBe(true);
   });
 });
 

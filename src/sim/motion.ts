@@ -8,8 +8,27 @@
  * Angles are **degrees**, and the coordinate space is **y-down** (screen
  * space), so `theta = 90` moves downward — the default for falling shot.
  * Distances are **pixels per tick**. Never per second: see CLAUDE.md, rule 1.
+ *
+ * ## Trigonometry comes from `core/trig`, never from `Math`
+ *
+ * `Math.sin`, `Math.cos` and `Math.atan2` are *implementation-approximated* in
+ * ECMAScript: the spec permits any value within an unspecified tolerance, and
+ * engines genuinely disagree — JSC and V8 differ by 1 ULP on a few percent of
+ * inputs. This module is where that would do its damage, because `moveX` and
+ * `moveY` run once per bullet per tick and their output is integrated into
+ * position. A 1-ULP disagreement does not stay small: it drifts a bullet across
+ * a hitbox edge, the flipped hit-test changes how many draws the `sim` stream
+ * makes, and from the next draw onward the two runs are unrelated rather than
+ * merely close. Determinism is the product (CLAUDE.md, rule 2), so the sim
+ * calls `sinDeg`/`cosDeg`/`atan2Deg`, which are built only from the exactly
+ * specified IEEE-754 operations and are therefore bit-identical on any engine.
+ *
+ * The degree-native API is not a convenience wrapper either — the DSL's unit is
+ * degrees, and reducing in degrees avoids the rounding that `theta * PI / 180`
+ * would introduce before the reduction ever ran.
  */
 
+import { atan2Deg, cosDeg, sinDeg } from '../core/trig';
 import { sim, type Random } from '../core/random';
 
 export interface Range {
@@ -96,8 +115,6 @@ export function getBehaviour(name: string): MotionBehaviour | undefined {
   return behaviours.get(name);
 }
 
-const DEG_TO_RAD = Math.PI / 180;
-
 function clamp(value: number, range: Range | undefined): number {
   if (range === undefined) return value;
   if (range.max !== undefined && value > range.max) return range.max;
@@ -172,7 +189,7 @@ export class MoveVector {
 
   /** Point this vector at a position, preserving speed. */
   aimAt(fromX: number, fromY: number, toX: number, toY: number): void {
-    this.theta = Math.atan2(toY - fromY, toX - fromX) / DEG_TO_RAD;
+    this.theta = atan2Deg(toY - fromY, toX - fromX);
   }
 
   step(context: MotionContext, rng: Random = sim): void {
@@ -200,11 +217,11 @@ export class MoveVector {
   }
 
   moveX(): number {
-    return this.r * Math.cos(this.theta * DEG_TO_RAD) + this.driftX;
+    return this.r * cosDeg(this.theta) + this.driftX;
   }
 
   moveY(): number {
-    return this.r * Math.sin(this.theta * DEG_TO_RAD) + this.driftY;
+    return this.r * sinDeg(this.theta) + this.driftY;
   }
 
   /** Reverse direction. */

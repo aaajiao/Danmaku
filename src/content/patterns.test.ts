@@ -189,6 +189,37 @@ describe('registry', () => {
   });
 });
 
+describe('built-in pattern option handling', () => {
+  const BUILT_INS = ['ring', 'spiral', 'aimed-fan', 'spray'];
+
+  test('an unconfigured slot (no options at all) names the pattern and the missing field', () => {
+    // This is the failure an unconfigured pattern slot used to hit: `options`
+    // is `undefined`, and the old `as unknown as X` cast papered over that,
+    // so the read threw a bare "undefined is not an object" with no pattern
+    // name, no enemy name and no tick.
+    for (const name of BUILT_INS) {
+      expect(() => createPattern(name)).toThrow(`pattern "${name}" requires a "spec" option`);
+    }
+  });
+
+  test('options that omit only spec still throw the named error, not a property crash', () => {
+    expect(() => createPattern('ring', { count: 8 })).toThrow(
+      'pattern "ring" requires a "spec" option',
+    );
+  });
+
+  test('every other option falls back to its documented default when omitted', () => {
+    // `spec` is the only option with no sensible default. Supplying nothing
+    // else must produce a working pattern, not a crash on some other field.
+    for (const name of BUILT_INS) {
+      const bullets = makeSystem();
+      const pattern = createPattern(name, { spec: SPEC });
+      expect(() => drive(pattern, bullets, 1)).not.toThrow();
+      expect(bullets.count).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('ring primitive', () => {
   test('spaces bullets evenly over a full circle', () => {
     const bullets = makeSystem();
@@ -1057,6 +1088,14 @@ describe('Emitter', () => {
 
   test('constructing from an unknown name throws immediately', () => {
     expect(() => new Emitter(`${NS}nope`, 0, 0)).toThrow('unknown pattern');
+  });
+
+  test('constructing with no options throws a named error, not a raw property crash', () => {
+    // Reproduces the reported failure mode: a pattern slot with `options`
+    // left `undefined` (`new Emitter(slot.pattern, x, y, faction, slot.options)`
+    // with `slot.options` unset) must fail with a message naming the pattern,
+    // not `undefined is not an object (evaluating 'o.count')`.
+    expect(() => new Emitter('ring', 0, 0)).toThrow('pattern "ring" requires a "spec" option');
   });
 
   test('runs a duration-limited pattern to completion and then stops firing', () => {

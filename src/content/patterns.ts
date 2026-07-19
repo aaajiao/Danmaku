@@ -12,6 +12,7 @@
  */
 
 import type { Random } from '../core/random';
+import { atan2Deg } from '../core/trig';
 import type { BulletSpec } from '../sim/bullet';
 import type { BulletSystem, Faction } from '../sim/bullet';
 
@@ -69,8 +70,6 @@ export function patternDefinitions(): readonly PatternDefinition[] {
 /* Primitives                                                          */
 /* ------------------------------------------------------------------ */
 
-const DEG = Math.PI / 180;
-
 /** Fire `count` bullets evenly around a full circle. */
 export function ring(
   context: EmitContext,
@@ -118,16 +117,38 @@ export function fan(
   }
 }
 
-/** Angle from the emitter to its target, in degrees. */
+/**
+ * Angle from the emitter to its target, in degrees.
+ *
+ * `atan2Deg`, never `Math.atan2`: aimed fire writes this straight into a
+ * bullet's heading, so a 1-ULP disagreement between engines is a bullet on a
+ * different trajectory, and eventually a hit test that falls the other way.
+ * See `core/trig`.
+ */
 export function aimAngle(context: EmitContext): number {
-  return (
-    Math.atan2(context.targetY - context.y, context.targetX - context.x) / DEG
-  );
+  return atan2Deg(context.targetY - context.y, context.targetX - context.x);
 }
 
 /* ------------------------------------------------------------------ */
 /* Built-in patterns                                                   */
 /* ------------------------------------------------------------------ */
+
+/**
+ * `spec` is the one option with no sensible default — there is no bullet
+ * shape a pattern could safely assume in its place — so a missing spec must
+ * fail loudly, naming the pattern, rather than default silently like every
+ * other field. `options` itself may be entirely absent (an unconfigured
+ * pattern slot); that is just another way of missing `spec`.
+ */
+function requireSpec<T extends { spec: BulletSpec }>(
+  options: Readonly<Partial<T>> | undefined,
+  patternName: string,
+): BulletSpec {
+  if (options?.spec === undefined) {
+    throw new Error(`pattern "${patternName}" requires a "spec" option`);
+  }
+  return options.spec;
+}
 
 interface RingOptions {
   spec: BulletSpec;
@@ -141,18 +162,18 @@ interface RingOptions {
 definePattern({
   name: 'ring',
   description: 'Evenly spaced full circle, optionally rotating each volley.',
-  create(options) {
-    const o = options as unknown as RingOptions;
-    const count = o.count ?? 16;
-    const period = o.period ?? 30;
-    const rotation = o.rotation ?? 7;
-    const duration = o.duration ?? 0;
+  create(options?: Readonly<Partial<RingOptions>>) {
+    const spec = requireSpec(options, 'ring');
+    const count = options?.count ?? 16;
+    const period = options?.period ?? 30;
+    const rotation = options?.rotation ?? 7;
+    const duration = options?.duration ?? 0;
     let volley = 0;
 
     return (context) => {
       if (duration > 0 && context.age >= duration) return false;
       if (context.age % period !== 0) return true;
-      ring(context, o.spec, count, volley * rotation);
+      ring(context, spec, count, volley * rotation);
       volley++;
       return true;
     };
@@ -172,12 +193,12 @@ interface SpiralOptions {
 definePattern({
   name: 'spiral',
   description: 'Continuous rotating arms.',
-  create(options) {
-    const o = options as unknown as SpiralOptions;
-    const arms = o.arms ?? 3;
-    const step = o.step ?? 11;
-    const period = o.period ?? 3;
-    const duration = o.duration ?? 0;
+  create(options?: Readonly<Partial<SpiralOptions>>) {
+    const spec = requireSpec(options, 'spiral');
+    const arms = options?.arms ?? 3;
+    const step = options?.step ?? 11;
+    const period = options?.period ?? 3;
+    const duration = options?.duration ?? 0;
     let angle = 0;
 
     return (context) => {
@@ -187,7 +208,7 @@ definePattern({
         const bullet = context.bullets.spawn(
           context.x,
           context.y,
-          o.spec,
+          spec,
           context.faction,
           context.rng,
         );
@@ -211,17 +232,17 @@ interface AimedOptions {
 definePattern({
   name: 'aimed-fan',
   description: 'Spread fired at the player. The pressure staple.',
-  create(options) {
-    const o = options as unknown as AimedOptions;
-    const count = o.count ?? 5;
-    const spread = o.spread ?? 40;
-    const period = o.period ?? 45;
-    const duration = o.duration ?? 0;
+  create(options?: Readonly<Partial<AimedOptions>>) {
+    const spec = requireSpec(options, 'aimed-fan');
+    const count = options?.count ?? 5;
+    const spread = options?.spread ?? 40;
+    const period = options?.period ?? 45;
+    const duration = options?.duration ?? 0;
 
     return (context) => {
       if (duration > 0 && context.age >= duration) return false;
       if (context.age % period !== 0) return true;
-      fan(context, o.spec, count, aimAngle(context), spread);
+      fan(context, spec, count, aimAngle(context), spread);
       return true;
     };
   },
@@ -240,22 +261,22 @@ interface SprayOptions {
 definePattern({
   name: 'spray',
   description: 'Randomised scatter. Draws from the sim stream.',
-  create(options) {
-    const o = options as unknown as SprayOptions;
-    const count = o.count ?? 3;
-    const period = o.period ?? 6;
-    const spread = o.spread ?? 360;
-    const duration = o.duration ?? 0;
+  create(options?: Readonly<Partial<SprayOptions>>) {
+    const spec = requireSpec(options, 'spray');
+    const count = options?.count ?? 3;
+    const period = options?.period ?? 6;
+    const spread = options?.spread ?? 360;
+    const duration = options?.duration ?? 0;
 
     return (context) => {
       if (duration > 0 && context.age >= duration) return false;
       if (context.age % period !== 0) return true;
-      const centre = o.centre ?? aimAngle(context);
+      const centre = options?.centre ?? aimAngle(context);
       for (let i = 0; i < count; i++) {
         const bullet = context.bullets.spawn(
           context.x,
           context.y,
-          o.spec,
+          spec,
           context.faction,
           context.rng,
         );

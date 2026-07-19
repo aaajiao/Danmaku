@@ -606,4 +606,126 @@ describe('SpatialGrid', () => {
     expect(a).toEqual(b);
     expect(a.length).toBeGreaterThan(0);
   });
+
+  describe('bucket retention', () => {
+    /**
+     * A never-before-touched cell, `n` distinct ones as `n` counts up.
+     *
+     * The stride must stay inside the range `packCell` can represent. It
+     * clamps cell coordinates to +/-0x8000, so a "far apart" x of `n * CELL *
+     * 100` stops producing new keys at n = 328: every later position saturates
+     * onto the same edge bucket. Written that way these tests peak at ~330
+     * buckets, never reach the cap, and never evict anything — they pass
+     * identically against the leaking implementation they were written to
+     * catch. One cell per step is the whole point.
+     */
+    const churnX = (n: number): number => n * CELL;
+
+    /**
+     * Buckets retained once the cap binds. Not exported from `collision.ts`
+     * (nothing outside it should tune the cap), so the tests assert the shape
+     * of the bound — flat, and far below the number of cells touched — rather
+     * than its exact value. `atCap` is what stops these going vacuous again:
+     * a run that never fills the map never exercises eviction at all.
+     */
+    const atCap = (grid: SpatialGrid<unknown>): boolean => grid.bucketCount >= 4000;
+
+    // The leak this guards: `clear()` used to empty every bucket's array but
+    // never drop the key, so the map grew with the union of every cell ever
+    // touched. Bullets stream far outside the field over a long session, so a
+    // stream of never-repeated positions is exactly the failure case.
+    test('the bucket count does not grow without bound under a stream of ever-moving positions', () => {
+      const grid = new SpatialGrid<number>(CELL);
+      const PER_PHASE = 9000;
+      const drive = (offset: number): void => {
+        for (let i = 0; i < PER_PHASE; i++) {
+          grid.clear();
+          grid.insert(churnX(offset + i), 0, i);
+        }
+      };
+
+      drive(0);
+      const afterFirst = grid.bucketCount;
+      drive(PER_PHASE);
+      const afterSecond = grid.bucketCount;
+
+      // Unbounded retention would reach 9000 keys after the first phase and
+      // 18000 after the second. A bounded policy holds it flat at the cap.
+      expect(afterFirst).toBeLessThan(PER_PHASE);
+      expect(afterSecond).toBeLessThanOrEqual(afterFirst + 50);
+      expect(atCap(grid)).toBe(true);
+    });
+
+    // The other half of the policy: eviction must never reach a bucket that is
+    // still in active use, no matter how much unrelated churn is pushing on
+    // the cap at the same time.
+    test('a bucket still in use is never dropped, even under eviction pressure', () => {
+      const grid = new SpatialGrid<string>(CELL);
+      const homeX = 10;
+      const homeY = 10;
+
+      for (let tick = 0; tick < 9000; tick++) {
+        grid.clear();
+        grid.insert(homeX, homeY, 'home');
+        // A fresh, never-repeated cell every tick, to force the cap and keep
+        // the eviction path exercised for the whole run.
+        grid.insert(churnX(tick), 5000, `churn-${tick}`);
+      }
+
+      expect(atCap(grid)).toBe(true);
+      expect(collect(grid, homeX, homeY, 0)).toEqual(['home']);
+    });
+
+    // Occasional gaps in use are normal (a lane goes quiet, then fires again)
+    // and must not read as abandonment. Churn runs throughout, so the gap is
+    // survived under live eviction pressure rather than in an idle map.
+    test('a bucket survives a gap shorter than the idle threshold', () => {
+      const grid = new SpatialGrid<string>(CELL);
+      let tick = 0;
+      const churn = (): void => {
+        grid.clear();
+        grid.insert(churnX(tick), 5000, `churn-${tick}`);
+        tick++;
+      };
+
+      // Past the cap, not merely up to it, so every churn tick through the gap
+      // below is evicting rather than still filling the map.
+      while (!atCap(grid)) churn();
+      for (let settle = 0; settle < 200; settle++) churn();
+
+      grid.insert(10, 10, 'lull');
+      for (let gap = 0; gap < 100; gap++) churn();
+
+      grid.insert(10, 10, 'lull');
+      expect(collect(grid, 10, 10, 0)).toEqual(['lull']);
+    });
+
+    // The positive case behind the bounded-growth test above: a bucket that
+    // is genuinely abandoned — one insert, then never touched again — must
+    // eventually be reclaimed under cap pressure, not just stop growing.
+    test('a genuinely abandoned bucket is eventually evicted under cap pressure', () => {
+      const grid = new SpatialGrid<string>(CELL);
+      const CHURN = 9000;
+
+      grid.clear();
+      grid.insert(10, 10, 'abandoned');
+
+      // Far more ticks than the idle threshold, each forcing a brand-new key,
+      // so the cap is reached and stays under pressure for the whole run.
+      for (let tick = 0; tick < CHURN; tick++) {
+        grid.clear();
+        grid.insert(churnX(tick), 5000, `churn-${tick}`);
+      }
+
+      // Retention has to be asserted on the bucket count, not on what a query
+      // returns: an emptied-but-retained bucket and an evicted one both answer
+      // an empty query. Holding at the cap while 1 + CHURN distinct cells were
+      // touched is reclamation, and reclamation takes the least-recently-used
+      // bucket first — which is precisely the one touched once, at the start,
+      // and never since.
+      expect(atCap(grid)).toBe(true);
+      expect(grid.bucketCount).toBeLessThan(1 + CHURN);
+      expect(collect(grid, 10, 10, 0)).toEqual([]);
+    });
+  });
 });

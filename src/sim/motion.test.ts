@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Random, seedRun } from '../core/random';
+import { atan2Deg, cosDeg, sinDeg } from '../core/trig';
 import {
   defineBehaviour,
   getBehaviour,
@@ -1197,6 +1198,83 @@ describe('determinism', () => {
       // Frame-locked: no delta-time may reach the simulation.
       expect(text).not.toMatch(/\bdeltaTime\b|\belapsedTime\b/);
     });
+  });
+});
+
+/**
+ * The reason `core/trig` exists at all is that `Math.sin`, `Math.cos` and
+ * `Math.atan2` are implementation-approximated: JSC and V8 return different
+ * bits for the same input. `moveX`/`moveY` integrate their result into a
+ * position every tick, so a 1-ULP disagreement here is not a rounding wart —
+ * it eventually flips a hit-test, which changes how many draws the `sim`
+ * stream makes, after which the two runs share nothing. These tests pin the
+ * routing itself rather than the values, because the values are only
+ * meaningful insofar as they came from the deterministic implementation.
+ */
+describe('trigonometry is routed through core/trig', () => {
+  const HEADINGS = [0, 17, 45, 90, 123.456, 180, 270, 359.75, 450, -60, -1080.5];
+
+  // The `+ 0` is the drift term, not padding: `sinDeg(180)` is `-0` (an
+  // odd-symmetry fold negating an exact zero) and adding drift turns it back
+  // into `+0`. Dropping it would make `toBe` fail on a value that is correct.
+  test('moveX is exactly r * cosDeg(theta) + driftX, bit for bit', () => {
+    const v = new MoveVector();
+    for (const theta of HEADINGS) {
+      v.init({ r: 3.25, theta });
+      expect(v.moveX()).toBe(3.25 * cosDeg(theta) + 0);
+    }
+  });
+
+  test('moveY is exactly r * sinDeg(theta) + driftY, bit for bit', () => {
+    const v = new MoveVector();
+    for (const theta of HEADINGS) {
+      v.init({ r: 3.25, theta });
+      expect(v.moveY()).toBe(3.25 * sinDeg(theta) + 0);
+    }
+  });
+
+  test('aimAt is exactly atan2Deg of the offset', () => {
+    const v = new MoveVector();
+    const offsets = [
+      [10, 0],
+      [0, 10],
+      [-80, 280],
+      [3, 4],
+      [-1, -1],
+      [0.5, -1e6],
+    ] as const;
+    for (const [dx, dy] of offsets) {
+      v.aimAt(200, 100, 200 + dx, 100 + dy);
+      expect(v.theta).toBe(atan2Deg(dy, dx));
+    }
+  });
+
+  // The quarter turns come out exactly zero rather than the ~1e-16 residue
+  // `Math.cos(Math.PI / 2)` leaves, so an axis-aligned bullet does not creep
+  // sideways over a long flight.
+  test('the axis headings produce exactly zero on the off axis', () => {
+    const v = new MoveVector();
+    v.init({ r: 400, theta: 90 });
+    expect(Math.abs(v.moveX())).toBe(0);
+    v.init({ r: 400, theta: 180 });
+    expect(Math.abs(v.moveY())).toBe(0);
+    v.init({ r: 400, theta: 270 });
+    expect(Math.abs(v.moveX())).toBe(0);
+  });
+
+  /**
+   * `Math.floor` is exact, so `randomIn` may keep it. Every transcendental is
+   * banned outright — including `Math.PI`, whose only use here would be a
+   * hand-rolled degree conversion feeding the very calls this replaces.
+   */
+  test('motion.ts calls no implementation-approximated Math member', async () => {
+    const source = await Bun.file(`${import.meta.dir}/motion.ts`).text();
+    const allowed = new Set(['floor', 'abs', 'min', 'max', 'round', 'sqrt']);
+    const stripped = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const found = [...stripped.matchAll(/Math\s*\.\s*(\w+)/g)]
+      .map((match) => match[1])
+      .filter((member) => member !== undefined && !allowed.has(member));
+    expect(found).toEqual([]);
   });
 });
 

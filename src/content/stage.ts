@@ -22,6 +22,7 @@
 
 import { sim, type Random } from '../core/random';
 import { EnemySystem, getEnemySpec } from '../sim/enemy';
+import { patternNames } from './patterns';
 
 export interface WaveEntry {
   /** Tick, relative to the stage start. */
@@ -207,11 +208,25 @@ export class StageRunner {
     // defines its own enemies would then have to be imported in the right
     // order, and load-order dependence is the exact trap `patterns.ts` was
     // written to avoid.
+    //
+    // The pattern names inside those specs need the same treatment, and are
+    // worse without it: an enemy name is read the moment it spawns, but a
+    // pattern name is not read until the slot's `startAt` falls due, so a typo
+    // detonates from inside `EnemySystem.step` an arbitrary number of ticks
+    // after the enemy the player is already fighting appeared.
+    const known = new Set(patternNames());
     const seen = new Set<string>();
     for (const spawn of this.#spawns) {
       if (seen.has(spawn.enemy)) continue;
       seen.add(spawn.enemy);
-      getEnemySpec(spawn.enemy);
+      const enemy = getEnemySpec(spawn.enemy);
+      for (const slot of enemy.patterns ?? []) {
+        if (!known.has(slot.pattern)) {
+          throw new Error(
+            `stage "${spec.name}": enemy "${spawn.enemy}" uses unknown pattern "${slot.pattern}"`,
+          );
+        }
+      }
     }
 
     const last = this.#spawns[this.#spawns.length - 1];
