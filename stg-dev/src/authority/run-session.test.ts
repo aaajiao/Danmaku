@@ -1158,6 +1158,7 @@ describe("manifest-backed canonical V4 run session prologue", () => {
     expect(() => session.snapshot()).toThrow(/session is faulted/);
     expect(() => session.events()).toThrow(/session is faulted/);
     expect(() => session.canonicalEventSerialization()).toThrow(/session is faulted/);
+    expect(() => session.behaviorFactSerialization()).toThrow(/session is faulted/);
     expect(() => session.step(neutralInput(961))).toThrow(/session is faulted/);
   });
 

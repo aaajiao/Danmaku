@@ -22,6 +22,11 @@ import {
   type GazeAuthoritySnapshot,
 } from "./gaze";
 import {
+  CanonicalRunBehaviorFactLedger,
+  type CanonicalRunBehaviorFactsSnapshot,
+  type CanonicalRunBehaviorOwnerPhase,
+} from "./run-behavior-facts";
+import {
   AUTHORED_PLAYER_Y,
   LOGICAL_VIEW_HEIGHT,
   LOGICAL_VIEW_WIDTH,
@@ -341,6 +346,8 @@ export interface CanonicalRunSessionSnapshot {
   }>;
   readonly handoff: CanonicalRunSessionHandoffSnapshot;
   readonly roomSampling: CanonicalRunRoomSessionSnapshot | null;
+  /** Bounded observation only; it is neither a metric snapshot nor composer input. */
+  readonly behaviorFacts: CanonicalRunBehaviorFactsSnapshot;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -964,6 +971,7 @@ export class CanonicalRunSession {
   private readonly bus = new CanonicalEventBus();
   private readonly flower = new FlowerIntensityAuthority(this.bus, {authorityId: "player-flower"});
   private readonly gaze = new GazeAuthority(this.bus);
+  private readonly behaviorFacts: CanonicalRunBehaviorFactLedger;
   private phaseValue: CanonicalRunSessionPhase = "quiet_awakening";
   private currentTick120 = 0;
   private phaseStartTick120 = 0;
@@ -997,6 +1005,10 @@ export class CanonicalRunSession {
       overrideActive: false,
     }, 0);
     this.bus.flush();
+    this.behaviorFacts = new CanonicalRunBehaviorFactLedger({
+      rawRunSeed: this.options.rawRunSeed,
+      baselineEvents: this.bus.committedEventsFrom(0),
+    });
   }
 
   step(input: CanonicalRunSessionStepInput): CanonicalRunSessionSnapshot {
@@ -1009,10 +1021,14 @@ export class CanonicalRunSession {
       // breach; the composite becomes permanently fail-stop so partial state
       // can never be resumed or observed through its public ports.
       const validated = validateStepInput(input, this.currentTick120);
+      const ownerPhase: CanonicalRunBehaviorOwnerPhase = this.phaseValue;
+      const eventCountBefore = this.bus.committedEventCount();
       try {
-        if (this.phaseValue === "quiet_awakening") return this.stepAwakening(validated);
-        if (this.phaseValue === "room_sampling") return this.stepRoomSampling(validated);
-        return this.stepFirstEye(validated);
+        if (this.phaseValue === "quiet_awakening") this.stepAwakening(validated);
+        else if (this.phaseValue === "room_sampling") this.stepRoomSampling(validated);
+        else this.stepFirstEye(validated);
+        this.recordBehaviorFacts(ownerPhase, validated, eventCountBefore);
+        return this.snapshot();
       } catch (error) {
         this.fatalError = error instanceof Error ? error : new Error(String(error));
         throw error;
@@ -1093,6 +1109,7 @@ export class CanonicalRunSession {
         sourceCombat: this.handoffSourceCombat,
       },
       roomSampling,
+      behaviorFacts: this.behaviorFacts.snapshot(),
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1107,12 +1124,68 @@ export class CanonicalRunSession {
     return this.bus.canonicalSerialization();
   }
 
+  behaviorFactSerialization(): string {
+    this.assertOperational();
+    return this.behaviorFacts.canonicalSerialization();
+  }
+
   private assertOperational(): void {
     if (this.fatalError === null) return;
     throw new Error(
       `canonical run session is faulted after an internal authority failure: ${this.fatalError.message}`,
       {cause: this.fatalError},
     );
+  }
+
+  private recordBehaviorFacts(
+    ownerPhase: CanonicalRunBehaviorOwnerPhase,
+    input: ValidatedStepInput,
+    eventCountBefore: number,
+  ): void {
+    const sourceEventCount = this.bus.committedEventCount();
+    if (eventCountBefore < 0 || eventCountBefore > sourceEventCount) {
+      throw new Error("run behavior facts lost its canonical event cursor");
+    }
+    const canonicalEvents = this.bus.committedEventsFrom(eventCountBefore);
+    const runCombat = this.combatState?.snapshot() ?? null;
+    const ownerConsumesRunCombat = ownerPhase !== "quiet_awakening" && runCombat !== null;
+    const roomId = ownerPhase === "room_sampling"
+      ? this.roomSession?.snapshot().roomId ?? null
+      : null;
+    if (ownerPhase === "room_sampling" && roomId === null) {
+      throw new Error("ROOM_SAMPLING behavior facts lost its current room context");
+    }
+    const inputEnabled = this.playerDamage === null
+      || playerInputEligibleAtTick(this.playerDamage, this.currentTick120);
+    this.behaviorFacts.recordAcceptedTick({
+      ownerPhase,
+      requested: {
+        tick120: input.tick120,
+        movement: input.movement,
+        signalActive: input.signalActive,
+        focused: input.focused,
+        gaze: input.gaze,
+        overridePressed: input.overridePressed,
+        overrideReleased: input.overrideReleased,
+        overrideDirection: input.overrideDirection,
+      },
+      committed: {
+        player: {
+          position: this.playerPosition,
+          inputEnabled,
+          focused: inputEnabled && this.focused,
+          lifeState: this.playerDamage?.state ?? null,
+        },
+        flower: this.flower.snapshot(),
+        gaze: this.gaze.snapshot(),
+        override: ownerConsumesRunCombat ? runCombat.override : null,
+        roomId,
+        runCombatAvailable: ownerConsumesRunCombat,
+        activeOccurrenceId: ownerConsumesRunCombat ? runCombat.activeOccurrenceId : null,
+        canonicalEvents,
+        sourceEventCount,
+      },
+    });
   }
 
   private recordAwakeningInput(input: ValidatedStepInput): void {
@@ -1146,7 +1219,7 @@ export class CanonicalRunSession {
     }, input.tick120);
   }
 
-  private stepAwakening(input: ValidatedStepInput): CanonicalRunSessionSnapshot {
+  private stepAwakening(input: ValidatedStepInput): void {
     this.recordAwakeningInput(input);
     this.resolveFlower(input, false, false);
     const nextPosition = integratePlayerPosition(this.playerPosition, input, false);
@@ -1157,7 +1230,7 @@ export class CanonicalRunSession {
       this.playerPosition = nextPosition;
       this.focused = false;
       this.bus.flush();
-      return this.snapshot();
+      return;
     }
     const combatOptions = Object.freeze({
       patternId: FIRST_EYE_PATTERN_ID,
@@ -1203,17 +1276,16 @@ export class CanonicalRunSession {
     this.combat = nextCombat;
     this.latestCombatSnapshot = initialCombat;
     this.phaseValue = "first_eye";
-    return this.snapshot();
   }
 
-  private stepFirstEye(input: ValidatedStepInput): CanonicalRunSessionSnapshot {
+  private stepFirstEye(input: ValidatedStepInput): void {
     const combat = this.combat;
     if (combat === null) throw new Error("First Eye lost its canonical combat authority");
     const combatState = this.combatState;
     if (combatState === null) throw new Error("First Eye lost its run-scoped combat state");
     const retainedPlayer = this.playerDamage ?? combat.snapshot().player;
     const inputEligible = playerInputEligibleAtTick(retainedPlayer, input.tick120);
-    const eventsBefore = this.bus.events().length;
+    const eventsBefore = this.bus.committedEventCount();
     // Gaze is an independent caller-supplied perceptual relation. Player body
     // death gates movement/Focus/signal, but must never rewrite a qualified
     // sample into a synthetic release.
@@ -1259,7 +1331,7 @@ export class CanonicalRunSession {
     if (combatSnapshot === null) {
       throw new Error("First Eye released before retaining its final combat snapshot");
     }
-    const committedEvents = this.bus.events().slice(eventsBefore);
+    const committedEvents = this.bus.committedEventsFrom(eventsBefore);
     const clampCommit = committedEvents.find((event) => event.id === "gaze.clamp.commit");
     if (clampCommit !== undefined) {
       if (this.gazeClampCommittedAtTick120 === null) {
@@ -1371,10 +1443,9 @@ export class CanonicalRunSession {
       this.phaseValue = "room_sampling";
       this.phaseStartTick120 = input.tick120;
     }
-    return this.snapshot();
   }
 
-  private stepRoomSampling(input: ValidatedStepInput): CanonicalRunSessionSnapshot {
+  private stepRoomSampling(input: ValidatedStepInput): void {
     const roomSession = this.roomSession;
     if (roomSession === null) throw new Error("ROOM_SAMPLING lost its fixed bootstrap authority");
     const combatState = this.combatState;
@@ -1400,6 +1471,5 @@ export class CanonicalRunSession {
     this.focused = room.runCombat.focused;
     this.playerDamage = room.runCombat.player;
     if (room.combat !== null) this.latestCombatSnapshot = room.combat;
-    return this.snapshot();
   }
 }
