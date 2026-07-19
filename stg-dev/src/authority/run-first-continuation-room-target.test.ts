@@ -8,6 +8,7 @@ import {
 } from "./run-metric-projection";
 import {
   CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING,
+  assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner,
   cancelCanonicalRunFirstContinuationRoomTransitionReceipt,
   commitCanonicalRunFirstContinuationRoomTransitionReceipt,
   createCanonicalRunFirstContinuationRoomTarget,
@@ -19,6 +20,7 @@ import {
   type CanonicalRunFirstContinuationRoomTargetAvailable,
   type CanonicalRunFirstContinuationRoomTransitionReceipt,
 } from "./run-first-continuation-room-target";
+import type {CanonicalRunCombatState} from "./combat-kernel";
 import {executablePattern} from "./pattern-executor";
 import {RUN_ROOM_SESSION_CONTRACT} from "./run-room-session";
 import {
@@ -37,6 +39,7 @@ const FORMAL_TARGET_SEEDS = Object.freeze([0x92d4_860b, 1, 2] as const);
 interface FormalTargetFixture {
   readonly formal: CanonicalRunFirstContinuationRoomTargetAvailable;
   readonly publicSnapshot: CanonicalRunFirstContinuationRoomTargetAvailable;
+  readonly runCombatOwner: CanonicalRunCombatState;
 }
 
 let formalTargetFixtures: readonly FormalTargetFixture[] = [];
@@ -232,13 +235,23 @@ function reachFormalTarget(rawRunSeed: number): FormalTargetFixture {
   if (publicSnapshot.availability !== "available") {
     throw new Error("formal target fixture did not reach target selection");
   }
-  const formal = (session as unknown as Readonly<{
+  const internals = session as unknown as Readonly<{
+    combatState: CanonicalRunCombatState | null;
     firstContinuationRoomTargetValue: CanonicalRunFirstContinuationRoomTargetAvailable | null;
-  }>).firstContinuationRoomTargetValue;
-  if (formal === null || formal.availability !== "available") {
+  }>;
+  const formal = internals.firstContinuationRoomTargetValue;
+  if (
+    formal === null
+    || formal.availability !== "available"
+    || internals.combatState === null
+  ) {
     throw new Error("formal target fixture lost its internal target");
   }
-  return Object.freeze({formal, publicSnapshot});
+  return Object.freeze({
+    formal,
+    publicSnapshot,
+    runCombatOwner: internals.combatState,
+  });
 }
 
 beforeAll(() => {
@@ -399,6 +412,7 @@ describe("EXT-2026-012 first continuation room target", () => {
   it("rejects a forged formal receipt and exposes an exact pre-source sentinel", () => {
     expect(() => createCanonicalRunFirstContinuationRoomTarget(
       Object.freeze({}) as CanonicalRunFirstRoomMetricProjectionReceipt,
+      Object.freeze({}),
     )).toThrow(/receipt is not registered/);
     expect(CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING).toEqual({
       availability: "missing",
@@ -417,11 +431,19 @@ describe("EXT-2026-012 first continuation room target", () => {
       "IN_BETWEEN",
       "POLARIZED",
     ]);
-    formalTargetFixtures.forEach(({formal}, index) => {
+    formalTargetFixtures.forEach(({formal, runCombatOwner}, index) => {
       const first = issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal);
       expect(Object.isFrozen(first)).toBe(true);
       expect(Reflect.ownKeys(first)).toEqual([]);
       expect(firstContinuationRoomTargetFromCanonicalTransitionReceipt(first)).toBe(formal);
+      expect(() => assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner(
+        first,
+        runCombatOwner,
+      )).not.toThrow();
+      expect(() => assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner(
+        first,
+        Object.freeze({}),
+      )).toThrow(/different Run combat authority/);
       expect(() => issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal))
         .toThrow(/in-flight transition receipt/);
 

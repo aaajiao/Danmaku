@@ -15,7 +15,7 @@ import {executablePattern} from "./pattern-executor";
 import {
   FIRST_FIXED_ROOM_CLOSURE_CONTRACT,
   RUN_ROOM_SESSION_CONTRACT,
-} from "./run-room-session";
+} from "./run-room-contract";
 
 const UINT32_MAX = 0xffff_ffff;
 const MULBERRY32_INCREMENT = 0x6d2b79f5;
@@ -761,12 +761,17 @@ function selectWeightedCandidateIndex(
 }
 
 const consumedFormalProjections = new WeakSet<object>();
-const formalTargets = new WeakSet<object>();
+interface FormalTargetLineage {
+  readonly runCombatOwner: object;
+}
+
+const formalTargetLineages = new WeakMap<object, FormalTargetLineage>();
 
 type TransitionReceiptStatus = "prepared" | "cancelled" | "committed" | "quarantined";
 
 interface TransitionReceiptState {
   readonly target: CanonicalRunFirstContinuationRoomTargetAvailable;
+  readonly runCombatOwner: object;
   status: TransitionReceiptStatus;
 }
 
@@ -785,7 +790,7 @@ function assertFormalTargetTransitionContract(
   target: CanonicalRunFirstContinuationRoomTargetAvailable,
 ): void {
   invariant(
-    typeof target === "object" && target !== null && formalTargets.has(target),
+    typeof target === "object" && target !== null && formalTargetLineages.has(target),
     "transition receipt requires the original formal target",
   );
   assertFrozenJsonData(target, "formalTarget");
@@ -1031,12 +1036,17 @@ function requireActiveTransitionReceipt(
 /** Formal EXT-012 entry point. Each formal projection can select only once. */
 export function createCanonicalRunFirstContinuationRoomTarget(
   sourceReceipt: CanonicalRunFirstRoomMetricProjectionReceipt,
+  runCombatOwner: object,
 ): CanonicalRunFirstContinuationRoomTargetAvailable {
   const projection = firstRoomMetricProjectionFromCanonicalReceipt(sourceReceipt);
   invariant(!consumedFormalProjections.has(projection), "formal projection already selected a continuation target");
+  invariant(
+    typeof runCombatOwner === "object" && runCombatOwner !== null,
+    "formal continuation target requires its exact Run combat owner",
+  );
   const payload = deriveCanonicalRunFirstContinuationRoomTargetUnbranded(projection);
   consumedFormalProjections.add(projection);
-  formalTargets.add(payload);
+  formalTargetLineages.set(payload, Object.freeze({runCombatOwner}));
   return payload as CanonicalRunFirstContinuationRoomTargetAvailable;
 }
 
@@ -1049,6 +1059,8 @@ export function issueCanonicalRunFirstContinuationRoomTransitionReceipt(
   target: CanonicalRunFirstContinuationRoomTargetAvailable,
 ): CanonicalRunFirstContinuationRoomTransitionReceipt {
   assertFormalTargetTransitionContract(target);
+  const lineage = formalTargetLineages.get(target);
+  invariant(lineage !== undefined, "formal target lost its Run combat lineage");
   invariant(!consumedFormalTargets.has(target), "formal target transition already committed");
   invariant(!quarantinedFormalTargets.has(target), "formal target transition is quarantined");
   invariant(
@@ -1056,9 +1068,25 @@ export function issueCanonicalRunFirstContinuationRoomTransitionReceipt(
     "formal target already has an in-flight transition receipt",
   );
   const receipt = Object.freeze({}) as CanonicalRunFirstContinuationRoomTransitionReceipt;
-  transitionReceiptStates.set(receipt, {target, status: "prepared"});
+  transitionReceiptStates.set(receipt, {
+    target,
+    runCombatOwner: lineage.runCombatOwner,
+    status: "prepared",
+  });
   activeTransitionReceiptsByTarget.set(target, receipt);
   return receipt;
+}
+
+/** Verify that the receipt still belongs to the exact Run combat authority that selected it. */
+export function assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner(
+  receipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+  runCombatOwner: object,
+): void {
+  const state = requireActiveTransitionReceipt(receipt);
+  invariant(
+    state.runCombatOwner === runCombatOwner,
+    "transition receipt belongs to a different Run combat authority",
+  );
 }
 
 /** Resolve the exact formal target while revalidating the active reservation. */

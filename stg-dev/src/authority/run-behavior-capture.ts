@@ -14,8 +14,8 @@ import {executablePattern} from "./pattern-executor";
 import {
   FIRST_FIXED_ROOM_CLOSURE_CONTRACT,
   RUN_ROOM_SESSION_CONTRACT,
-  type CanonicalRunRoomSessionSnapshot,
-} from "./run-room-session";
+} from "./run-room-contract";
+import type {CanonicalRunRoomSessionSnapshot} from "./run-room-session";
 
 const UINT32_MAX = 0xffff_ffff;
 const AUTHORITY = "canonical-run-pre-room-behavior-capture-v1" as const;

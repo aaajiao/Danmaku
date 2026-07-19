@@ -19,7 +19,7 @@ import {
 import {
   FIRST_FIXED_ROOM_CLOSURE_CONTRACT,
   RUN_ROOM_SESSION_CONTRACT,
-} from "./run-room-session";
+} from "./run-room-contract";
 import {executablePattern} from "./pattern-executor";
 
 const UINT32_MAX = 0xffff_ffff;

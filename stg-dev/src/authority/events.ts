@@ -545,6 +545,7 @@ const CANONICAL_EVENT_BUS_METHOD_NAMES = Object.freeze([
   "enqueuePreparedBatch",
   "claimExclusiveTickFlush",
   "flush",
+  "pendingEventCount",
   "committedEventCount",
   "committedEventsFrom",
   "events",
@@ -848,6 +849,11 @@ export class CanonicalEventBus {
 
   events(): readonly CanonicalGameplayEvent[] {
     return Object.freeze(this.#committed.slice());
+  }
+
+  /** O(1) read-only preflight for bounded same-tick authority composites. */
+  pendingEventCount(): number {
+    return this.#pending.length;
   }
 
   /** O(1) read cursor for observers that must not copy the complete trace. */

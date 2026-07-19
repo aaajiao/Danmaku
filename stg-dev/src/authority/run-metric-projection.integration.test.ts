@@ -326,7 +326,7 @@ describe("EXT-2026-011/012 first-room metric and continuation-target integration
     if (internalProjection === null) throw new Error("formal metric projection is missing");
     const internalReceipt = issueCanonicalRunFirstRoomMetricProjectionReceipt(internalProjection);
     expect(issueCanonicalRunFirstRoomMetricProjectionReceipt(internalProjection)).toBe(internalReceipt);
-    expect(() => createCanonicalRunFirstContinuationRoomTarget(internalReceipt))
+    expect(() => createCanonicalRunFirstContinuationRoomTarget(internalReceipt, session))
       .toThrow(/already selected/);
 
     const projectionBytes = JSON.stringify(projection);

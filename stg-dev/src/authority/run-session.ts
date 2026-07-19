@@ -1395,7 +1395,13 @@ export class CanonicalRunSession {
       recentInputSupplementReceipt,
     );
     const metricProjectionReceipt = issueCanonicalRunFirstRoomMetricProjectionReceipt(metricProjection);
-    const continuationTarget = createCanonicalRunFirstContinuationRoomTarget(metricProjectionReceipt);
+    if (this.combatState === null) {
+      throw new Error("first continuation target lost its exact Run combat owner");
+    }
+    const continuationTarget = createCanonicalRunFirstContinuationRoomTarget(
+      metricProjectionReceipt,
+      this.combatState,
+    );
     this.firstRoomClosureCaptureValue = closureCapture;
     this.firstRoomMetricProjectionValue = metricProjection;
     this.firstContinuationRoomTargetValue = continuationTarget;

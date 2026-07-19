@@ -14,7 +14,7 @@ import type {
   PlayerLifeState,
 } from "./player";
 import type {Vec2} from "./projectiles";
-import {FIRST_FIXED_ROOM_CLOSURE_CONTRACT} from "./run-room-session";
+import {FIRST_FIXED_ROOM_CLOSURE_CONTRACT} from "./run-room-contract";
 
 const UINT32_MAX = 0xffff_ffff;
 const SCHEMA_VERSION = "1.0.0-ext-2026-006" as const;

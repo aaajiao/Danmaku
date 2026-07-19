@@ -60,13 +60,36 @@ import {
   GrazeEvidenceAuthority,
   PlayerDamageAuthority,
   V4_PLAYER_AUTHORITY_CONTRACT,
+  inspectPreparedPlayerCollisionBlockerMutation,
   playerInputEligibleAtTick,
+  type CollisionBlockerLease,
   type DirectionalOverrideSnapshot,
   type DamageBatchResult,
   type EvidenceSnapshot,
   type OverrideProjectilePath,
+  type PreparedPlayerCollisionBlockerMutation,
+  type PreparedPlayerCollisionBlockerMutationView,
   type PlayerDamageSnapshot,
 } from "./player";
+import {
+  RoomTransitionAuthority,
+  isExactRoomTransitionAuthority,
+  type PreparedRoomTransitionMutation,
+  type PreparedRoomTransitionMutationView,
+  type RoomTransitionAuthoritySnapshot,
+} from "./room-transition";
+import {
+  assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner,
+  cancelCanonicalRunFirstContinuationRoomTransitionReceipt,
+  commitCanonicalRunFirstContinuationRoomTransitionReceipt,
+  firstContinuationRoomTargetFromCanonicalTransitionReceipt,
+  quarantineCanonicalRunFirstContinuationRoomTransitionReceipt,
+  type CanonicalRunFirstContinuationRoomTargetAvailable,
+  type CanonicalRunFirstContinuationRoomTransitionReceipt,
+} from "./run-first-continuation-room-target";
+import {TICKS_PER_SECOND, crossedTickCount} from "./tick120";
+
+export {crossedTickCount} from "./tick120";
 
 /**
  * Manifest-structural production capability: radial perception/omission,
@@ -163,7 +186,6 @@ const CANONICAL_PROJECTILE_ARCHETYPE_SET: ReadonlySet<string> = new Set(
   EXECUTABLE_PATTERN_MANIFEST.patterns.flatMap((pattern) =>
     pattern.emitters.map((emitter) => emitter.projectile.archetype)),
 );
-const TICKS_PER_SECOND = 120;
 const INPUT_MAGNITUDE_TOLERANCE = 1e-9;
 
 interface CombatPattern extends ExecutablePattern {
@@ -462,7 +484,8 @@ export interface CanonicalCombatSnapshot {
       phaseGapBehavior: "same-generation-motion-retained-collision-off";
       collisionLease: "reversible-entity-owned-canonical-events";
       transitionAuthority:
-        "withheld-no-room-transition-composer-session-renderer-or-room-completion";
+        | "withheld-no-room-transition-composer-session-renderer-or-room-completion"
+        | "ext-013-prepared-atomic-fsm-and-material-carryover";
       completeTickTie: "pattern-end-cancels-live-identities-before-mask-update";
     }>;
     provenance: "application-required-v4-omission";
@@ -574,6 +597,199 @@ interface RunCombatStateInternals {
 }
 
 const RUN_COMBAT_STATE_INTERNALS = new WeakMap<CanonicalRunCombatState, RunCombatStateInternals>();
+
+const FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID = "transition.room_threshold" as const;
+const FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID =
+  "run:room:0-to-1:transition:transition.room_threshold" as const;
+const ROOM_THRESHOLD_SEED_BASE = 577_557_179;
+const FIRST_CONTINUATION_ROOM_THRESHOLD_TARGETS = Object.freeze([
+  "INFORMATION",
+  "IN_BETWEEN",
+  "POLARIZED",
+] as const);
+
+export type CanonicalRunRoomThresholdTargetRoom =
+  typeof FIRST_CONTINUATION_ROOM_THRESHOLD_TARGETS[number];
+
+declare const preparedRunRoomThresholdStartBrand: unique symbol;
+
+/** Opaque, one-use next-tick install proposal for EXT-013's exact pattern. */
+export interface PreparedCanonicalRunRoomThresholdStart {
+  readonly [preparedRunRoomThresholdStartBrand]: "PreparedCanonicalRunRoomThresholdStart";
+}
+
+export interface PreparedCanonicalRunRoomThresholdStartView {
+  readonly authority: "canonical-run-room-threshold-start-v1";
+  readonly tick120: number;
+  readonly occurrenceId: "run:room:0-to-1:transition:transition.room_threshold";
+  readonly patternId: "transition.room_threshold";
+  readonly rawRunSeed: number;
+  readonly transitionEncounterOrdinal: 0;
+  readonly transitionDifficultySalt: 0;
+  readonly resolvedSeed: number;
+  readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
+  readonly playerLease: CollisionBlockerLease;
+  readonly eventIds: readonly ["player.collision.off", "room.transition.begin"];
+  readonly playerPreview: PlayerDamageSnapshot;
+  readonly roomTransitionPreview: RoomTransitionAuthoritySnapshot;
+  readonly playerPosition: Vec2;
+  readonly focused: boolean;
+}
+
+export interface CanonicalRunRoomThresholdStartResult {
+  readonly kernel: CanonicalCombatKernel;
+  readonly collisionLease: CollisionBlockerLease;
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly combat: CanonicalCombatSnapshot;
+  readonly roomTransition: RoomTransitionAuthoritySnapshot;
+}
+
+interface PreparedRunRoomThresholdStartRecord {
+  readonly runState: CanonicalRunCombatState;
+  readonly transitionReceipt: CanonicalRunFirstContinuationRoomTransitionReceipt;
+  readonly formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable;
+  readonly playerProposal: PreparedPlayerCollisionBlockerMutation;
+  readonly playerView: PreparedPlayerCollisionBlockerMutationView;
+  readonly roomTransition: RoomTransitionAuthority;
+  readonly roomTransitionProposal: PreparedRoomTransitionMutation;
+  readonly roomTransitionView: PreparedRoomTransitionMutationView;
+  readonly roomTransitionBefore: RoomTransitionAuthoritySnapshot;
+  readonly kernel: CanonicalCombatKernel;
+  readonly beforeTick120: number;
+  readonly beforePlayerPosition: Vec2;
+  readonly beforeFocused: boolean;
+  readonly validated: ValidatedCombatStepInput;
+  readonly view: PreparedCanonicalRunRoomThresholdStartView;
+  status: "prepared" | "applied" | "failed";
+}
+
+const PREPARED_RUN_ROOM_THRESHOLD_STARTS = new WeakMap<
+  PreparedCanonicalRunRoomThresholdStart,
+  PreparedRunRoomThresholdStartRecord
+>();
+const ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT = new WeakMap<
+  CanonicalRunFirstContinuationRoomTransitionReceipt,
+  PreparedCanonicalRunRoomThresholdStart
+>();
+const DEFERRED_ROOM_THRESHOLD_INSTALL = Symbol("deferred-room-threshold-install");
+const SEALED_ROOM_THRESHOLD_ADVANCE = Symbol("sealed-room-threshold-advance");
+const ROOM_THRESHOLD_RUN_STATE_PROOF = Symbol("room-threshold-run-state-proof");
+const ROOM_THRESHOLD_FAIL_STOP_PROOF = Symbol("room-threshold-fail-stop-proof");
+const EXT013_ROOM_THRESHOLD_KERNELS = new WeakSet<CanonicalCombatKernel>();
+
+interface Ext013RoomThresholdRunBinding {
+  readonly kernel: CanonicalCombatKernel;
+  readonly roomTransition: RoomTransitionAuthority;
+  readonly lease: CollisionBlockerLease;
+  readonly targetRoom: CanonicalRunRoomThresholdTargetRoom;
+  readonly completeTick120: number;
+  phase: "transition" | "detach-release-requested" | "material";
+  carryover: CanonicalRoomThresholdMaterialCarryover | null;
+  materialRoomEventCount: number | null;
+  expectedFlushTick120: number | null;
+  expectedPendingEventCount: number | null;
+}
+
+const EXT013_ROOM_THRESHOLD_RUN_BINDINGS = new WeakMap<
+  CanonicalRunCombatState,
+  Ext013RoomThresholdRunBinding
+>();
+
+declare const preparedRunRoomTransitionLeaseReleaseBrand: unique symbol;
+
+export interface PreparedCanonicalRunRoomTransitionLeaseRelease {
+  readonly [preparedRunRoomTransitionLeaseReleaseBrand]:
+    "PreparedCanonicalRunRoomTransitionLeaseRelease";
+}
+
+export interface PreparedCanonicalRunRoomTransitionLeaseReleaseView {
+  readonly authority: "canonical-run-room-transition-lease-release-v1";
+  readonly tick120: number;
+  readonly lease: CollisionBlockerLease;
+  readonly eventIds: readonly ["room.transition.complete", "player.collision.on"];
+  readonly playerPreview: PlayerDamageSnapshot;
+  readonly roomTransitionPreview: RoomTransitionAuthoritySnapshot;
+}
+
+interface PreparedRunRoomTransitionLeaseReleaseRecord {
+  readonly runState: CanonicalRunCombatState;
+  readonly roomTransition: RoomTransitionAuthority;
+  readonly roomTransitionProposal: PreparedRoomTransitionMutation;
+  readonly roomTransitionView: PreparedRoomTransitionMutationView;
+  readonly playerProposal: PreparedPlayerCollisionBlockerMutation;
+  readonly playerView: PreparedPlayerCollisionBlockerMutationView;
+  readonly view: PreparedCanonicalRunRoomTransitionLeaseReleaseView;
+  status: "prepared" | "applied" | "failed";
+}
+
+const PREPARED_RUN_ROOM_TRANSITION_LEASE_RELEASES = new WeakMap<
+  PreparedCanonicalRunRoomTransitionLeaseRelease,
+  PreparedRunRoomTransitionLeaseReleaseRecord
+>();
+const PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES = new WeakMap<
+  CanonicalRunCombatState,
+  PreparedCanonicalRunRoomTransitionLeaseRelease
+>();
+
+declare const preparedRoomThresholdMaterialDetachBrand: unique symbol;
+
+export interface PreparedCanonicalRoomThresholdMaterialDetach {
+  readonly [preparedRoomThresholdMaterialDetachBrand]:
+    "PreparedCanonicalRoomThresholdMaterialDetach";
+}
+
+export interface CanonicalRoomThresholdMaterialCarryoverSnapshot {
+  readonly authority: "room-threshold-material-carryover-v1";
+  readonly sourcePatternId: "transition.room_threshold";
+  readonly sourceOccurrenceId: "run:room:0-to-1:transition:transition.room_threshold";
+  readonly detachedAtTick120: number;
+  readonly tick120: number;
+  readonly materialCount: number;
+  readonly drained: boolean;
+  readonly poolUsage: ProjectilePoolUsage;
+  readonly projectiles: readonly CombatProjectileSnapshot[];
+}
+
+export interface CanonicalRunIdleWithRoomThresholdMaterialResult {
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly material: CanonicalRoomThresholdMaterialCarryoverSnapshot;
+}
+
+interface PreparedRoomThresholdMaterialDetachRecord {
+  readonly kernel: CanonicalCombatKernel;
+  readonly runState: CanonicalRunCombatState;
+  readonly tick120: number;
+  status: "prepared" | "release-requested" | "committed" | "failed";
+}
+
+const PREPARED_ROOM_THRESHOLD_MATERIAL_DETACHES = new WeakMap<
+  PreparedCanonicalRoomThresholdMaterialDetach,
+  PreparedRoomThresholdMaterialDetachRecord
+>();
+const ACTIVE_ROOM_THRESHOLD_MATERIAL_DETACH_BY_KERNEL = new WeakMap<
+  CanonicalCombatKernel,
+  PreparedCanonicalRoomThresholdMaterialDetach
+>();
+const ROOM_THRESHOLD_MATERIAL_DETACH = Symbol("room-threshold-material-detach");
+const ROOM_THRESHOLD_MATERIAL_CARRYOVERS = new WeakMap<
+  CanonicalRoomThresholdMaterialCarryover,
+  {
+    readonly runState: CanonicalRunCombatState;
+    readonly projectiles: ProjectileAuthorityPool;
+    readonly materialIdentityByKey: ReadonlyMap<string, Readonly<{
+      sourceId: string;
+      sourceIndex: number;
+      burstIndex: number;
+      headingDegrees: number;
+      speedPxPerSecond: number;
+    }>>;
+    readonly detachedAtTick120: number;
+    currentTick120: number;
+  }
+>();
+const CREATE_ROOM_THRESHOLD_MATERIAL_CARRYOVER = Symbol(
+  "create-room-threshold-material-carryover",
+);
 
 interface ValidatedCombatStepInput {
   readonly tick120: number;
@@ -1223,18 +1439,6 @@ function dualClockGateActiveAtRelativeTick(
 
 function keyFor(handle: ProjectileHandle): string {
   return `${handle.instanceId}:${handle.generation}`;
-}
-
-/** First master tick whose projected time reaches or crosses the authored millisecond boundary. */
-export function crossedTickCount(milliseconds: number): number {
-  if (!Number.isFinite(milliseconds) || milliseconds < 0 || Object.is(milliseconds, -0)) {
-    throw new Error("authored milliseconds must be finite and non-negative without negative zero");
-  }
-  const tick120 = Math.ceil(milliseconds * TICKS_PER_SECOND / 1000);
-  if (!Number.isSafeInteger(tick120)) {
-    throw new Error("authored milliseconds exceed safe tick120 identity");
-  }
-  return tick120;
 }
 
 function crossedOffsetTickCount(authoredStartMs: number, authoredOffsetMs: number): number {
@@ -7103,6 +7307,62 @@ function assertRunCombatStateOperational(internals: RunCombatStateInternals): vo
   );
 }
 
+function isExactCanonicalRunCombatState(
+  value: unknown,
+): value is CanonicalRunCombatState {
+  return typeof value === "object"
+    && value !== null
+    && RUN_COMBAT_STATE_INTERNALS.has(value as CanonicalRunCombatState)
+    && Object.getPrototypeOf(value) === CanonicalRunCombatState.prototype
+    && !Object.prototype.hasOwnProperty.call(value, "snapshot")
+    && !Object.prototype.hasOwnProperty.call(value, "flushTick");
+}
+
+function isExactExt013RoomThresholdKernel(
+  value: unknown,
+): value is CanonicalCombatKernel {
+  return typeof value === "object"
+    && value !== null
+    && EXT013_ROOM_THRESHOLD_KERNELS.has(value as CanonicalCombatKernel)
+    && Object.getPrototypeOf(value) === CanonicalCombatKernel.prototype
+    && !Object.prototype.hasOwnProperty.call(value, "snapshot")
+    && !Object.prototype.hasOwnProperty.call(value, "advanceTick");
+}
+
+/**
+ * Narrow coordinator escape hatch for an impossible invariant failure after a
+ * transition composite batch was already accepted by the shared event bus.
+ */
+export function failStopCanonicalRunCombatAfterAcceptedTransitionAppend(
+  runState: CanonicalRunCombatState,
+  transitionProof: CanonicalCombatKernel,
+  cause: unknown,
+): void {
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("transition fail-stop requires an exact CanonicalRunCombatState");
+  }
+  const internals = runCombatStateInternals(runState);
+  const exactLiveKernel = isExactExt013RoomThresholdKernel(transitionProof)
+    ? transitionProof
+    : null;
+  const kernelProof = exactLiveKernel === null
+    ? null
+    : exactLiveKernel[ROOM_THRESHOLD_FAIL_STOP_PROOF]();
+  const activeTickAppendAccepted = kernelProof?.runState === runState
+    && internals.activeOccurrenceId === FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+    && internals.pendingFlushTick120 === kernelProof.tick120;
+  const detachFlushCommitted = kernelProof?.runState === runState
+    && kernelProof.materialDetachPending
+    && internals.activeOccurrenceId === null
+    && internals.pendingReleaseOccurrenceId === null
+    && internals.pendingFlushTick120 === null;
+  if (!activeTickAppendAccepted && !detachFlushCommitted) {
+    throw new Error("transition fail-stop requires the exact active EXT-013 kernel proof");
+  }
+  if (internals.fault !== null) return;
+  internals.fault = cause instanceof Error ? cause : new Error(String(cause));
+}
+
 function claimRunCombatOccurrence(
   state: CanonicalRunCombatState,
   occurrenceId: string,
@@ -7110,6 +7370,11 @@ function claimRunCombatOccurrence(
 ): void {
   const internals = runCombatStateInternals(state);
   assertRunCombatStateOperational(internals);
+  if (EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(state)) {
+    throw new Error(
+      "run combat cannot claim a new occurrence before EXT-013 material ownership releases",
+    );
+  }
   if (internals.currentTick120 !== startTick120) {
     throw new Error(
       `run combat occurrence must start at the current tick: ${internals.currentTick120} !== ${startTick120}`,
@@ -7140,6 +7405,837 @@ function requestRunCombatOccurrenceRelease(
     throw new Error(`run combat occurrence release is already pending: ${occurrenceId}`);
   }
   internals.pendingReleaseOccurrenceId = occurrenceId;
+}
+
+function requirePreparedRoomThresholdStart(
+  proposal: PreparedCanonicalRunRoomThresholdStart,
+): PreparedRunRoomThresholdStartRecord {
+  if (typeof proposal !== "object" || proposal === null) {
+    throw new Error("Room Threshold start proposal must be opaque");
+  }
+  const record = PREPARED_RUN_ROOM_THRESHOLD_STARTS.get(proposal);
+  if (record === undefined) throw new Error("Room Threshold start proposal is not registered");
+  if (record.status !== "prepared") {
+    throw new Error(`Room Threshold start proposal is ${record.status}`);
+  }
+  if (
+    ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT.get(
+      record.transitionReceipt,
+    ) !== proposal
+  ) {
+    throw new Error("Room Threshold start proposal lost its formal-target reservation");
+  }
+  return record;
+}
+
+function validatePreparedRoomThresholdStartRecord(
+  record: PreparedRunRoomThresholdStartRecord,
+): void {
+  const internals = runCombatStateInternals(record.runState);
+  assertRunCombatStateOperational(internals);
+  assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner(
+    record.transitionReceipt,
+    record.runState,
+  );
+  const formalTarget = firstContinuationRoomTargetFromCanonicalTransitionReceipt(
+    record.transitionReceipt,
+  );
+  if (
+    formalTarget !== record.formalTarget
+    || formalTarget.targetRoom !== record.view.targetRoom
+    || formalTarget.rawRunSeed.value !== record.view.rawRunSeed
+    || formalTarget.selectedAtTick120 + 1 !== record.view.tick120
+  ) {
+    throw new Error("Room Threshold formal target receipt drifted");
+  }
+  if (
+    internals.advanceLocked
+    || internals.currentTick120 !== record.beforeTick120
+    || internals.currentPlayerPosition.x !== record.beforePlayerPosition.x
+    || internals.currentPlayerPosition.y !== record.beforePlayerPosition.y
+    || internals.focused !== record.beforeFocused
+    || internals.activeOccurrenceId !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.pendingFlushTick120 !== null
+    || internals.claimedOccurrenceIds.has(FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID)
+    || internals.bus.pendingEventCount() !== 0
+  ) {
+    throw new Error("Room Threshold start proposal became stale at the shared run boundary");
+  }
+  const roomBefore = RoomTransitionAuthority.prototype.snapshot.call(
+    record.roomTransition,
+  );
+  if (
+    roomBefore.tick120 !== record.roomTransitionBefore.tick120
+    || roomBefore.state !== record.roomTransitionBefore.state
+    || roomBefore.currentRoom !== record.roomTransitionBefore.currentRoom
+    || roomBefore.targetRoom !== record.roomTransitionBefore.targetRoom
+    || roomBefore.generation !== record.roomTransitionBefore.generation
+    || roomBefore.eventCount !== record.roomTransitionBefore.eventCount
+    || roomBefore.active !== record.roomTransitionBefore.active
+  ) {
+    throw new Error("Room Threshold room-transition request became stale");
+  }
+  const currentRoomView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+    record.roomTransition,
+    record.roomTransitionProposal,
+    internals.bus,
+  );
+  if (
+    currentRoomView !== record.roomTransitionView
+    || currentRoomView.drafts !== record.roomTransitionView.drafts
+    || currentRoomView.preview !== record.roomTransitionView.preview
+  ) {
+    throw new Error("Room Threshold room-transition request proposal drifted");
+  }
+  const currentPlayerView = inspectPreparedPlayerCollisionBlockerMutation(
+    record.playerProposal,
+  );
+  if (
+    currentPlayerView.owner !== internals.player
+    || currentPlayerView.eventBus !== internals.bus
+    || currentPlayerView.kind !== "acquire"
+    || currentPlayerView.tick120 !== record.validated.tick120
+    || currentPlayerView.lease !== record.playerView.lease
+    || currentPlayerView.drafts !== record.playerView.drafts
+  ) {
+    throw new Error("Room Threshold player blocker proposal drifted");
+  }
+  const override = internals.override.snapshot();
+  if (
+    override.tick120 !== record.beforeTick120
+    || override.state !== "idle"
+    || override.deadlineTick120 !== null
+    || override.localVoid !== null
+  ) {
+    throw new Error("Room Threshold start requires an idle, quiescent Override authority");
+  }
+}
+
+/**
+ * Purely stage EXT-013's exact H+1703 player blocker, room-FSM request, and
+ * deferred combat install. Only the sealed commit below can append the drafts.
+ */
+export function prepareCanonicalRunRoomThresholdStartNextTick(
+  runState: CanonicalRunCombatState,
+  roomTransition: RoomTransitionAuthority,
+  transitionReceipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+  input: CanonicalCombatStepInput,
+): PreparedCanonicalRunRoomThresholdStart {
+  const formalTarget = firstContinuationRoomTargetFromCanonicalTransitionReceipt(
+    transitionReceipt,
+  );
+  if (ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT.has(transitionReceipt)) {
+    throw new Error("formal target receipt already owns a Room Threshold start proposal");
+  }
+  try {
+    return prepareCanonicalRunRoomThresholdStartFromFormalTarget(
+      runState,
+      roomTransition,
+      transitionReceipt,
+      formalTarget,
+      input,
+    );
+  } catch (error) {
+    cancelCanonicalRunFirstContinuationRoomTransitionReceipt(transitionReceipt);
+    throw error;
+  }
+}
+
+function prepareCanonicalRunRoomThresholdStartFromFormalTarget(
+  runState: CanonicalRunCombatState,
+  roomTransition: RoomTransitionAuthority,
+  transitionReceipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+  formalTarget: CanonicalRunFirstContinuationRoomTargetAvailable,
+  input: CanonicalCombatStepInput,
+): PreparedCanonicalRunRoomThresholdStart {
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("Room Threshold start requires an exact CanonicalRunCombatState");
+  }
+  assertCanonicalRunFirstContinuationRoomTransitionReceiptOwner(
+    transitionReceipt,
+    runState,
+  );
+  const internals = runCombatStateInternals(runState);
+  assertRunCombatStateOperational(internals);
+  if (!isExactRoomTransitionAuthority(roomTransition)) {
+    throw new Error("Room Threshold start requires the exact room-transition authority");
+  }
+  const targetRoomValue = formalTarget.targetRoom;
+  if (
+    !FIRST_CONTINUATION_ROOM_THRESHOLD_TARGETS.includes(
+      targetRoomValue as CanonicalRunRoomThresholdTargetRoom,
+    )
+  ) {
+    throw new Error("Room Threshold formal target left the exact first-continuation universe");
+  }
+  const targetRoom = targetRoomValue as CanonicalRunRoomThresholdTargetRoom;
+  const rawRunSeed = formalTarget.rawRunSeed.value;
+  const selectedAtTick120 = requireSafeTick(
+    formalTarget.selectedAtTick120,
+    "Room Threshold formal target selectedAtTick120",
+  );
+  if (selectedAtTick120 === Number.MAX_SAFE_INTEGER) {
+    throw new Error("Room Threshold formal target cannot start beyond the safe tick range");
+  }
+  const startTick120 = selectedAtTick120 + 1;
+  if (
+    internals.advanceLocked
+    || internals.pendingFlushTick120 !== null
+    || internals.pendingReleaseOccurrenceId !== null
+    || internals.activeOccurrenceId !== null
+    || internals.claimedOccurrenceIds.has(FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID)
+    || internals.bus.pendingEventCount() !== 0
+  ) {
+    throw new Error("Room Threshold start requires an idle unclaimed shared run boundary");
+  }
+  if (
+    internals.currentTick120 !== selectedAtTick120
+    || startTick120 !== internals.currentTick120 + 1
+  ) {
+    throw new Error("Room Threshold start requires its formal target's exact H+1702 Run boundary");
+  }
+  const player = internals.player.snapshot();
+  if (
+    player.tick120 !== internals.currentTick120
+    || player.state !== "alive"
+    || player.collisionEnabled !== true
+    || player.activeLeases.length !== 0
+    || player.recoveryAtTick120 !== null
+    || player.respawnPlaceAtTick120 !== null
+    || player.respawnCompleteAtTick120 !== null
+    || player.handoff !== null
+  ) {
+    throw new Error("Room Threshold start requires an alive, collision-enabled, quiescent player");
+  }
+  const override = internals.override.snapshot();
+  if (
+    override.tick120 !== internals.currentTick120
+    || override.state !== "idle"
+    || override.deadlineTick120 !== null
+    || override.localVoid !== null
+  ) {
+    throw new Error("Room Threshold start requires an idle, quiescent Override authority");
+  }
+  const validated = validateCombatStepAgainstRunState(input, internals);
+  if (validated.tick120 !== startTick120) {
+    throw new Error("Room Threshold input tick disagrees with its exact start tick");
+  }
+  if (validated.overridePressed || validated.overrideReleased) {
+    throw new Error("Room Threshold start cannot admit an Override edge before local resistance");
+  }
+  const roomTransitionBefore = RoomTransitionAuthority.prototype.snapshot.call(roomTransition);
+  if (
+    (roomTransitionBefore.tick120 !== null
+      && roomTransitionBefore.tick120 !== internals.currentTick120)
+    || roomTransitionBefore.state !== "idle"
+    || roomTransitionBefore.currentRoom !== "FORCED_ALIGNMENT"
+    || roomTransitionBefore.targetRoom !== null
+    || roomTransitionBefore.generation !== 0
+    || roomTransitionBefore.eventCount !== 0
+    || roomTransitionBefore.active !== null
+  ) {
+    throw new Error("Room Threshold start requires the unused first room-transition boundary");
+  }
+  const roomTransitionProposal = RoomTransitionAuthority.prototype.prepareRequest.call(
+    roomTransition,
+    targetRoom,
+    startTick120,
+  );
+  const roomTransitionView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+    roomTransition,
+    roomTransitionProposal,
+    internals.bus,
+  );
+  const preparedRoomActive = roomTransitionView.preview.active;
+  if (
+    roomTransitionView.kind !== "request"
+    || roomTransitionView.eventBus !== internals.bus
+    || roomTransitionView.tick120 !== startTick120
+    || roomTransitionView.drafts.length !== 1
+    || roomTransitionView.drafts[0]?.id !== "room.transition.begin"
+    || roomTransitionView.drafts[0]?.tick120 !== startTick120
+    || roomTransitionView.preview.state !== "preparing"
+    || roomTransitionView.preview.currentRoom !== "FORCED_ALIGNMENT"
+    || roomTransitionView.preview.targetRoom !== targetRoom
+    || roomTransitionView.preview.generation !== 1
+    || preparedRoomActive === null
+    || preparedRoomActive.fromRoom !== "FORCED_ALIGNMENT"
+    || preparedRoomActive.toRoom !== targetRoom
+    || preparedRoomActive.requestTick120 !== startTick120
+  ) {
+    throw new Error("Room Threshold prepared room-transition request does not match EXT-013");
+  }
+  const playerProposal = PlayerDamageAuthority.prototype.prepareCollisionBlockerAcquire.call(
+    internals.player,
+    "room-transition",
+    "atomic-world-swap",
+    startTick120,
+  );
+  const playerView = inspectPreparedPlayerCollisionBlockerMutation(playerProposal);
+  if (
+    playerView.eventBus !== internals.bus
+    || playerView.kind !== "acquire"
+    || playerView.before.playerId !== player.playerId
+    || playerView.before.tick120 !== player.tick120
+    || playerView.before.state !== player.state
+    || playerView.before.health !== player.health
+    || playerView.before.lives !== player.lives
+    || playerView.before.collisionEnabled !== player.collisionEnabled
+    || playerView.before.activeLeases.length !== player.activeLeases.length
+    || playerView.before.recoveryAtTick120 !== player.recoveryAtTick120
+    || playerView.before.respawnPlaceAtTick120 !== player.respawnPlaceAtTick120
+    || playerView.before.respawnCompleteAtTick120 !== player.respawnCompleteAtTick120
+    || playerView.before.handoff !== player.handoff
+    || playerView.preview.state !== "alive"
+    || playerView.preview.collisionEnabled !== false
+    || playerView.preview.activeLeases.length !== 1
+    || playerView.preview.activeLeases[0] !== playerView.lease
+    || playerView.lease.owner !== "room-transition"
+    || playerView.lease.reason !== "atomic-world-swap"
+  ) {
+    throw new Error("Room Threshold prepared player blocker does not match EXT-013");
+  }
+  const resolvedSeed = (rawRunSeed ^ ROOM_THRESHOLD_SEED_BASE) >>> 0;
+  const kernel = new CanonicalCombatKernel({
+    patternId: FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID,
+    occurrenceId: FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID,
+    seed: resolvedSeed,
+    startTick120,
+    roomId: "FORCED_ALIGNMENT",
+    difficulty: "NORMAL",
+    initialPlayerPosition: validated.playerPosition,
+    grazeRadiusPx: internals.adapterPolicy.grazeRadiusPx,
+    projectileDamage: internals.adapterPolicy.projectileDamage,
+    projectilePoolClasses: internals.adapterPolicy.projectilePoolClasses,
+  }, runState, DEFERRED_ROOM_THRESHOLD_INSTALL);
+  const view: PreparedCanonicalRunRoomThresholdStartView = Object.freeze({
+    authority: "canonical-run-room-threshold-start-v1" as const,
+    tick120: startTick120,
+    occurrenceId: FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID,
+    patternId: FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID,
+    rawRunSeed,
+    transitionEncounterOrdinal: 0 as const,
+    transitionDifficultySalt: 0 as const,
+    resolvedSeed,
+    targetRoom,
+    playerLease: playerView.lease,
+    eventIds: Object.freeze([
+      "player.collision.off",
+      "room.transition.begin",
+    ] as const),
+    playerPreview: playerView.preview,
+    roomTransitionPreview: roomTransitionView.preview,
+    playerPosition: validated.playerPosition,
+    focused: validated.focused,
+  });
+  const proposal = Object.freeze(Object.create(null)) as PreparedCanonicalRunRoomThresholdStart;
+  PREPARED_RUN_ROOM_THRESHOLD_STARTS.set(proposal, {
+    runState,
+    transitionReceipt,
+    formalTarget,
+    playerProposal,
+    playerView,
+    roomTransition,
+    roomTransitionProposal,
+    roomTransitionView,
+    roomTransitionBefore,
+    kernel,
+    beforeTick120: internals.currentTick120,
+    beforePlayerPosition: internals.currentPlayerPosition,
+    beforeFocused: internals.focused,
+    validated,
+    view,
+    status: "prepared",
+  });
+  ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT.set(
+    transitionReceipt,
+    proposal,
+  );
+  return proposal;
+}
+
+/** Read and fully revalidate the exact deferred start before batch append. */
+export function inspectPreparedCanonicalRunRoomThresholdStart(
+  proposal: PreparedCanonicalRunRoomThresholdStart,
+): PreparedCanonicalRunRoomThresholdStartView {
+  const record = requirePreparedRoomThresholdStart(proposal);
+  validatePreparedRoomThresholdStartRecord(record);
+  return record.view;
+}
+
+/** Atomically append and apply the exact player-blocker plus room-request start. */
+export function commitPreparedCanonicalRunRoomThresholdStart(
+  proposal: PreparedCanonicalRunRoomThresholdStart,
+): CanonicalRunRoomThresholdStartResult {
+  let record: PreparedRunRoomThresholdStartRecord;
+  try {
+    record = requirePreparedRoomThresholdStart(proposal);
+    validatePreparedRoomThresholdStartRecord(record);
+  } catch (error) {
+    const known = PREPARED_RUN_ROOM_THRESHOLD_STARTS.get(proposal);
+    if (known?.status === "prepared") {
+      known.status = "failed";
+      ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT.delete(
+        known.transitionReceipt,
+      );
+      try {
+        cancelCanonicalRunFirstContinuationRoomTransitionReceipt(
+          known.transitionReceipt,
+        );
+      } catch {
+        // The receipt may have been cancelled by the caller; the proposal is
+        // still terminal and cannot alias a later reservation.
+      }
+    }
+    throw error;
+  }
+  const internals = runCombatStateInternals(record.runState);
+  let appendAccepted = false;
+  let targetCommitted = false;
+  try {
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      internals.bus,
+      Object.freeze([
+        record.playerView.drafts,
+        record.roomTransitionView.drafts,
+      ]),
+    );
+    appendAccepted = true;
+    const lease = PlayerDamageAuthority.prototype.applyPreparedCollisionBlockerAfterAppend.call(
+      internals.player,
+      record.playerProposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+    internals.override.advanceTo(record.validated.tick120);
+    internals.currentTick120 = record.validated.tick120;
+    internals.previousPlayerPosition = internals.currentPlayerPosition;
+    internals.currentPlayerPosition = record.validated.playerPosition;
+    internals.focused = record.validated.focused;
+    claimRunCombatOccurrence(
+      record.runState,
+      FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID,
+      record.validated.tick120,
+    );
+    const activeRoomTransition = record.roomTransitionView.preview.active;
+    if (activeRoomTransition === null) {
+      throw new Error("Room Threshold prepared room transition lost its active record");
+    }
+    record.kernel[DEFERRED_ROOM_THRESHOLD_INSTALL](
+      record.runState,
+      record.roomTransition,
+      lease,
+      record.view.targetRoom,
+      activeRoomTransition.completeTick120,
+    );
+    internals.pendingFlushTick120 = record.validated.tick120;
+    const roomTransition = RoomTransitionAuthority.prototype.applyPreparedMutationAfterAppend.call(
+      record.roomTransition,
+      record.roomTransitionProposal,
+      internals.bus,
+      receipts[1] as CanonicalEventBatchReceipt,
+    );
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(record.runState);
+    if (binding?.kernel !== record.kernel || binding.phase !== "transition") {
+      throw new Error("Room Threshold start lost its exact Run binding after append");
+    }
+    binding.expectedFlushTick120 = record.validated.tick120;
+    binding.expectedPendingEventCount = internals.bus.pendingEventCount();
+    const committedTarget = commitCanonicalRunFirstContinuationRoomTransitionReceipt(
+      record.transitionReceipt,
+    );
+    targetCommitted = true;
+    if (committedTarget !== record.formalTarget) {
+      throw new Error("Room Threshold committed a different formal target identity");
+    }
+    record.status = "applied";
+    ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT.delete(
+      record.transitionReceipt,
+    );
+    return Object.freeze({
+      kernel: record.kernel,
+      collisionLease: lease,
+      runCombat: record.runState.snapshot(),
+      combat: CanonicalCombatKernel.prototype.snapshot.call(record.kernel),
+      roomTransition,
+    });
+  } catch (error) {
+    record.status = "failed";
+    ACTIVE_RUN_ROOM_THRESHOLD_START_BY_TRANSITION_RECEIPT.delete(
+      record.transitionReceipt,
+    );
+    if (appendAccepted) {
+      if (!targetCommitted) {
+        try {
+          quarantineCanonicalRunFirstContinuationRoomTransitionReceipt(
+            record.transitionReceipt,
+          );
+        } catch {
+          // Run fail-stop remains authoritative even if an externally altered
+          // receipt can no longer accept the quarantine marker.
+        }
+      }
+      internals.fault = error instanceof Error ? error : new Error(String(error));
+    } else {
+      try {
+        cancelCanonicalRunFirstContinuationRoomTransitionReceipt(
+          record.transitionReceipt,
+        );
+      } catch {
+        // Preserve the original append failure; no authoritative state changed.
+      }
+    }
+    throw error;
+  }
+}
+
+function requirePreparedRoomTransitionLeaseRelease(
+  proposal: PreparedCanonicalRunRoomTransitionLeaseRelease,
+  phase: "before-append" | "after-fsm-apply",
+): PreparedRunRoomTransitionLeaseReleaseRecord {
+  if (typeof proposal !== "object" || proposal === null) {
+    throw new Error("room-transition lease release proposal must be opaque");
+  }
+  const record = PREPARED_RUN_ROOM_TRANSITION_LEASE_RELEASES.get(proposal);
+  if (record === undefined) {
+    throw new Error("room-transition lease release proposal is not registered");
+  }
+  if (record.status !== "prepared") {
+    throw new Error(`room-transition lease release proposal is ${record.status}`);
+  }
+  const internals = runCombatStateInternals(record.runState);
+  assertRunCombatStateOperational(internals);
+  if (PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES.get(record.runState) !== proposal) {
+    throw new Error("room-transition lease release lost its exclusive flush reservation");
+  }
+  const current = inspectPreparedPlayerCollisionBlockerMutation(record.playerProposal);
+  if (
+    internals.currentTick120 !== record.view.tick120
+    || internals.pendingFlushTick120 !== record.view.tick120
+    || internals.activeOccurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+    || current.owner !== internals.player
+    || current.eventBus !== internals.bus
+    || current.kind !== "release"
+    || current.lease !== record.playerView.lease
+    || current.drafts !== record.playerView.drafts
+  ) {
+    throw new Error("room-transition lease release proposal became stale");
+  }
+  if (phase === "before-append") {
+    const currentRoomView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+      record.roomTransition,
+      record.roomTransitionProposal,
+      internals.bus,
+    );
+    if (
+      currentRoomView !== record.roomTransitionView
+      || currentRoomView.drafts !== record.roomTransitionView.drafts
+      || currentRoomView.preview !== record.roomTransitionView.preview
+    ) {
+      throw new Error("room-transition complete proposal drifted before append");
+    }
+  } else {
+    const room = RoomTransitionAuthority.prototype.snapshot.call(record.roomTransition);
+    const expected = record.roomTransitionView.preview;
+    if (
+      room.tick120 !== expected.tick120
+      || room.state !== expected.state
+      || room.currentRoom !== expected.currentRoom
+      || room.targetRoom !== expected.targetRoom
+      || room.generation !== expected.generation
+      || room.eventCount !== expected.eventCount
+      || room.active !== expected.active
+    ) {
+      throw new Error("room-transition complete state was not applied before player release");
+    }
+  }
+  return record;
+}
+
+/** Stage the exact player blocker release after combat has advanced to the FSM complete tick. */
+export function prepareCanonicalRunRoomTransitionLeaseRelease(
+  roomTransition: RoomTransitionAuthority,
+  roomTransitionProposal: PreparedRoomTransitionMutation,
+  kernel: CanonicalCombatKernel,
+  runState: CanonicalRunCombatState,
+  lease: CollisionBlockerLease,
+  tick120Value: number,
+): PreparedCanonicalRunRoomTransitionLeaseRelease {
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("room-transition lease release requires an exact CanonicalRunCombatState");
+  }
+  if (
+    !isExactExt013RoomThresholdKernel(kernel)
+    || kernel[ROOM_THRESHOLD_RUN_STATE_PROOF]() !== runState
+  ) {
+    throw new Error("room-transition lease release requires the exact live Room Threshold kernel");
+  }
+  const tick120 = requireSafeTick(tick120Value, "room-transition lease release tick120");
+  const internals = runCombatStateInternals(runState);
+  assertRunCombatStateOperational(internals);
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  if (
+    binding?.kernel !== kernel
+    || binding.roomTransition !== roomTransition
+    || binding.lease !== lease
+    || binding.phase !== "transition"
+    || binding.completeTick120 !== tick120
+  ) {
+    throw new Error("room-transition lease release lost its exact EXT-013 start binding");
+  }
+  if (!isExactRoomTransitionAuthority(roomTransition)) {
+    throw new Error("room-transition lease release requires the exact FSM authority");
+  }
+  const roomTransitionView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+    roomTransition,
+    roomTransitionProposal,
+    internals.bus,
+  );
+  const roomBefore = RoomTransitionAuthority.prototype.snapshot.call(roomTransition);
+  const kernelSnapshot = CanonicalCombatKernel.prototype.snapshot.call(kernel);
+  if (
+    roomTransitionView.kind !== "advance"
+    || roomTransitionView.eventBus !== internals.bus
+    || roomTransitionView.tick120 !== tick120
+    || roomTransitionView.drafts.length !== 1
+    || roomTransitionView.drafts[0]?.id !== "room.transition.complete"
+    || roomTransitionView.drafts[0]?.tick120 !== tick120
+    || roomTransitionView.preview.tick120 !== tick120
+    || roomTransitionView.preview.state !== "idle"
+    || roomTransitionView.preview.targetRoom !== null
+    || roomTransitionView.preview.active !== null
+    || roomTransitionView.preview.currentRoom === "FORCED_ALIGNMENT"
+    || roomBefore.state !== "stabilizing"
+    || roomBefore.active === null
+    || roomBefore.generation !== 1
+    || roomBefore.active.generation !== 1
+    || roomBefore.active.fromRoom !== "FORCED_ALIGNMENT"
+    || roomBefore.active.requestTick120 !== kernelSnapshot.startTick120
+    || roomBefore.active.completeTick120 !== tick120
+    || roomBefore.active.toRoom !== roomTransitionView.preview.currentRoom
+  ) {
+    throw new Error("room-transition lease release requires the exact prepared FSM complete boundary");
+  }
+  if (
+    internals.currentTick120 !== tick120
+    || internals.pendingFlushTick120 !== tick120
+    || internals.activeOccurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+  ) {
+    throw new Error("room-transition lease release requires the active transition's pending tick");
+  }
+  if (kernelSnapshot.tick120 !== tick120) {
+    throw new Error("room-transition lease release tick disagrees with the live Room Threshold kernel");
+  }
+  const activeLease = internals.player.snapshot().activeLeases.find(
+    (candidate) => candidate.token === lease.token,
+  );
+  if (
+    activeLease !== lease
+    || lease.owner !== "room-transition"
+    || lease.reason !== "atomic-world-swap"
+  ) {
+    throw new Error("room-transition lease release requires its exact active start lease");
+  }
+  const playerProposal = PlayerDamageAuthority.prototype.prepareCollisionBlockerRelease.call(
+    internals.player,
+    lease.token,
+    tick120,
+  );
+  const playerView = inspectPreparedPlayerCollisionBlockerMutation(playerProposal);
+  if (
+    playerView.kind !== "release"
+    || playerView.eventBus !== internals.bus
+    || playerView.lease !== lease
+  ) {
+    throw new Error("room-transition prepared lease release drifted");
+  }
+  const view: PreparedCanonicalRunRoomTransitionLeaseReleaseView = Object.freeze({
+    authority: "canonical-run-room-transition-lease-release-v1" as const,
+    tick120,
+    lease,
+    eventIds: Object.freeze([
+      "room.transition.complete",
+      "player.collision.on",
+    ] as const),
+    playerPreview: playerView.preview,
+    roomTransitionPreview: roomTransitionView.preview,
+  });
+  const proposal = Object.freeze(Object.create(null)) as unknown as PreparedCanonicalRunRoomTransitionLeaseRelease;
+  if (PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES.has(runState)) {
+    throw new Error("room-transition lease release already has an in-flight proposal");
+  }
+  PREPARED_RUN_ROOM_TRANSITION_LEASE_RELEASES.set(proposal, {
+    runState,
+    roomTransition,
+    roomTransitionProposal,
+    roomTransitionView,
+    playerProposal,
+    playerView,
+    view,
+    status: "prepared",
+  });
+  PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES.set(runState, proposal);
+  return proposal;
+}
+
+export function inspectPreparedCanonicalRunRoomTransitionLeaseRelease(
+  proposal: PreparedCanonicalRunRoomTransitionLeaseRelease,
+): PreparedCanonicalRunRoomTransitionLeaseReleaseView {
+  return requirePreparedRoomTransitionLeaseRelease(proposal, "before-append").view;
+}
+
+/** Atomically append and apply the exact room-complete plus player-release batch. */
+export function commitPreparedCanonicalRunRoomTransitionLeaseRelease(
+  proposal: PreparedCanonicalRunRoomTransitionLeaseRelease,
+): PlayerDamageSnapshot {
+  let record: PreparedRunRoomTransitionLeaseReleaseRecord;
+  try {
+    record = requirePreparedRoomTransitionLeaseRelease(proposal, "before-append");
+  } catch (error) {
+    const known = PREPARED_RUN_ROOM_TRANSITION_LEASE_RELEASES.get(proposal);
+    if (
+      known?.status === "prepared"
+      && PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES.get(known.runState) === proposal
+    ) {
+      known.status = "failed";
+      const knownInternals = runCombatStateInternals(known.runState);
+      knownInternals.fault = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  }
+  const internals = runCombatStateInternals(record.runState);
+  let appendAccepted = false;
+  try {
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      internals.bus,
+      Object.freeze([
+        record.roomTransitionView.drafts,
+        record.playerView.drafts,
+      ]),
+    );
+    appendAccepted = true;
+    RoomTransitionAuthority.prototype.applyPreparedMutationAfterAppend.call(
+      record.roomTransition,
+      record.roomTransitionProposal,
+      internals.bus,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+    requirePreparedRoomTransitionLeaseRelease(proposal, "after-fsm-apply");
+    PlayerDamageAuthority.prototype.applyPreparedCollisionBlockerAfterAppend.call(
+      internals.player,
+      record.playerProposal,
+      receipts[1] as CanonicalEventBatchReceipt,
+    );
+    record.status = "applied";
+    PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES.delete(record.runState);
+    return internals.player.snapshot();
+  } catch (error) {
+    if (appendAccepted) {
+      record.status = "failed";
+      if (internals.fault === null) {
+        internals.fault = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    throw error;
+  }
+}
+
+export interface CanonicalRunRoomThresholdTransitionTickResult {
+  readonly runCombat: CanonicalRunCombatStateSnapshot;
+  readonly combat: CanonicalCombatSnapshot;
+  readonly roomTransition: RoomTransitionAuthoritySnapshot;
+  readonly collisionLeaseReleased: boolean;
+  readonly materialDetach: PreparedCanonicalRoomThresholdMaterialDetach | null;
+}
+
+/**
+ * Advance the bound EXT-013 combat and room FSM as one sealed tick. The caller
+ * retains only Run flush ownership; no room draft or append receipt escapes.
+ */
+export function advanceCanonicalRunRoomThresholdTransitionTick(
+  kernel: CanonicalCombatKernel,
+  input: CanonicalCombatStepInput,
+): CanonicalRunRoomThresholdTransitionTickResult {
+  if (!isExactExt013RoomThresholdKernel(kernel)) {
+    throw new Error("sealed Room Threshold tick requires the exact EXT-013 kernel");
+  }
+  const runState = kernel[ROOM_THRESHOLD_RUN_STATE_PROOF]();
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  if (
+    binding?.kernel !== kernel
+    || binding.phase !== "transition"
+    || !isExactRoomTransitionAuthority(binding.roomTransition)
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+  ) {
+    throw new Error("sealed Room Threshold tick lost its exact Run/FSM binding");
+  }
+  const internals = runCombatStateInternals(runState);
+  assertRunCombatStateOperational(internals);
+  if (internals.pendingFlushTick120 !== null || internals.bus.pendingEventCount() !== 0) {
+    const error = new Error(
+      "sealed Room Threshold tick requires the prior tick and shared event queue to be fully closed",
+    );
+    internals.fault = error;
+    throw error;
+  }
+  const combat = kernel[SEALED_ROOM_THRESHOLD_ADVANCE](input);
+  try {
+    const roomProposal = RoomTransitionAuthority.prototype.prepareAdvance.call(
+      binding.roomTransition,
+      combat.tick120,
+    );
+    const roomView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+      binding.roomTransition,
+      roomProposal,
+      internals.bus,
+    );
+    const completesTransition = roomView.drafts.length === 1
+      && roomView.drafts[0]?.id === "room.transition.complete";
+    if (completesTransition) {
+      const release = prepareCanonicalRunRoomTransitionLeaseRelease(
+        binding.roomTransition,
+        roomProposal,
+        kernel,
+        runState,
+        binding.lease,
+        combat.tick120,
+      );
+      commitPreparedCanonicalRunRoomTransitionLeaseRelease(release);
+    } else {
+      const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+        internals.bus,
+        Object.freeze([roomView.drafts]),
+      );
+      RoomTransitionAuthority.prototype.applyPreparedMutationAfterAppend.call(
+        binding.roomTransition,
+        roomProposal,
+        internals.bus,
+        receipts[0] as CanonicalEventBatchReceipt,
+      );
+    }
+    const roomTransition = RoomTransitionAuthority.prototype.snapshot.call(
+      binding.roomTransition,
+    );
+    const collisionLeaseReleased = !internals.player.snapshot().activeLeases.includes(
+      binding.lease,
+    );
+    const materialDetach = combat.relativeTick120 === crossedTickCount(7_800)
+      ? prepareCanonicalRoomThresholdMaterialDetach(kernel)
+      : null;
+    binding.expectedFlushTick120 = combat.tick120;
+    binding.expectedPendingEventCount = internals.bus.pendingEventCount();
+    return Object.freeze({
+      runCombat: runState.snapshot(),
+      combat: CanonicalCombatKernel.prototype.snapshot.call(kernel),
+      roomTransition,
+      collisionLeaseReleased,
+      materialDetach,
+    });
+  } catch (error) {
+    internals.fault = error instanceof Error ? error : new Error(String(error));
+    throw error;
+  }
 }
 
 export interface BossLaserEntryCommitResult {
@@ -7331,6 +8427,11 @@ export class CanonicalRunCombatState {
     internals: RunCombatStateInternals,
   ): CanonicalRunCombatStateSnapshot {
     assertRunCombatStateOperational(internals);
+    if (EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(this)) {
+      throw new Error(
+        "run combat idle advance is reserved by the active EXT-013 transition or material owner",
+      );
+    }
     if (internals.activeOccurrenceId !== null) {
       throw new Error(`run combat idle advance cannot overlap occurrence: ${internals.activeOccurrenceId}`);
     }
@@ -7380,6 +8481,100 @@ export class CanonicalRunCombatState {
     if (internals.pendingFlushTick120 !== tick120) {
       throw new Error(`run combat tick ${tick120} has no prepared flush`);
     }
+    const pendingLeaseRelease = PENDING_RUN_ROOM_TRANSITION_LEASE_RELEASES.get(this);
+    if (pendingLeaseRelease !== undefined) {
+      try {
+        requirePreparedRoomTransitionLeaseRelease(pendingLeaseRelease, "before-append");
+      } catch (error) {
+        const record = PREPARED_RUN_ROOM_TRANSITION_LEASE_RELEASES.get(pendingLeaseRelease);
+        if (record?.status === "prepared") record.status = "failed";
+        internals.fault = error instanceof Error ? error : new Error(String(error));
+        throw error;
+      }
+      throw new Error(
+        "room-transition complete composite must commit before the run tick can flush",
+      );
+    }
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(this);
+    if (
+      binding !== undefined
+      && (
+        binding.expectedFlushTick120 !== tick120
+        || binding.expectedPendingEventCount === null
+        || internals.bus.pendingEventCount() !== binding.expectedPendingEventCount
+      )
+    ) {
+      const error = new Error(
+        "EXT-013 sealed tick event batch changed before the Run-owned flush",
+      );
+      internals.fault = error;
+      throw error;
+    }
+    if (binding?.phase === "transition") {
+      const combat = CanonicalCombatKernel.prototype.snapshot.call(binding.kernel);
+      const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+      const player = internals.player.snapshot();
+      const leaseActive = player.activeLeases.includes(binding.lease);
+      const synchronized = combat.tick120 === tick120
+        && room.tick120 === tick120
+        && room.generation === 1
+        && (
+          tick120 < binding.completeTick120
+            ? room.targetRoom === binding.targetRoom && leaseActive
+            : room.state === "idle"
+              && room.currentRoom === binding.targetRoom
+              && room.targetRoom === null
+              && room.active === null
+              && !leaseActive
+        );
+      if (!synchronized) {
+        const error = new Error(
+          "EXT-013 combat, room transition, and collision lease lost tick-atomic synchronization",
+        );
+        internals.fault = error;
+        throw error;
+      }
+      if (
+        combat.relativeTick120 === crossedTickCount(7_800)
+        && !binding.kernel[ROOM_THRESHOLD_FAIL_STOP_PROOF]().materialDetachPending
+      ) {
+        throw new Error(
+          "Room Threshold material detach must request release before the completion tick can flush",
+        );
+      }
+    } else if (binding?.phase === "detach-release-requested") {
+      const proof = binding.kernel[ROOM_THRESHOLD_FAIL_STOP_PROOF]();
+      if (
+        proof.tick120 !== tick120
+        || !proof.materialDetachPending
+        || internals.pendingReleaseOccurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+      ) {
+        const error = new Error("Room Threshold detach release reservation drifted before flush");
+        internals.fault = error;
+        throw error;
+      }
+    } else if (binding?.phase === "material") {
+      const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+      const material = binding.carryover?.snapshot() ?? null;
+      if (
+        binding.materialRoomEventCount === null
+        || room.tick120 !== tick120
+        || room.state !== "idle"
+        || room.currentRoom !== binding.targetRoom
+        || room.targetRoom !== null
+        || room.generation !== 1
+        || room.eventCount !== binding.materialRoomEventCount
+        || room.active !== null
+        || material === null
+        || material.tick120 !== tick120
+      ) {
+        const error = new Error(
+          "EXT-013 material, target-room FSM, and Run tick lost sealed synchronization",
+        );
+        internals.fault = error;
+        throw error;
+      }
+    }
     try {
       const flushed = internals.tickFlushAuthority.flushTick(tick120);
       internals.pendingFlushTick120 = null;
@@ -7389,6 +8584,13 @@ export class CanonicalRunCombatState {
         }
         internals.activeOccurrenceId = null;
         internals.pendingReleaseOccurrenceId = null;
+      }
+      if (binding !== undefined) {
+        binding.expectedFlushTick120 = null;
+        binding.expectedPendingEventCount = null;
+        if (binding.phase === "material" && binding.carryover?.snapshot().drained === true) {
+          EXT013_ROOM_THRESHOLD_RUN_BINDINGS.delete(this);
+        }
       }
       return flushed;
     } catch (error) {
@@ -7790,16 +8992,24 @@ export class CanonicalCombatKernel {
   private patternCompleteValue = false;
   private lastDamageBatchValue: DamageBatchResult | null = null;
   private sharedOccurrenceReleased = false;
+  private deferredRoomThresholdInstallPending = false;
+  private materialDetachPending = false;
+  private materialDetached = false;
   private advanceLocked = false;
 
   constructor(
     options: CanonicalCombatKernelOptions,
     eventBusOrRunState: CanonicalEventBus | CanonicalRunCombatState = new CanonicalEventBus(),
+    installMode?: symbol,
   ) {
-    const suppliedRunState = eventBusOrRunState instanceof CanonicalRunCombatState
+    const deferredRoomThresholdInstall = installMode === DEFERRED_ROOM_THRESHOLD_INSTALL;
+    if (installMode !== undefined && !deferredRoomThresholdInstall) {
+      throw new Error("canonical combat received an unknown internal install mode");
+    }
+    const suppliedRunState = isExactCanonicalRunCombatState(eventBusOrRunState)
       ? eventBusOrRunState
       : null;
-    if (suppliedRunState === null && !(eventBusOrRunState instanceof CanonicalEventBus)) {
+    if (suppliedRunState === null && !isExactCanonicalEventBus(eventBusOrRunState)) {
       throw new Error("canonical combat requires a CanonicalEventBus or CanonicalRunCombatState");
     }
     this.sharedRunState = suppliedRunState !== null;
@@ -7807,6 +9017,16 @@ export class CanonicalCombatKernel {
     const patternId = captured.patternId ?? DEFAULT_PATTERN_ID;
     this.pattern = deepFreezeJson(executablePattern(patternId) as CombatPattern);
     validatePattern(this.pattern);
+    if (
+      deferredRoomThresholdInstall
+      && (
+        suppliedRunState === null
+        || this.pattern.id !== FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID
+        || captured.occurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+      )
+    ) {
+      throw new Error("deferred install is reserved for the exact EXT-013 Room Threshold occurrence");
+    }
     if (suppliedRunState !== null && this.pattern.id === "transition.override_void") {
       throw new Error(
         "transition.override_void shared-run handoff is not admitted by this isolated capability",
@@ -7846,16 +9066,30 @@ export class CanonicalCombatKernel {
     if (sharedSnapshot?.faulted === true) {
       throw new Error("canonical combat cannot claim a faulted run combat state");
     }
-    if (sharedSnapshot !== null && sharedSnapshot.tick120 !== this.currentTick120) {
+    if (
+      sharedSnapshot !== null
+      && (
+        deferredRoomThresholdInstall
+          ? sharedSnapshot.tick120 === Number.MAX_SAFE_INTEGER
+            || this.currentTick120 !== sharedSnapshot.tick120 + 1
+          : sharedSnapshot.tick120 !== this.currentTick120
+      )
+    ) {
       throw new Error(
-        `canonical combat start tick does not match run combat state: ${this.currentTick120} !== ${sharedSnapshot.tick120}`,
+        deferredRoomThresholdInstall
+          ? `deferred Room Threshold must start on the next run tick: ${sharedSnapshot.tick120} -> ${this.currentTick120}`
+          : `canonical combat start tick does not match run combat state: ${this.currentTick120} !== ${sharedSnapshot.tick120}`,
       );
     }
     const suppliedInitialPlayerPosition = captured.initialPlayerPosition === undefined
       ? null
       : freezeVec2(captured.initialPlayerPosition, "combat initialPlayerPosition");
+    if (deferredRoomThresholdInstall && suppliedInitialPlayerPosition === null) {
+      throw new Error("deferred Room Threshold requires its prepared next-tick player position");
+    }
     if (
       sharedSnapshot !== null
+      && !deferredRoomThresholdInstall
       && suppliedInitialPlayerPosition !== null
       && (
         suppliedInitialPlayerPosition.x !== sharedSnapshot.playerPosition.x
@@ -7864,9 +9098,11 @@ export class CanonicalCombatKernel {
     ) {
       throw new Error("canonical combat initialPlayerPosition disagrees with run combat state");
     }
-    const initialPlayerPosition = sharedSnapshot?.playerPosition
-      ?? suppliedInitialPlayerPosition
-      ?? Object.freeze({x: LOGICAL_VIEW_WIDTH / 2, y: AUTHORED_PLAYER_Y});
+    const initialPlayerPosition = deferredRoomThresholdInstall
+      ? suppliedInitialPlayerPosition as Vec2
+      : sharedSnapshot?.playerPosition
+        ?? suppliedInitialPlayerPosition
+        ?? Object.freeze({x: LOGICAL_VIEW_WIDTH / 2, y: AUTHORED_PLAYER_Y});
     if (
       initialPlayerPosition.x < 0
       || initialPlayerPosition.x > LOGICAL_VIEW_WIDTH
@@ -8119,8 +9355,9 @@ export class CanonicalCombatKernel {
               "analytic-relative-sine-extrema-then-bisection" as const,
             phaseGapBehavior: "same-generation-motion-retained-collision-off" as const,
             collisionLease: "reversible-entity-owned-canonical-events" as const,
-            transitionAuthority:
-              "withheld-no-room-transition-composer-session-renderer-or-room-completion" as const,
+            transitionAuthority: deferredRoomThresholdInstall
+              ? "ext-013-prepared-atomic-fsm-and-material-carryover" as const
+              : "withheld-no-room-transition-composer-session-renderer-or-room-completion" as const,
             completeTickTie:
               "pattern-end-cancels-live-identities-before-mask-update" as const,
           })}
@@ -8154,12 +9391,240 @@ export class CanonicalCombatKernel {
     this.evidence = runInternals.evidence;
     this.graze = runInternals.graze;
     this.override = runInternals.override;
+    this.deferredRoomThresholdInstallPending = deferredRoomThresholdInstall;
     this.projectiles.advanceTo(this.currentTick120);
-    this.player.advanceTo(this.currentTick120);
-    this.override.advanceTo(this.currentTick120);
-    if (suppliedRunState !== null) {
+    if (!deferredRoomThresholdInstall) {
+      this.player.advanceTo(this.currentTick120);
+      this.override.advanceTo(this.currentTick120);
+    }
+    if (suppliedRunState !== null && !deferredRoomThresholdInstall) {
       claimRunCombatOccurrence(suppliedRunState, occurrenceId, this.currentTick120);
     }
+  }
+
+  [DEFERRED_ROOM_THRESHOLD_INSTALL](
+    runState: CanonicalRunCombatState,
+    roomTransition: RoomTransitionAuthority,
+    lease: CollisionBlockerLease,
+    targetRoom: CanonicalRunRoomThresholdTargetRoom,
+    completeTick120: number,
+  ): void {
+    if (
+      !this.deferredRoomThresholdInstallPending
+      || this.runState !== runState
+      || this.pattern.id !== FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID
+      || this.occurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+      || !isExactRoomTransitionAuthority(roomTransition)
+      || !FIRST_CONTINUATION_ROOM_THRESHOLD_TARGETS.includes(targetRoom)
+      || EXT013_ROOM_THRESHOLD_RUN_BINDINGS.has(runState)
+    ) {
+      throw new Error("Room Threshold deferred install is unknown or already applied");
+    }
+    const internals = runCombatStateInternals(runState);
+    const player = internals.player.snapshot();
+    if (
+      internals.currentTick120 !== this.currentTick120
+      || internals.currentPlayerPosition.x !== this.currentPlayerPosition.x
+      || internals.currentPlayerPosition.y !== this.currentPlayerPosition.y
+      || internals.activeOccurrenceId !== this.occurrenceId
+      || player.tick120 !== this.currentTick120
+      || player.state !== "alive"
+      || player.collisionEnabled !== false
+      || player.activeLeases.length !== 1
+      || player.activeLeases[0] !== lease
+      || lease.owner !== "room-transition"
+      || lease.reason !== "atomic-world-swap"
+      || completeTick120 <= this.currentTick120
+    ) {
+      throw new Error("Room Threshold deferred install lost its prepared shared state");
+    }
+    this.focused = internals.focused;
+    EXT013_ROOM_THRESHOLD_KERNELS.add(this);
+    EXT013_ROOM_THRESHOLD_RUN_BINDINGS.set(runState, {
+      kernel: this,
+      roomTransition,
+      lease,
+      targetRoom,
+      completeTick120,
+      phase: "transition",
+      carryover: null,
+      materialRoomEventCount: null,
+      expectedFlushTick120: null,
+      expectedPendingEventCount: null,
+    });
+    this.deferredRoomThresholdInstallPending = false;
+  }
+
+  [ROOM_THRESHOLD_RUN_STATE_PROOF](): CanonicalRunCombatState {
+    if (
+      !EXT013_ROOM_THRESHOLD_KERNELS.has(this)
+      || !this.sharedRunState
+      || this.pattern.id !== FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID
+      || this.occurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+    ) {
+      throw new Error("kernel is not the exact live EXT-013 Room Threshold proof");
+    }
+    return this.runState;
+  }
+
+  [ROOM_THRESHOLD_FAIL_STOP_PROOF](): Readonly<{
+    runState: CanonicalRunCombatState;
+    tick120: number;
+    materialDetachPending: boolean;
+  }> {
+    this[ROOM_THRESHOLD_RUN_STATE_PROOF]();
+    return Object.freeze({
+      runState: this.runState,
+      tick120: this.currentTick120,
+      materialDetachPending: this.materialDetachPending,
+    });
+  }
+
+  [ROOM_THRESHOLD_MATERIAL_DETACH](
+    phase:
+      | "inspect"
+      | "request-release"
+      | "validate-after-flush"
+      | "finalize-after-carryover",
+  ): Readonly<{
+    runState: CanonicalRunCombatState;
+    projectiles: ProjectileAuthorityPool;
+    materialIdentityByKey: ReadonlyMap<string, Readonly<{
+      sourceId: string;
+      sourceIndex: number;
+      burstIndex: number;
+      headingDegrees: number;
+      speedPxPerSecond: number;
+    }>>;
+    tick120: number;
+  }> {
+    if (
+      !EXT013_ROOM_THRESHOLD_KERNELS.has(this)
+      || !this.sharedRunState
+      || this.pattern.id !== FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID
+      || this.occurrenceId !== FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID
+      || this.deferredRoomThresholdInstallPending
+    ) {
+      throw new Error("material detach is reserved for the exact live Room Threshold occurrence");
+    }
+    const internals = runCombatStateInternals(this.runState);
+    assertRunCombatStateOperational(internals);
+    const snapshot = CanonicalCombatKernel.prototype.snapshot.call(this);
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(this.runState);
+    const roomTransition = binding === undefined
+      ? null
+      : RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+    const player = internals.player.snapshot();
+    const override = internals.override.snapshot();
+    if (
+      binding === undefined
+      || roomTransition === null
+      || binding.kernel !== this
+      || binding.targetRoom !== roomTransition?.currentRoom
+      || binding.completeTick120 >= this.currentTick120
+      || roomTransition.tick120 !== this.currentTick120
+      || roomTransition.state !== "idle"
+      || roomTransition.targetRoom !== null
+      || roomTransition.generation !== 1
+      || roomTransition.active !== null
+      || player.activeLeases.includes(binding.lease)
+      // EXT-013 explicitly allows recovery/respawn timers to continue beside
+      // material carryover. Only the exact room-transition lease must be gone.
+      || override.state !== "idle"
+      || override.deadlineTick120 !== null
+      || override.localVoid !== null
+      || snapshot.relativeTick120 !== crossedTickCount(7_800)
+      || !snapshot.patternComplete
+      || !snapshot.digitalBodiesDrained
+      || !snapshot.materialResidueDraining
+      || snapshot.projectileLifecycleDrained
+      || snapshot.poolUsage.liveColliders !== 0
+      || snapshot.poolUsage.residueVisuals <= 0
+      || snapshot.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+    ) {
+      throw new Error("Room Threshold material detach requires the exact collisionless pattern-complete boundary");
+    }
+    if (phase === "inspect") {
+      if (
+        binding.phase !== "transition"
+        || this.materialDetachPending
+        || this.materialDetached
+        || this.sharedOccurrenceReleased
+        || internals.currentTick120 !== this.currentTick120
+        || internals.pendingFlushTick120 !== this.currentTick120
+        || internals.pendingReleaseOccurrenceId !== null
+        || internals.activeOccurrenceId !== this.occurrenceId
+      ) {
+        throw new Error("Room Threshold material detach boundary is stale");
+      }
+    } else if (phase === "request-release") {
+      if (
+        binding.phase !== "transition"
+        || this.materialDetachPending
+        || this.materialDetached
+        || this.sharedOccurrenceReleased
+        || internals.pendingFlushTick120 !== this.currentTick120
+        || internals.pendingReleaseOccurrenceId !== null
+        || internals.activeOccurrenceId !== this.occurrenceId
+      ) {
+        throw new Error("Room Threshold material detach release cannot be requested");
+      }
+      requestRunCombatOccurrenceRelease(this.runState, this.occurrenceId);
+      this.materialDetachPending = true;
+      binding.phase = "detach-release-requested";
+    } else if (phase === "validate-after-flush") {
+      if (
+        binding.phase !== "detach-release-requested"
+        || !this.materialDetachPending
+        || this.materialDetached
+        || this.sharedOccurrenceReleased
+        || internals.currentTick120 !== this.currentTick120
+        || internals.pendingFlushTick120 !== null
+        || internals.pendingReleaseOccurrenceId !== null
+        || internals.activeOccurrenceId !== null
+      ) {
+        throw new Error("Room Threshold material detach requires its successful release flush");
+      }
+    } else {
+      if (
+        binding.phase !== "detach-release-requested"
+        || !this.materialDetachPending
+        || this.materialDetached
+        || this.sharedOccurrenceReleased
+        || internals.currentTick120 !== this.currentTick120
+        || internals.pendingFlushTick120 !== null
+        || internals.pendingReleaseOccurrenceId !== null
+        || internals.activeOccurrenceId !== null
+      ) {
+        throw new Error("Room Threshold material carryover finalization became stale");
+      }
+      this.materialDetachPending = false;
+      this.materialDetached = true;
+      this.sharedOccurrenceReleased = true;
+    }
+    const materialIdentityByKey = new Map<string, Readonly<{
+      sourceId: string;
+      sourceIndex: number;
+      burstIndex: number;
+      headingDegrees: number;
+      speedPxPerSecond: number;
+    }>>();
+    for (const projectile of snapshot.projectiles) {
+      materialIdentityByKey.set(keyFor(projectile), Object.freeze({
+        sourceId: projectile.sourceId,
+        sourceIndex: projectile.sourceIndex,
+        burstIndex: projectile.burstIndex,
+        headingDegrees: projectile.headingDegrees,
+        speedPxPerSecond: projectile.speedPxPerSecond,
+      }));
+    }
+    return Object.freeze({
+      runState: this.runState,
+      projectiles: this.projectiles,
+      materialIdentityByKey,
+      tick120: this.currentTick120,
+    });
   }
 
   step(input: CanonicalCombatStepInput): CanonicalCombatSnapshot {
@@ -8174,6 +9639,27 @@ export class CanonicalCombatKernel {
    * combat state performs the sole flush.
    */
   advanceTick(input: CanonicalCombatStepInput): CanonicalCombatSnapshot {
+    if (EXT013_ROOM_THRESHOLD_KERNELS.has(this)) {
+      throw new Error(
+        "EXT-013 Room Threshold must advance through its sealed transition coordinator",
+      );
+    }
+    return this.advanceTickWithLock(input);
+  }
+
+  [SEALED_ROOM_THRESHOLD_ADVANCE](input: CanonicalCombatStepInput): CanonicalCombatSnapshot {
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(this.runState);
+    if (
+      !isExactExt013RoomThresholdKernel(this)
+      || binding?.kernel !== this
+      || binding.phase !== "transition"
+    ) {
+      throw new Error("sealed Room Threshold advance requires its exact active Run binding");
+    }
+    return this.advanceTickWithLock(input);
+  }
+
+  private advanceTickWithLock(input: CanonicalCombatStepInput): CanonicalCombatSnapshot {
     if (this.advanceLocked) throw new Error("canonical combat tick advance is already in progress");
     this.advanceLocked = true;
     try {
@@ -8188,6 +9674,30 @@ export class CanonicalCombatKernel {
     assertRunCombatStateOperational(runInternals);
     if (runInternals.pendingFlushTick120 !== null) {
       throw new Error(`run combat tick ${runInternals.pendingFlushTick120} must flush before advancing`);
+    }
+    const activeMaterialDetach = ACTIVE_ROOM_THRESHOLD_MATERIAL_DETACH_BY_KERNEL.get(this);
+    const activeMaterialDetachRecord = activeMaterialDetach === undefined
+      ? undefined
+      : PREPARED_ROOM_THRESHOLD_MATERIAL_DETACHES.get(activeMaterialDetach);
+    if (
+      activeMaterialDetachRecord !== undefined
+      && (
+        activeMaterialDetachRecord.status === "prepared"
+        || activeMaterialDetachRecord.status === "release-requested"
+      )
+    ) {
+      const error = new Error(
+        "Room Threshold material detach must complete before gameplay can advance",
+      );
+      activeMaterialDetachRecord.status = "failed";
+      runInternals.fault = error;
+      throw error;
+    }
+    if (this.deferredRoomThresholdInstallPending) {
+      throw new Error("Room Threshold deferred install has not been applied");
+    }
+    if (this.materialDetachPending || this.materialDetached) {
+      throw new Error("Room Threshold gameplay authority was detached from its material carryover");
     }
     if (this.sharedRunState) {
       if (this.sharedOccurrenceReleased) {
@@ -8208,6 +9718,14 @@ export class CanonicalCombatKernel {
       overrideReleased,
       overrideDirection,
     } = validated;
+    if (
+      EXT013_ROOM_THRESHOLD_KERNELS.has(this)
+      && (overridePressed || overrideReleased)
+    ) {
+      throw new Error(
+        "EXT-013 Room Threshold cannot admit an Override edge before successor local resistance",
+      );
+    }
 
     this.currentTick120 = tick120;
     this.previousPlayerPosition = this.currentPlayerPosition;
@@ -9054,5 +10572,370 @@ export class CanonicalCombatKernel {
     for (const [key, runtime] of this.runtimeProjectiles) {
       if (!this.projectiles.isActive(runtime.handle)) this.runtimeProjectiles.delete(key);
     }
+  }
+}
+
+function requirePreparedRoomThresholdMaterialDetach(
+  proposal: PreparedCanonicalRoomThresholdMaterialDetach,
+  expectedStatus: PreparedRoomThresholdMaterialDetachRecord["status"],
+): PreparedRoomThresholdMaterialDetachRecord {
+  if (typeof proposal !== "object" || proposal === null) {
+    throw new Error("Room Threshold material detach proposal must be opaque");
+  }
+  const record = PREPARED_ROOM_THRESHOLD_MATERIAL_DETACHES.get(proposal);
+  if (record === undefined) {
+    throw new Error("Room Threshold material detach proposal is not registered");
+  }
+  if (ACTIVE_ROOM_THRESHOLD_MATERIAL_DETACH_BY_KERNEL.get(record.kernel) !== proposal) {
+    throw new Error("Room Threshold material detach proposal lost its exclusive reservation");
+  }
+  if (record.status !== expectedStatus) {
+    throw new Error(`Room Threshold material detach proposal is ${record.status}`);
+  }
+  return record;
+}
+
+/** Stage the unique relative-936 gameplay/material ownership split. */
+export function prepareCanonicalRoomThresholdMaterialDetach(
+  kernel: CanonicalCombatKernel,
+): PreparedCanonicalRoomThresholdMaterialDetach {
+  if (
+    !isExactExt013RoomThresholdKernel(kernel)
+  ) {
+    throw new Error("Room Threshold material detach requires the exact live EXT-013 kernel");
+  }
+  if (ACTIVE_ROOM_THRESHOLD_MATERIAL_DETACH_BY_KERNEL.has(kernel)) {
+    throw new Error("Room Threshold material detach already has an in-flight proposal");
+  }
+  const view = kernel[ROOM_THRESHOLD_MATERIAL_DETACH]("inspect");
+  const proposal = Object.freeze(Object.create(null)) as unknown as PreparedCanonicalRoomThresholdMaterialDetach;
+  PREPARED_ROOM_THRESHOLD_MATERIAL_DETACHES.set(proposal, {
+    kernel,
+    runState: view.runState,
+    tick120: view.tick120,
+    status: "prepared",
+  });
+  ACTIVE_ROOM_THRESHOLD_MATERIAL_DETACH_BY_KERNEL.set(kernel, proposal);
+  return proposal;
+}
+
+/** Request occurrence release after all complete-tick gameplay events are staged. */
+export function applyCanonicalRoomThresholdMaterialDetachBeforeFlush(
+  proposal: PreparedCanonicalRoomThresholdMaterialDetach,
+): void {
+  const record = requirePreparedRoomThresholdMaterialDetach(proposal, "prepared");
+  try {
+    const view = record.kernel[ROOM_THRESHOLD_MATERIAL_DETACH]("inspect");
+    if (view.runState !== record.runState || view.tick120 !== record.tick120) {
+      throw new Error("Room Threshold material detach proposal became stale");
+    }
+    record.kernel[ROOM_THRESHOLD_MATERIAL_DETACH]("request-release");
+    record.status = "release-requested";
+  } catch (error) {
+    record.status = "failed";
+    const internals = runCombatStateInternals(record.runState);
+    if (internals.fault === null) {
+      internals.fault = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  }
+}
+
+/** Mint material-only ownership only after the run occurrence release flush succeeded. */
+export function commitCanonicalRoomThresholdMaterialDetachAfterFlush(
+  proposal: PreparedCanonicalRoomThresholdMaterialDetach,
+): CanonicalRoomThresholdMaterialCarryover {
+  const record = requirePreparedRoomThresholdMaterialDetach(proposal, "release-requested");
+  try {
+    const view = record.kernel[ROOM_THRESHOLD_MATERIAL_DETACH]("validate-after-flush");
+    if (view.runState !== record.runState || view.tick120 !== record.tick120) {
+      throw new Error("Room Threshold material detach commit drifted");
+    }
+    const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(record.runState);
+    if (
+      binding?.kernel !== record.kernel
+      || binding.phase !== "detach-release-requested"
+      || binding.carryover !== null
+      || binding.expectedFlushTick120 !== null
+      || binding.expectedPendingEventCount !== null
+    ) {
+      throw new Error("Room Threshold material carryover lost its exact Run reservation");
+    }
+    const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+    if (
+      room.tick120 !== view.tick120
+      || room.state !== "idle"
+      || room.currentRoom !== binding.targetRoom
+      || room.targetRoom !== null
+      || room.generation !== 1
+      || room.active !== null
+    ) {
+      throw new Error("Room Threshold material carryover lost its completed target-room FSM");
+    }
+    const carryover = new CanonicalRoomThresholdMaterialCarryover(
+      view.runState,
+      view.projectiles,
+      view.materialIdentityByKey,
+      view.tick120,
+      CREATE_ROOM_THRESHOLD_MATERIAL_CARRYOVER,
+    );
+    record.kernel[ROOM_THRESHOLD_MATERIAL_DETACH]("finalize-after-carryover");
+    binding.phase = "material";
+    binding.carryover = carryover;
+    binding.materialRoomEventCount = room.eventCount;
+    record.status = "committed";
+    return carryover;
+  } catch (error) {
+    record.status = "failed";
+    const internals = runCombatStateInternals(record.runState);
+    if (internals.fault === null) {
+      internals.fault = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  }
+}
+
+/**
+ * Opaque owner for collisionless threshold sediment after transition gameplay
+ * releases. It intentionally exposes no spawn, collision, RNG, or contact port.
+ */
+export class CanonicalRoomThresholdMaterialCarryover {
+  constructor(
+    runState: CanonicalRunCombatState,
+    projectiles: ProjectileAuthorityPool,
+    materialIdentityByKey: ReadonlyMap<string, Readonly<{
+      sourceId: string;
+      sourceIndex: number;
+      burstIndex: number;
+      headingDegrees: number;
+      speedPxPerSecond: number;
+    }>>,
+    detachedAtTick120: number,
+    creationToken?: symbol,
+  ) {
+    if (creationToken !== CREATE_ROOM_THRESHOLD_MATERIAL_CARRYOVER) {
+      throw new Error("Room Threshold material carryover can only be minted by a flushed detach");
+    }
+    ROOM_THRESHOLD_MATERIAL_CARRYOVERS.set(this, {
+      runState,
+      projectiles,
+      materialIdentityByKey,
+      detachedAtTick120,
+      currentTick120: detachedAtTick120,
+    });
+    Object.freeze(this);
+  }
+
+  snapshot(): CanonicalRoomThresholdMaterialCarryoverSnapshot {
+    const record = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(this);
+    if (record === undefined) throw new Error("unrecognized Room Threshold material carryover");
+    const projectiles = record.projectiles.activeSnapshots()
+      .map((projectile): CombatProjectileSnapshot => {
+        const identity = record.materialIdentityByKey.get(keyFor(projectile));
+        if (identity === undefined) {
+          throw new Error("Room Threshold material carryover lost its source identity");
+        }
+        return Object.freeze({...projectile, ...identity});
+      })
+      .sort((left, right) => compareText(left.instanceId, right.instanceId)
+        || left.generation - right.generation);
+    if (projectiles.some((projectile) =>
+      projectile.state !== "residue" || projectile.collisionEnabled)) {
+      throw new Error("Room Threshold material carryover acquired gameplay-capable state");
+    }
+    const poolUsage = record.projectiles.usage();
+    if (poolUsage.liveColliders !== 0 || poolUsage.residueVisuals !== projectiles.length) {
+      throw new Error("Room Threshold material carryover pool accounting drifted");
+    }
+    return Object.freeze({
+      authority: "room-threshold-material-carryover-v1" as const,
+      sourcePatternId: FIRST_CONTINUATION_ROOM_THRESHOLD_PATTERN_ID,
+      sourceOccurrenceId: FIRST_CONTINUATION_ROOM_THRESHOLD_OCCURRENCE_ID,
+      detachedAtTick120: record.detachedAtTick120,
+      tick120: record.currentTick120,
+      materialCount: projectiles.length,
+      drained: projectiles.length === 0,
+      poolUsage,
+      projectiles: Object.freeze(projectiles),
+    });
+  }
+}
+
+/**
+ * Advance one target-room idle tick with the old room's collisionless material
+ * on the same bus. Validation completes before either authority mutates.
+ */
+export function advanceCanonicalRunIdleWithRoomThresholdMaterial(
+  runState: CanonicalRunCombatState,
+  carryover: CanonicalRoomThresholdMaterialCarryover,
+  input: CanonicalCombatStepInput,
+  roomIdValue: string,
+): CanonicalRunIdleWithRoomThresholdMaterialResult {
+  if (!isExactCanonicalRunCombatState(runState)) {
+    throw new Error("material idle advance requires an exact CanonicalRunCombatState");
+  }
+  const material = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(carryover);
+  if (material === undefined || material.runState !== runState) {
+    throw new Error("material idle advance requires the exact carryover owner and run state");
+  }
+  const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
+  if (
+    binding?.phase !== "material"
+    || binding.carryover !== carryover
+    || binding.kernel[ROOM_THRESHOLD_RUN_STATE_PROOF]() !== runState
+    || binding.expectedFlushTick120 !== null
+    || binding.expectedPendingEventCount !== null
+  ) {
+    throw new Error("material idle advance lost its exclusive EXT-013 Run reservation");
+  }
+  const internals = runCombatStateInternals(runState);
+  if (internals.advanceLocked) {
+    throw new Error("material idle advance is already in progress");
+  }
+  internals.advanceLocked = true;
+  try {
+    assertRunCombatStateOperational(internals);
+    if (
+      internals.activeOccurrenceId !== null
+      || internals.pendingReleaseOccurrenceId !== null
+      || internals.pendingFlushTick120 !== null
+    ) {
+      throw new Error("material idle advance requires a released, flushed occurrence boundary");
+    }
+    if (internals.bus.pendingEventCount() !== 0) {
+      const error = new Error(
+        "material idle advance requires an empty shared event queue",
+      );
+      internals.fault = error;
+      throw error;
+    }
+    if (material.currentTick120 !== internals.currentTick120) {
+      throw new Error("material carryover lost synchronization with the run tick");
+    }
+    const roomId = requireUnicodeScalarString(roomIdValue, "material idle roomId");
+    if (!V4_PLAYER_AUTHORITY_CONTRACT.canonicalRoomIds.includes(roomId)) {
+      throw new Error(`material idle room is not authored: ${roomId}`);
+    }
+    if (roomId !== binding.targetRoom) {
+      throw new Error(
+        `material idle room must remain the formal EXT-013 target: ${binding.targetRoom}`,
+      );
+    }
+    const validated = validateCombatStepAgainstRunState(input, internals);
+    if (validated.overridePressed || validated.overrideReleased) {
+      throw new Error(
+        "material idle cannot admit an Override edge before successor local resistance",
+      );
+    }
+    const beforeMaterial = carryover.snapshot();
+    const beforeOverride = internals.override.snapshot();
+    const beforeRoom = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
+    if (
+      beforeMaterial.tick120 !== internals.currentTick120
+      || beforeMaterial.poolUsage.liveColliders !== 0
+      || binding.materialRoomEventCount === null
+      || beforeRoom.tick120 !== internals.currentTick120
+      || beforeRoom.state !== "idle"
+      || beforeRoom.currentRoom !== binding.targetRoom
+      || beforeRoom.targetRoom !== null
+      || beforeRoom.generation !== 1
+      || beforeRoom.eventCount !== binding.materialRoomEventCount
+      || beforeRoom.active !== null
+      || beforeOverride.state !== "idle"
+      || beforeOverride.deadlineTick120 !== null
+      || beforeOverride.localVoid !== null
+    ) {
+      const error = new Error(
+        "material carryover, target-room FSM, or Override lost its sealed idle boundary",
+      );
+      internals.fault = error;
+      throw error;
+    }
+    const roomProposal = RoomTransitionAuthority.prototype.prepareAdvance.call(
+      binding.roomTransition,
+      validated.tick120,
+    );
+    const roomView = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
+      binding.roomTransition,
+      roomProposal,
+      internals.bus,
+    );
+    if (
+      roomView.kind !== "advance"
+      || roomView.eventBus !== internals.bus
+      || roomView.tick120 !== validated.tick120
+      || roomView.drafts.length !== 0
+      || roomView.preview.tick120 !== validated.tick120
+      || roomView.preview.state !== "idle"
+      || roomView.preview.currentRoom !== binding.targetRoom
+      || roomView.preview.targetRoom !== null
+      || roomView.preview.generation !== 1
+      || roomView.preview.eventCount !== binding.materialRoomEventCount
+      || roomView.preview.active !== null
+    ) {
+      const error = new Error("material idle target-room FSM proposal drifted");
+      internals.fault = error;
+      throw error;
+    }
+
+    try {
+      material.projectiles.advanceTo(validated.tick120);
+      internals.currentTick120 = validated.tick120;
+      internals.previousPlayerPosition = internals.currentPlayerPosition;
+      internals.currentPlayerPosition = validated.playerPosition;
+      internals.focused = validated.focused;
+      if (validated.overridePressed) {
+        if (validated.overrideDirection === null) {
+          throw new Error("validated Override direction was lost");
+        }
+        internals.override.press({
+          origin: validated.playerPosition,
+          direction: validated.overrideDirection,
+          roomId,
+        }, validated.tick120);
+      }
+      if (validated.overrideReleased) internals.override.release(validated.tick120);
+      internals.override.advanceTo(validated.tick120);
+      internals.player.advanceTo(validated.tick120);
+      const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+        internals.bus,
+        Object.freeze([roomView.drafts]),
+      );
+      RoomTransitionAuthority.prototype.applyPreparedMutationAfterAppend.call(
+        binding.roomTransition,
+        roomProposal,
+        internals.bus,
+        receipts[0] as CanonicalEventBatchReceipt,
+      );
+      material.currentTick120 = validated.tick120;
+      internals.pendingFlushTick120 = validated.tick120;
+      const afterMaterial = carryover.snapshot();
+      if (
+        afterMaterial.poolUsage.liveColliders !== 0
+        || afterMaterial.projectiles.some((projectile) =>
+          projectile.state !== "residue" || projectile.collisionEnabled)
+      ) {
+        throw new Error("material carryover produced gameplay-capable state");
+      }
+      const afterOverride = internals.override.snapshot();
+      if (
+        afterOverride.state !== "idle"
+        || afterOverride.deadlineTick120 !== null
+        || afterOverride.localVoid !== null
+      ) {
+        throw new Error("material carryover advanced a non-quiescent Override state");
+      }
+      binding.expectedFlushTick120 = validated.tick120;
+      binding.expectedPendingEventCount = internals.bus.pendingEventCount();
+      return Object.freeze({
+        runCombat: runState.snapshot(),
+        material: afterMaterial,
+      });
+    } catch (error) {
+      internals.fault = error instanceof Error ? error : new Error(String(error));
+      throw error;
+    }
+  } finally {
+    internals.advanceLocked = false;
   }
 }
