@@ -13,7 +13,7 @@ import {
   validateRunMemory,
   type FinalizedRunMemory,
   type RunMemory,
-} from "../game/run-memory";
+} from "./run-memory-model";
 import {
   AUTHORED_BOSS_RESOLUTIONS,
   AUTHORED_ROOM_THRESHOLDS,

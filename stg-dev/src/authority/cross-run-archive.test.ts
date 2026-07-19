@@ -24,7 +24,7 @@ import {
   RunMemoryRecorder,
   type FinalizedRunMemory,
   type RecorderIssuedRunMemoryToken,
-} from "../game/run-memory";
+} from "./run-memory-model";
 import {
   NarrativeAuthority,
   validateNarrativeRecord,

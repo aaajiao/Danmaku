@@ -14,7 +14,7 @@ import {
   readSerializedSnapshotRecord,
   type SerializedSnapshotRecordReceipt,
 } from "./snapshot";
-import type {RecorderIssuedRunMemoryToken} from "../game/run-memory";
+import type {RecorderIssuedRunMemoryToken} from "./run-memory-model";
 
 type Dictionary = Record<string, unknown>;
 

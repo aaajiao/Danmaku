@@ -26,7 +26,6 @@ import {
 import {
   CanonicalCombatKernel,
   CanonicalMisreaderEnforceEntryFragment,
-  CanonicalRunCombatState,
   SUPPORTED_CANONICAL_COMBAT_PATTERN_IDS,
   crossedTickCount,
   commitBossPhaseExitWithLaserStart,
@@ -5776,19 +5775,13 @@ describe("canonical combat kernel capability families", () => {
 
   it("fail-stops an impossible post-preflight violation without authoring withdrawal residue", () => {
     const pattern = executablePattern("room.polarized.alternating_verdict");
-    const state = new CanonicalRunCombatState({
-      startTick120: 0,
-      initialPlayerPosition: {x: 180, y: 570},
-      grazeRadiusPx: 18,
-      projectileDamage: 1,
-      projectilePoolClasses: {"bullet.micro.notch_e": "micro"},
-    });
     const kernel = new CanonicalCombatKernel({
       ...optionsFor("room.polarized.alternating_verdict"),
       occurrenceId: "alternating:preflight-fault",
+      initialPlayerPosition: {x: 180, y: 570},
       seed: ALTERNATING_VERDICT_REPORT_SEED,
       difficulty: "EASY",
-    }, state);
+    });
     for (let tick120 = 1; tick120 <= 72; tick120 += 1) {
       kernel.step(safeGapFollowingInput(kernel, pattern, tick120));
     }
@@ -5811,12 +5804,11 @@ describe("canonical combat kernel capability families", () => {
 
     expect(() => kernel.step(safeGapFollowingInput(kernel, pattern, 73)))
       .toThrow(/admitted projectile violated its complete swept preflight/);
-    expect(state.snapshot()).toMatchObject({faulted: true, pendingFlushTick120: null});
-    expect(state.events().some((event) =>
+    expect(kernel.events().some((event) =>
       event.id === "projectile.cancel.commit"
       && event.payload.reason === "source_withdrawn")).toBe(false);
     expect(() => kernel.step(safeGapFollowingInput(kernel, pattern, 74)))
-      .toThrow(/canonical run combat state is faulted/);
+      .toThrow(/canonical combat kernel is faulted/);
   });
 
   it("resolves a post-turn swept hit with collision-off before damage", () => {
@@ -5945,24 +5937,18 @@ describe("canonical combat kernel capability families", () => {
     expect(offset.snapshot().playerPosition).toEqual(zero.snapshot().playerPosition);
   });
 
-  it("releases shared-run ownership only after the final Alternating residue flush", {
+  it("drains Alternating residue and closes the final tick with the single flush", {
     timeout: 10_000,
   }, () => {
     const pattern = executablePattern("room.polarized.alternating_verdict");
-    const state = new CanonicalRunCombatState({
-      startTick120: 0,
-      initialPlayerPosition: {x: 180, y: 570},
-      grazeRadiusPx: 18,
-      projectileDamage: 1,
-      projectilePoolClasses: {"bullet.micro.notch_e": "micro"},
-    });
     const occurrenceId = "alternating:lifecycle";
     const kernel = new CanonicalCombatKernel({
       ...optionsFor("room.polarized.alternating_verdict"),
       occurrenceId,
+      initialPlayerPosition: {x: 180, y: 570},
       seed: ALTERNATING_VERDICT_REPORT_SEED,
       difficulty: "EASY",
-    }, state);
+    });
     for (let tick120 = 1; tick120 <= 1392; tick120 += 1) {
       kernel.step(safeGapFollowingInput(kernel, pattern, tick120));
     }
@@ -5981,17 +5967,13 @@ describe("canonical combat kernel capability families", () => {
       event.tick120 === 1392
       && event.id === "projectile.cancel.commit"
       && event.payload.reason === "pattern_end")).toHaveLength(51);
-    expect(state.snapshot()).toMatchObject({
-      activeOccurrenceId: occurrenceId,
-      pendingFlushTick120: null,
-    });
 
     for (let tick120 = 1393; tick120 <= 1682; tick120 += 1) {
       kernel.step(safeGapFollowingInput(kernel, pattern, tick120));
     }
     expect(kernel.snapshot()).toMatchObject({tick120: 1682, projectileLifecycleDrained: false});
     expect(kernel.snapshot().projectiles).toHaveLength(51);
-    const eventsBeforeFinalAdvance = state.events().length;
+    const eventsBeforeFinalAdvance = kernel.events().length;
     const prepared = kernel.advanceTick(safeGapFollowingInput(kernel, pattern, 1683));
     expect(prepared).toMatchObject({
       tick120: 1683,
@@ -6000,18 +5982,13 @@ describe("canonical combat kernel capability families", () => {
       projectiles: [],
       poolUsage: {liveColliders: 0, residueVisuals: 0},
     });
-    expect(state.events()).toHaveLength(eventsBeforeFinalAdvance);
-    expect(state.snapshot()).toMatchObject({
-      activeOccurrenceId: occurrenceId,
-      pendingFlushTick120: 1683,
-    });
-    const flushed = state.flushTick(1683);
+    expect(kernel.events()).toHaveLength(eventsBeforeFinalAdvance);
+    const flushed = kernel.flushTick(1683);
     expect(flushed.filter((event) => event.id === "projectile.residue.remove")).toHaveLength(51);
     expect(flushed.filter((event) => event.id === "projectile.lifecycle.complete")).toHaveLength(51);
-    expect(state.snapshot()).toMatchObject({
+    expect(kernel.snapshot()).toMatchObject({
       tick120: 1683,
-      activeOccurrenceId: null,
-      pendingFlushTick120: null,
+      handoffReady: true,
     });
   });
 
@@ -8095,423 +8072,6 @@ describe("isolated V4 Override Void pattern", () => {
       handoffReady: true,
     });
   });
-
-  it("fails closed before a shared run state can be claimed", () => {
-    const state = new CanonicalRunCombatState({
-      startTick120: 0,
-      initialPlayerPosition: {x: 180, y: 570},
-      grazeRadiusPx: OPTIONS.grazeRadiusPx,
-      projectileDamage: OPTIONS.projectileDamage,
-      projectilePoolClasses: OPTIONS.projectilePoolClasses,
-    });
-    const before = state.snapshot();
-    expect(() => new CanonicalCombatKernel({
-      ...optionsFor("transition.override_void"),
-      occurrenceId: "transition:override:void",
-    }, state)).toThrow(/shared-run handoff is not admitted/);
-    expect(state.snapshot()).toEqual(before);
-    expect(state.events()).toEqual([]);
-  });
-});
-
-describe("sequential run-scoped combat state", () => {
-  function sharedState(
-    eventBus: CanonicalEventBus = new CanonicalEventBus(),
-  ): CanonicalRunCombatState {
-    return new CanonicalRunCombatState({
-      startTick120: 0,
-      initialPlayerPosition: {x: 180, y: 570},
-      grazeRadiusPx: OPTIONS.grazeRadiusPx,
-      projectileDamage: OPTIONS.projectileDamage,
-      projectilePoolClasses: OPTIONS.projectilePoolClasses,
-    }, eventBus);
-  }
-
-  it("retains run authority across two occurrence-qualified kernels", () => {
-    const state = sharedState();
-    const firstOccurrenceId = "encounter:first";
-    const first = new CanonicalCombatKernel({
-      ...OPTIONS,
-      occurrenceId: firstOccurrenceId,
-      seed: 99,
-      difficulty: "HARD",
-    }, state);
-    const claimed = state.snapshot();
-    expect(claimed).toMatchObject({
-      activeOccurrenceId: firstOccurrenceId,
-      claimedOccurrenceIds: [firstOccurrenceId],
-      faulted: false,
-    });
-
-    const beforeConcurrent = state.snapshot();
-    const eventsBeforeConcurrent = state.canonicalEventSerialization();
-    expect(() => new CanonicalCombatKernel({
-      ...OPTIONS,
-      occurrenceId: "encounter:concurrent",
-      seed: 100,
-      difficulty: "HARD",
-    }, state)).toThrow(/already owns active occurrence/);
-    expect(state.snapshot()).toEqual(beforeConcurrent);
-    expect(state.canonicalEventSerialization()).toBe(eventsBeforeConcurrent);
-
-    let firstReleaseTick = 0;
-    for (let tick120 = 1; tick120 <= 1400; tick120 += 1) {
-      first.step({
-        ...inputAt(tick120),
-        focused: false,
-        ...(tick120 === 1300
-          ? {overridePressed: true, overrideDirection: {x: 0, y: -1}}
-          : {}),
-      });
-      if (state.snapshot().activeOccurrenceId === null) {
-        firstReleaseTick = tick120;
-        break;
-      }
-    }
-    expect(firstReleaseTick).toBe(1362);
-    const firstFinal = first.snapshot();
-    const runAfterFirst = state.snapshot();
-    expect(firstFinal).toMatchObject({
-      occurrenceId: firstOccurrenceId,
-      patternComplete: true,
-      digitalBodiesDrained: true,
-      materialResidueDraining: false,
-      projectileLifecycleDrained: true,
-      runTimedStateQuiescent: false,
-      handoffReady: false,
-      player: {health: 1},
-      override: {cycle: 1, state: "charging"},
-    });
-    expect(runAfterFirst).toMatchObject({
-      tick120: firstReleaseTick,
-      activeOccurrenceId: null,
-      player: {health: 1},
-      evidence: firstFinal.evidence,
-      override: firstFinal.override,
-    });
-
-    const beforeReuse = state.snapshot();
-    const eventsBeforeReuse = state.canonicalEventSerialization();
-    expect(() => new CanonicalCombatKernel({
-      ...OPTIONS,
-      occurrenceId: firstOccurrenceId,
-      startTick120: firstReleaseTick,
-      seed: 101,
-      difficulty: "HARD",
-    }, state)).toThrow(/already claimed/);
-    expect(state.snapshot()).toEqual(beforeReuse);
-    expect(state.canonicalEventSerialization()).toBe(eventsBeforeReuse);
-
-    state.stepIdle({
-      tick120: firstReleaseTick + 1,
-      movement: {x: 1, y: 0},
-      focused: true,
-    }, "INFORMATION");
-    const afterIdle = state.snapshot();
-    expect(afterIdle).toMatchObject({
-      tick120: firstReleaseTick + 1,
-      player: {health: 1},
-      evidence: firstFinal.evidence,
-      override: {cycle: 1, state: "charging"},
-    });
-    expect(afterIdle.playerPosition.x).toBeGreaterThan(runAfterFirst.playerPosition.x);
-
-    const secondOccurrenceId = "encounter:second";
-    const second = new CanonicalCombatKernel({
-      ...OPTIONS,
-      occurrenceId: secondOccurrenceId,
-      startTick120: firstReleaseTick + 1,
-      seed: 99,
-      difficulty: "HARD",
-    }, state);
-    expect(second.snapshot()).toMatchObject({
-      occurrenceId: secondOccurrenceId,
-      tick120: firstReleaseTick + 1,
-      playerPosition: afterIdle.playerPosition,
-      player: {health: 1},
-      evidence: firstFinal.evidence,
-      override: {cycle: 1, state: "charging"},
-    });
-    for (let tick120 = firstReleaseTick + 2; tick120 <= firstReleaseTick + 74; tick120 += 1) {
-      second.step({...inputAt(tick120), focused: false});
-    }
-    const inheritedOverrideDeadline = firstFinal.override.deadlineTick120;
-    expect(inheritedOverrideDeadline).not.toBeNull();
-    expect(state.events().filter((event) =>
-      event.id === "player.override.denied"
-      && event.tick120 === inheritedOverrideDeadline)).toHaveLength(1);
-    const spawnIds = state.events()
-      .filter((event) => event.id === "projectile.spawn.commit")
-      .map((event) => event.entityStableId);
-    expect(spawnIds.some((id) => id.startsWith(
-      "combat:15:encounter:first:common.eye_acquisition/",
-    ))).toBe(true);
-    expect(spawnIds.some((id) => id.startsWith(
-      "combat:16:encounter:second:common.eye_acquisition/",
-    ))).toBe(true);
-    expect(() => state.canonicalEventSerialization()).not.toThrow();
-  });
-
-  it("releases an occurrence only after its exact final residue tick is closed", () => {
-    const state = sharedState();
-    const occurrenceId = "encounter:release-boundary";
-    const kernel = new CanonicalCombatKernel({
-      ...OPTIONS,
-      occurrenceId,
-      seed: 99,
-      difficulty: "HARD",
-    }, state);
-    for (let tick120 = 1; tick120 <= 1361; tick120 += 1) {
-      kernel.step({...inputAt(tick120), focused: false});
-    }
-    expect(kernel.snapshot()).toMatchObject({
-      tick120: 1361,
-      patternComplete: true,
-      digitalBodiesDrained: true,
-      materialResidueDraining: true,
-      projectileLifecycleDrained: false,
-      poolUsage: {liveColliders: 0, residueVisuals: 19},
-    });
-    expect(state.snapshot()).toMatchObject({
-      activeOccurrenceId: occurrenceId,
-      pendingFlushTick120: null,
-    });
-
-    const eventsBeforeFinalAdvance = state.events().length;
-    const prepared = kernel.advanceTick({...inputAt(1362), focused: false});
-    expect(prepared).toMatchObject({
-      tick120: 1362,
-      digitalBodiesDrained: true,
-      materialResidueDraining: false,
-      projectileLifecycleDrained: true,
-      projectiles: [],
-      poolUsage: {liveColliders: 0, residueVisuals: 0},
-    });
-    expect(state.events()).toHaveLength(eventsBeforeFinalAdvance);
-    expect(state.snapshot()).toMatchObject({
-      activeOccurrenceId: occurrenceId,
-      pendingFlushTick120: 1362,
-    });
-
-    const finalEvents = state.flushTick(1362);
-    expect(finalEvents.filter((event) => event.id === "projectile.residue.remove")).toHaveLength(19);
-    expect(finalEvents.filter((event) => event.id === "projectile.lifecycle.complete")).toHaveLength(19);
-    expect(state.snapshot()).toMatchObject({
-      tick120: 1362,
-      activeOccurrenceId: null,
-      pendingFlushTick120: null,
-    });
-  });
-
-  it("uses UTF-8 byte length in occurrence-qualified entity identity", () => {
-    const state = sharedState();
-    const occurrenceId = "猫:🙂/first";
-    const kernel = new CanonicalCombatKernel({...OPTIONS, occurrenceId}, state);
-    for (let tick120 = 1; tick120 <= 73; tick120 += 1) kernel.step(inputAt(tick120));
-    const spawnIds = state.events()
-      .filter((event) => event.id === "projectile.spawn.commit")
-      .map((event) => event.entityStableId);
-    expect(spawnIds.length).toBeGreaterThan(0);
-    expect(spawnIds.every((id) => id.startsWith(
-      "combat:14:猫:🙂/first:common.eye_acquisition/",
-    ))).toBe(true);
-    expect(new Set(state.events().map((event) => event.occurrenceKey)).size)
-      .toBe(state.events().length);
-  });
-
-  it("keeps an advanceTick open until the run state performs the sole flush", () => {
-    const bus = new CanonicalEventBus();
-    const state = sharedState(bus);
-    const kernel = new CanonicalCombatKernel({
-      ...OPTIONS,
-      occurrenceId: "occurrence:open-tick",
-    }, state);
-    for (let tick120 = 1; tick120 <= 72; tick120 += 1) kernel.step(inputAt(tick120));
-    const committedBefore = state.events().length;
-
-    const unflushed = kernel.advanceTick(inputAt(73));
-    expect(unflushed.tick120).toBe(73);
-    expect(state.events()).toHaveLength(committedBefore);
-    expect(state.snapshot().pendingFlushTick120).toBe(73);
-    expect(() => kernel.advanceTick(inputAt(74))).toThrow(/must flush before advancing/);
-    expect(state.snapshot()).toMatchObject({tick120: 73, pendingFlushTick120: 73});
-    bus.enqueue({
-      id: "projectile.spawn.commit",
-      tick120: 73,
-      entityStableId: "fixture:coordinator",
-      localSequence: 0,
-      occurrenceKey: "fixture:coordinator:73:spawn",
-      payload: {
-        instanceId: "fixture:coordinator",
-        generation: 0,
-        archetypeId: "fixture.coordinator",
-      },
-    });
-    const flushed = state.flushTick(73);
-    expect(flushed.some((event) => event.entityStableId === "fixture:coordinator")).toBe(true);
-    expect(flushed.filter((event) => event.id === "projectile.spawn.commit").length)
-      .toBeGreaterThan(1);
-    expect(state.events().length).toBe(committedBefore + flushed.length);
-    expect(state.snapshot().pendingFlushTick120).toBeNull();
-  });
-
-  it("closes silent ticks and prevents a retained bus alias from stealing a prepared flush", () => {
-    const silentBus = new CanonicalEventBus();
-    const silentState = sharedState(silentBus);
-    silentState.stepIdle(inputAt(1), "INFORMATION");
-    expect(() => silentBus.enqueue({
-      id: "projectile.spawn.commit",
-      tick120: 1,
-      entityStableId: "fixture:late-same-tick",
-      localSequence: 0,
-      occurrenceKey: "fixture:late-same-tick:spawn",
-      payload: {
-        instanceId: "fixture:late-same-tick",
-        generation: 0,
-        archetypeId: "fixture.late-same-tick",
-      },
-    })).toThrow(/already closed/);
-
-    const ownedBus = new CanonicalEventBus();
-    const ownedState = sharedState(ownedBus);
-    ownedState.advanceIdleTick({
-      ...inputAt(1),
-      overridePressed: true,
-      overrideDirection: {x: 0, y: -1},
-    }, "INFORMATION");
-    expect(() => ownedBus.flush()).toThrow(/exclusively owned/);
-    expect(ownedState.events()).toEqual([]);
-    expect(ownedState.flushTick(1).map((event) => event.id)).toContain(
-      "player.override.charge.begin",
-    );
-    expect(ownedState.snapshot()).toMatchObject({
-      tick120: 1,
-      pendingFlushTick120: null,
-      faulted: false,
-    });
-  });
-
-  it("rejects a future-tick draft before it can poison the prepared state flush", () => {
-    const bus = new CanonicalEventBus();
-    const state = sharedState(bus);
-    state.advanceIdleTick(inputAt(1), "INFORMATION");
-    expect(() => bus.enqueue({
-      id: "projectile.spawn.commit",
-      tick120: 5,
-      entityStableId: "fixture:future",
-      localSequence: 0,
-      occurrenceKey: "fixture:future:5:spawn",
-      payload: {
-        instanceId: "fixture:future",
-        generation: 0,
-        archetypeId: "fixture.future",
-      },
-    })).toThrow(/accepts only next tick 1, received 5/);
-    expect(state.events()).toEqual([]);
-    expect(state.flushTick(1)).toEqual([]);
-    expect(state.snapshot()).toMatchObject({
-      tick120: 1,
-      pendingFlushTick120: null,
-      faulted: false,
-    });
-  });
-
-  it("rejects missing identities and hostile state options without mutation", () => {
-    const state = sharedState();
-    const before = state.snapshot();
-    expect(() => new CanonicalCombatKernel(OPTIONS, state)).toThrow(/explicit occurrenceId/);
-    expect(state.snapshot()).toEqual(before);
-
-    let poolReads = 0;
-    const hostile = {
-      startTick120: 0,
-      initialPlayerPosition: {x: 180, y: 570},
-      grazeRadiusPx: 18,
-      projectileDamage: 1,
-      get projectilePoolClasses(): Readonly<Record<string, "micro">> {
-        poolReads += 1;
-        return {"bullet.micro.notch_e": "micro"};
-      },
-    };
-    expect(() => new CanonicalRunCombatState(hostile)).toThrow(/own data property/);
-    expect(poolReads).toBe(0);
-    expect(() => new CanonicalRunCombatState({
-      startTick120: 0,
-      initialPlayerPosition: {x: 180, y: 570},
-      grazeRadiusPx: 18,
-      projectileDamage: 1,
-      projectilePoolClasses: {"bullet.micro.notch_e": "not-a-pool" as "micro"},
-    })).toThrow(/canonical projectile pool class/);
-
-    class DerivedEventBus extends CanonicalEventBus {}
-    expect(() => sharedState(new DerivedEventBus())).toThrow(/exact CanonicalEventBus/);
-
-    const shadowedBus = new CanonicalEventBus();
-    Object.defineProperty(shadowedBus, "enqueue", {
-      configurable: true,
-      value: () => undefined,
-    });
-    expect(() => sharedState(shadowedBus)).toThrow(/must not be shadowed: enqueue/);
-
-    const swizzledBus = new CanonicalEventBus();
-    Object.setPrototypeOf(swizzledBus, Object.create(CanonicalEventBus.prototype));
-    expect(() => sharedState(swizzledBus)).toThrow(/exact CanonicalEventBus/);
-
-    const internalShadowBus = new CanonicalEventBus();
-    Object.defineProperties(internalShadowBus, {
-      lastFlushedTick: {value: 999, writable: false},
-      flushOwnedTick: {value: () => Object.freeze([])},
-    });
-    const internalShadowState = sharedState(internalShadowBus);
-    internalShadowState.advanceIdleTick({
-      ...inputAt(1),
-      overridePressed: true,
-      overrideDirection: {x: 0, y: -1},
-    }, "INFORMATION");
-    expect(internalShadowState.flushTick(1).map((event) => event.id)).toContain(
-      "player.override.charge.begin",
-    );
-  });
-
-  it("rejects descriptor-trap reentrancy before one tick can mutate twice", () => {
-    const kernel = new CanonicalCombatKernel(OPTIONS);
-    const before = kernel.snapshot();
-    let reentryAttempts = 0;
-    const movement = new Proxy({x: 1, y: 0}, {
-      getOwnPropertyDescriptor(target, key) {
-        if (key === "x" && reentryAttempts === 0) {
-          reentryAttempts += 1;
-          kernel.step(inputAt(1));
-        }
-        return Reflect.getOwnPropertyDescriptor(target, key);
-      },
-    });
-    expect(() => kernel.step({tick120: 1, movement, focused: false}))
-      .toThrow(/advance is already in progress/);
-    expect(reentryAttempts).toBe(1);
-    expect(kernel.snapshot()).toEqual(before);
-    kernel.step(inputAt(1));
-    expect(kernel.snapshot().tick120).toBe(1);
-
-    const state = sharedState();
-    const stateBefore = state.snapshot();
-    let idleReentryAttempts = 0;
-    const idleMovement = new Proxy({x: 1, y: 0}, {
-      getOwnPropertyDescriptor(target, key) {
-        if (key === "x" && idleReentryAttempts === 0) {
-          idleReentryAttempts += 1;
-          state.stepIdle(inputAt(1), "INFORMATION");
-        }
-        return Reflect.getOwnPropertyDescriptor(target, key);
-      },
-    });
-    expect(() => state.stepIdle({tick120: 1, movement: idleMovement, focused: false}, "INFORMATION"))
-      .toThrow(/idle advance is already in progress/);
-    expect(idleReentryAttempts).toBe(1);
-    expect(state.snapshot()).toEqual(stateBefore);
-    state.stepIdle(inputAt(1), "INFORMATION");
-    expect(state.snapshot().tick120).toBe(1);
-  });
 });
 
 describe("bounded Misreader enforce-entry laser fragment", () => {
@@ -8525,19 +8085,14 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
     const boss = new BossPhaseAuthority("boss.misreader", 1, bus);
     boss.begin(0);
     bus.flush();
-    const state = new CanonicalRunCombatState({
-      startTick120: ENTRY_TICK - 1,
-      initialPlayerPosition,
-      grazeRadiusPx: OPTIONS.grazeRadiusPx,
-      projectileDamage: OPTIONS.projectileDamage,
-      projectilePoolClasses: OPTIONS.projectilePoolClasses,
-    }, bus);
-    const fragment = new CanonicalMisreaderEnforceEntryFragment(state, boss, {
+    const fragment = new CanonicalMisreaderEnforceEntryFragment(bus, boss, {
       occurrenceId,
       phaseEntryTick120: ENTRY_TICK,
       phaseExitAuthorization: "caller-validated:misreader.evidence>=1",
+      initialPlayerPosition,
+      projectileDamage: OPTIONS.projectileDamage,
     });
-    return {bus, boss, state, fragment};
+    return {bus, boss, fragment};
   }
 
   function stationaryInput(tick120: number): CanonicalCombatStepInput {
@@ -8545,7 +8100,7 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
   }
 
   it("commits one manifest-bound entry shot and drains it at exact natural boundaries", () => {
-    const {boss, state, fragment} = fixture();
+    const {boss, fragment} = fixture();
     expect(fragment.snapshot()).toMatchObject({
       authority: "misreader-enforce-entry-laser-v4-adapter",
       tick120: ENTRY_TICK - 1,
@@ -8569,7 +8124,7 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
       fullAttackPlanExecuted: false,
     });
     expect(fragment.snapshot().geometry?.capsules).toHaveLength(16);
-    const entryEvents = state.events().filter((event) => event.tick120 === ENTRY_TICK);
+    const entryEvents = fragment.events().filter((event) => event.tick120 === ENTRY_TICK);
     expect(entryEvents.map((event) => event.id)).toEqual([
       "boss.phase.exit",
       "boss.phase.swap",
@@ -8589,7 +8144,7 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
     fragment.step(stationaryInput(ENTRY_TICK + 151));
     expect(fragment.snapshot().laser).toMatchObject({state: "active", collisionEnabled: true});
     expect(fragment.snapshot().contactAttemptTick120).toBeNull();
-    expect(state.events().filter((event) =>
+    expect(fragment.events().filter((event) =>
       event.tick120 === ENTRY_TICK + 151).map((event) => event.id)).toEqual([
       "projectile.armed",
       "projectile.flight.begin",
@@ -8618,25 +8173,19 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
     for (let tick120 = ENTRY_TICK + 287; tick120 <= ENTRY_TICK + 365; tick120 += 1) {
       fragment.step(stationaryInput(tick120));
     }
-    expect(state.snapshot().activeOccurrenceId).toBe("misreader:enforce-entry:0");
-    const beforeClose = state.events().length;
+    const beforeClose = fragment.events().length;
     const prepared = fragment.advanceTick(stationaryInput(ENTRY_TICK + 366));
     expect(prepared).toMatchObject({laserLifecycleDrained: true, laser: {state: "cleanup"}});
-    expect(state.events()).toHaveLength(beforeClose);
-    expect(state.snapshot()).toMatchObject({
-      activeOccurrenceId: "misreader:enforce-entry:0",
-      pendingFlushTick120: ENTRY_TICK + 366,
-    });
-    expect(state.flushTick(ENTRY_TICK + 366).map((event) => event.id)).toEqual([
+    expect(fragment.events()).toHaveLength(beforeClose);
+    expect(fragment.flushTick(ENTRY_TICK + 366).map((event) => event.id)).toEqual([
       "projectile.residue.remove",
       "projectile.lifecycle.complete",
     ]);
-    expect(state.snapshot().activeOccurrenceId).toBeNull();
     expect(boss.snapshot()).toMatchObject({state: "active", phaseId: "enforce"});
-    expect(state.events().filter((event) =>
+    expect(fragment.events().filter((event) =>
       event.id === "projectile.spawn.commit"
       && event.payload.archetypeId === "laser.misread_bezier")).toHaveLength(1);
-    expect(state.events().filter((event) =>
+    expect(fragment.events().filter((event) =>
       event.id === "boss.phase.exit"
       && event.tick120 > ENTRY_TICK)).toEqual([]);
   });
@@ -8650,7 +8199,7 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
       x: (capsule.from.x + capsule.to.x) / 2,
       y: (capsule.from.y + capsule.to.y) / 2,
     };
-    const {state, fragment} = fixture("misreader:contact:0", onBeam);
+    const {fragment} = fixture("misreader:contact:0", onBeam);
     for (let tick120 = ENTRY_TICK; tick120 <= ENTRY_TICK + 151; tick120 += 1) {
       fragment.step(stationaryInput(tick120));
     }
@@ -8666,8 +8215,8 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
       lastDamageBatch: {branch: "non-fatal"},
       laser: {state: "active", collisionEnabled: true, terminalCause: null},
     });
-    expect(state.events().filter((event) => event.id === "player.damage.commit")).toHaveLength(1);
-    expect(state.events().filter((event) => event.id === "projectile.impact.commit")).toEqual([]);
+    expect(fragment.events().filter((event) => event.id === "player.damage.commit")).toHaveLength(1);
+    expect(fragment.events().filter((event) => event.id === "projectile.impact.commit")).toEqual([]);
     for (let tick120 = ENTRY_TICK + 153; tick120 <= ENTRY_TICK + 264; tick120 += 1) {
       fragment.step(stationaryInput(tick120));
     }
@@ -8676,12 +8225,12 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
       player: {health: 2},
       laser: {state: "shutdown", terminalTick120: ENTRY_TICK + 264, terminalCause: "cancel"},
     });
-    expect(state.events().filter((event) => event.id === "player.damage.commit")).toHaveLength(1);
+    expect(fragment.events().filter((event) => event.id === "player.damage.commit")).toHaveLength(1);
   });
 
   it("rejects an injected laser-spawn conflict without advancing shared, Boss, or laser state", () => {
     const initialPlayerPosition = {x: 100, y: 600};
-    const {bus, boss, state, fragment} = fixture(
+    const {bus, boss, fragment} = fixture(
       "misreader:conflict:0",
       initialPlayerPosition,
     );
@@ -8708,15 +8257,15 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
     );
     expect(boss.snapshot()).toMatchObject({state: "active", phaseId: "observe"});
     expect(fragment.snapshot().laser).toEqual(before.laser);
-    expect(state.snapshot()).toMatchObject({
-      faulted: true,
+    expect(fragment.snapshot()).toMatchObject({
       tick120: ENTRY_TICK - 1,
       playerPosition: initialPlayerPosition,
       focused: false,
-      activeOccurrenceId: "misreader:conflict:0",
       player: {tick120: ENTRY_TICK - 1},
       override: {tick120: ENTRY_TICK - 1},
     });
+    expect(() => fragment.advanceTick(stationaryInput(ENTRY_TICK)))
+      .toThrow(/Misreader laser fragment is faulted/);
   });
 
   it("rejects validated catalog drift instead of reporting canonical V4 authority", () => {
@@ -8741,19 +8290,13 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
     const boss = new BossPhaseAuthority("boss.misreader", 1, bus, catalog);
     boss.begin(0);
     bus.flush();
-    const state = new CanonicalRunCombatState({
-      startTick120: ENTRY_TICK - 1,
-      initialPlayerPosition: {x: 180, y: 600},
-      grazeRadiusPx: OPTIONS.grazeRadiusPx,
-      projectileDamage: OPTIONS.projectileDamage,
-      projectilePoolClasses: OPTIONS.projectilePoolClasses,
-    }, bus);
-    expect(() => new CanonicalMisreaderEnforceEntryFragment(state, boss, {
+    expect(() => new CanonicalMisreaderEnforceEntryFragment(bus, boss, {
       occurrenceId: "misreader:drift:0",
       phaseEntryTick120: ENTRY_TICK,
       phaseExitAuthorization: "caller-validated:misreader.evidence>=1",
+      initialPlayerPosition: {x: 180, y: 600},
+      projectileDamage: OPTIONS.projectileDamage,
     })).toThrow(/manifest-derived active observe -> enforce binding/);
-    expect(state.snapshot().activeOccurrenceId).toBeNull();
     expect(boss.snapshot().phaseId).toBe("observe");
   });
 
@@ -8795,7 +8338,7 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
       x: (capsule.from.x + capsule.to.x) / 2,
       y: (capsule.from.y + capsule.to.y) / 2,
     };
-    const {bus, state, fragment} = fixture("misreader:damage-conflict:0", onBeam);
+    const {bus, fragment} = fixture("misreader:damage-conflict:0", onBeam);
     for (let tick120 = ENTRY_TICK; tick120 <= ENTRY_TICK + 151; tick120 += 1) {
       fragment.step(stationaryInput(tick120));
     }
@@ -8824,7 +8367,8 @@ describe("bounded Misreader enforce-entry laser fragment", () => {
       player: {health: 3, activeLeases: []},
       laser: {state: "active", collisionEnabled: true, terminalCause: null},
     });
-    expect(state.snapshot()).toMatchObject({faulted: true, player: {health: 3, activeLeases: []}});
+    expect(() => fragment.advanceTick(stationaryInput(contactTick + 1)))
+      .toThrow(/Misreader laser fragment is faulted/);
   });
 
   it("keeps one authority trace across render cadences and presentation-only accessibility profiles", () => {

@@ -29,7 +29,7 @@ import {
   type OverrideScar,
   type RecorderIssuedRunMemoryToken,
   type RunMemory,
-} from "../game/run-memory";
+} from "./run-memory-model";
 
 const AUTHORITY_ID = "cross-run-restore";
 const WITNESS_PRIORITY = Object.freeze([

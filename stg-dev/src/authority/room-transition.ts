@@ -6,9 +6,6 @@ import {
 } from "../../../1bit-stg-complete-asset-kit-v4/runtime/world";
 import {
   CanonicalEventBus,
-  consumeCanonicalEventBatchReceipt,
-  isExactCanonicalEventBus,
-  type CanonicalEventBatchReceipt,
   type GameplayEventDraft,
 } from "./events";
 import {
@@ -170,72 +167,11 @@ export interface RoomTransitionAuthoritySnapshot {
   readonly active: Readonly<ActiveRoomTransitionSnapshot> | null;
 }
 
-declare const preparedRoomTransitionMutationBrand: unique symbol;
-
-/** Opaque identity for one staged request or advance of the atomic FSM. */
-export interface PreparedRoomTransitionMutation {
-  readonly [preparedRoomTransitionMutationBrand]: "PreparedRoomTransitionMutation";
-}
-
-export interface PreparedRoomTransitionMutationView {
-  readonly authority: "v4-room-transition-prepared-mutation";
-  readonly kind: "request" | "advance";
-  readonly eventBus: CanonicalEventBus;
-  readonly tick120: number;
-  readonly revision: number;
-  readonly drafts: readonly GameplayEventDraft[];
-  readonly preview: RoomTransitionAuthoritySnapshot;
-}
-
 interface RoomTransitionProposal {
   state: RoomTransitionAuthorityState;
   currentRoom: RoomId;
   active: Readonly<ActiveRoomTransitionSnapshot> | null;
   readonly drafts: GameplayEventDraft[];
-}
-
-interface RoomTransitionAuthorityStateRecord {
-  readonly tick120: number | null;
-  readonly state: RoomTransitionAuthorityState;
-  readonly currentRoom: RoomId;
-  readonly active: Readonly<ActiveRoomTransitionSnapshot> | null;
-  readonly generation: number;
-  readonly eventCount: number;
-}
-
-interface PreparedRoomTransitionMutationRecord {
-  readonly owner: RoomTransitionAuthority;
-  readonly eventBus: CanonicalEventBus;
-  readonly revision: number;
-  readonly before: RoomTransitionAuthorityStateRecord;
-  readonly after: RoomTransitionAuthorityStateRecord;
-  readonly view: PreparedRoomTransitionMutationView;
-  status: "prepared" | "applied";
-}
-
-const PREPARED_ROOM_TRANSITION_MUTATIONS = new WeakMap<
-  object,
-  PreparedRoomTransitionMutationRecord
->();
-const EXACT_ROOM_TRANSITION_AUTHORITIES = new WeakSet<RoomTransitionAuthority>();
-const ROOM_TRANSITION_COMPOSITE_METHODS = Object.freeze([
-  "snapshot",
-  "prepareRequest",
-  "prepareAdvance",
-  "validatePreparedMutation",
-  "applyPreparedMutationAfterAppend",
-] as const);
-
-/** Exact production identity used by the EXT-013 cross-authority coordinator. */
-export function isExactRoomTransitionAuthority(
-  value: unknown,
-): value is RoomTransitionAuthority {
-  return typeof value === "object"
-    && value !== null
-    && EXACT_ROOM_TRANSITION_AUTHORITIES.has(value as RoomTransitionAuthority)
-    && Object.getPrototypeOf(value) === RoomTransitionAuthority.prototype
-    && ROOM_TRANSITION_COMPOSITE_METHODS.every((method) =>
-      !Object.prototype.hasOwnProperty.call(value, method));
 }
 
 function requireTick120(value: unknown, path: string): number {
@@ -272,6 +208,10 @@ function freezeActive(value: ActiveRoomTransitionSnapshot): Readonly<ActiveRoomT
  * `transition.room_threshold`: that pattern authors combat/material behavior,
  * while this machine owns only the atomic room identity handoff. Neither may
  * infer or complete the other from presentation time.
+ *
+ * Mutations are direct: each request/advance validates fully, appends its
+ * canonical drafts to the shared bus, and only then commits FSM state, so a
+ * rejected bus write leaves the authority untouched.
  */
 export class RoomTransitionAuthority {
   private currentTick120Value: number | null = null;
@@ -280,91 +220,18 @@ export class RoomTransitionAuthority {
   private activeValue: Readonly<ActiveRoomTransitionSnapshot> | null = null;
   private generationValue = 0;
   private eventCountValue = 0;
-  private mutationRevision = 0;
-  private mutationLocked = false;
 
   constructor(
     private readonly bus: CanonicalEventBus,
     initialRoomValue: unknown,
   ) {
-    if (!isExactCanonicalEventBus(bus)) {
-      throw new Error("room-transition event bus must be an exact CanonicalEventBus");
+    if (!(bus instanceof CanonicalEventBus)) {
+      throw new Error("room-transition event bus must be a CanonicalEventBus");
     }
     this.currentRoomValue = requireCanonicalRoomId(initialRoomValue, "initial room");
-    if (new.target === RoomTransitionAuthority) EXACT_ROOM_TRANSITION_AUTHORITIES.add(this);
   }
 
   request(targetRoomValue: unknown, tick120Value: unknown): RoomTransitionAuthoritySnapshot {
-    const proposal = RoomTransitionAuthority.prototype.prepareRequest.call(
-      this,
-      targetRoomValue,
-      tick120Value,
-    );
-    return this.commitPreparedMutation(proposal);
-  }
-
-  advance(tick120Value: unknown): RoomTransitionAuthoritySnapshot {
-    const proposal = RoomTransitionAuthority.prototype.prepareAdvance.call(this, tick120Value);
-    return this.commitPreparedMutation(proposal);
-  }
-
-  /** Stage an accepted-room request without touching either bus or live FSM. */
-  prepareRequest(
-    targetRoomValue: unknown,
-    tick120Value: unknown,
-  ): PreparedRoomTransitionMutation {
-    return this.withMutationLock(() => this.prepareRequestUnlocked(
-      targetRoomValue,
-      tick120Value,
-    ));
-  }
-
-  /** Stage all FSM boundaries crossed by an exact advance without appending. */
-  prepareAdvance(tick120Value: unknown): PreparedRoomTransitionMutation {
-    return this.withMutationLock(() => this.prepareAdvanceUnlocked(tick120Value));
-  }
-
-  /** Revalidate exact owner, bus, state, tick, and revision before append. */
-  validatePreparedMutation(
-    proposal: PreparedRoomTransitionMutation,
-    expectedBus: CanonicalEventBus,
-  ): PreparedRoomTransitionMutationView {
-    if (this.mutationLocked) {
-      throw new Error("room transition mutation is already in progress");
-    }
-    return this.requirePreparedMutation(proposal, expectedBus).view;
-  }
-
-  /** Apply a staged FSM state only after its exact draft group was appended. */
-  applyPreparedMutationAfterAppend(
-    proposal: PreparedRoomTransitionMutation,
-    expectedBus: CanonicalEventBus,
-    receipt: CanonicalEventBatchReceipt,
-  ): RoomTransitionAuthoritySnapshot {
-    return this.withMutationLock(() => {
-      const prepared = this.requirePreparedMutation(proposal, expectedBus);
-      consumeCanonicalEventBatchReceipt(receipt, expectedBus, prepared.view.drafts);
-      const after = prepared.after;
-      this.currentTick120Value = after.tick120;
-      this.stateValue = after.state;
-      this.currentRoomValue = after.currentRoom;
-      this.activeValue = after.active;
-      this.generationValue = after.generation;
-      this.eventCountValue = after.eventCount;
-      prepared.status = "applied";
-      this.mutationRevision += 1;
-      return prepared.view.preview;
-    });
-  }
-
-  snapshot(): RoomTransitionAuthoritySnapshot {
-    return this.snapshotFromState(this.captureState());
-  }
-
-  private prepareRequestUnlocked(
-    targetRoomValue: unknown,
-    tick120Value: unknown,
-  ): PreparedRoomTransitionMutation {
     const targetRoom = requireCanonicalRoomId(targetRoomValue, "target room");
     const tick120 = this.requireForwardTick(tick120Value, "room-transition request tick120");
     if (this.stateValue !== "idle" || this.activeValue !== null) {
@@ -393,43 +260,43 @@ export class RoomTransitionAuthority {
       this.nextLocalSequence(0),
       "begin",
       {
-      generation,
-      fromRoom: active.fromRoom,
-      toRoom: active.toRoom,
+        generation,
+        fromRoom: active.fromRoom,
+        toRoom: active.toRoom,
       },
     );
-    return this.createPreparedMutation(
-      "request",
-      tick120,
-      Object.freeze([draft]),
-      Object.freeze({
-        tick120,
-        state: "preparing",
-        currentRoom: this.currentRoomValue,
-        active,
-        generation,
-        eventCount: this.eventCountValue + 1,
-      }),
-    );
+    this.bus.enqueueBatch([draft]);
+    this.currentTick120Value = tick120;
+    this.stateValue = "preparing";
+    this.activeValue = active;
+    this.generationValue = generation;
+    this.eventCountValue += 1;
+    return this.snapshot();
   }
 
-  private prepareAdvanceUnlocked(tick120Value: unknown): PreparedRoomTransitionMutation {
+  advance(tick120Value: unknown): RoomTransitionAuthoritySnapshot {
     const tick120 = this.requireForwardTick(tick120Value, "room-transition advance tick120");
     const proposal = this.proposeAdvance(tick120);
-    const drafts = Object.freeze(proposal.drafts.slice());
-    return this.createPreparedMutation(
-      "advance",
-      tick120,
-      drafts,
-      Object.freeze({
-        tick120,
-        state: proposal.state,
-        currentRoom: proposal.currentRoom,
-        active: proposal.active,
-        generation: this.generationValue,
-        eventCount: this.eventCountValue + drafts.length,
-      }),
-    );
+    if (proposal.drafts.length > 0) this.bus.enqueueBatch(proposal.drafts);
+    this.currentTick120Value = tick120;
+    this.stateValue = proposal.state;
+    this.currentRoomValue = proposal.currentRoom;
+    this.activeValue = proposal.active;
+    this.eventCountValue += proposal.drafts.length;
+    return this.snapshot();
+  }
+
+  snapshot(): RoomTransitionAuthoritySnapshot {
+    return Object.freeze({
+      authority: "v4-room-transition",
+      tick120: this.currentTick120Value,
+      state: this.stateValue,
+      currentRoom: this.currentRoomValue,
+      targetRoom: this.activeValue?.toRoom ?? null,
+      generation: this.generationValue,
+      eventCount: this.eventCountValue,
+      active: this.activeValue,
+    });
   }
 
   private requireForwardTick(value: unknown, path: string): number {
@@ -519,134 +386,5 @@ export class RoomTransitionAuthority {
       throw new Error("room transition event sequence exhausted the safe integer range");
     }
     return sequence;
-  }
-
-  private captureState(): RoomTransitionAuthorityStateRecord {
-    return Object.freeze({
-      tick120: this.currentTick120Value,
-      state: this.stateValue,
-      currentRoom: this.currentRoomValue,
-      active: this.activeValue,
-      generation: this.generationValue,
-      eventCount: this.eventCountValue,
-    });
-  }
-
-  private snapshotFromState(
-    state: RoomTransitionAuthorityStateRecord,
-  ): RoomTransitionAuthoritySnapshot {
-    return Object.freeze({
-      authority: "v4-room-transition",
-      tick120: state.tick120,
-      state: state.state,
-      currentRoom: state.currentRoom,
-      targetRoom: state.active?.toRoom ?? null,
-      generation: state.generation,
-      eventCount: state.eventCount,
-      active: state.active,
-    });
-  }
-
-  private createPreparedMutation(
-    kind: PreparedRoomTransitionMutationView["kind"],
-    tick120: number,
-    drafts: readonly GameplayEventDraft[],
-    after: RoomTransitionAuthorityStateRecord,
-  ): PreparedRoomTransitionMutation {
-    const nextRevision = this.mutationRevision + 1;
-    if (!Number.isSafeInteger(nextRevision)) {
-      throw new Error("room transition mutation revision exhausted the safe integer range");
-    }
-    const before = this.captureState();
-    const view: PreparedRoomTransitionMutationView = Object.freeze({
-      authority: "v4-room-transition-prepared-mutation" as const,
-      kind,
-      eventBus: this.bus,
-      tick120,
-      revision: this.mutationRevision,
-      drafts,
-      preview: this.snapshotFromState(after),
-    });
-    const proposal = Object.freeze(Object.create(null)) as PreparedRoomTransitionMutation;
-    PREPARED_ROOM_TRANSITION_MUTATIONS.set(proposal, {
-      owner: this,
-      eventBus: this.bus,
-      revision: this.mutationRevision,
-      before,
-      after,
-      view,
-      status: "prepared",
-    });
-    return proposal;
-  }
-
-  private requirePreparedMutation(
-    proposal: PreparedRoomTransitionMutation,
-    expectedBus: CanonicalEventBus,
-  ): PreparedRoomTransitionMutationRecord {
-    if (!isExactCanonicalEventBus(expectedBus)) {
-      throw new Error("room transition proposal requires an exact CanonicalEventBus");
-    }
-    if (typeof proposal !== "object" || proposal === null) {
-      throw new Error("room transition mutation proposal must be opaque");
-    }
-    const prepared = PREPARED_ROOM_TRANSITION_MUTATIONS.get(proposal as object);
-    if (prepared === undefined || prepared.owner !== this) {
-      throw new Error("room transition mutation proposal is unknown or owned by another authority");
-    }
-    if (prepared.eventBus !== expectedBus || this.bus !== expectedBus) {
-      throw new Error("room transition mutation proposal event bus does not match");
-    }
-    if (prepared.status !== "prepared") {
-      throw new Error("room transition mutation proposal was already applied");
-    }
-    if (prepared.revision !== this.mutationRevision) {
-      throw new Error("room transition mutation proposal is stale");
-    }
-    if (!this.matchesState(prepared.before)) {
-      throw new Error("room transition mutation proposal state or tick is stale");
-    }
-    return prepared;
-  }
-
-  private matchesState(expected: RoomTransitionAuthorityStateRecord): boolean {
-    return this.currentTick120Value === expected.tick120
-      && this.stateValue === expected.state
-      && this.currentRoomValue === expected.currentRoom
-      && this.activeValue === expected.active
-      && this.generationValue === expected.generation
-      && this.eventCountValue === expected.eventCount;
-  }
-
-  private commitPreparedMutation(
-    proposal: PreparedRoomTransitionMutation,
-  ): RoomTransitionAuthoritySnapshot {
-    const view = RoomTransitionAuthority.prototype.validatePreparedMutation.call(
-      this,
-      proposal,
-      this.bus,
-    );
-    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
-      this.bus,
-      Object.freeze([view.drafts]),
-    );
-    return RoomTransitionAuthority.prototype.applyPreparedMutationAfterAppend.call(
-      this,
-      proposal,
-      this.bus,
-      receipts[0] as CanonicalEventBatchReceipt,
-    );
-  }
-
-  private withMutationLock<Result>(operation: () => Result): Result {
-    if (this.mutationLocked) {
-      throw new Error("room transition mutation is already in progress");
-    }
-    this.mutationLocked = true;
-    try {
-      return operation();
-    } finally {
-      this.mutationLocked = false;
-    }
   }
 }

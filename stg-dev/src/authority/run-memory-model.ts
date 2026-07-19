@@ -1,4 +1,4 @@
-import type {RoomId} from "./run-director";
+import type {RoomId} from "../../../1bit-stg-complete-asset-kit-v4/runtime/world";
 
 export const RUN_MEMORY_SCHEMA_VERSION = "4.0.0-run-memory" as const;
 export const GHOST_SAMPLE_INTERVAL_MS = 120 as const;
@@ -269,12 +269,6 @@ export interface RunMemoryFinalizeOptions {
 export interface RunMemoryValidation {
   ok: boolean;
   errors: string[];
-}
-
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
 }
 
 const COUNT_METRICS = [
@@ -634,24 +628,11 @@ export interface RecorderIssuedRunMemoryToken {
   readonly [recorderIssuedRunMemoryTokenBrand]: "RecorderIssuedRunMemoryToken";
 }
 
-interface RecorderIssuedRunMemoryProvenance {
-  readonly snapshot: FinalizedRunMemory;
-}
-
-const RECORDER_ISSUED_RUN_MEMORY = new WeakMap<object, RecorderIssuedRunMemoryProvenance>();
+const RECORDER_ISSUED_RUN_MEMORY = new WeakMap<object, FinalizedRunMemory>();
 const RECORDER_ISSUED_RUN_MEMORY_TOKENS = new WeakMap<
   RecorderIssuedRunMemoryToken,
   FinalizedRunMemory
 >();
-
-export const RUN_MEMORY_PROVENANCE_CONTRACT = Object.freeze({
-  trustedSource: "RunMemoryRecorder.finalize" as const,
-  capturePolicy: "unchanged-exact-in-memory-result-only" as const,
-  tokenPolicy: "opaque-weakmap-capability" as const,
-  tokenSnapshot: "immutable-finalize-time-copy" as const,
-  parsedOrPersistedAuthority: "unsupported" as const,
-  compressedRouteDigestRecomputation: "forbidden-uncompressed-samples-unavailable" as const,
-});
 
 function deepFreezeRunMemoryValue<T>(value: T): RecursiveReadonly<T> {
   if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
@@ -669,7 +650,7 @@ function registerRecorderIssuedRunMemory(memory: RunMemory): FinalizedRunMemory 
   // capability. Capture can therefore inspect only recorder-authored data
   // properties; callers cannot substitute getters or stale values afterward.
   const finalizedMemory = deepFreezeRunMemoryValue(memory);
-  RECORDER_ISSUED_RUN_MEMORY.set(finalizedMemory, Object.freeze({snapshot}));
+  RECORDER_ISSUED_RUN_MEMORY.set(finalizedMemory, snapshot);
   return finalizedMemory;
 }
 
@@ -684,14 +665,14 @@ export function captureRecorderIssuedRunMemory(
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("trusted run memory capture requires a recorder-issued in-memory result");
   }
-  const provenance = RECORDER_ISSUED_RUN_MEMORY.get(value);
-  if (provenance === undefined) {
+  const snapshot = RECORDER_ISSUED_RUN_MEMORY.get(value);
+  if (snapshot === undefined) {
     throw new Error(
       "trusted run memory capture rejects raw, cloned, parsed, or persisted records",
     );
   }
   const token = Object.freeze(Object.create(null)) as RecorderIssuedRunMemoryToken;
-  RECORDER_ISSUED_RUN_MEMORY_TOKENS.set(token, provenance.snapshot);
+  RECORDER_ISSUED_RUN_MEMORY_TOKENS.set(token, snapshot);
   return token;
 }
 
@@ -1024,27 +1005,5 @@ export class RunMemoryRecorder {
     }
     metrics.dominantRoom = roomsVisited.reduce((dominant, room) => roomTimeMs[room] > roomTimeMs[dominant] ? room : dominant, roomsVisited[0] as RoomId);
     return metrics;
-  }
-}
-
-/** Explicit adapter: construction and module import never touch browser storage. */
-export class LocalStorageRunMemoryAdapter {
-  constructor(
-    private readonly storage: StorageLike,
-    private readonly key = "1bit.run-memory.v4",
-  ) {}
-
-  save(memory: FinalizedRunMemory): void {
-    assertRunMemory(memory);
-    this.storage.setItem(this.key, stableStringify(memory));
-  }
-
-  load(): RunMemory | null {
-    const serialized = this.storage.getItem(this.key);
-    return serialized === null ? null : parseRunMemory(serialized);
-  }
-
-  clear(): void {
-    this.storage.removeItem(this.key);
   }
 }

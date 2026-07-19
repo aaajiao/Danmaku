@@ -3,7 +3,6 @@ import encounterManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manif
 import patternManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/executable-patterns-v4.json";
 import roomManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/room-composers-v4.json";
 import runManifestJson from "../../../1bit-stg-complete-asset-kit-v4/manifests/gameplay/run-director-v4.json";
-import directorReportJson from "../../../1bit-stg-complete-asset-kit-v4/gameplay/reports/director-determinism-report-v4.json";
 import signatureReportJson from "../../../1bit-stg-complete-asset-kit-v4/gameplay/reports/pattern-structure-signatures-v4.json";
 
 type UnknownRecord = Record<string, unknown>;
@@ -725,46 +724,6 @@ function validateEncounterContract(): void {
   }
 }
 
-function validateDirectorReport(metricIds: readonly string[]): void {
-  const report = record(directorReportJson, "director determinism report");
-  if (
-    string(report.schemaVersion, "director determinism report.schemaVersion") !== SCHEMA_VERSION
-    || string(report.algorithm, "director determinism report.algorithm") !== "seeded weighted sampling without replacement"
-    || boolean(report.sameSeedSameSchedule, "director determinism report.sameSeedSameSchedule") !== true
-  ) {
-    throw new Error("director determinism report contract drifted");
-  }
-  const sampleMetrics = record(report.sampleMetrics, "director determinism report.sampleMetrics");
-  if (!sameStrings(Object.keys(sampleMetrics), metricIds)) {
-    throw new Error("director determinism report metric declaration order drifted");
-  }
-  const runs = array(report.runs, "director determinism report.runs");
-  if (runs.length !== 16) throw new Error("director determinism report must keep sixteen seed rows");
-  for (const [index, rawRun] of runs.entries()) {
-    const run = record(rawRun, `director determinism report.runs[${index}]`);
-    if (
-      uint32(run.runSeed, `director determinism report.runs[${index}].runSeed`) !== 0x1b1700 + index
-      || boolean(run.pass, `director determinism report.runs[${index}].pass`) !== true
-      || string(run.traceSha256, `director determinism report.runs[${index}].traceSha256`)
-        !== string(run.repeatSha256, `director determinism report.runs[${index}].repeatSha256`)
-    ) {
-      throw new Error(`director determinism report row drifted: ${index}`);
-    }
-  }
-  const example = record(report.exampleSchedule, "director determinism report.exampleSchedule");
-  if (
-    uint32(example.runSeed, "director determinism report.exampleSchedule.runSeed") !== 0x1b17
-    || array(example.rooms, "director determinism report.exampleSchedule.rooms").length !== QA_DEFAULT_ROOM_COUNT
-    || array(example.schedule, "director determinism report.exampleSchedule.schedule").length !== 33
-    || !/^[0-9a-f]{64}$/u.test(string(
-      example.traceSha256,
-      "director determinism report.exampleSchedule.traceSha256",
-    ))
-  ) {
-    throw new Error("director determinism report example schedule drifted");
-  }
-}
-
 function buildCatalog(): QaCatalog {
   const patterns = parsePatterns();
   const patternsById = new Map(patterns.map((pattern) => [pattern.id, pattern]));
@@ -792,7 +751,6 @@ function buildCatalog(): QaCatalog {
     throw new Error("run composer transition or dusk pattern is missing");
   }
   validateEncounterContract();
-  validateDirectorReport(derivedMetricIds);
   return freezeRecord({
     patternsById,
     composers,

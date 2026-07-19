@@ -19,7 +19,7 @@ import {
   readRecorderIssuedRunMemory,
   type FinalizedRunMemory,
   type RecorderIssuedRunMemoryToken,
-} from "../game/run-memory";
+} from "./run-memory-model";
 
 type Dictionary = Record<string, unknown>;
 
