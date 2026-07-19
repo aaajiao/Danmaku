@@ -40,6 +40,7 @@ import {
   commitPreparedCanonicalRunFirstContinuationRoomAdmission,
   inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
   prepareCanonicalRunFirstContinuationRoomAdmission,
+  startCanonicalRunFirstContinuationSuccessorRead,
 } from "./first-continuation-room-admission-authority";
 
 function runInput(
@@ -447,6 +448,106 @@ describe("first continuation transition chapter owner", () => {
       combatInput(handoffTick120 + 159),
       fixture.formalTarget.targetRoom,
     )).toThrow(/dormant successor owner/);
+  });
+
+  it("installs the planned READ kernel at H+159 without a binding gap", {
+    timeout: 30_000,
+  }, () => {
+    const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
+    const preparation = prepareCanonicalRunFirstContinuationRoomAdmission(handoffReceipt);
+    if (preparation.state !== "prepared") {
+      throw new Error(`expected admissible fixture, received ${preparation.reason}`);
+    }
+    const owner = commitPreparedCanonicalRunFirstContinuationRoomAdmission(
+      preparation.proposal,
+    );
+    const handoffTick120 = transition.combat.tick120;
+    let successor = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    while (successor.tick120 < handoffTick120 + 158) {
+      successor = advanceCanonicalRunFirstContinuationSuccessorPreRead(
+        owner,
+        combatInput(successor.tick120 + 1),
+      );
+    }
+    expect(successor).toMatchObject({
+      phase: "entry",
+      tick120: handoffTick120 + 158,
+      nextMasterTickAction: "claim-read",
+      combat: null,
+    });
+    const runBeforeRead = fixture.runState.snapshot();
+    const eventsBeforeRead = fixture.eventBus.events();
+    const reservationAtHandoff = JSON.stringify(successor.combinedPoolAdmission.reservation);
+
+    expect(() => startCanonicalRunFirstContinuationSuccessorRead(
+      owner,
+      combatInput(handoffTick120 + 158),
+    )).toThrow(/advance one tick at a time/);
+    expect(() => startCanonicalRunFirstContinuationSuccessorRead(owner, {
+      ...combatInput(handoffTick120 + 159),
+      overridePressed: true,
+      overrideDirection: {x: 1, y: 0},
+    })).toThrow(/Override locked/);
+    expect(fixture.runState.snapshot()).toEqual(runBeforeRead);
+    expect(fixture.eventBus.events()).toEqual(eventsBeforeRead);
+
+    const read = startCanonicalRunFirstContinuationSuccessorRead(owner, {
+      ...combatInput(handoffTick120 + 159),
+      movement: {x: 1, y: 0},
+      focused: true,
+    });
+    expect(read).toMatchObject({
+      phase: "read",
+      tick120: handoffTick120 + 159,
+      relativeTick120: 159,
+      nextMasterTickAction: "advance-read",
+      runCombat: {
+        tick120: handoffTick120 + 159,
+        focused: true,
+        activeOccurrenceId: preparation.view.plan.occurrence.occurrenceId,
+        pendingFlushTick120: null,
+      },
+      combat: {
+        tick120: handoffTick120 + 159,
+        relativeTick120: 0,
+        patternId: preparation.view.plan.occurrence.patternId,
+        occurrenceId: preparation.view.plan.occurrence.occurrenceId,
+        projectiles: [],
+        poolUsage: {liveColliders: 0},
+      },
+      material: {
+        tick120: handoffTick120 + 159,
+        poolUsage: {liveColliders: 0},
+      },
+      targetVisible: false,
+    });
+    expect(read.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === preparation.view.plan.occurrence.occurrenceId)).toHaveLength(1);
+    expect(read.plan).toBe(successor.plan);
+    expect(JSON.stringify(read.combinedPoolAdmission.reservation)).toBe(reservationAtHandoff);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+    expect(fixture.eventBus.events().slice(eventsBeforeRead.length).every((event) =>
+      event.id === "projectile.residue.remove"
+      || event.id === "projectile.lifecycle.complete")).toBe(true);
+
+    const runAfterRead = fixture.runState.snapshot();
+    const eventsAfterRead = fixture.eventBus.events();
+    expect(() => startCanonicalRunFirstContinuationSuccessorRead(
+      owner,
+      combatInput(handoffTick120 + 160),
+    )).toThrow(/exact H\+158 entry boundary/);
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorPreRead(
+      owner,
+      combatInput(handoffTick120 + 160),
+    )).toThrow(/lost its exact committed owner/);
+    expect(() => chapter.step(combatInput(handoffTick120 + 160)))
+      .toThrow(/ownership was transferred/);
+    expect(() => fixture.runState.stepIdle(
+      combatInput(handoffTick120 + 160),
+      fixture.formalTarget.targetRoom,
+    )).toThrow(/dormant successor owner/);
+    expect(fixture.runState.snapshot()).toEqual(runAfterRead);
+    expect(fixture.eventBus.events()).toEqual(eventsAfterRead);
   });
 
   it("cancels a prepared admission without consuming the handoff, then retries", {

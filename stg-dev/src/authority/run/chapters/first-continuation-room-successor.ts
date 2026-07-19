@@ -1,6 +1,8 @@
 import {
   advanceCanonicalRunFirstContinuationDormantSuccessorPreReadTick,
   inspectCanonicalRunFirstContinuationDormantSuccessorBinding,
+  startCanonicalRunFirstContinuationSuccessorRead as startCanonicalRunFirstContinuationSuccessorReadBinding,
+  type CanonicalCombatSnapshot,
   type CanonicalCombatStepInput,
   type CanonicalRoomThresholdMaterialCarryover,
   type CanonicalRunCombatState,
@@ -118,7 +120,8 @@ function boundaries(
 export type CanonicalRunFirstContinuationSuccessorPreReadPhase =
   | "dormant"
   | "telegraph"
-  | "entry";
+  | "entry"
+  | "read";
 
 export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
   readonly authority: typeof OWNER_AUTHORITY;
@@ -146,14 +149,15 @@ export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
   readonly material: ReturnType<CanonicalRoomThresholdMaterialCarryover["snapshot"]>;
   readonly runCombat: ReturnType<CanonicalRunCombatState["snapshot"]>;
   readonly canonicalEventCount: number;
-  readonly combat: null;
+  readonly combat: CanonicalCombatSnapshot | null;
   readonly targetVisible: false;
   readonly nextMasterTickAction:
     | "telegraph"
     | "continue-telegraph"
     | "entry"
     | "continue-entry"
-    | "claim-read";
+    | "claim-read"
+    | "advance-read";
   readonly inputOwnership: Readonly<{
     readonly movement: "continued";
     readonly focus: "continued";
@@ -186,21 +190,29 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
     throw new Error("first continuation successor binding and formal plan diverged");
   }
   const relativeTick120 = binding.tick120 - boundaryTicks120.handoffTick120;
-  const phase: CanonicalRunFirstContinuationSuccessorPreReadPhase = relativeTick120 === 0
-    ? "dormant"
-    : binding.tick120 < boundaryTicks120.entryStartTick120
-      ? "telegraph"
-      : "entry";
+  const phase: CanonicalRunFirstContinuationSuccessorPreReadPhase = binding.phase === "read"
+    ? "read"
+    : relativeTick120 === 0
+      ? "dormant"
+      : binding.tick120 < boundaryTicks120.entryStartTick120
+        ? "telegraph"
+        : "entry";
   if (
     relativeTick120 < 0
-    || binding.tick120 >= boundaryTicks120.readStartTick120
+    || (phase === "read"
+      ? binding.tick120 !== boundaryTicks120.readStartTick120
+        || binding.combat === null
+      : binding.tick120 >= boundaryTicks120.readStartTick120
+        || binding.combat !== null)
     || (phase === "dormant" && binding.phase !== "dormant")
-    || (phase !== "dormant" && binding.phase !== "pre-read")
+    || ((phase === "telegraph" || phase === "entry") && binding.phase !== "pre-read")
   ) {
     throw new Error("first continuation successor pre-READ phase drifted");
   }
   const nextMasterTickAction = phase === "dormant"
     ? "telegraph" as const
+    : phase === "read"
+      ? "advance-read" as const
     : binding.tick120 === boundaryTicks120.readStartTick120 - 1
       ? "claim-read" as const
       : binding.tick120 === boundaryTicks120.entryStartTick120 - 1
@@ -211,7 +223,9 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
   const runCombat = record.runState.snapshot();
   if (
     runCombat.tick120 !== binding.tick120
-    || runCombat.activeOccurrenceId !== null
+    || (phase === "read"
+      ? runCombat.activeOccurrenceId !== record.plan.occurrence.occurrenceId
+      : runCombat.activeOccurrenceId !== null)
     || runCombat.pendingFlushTick120 !== null
   ) {
     throw new Error("first continuation successor pre-READ acquired combat or lost its flush");
@@ -242,7 +256,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
     material: binding.material,
     runCombat,
     canonicalEventCount: record.eventBus.events().length,
-    combat: null,
+    combat: binding.combat,
     targetVisible: false as const,
     nextMasterTickAction,
     inputOwnership: Object.freeze({
@@ -286,6 +300,55 @@ export function advanceCanonicalRunFirstContinuationSuccessorPreRead(
     const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
     if (after.tick120 !== before.tick120 + 1 || after.combat !== null) {
       throw new Error("first continuation successor pre-READ lost its exact one-tick advance");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted || record.runState.snapshot().faulted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function startCanonicalRunFirstContinuationSuccessorRead(
+  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation successor READ start is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (before.phase !== "entry" || before.nextMasterTickAction !== "claim-read") {
+      throw new Error("first continuation successor READ requires the exact H+158 entry boundary");
+    }
+    startCanonicalRunFirstContinuationSuccessorReadBinding(
+      record.runState,
+      record.eventBus,
+      record.carryover,
+      owner,
+      input,
+    );
+    authoritativeTickAccepted = true;
+    const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      after.tick120 !== before.tick120 + 1
+      || after.phase !== "read"
+      || after.relativeTick120 !== 159
+      || after.combat === null
+      || after.combat.relativeTick120 !== 0
+      || after.combat.patternId !== after.plan.occurrence.patternId
+      || after.combat.occurrenceId !== after.plan.occurrence.occurrenceId
+      || after.combat.projectiles.length !== 0
+      || after.combat.poolUsage.liveColliders !== 0
+      || after.nextMasterTickAction !== "advance-read"
+    ) {
+      throw new Error("first continuation successor READ local-tick-zero snapshot drifted");
     }
     return after;
   } catch (error) {
