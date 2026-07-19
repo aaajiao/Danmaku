@@ -65,6 +65,13 @@ export class Bullet {
   maxBounces = 0;
   angle = 0;
 
+  /**
+   * Wall bounces this life. Owned by the bullet, not the vector: a timeline
+   * segment re-inits the vector, which would otherwise refill the allowance
+   * and leave a bouncing bullet immortal.
+   */
+  bounceCount = 0;
+
   readonly vector = new MoveVector();
   readonly timeline = new MotionTimeline();
   style: BulletStyle = { sprite: 'orb.small' };
@@ -76,6 +83,7 @@ export class Bullet {
     this.alive = false;
     this.age = 0;
     this.hasTimeline = false;
+    this.bounceCount = 0;
   }
 
   spawn(x: number, y: number, spec: BulletSpec, faction: Faction, rng: Random): void {
