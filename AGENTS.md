@@ -45,6 +45,29 @@ explicitly asks to change the source kit. Fail fast on version, schema, ID,
 reference, file-universe, or SHA-256 drift. Do not commit generated Python
 `__pycache__`/`.pyc`, build output, browser reports, or local caches.
 
+Before implementing a gameplay slice, trace its authority from source fact to
+producer, deterministic consumer, and observable result. Classify a blocker as
+an authority/design gap, an implementation defect, or a verification problem;
+do not spend test time trying to resolve an unwritten design decision.
+
+- Silence in V4 is not permission to guess. Do not invent formulas,
+  thresholds, normalization, default metrics, RNG scope, room count, or
+  transition rules. Preserve unavailable facts as typed absence; never coerce
+  `missing` to numeric zero, neutral input, or fabricated history.
+- Any necessary rule outside V4 must be accepted in a focused extension ADR
+  before implementation. State the exact omission, the smallest added rule,
+  its negative-space boundary, provenance, rollback, and the playable or
+  observable path it unlocks. Keep the proposal and implementation as separate
+  completed commits.
+- Reject circular readiness gates. A later-room observation cannot be required
+  to enter that room or to select the next room. At each boundary, consume only
+  facts that could actually have been observed by then, with an explicit policy
+  for partial evidence.
+- Prefer the smallest vertical slice that closes an authoritative producer,
+  deterministic consumer, and observable behavior. Do not prioritize a metric,
+  abstraction, or broad scaffold merely because it raises a coverage count; it
+  must advance the playable loop or retire a named production risk.
+
 ## 4. Runtime invariants
 
 - Integer `tick120` is the only gameplay time identity. Milliseconds are a
