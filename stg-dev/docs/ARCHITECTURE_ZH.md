@@ -280,6 +280,13 @@ coordinator继续withheld。契约与provenance见
 [EXT-2026-020](adr/EXT-2026-020-second-in-between-occurrence-plan.md)。exact producer到dormant owner的原子交接
 已经实现；下一tick双pool coordinator与Session接线状态以Roadmap为准。
 
+EXT-021接受下一段authority边界：EXT-020 dormant owner从`T+1`开始，在一个Run-owned transaction中推进已drained
+threshold lineage、room/player与Context Switch collisionless material，最后sole-flush；`T+1..T+62`为telegraph、
+`T+63..T+158`为entry。`T+159`仍先关闭material/room tick，随后才安装空的Misregistration local-tick-zero
+kernel并claim encounter ordinal 1一次。material drain不释放retained pool lease。READ advance、Session、
+presentation与room completion继续withheld；契约见
+[EXT-2026-021](adr/EXT-2026-021-second-in-between-pre-read-and-read-start.md)。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与
