@@ -8744,7 +8744,10 @@ export class CanonicalRunCombatState {
         internals.fault = error;
         throw error;
       }
-    } else if (binding?.phase === "successor-tail") {
+    } else if (
+      binding?.phase === "successor-tail"
+      || binding?.phase === "successor-complete"
+    ) {
       const room = RoomTransitionAuthority.prototype.snapshot.call(binding.roomTransition);
       const material = binding.carryover?.snapshot() ?? null;
       const combat = binding.successorFinalCombat;
@@ -8776,6 +8779,7 @@ export class CanonicalRunCombatState {
         || material === null
         || material.tick120 !== tick120
         || material.poolUsage.liveColliders !== 0
+        || (binding.phase === "successor-complete" && !material.drained)
         || !successorPoolUsageFitsReservation(material, combat, reservation)
         || internals.player.snapshot().tick120 !== tick120
       ) {
@@ -10023,7 +10027,7 @@ export class CanonicalCombatKernel {
       || !this.sharedRunState
       || !this.sharedOccurrenceReleased
       || this.deferredFirstContinuationReadInstallPending
-      || binding?.phase !== "successor-tail"
+      || (binding?.phase !== "successor-tail" && binding?.phase !== "successor-complete")
       || binding.successorOwner !== successorOwner
       || binding.successorKernel !== this
       || binding.successorFinalCombat === null
@@ -11298,7 +11302,8 @@ interface ContinuationMaterialIdleAdvancePolicy {
     | "material idle"
     | "dormant successor pre-READ"
     | "successor READ start"
-    | "successor tail";
+    | "successor tail"
+    | "successor complete hold";
   readonly requireDrained: boolean;
   readonly requireOverrideQuiescent: boolean;
   readonly latestTick120: number | null;
@@ -11883,7 +11888,7 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
   carryover: CanonicalRoomThresholdMaterialCarryover,
   successorOwner: object,
   input: CanonicalCombatStepInput,
-  mode: "advance" | "close",
+  mode: "advance" | "close" | "hold",
 ): CanonicalRunFirstContinuationSuccessorTailTickResult {
   if (!isExactCanonicalRunCombatState(runState)) {
     throw new Error("successor tail requires an exact CanonicalRunCombatState");
@@ -11891,8 +11896,8 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
   if (!isExactCanonicalEventBus(eventBus)) {
     throw new Error("successor tail requires the exact canonical event bus");
   }
-  if (mode !== "advance" && mode !== "close") {
-    throw new Error("successor tail requires an exact advance or close mode");
+  if (mode !== "advance" && mode !== "close" && mode !== "hold") {
+    throw new Error("successor tail requires an exact advance, close, or hold mode");
   }
   const binding = EXT013_ROOM_THRESHOLD_RUN_BINDINGS.get(runState);
   const materialRecord = ROOM_THRESHOLD_MATERIAL_CARRYOVERS.get(carryover);
@@ -11902,7 +11907,10 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
   const kernel = binding?.successorKernel ?? null;
   const combat = binding?.successorFinalCombat ?? null;
   if (
-    binding?.phase !== "successor-tail"
+    binding === undefined
+    || (mode === "hold"
+      ? binding.phase !== "successor-complete"
+      : binding.phase !== "successor-tail")
     || binding.carryover !== carryover
     || binding.successorOwner !== successorOwner
     || plan === null
@@ -11920,18 +11928,21 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
     || binding.expectedFlushTick120 !== null
     || binding.expectedPendingEventCount !== null
   ) {
-    throw new Error("successor tail lost its exact released occurrence owner");
+    throw new Error("successor tail/hold lost its exact released occurrence owner");
   }
   const boundaries = successorBoundaryTicks(plan);
   const nextTick120 = requireSafeTick(internals.currentTick120 + 1, "successor tail next tick");
   if (
     (mode === "advance" && nextTick120 >= boundaries.sliceCompleteTick120)
     || (mode === "close" && nextTick120 !== boundaries.sliceCompleteTick120)
+    || (mode === "hold" && internals.currentTick120 < boundaries.sliceCompleteTick120)
   ) {
     throw new Error(
       mode === "advance"
         ? "successor tail terminal boundary requires close"
-        : "successor tail close requires the exact slice-complete boundary",
+        : mode === "close"
+          ? "successor tail close requires the exact slice-complete boundary"
+          : "successor complete hold requires a closed slice boundary",
     );
   }
   let authoritativeTickAccepted = false;
@@ -11944,10 +11955,12 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
       binding,
       materialRecord,
       Object.freeze({
-        label: "successor tail" as const,
-        requireDrained: false,
+        label: mode === "hold"
+          ? "successor complete hold" as const
+          : "successor tail" as const,
+        requireDrained: mode === "hold",
         requireOverrideQuiescent: true,
-        latestTick120: boundaries.sliceCompleteTick120,
+        latestTick120: mode === "hold" ? null : boundaries.sliceCompleteTick120,
       }),
     );
     authoritativeTickAccepted = true;
@@ -11975,7 +11988,7 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
         projectile.state !== "residue" || projectile.collisionEnabled)
       || !successorPoolUsageFitsReservation(material, successorMaterial, reservation)
     ) {
-      throw new Error("successor tail did not close its exact idle/material tick");
+      throw new Error("successor tail/hold did not close its exact idle/material tick");
     }
     if (mode === "close") {
       if (
@@ -11996,7 +12009,7 @@ export function advanceCanonicalRunFirstContinuationSuccessorTailTick(
       material,
       combat: successorMaterial,
       flushedEvents,
-      sliceComplete: mode === "close",
+      sliceComplete: mode !== "advance",
     });
   } catch (error) {
     if (authoritativeTickAccepted && internals.fault === null) {
@@ -12626,7 +12639,7 @@ export interface CanonicalRunFirstContinuationDormantSuccessorBindingSnapshot {
     | "advance-read"
     | "advance-tail"
     | "close-slice"
-    | "hold-complete";
+    | "advance-complete-hold";
 }
 
 export function inspectCanonicalRunFirstContinuationDormantSuccessorBinding(
@@ -12718,7 +12731,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorBinding(
           )
           || (binding.phase === "successor-tail"
             ? internals.currentTick120 >= boundaryTicks120.sliceCompleteTick120
-            : internals.currentTick120 !== boundaryTicks120.sliceCompleteTick120)
+            : internals.currentTick120 < boundaryTicks120.sliceCompleteTick120)
         : internals.currentTick120 >= readStartTick120
           || internals.activeOccurrenceId !== null
           || combat !== null)
@@ -12802,7 +12815,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorBinding(
           ? "close-slice" as const
           : "advance-tail" as const
         : phase === "complete"
-          ? "hold-complete" as const
+          ? "advance-complete-hold" as const
     : internals.currentTick120 === readStartTick120 - 1
       ? "claim-read" as const
       : "continue-pre-read" as const;

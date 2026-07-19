@@ -31,6 +31,7 @@ import {registerCanonicalRunFirstContinuationSuccessorOwner} from
   "./first-continuation-room-successor";
 
 export {
+  advanceCanonicalRunFirstContinuationSuccessorCompleteHold,
   advanceCanonicalRunFirstContinuationSuccessorPreRead,
   advanceCanonicalRunFirstContinuationSuccessorRead,
   advanceCanonicalRunFirstContinuationSuccessorTail,

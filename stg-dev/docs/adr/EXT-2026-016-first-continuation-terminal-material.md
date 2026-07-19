@@ -28,7 +28,9 @@ pattern end 之后的 residue 由谁推进。V4 的 collisionless residue 生命
 4. `material-settle`、`rest` 与 `sliceCompleteTick120` 保持 plan 原值。slice close 要求旧 EXT-013 carryover
    已排空、Override 仍为 locked/idle、successor residue 仍无 gameplay 能力；不要求 successor residue 在该
    边界消失。player recovery/respawn timer 是 Run-owned state，可以跨 slice 继续，不把 slice close 冒充
-   handoff-ready。未排空 residue 保留在 sealed complete snapshot，等待未来明确的 material handoff。
+   handoff-ready。未排空 residue 保留在 sealed complete snapshot；在未来明确的 material handoff 建立前，
+   同一 sealed owner 继续接受 exact-next-tick，只推进 residue lifetime、player timer 与 idle room FSM，
+   `phase="complete"` 不回退，也不重新取得 gameplay claim。
 5. slice complete 不是 room complete、room handoff、胜利或计分。没有新增 canonical event ID，也不伪造
    `room.transition.complete`、`material.settle` 或 `segment.*` 事件。
 6. movement 与 Focus 继续由身体权消费；Signal/Gaze/Flower 继续遵循 EXT-014/015 的冻结边界。
@@ -51,7 +53,7 @@ pattern end 之后的 residue 由谁推进。V4 的 collisionless residue 生命
 ## 验证
 
 - 一条真实 producer 流从 Handoff 推进到 H+159 READ、首个真实 projectile、pattern end、occurrence release、
-  material-only tail 与 exact slice close；
+  material-only tail、exact slice close、post-close residue drain 与空材料 hold；
 - 断言 active/pending occurrence 均为空、所有 retained successor projectile 都是 collisionless residue、
   combined reservation 未超额、Override edge fail-closed，且没有伪造 room completion；
 - focused test、strict typecheck 与 `git diff --check` 作为本切片提交证据；V4 source tree 不修改。

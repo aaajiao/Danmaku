@@ -134,7 +134,7 @@ export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
     | "advance-read"
     | "advance-tail"
     | "close-slice"
-    | "hold-complete";
+    | "advance-complete-hold";
   readonly inputOwnership: Readonly<{
     readonly movement: "continued";
     readonly focus: "continued";
@@ -207,7 +207,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
           ? "close-slice" as const
           : "advance-tail" as const
         : binding.phase === "complete"
-          ? "hold-complete" as const
+          ? "advance-complete-hold" as const
       : binding.tick120 === boundaryTicks120.readStartTick120 - 1
         ? "claim-read" as const
         : binding.tick120 === boundaryTicks120.entryStartTick120 - 1
@@ -508,7 +508,7 @@ export function closeCanonicalRunFirstContinuationSuccessorSlice(
     if (
       after.tick120 !== before.boundaryTicks120.sliceCompleteTick120
       || after.phase !== "complete"
-      || after.nextMasterTickAction !== "hold-complete"
+      || after.nextMasterTickAction !== "advance-complete-hold"
       || after.combat !== advanced.combat
       || after.combat === null
       || after.combat.tick120 !== after.tick120
@@ -524,6 +524,73 @@ export function closeCanonicalRunFirstContinuationSuccessorSlice(
       || after.material.materialCount !== 0
     ) {
       throw new Error("first continuation successor slice close did not seal its terminal snapshot");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted || record.runState.snapshot().faulted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
+  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation successor complete hold is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      before.phase !== "complete"
+      || before.nextMasterTickAction !== "advance-complete-hold"
+      || before.combat === null
+      || !before.combat.patternComplete
+      || !before.combat.digitalBodiesDrained
+      || before.combat.poolUsage.liveColliders !== 0
+      || !before.material.drained
+    ) {
+      throw new Error(
+        "first continuation successor complete hold requires its sealed material owner",
+      );
+    }
+    const advanced = advanceCanonicalRunFirstContinuationSuccessorTailTick(
+      record.runState,
+      record.eventBus,
+      record.carryover,
+      owner,
+      input,
+      "hold",
+    );
+    authoritativeTickAccepted = true;
+    const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      after.phase !== "complete"
+      || after.nextMasterTickAction !== "advance-complete-hold"
+      || after.tick120 !== before.tick120 + 1
+      || after.relativeTick120 !== before.relativeTick120 + 1
+      || after.combat !== advanced.combat
+      || after.combat === null
+      || after.combat.tick120 !== after.tick120
+      || !after.combat.patternComplete
+      || !after.combat.digitalBodiesDrained
+      || after.combat.poolUsage.liveColliders !== 0
+      || after.combat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || !advanced.sliceComplete
+      || after.runCombat.activeOccurrenceId !== null
+      || after.runCombat.pendingFlushTick120 !== null
+      || !after.material.drained
+      || after.material.materialCount !== 0
+    ) {
+      throw new Error("first continuation successor complete hold lost its one-tick boundary");
     }
     return after;
   } catch (error) {

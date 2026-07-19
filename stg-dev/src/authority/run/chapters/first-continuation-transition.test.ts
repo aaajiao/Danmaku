@@ -35,6 +35,7 @@ import {
   inspectCanonicalRunFirstContinuationRoomHandoffReceipt,
 } from "./first-continuation-transition";
 import {
+  advanceCanonicalRunFirstContinuationSuccessorCompleteHold,
   advanceCanonicalRunFirstContinuationSuccessorPreRead,
   advanceCanonicalRunFirstContinuationSuccessorRead,
   advanceCanonicalRunFirstContinuationSuccessorTail,
@@ -674,7 +675,7 @@ describe("first continuation transition chapter owner", () => {
       terminalPolicy: "EXT-2026-016",
       phase: "complete",
       tick120: complete.boundaryTicks120.sliceCompleteTick120,
-      nextMasterTickAction: "hold-complete",
+      nextMasterTickAction: "advance-complete-hold",
       runCombat: {
         activeOccurrenceId: null,
         pendingFlushTick120: null,
@@ -695,6 +696,36 @@ describe("first continuation transition chapter owner", () => {
       projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
     expect(complete.combat?.projectiles.length).toBeGreaterThan(0);
     expect(complete.combat?.projectileLifecycleDrained).toBe(false);
+
+    let held = complete;
+    while ((held.combat?.projectiles.length ?? 0) > 0) {
+      held = advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
+        owner,
+        combatInput(held.tick120 + 1),
+      );
+    }
+    expect(held).toMatchObject({
+      phase: "complete",
+      nextMasterTickAction: "advance-complete-hold",
+      runCombat: {activeOccurrenceId: null, pendingFlushTick120: null},
+      combat: {
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        projectileLifecycleDrained: true,
+        projectiles: [],
+        poolUsage: {liveColliders: 0},
+      },
+    });
+    const quietHold = advanceCanonicalRunFirstContinuationSuccessorCompleteHold(
+      owner,
+      combatInput(held.tick120 + 1),
+    );
+    expect(quietHold.tick120).toBe(held.tick120 + 1);
+    expect(quietHold.combat).toMatchObject({
+      projectileLifecycleDrained: true,
+      projectiles: [],
+      poolUsage: {liveColliders: 0},
+    });
     expect(complete.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
       occurrenceId === preparation.view.plan.occurrence.occurrenceId)).toHaveLength(1);
     expect(fixture.eventBus.events().slice(eventsBeforeRead.length).some((event) =>
