@@ -1,4 +1,4 @@
-import {describe, expect, it} from "vitest";
+import {beforeAll, describe, expect, it} from "vitest";
 
 import {V4_CONTENT_IDENTITY} from "../content/v4-content-identity";
 import {
@@ -8,15 +8,38 @@ import {
 } from "./run-metric-projection";
 import {
   CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING,
+  cancelCanonicalRunFirstContinuationRoomTransitionReceipt,
+  commitCanonicalRunFirstContinuationRoomTransitionReceipt,
   createCanonicalRunFirstContinuationRoomTarget,
   deriveCanonicalRunFirstContinuationRoomTargetUnbranded,
+  firstContinuationRoomTargetFromCanonicalTransitionReceipt,
+  issueCanonicalRunFirstContinuationRoomTransitionReceipt,
+  quarantineCanonicalRunFirstContinuationRoomTransitionReceipt,
   type CanonicalRunFirstContinuationCandidateWeight,
+  type CanonicalRunFirstContinuationRoomTargetAvailable,
+  type CanonicalRunFirstContinuationRoomTransitionReceipt,
 } from "./run-first-continuation-room-target";
 import {executablePattern} from "./pattern-executor";
 import {RUN_ROOM_SESSION_CONTRACT} from "./run-room-session";
+import {
+  CanonicalRunSession,
+  type CanonicalRunSessionSnapshot,
+  type CanonicalRunSessionStepInput,
+} from "./run-session";
 
 const PRE_ROOM_TICK120 = 100;
 const CLOSURE_TICK120 = 1802;
+
+// The first seed makes Mulberry32's state wrap to zero and therefore exercises
+// the exact weighted-selection boundary where cursorInitial is zero.
+const FORMAL_TARGET_SEEDS = Object.freeze([0x92d4_860b, 1, 2] as const);
+
+interface FormalTargetFixture {
+  readonly formal: CanonicalRunFirstContinuationRoomTargetAvailable;
+  readonly publicSnapshot: CanonicalRunFirstContinuationRoomTargetAvailable;
+}
+
+let formalTargetFixtures: readonly FormalTargetFixture[] = [];
 
 const MISSING_REASONS = Object.freeze({
   binarySwitches: "binary-authority-not-observed",
@@ -159,6 +182,68 @@ function candidate(
   if (result === undefined) throw new Error(`fixture lost ${roomId}`);
   return result;
 }
+
+function neutralRunInput(tick120: number): CanonicalRunSessionStepInput {
+  return {
+    tick120,
+    movement: {x: 0, y: 0},
+    signalActive: false,
+    focused: false,
+    gaze: {skyEyeVisible: true, pitchDegrees: 0, alignment: 0},
+  };
+}
+
+function prologueRunInput(tick120: number): CanonicalRunSessionStepInput {
+  return {...neutralRunInput(tick120), signalActive: tick120 === 1 || tick120 === 3};
+}
+
+function qualifiedGazeRunInput(tick120: number): CanonicalRunSessionStepInput {
+  return {
+    ...neutralRunInput(tick120),
+    gaze: {skyEyeVisible: true, pitchDegrees: 60, alignment: 1},
+  };
+}
+
+function reachFormalTarget(rawRunSeed: number): FormalTargetFixture {
+  const session = new CanonicalRunSession({
+    rawRunSeed: {domain: "raw-run-seed", value: rawRunSeed},
+    grazeRadiusPx: 18,
+    projectileDamage: 1,
+    projectilePoolClasses: {"bullet.micro.notch_e": "micro"},
+  });
+  let snapshot: CanonicalRunSessionSnapshot = session.snapshot();
+  while (snapshot.tick120 < 960) {
+    snapshot = session.step(prologueRunInput(snapshot.tick120 + 1));
+  }
+  while (snapshot.tick120 < 1021) {
+    snapshot = session.step(qualifiedGazeRunInput(snapshot.tick120 + 1));
+  }
+  while (snapshot.phase !== "room_sampling" && snapshot.tick120 < 3360) {
+    snapshot = session.step(neutralRunInput(snapshot.tick120 + 1));
+  }
+  const handoffTick120 = snapshot.handoff.atTick120;
+  if (snapshot.phase !== "room_sampling" || handoffTick120 === null) {
+    throw new Error("formal target fixture did not reach first room");
+  }
+  while (snapshot.tick120 < handoffTick120 + 1702) {
+    snapshot = session.step(neutralRunInput(snapshot.tick120 + 1));
+  }
+  const publicSnapshot = snapshot.firstContinuationRoomTarget;
+  if (publicSnapshot.availability !== "available") {
+    throw new Error("formal target fixture did not reach target selection");
+  }
+  const formal = (session as unknown as Readonly<{
+    firstContinuationRoomTargetValue: CanonicalRunFirstContinuationRoomTargetAvailable | null;
+  }>).firstContinuationRoomTargetValue;
+  if (formal === null || formal.availability !== "available") {
+    throw new Error("formal target fixture lost its internal target");
+  }
+  return Object.freeze({formal, publicSnapshot});
+}
+
+beforeAll(() => {
+  formalTargetFixtures = Object.freeze(FORMAL_TARGET_SEEDS.map(reachFormalTarget));
+}, 30_000);
 
 describe("EXT-2026-012 first continuation room target", () => {
   it("keeps typed absence while applying only available V4 bias in stable order", () => {
@@ -324,5 +409,77 @@ describe("EXT-2026-012 first continuation room target", () => {
       handoffReady: false,
     });
     expect(Object.isFrozen(CANONICAL_RUN_FIRST_CONTINUATION_ROOM_TARGET_MISSING)).toBe(true);
+  });
+
+  it("reserves every legal formal target without consuming it, rejects concurrency, and commits once", () => {
+    expect(formalTargetFixtures.map(({formal}) => formal.targetRoom)).toEqual([
+      "INFORMATION",
+      "IN_BETWEEN",
+      "POLARIZED",
+    ]);
+    formalTargetFixtures.forEach(({formal}, index) => {
+      const first = issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal);
+      expect(Object.isFrozen(first)).toBe(true);
+      expect(Reflect.ownKeys(first)).toEqual([]);
+      expect(firstContinuationRoomTargetFromCanonicalTransitionReceipt(first)).toBe(formal);
+      expect(() => issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal))
+        .toThrow(/in-flight transition receipt/);
+
+      cancelCanonicalRunFirstContinuationRoomTransitionReceipt(first);
+      expect(() => firstContinuationRoomTargetFromCanonicalTransitionReceipt(first))
+        .toThrow(/already cancelled/);
+      expect(() => commitCanonicalRunFirstContinuationRoomTransitionReceipt(first))
+        .toThrow(/already cancelled/);
+
+      if (index < 2) {
+        const retry = issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal);
+        expect(commitCanonicalRunFirstContinuationRoomTransitionReceipt(retry)).toBe(formal);
+        expect(() => firstContinuationRoomTargetFromCanonicalTransitionReceipt(retry))
+          .toThrow(/already committed/);
+        expect(() => commitCanonicalRunFirstContinuationRoomTransitionReceipt(retry))
+          .toThrow(/already committed/);
+        expect(() => issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal))
+          .toThrow(/already committed/);
+      }
+    });
+  });
+
+  it("rejects public clones, JSON copies, unbranded derivations, and fake receipts", () => {
+    const fixture = formalTargetFixtures[2];
+    if (fixture === undefined) throw new Error("POLARIZED formal target fixture is missing");
+    const {formal, publicSnapshot} = fixture;
+    const jsonClone = deepFreeze(
+      JSON.parse(JSON.stringify(formal)),
+    ) as CanonicalRunFirstContinuationRoomTargetAvailable;
+    const unbranded = deriveCanonicalRunFirstContinuationRoomTargetUnbranded(projectionFixture(2));
+    for (const impostor of [publicSnapshot, jsonClone, unbranded]) {
+      expect(() => issueCanonicalRunFirstContinuationRoomTransitionReceipt(
+        impostor as CanonicalRunFirstContinuationRoomTargetAvailable,
+      )).toThrow(/original formal target/);
+    }
+
+    const fake = Object.freeze({}) as CanonicalRunFirstContinuationRoomTransitionReceipt;
+    expect(() => firstContinuationRoomTargetFromCanonicalTransitionReceipt(fake))
+      .toThrow(/not registered/);
+    expect(() => commitCanonicalRunFirstContinuationRoomTransitionReceipt(fake))
+      .toThrow(/not registered/);
+    expect(() => cancelCanonicalRunFirstContinuationRoomTransitionReceipt(fake))
+      .toThrow(/not registered/);
+    expect(() => quarantineCanonicalRunFirstContinuationRoomTransitionReceipt(fake))
+      .toThrow(/not registered/);
+  });
+
+  it("quarantines an impossible post-append failure without making the target reusable", () => {
+    const fixture = formalTargetFixtures[2];
+    if (fixture === undefined) throw new Error("POLARIZED formal target fixture is missing");
+    const {formal} = fixture;
+    const receipt = issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal);
+    quarantineCanonicalRunFirstContinuationRoomTransitionReceipt(receipt);
+    expect(() => firstContinuationRoomTargetFromCanonicalTransitionReceipt(receipt))
+      .toThrow(/already quarantined/);
+    expect(() => cancelCanonicalRunFirstContinuationRoomTransitionReceipt(receipt))
+      .toThrow(/already quarantined/);
+    expect(() => issueCanonicalRunFirstContinuationRoomTransitionReceipt(formal))
+      .toThrow(/quarantined/);
   });
 });

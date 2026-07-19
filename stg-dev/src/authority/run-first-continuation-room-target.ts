@@ -143,11 +143,20 @@ export interface CanonicalRunFirstContinuationRoomTargetPayload {
 }
 
 declare const canonicalRunFirstContinuationRoomTargetBrand: unique symbol;
+declare const canonicalRunFirstContinuationRoomTransitionReceiptBrand: unique symbol;
 
 export type CanonicalRunFirstContinuationRoomTargetAvailable =
   CanonicalRunFirstContinuationRoomTargetPayload & {
     readonly [canonicalRunFirstContinuationRoomTargetBrand]: true;
   };
+
+/**
+ * Opaque, in-memory reservation for composing the formal EXT-012 target with
+ * the EXT-013 transition start. Issuance does not consume the target.
+ */
+export type CanonicalRunFirstContinuationRoomTransitionReceipt = Readonly<{
+  readonly [canonicalRunFirstContinuationRoomTransitionReceiptBrand]: true;
+}>;
 
 export interface CanonicalRunFirstContinuationRoomTargetMissing {
   readonly availability: "missing";
@@ -397,16 +406,19 @@ function parseCatalog(): SelectionCatalog {
 
 const CATALOG = parseCatalog();
 
-function assertContentIdentity(value: unknown): void {
+function assertContentIdentity(
+  value: unknown,
+  path = "sourceProjection.contentIdentity",
+): void {
   const identity = exactKeys(value, [
     "contentAuthoritySchemaVersion",
     "packageId",
     "packageSchemaVersion",
     "packageManifestSha256",
     "contentDigestSha256",
-  ], "sourceProjection.contentIdentity");
+  ], path);
   for (const [key, expected] of Object.entries(V4_CONTENT_IDENTITY)) {
-    invariant(identity[key] === expected, `sourceProjection content identity ${key} drifted`);
+    invariant(identity[key] === expected, `${path} has drifted content identity at ${key}`);
   }
 }
 
@@ -668,17 +680,7 @@ export function deriveCanonicalRunFirstContinuationRoomTargetUnbranded(
 
   const draw = firstMulberry32Draw(source.rawRunSeed);
   const cursorInitial = draw.value * candidateTotalWeight;
-  let cursor = cursorInitial;
-  let selectedIndex = candidateWeights.length - 1;
-  for (let index = 0; index < candidateWeights.length; index += 1) {
-    const candidate = candidateWeights[index];
-    invariant(candidate !== undefined, `candidate ${index} disappeared`);
-    cursor -= candidate.totalWeight;
-    if (cursor <= 0) {
-      selectedIndex = index;
-      break;
-    }
-  }
+  const selectedIndex = selectWeightedCandidateIndex(candidateWeights, cursorInitial);
   const selected = candidateWeights[selectedIndex];
   invariant(selected !== undefined, "weighted selection lost its target");
 
@@ -738,8 +740,293 @@ export function deriveCanonicalRunFirstContinuationRoomTargetUnbranded(
   });
 }
 
+function selectWeightedCandidateIndex(
+  candidateWeights: readonly Pick<CanonicalRunFirstContinuationCandidateWeight, "totalWeight">[],
+  cursorInitial: number,
+): number {
+  invariant(candidateWeights.length > 0, "weighted selection requires at least one candidate");
+  invariant(Number.isFinite(cursorInitial) && cursorInitial >= 0, "weighted selection cursor is invalid");
+  let cursor = cursorInitial;
+  let selectedIndex = candidateWeights.length - 1;
+  for (let index = 0; index < candidateWeights.length; index += 1) {
+    const candidate = candidateWeights[index];
+    invariant(candidate !== undefined, `candidate ${index} disappeared`);
+    cursor -= candidate.totalWeight;
+    if (cursor <= 0) {
+      selectedIndex = index;
+      break;
+    }
+  }
+  return selectedIndex;
+}
+
 const consumedFormalProjections = new WeakSet<object>();
 const formalTargets = new WeakSet<object>();
+
+type TransitionReceiptStatus = "prepared" | "cancelled" | "committed" | "quarantined";
+
+interface TransitionReceiptState {
+  readonly target: CanonicalRunFirstContinuationRoomTargetAvailable;
+  status: TransitionReceiptStatus;
+}
+
+const transitionReceiptStates = new WeakMap<
+  CanonicalRunFirstContinuationRoomTransitionReceipt,
+  TransitionReceiptState
+>();
+const activeTransitionReceiptsByTarget = new WeakMap<
+  object,
+  CanonicalRunFirstContinuationRoomTransitionReceipt
+>();
+const consumedFormalTargets = new WeakSet<object>();
+const quarantinedFormalTargets = new WeakSet<object>();
+
+function assertFormalTargetTransitionContract(
+  target: CanonicalRunFirstContinuationRoomTargetAvailable,
+): void {
+  invariant(
+    typeof target === "object" && target !== null && formalTargets.has(target),
+    "transition receipt requires the original formal target",
+  );
+  assertFrozenJsonData(target, "formalTarget");
+  const formalTarget = exactKeys(target, [
+    "availability",
+    "authority",
+    "schemaVersion",
+    "producerId",
+    "producerVersion",
+    "extensionPolicy",
+    "sourceEpoch",
+    "selectedAtTick120",
+    "rawRunSeed",
+    "contentIdentity",
+    "sourceBoundary",
+    "sourceProjection",
+    "completedRoomVisit",
+    "candidateOrder",
+    "candidateWeights",
+    "candidateTotalWeight",
+    "rng",
+    "selectionComplete",
+    "selectionRngDraws",
+    "canonicalEventWrites",
+    "targetRoom",
+    "targetRoomOrdinal",
+    "roomCount",
+    "difficulty",
+    "transitionAllowed",
+    "handoffReady",
+  ], "formalTarget");
+  invariant(
+    formalTarget.availability === "available"
+      && formalTarget.authority === AUTHORITY
+      && formalTarget.schemaVersion === SCHEMA_VERSION
+      && formalTarget.producerId === PRODUCER_ID
+      && formalTarget.producerVersion === PRODUCER_VERSION
+      && formalTarget.extensionPolicy === "EXT-2026-012"
+      && formalTarget.sourceEpoch === "current-run-through-first-room-closure",
+    "formal target identity drifted",
+  );
+  invariant(
+    formalTarget.selectionComplete === true
+      && formalTarget.selectionRngDraws === 1
+      && formalTarget.canonicalEventWrites === 0
+      && formalTarget.targetRoomOrdinal === 1
+      && formalTarget.roomCount === null
+      && formalTarget.difficulty === null
+      && formalTarget.transitionAllowed === false
+      && formalTarget.handoffReady === false,
+    "formal target selection firewall drifted",
+  );
+
+  const selectedAtTick120 = safePositiveInteger(
+    formalTarget.selectedAtTick120,
+    "formalTarget.selectedAtTick120",
+  );
+  const rawRunSeedRecord = exactKeys(formalTarget.rawRunSeed, ["domain", "value"], "formalTarget.rawRunSeed");
+  const rawRunSeed = uint32(rawRunSeedRecord.value, "formalTarget.rawRunSeed.value");
+  invariant(rawRunSeedRecord.domain === "raw-run-seed", "formal target raw seed domain drifted");
+  assertContentIdentity(formalTarget.contentIdentity, "formalTarget.contentIdentity");
+  const sourceBoundary = validateSourceBoundary(
+    formalTarget.sourceBoundary,
+    rawRunSeed,
+    selectedAtTick120,
+  );
+  invariant(
+    sourceBoundary.roomClosureTick120 === selectedAtTick120,
+    "formal target selection tick drifted from the exact closure",
+  );
+
+  const sourceProjection = exactKeys(formalTarget.sourceProjection, [
+    "authority",
+    "schemaVersion",
+    "extensionPolicy",
+    "availableMetricCount",
+    "missingMetricCount",
+  ], "formalTarget.sourceProjection");
+  invariant(
+    sourceProjection.authority === "canonical-run-first-room-metric-projection-v1"
+      && sourceProjection.schemaVersion === "1.1.0-ext-2026-011"
+      && sourceProjection.extensionPolicy === "EXT-2026-011"
+      && sourceProjection.availableMetricCount === 3
+      && sourceProjection.missingMetricCount === 11,
+    "formal target source projection drifted",
+  );
+  const completedRoomVisit = exactKeys(
+    formalTarget.completedRoomVisit,
+    ["roomId", "roomOrdinal"],
+    "formalTarget.completedRoomVisit",
+  );
+  invariant(
+    completedRoomVisit.roomId === "FORCED_ALIGNMENT" && completedRoomVisit.roomOrdinal === 0,
+    "formal target completed room drifted",
+  );
+
+  const candidateOrder = list(formalTarget.candidateOrder, "formalTarget.candidateOrder")
+    .map((entry, index) => text(entry, `formalTarget.candidateOrder[${index}]`));
+  invariant(
+    sameStrings(candidateOrder, EXPECTED_REMAINING_ROOM_ORDER),
+    "formal target candidate order drifted",
+  );
+  const candidateWeights = list(formalTarget.candidateWeights, "formalTarget.candidateWeights");
+  invariant(
+    candidateWeights.length === EXPECTED_REMAINING_ROOM_ORDER.length,
+    "formal target candidate cardinality drifted",
+  );
+  let candidateTotalWeight = 0;
+  candidateWeights.forEach((candidateValue, candidateIndex) => {
+    const expectedRoomId = EXPECTED_REMAINING_ROOM_ORDER[candidateIndex];
+    const definition = CATALOG.rooms.find((room) => room.roomId === expectedRoomId);
+    invariant(definition !== undefined, `formal target candidate ${candidateIndex} lost its composer`);
+    const candidate = exactKeys(candidateValue, [
+      "roomId",
+      "baseWeight",
+      "metricTerms",
+      "totalWeight",
+    ], `formalTarget.candidateWeights[${candidateIndex}]`);
+    invariant(
+      candidate.roomId === expectedRoomId && candidate.baseWeight === 1,
+      `formal target candidate ${candidateIndex} identity drifted`,
+    );
+    const metricTerms = list(candidate.metricTerms, `formalTarget.candidateWeights[${candidateIndex}].metricTerms`);
+    invariant(
+      metricTerms.length === definition.metricWeights.length,
+      `formal target candidate ${candidateIndex} metric cardinality drifted`,
+    );
+    let behaviorBias = 0;
+    metricTerms.forEach((termValue, termIndex) => {
+      const expectedMetric = definition.metricWeights[termIndex];
+      invariant(expectedMetric !== undefined, `formal target metric ${candidateIndex}:${termIndex} lost its contract`);
+      const termBase = plainDataRecord(
+        termValue,
+        `formalTarget.candidateWeights[${candidateIndex}].metricTerms[${termIndex}]`,
+      );
+      invariant(termBase.id === expectedMetric.id, `formal target metric ${candidateIndex}:${termIndex} ID drifted`);
+      if (termBase.availability === "available") {
+        const term = exactKeys(termBase, [
+          "id",
+          "availability",
+          "value",
+          "authoredWeight",
+          "contribution",
+        ], `formalTarget.candidateWeights[${candidateIndex}].metricTerms[${termIndex}]`);
+        const value = finite(term.value, `formal target metric ${candidateIndex}:${termIndex} value`);
+        const authoredWeight = finite(
+          term.authoredWeight,
+          `formal target metric ${candidateIndex}:${termIndex} authoredWeight`,
+        );
+        const contribution = finite(
+          term.contribution,
+          `formal target metric ${candidateIndex}:${termIndex} contribution`,
+        );
+        invariant(value >= 0 && value <= 1, `formal target metric ${candidateIndex}:${termIndex} left [0,1]`);
+        invariant(
+          authoredWeight === expectedMetric.authoredWeight && contribution === value * authoredWeight,
+          `formal target metric ${candidateIndex}:${termIndex} contribution drifted`,
+        );
+        behaviorBias += contribution;
+      } else {
+        const term = exactKeys(termBase, [
+          "id",
+          "availability",
+          "reason",
+          "authoredWeight",
+        ], `formalTarget.candidateWeights[${candidateIndex}].metricTerms[${termIndex}]`);
+        invariant(term.availability === "missing", `formal target metric ${candidateIndex}:${termIndex} availability drifted`);
+        text(term.reason, `formal target metric ${candidateIndex}:${termIndex} reason`);
+        invariant(
+          finite(term.authoredWeight, `formal target metric ${candidateIndex}:${termIndex} authoredWeight`)
+            === expectedMetric.authoredWeight,
+          `formal target metric ${candidateIndex}:${termIndex} authored weight drifted`,
+        );
+      }
+    });
+    const totalWeight = finite(candidate.totalWeight, `formal target candidate ${candidateIndex} totalWeight`);
+    invariant(totalWeight === 1 + behaviorBias, `formal target candidate ${candidateIndex} total weight drifted`);
+    candidateTotalWeight += totalWeight;
+  });
+  invariant(
+    finite(formalTarget.candidateTotalWeight, "formalTarget.candidateTotalWeight") === candidateTotalWeight,
+    "formal target candidate total drifted",
+  );
+
+  const rng = exactKeys(formalTarget.rng, [
+    "algorithm",
+    "seed",
+    "drawOrdinal",
+    "drawValue",
+    "stateAfterDrawUint32",
+    "cursorInitial",
+  ], "formalTarget.rng");
+  const rngSeed = exactKeys(rng.seed, ["domain", "value"], "formalTarget.rng.seed");
+  const draw = firstMulberry32Draw(rawRunSeed);
+  invariant(
+    rng.algorithm === "mulberry32-v1"
+      && rngSeed.domain === RNG_DOMAIN
+      && uint32(rngSeed.value, "formalTarget.rng.seed.value") === rawRunSeed
+      && rng.drawOrdinal === 0
+      && finite(rng.drawValue, "formalTarget.rng.drawValue") === draw.value
+      && uint32(rng.stateAfterDrawUint32, "formalTarget.rng.stateAfterDrawUint32")
+        === draw.stateAfterDrawUint32,
+    "formal target RNG evidence drifted",
+  );
+  const cursorInitial = draw.value * candidateTotalWeight;
+  invariant(
+    finite(rng.cursorInitial, "formalTarget.rng.cursorInitial") === cursorInitial,
+    "formal target RNG cursor drifted",
+  );
+  const selectedRoom = EXPECTED_REMAINING_ROOM_ORDER[
+    selectWeightedCandidateIndex(
+      candidateWeights as readonly CanonicalRunFirstContinuationCandidateWeight[],
+      cursorInitial,
+    )
+  ];
+  invariant(
+    (EXPECTED_REMAINING_ROOM_ORDER as readonly unknown[]).includes(formalTarget.targetRoom)
+      && formalTarget.targetRoom === selectedRoom,
+    "formal target selected room drifted from RNG evidence",
+  );
+}
+
+function requireActiveTransitionReceipt(
+  receipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+): TransitionReceiptState {
+  invariant(
+    typeof receipt === "object" && receipt !== null,
+    "transition receipt must be opaque",
+  );
+  const state = transitionReceiptStates.get(receipt);
+  invariant(state !== undefined, "transition receipt is not registered");
+  invariant(state.status === "prepared", `transition receipt already ${state.status}`);
+  invariant(
+    activeTransitionReceiptsByTarget.get(state.target) === receipt,
+    "transition receipt reservation drifted",
+  );
+  invariant(!consumedFormalTargets.has(state.target), "formal target transition already committed");
+  invariant(!quarantinedFormalTargets.has(state.target), "formal target transition is quarantined");
+  assertFormalTargetTransitionContract(state.target);
+  return state;
+}
 
 /** Formal EXT-012 entry point. Each formal projection can select only once. */
 export function createCanonicalRunFirstContinuationRoomTarget(
@@ -751,4 +1038,68 @@ export function createCanonicalRunFirstContinuationRoomTarget(
   consumedFormalProjections.add(projection);
   formalTargets.add(payload);
   return payload as CanonicalRunFirstContinuationRoomTargetAvailable;
+}
+
+/**
+ * Reserve the exact original formal target for one EXT-013 prepared composite.
+ * A second in-flight proposal for the same target is rejected rather than
+ * aliased. The target remains unconsumed until the coordinator commits.
+ */
+export function issueCanonicalRunFirstContinuationRoomTransitionReceipt(
+  target: CanonicalRunFirstContinuationRoomTargetAvailable,
+): CanonicalRunFirstContinuationRoomTransitionReceipt {
+  assertFormalTargetTransitionContract(target);
+  invariant(!consumedFormalTargets.has(target), "formal target transition already committed");
+  invariant(!quarantinedFormalTargets.has(target), "formal target transition is quarantined");
+  invariant(
+    !activeTransitionReceiptsByTarget.has(target),
+    "formal target already has an in-flight transition receipt",
+  );
+  const receipt = Object.freeze({}) as CanonicalRunFirstContinuationRoomTransitionReceipt;
+  transitionReceiptStates.set(receipt, {target, status: "prepared"});
+  activeTransitionReceiptsByTarget.set(target, receipt);
+  return receipt;
+}
+
+/** Resolve the exact formal target while revalidating the active reservation. */
+export function firstContinuationRoomTargetFromCanonicalTransitionReceipt(
+  receipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+): CanonicalRunFirstContinuationRoomTargetAvailable {
+  return requireActiveTransitionReceipt(receipt).target;
+}
+
+/** Consume the target only after the prepared authoritative start applied. */
+export function commitCanonicalRunFirstContinuationRoomTransitionReceipt(
+  receipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+): CanonicalRunFirstContinuationRoomTargetAvailable {
+  const state = requireActiveTransitionReceipt(receipt);
+  consumedFormalTargets.add(state.target);
+  state.status = "committed";
+  activeTransitionReceiptsByTarget.delete(state.target);
+  return state.target;
+}
+
+/**
+ * Release a proposal that failed before authoritative append/apply. The same
+ * formal target may then be reserved by a new coordinator attempt.
+ */
+export function cancelCanonicalRunFirstContinuationRoomTransitionReceipt(
+  receipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+): void {
+  const state = requireActiveTransitionReceipt(receipt);
+  state.status = "cancelled";
+  activeTransitionReceiptsByTarget.delete(state.target);
+}
+
+/**
+ * Permanently reject retry after an impossible post-append invariant failure.
+ * The owning Run is expected to fail-stop as well.
+ */
+export function quarantineCanonicalRunFirstContinuationRoomTransitionReceipt(
+  receipt: CanonicalRunFirstContinuationRoomTransitionReceipt,
+): void {
+  const state = requireActiveTransitionReceipt(receipt);
+  quarantinedFormalTargets.add(state.target);
+  state.status = "quarantined";
+  activeTransitionReceiptsByTarget.delete(state.target);
 }

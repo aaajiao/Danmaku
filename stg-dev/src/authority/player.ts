@@ -25,10 +25,16 @@ type UnknownRecord = Record<string, unknown>;
 export type PlayerLifeState = "alive" | "dead" | "respawning" | "run-ended";
 export type CommittedDamageBranch = "non-fatal" | "fatal";
 export type DamageHitDisposition = "committed" | "blocked" | "competing";
+export type CollisionBlockerOwner =
+  | "damage"
+  | "respawn"
+  | "room-transition"
+  | "cutscene"
+  | "system-handoff";
 
 export interface CollisionBlockerLease {
   readonly token: string;
-  readonly owner: string;
+  readonly owner: CollisionBlockerOwner;
   readonly reason: string;
   readonly acquiredAtTick120: number;
 }
@@ -90,6 +96,32 @@ export interface PreparedPlayerDamageCommitView {
   readonly revision: number;
   readonly drafts: readonly GameplayEventDraft[];
   readonly result: DamageBatchResult;
+  readonly preview: PlayerDamageSnapshot;
+}
+
+export type PlayerCollisionBlockerMutationKind = "acquire" | "release";
+
+declare const preparedPlayerCollisionBlockerMutationBrand: unique symbol;
+
+/**
+ * Opaque, one-use collision-blocker mutation for a cross-authority batch.
+ * Preparing and inspecting it never mutate the player or append events.
+ */
+export interface PreparedPlayerCollisionBlockerMutation {
+  readonly [preparedPlayerCollisionBlockerMutationBrand]: "PreparedPlayerCollisionBlockerMutation";
+}
+
+export interface PreparedPlayerCollisionBlockerMutationView {
+  readonly owner: PlayerDamageAuthority;
+  readonly eventBus: CanonicalEventBus;
+  readonly kind: PlayerCollisionBlockerMutationKind;
+  readonly tick120: number;
+  readonly revision: number;
+  readonly lease: CollisionBlockerLease;
+  readonly drafts: readonly GameplayEventDraft[];
+  /** Exact immutable player state on which this proposal was prepared. */
+  readonly before: PlayerDamageSnapshot;
+  /** Exact immutable player state after a successful append/apply. */
   readonly preview: PlayerDamageSnapshot;
 }
 
@@ -177,6 +209,7 @@ export interface DirectionalOverrideSnapshot {
 export interface V4PlayerAuthorityContract {
   readonly schemaVersion: string;
   readonly playerDamageStates: readonly string[];
+  readonly blockerLeaseOwners: readonly CollisionBlockerOwner[];
   readonly grazeAwardStates: readonly string[];
   readonly grazeAwardKey: string;
   readonly grazeAwardMaximumPerKey: number;
@@ -246,9 +279,21 @@ interface PreparedPlayerDamageCommitState extends PreparedPlayerDamageCommitView
   readonly after: PlayerDamageAfterState;
 }
 
+interface PreparedPlayerCollisionBlockerMutationState
+  extends PreparedPlayerCollisionBlockerMutationView {
+  consumed: boolean;
+  readonly nextRevision: number;
+  readonly beforeFingerprint: string;
+  readonly after: PlayerDamageAfterState;
+}
+
 const PREPARED_PLAYER_DAMAGE_COMMITS = new WeakMap<
   PreparedPlayerDamageCommit,
   PreparedPlayerDamageCommitState
+>();
+const PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS = new WeakMap<
+  PreparedPlayerCollisionBlockerMutation,
+  PreparedPlayerCollisionBlockerMutationState
 >();
 const EXACT_PLAYER_DAMAGE_AUTHORITIES = new WeakSet<PlayerDamageAuthority>();
 
@@ -271,6 +316,28 @@ export function inspectPreparedPlayerDamageCommit(
   return PlayerDamageAuthority.prototype.validatePreparedDamageCommit.call(state.owner, proposal);
 }
 
+function preparedPlayerCollisionBlockerMutationToken(
+  state: PreparedPlayerCollisionBlockerMutationState,
+): PreparedPlayerCollisionBlockerMutation {
+  const token = Object.freeze({}) as PreparedPlayerCollisionBlockerMutation;
+  PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS.set(token, state);
+  return token;
+}
+
+/** Read-only inspection for the bounded room-transition coordinator. */
+export function inspectPreparedPlayerCollisionBlockerMutation(
+  proposal: PreparedPlayerCollisionBlockerMutation,
+): PreparedPlayerCollisionBlockerMutationView {
+  const state = PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS.get(proposal);
+  if (state === undefined || state.consumed) {
+    throw new Error("player collision blocker proposal is unknown or already consumed");
+  }
+  return PlayerDamageAuthority.prototype.validatePreparedCollisionBlockerMutation.call(
+    state.owner,
+    proposal,
+  );
+}
+
 function preparedPlayerDamageCommitView(
   state: PreparedPlayerDamageCommitState,
 ): PreparedPlayerDamageCommitView {
@@ -285,6 +352,22 @@ function preparedPlayerDamageCommitView(
   });
 }
 
+function preparedPlayerCollisionBlockerMutationView(
+  state: PreparedPlayerCollisionBlockerMutationState,
+): PreparedPlayerCollisionBlockerMutationView {
+  return Object.freeze({
+    owner: state.owner,
+    eventBus: state.eventBus,
+    kind: state.kind,
+    tick120: state.tick120,
+    revision: state.revision,
+    lease: state.lease,
+    drafts: state.drafts,
+    before: state.before,
+    preview: state.preview,
+  });
+}
+
 export function isExactPlayerDamageAuthority(value: unknown): value is PlayerDamageAuthority {
   return typeof value === "object"
     && value !== null
@@ -294,8 +377,20 @@ export function isExactPlayerDamageAuthority(value: unknown): value is PlayerDam
       "prepareDamageBatch",
       "validatePreparedDamageCommit",
       "applyPreparedDamageAfterAppend",
+      "prepareCollisionBlockerAcquire",
+      "prepareCollisionBlockerRelease",
+      "validatePreparedCollisionBlockerMutation",
+      "applyPreparedCollisionBlockerAfterAppend",
     ].every((method) => !Object.prototype.hasOwnProperty.call(value, method));
 }
+
+const EXPECTED_BLOCKER_LEASE_OWNERS: readonly CollisionBlockerOwner[] = Object.freeze([
+  "damage",
+  "respawn",
+  "room-transition",
+  "cutscene",
+  "system-handoff",
+]);
 
 const DEFAULT_DAMAGE_CONFIG: PlayerDamageConfig = Object.freeze({
   maxHealth: 3,
@@ -382,6 +477,16 @@ function nonEmptyString(value: unknown, path: string): string {
     throw new Error(`${path} must be a non-empty string`);
   }
   return value;
+}
+
+function collisionBlockerOwner(value: unknown, path: string): CollisionBlockerOwner {
+  const owner = nonEmptyString(value, path);
+  if (!(EXPECTED_BLOCKER_LEASE_OWNERS as readonly string[]).includes(owner)) {
+    throw new Error(
+      `${path} must be one of the exact V4 blocker lease owners: ${EXPECTED_BLOCKER_LEASE_OWNERS.join(", ")}`,
+    );
+  }
+  return owner as CollisionBlockerOwner;
 }
 
 function canonicalRoomId(value: unknown, path: string): string {
@@ -586,6 +691,11 @@ function readV4PlayerAuthorityContract(): V4PlayerAuthorityContract {
     "runtime contract.playerDamage",
   );
   assertContractField(damageContract, "directCollisionToggleForbidden", true, "runtime contract.playerDamage");
+  assertExactStrings(
+    damageContract.blockerLeaseOwners,
+    EXPECTED_BLOCKER_LEASE_OWNERS,
+    "runtime contract.playerDamage.blockerLeaseOwners",
+  );
   assertContractField(damageContract, "fatalCancelsNonFatalTimelineCompetition", true, "runtime contract.playerDamage");
 
   const projectileContract = record(
@@ -641,6 +751,7 @@ function readV4PlayerAuthorityContract(): V4PlayerAuthorityContract {
   return Object.freeze({
     schemaVersion,
     playerDamageStates: parseStateNames(damage, "playerDamage machine"),
+    blockerLeaseOwners: EXPECTED_BLOCKER_LEASE_OWNERS,
     grazeAwardStates: parseStateNames(graze, "grazeAward machine"),
     grazeAwardKey,
     grazeAwardMaximumPerKey,
@@ -858,37 +969,94 @@ export class PlayerDamageAuthority {
   readonly playerId: string;
 
   acquireCollisionBlocker(ownerValue: string, reasonValue: string, tick120Value: number): CollisionBlockerLease {
-    return this.runPlayerMutation(() => {
-      const owner = nonEmptyString(ownerValue, "collision blocker owner");
-      const reason = nonEmptyString(reasonValue, "collision blocker reason");
-      const tick = tick120(tick120Value, "collision blocker tick120");
-      this.advanceToInternal(tick, true);
-      const wasEnabled = this.collisionEnabled();
-      const lease = this.prepareCollisionLease(owner, reason, tick);
-      if (wasEnabled) {
-        this.emit("player.collision.off", tick, `collision-off:${lease.token}`, {owner, reason});
-      }
-      this.commitPreparedLease(lease);
-      return lease;
-    });
+    const proposal = this.prepareCollisionBlockerAcquire(ownerValue, reasonValue, tick120Value);
+    const view = this.validatePreparedCollisionBlockerMutation(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    return this.applyPreparedCollisionBlockerAfterAppend(
+      proposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
   }
 
   releaseCollisionBlocker(tokenValue: string, tick120Value: number): void {
-    this.runPlayerMutation(() => {
-      const token = nonEmptyString(tokenValue, "collision blocker token");
-      const tick = tick120(tick120Value, "collision blocker release tick120");
-      const lease = this.leases.get(token);
-      if (lease === undefined) throw new Error(`unknown or released collision blocker: ${token}`);
-      this.advanceToInternal(tick, true);
-      const enablesCollision = this.stateValue === "alive" && this.leases.size === 1;
-      if (enablesCollision) {
-        this.emit("player.collision.on", tick, `collision-on:${token}`, {
-          owner: lease.owner,
-          reason: lease.reason,
-        });
-      }
-      this.leases.delete(token);
-    });
+    const proposal = this.prepareCollisionBlockerRelease(tokenValue, tick120Value);
+    const view = this.validatePreparedCollisionBlockerMutation(proposal);
+    const receipts = CanonicalEventBus.prototype.enqueuePreparedBatch.call(
+      this.bus,
+      Object.freeze([view.drafts]),
+    );
+    this.applyPreparedCollisionBlockerAfterAppend(
+      proposal,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+  }
+
+  prepareCollisionBlockerAcquire(
+    ownerValue: string,
+    reasonValue: string,
+    tick120Value: number,
+  ): PreparedPlayerCollisionBlockerMutation {
+    return this.prepareCollisionBlockerMutation(
+      "acquire",
+      ownerValue,
+      reasonValue,
+      tick120Value,
+    );
+  }
+
+  prepareCollisionBlockerRelease(
+    tokenValue: string,
+    tick120Value: number,
+  ): PreparedPlayerCollisionBlockerMutation {
+    return this.prepareCollisionBlockerMutation(
+      "release",
+      tokenValue,
+      null,
+      tick120Value,
+    );
+  }
+
+  /** Validate exact player ownership/state and freshness before batch append. */
+  validatePreparedCollisionBlockerMutation(
+    proposal: PreparedPlayerCollisionBlockerMutation,
+  ): PreparedPlayerCollisionBlockerMutationView {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    const prepared = this.requirePreparedCollisionBlockerMutation(proposal);
+    if (
+      prepared.revision !== this.mutationRevision
+      || prepared.beforeFingerprint !== this.damageMutationFingerprint()
+    ) {
+      throw new Error("player collision blocker proposal is stale");
+    }
+    return preparedPlayerCollisionBlockerMutationView(prepared);
+  }
+
+  /** Apply only the prevalidated player state after exact drafts were accepted. */
+  applyPreparedCollisionBlockerAfterAppend(
+    proposal: PreparedPlayerCollisionBlockerMutation,
+    receipt: CanonicalEventBatchReceipt,
+  ): CollisionBlockerLease {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    const prepared = this.requirePreparedCollisionBlockerMutation(proposal);
+    if (
+      prepared.revision !== this.mutationRevision
+      || prepared.beforeFingerprint !== this.damageMutationFingerprint()
+    ) {
+      throw new Error("player collision blocker proposal is stale");
+    }
+    this.mutationLocked = true;
+    try {
+      consumeCanonicalEventBatchReceipt(receipt, this.bus, prepared.drafts);
+      this.applyDamageAfterState(prepared.after);
+      prepared.consumed = true;
+      this.mutationRevision = prepared.nextRevision;
+      return prepared.lease;
+    } finally {
+      this.mutationLocked = false;
+    }
   }
 
   commitDamageBatch(tick120Value: number, hitsValue: readonly DamageHit[]): DamageBatchResult {
@@ -959,22 +1127,7 @@ export class PlayerDamageAuthority {
       });
       const drafts = Object.freeze(staged.drafts.slice());
       const preview = this.snapshotFromDamageState(staged);
-      const after: PlayerDamageAfterState = Object.freeze({
-        stateValue: staged.stateValue,
-        healthValue: staged.healthValue,
-        livesValue: staged.livesValue,
-        currentTick120: staged.currentTick120,
-        nextLeaseSerial: staged.nextLeaseSerial,
-        nextEventSequence: staged.nextEventSequence,
-        leases: staged.leases,
-        claimedHitOccurrences: staged.claimedHitOccurrences,
-        processedDamageTicks: staged.processedDamageTicks,
-        recoveryLeaseToken: staged.recoveryLeaseToken,
-        recoveryAtTick120: staged.recoveryAtTick120,
-        respawnPlaceAtTick120: staged.respawnPlaceAtTick120,
-        respawnCompleteAtTick120: staged.respawnCompleteAtTick120,
-        handoffValue: staged.handoffValue,
-      });
+      const after = this.freezeDamageAfterState(staged);
       return preparedPlayerDamageToken({
         owner: this,
         eventBus: this.bus,
@@ -1018,20 +1171,7 @@ export class PlayerDamageAuthority {
     try {
       consumeCanonicalEventBatchReceipt(receipt, this.bus, prepared.drafts);
       const after = prepared.after;
-      this.stateValue = after.stateValue;
-      this.healthValue = after.healthValue;
-      this.livesValue = after.livesValue;
-      this.currentTick120 = after.currentTick120;
-      this.nextLeaseSerial = after.nextLeaseSerial;
-      this.nextEventSequence = after.nextEventSequence;
-      this.leases = after.leases;
-      this.claimedHitOccurrences = after.claimedHitOccurrences;
-      this.processedDamageTicks = after.processedDamageTicks;
-      this.recoveryLeaseToken = after.recoveryLeaseToken;
-      this.recoveryAtTick120 = after.recoveryAtTick120;
-      this.respawnPlaceAtTick120 = after.respawnPlaceAtTick120;
-      this.respawnCompleteAtTick120 = after.respawnCompleteAtTick120;
-      this.handoffValue = after.handoffValue;
+      this.applyDamageAfterState(after);
       prepared.consumed = true;
       this.mutationRevision = prepared.nextRevision;
       return prepared.result;
@@ -1140,6 +1280,76 @@ export class PlayerDamageAuthority {
     });
   }
 
+  private prepareCollisionBlockerMutation(
+    kind: PlayerCollisionBlockerMutationKind,
+    ownerOrTokenValue: string,
+    reasonValue: string | null,
+    tick120Value: number,
+  ): PreparedPlayerCollisionBlockerMutation {
+    if (this.mutationLocked) throw new Error("player damage mutation is already in progress");
+    this.assertMutationRevisionCanAdvance();
+    this.mutationLocked = true;
+    try {
+      const tick = tick120(
+        tick120Value,
+        kind === "acquire" ? "collision blocker tick120" : "collision blocker release tick120",
+      );
+      const before = this.snapshot();
+      const beforeFingerprint = this.damageMutationFingerprint();
+      const staged = this.captureMutableDamageState();
+      let lease: CollisionBlockerLease;
+
+      if (kind === "acquire") {
+        const owner = collisionBlockerOwner(ownerOrTokenValue, "collision blocker owner");
+        const reason = nonEmptyString(reasonValue, "collision blocker reason");
+        this.stageAdvanceTo(staged, tick, true);
+        const wasEnabled = staged.stateValue === "alive" && staged.leases.size === 0;
+        lease = this.stageCollisionLease(staged, owner, reason, tick);
+        if (wasEnabled) {
+          this.stagePlayerEvents(staged, tick, [{
+            id: "player.collision.off",
+            occurrenceSuffix: `collision-off:${lease.token}`,
+            payload: {owner, reason},
+          }]);
+        }
+        staged.leases.set(lease.token, lease);
+        staged.nextLeaseSerial += 1;
+      } else {
+        const token = nonEmptyString(ownerOrTokenValue, "collision blocker token");
+        const currentLease = this.leases.get(token);
+        if (currentLease === undefined) {
+          throw new Error(`unknown or released collision blocker: ${token}`);
+        }
+        this.stageAdvanceTo(staged, tick, true);
+        lease = staged.leases.get(token) ?? currentLease;
+        if (!staged.leases.has(token)) {
+          throw new Error(`collision blocker is no longer active at release tick: ${token}`);
+        }
+        this.stageCollisionBlockerRelease(staged, token, tick, false);
+      }
+
+      const drafts = Object.freeze(staged.drafts.slice());
+      const preview = this.snapshotFromDamageState(staged);
+      return preparedPlayerCollisionBlockerMutationToken({
+        owner: this,
+        eventBus: this.bus,
+        kind,
+        tick120: tick,
+        revision: this.mutationRevision,
+        lease,
+        drafts,
+        before,
+        preview,
+        consumed: false,
+        nextRevision: this.mutationRevision + 1,
+        beforeFingerprint,
+        after: this.freezeDamageAfterState(staged),
+      });
+    } finally {
+      this.mutationLocked = false;
+    }
+  }
+
   private collisionEnabled(): boolean {
     return this.stateValue === "alive" && this.leases.size === 0;
   }
@@ -1180,6 +1390,42 @@ export class PlayerDamageAuthority {
       respawnCompleteAtTick120: state.respawnCompleteAtTick120,
       handoff: state.handoffValue,
     });
+  }
+
+  private freezeDamageAfterState(state: MutablePlayerDamageState): PlayerDamageAfterState {
+    return Object.freeze({
+      stateValue: state.stateValue,
+      healthValue: state.healthValue,
+      livesValue: state.livesValue,
+      currentTick120: state.currentTick120,
+      nextLeaseSerial: state.nextLeaseSerial,
+      nextEventSequence: state.nextEventSequence,
+      leases: state.leases,
+      claimedHitOccurrences: state.claimedHitOccurrences,
+      processedDamageTicks: state.processedDamageTicks,
+      recoveryLeaseToken: state.recoveryLeaseToken,
+      recoveryAtTick120: state.recoveryAtTick120,
+      respawnPlaceAtTick120: state.respawnPlaceAtTick120,
+      respawnCompleteAtTick120: state.respawnCompleteAtTick120,
+      handoffValue: state.handoffValue,
+    });
+  }
+
+  private applyDamageAfterState(after: PlayerDamageAfterState): void {
+    this.stateValue = after.stateValue;
+    this.healthValue = after.healthValue;
+    this.livesValue = after.livesValue;
+    this.currentTick120 = after.currentTick120;
+    this.nextLeaseSerial = after.nextLeaseSerial;
+    this.nextEventSequence = after.nextEventSequence;
+    this.leases = after.leases;
+    this.claimedHitOccurrences = after.claimedHitOccurrences;
+    this.processedDamageTicks = after.processedDamageTicks;
+    this.recoveryLeaseToken = after.recoveryLeaseToken;
+    this.recoveryAtTick120 = after.recoveryAtTick120;
+    this.respawnPlaceAtTick120 = after.respawnPlaceAtTick120;
+    this.respawnCompleteAtTick120 = after.respawnCompleteAtTick120;
+    this.handoffValue = after.handoffValue;
   }
 
   private stageAdvanceTo(
@@ -1371,7 +1617,7 @@ export class PlayerDamageAuthority {
 
   private stageCollisionLease(
     state: MutablePlayerDamageState,
-    owner: string,
+    owner: CollisionBlockerOwner,
     reason: string,
     tick: number,
   ): CollisionBlockerLease {
@@ -1427,19 +1673,6 @@ export class PlayerDamageAuthority {
       }));
     }
     state.nextEventSequence += events.length;
-  }
-
-  private prepareCollisionLease(owner: string, reason: string, tick: number): CollisionBlockerLease {
-    if (!Number.isSafeInteger(this.nextLeaseSerial)) {
-      throw new Error("collision blocker serial exceeds the safe integer range");
-    }
-    const token = `${this.playerId}:lease:${String(this.nextLeaseSerial).padStart(6, "0")}`;
-    return Object.freeze({token, owner, reason, acquiredAtTick120: tick});
-  }
-
-  private commitPreparedLease(lease: CollisionBlockerLease): void {
-    this.leases.set(lease.token, lease);
-    this.nextLeaseSerial += 1;
   }
 
   private releaseCollisionBlockerAtCurrentTick(
@@ -1507,6 +1740,23 @@ export class PlayerDamageAuthority {
     ) {
       throw new Error(
         "player damage proposal is unknown, consumed, or owned by another player/event bus",
+      );
+    }
+    return prepared;
+  }
+
+  private requirePreparedCollisionBlockerMutation(
+    proposal: PreparedPlayerCollisionBlockerMutation,
+  ): PreparedPlayerCollisionBlockerMutationState {
+    const prepared = PREPARED_PLAYER_COLLISION_BLOCKER_MUTATIONS.get(proposal);
+    if (
+      prepared === undefined
+      || prepared.consumed
+      || prepared.owner !== this
+      || prepared.eventBus !== this.bus
+    ) {
+      throw new Error(
+        "player collision blocker proposal is unknown, consumed, or owned by another player/event bus",
       );
     }
     return prepared;

@@ -2,10 +2,13 @@ import {describe, expect, it} from "vitest";
 import {
   CanonicalEventBus,
   serializeCanonicalEvents,
+  type CanonicalEventBatchReceipt,
 } from "./events";
 import {
   ROOM_TRANSITION_AUTHORITY_CONTRACT,
   RoomTransitionAuthority,
+  isExactRoomTransitionAuthority,
+  type PreparedRoomTransitionMutation,
 } from "./room-transition";
 
 function make(initialRoom = "INFORMATION"): Readonly<{
@@ -39,6 +42,152 @@ describe("immutable V4 room-transition contract", () => {
     expect(() => new RoomTransitionAuthority({} as CanonicalEventBus, "INFORMATION")).toThrow(
       /CanonicalEventBus/,
     );
+    class DerivedBus extends CanonicalEventBus {}
+    expect(() => new RoomTransitionAuthority(new DerivedBus(), "INFORMATION")).toThrow(
+      /exact CanonicalEventBus/,
+    );
+  });
+
+  it("exposes only an exact unshadowed authority identity to a composite", () => {
+    const exact = make().authority;
+    expect(isExactRoomTransitionAuthority(exact)).toBe(true);
+    Object.defineProperty(exact, "prepareAdvance", {
+      configurable: true,
+      value: RoomTransitionAuthority.prototype.prepareAdvance,
+    });
+    expect(isExactRoomTransitionAuthority(exact)).toBe(false);
+  });
+});
+
+describe("prepared room-transition mutations", () => {
+  it("stages a frozen request view and applies only after its exact append receipt", () => {
+    const {bus, authority} = make();
+    const before = authority.snapshot();
+    const proposal = authority.prepareRequest("IN_BETWEEN", 101);
+    const view = authority.validatePreparedMutation(proposal, bus);
+
+    expect(view).toMatchObject({
+      authority: "v4-room-transition-prepared-mutation",
+      kind: "request",
+      eventBus: bus,
+      tick120: 101,
+      revision: 0,
+      preview: {
+        tick120: 101,
+        state: "preparing",
+        currentRoom: "INFORMATION",
+        targetRoom: "IN_BETWEEN",
+        generation: 1,
+        eventCount: 1,
+      },
+    });
+    expect(view.drafts.map((draft) => draft.id)).toEqual(["room.transition.begin"]);
+    expect(Object.isFrozen(view)).toBe(true);
+    expect(Object.isFrozen(view.drafts)).toBe(true);
+    expect(Object.isFrozen(view.preview)).toBe(true);
+    expect(authority.snapshot()).toEqual(before);
+    expect(bus.events()).toEqual([]);
+
+    expect(() => authority.applyPreparedMutationAfterAppend(
+      proposal,
+      bus,
+      Object.freeze({}) as CanonicalEventBatchReceipt,
+    )).toThrow(/receipt is not recognized/);
+    expect(authority.snapshot()).toEqual(before);
+
+    const receipts = bus.enqueuePreparedBatch([view.drafts]);
+    expect(authority.snapshot()).toEqual(before);
+    expect(authority.applyPreparedMutationAfterAppend(
+      proposal,
+      bus,
+      receipts[0] as CanonicalEventBatchReceipt,
+    )).toEqual(view.preview);
+    expect(authority.snapshot()).toEqual(view.preview);
+    expect(bus.flush().map((event) => event.id)).toEqual(["room.transition.begin"]);
+    expect(() => authority.validatePreparedMutation(proposal, bus)).toThrow(/already applied/);
+  });
+
+  it("binds proposals to exact owner, bus, revision, state, tick, and draft identity", () => {
+    const bus = new CanonicalEventBus();
+    const otherBus = new CanonicalEventBus();
+    const authority = new RoomTransitionAuthority(bus, "INFORMATION");
+    const other = new RoomTransitionAuthority(bus, "INFORMATION");
+    const first = authority.prepareRequest("IN_BETWEEN", 1);
+    const competing = authority.prepareRequest("POLARIZED", 1);
+    const firstView = authority.validatePreparedMutation(first, bus);
+    const receipts = bus.enqueuePreparedBatch([firstView.drafts]);
+
+    expect(() => other.validatePreparedMutation(first, bus)).toThrow(/owned by another/);
+    expect(() => authority.validatePreparedMutation(first, otherBus)).toThrow(/bus does not match/);
+    expect(() => authority.applyPreparedMutationAfterAppend(
+      competing,
+      bus,
+      receipts[0] as CanonicalEventBatchReceipt,
+    )).toThrow(/does not cover/);
+    expect(authority.snapshot()).toMatchObject({tick120: null, state: "idle"});
+    authority.applyPreparedMutationAfterAppend(
+      first,
+      bus,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+    expect(() => authority.validatePreparedMutation(competing, bus)).toThrow(/stale/);
+
+    const staleTickBus = new CanonicalEventBus();
+    const staleTick = new RoomTransitionAuthority(staleTickBus, "INFORMATION");
+    const stale = staleTick.prepareAdvance(0);
+    staleTick.advance(0);
+    expect(() => staleTick.validatePreparedMutation(stale, staleTickBus)).toThrow(/stale/);
+
+    const exactStateBus = new CanonicalEventBus();
+    const exactState = new RoomTransitionAuthority(exactStateBus, "INFORMATION");
+    const exactStateProposal = exactState.prepareRequest("IN_BETWEEN", 3);
+    Object.assign(exactState as unknown as {currentTick120Value: number | null}, {
+      currentTick120Value: 0,
+    });
+    expect(() => exactState.validatePreparedMutation(exactStateProposal, exactStateBus)).toThrow(
+      /state or tick is stale/,
+    );
+
+    expect(() => authority.validatePreparedMutation(
+      Object.freeze(Object.create(null)) as PreparedRoomTransitionMutation,
+      bus,
+    )).toThrow(/unknown/);
+  });
+
+  it("keeps complete as an FSM-only group for same-append player release", () => {
+    const {bus, authority} = make();
+    authority.request("IN_BETWEEN", 0);
+    bus.flush();
+    authority.advance(30);
+    bus.flush();
+    authority.advance(60);
+    bus.flush();
+
+    const proposal = authority.prepareAdvance(78);
+    const view = authority.validatePreparedMutation(proposal, bus);
+    expect(view.drafts.map((draft) => draft.id)).toEqual(["room.transition.complete"]);
+    expect(view.preview).toMatchObject({state: "idle", targetRoom: null, eventCount: 4});
+    const playerReleaseDraft = Object.freeze({
+      id: "player.collision.on",
+      tick120: 78,
+      entityStableId: "player:0",
+      localSequence: 0,
+      occurrenceKey: "prepared-room-transition:player-release",
+      payload: Object.freeze({owner: "room-transition", reason: "atomic-world-swap"}),
+    });
+    const releaseGroup = Object.freeze([playerReleaseDraft]);
+    const receipts = bus.enqueuePreparedBatch([view.drafts, releaseGroup]);
+
+    expect(authority.snapshot().state).toBe("stabilizing");
+    authority.applyPreparedMutationAfterAppend(
+      proposal,
+      bus,
+      receipts[0] as CanonicalEventBatchReceipt,
+    );
+    expect(bus.flush().map((event) => event.id)).toEqual([
+      "room.transition.complete",
+      "player.collision.on",
+    ]);
   });
 });
 
