@@ -26,10 +26,11 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence → H+1702首房关闭；run-owned ledger分别冻结H、H+1701与H+1702来源；共享身体、事件trace与run state；尚无metric、下一房选择或handoff |
+| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence → H+1702首房关闭；run-owned ledger冻结H/H+1701/H+1702来源，并从exact closure投影2项metric与12项typed missing；尚无composer-ready metrics、下一房选择或handoff |
 | First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
-| First fixed room closure | DONE | EXT-2026-009 在H+1702原子关闭单occurrence bootstrap首房并冻结`1/1/0`与typed visit fact；metric、selection、transition与handoff仍withheld |
-| Room composition / execution | WIP（首个 live 切片） | fixed non-composer首房、H/H+1701/H+1702有界来源与真实room closure已进入默认Run；14项metric projection/snapshot、room count、weighted selection、transition、parallel/multi-pool与handoff未完成 |
+| First fixed room closure | DONE | EXT-2026-009 在H+1702原子关闭单occurrence bootstrap首房并冻结`1/1/0`与typed visit fact；closure自身仍不承载metric、selection、transition或handoff |
+| First-room metric projection | DONE（partial） | EXT-2026-010从exact H+1702 closure投影`avgFlower`/`gazeRatio`，其余12项typed missing；整体不ready，不授权composer、RNG、target、selection或transition |
+| Room composition / execution | WIP（首个 live 切片） | fixed non-composer首房、三段有界来源、真实closure与partial metric snapshot已进入默认Run；12项live producer、room count、weighted selection、transition、parallel/multi-pool与handoff未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
 | Renderer / input / PWA | DONE（基础） | Three.js 像素表现、键盘/触控/标准手柄、manifest、离线 warm reload 与图标已存在；完整 causal clips、升级迁移和实机矩阵未完成 |
@@ -49,9 +50,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | fixed non-composer首房与H+1702 room closure已进入默认Run；下一切片是逐项author 14项metric的source/window/denominator/threshold/missing及frozen snapshot，随后才是room count、完整difficulty mapping、weighted selection、transition、parallel/weather、tier budget与safe-gap handoff producer |
+| P0-05 | Live room composer | WIP | 首房closure与2 available / 12 missing的partial metric snapshot已进入默认Run；下一切片按真实机制逐项补missing raw producer，14项全部available且验证后才建立room count、difficulty、weighted selection、transition、parallel/weather与handoff |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | quiet awakening、First Eye、typed `ROOM_SAMPLING` boundary、固定首房occurrence、H/H+1701 captures与H+1702 room closure已闭合；下一步从frozen closure source生成metric snapshot，再建立真实selection/next handoff |
+| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、`ROOM_SAMPLING`、固定首房occurrence、H/H+1701/H+1702 captures与partial metric snapshot已闭合；下一步补齐missing producers，再建立真实selection/next handoff |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
 | P0-09 | Presentation / accessibility | WIP | 完整 Run 的 full/reduced-motion/flash-off gameplay trace 相同；UI、音频、触觉、天气只读投影，关键 causal clips 可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
@@ -60,9 +61,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 以已DONE的H+1702 first-room closure与frozen source为基线，逐项author 14项metric的producer、window、
-   denominator、threshold、missing与frozen snapshot；不得复制QA fixture、用默认0填missing，或从表现反推。
-2. metric snapshot闭合后建立room count、完整difficulty mapping、remaining candidate set与单一RNG顺序；
+1. 以已DONE的partial snapshot为基线，按实际进入Run的mechanism逐项补12个missing metric所需raw producer、
+   window、denominator与threshold；不得复制QA fixture、用默认0填missing，或从表现反推。
+2. 14项全部available并铸造composer-ready receipt后，建立room count、完整difficulty mapping、remaining candidate set与单一RNG顺序；
    在这些authority就绪前不调用composer。
 3. weighted selection取得target authority后，才定义transition gameplay occurrence与atomic room FSM join。
 4. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
