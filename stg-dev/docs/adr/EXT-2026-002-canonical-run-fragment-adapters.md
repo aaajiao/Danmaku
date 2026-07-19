@@ -1,12 +1,20 @@
 # EXT-2026-002：Canonical Run fragment adapters
 
-- 状态：ACCEPTED
+- 状态：ACCEPTED / FROZEN
 - 日期：2026-07-18
+- 冻结日期 / 基线提交：2026-07-19 / `8e99ab4`
 - 负责人 / 审核人：aaajiao / Codex
 - 关联 issue / PR：当前 `agent/canonical-run-integration` 工作分支；未创建 PR
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；2026-07-18 完整读取
 - V4 package：schema `4.0.0`；package manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
 - 影响层：authority / simulation / narrative / projection / platform
+
+> 本文件是早期 canonical Run fragment adapters 的历史 umbrella ADR，于 `8e99ab4`
+> 冻结。下文 bytes、SHA、coverage、测试总数和缺口只表示该接受时点，不再随当前工程滚动
+> 更新。当前制作状态见 [ROADMAP_ZH.md](../ROADMAP_ZH.md)，当前 QA 方法见
+> [TESTING_ZH.md](../TESTING_ZH.md)，稳定跨模块契约见
+> [ARCHITECTURE_ZH.md](../ARCHITECTURE_ZH.md)。后续独立 adapter 或 policy 决定必须新建
+> focused ADR，并引用本记录；不得删除或静默改写本文件的 provenance。
 
 ## 不可约事实（Metadata）
 

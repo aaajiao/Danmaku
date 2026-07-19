@@ -4,7 +4,7 @@
 
 本文只描述稳定技术契约、依赖方向与跨模块决策。当前覆盖率、优先级和施工缺口见
 [制作路线图](ROADMAP_ZH.md)；验证方法见[测试与验收](TESTING_ZH.md)；独立设计决定与
-provenance 见 `docs/adr/`。
+provenance 见 [ADR 索引](adr/README.md)。
 
 ## 1. 权威来源与依赖方向
 
