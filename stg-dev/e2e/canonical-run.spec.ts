@@ -3,7 +3,7 @@ import {enterSimulation, PATTERN_COUNT} from "./helpers/stg";
 
 const FIXED_ENCOUNTER_SEED = 0x1234_5678;
 
-test("default RUN drains combat but remains at the unqualified gaze barrier", async ({page}) => {
+test("default RUN completes First Eye and exposes the typed room-sampling handoff", async ({page}) => {
   test.setTimeout(45_000);
 
   const pageErrors: string[] = [];
@@ -29,6 +29,9 @@ test("default RUN drains combat but remains at the unqualified gaze barrier", as
   await expect(body).toHaveAttribute("data-meaningful-inputs", "0");
   await expect(body).toHaveAttribute("data-signal-inputs", "0");
   await expect(body).toHaveAttribute("data-handoff-ready", "false");
+  await expect(body).toHaveAttribute("data-handoff-state", "not_started");
+  await expect(body).toHaveAttribute("data-handoff-target", "ROOM_SAMPLING");
+  await expect(body).toHaveAttribute("data-handoff-at-tick", "");
   await expect(body).toHaveAttribute("data-gaze-state", "idle");
   await expect(body).toHaveAttribute("data-gaze-clamp-committed", "false");
   await expect(body).toHaveAttribute("data-gaze-clamp-released", "false");
@@ -84,15 +87,34 @@ test("default RUN drains combat but remains at the unqualified gaze barrier", as
     })
     .toBeGreaterThan(0);
 
+  await page.keyboard.down("g");
+  await expect(body).toHaveAttribute("data-run-phase", "first_clamp_recovery", {timeout: 4_000});
+  await expect(body).toHaveAttribute("data-gaze-state", "clamped");
+  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "true");
+  await expect.poll(async () => page.locator("#expression-meter").evaluate(
+    (node) => (node as HTMLElement).style.width,
+  )).toBe("10%");
+  await page.keyboard.up("g");
+
+  await expect(body).toHaveAttribute("data-gaze-clamp-released", "true", {timeout: 4_000});
+  await expect(body).toHaveAttribute("data-flower-recovery-complete", "true", {timeout: 4_000});
+  await expect.poll(async () => page.locator("#expression-meter").evaluate(
+    (node) => (node as HTMLElement).style.width,
+  )).toBe("30%");
+
   await expect(body).toHaveAttribute("data-source-drained", "true", {timeout: 18_000});
-  await expect(body).toHaveAttribute("data-run-phase", "first_eye");
+  await expect(body).toHaveAttribute("data-run-phase", "first_clamp_recovery");
   await expect(body).toHaveAttribute("data-live-colliders", "0");
-  await expect(body).toHaveAttribute("data-handoff-ready", "false");
+  await expect(body).toHaveAttribute("data-handoff-ready", "true");
+  await expect(body).toHaveAttribute("data-handoff-state", "ready_for_room_sampling");
+  await expect(body).toHaveAttribute("data-handoff-target", "ROOM_SAMPLING");
+  await expect.poll(async () => Number(await body.getAttribute("data-handoff-at-tick")))
+    .toBeGreaterThan(0);
   await expect(body).toHaveAttribute("data-source-live-entities", "0");
   await expect(body).toHaveAttribute("data-gaze-state", "idle");
-  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "false");
-  await expect(body).toHaveAttribute("data-gaze-clamp-released", "false");
-  await expect(body).toHaveAttribute("data-flower-recovery-complete", "false");
+  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "true");
+  await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
+  await expect(body).toHaveAttribute("data-flower-recovery-complete", "true");
   await expect(page.locator("#pattern-name")).toHaveText("眼睛取样");
   await expect(page.locator("#pattern-name-en")).toHaveText("EYE ACQUISITION");
 

@@ -283,6 +283,11 @@ function updateHud(snapshot: SimulationSnapshot, run: CanonicalRunSessionSnapsho
     document.body.dataset.meaningfulInputs = String(run.player.meaningfulInputCount);
     document.body.dataset.signalInputs = String(run.player.signalInputCount);
     document.body.dataset.handoffReady = String(run.handoff.ready);
+    document.body.dataset.handoffState = run.handoff.state;
+    document.body.dataset.handoffTarget = run.handoff.targetNarrativeState;
+    document.body.dataset.handoffAtTick = run.handoff.atTick120 === null
+      ? ""
+      : String(run.handoff.atTick120);
     document.body.dataset.gazeState = run.gaze.state;
     document.body.dataset.gazeClampCommitted = String(run.handoff.barriers.gazeClampCommitted);
     document.body.dataset.gazeClampReleased = String(run.handoff.barriers.gazeClampReleased);
@@ -396,6 +401,7 @@ let authorityControls: InputFrame = {
   move: {x: 0, y: 0},
   shoot: false,
   focus: false,
+  gazeIntent: false,
   overridePressed: false,
   overrideReleased: false,
   overrideHeld: false,
@@ -436,18 +442,25 @@ function advanceAuthorityBoundary(boundary: Tick120Boundary<AuthorityInputSample
       y: -authorityControls.move.y,
     };
     const runBefore = canonicalRun.snapshot();
+    const gazeIntentPolicy = runBefore.adapterPolicy.firstEye.gazeIntent;
+    const gazeIntentActive = runBefore.phase !== "quiet_awakening"
+      && authorityControls.gazeIntent;
     const run = canonicalRun.step({
       tick120: boundary.tick120,
       movement: canonicalMovement,
       signalActive: authorityControls.shoot,
       focused: authorityControls.focus,
-      // Browser/device gaze mapping is not authored by V4. The default Run
-      // supplies an explicit neutral sample and therefore cannot manufacture
-      // a clamp or advance beyond the First Eye gaze barrier.
+      // Browser/device gaze intent is application-authored and remains an
+      // explicit sample port. It is independent from Focus, movement and all
+      // presentation state.
       gaze: {
         skyEyeVisible: runBefore.phase !== "quiet_awakening",
-        pitchDegrees: 0,
-        alignment: 0,
+        pitchDegrees: gazeIntentActive
+          ? gazeIntentPolicy.qualifiedPitchDegrees
+          : gazeIntentPolicy.neutralPitchDegrees,
+        alignment: gazeIntentActive
+          ? gazeIntentPolicy.qualifiedAlignment
+          : gazeIntentPolicy.neutralAlignment,
       },
       overridePressed: overrideEdge === "press",
       overrideReleased: overrideEdge === "release",
@@ -518,6 +531,7 @@ function frame(time: number): void {
             move: {x: 0, y: 0},
             shoot: false,
             focus: false,
+            gazeIntent: false,
             overridePressed: false,
             overrideReleased: false,
             overrideHeld: false,

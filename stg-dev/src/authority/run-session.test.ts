@@ -128,6 +128,7 @@ describe("manifest-backed canonical V4 run session prologue", () => {
       discovery: {signalFallbackVisible: false},
       handoff: {
         state: "not_started",
+        targetNarrativeState: "ROOM_SAMPLING",
         ready: false,
         sourcePatternId: "common.eye_acquisition",
         atTick120: null,
@@ -136,6 +137,12 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           gazeClampCommitted: false,
           gazeClampReleased: false,
           flowerRecoveryComplete: false,
+          gazeTimedStateQuiescent: true,
+        },
+        recovery: {
+          delayTicks120: 30,
+          dueAtTick120: null,
+          completedAtTick120: null,
         },
         sourceCombat: null,
       },
@@ -213,9 +220,28 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           authoredPatternDurationMs: 8600,
           exit: "combat-drain+gaze-release+flower-recovery",
           gazeSampleAuthority: "caller-supplied-device-neutral-sample",
+          gazeIntent: {
+            applicationFact: "independent-held-gaze-intent",
+            keyboardCode: "KeyG",
+            gamepadButton: 3,
+            pointerCount: 2,
+            focusIndependent: true,
+            qualifiedPitchDegrees: 60,
+            qualifiedAlignment: 1,
+            neutralPitchDegrees: 0,
+            neutralAlignment: 0,
+            provenance: "application-required-v4-omission",
+          },
           gazeAcquireTicks120: 60,
           gazeReleaseDelayTicks120: 54,
-          flowerRecoveryAuthority: "pending-v4-omission",
+          flowerRecoveryAuthority: "application-tick120-delay+v4-flower-resolver",
+          flowerRecoveryDelayTicks120: 30,
+          flowerRecoveryDelayMs: 250,
+          flowerRecoveryProjectionContext: "GAZE_RECOVERY",
+          flowerRecoveryCanonicalSources: ["focus", "signal"],
+          flowerRecoveryMinimumExclusive: 0.1,
+          handoffTargetNarrativeState: "ROOM_SAMPLING",
+          handoffAuthorityQuiescence: "run-timers-idle+gaze-idle",
           overrideAvailability: "withheld-until-local-resistance-authority",
         },
       },
@@ -578,6 +604,69 @@ describe("manifest-backed canonical V4 run session prologue", () => {
     });
     expect(next.player.position.x).toBeGreaterThan(positionBefore.x);
     expect(isDeepFrozen(next)).toBe(true);
+
+    let sourceFirst = next;
+    const acquireStartTick120 = sourceFirst.tick120 + 1;
+    const clampTick120 = acquireStartTick120 + 60;
+    while (sourceFirst.tick120 < clampTick120) {
+      sourceFirst = session.step(qualifiedGazeInput(sourceFirst.tick120 + 1));
+    }
+    const releaseStartTick120 = clampTick120 + 1;
+    const releaseTick120 = releaseStartTick120 + 54;
+    while (sourceFirst.tick120 < releaseTick120) {
+      sourceFirst = session.step(neutralInput(sourceFirst.tick120 + 1));
+    }
+    const recoveryTick120 = releaseTick120 + 30;
+    while (sourceFirst.tick120 < recoveryTick120 - 1) {
+      sourceFirst = session.step(qualifiedGazeInput(sourceFirst.tick120 + 1));
+    }
+    expect(sourceFirst).toMatchObject({
+      tick120: recoveryTick120 - 1,
+      gaze: {state: "acquiring", clampActive: false, cycle: 2},
+      handoff: {
+        state: "flower_recovery_delayed",
+        ready: false,
+        barriers: {combatDrained: true, flowerRecoveryComplete: false},
+      },
+    });
+    sourceFirst = session.step(qualifiedGazeInput(recoveryTick120));
+    expect(sourceFirst).toMatchObject({
+      tick120: recoveryTick120,
+      phase: "first_clamp_recovery",
+      gaze: {state: "acquiring", clampActive: false, cycle: 2},
+      handoff: {
+        state: "awaiting_first_eye_barriers",
+        targetNarrativeState: "ROOM_SAMPLING",
+        ready: false,
+        atTick120: null,
+        barriers: {
+          combatDrained: true,
+          gazeClampCommitted: true,
+          gazeClampReleased: true,
+          flowerRecoveryComplete: true,
+          gazeTimedStateQuiescent: false,
+        },
+      },
+    });
+    sourceFirst = session.step(neutralInput(recoveryTick120 + 1));
+    expect(sourceFirst).toMatchObject({
+      tick120: recoveryTick120 + 1,
+      phase: "first_clamp_recovery",
+      gaze: {state: "idle", clampActive: false, cycle: 2, deadlineTick120: null},
+      handoff: {
+        state: "ready_for_room_sampling",
+        targetNarrativeState: "ROOM_SAMPLING",
+        ready: true,
+        atTick120: recoveryTick120 + 1,
+        barriers: {
+          combatDrained: true,
+          gazeClampCommitted: true,
+          gazeClampReleased: true,
+          flowerRecoveryComplete: true,
+          gazeTimedStateQuiescent: true,
+        },
+      },
+    });
   });
 
   it("derives handoff from current shared timers after the occurrence engine releases", () => {
@@ -634,7 +723,7 @@ describe("manifest-backed canonical V4 run session prologue", () => {
     });
   });
 
-  it("commits clamp before Flower, releases at exact V4 ticks, and stops at recovery authority", () => {
+  it("commits clamp before Flower and recovers exactly 30 ticks after release", () => {
     const session = new CanonicalRunSession(OPTIONS);
     stepTo(session, 960);
 
@@ -665,6 +754,7 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           gazeClampReleased: false,
           flowerRecoveryComplete: false,
         },
+        recovery: {dueAtTick120: null, completedAtTick120: null},
       },
     });
     expect(session.events()
@@ -694,36 +784,84 @@ describe("manifest-backed canonical V4 run session prologue", () => {
         },
       },
       handoff: {
-        state: "awaiting_first_eye_barriers",
+        state: "flower_recovery_delayed",
         ready: false,
         barriers: {
           gazeClampCommitted: true,
           gazeClampReleased: true,
           flowerRecoveryComplete: false,
         },
+        recovery: {
+          delayTicks120: 30,
+          dueAtTick120: 1106,
+          completedAtTick120: null,
+        },
       },
     });
     expect(session.events().find((event) => event.id === "gaze.clamp.release"))
       .toMatchObject({tick120: 1076});
 
-    while (snapshot.handoff.sourceCombat === null && snapshot.tick120 < 960 + 1800) {
+    while (snapshot.tick120 < 1105) {
       snapshot = session.step(neutralInput(snapshot.tick120 + 1));
     }
     expect(snapshot).toMatchObject({
       phase: "first_clamp_recovery",
+      tick120: 1105,
       player: {
         inputEnabled: true,
         flower: {resolution: {source: "gaze", targetIntensity: 0.1}},
       },
       handoff: {
-        state: "flower_recovery_authority_pending",
+        state: "flower_recovery_delayed",
         ready: false,
         atTick120: null,
+        barriers: {
+          gazeClampCommitted: true,
+          gazeClampReleased: true,
+          flowerRecoveryComplete: false,
+        },
+        recovery: {
+          dueAtTick120: 1106,
+          completedAtTick120: null,
+        },
+      },
+    });
+
+    snapshot = session.step(neutralInput(1106));
+    expect(snapshot).toMatchObject({
+      phase: "first_clamp_recovery",
+      player: {flower: {tick120: 1106, resolution: {source: "signal", targetIntensity: 0.3}}},
+      handoff: {
+        state: "awaiting_first_eye_barriers",
+        ready: false,
+        barriers: {flowerRecoveryComplete: true},
+        recovery: {dueAtTick120: 1106, completedAtTick120: 1106},
+      },
+    });
+    expect(session.events().filter((event) =>
+      event.tick120 === 1106 && event.id === "flower.intensity.commit")).toEqual([
+      expect.objectContaining({
+        id: "flower.intensity.commit",
+        payload: {source: "signal", targetIntensity: 0.3},
+      }),
+    ]);
+
+    while (!snapshot.handoff.ready && snapshot.tick120 < 960 + 2400) {
+      snapshot = session.step(neutralInput(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      phase: "first_clamp_recovery",
+      handoff: {
+        state: "ready_for_room_sampling",
+        targetNarrativeState: "ROOM_SAMPLING",
+        ready: true,
+        atTick120: snapshot.tick120,
         barriers: {
           combatDrained: true,
           gazeClampCommitted: true,
           gazeClampReleased: true,
-          flowerRecoveryComplete: false,
+          flowerRecoveryComplete: true,
+          gazeTimedStateQuiescent: true,
         },
         sourceCombat: {
           patternComplete: true,
@@ -733,6 +871,80 @@ describe("manifest-backed canonical V4 run session prologue", () => {
           liveColliders: 0,
         },
       },
+    });
+
+    const readyAtTick120 = snapshot.handoff.atTick120;
+    const frozenEvents = session.canonicalEventSerialization();
+    const frozenGaze = snapshot.gaze;
+    const frozenFlower = snapshot.player.flower;
+    const frozenPosition = snapshot.player.position;
+    for (let offset = 1; offset <= 5; offset += 1) {
+      snapshot = session.step(qualifiedGazeInput(snapshot.tick120 + 1));
+    }
+    expect(snapshot).toMatchObject({
+      tick120: (readyAtTick120 ?? 0) + 5,
+      phase: "first_clamp_recovery",
+      gaze: frozenGaze,
+      player: {flower: frozenFlower, position: frozenPosition},
+      handoff: {
+        state: "ready_for_room_sampling",
+        targetNarrativeState: "ROOM_SAMPLING",
+        ready: true,
+        atTick120: readyAtTick120,
+      },
+    });
+    expect(session.canonicalEventSerialization()).toBe(frozenEvents);
+  });
+
+  it("invalidates a completed recovery when gaze clamps again before handoff", () => {
+    const session = new CanonicalRunSession(OPTIONS);
+    stepTo(session, 960);
+
+    let snapshot = session.snapshot();
+    for (let tick120 = 961; tick120 <= 1021; tick120 += 1) {
+      snapshot = session.step(qualifiedGazeInput(tick120));
+    }
+    for (let tick120 = 1022; tick120 <= 1106; tick120 += 1) {
+      snapshot = session.step(neutralInput(tick120));
+    }
+    expect(snapshot.handoff).toMatchObject({
+      ready: false,
+      barriers: {gazeClampReleased: true, flowerRecoveryComplete: true},
+      recovery: {dueAtTick120: 1106, completedAtTick120: 1106},
+    });
+
+    for (let tick120 = 1107; tick120 <= 1167; tick120 += 1) {
+      snapshot = session.step(qualifiedGazeInput(tick120));
+    }
+    expect(snapshot).toMatchObject({
+      tick120: 1167,
+      gaze: {state: "clamped", cycle: 2, clampActive: true},
+      player: {flower: {resolution: {source: "gaze", targetIntensity: 0.1}}},
+      handoff: {
+        ready: false,
+        barriers: {gazeClampReleased: false, flowerRecoveryComplete: false},
+        recovery: {dueAtTick120: null, completedAtTick120: null},
+      },
+    });
+
+    for (let tick120 = 1168; tick120 <= 1222; tick120 += 1) {
+      snapshot = session.step(neutralInput(tick120));
+    }
+    expect(snapshot.handoff).toMatchObject({
+      state: "flower_recovery_delayed",
+      barriers: {gazeClampReleased: true, flowerRecoveryComplete: false},
+      recovery: {dueAtTick120: 1252, completedAtTick120: null},
+    });
+    while (snapshot.tick120 < 1251) {
+      snapshot = session.step(neutralInput(snapshot.tick120 + 1));
+    }
+    expect(snapshot.handoff.barriers.flowerRecoveryComplete).toBe(false);
+    snapshot = session.step(neutralInput(1252));
+    expect(snapshot.handoff).toMatchObject({
+      state: "awaiting_first_eye_barriers",
+      ready: false,
+      barriers: {gazeClampReleased: true, flowerRecoveryComplete: true},
+      recovery: {dueAtTick120: 1252, completedAtTick120: 1252},
     });
   });
 

@@ -92,20 +92,26 @@ test("RUN samples forward across boot, backlog, pause, and Focus boundaries", as
 
   await page.keyboard.down("z");
   await page.keyboard.down("Shift");
+  await page.keyboard.down("g");
   await stepRaf(page, 10_000);
   await expect(body).toHaveAttribute("data-authority-tick", "1042");
   await expect(body).toHaveAttribute("data-run-phase", "first_eye");
+  await expect(body).toHaveAttribute("data-gaze-state", "idle");
+  await expect(body).toHaveAttribute("data-gaze-clamp-committed", "false");
   await expect.poll(async () => page.locator("#expression-meter").evaluate(
     (node) => (node as HTMLElement).style.width,
   )).toBe("30%");
   await stepRaf(page, 0);
   await expect(body).toHaveAttribute("data-authority-tick", "1218");
+  await expect(body).toHaveAttribute("data-gaze-state", "idle");
   await stepRaf(page, 8.4);
   await expect(body).toHaveAttribute("data-authority-tick", "1219");
+  await expect(body).toHaveAttribute("data-gaze-state", "acquiring");
   await expect.poll(async () => page.locator("#expression-meter").evaluate(
     (node) => (node as HTMLElement).style.width,
   )).toBe("35%");
   await page.keyboard.up("Shift");
+  await page.keyboard.up("g");
   await page.keyboard.up("z");
 
   expect(pageErrors, "controlled RUN should have no uncaught page errors").toEqual([]);
@@ -178,12 +184,21 @@ test("full, reduced-motion, and flash-off project one authority trace", async ({
     await stepRaf(page, 0);
     await stepRaf(page, 8.4);
     await stepRaf(page, 8_000);
-    await stepRaf(page, 1_000);
+    await expect(page.locator("body")).toHaveAttribute("data-run-phase", "first_eye");
+    await page.keyboard.down("g");
+    await stepRaf(page, 0);
+    await stepRaf(page, 510);
+    await expect(page.locator("body")).toHaveAttribute("data-run-phase", "first_clamp_recovery");
+    await page.keyboard.up("g");
+    await stepRaf(page, 0);
+    await stepRaf(page, 710);
 
     const body = page.locator("body");
     await expect(body).toHaveAttribute("data-presentation-profile", profile);
     await expect(body).toHaveAttribute("data-reduced-motion", String(profile === "reduced-motion"));
     await expect(body).toHaveAttribute("data-flash-off", String(profile === "flash-off"));
+    await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
+    await expect(body).toHaveAttribute("data-flower-recovery-complete", "true");
     traces.push(await page.evaluate(() => ({
       tick120: document.body.dataset.authorityTick,
       phase: document.body.dataset.runPhase,
@@ -191,6 +206,11 @@ test("full, reduced-motion, and flash-off project one authority trace", async ({
       signalInputs: document.body.dataset.signalInputs,
       liveColliders: document.body.dataset.liveColliders,
       handoffReady: document.body.dataset.handoffReady,
+      handoffState: document.body.dataset.handoffState,
+      handoffTarget: document.body.dataset.handoffTarget,
+      gazeState: document.body.dataset.gazeState,
+      gazeClampReleased: document.body.dataset.gazeClampReleased,
+      flowerRecoveryComplete: document.body.dataset.flowerRecoveryComplete,
       eventTrace: [...document.querySelectorAll("#event-log li")].map((item) => ({
         type: (item as HTMLElement).dataset.type,
         text: item.textContent,

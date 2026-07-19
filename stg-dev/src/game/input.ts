@@ -4,6 +4,8 @@ export interface InputFrame {
   move: Vec2;
   shoot: boolean;
   focus: boolean;
+  /** Held application intent; mapped to an explicit gaze sample only by the Run adapter. */
+  gazeIntent: boolean;
   overridePressed: boolean;
   overrideReleased: boolean;
   overrideHeld: boolean;
@@ -38,7 +40,9 @@ export class InputManager {
   private readonly keys = new Set<string>();
   private readonly previousPadButtons = new Map<number, boolean>();
   private activeGamepadIndex: number | null = null;
-  private pointerId: number | null = null;
+  private readonly pointerTargets = new Map<number, Vec2>();
+  private readonly pointerOrder: number[] = [];
+  private primaryPointerId: number | null = null;
   private pointerTarget: Vec2 | null = null;
   private playerPosition: Vec2 = {x: 0, y: -220};
   private readonly overrideEdgeQueue: Array<"press" | "release"> = [];
@@ -73,6 +77,7 @@ export class InputManager {
     let padMove: Vec2 = {x: 0, y: 0};
     let shoot = this.keys.has("KeyZ");
     let focus = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
+    let gazeIntent = this.keys.has("KeyG");
     const overrideEdges = this.overrideEdgeQueue.splice(0);
     let pausePressed = false;
     let padOverrideHeld = false;
@@ -89,6 +94,7 @@ export class InputManager {
       };
       shoot ||= buttonPressed(gamepad, 0);
       focus ||= buttonPressed(gamepad, 4) || buttonPressed(gamepad, 5);
+      gazeIntent ||= buttonPressed(gamepad, 3);
       padOverrideHeld = buttonPressed(gamepad, 1);
       this.queueOverrideTransition(
         keyboardOverrideHeld || padOverrideWasHeld,
@@ -106,6 +112,7 @@ export class InputManager {
     }
 
     const touchMove = this.pointerMovement();
+    gazeIntent ||= this.pointerTargets.size >= 2;
     const moveX = Math.abs(touchMove.x) > 0 ? touchMove.x : (keyboardX || padMove.x);
     const moveY = Math.abs(touchMove.y) > 0 ? touchMove.y : (keyboardY || padMove.y);
     const magnitude = Math.hypot(moveX, moveY);
@@ -115,8 +122,9 @@ export class InputManager {
 
     return {
       move: magnitude > 1 ? {x: moveX / magnitude, y: moveY / magnitude} : {x: moveX, y: moveY},
-      shoot: shoot || this.pointerId !== null,
+      shoot: shoot || this.pointerTargets.size > 0,
       focus,
+      gazeIntent,
       overridePressed: overrideEdges.includes("press"),
       overrideReleased: overrideEdges.includes("release"),
       overrideHeld,
@@ -164,7 +172,9 @@ export class InputManager {
   private readonly onBlur = (): void => {
     const overrideWasHeld = this.aggregateOverrideHeld();
     this.keys.clear();
-    this.pointerId = null;
+    this.pointerTargets.clear();
+    this.pointerOrder.length = 0;
+    this.primaryPointerId = null;
     this.pointerTarget = null;
     this.queueOverrideTransition(overrideWasHeld, this.aggregateOverrideHeld());
   };
@@ -273,20 +283,35 @@ export class InputManager {
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
-    this.pointerId = event.pointerId;
-    this.pointerTarget = this.pointerToWorld(event);
+    const target = this.pointerToWorld(event);
+    if (!this.pointerTargets.has(event.pointerId)) this.pointerOrder.push(event.pointerId);
+    this.pointerTargets.set(event.pointerId, target);
+    if (this.primaryPointerId === null) {
+      this.primaryPointerId = event.pointerId;
+      this.pointerTarget = target;
+    } else if (event.pointerId === this.primaryPointerId) {
+      this.pointerTarget = target;
+    }
     this.canvas.setPointerCapture(event.pointerId);
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
-    if (event.pointerId === this.pointerId) this.pointerTarget = this.pointerToWorld(event);
+    if (!this.pointerTargets.has(event.pointerId)) return;
+    const target = this.pointerToWorld(event);
+    this.pointerTargets.set(event.pointerId, target);
+    if (event.pointerId === this.primaryPointerId) this.pointerTarget = target;
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
-    if (event.pointerId === this.pointerId) {
-      this.pointerId = null;
-      this.pointerTarget = null;
-    }
+    if (!this.pointerTargets.delete(event.pointerId)) return;
+    const orderIndex = this.pointerOrder.indexOf(event.pointerId);
+    if (orderIndex >= 0) this.pointerOrder.splice(orderIndex, 1);
+    if (event.pointerId !== this.primaryPointerId) return;
+    const nextPointerId = this.pointerOrder[0] ?? null;
+    this.primaryPointerId = nextPointerId;
+    this.pointerTarget = nextPointerId === null
+      ? null
+      : this.pointerTargets.get(nextPointerId) ?? null;
   };
 
   private pointerMovement(): Vec2 {

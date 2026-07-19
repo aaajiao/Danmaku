@@ -50,6 +50,10 @@ const FIRST_EYE_PATTERN_ID = "common.eye_acquisition";
 const FIRST_EYE_OCCURRENCE_ID = "run:first-eye:0";
 const FIRST_EYE_ROOM_ID = "INFORMATION";
 const FIRST_EYE_DIFFICULTY = "EASY";
+const GAZE_INTENT_PITCH_DEGREES = 60;
+const GAZE_INTENT_ALIGNMENT = 1;
+const FLOWER_RECOVERY_DELAY_TICKS120 = 30;
+const FLOWER_RECOVERY_DELAY_MS = FLOWER_RECOVERY_DELAY_TICKS120 * 1000 / TICKS_PER_SECOND;
 
 interface RunDirectorPhaseManifest {
   readonly id: string;
@@ -170,7 +174,9 @@ export interface CanonicalRunSessionHandoffSnapshot {
   readonly state:
     | "not_started"
     | "awaiting_first_eye_barriers"
-    | "flower_recovery_authority_pending";
+    | "flower_recovery_delayed"
+    | "ready_for_room_sampling";
+  readonly targetNarrativeState: "ROOM_SAMPLING";
   readonly ready: boolean;
   readonly sourcePatternId: typeof FIRST_EYE_PATTERN_ID;
   readonly atTick120: number | null;
@@ -178,7 +184,14 @@ export interface CanonicalRunSessionHandoffSnapshot {
     readonly combatDrained: boolean;
     readonly gazeClampCommitted: boolean;
     readonly gazeClampReleased: boolean;
-    readonly flowerRecoveryComplete: false;
+    readonly flowerRecoveryComplete: boolean;
+    /** Transfer safety, not a narrative progress fact: no live gaze deadline may be frozen. */
+    readonly gazeTimedStateQuiescent: boolean;
+  }>;
+  readonly recovery: Readonly<{
+    readonly delayTicks120: typeof FLOWER_RECOVERY_DELAY_TICKS120;
+    readonly dueAtTick120: number | null;
+    readonly completedAtTick120: number | null;
   }>;
   readonly sourceCombat: Readonly<{
     readonly tick120: number;
@@ -267,9 +280,28 @@ export interface CanonicalRunSessionAdapterPolicy {
     authoredPatternDurationMs: number;
     exit: "combat-drain+gaze-release+flower-recovery";
     gazeSampleAuthority: "caller-supplied-device-neutral-sample";
+    gazeIntent: Readonly<{
+      applicationFact: "independent-held-gaze-intent";
+      keyboardCode: "KeyG";
+      gamepadButton: 3;
+      pointerCount: 2;
+      focusIndependent: true;
+      qualifiedPitchDegrees: typeof GAZE_INTENT_PITCH_DEGREES;
+      qualifiedAlignment: typeof GAZE_INTENT_ALIGNMENT;
+      neutralPitchDegrees: 0;
+      neutralAlignment: 0;
+      provenance: "application-required-v4-omission";
+    }>;
     gazeAcquireTicks120: number;
     gazeReleaseDelayTicks120: number;
-    flowerRecoveryAuthority: "pending-v4-omission";
+    flowerRecoveryAuthority: "application-tick120-delay+v4-flower-resolver";
+    flowerRecoveryDelayTicks120: typeof FLOWER_RECOVERY_DELAY_TICKS120;
+    flowerRecoveryDelayMs: typeof FLOWER_RECOVERY_DELAY_MS;
+    flowerRecoveryProjectionContext: "GAZE_RECOVERY";
+    flowerRecoveryCanonicalSources: readonly ["focus", "signal"];
+    flowerRecoveryMinimumExclusive: number;
+    handoffTargetNarrativeState: "ROOM_SAMPLING";
+    handoffAuthorityQuiescence: "run-timers-idle+gaze-idle";
     overrideAvailability: "withheld-until-local-resistance-authority";
   }>;
 }
@@ -531,6 +563,15 @@ function validateEventProjectionContract(manifest: EventProjectionManifest): voi
   };
   requireIdentityProjection("gaze.clamp.begin", "gaze.clamp.commit");
   requireIdentityProjection("gaze.clamp.release", "gaze.clamp.release");
+  const recovery = manifest.rules.filter((rule) => rule.narrativeEvent === "flower.recovery.complete");
+  if (
+    recovery.length !== 1
+    || !exactArray(recovery[0]?.canonicalSources, ["flower.intensity.commit"])
+    || recovery[0]?.predicate !== "source=GAZE_RECOVERY and target band reached"
+    || recovery[0]?.authority !== "read-only projection"
+  ) {
+    throw new Error("canonical narrative projection drifted: flower.recovery.complete");
+  }
 }
 
 const RUN_DIRECTOR_MANIFEST = deepFreezeJson(runDirectorManifestJson) as unknown as RunDirectorManifest;
@@ -551,6 +592,19 @@ if (!Number.isSafeInteger(AWAKENING_DURATION_TICKS)) {
 }
 if (!Number.isSafeInteger(SIGNAL_FALLBACK_TICKS)) {
   throw new Error("signal fallback duration must map exactly to tick120");
+}
+if (
+  !Number.isSafeInteger(FLOWER_RECOVERY_DELAY_TICKS120)
+  || FLOWER_RECOVERY_DELAY_TICKS120 <= 0
+  || !Number.isFinite(FLOWER_RECOVERY_DELAY_MS)
+) {
+  throw new Error("Flower recovery adapter delay must be a positive tick120 duration");
+}
+if (
+  GAZE_INTENT_PITCH_DEGREES < GAZE_AUTHORITY_CONTRACT.pitchThresholdDegrees
+  || GAZE_INTENT_ALIGNMENT < GAZE_AUTHORITY_CONTRACT.alignmentThreshold
+) {
+  throw new Error("gaze-intent adapter sample no longer qualifies for the V4 gaze contract");
 }
 
 export const CANONICAL_RUN_SESSION_ADAPTER_POLICY: CanonicalRunSessionAdapterPolicy = deepFreezeJson({
@@ -622,9 +676,28 @@ export const CANONICAL_RUN_SESSION_ADAPTER_POLICY: CanonicalRunSessionAdapterPol
     authoredPatternDurationMs: executablePattern(FIRST_EYE_PATTERN_ID).durationMs,
     exit: "combat-drain+gaze-release+flower-recovery",
     gazeSampleAuthority: "caller-supplied-device-neutral-sample",
+    gazeIntent: {
+      applicationFact: "independent-held-gaze-intent",
+      keyboardCode: "KeyG",
+      gamepadButton: 3,
+      pointerCount: 2,
+      focusIndependent: true,
+      qualifiedPitchDegrees: GAZE_INTENT_PITCH_DEGREES,
+      qualifiedAlignment: GAZE_INTENT_ALIGNMENT,
+      neutralPitchDegrees: 0,
+      neutralAlignment: 0,
+      provenance: "application-required-v4-omission",
+    },
     gazeAcquireTicks120: GAZE_AUTHORITY_CONTRACT.acquireTicks120,
     gazeReleaseDelayTicks120: GAZE_AUTHORITY_CONTRACT.releaseDelayTicks120,
-    flowerRecoveryAuthority: "pending-v4-omission",
+    flowerRecoveryAuthority: "application-tick120-delay+v4-flower-resolver",
+    flowerRecoveryDelayTicks120: FLOWER_RECOVERY_DELAY_TICKS120,
+    flowerRecoveryDelayMs: FLOWER_RECOVERY_DELAY_MS,
+    flowerRecoveryProjectionContext: "GAZE_RECOVERY",
+    flowerRecoveryCanonicalSources: ["focus", "signal"],
+    flowerRecoveryMinimumExclusive: GAZE_AUTHORITY_CONTRACT.forcedIntensity,
+    handoffTargetNarrativeState: "ROOM_SAMPLING",
+    handoffAuthorityQuiescence: "run-timers-idle+gaze-idle",
     overrideAvailability: "withheld-until-local-resistance-authority",
   },
 });
@@ -793,8 +866,9 @@ function signalIntensity(signalActive: boolean): number {
 /**
  * The manifest-backed, renderer-independent V4 prologue authority. The quiet
  * interval preserves absence; First Eye retains combat while the independent
- * gaze clamp/release barrier advances. The fragment stops with Flower recovery
- * incomplete because V4 supplies no authoritative completion timing.
+ * gaze clamp/release barrier advances. The application-authored recovery delay
+ * is isolated at the V4 narrative projection seam and ends at a typed handoff;
+ * it does not invent the ROOM_SAMPLING consumer.
  */
 export class CanonicalRunSession {
   readonly adapterPolicy = CANONICAL_RUN_SESSION_ADAPTER_POLICY;
@@ -814,6 +888,9 @@ export class CanonicalRunSession {
   private latestCombatSnapshot: CanonicalCombatSnapshot | null = null;
   private gazeClampCommittedAtTick120: number | null = null;
   private gazeClampReleasedAtTick120: number | null = null;
+  private flowerRecoveryDueAtTick120: number | null = null;
+  private flowerRecoveryCompletedAtTick120: number | null = null;
+  private handoffReadyAtTick120: number | null = null;
   private handoffSourceCombat: CanonicalRunSessionHandoffSnapshot["sourceCombat"] = null;
   private meaningfulInputCountValue = 0;
   private signalInputCountValue = 0;
@@ -845,6 +922,7 @@ export class CanonicalRunSession {
       const validated = validateStepInput(input, this.currentTick120);
       try {
         if (this.phaseValue === "quiet_awakening") return this.stepAwakening(validated);
+        if (this.handoffReadyAtTick120 !== null) return this.stepReadyBoundary(validated);
         return this.stepFirstEye(validated);
       } catch (error) {
         this.fatalError = error instanceof Error ? error : new Error(String(error));
@@ -857,6 +935,7 @@ export class CanonicalRunSession {
 
   snapshot(): CanonicalRunSessionSnapshot {
     this.assertOperational();
+    const gaze = this.gaze.snapshot();
     const retainedCombat = this.latestCombatSnapshot ?? this.combat?.snapshot() ?? null;
     const retainedRunCombat = this.combatState?.snapshot() ?? null;
     const combat = this.phaseValue === "quiet_awakening" ? null : retainedCombat;
@@ -865,9 +944,12 @@ export class CanonicalRunSession {
     const inputEnabled = playerInputEligible;
     const handoffState = this.phaseValue === "quiet_awakening"
       ? "not_started"
-      : this.handoffSourceCombat !== null && this.gazeClampReleasedAtTick120 !== null
-        ? "flower_recovery_authority_pending"
-        : "awaiting_first_eye_barriers";
+      : this.handoffReadyAtTick120 !== null
+        ? "ready_for_room_sampling"
+        : this.flowerRecoveryDueAtTick120 !== null
+          && this.flowerRecoveryCompletedAtTick120 === null
+          ? "flower_recovery_delayed"
+          : "awaiting_first_eye_barriers";
     return deepFreezeJson({
       authority: "canonical-run-session-v4",
       seed: this.options.seed,
@@ -883,7 +965,7 @@ export class CanonicalRunSession {
         signalInputCount: this.signalInputCountValue,
         damage: this.playerDamage,
       },
-      gaze: this.gaze.snapshot(),
+      gaze,
       combat,
       evidence: retainedRunCombat?.evidence ?? retainedCombat?.evidence ?? null,
       override: retainedRunCombat?.override ?? retainedCombat?.override ?? null,
@@ -894,14 +976,21 @@ export class CanonicalRunSession {
       },
       handoff: {
         state: handoffState,
-        ready: false,
+        targetNarrativeState: "ROOM_SAMPLING",
+        ready: this.handoffReadyAtTick120 !== null,
         sourcePatternId: FIRST_EYE_PATTERN_ID,
-        atTick120: null,
+        atTick120: this.handoffReadyAtTick120,
         barriers: {
           combatDrained: this.handoffSourceCombat !== null,
           gazeClampCommitted: this.gazeClampCommittedAtTick120 !== null,
           gazeClampReleased: this.gazeClampReleasedAtTick120 !== null,
-          flowerRecoveryComplete: false,
+          flowerRecoveryComplete: this.flowerRecoveryCompletedAtTick120 !== null,
+          gazeTimedStateQuiescent: gaze.state === "idle" && gaze.deadlineTick120 === null,
+        },
+        recovery: {
+          delayTicks120: FLOWER_RECOVERY_DELAY_TICKS120,
+          dueAtTick120: this.flowerRecoveryDueAtTick120,
+          completedAtTick120: this.flowerRecoveryCompletedAtTick120,
         },
         sourceCombat: this.handoffSourceCombat,
       },
@@ -1030,12 +1119,21 @@ export class CanonicalRunSession {
     // death gates movement/Focus/signal, but must never rewrite a qualified
     // sample into a synthetic release.
     const gazeAfter = this.gaze.observe(input.gaze, input.tick120);
-    // After the first clamp commits, V4 requires an authored Flower recovery
-    // completion fact before normal sources regain authority. That timing is
-    // absent, so release retains the forced resolution instead of fabricating
-    // a recovery completion.
-    if (!(this.gazeClampCommittedAtTick120 !== null && !gazeAfter.clampActive)) {
+    let recoveryResolution: Readonly<FlowerIntensityResolution> | null = null;
+    const recoveryDue = this.flowerRecoveryDueAtTick120 !== null
+      && this.flowerRecoveryCompletedAtTick120 === null
+      && input.tick120 >= this.flowerRecoveryDueAtTick120;
+    // A committed clamp retains the gaze-owned 0.1 band through release and
+    // the explicit recovery delay. Normal V4 sources resume only at the due
+    // tick; after an accepted recovery they continue resolving normally.
+    if (
+      this.gazeClampCommittedAtTick120 === null
+      || gazeAfter.clampActive
+      || this.flowerRecoveryCompletedAtTick120 !== null
+    ) {
       this.resolveFlower(input, true, gazeAfter.clampActive, inputEligible);
+    } else if (recoveryDue) {
+      recoveryResolution = this.resolveFlower(input, true, false, inputEligible);
     }
     const combatInput = Object.freeze({
       tick120: input.tick120,
@@ -1064,16 +1162,49 @@ export class CanonicalRunSession {
     }
     const committedEvents = this.bus.events().slice(eventsBefore);
     const clampCommit = committedEvents.find((event) => event.id === "gaze.clamp.commit");
-    if (clampCommit !== undefined && this.gazeClampCommittedAtTick120 === null) {
-      this.gazeClampCommittedAtTick120 = clampCommit.tick120;
-      if (this.phaseValue === "first_eye") {
-        this.phaseValue = "first_clamp_recovery";
-        this.phaseStartTick120 = clampCommit.tick120;
+    if (clampCommit !== undefined) {
+      if (this.gazeClampCommittedAtTick120 === null) {
+        this.gazeClampCommittedAtTick120 = clampCommit.tick120;
+        if (this.phaseValue === "first_eye") {
+          this.phaseValue = "first_clamp_recovery";
+          this.phaseStartTick120 = clampCommit.tick120;
+        }
+      }
+      if (this.handoffReadyAtTick120 === null) {
+        this.gazeClampReleasedAtTick120 = null;
+        this.flowerRecoveryDueAtTick120 = null;
+        this.flowerRecoveryCompletedAtTick120 = null;
       }
     }
     const clampRelease = committedEvents.find((event) => event.id === "gaze.clamp.release");
-    if (clampRelease !== undefined && this.gazeClampReleasedAtTick120 === null) {
-      this.gazeClampReleasedAtTick120 = clampRelease.tick120;
+    if (clampRelease !== undefined) {
+      if (this.gazeClampReleasedAtTick120 === null) {
+        this.gazeClampReleasedAtTick120 = clampRelease.tick120;
+      }
+      if (this.handoffReadyAtTick120 === null) {
+        const dueAtTick120 = clampRelease.tick120 + FLOWER_RECOVERY_DELAY_TICKS120;
+        if (!Number.isSafeInteger(dueAtTick120)) {
+          throw new Error("Flower recovery deadline exceeds safe tick120 range");
+        }
+        this.flowerRecoveryDueAtTick120 = dueAtTick120;
+        this.flowerRecoveryCompletedAtTick120 = null;
+      }
+    }
+    if (recoveryResolution !== null) {
+      const commits = committedEvents.filter((event) => event.id === "flower.intensity.commit");
+      const commit = commits[0];
+      if (
+        commits.length !== 1
+        || commit === undefined
+        || commit.tick120 !== input.tick120
+        || commit.payload.source !== recoveryResolution.source
+        || commit.payload.targetIntensity !== recoveryResolution.targetIntensity
+        || !(recoveryResolution.source === "focus" || recoveryResolution.source === "signal")
+        || recoveryResolution.targetIntensity <= GAZE_AUTHORITY_CONTRACT.forcedIntensity
+      ) {
+        throw new Error("Flower recovery projection did not commit its V4 target band");
+      }
+      this.flowerRecoveryCompletedAtTick120 = input.tick120;
     }
     this.currentTick120 = input.tick120;
     const runCombatAfter = combatState.snapshot();
@@ -1108,6 +1239,25 @@ export class CanonicalRunSession {
         liveColliders: 0,
       });
     }
+    if (
+      this.handoffReadyAtTick120 === null
+      && this.handoffSourceCombat !== null
+      && this.gazeClampCommittedAtTick120 !== null
+      && this.gazeClampReleasedAtTick120 !== null
+      && this.flowerRecoveryCompletedAtTick120 !== null
+      && gazeAfter.state === "idle"
+      && gazeAfter.deadlineTick120 === null
+    ) {
+      this.handoffReadyAtTick120 = input.tick120;
+    }
+    return this.snapshot();
+  }
+
+  private stepReadyBoundary(input: ValidatedStepInput): CanonicalRunSessionSnapshot {
+    // ROOM_SAMPLING has no admitted consumer yet. Once the handoff is latched,
+    // the source owner advances only its public clock and cannot consume later
+    // movement, gaze, Flower, combat, or presentation input.
+    this.currentTick120 = input.tick120;
     return this.snapshot();
   }
 }

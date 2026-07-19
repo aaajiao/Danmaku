@@ -145,6 +145,42 @@ describe("keyboard Override edges", () => {
   });
 });
 
+describe("independent gaze intent", () => {
+  it("keeps keyboard gaze intent separate from Focus", () => {
+    const {manager, dispatch} = createInputHarness();
+
+    dispatch("keydown", keyEvent("KeyG"));
+    expect(manager.poll()).toMatchObject({gazeIntent: true, focus: false});
+    dispatch("keydown", keyEvent("ShiftLeft"));
+    expect(manager.poll()).toMatchObject({gazeIntent: true, focus: true});
+    dispatch("keyup", keyEvent("KeyG"));
+    expect(manager.poll()).toMatchObject({gazeIntent: false, focus: true});
+    dispatch("keydown", keyEvent("KeyG"));
+    expect(manager.poll()).toMatchObject({gazeIntent: true, focus: true});
+    dispatch("blur");
+    expect(manager.poll()).toMatchObject({gazeIntent: false, focus: false});
+  });
+
+  it("keeps the standard gamepad top face button separate from shoulders", () => {
+    const {buttons, value, gamepad} = createMutableGamepad();
+    const {manager, dispatch} = createInputHarness([gamepad]);
+
+    expect(manager.poll()).toMatchObject({gazeIntent: false, focus: false});
+    buttons[3]!.pressed = true;
+    expect(manager.poll()).toMatchObject({gazeIntent: true, focus: false});
+    buttons[4]!.pressed = true;
+    expect(manager.poll()).toMatchObject({gazeIntent: true, focus: true});
+    buttons[3]!.pressed = false;
+    expect(manager.poll()).toMatchObject({gazeIntent: false, focus: true});
+    buttons[3]!.pressed = true;
+    buttons[4]!.pressed = false;
+    expect(manager.poll()).toMatchObject({gazeIntent: true, focus: false});
+    value.connected = false;
+    dispatch("gamepaddisconnected", {gamepad});
+    expect(manager.poll()).toMatchObject({gazeIntent: false, focus: false});
+  });
+});
+
 describe("pointer cancellation", () => {
   it("clears held movement and signal on lost capture and window blur", () => {
     const {manager, dispatch, dispatchCanvas} = createInputHarness();
@@ -161,6 +197,36 @@ describe("pointer cancellation", () => {
     expect(manager.poll()).toMatchObject({shoot: true});
     dispatch("blur");
     expect(manager.poll()).toMatchObject({shoot: false, move: {x: 0, y: 0}});
+  });
+
+  it("uses a second pointer only for gaze intent and promotes a surviving primary", () => {
+    const {manager, dispatchCanvas} = createInputHarness();
+    manager.setPlayerPosition({x: 0, y: 0});
+    const first = {pointerId: 9, clientX: 300, clientY: 100} as PointerEvent;
+    const second = {pointerId: 4, clientX: 60, clientY: 540} as PointerEvent;
+
+    dispatchCanvas("pointerdown", first);
+    const onePointer = manager.poll();
+    expect(onePointer).toMatchObject({shoot: true, focus: false, gazeIntent: false});
+    expect(onePointer.move.x).toBeGreaterThan(0);
+
+    dispatchCanvas("pointerdown", second);
+    const twoPointers = manager.poll();
+    expect(twoPointers).toMatchObject({shoot: true, focus: false, gazeIntent: true});
+    expect(twoPointers.move.x).toBeGreaterThan(0);
+
+    dispatchCanvas("lostpointercapture", first);
+    const promoted = manager.poll();
+    expect(promoted).toMatchObject({shoot: true, focus: false, gazeIntent: false});
+    expect(promoted.move.x).toBeLessThan(0);
+
+    dispatchCanvas("pointercancel", second);
+    expect(manager.poll()).toMatchObject({
+      shoot: false,
+      focus: false,
+      gazeIntent: false,
+      move: {x: 0, y: 0},
+    });
   });
 });
 
