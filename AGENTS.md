@@ -79,37 +79,39 @@ The following rules are firm:
 - Cross-run restore order is material record, ghost/witness projection, then
   player input return. A run ends in observation/handoff, not victory.
 
-## 3. Architecture: shared authority, chapter-owned orchestration
+## 3. Architecture: shared authority, manifest-driven conduction
 
 Organize code by ownership and reason to change, not by line count alone and
-not by story chapter alone.
+not by authored segment alone.
 
 - Shared authority owns rules that must remain identical across the game:
   clock, events, RNG, input facts, player/projectile/laser lifecycle, collision,
   persistence, canonical schemas, and read-only projection ports. Keep one
   source of truth for each of these.
-- A chapter owns the sequence and policy unique to one playable segment: its
-  admission, local state, pattern assembly, transitions, handoff, chapter-only
-  presentation, and acceptance path. Chapters consume shared authority; they do
-  not copy or fork it.
-- Run/session code should be a thin conductor. It selects the active chapter,
-  routes input and authoritative ticks, and performs explicit handoffs. A
-  chapter should expose a narrow lifecycle such as `start`, `step`, `snapshot`,
-  and `handoff`, while keeping mutable internals private.
+- Authored sequence is content, not code. State order, guards, admission
+  conditions, thresholds, and handoff timings are declared in V4 manifests and
+  executed by the application. Do not transcribe an authored sequence into
+  per-segment TypeScript. A playable segment may earn its own module when it
+  owns a distinct *mechanism*; it never earns its own copy of the story.
+- Run/session code is a thin conductor. It loads the authored machine, resolves
+  every guard and ID against a registry of named facts, routes input and
+  authoritative ticks, runs occurrences through shared authority, and performs
+  explicit handoffs. Unknown states, guards, patterns, or IDs fail closed at
+  construction; they never evaluate to a silent false or a default.
 - Keep the dependency direction one-way:
-  `V4 facts -> shared authority -> chapter owner -> presentation/application`.
+  `V4 facts -> shared authority -> run conductor -> presentation/application`.
   Presentation can observe frozen snapshots and feedback ports only.
-- When introducing a boundary, prefer a recognizable shared area and a chapter
-  area (for example `authority/run/chapters/<chapter>` and, when useful,
-  `game/chapters/<chapter>`). These names are a default, not a demand for a
-  repository-wide move.
+- Withheld capability stays visible. When the conductor cannot admit something
+  the authored plan asked for, record it as a typed withheld fact and fail
+  closed on use. Never substitute a stand-in, silently skip, or let an isolated
+  capability read as a live one.
 
 A large file is a warning signal, not an automatic failure. Split a file when
 one or more of these are true:
 
 - it owns several independent authorities or several unrelated reasons to
   change;
-- chapter-specific policy is mixed into reusable mechanisms;
+- authored-sequence policy is mixed into reusable mechanisms;
 - a focused test requires constructing most of the game;
 - merge conflicts or review navigation repeatedly slow work;
 - the public surface is hard to describe without listing unrelated behavior;
@@ -120,7 +122,7 @@ Temporary co-location is acceptable while a boundary is still being learned if
 there is one owner, no duplicated authority, a focused test, and a clear future
 extraction trigger. Prefer incremental extraction along the next real vertical
 slice over a large speculative rewrite. Source and tests should gradually mirror
-the same shared/chapter boundaries.
+the same shared-authority and conductor boundaries.
 
 ## 4. Decision and implementation workflow
 
@@ -135,6 +137,12 @@ the same shared/chapter boundaries.
   new source of gameplay truth do require the owning design/extension decision
   before implementation. Keep proposal/acceptance and implementation as
   separately reviewable changes when practical.
+- A decision record states a durable product or authority rule. Do not open one
+  per implementation step, tick boundary, occurrence, or acceptance trace. That
+  pattern grows a document layer that governs nothing, pins facts the next
+  slice must restate, and makes every later change negotiate with its own
+  history. Step-level facts belong in the test that proves them, the code that
+  enforces them, or the handoff that reports them.
 - Prefer the smallest vertical slice that closes a producer, consumer, and
   observable behavior. A broad scaffold or higher coverage number is not
   progress unless it advances the playable loop or retires a named risk.
@@ -212,7 +220,7 @@ risk introduced by that slice:
   `content:check` and `build`. A user-visible path runs its relevant
   production-preview Playwright spec.
 - Keep smoke limited to boot and critical availability. Complete journeys and
-  chapter acceptance paths belong in E2E. Run `test:all` for a milestone,
+  segment acceptance paths belong in E2E. Run `test:all` for a milestone,
   release candidate, PR readiness, broad cross-cutting change, or explicit
   request—not for every small commit.
 - Aim for a focused feedback loop measured in seconds or tens of seconds. If a
@@ -253,8 +261,8 @@ test output, or implementation history.
 - `stg-dev/docs/GAME_DESIGN_ZH.md`: player experience, authored loop, game
   rules, material/negative-space meaning, input intent, and accessibility intent.
 - `stg-dev/docs/ARCHITECTURE_ZH.md`: stable technical boundaries, dependency
-  direction, clocks, event/lifecycle contracts, persistence, and shared/chapter
-  architecture.
+  direction, clocks, event/lifecycle contracts, persistence, and the
+  shared-authority/conductor architecture.
 - `stg-dev/docs/ROADMAP_ZH.md`: the single current production status, milestone,
   priority, dependency, risk, and definition-of-done owner.
 - `stg-dev/docs/TESTING_ZH.md`: QA strategy, scope selection, commands, release
@@ -264,15 +272,17 @@ test output, or implementation history.
 - `stg-dev/docs/adr/**`: one durable decision per ADR, including alternatives,
   consequences, provenance, rollback, and supersession.
 
-When a chapter needs more than a short GDD/roadmap entry, give it one indexed
-chapter document or small chapter folder that owns its flow, local assets,
-acceptance path, and links to relevant ADRs/tests. Keep shared mechanics in the
-GDD/architecture and current completion in the roadmap; do not duplicate them
-inside every chapter. The exact folder layout may evolve with the game.
+When a playable segment—a room, a boss, an authored run stage—needs more than a
+short GDD/roadmap entry, give it one indexed segment document that owns its
+flow, local assets, acceptance path, and links to relevant ADRs/tests. Keep
+shared mechanics in the GDD/architecture and current completion in the roadmap;
+do not duplicate them per segment. A segment document describes what the
+manifests already declare; it never becomes a second authoring surface for the
+sequence itself.
 
 Route a slice only to documents whose owned facts changed: player rule to GDD;
 stable technical boundary to architecture/ADR; current state to roadmap; test
-method to the testing guide; chapter-local flow to its chapter document.
+method to the testing guide; segment-local flow to its segment document.
 Accepted ADRs are historical decisions, not rolling test reports. Preserve
 provenance and use an erratum or successor when meaning changes.
 
