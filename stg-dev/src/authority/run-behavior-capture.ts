@@ -193,6 +193,19 @@ export type CanonicalRunFirstRoomClosureCapture =
   | CanonicalRunFirstRoomClosureCaptureMissing
   | CanonicalRunFirstRoomClosureCaptureAvailable;
 
+declare const canonicalRunFirstRoomMetricSourceReceiptBrand: unique symbol;
+
+/** In-memory proof that the metric source is the exact EXT-009 factory output. */
+export interface CanonicalRunFirstRoomMetricSourceReceipt {
+  readonly [canonicalRunFirstRoomMetricSourceReceiptBrand]: true;
+}
+
+const CANONICAL_RUN_FIRST_ROOM_CLOSURES = new WeakSet<object>();
+const CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS = new WeakMap<
+  object,
+  CanonicalRunFirstRoomClosureCaptureAvailable
+>();
+
 export interface CreateCanonicalRunFirstRoomClosureCaptureOptions {
   readonly behaviorFactsReceipt: CanonicalRunBehaviorFactsReceipt;
   readonly sourceEventCount: number;
@@ -200,6 +213,34 @@ export interface CreateCanonicalRunFirstRoomClosureCaptureOptions {
   readonly firstOccurrenceObservationCapture:
     CanonicalRunFirstOccurrenceObservationCaptureAvailable;
   readonly roomSnapshot: CanonicalRunRoomSessionSnapshot;
+}
+
+export function issueCanonicalRunFirstRoomMetricSourceReceipt(
+  capture: CanonicalRunFirstRoomClosureCaptureAvailable,
+): CanonicalRunFirstRoomMetricSourceReceipt {
+  if (
+    typeof capture !== "object"
+    || capture === null
+    || !CANONICAL_RUN_FIRST_ROOM_CLOSURES.has(capture)
+  ) {
+    throw new Error("first-room metric source must be the exact canonical closure capture");
+  }
+  const receipt = Object.freeze(Object.create(null)) as CanonicalRunFirstRoomMetricSourceReceipt;
+  CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS.set(receipt, capture);
+  return receipt;
+}
+
+export function firstRoomClosureFromCanonicalMetricSourceReceipt(
+  receipt: CanonicalRunFirstRoomMetricSourceReceipt,
+): CanonicalRunFirstRoomClosureCaptureAvailable {
+  if (typeof receipt !== "object" || receipt === null) {
+    throw new Error("first-room metric source receipt must be an opaque object");
+  }
+  const capture = CANONICAL_RUN_FIRST_ROOM_METRIC_SOURCE_RECEIPTS.get(receipt);
+  if (capture === undefined) {
+    throw new Error("first-room metric source receipt was not issued by the canonical closure factory");
+  }
+  return capture;
 }
 
 export const CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING:
@@ -1991,7 +2032,7 @@ export function createCanonicalRunFirstRoomClosureCapture(
       value: options.roomSnapshot.resolvedSeed.value,
     }),
   });
-  return Object.freeze({
+  const capture = Object.freeze({
     availability: "available" as const,
     authority: FIRST_ROOM_CLOSURE_AUTHORITY,
     schemaVersion: FIRST_ROOM_CLOSURE_SCHEMA_VERSION,
@@ -2021,4 +2062,6 @@ export function createCanonicalRunFirstRoomClosureCapture(
     selectionRngDraws: 0 as const,
     canonicalEventWrites: 0 as const,
   });
+  CANONICAL_RUN_FIRST_ROOM_CLOSURES.add(capture);
+  return capture;
 }

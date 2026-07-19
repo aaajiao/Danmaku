@@ -34,10 +34,16 @@ import {
   createCanonicalRunFirstOccurrenceObservationCapture,
   createCanonicalRunFirstRoomClosureCapture,
   createCanonicalRunPreRoomBehaviorCapture,
+  issueCanonicalRunFirstRoomMetricSourceReceipt,
   type CanonicalRunFirstOccurrenceObservationCapture,
   type CanonicalRunFirstRoomClosureCapture,
   type CanonicalRunPreRoomBehaviorCapture,
 } from "./run-behavior-capture";
+import {
+  CANONICAL_RUN_FIRST_ROOM_METRIC_PROJECTION_MISSING,
+  createCanonicalRunFirstRoomMetricProjection,
+  type CanonicalRunFirstRoomMetricProjection,
+} from "./run-metric-projection";
 import {
   AUTHORED_PLAYER_Y,
   LOGICAL_VIEW_HEIGHT,
@@ -368,6 +374,8 @@ export interface CanonicalRunSessionSnapshot {
   readonly firstOccurrenceObservationCapture: CanonicalRunFirstOccurrenceObservationCapture;
   /** Frozen `[1,H+1702]` room closure; target selection and transition stay withheld. */
   readonly firstRoomClosureCapture: CanonicalRunFirstRoomClosureCapture;
+  /** At closure: two exact ratios plus twelve typed absences; never composer-ready. */
+  readonly firstRoomMetricProjection: CanonicalRunFirstRoomMetricProjection;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -997,6 +1005,7 @@ export class CanonicalRunSession {
     CanonicalRunFirstOccurrenceObservationCapture | null = null;
   private firstOccurrenceObservationCaptureSerializationValue: string | null = null;
   private firstRoomClosureCaptureValue: CanonicalRunFirstRoomClosureCapture | null = null;
+  private firstRoomMetricProjectionValue: CanonicalRunFirstRoomMetricProjection | null = null;
   private phaseValue: CanonicalRunSessionPhase = "quiet_awakening";
   private currentTick120 = 0;
   private phaseStartTick120 = 0;
@@ -1144,6 +1153,8 @@ export class CanonicalRunSession {
         ?? CANONICAL_RUN_FIRST_OCCURRENCE_OBSERVATION_CAPTURE_MISSING,
       firstRoomClosureCapture: this.firstRoomClosureCaptureValue
         ?? CANONICAL_RUN_FIRST_ROOM_CLOSURE_CAPTURE_MISSING,
+      firstRoomMetricProjection: this.firstRoomMetricProjectionValue
+        ?? CANONICAL_RUN_FIRST_ROOM_METRIC_PROJECTION_MISSING,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1310,13 +1321,17 @@ export class CanonicalRunSession {
     ) {
       throw new Error("first room closure capture lost its room-complete authority");
     }
-    this.firstRoomClosureCaptureValue = createCanonicalRunFirstRoomClosureCapture({
+    const closureCapture = createCanonicalRunFirstRoomClosureCapture({
       behaviorFactsReceipt: this.behaviorFacts.issueCurrentSnapshotReceipt(),
       sourceEventCount: this.bus.committedEventCount(),
       preRoomCapture,
       firstOccurrenceObservationCapture: observationCapture,
       roomSnapshot,
     });
+    const metricSourceReceipt = issueCanonicalRunFirstRoomMetricSourceReceipt(closureCapture);
+    const metricProjection = createCanonicalRunFirstRoomMetricProjection(metricSourceReceipt);
+    this.firstRoomClosureCaptureValue = closureCapture;
+    this.firstRoomMetricProjectionValue = metricProjection;
   }
 
   private recordAwakeningInput(input: ValidatedStepInput): void {

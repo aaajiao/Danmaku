@@ -6,8 +6,11 @@ import {
   createCanonicalRunFirstOccurrenceObservationCapture,
   createCanonicalRunFirstRoomClosureCapture,
   createCanonicalRunPreRoomBehaviorCapture,
+  firstRoomClosureFromCanonicalMetricSourceReceipt,
+  issueCanonicalRunFirstRoomMetricSourceReceipt,
   type CanonicalRunFirstOccurrenceObservationCaptureAvailable,
   type CanonicalRunFirstRoomClosureCaptureAvailable,
+  type CanonicalRunFirstRoomMetricSourceReceipt,
   type CanonicalRunPreRoomBehaviorCaptureAvailable,
 } from "./run-behavior-capture";
 import {
@@ -775,6 +778,12 @@ describe("EXT-2026-009 first fixed room closure capture", () => {
       + capture.behaviorFacts.canonicalEvents.observedCount).toBe(session.events().length);
     expect(JSON.stringify(availableFirstOccurrenceCapture(atClosure))).toBe(observationBytes);
     expect(isDeepFrozen(capture)).toBe(true);
+
+    expect(() => issueCanonicalRunFirstRoomMetricSourceReceipt(capture))
+      .toThrow(/exact canonical closure capture/);
+    expect(() => firstRoomClosureFromCanonicalMetricSourceReceipt(
+      Object.freeze(Object.create(null)) as CanonicalRunFirstRoomMetricSourceReceipt,
+    )).toThrow(/not issued by the canonical closure factory/);
 
     const closureBytes = JSON.stringify(capture);
     const eventBytesAtClosure = session.canonicalEventSerialization();
