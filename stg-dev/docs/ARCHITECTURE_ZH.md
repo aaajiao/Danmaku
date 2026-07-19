@@ -288,6 +288,15 @@ presentation与room completion继续withheld；契约见
 [EXT-2026-021](adr/EXT-2026-021-second-in-between-pre-read-and-read-start.md)，exact authority路径已由`83b3533`
 实现并停在typed `read-advance-withheld`边界。
 
+EXT-022接受第二occurrence的READ/release composition：从EXT-021已flush的local tick 0开始，每个exact-next tick
+继续在同一个Run transaction中推进旧material lineage、room/player与Misregistration combat，并由Run sole-flush。
+pool exhaustion沿V4 policy只拒绝当前spawn并留下audit，不伪造成safe-gap omission、canonical event或residue；
+movement/Focus继续，player damage合法，Override在Local Resistance取得前锁定。pattern-end先撤回全部digital
+body/collider，sole-flush成功后释放gameplay claim，collisionless residue由独立material-only tail继续；release
+不等待material drain或Run timer quiescence。契约见
+[EXT-2026-022](adr/EXT-2026-022-second-in-between-read-release.md)；实现状态以Roadmap为准，Session、presentation、
+第三occurrence与room completion不由该决定授权。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与

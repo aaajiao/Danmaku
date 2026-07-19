@@ -36,6 +36,7 @@
 | [EXT-2026-019：首个 continuation successor 材料转交](EXT-2026-019-first-continuation-successor-material-transfer.md) | ACCEPTED | slice close后零tick/event/RNG转交collisionless residue；显式capacity lease退休并保持下一准入withheld |
 | [EXT-2026-020：IN_BETWEEN 第二个 occurrence 的计划与准入](EXT-2026-020-second-in-between-occurrence-plan.md) | ACCEPTED | EXT-019 exact source延续draw 2，无放回选择Misregistration并提交encounter ordinal 1联合预算；执行与room close仍withheld |
 | [EXT-2026-021：IN_BETWEEN 第二个 occurrence 的双材料 pre-READ 与 READ start](EXT-2026-021-second-in-between-pre-read-and-read-start.md) | ACCEPTED | T+1..T+159同tick推进retained material/room/player并sole-flush；READ local0后置claim，READ advance仍withheld |
+| [EXT-2026-022：IN_BETWEEN 第二个 occurrence 的 READ 与 gameplay release](EXT-2026-022-second-in-between-read-release.md) | ACCEPTED | READ local1..1272同步执行规则已接受、实现pending；保留80-slot capacity audit，并在digital drain sole-flush后释放gameplay，材料tail另片 |
 
 ## 新 ADR 规则
 
