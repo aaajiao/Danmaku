@@ -39,7 +39,7 @@
 | [EXT-2026-022：IN_BETWEEN 第二个 occurrence 的 READ 与 gameplay release](EXT-2026-022-second-in-between-read-release.md) | ACCEPTED | READ local1..1272同步执行；保留80-slot capacity audit，并在digital drain sole-flush后释放gameplay，材料tail另片 |
 | [EXT-2026-023：IN_BETWEEN 第二个 occurrence 的材料尾段与转交](EXT-2026-023-second-in-between-material-tail-transfer.md) | ACCEPTED | global8220..8519 material-cleanup/player-timer tail；按slice close保留63个residue并零tick/event/RNG转给新material owner，最终drain另片 |
 | [EXT-2026-024：IN_BETWEEN 第二个 occurrence 的 post-close 材料持有](EXT-2026-024-second-in-between-post-close-material-hold.md) | ACCEPTED | global8520..8682自然清理63个residue；8683空持有仍保留80-slot lease，第三occurrence与room close继续withheld |
-| [EXT-2026-025：IN_BETWEEN 第二个 occurrence 的 Session 与只读投影](EXT-2026-025-second-in-between-session-projection.md) | PROPOSED | 判别式chapter owner把EXT-019—024接入同一Session；投影既有material/combat，不新增第三occurrence或room close |
+| [EXT-2026-025：IN_BETWEEN 第二个 occurrence 的 Session 与只读投影](EXT-2026-025-second-in-between-session-projection.md) | ACCEPTED | 判别式chapter owner把EXT-019—024接入同一Session；投影既有material/combat，不新增第三occurrence或room close |
 
 ## 新 ADR 规则
 

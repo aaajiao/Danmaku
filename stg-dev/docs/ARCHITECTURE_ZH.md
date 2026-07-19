@@ -72,6 +72,16 @@ frame、atlas、room 或必需素材应 fail closed，不能用通用子弹、IN
 
 V4 源素材与应用源码提交到 Git；`dist/`、hash 文件名和 service-worker artifact 由部署阶段构建，保持忽略。
 
+`src/assets/v4-feedback.ts` 负责验证正式链路中的 event、feedback binding、cue resolver、accessibility
+fallback 与最终 frame/audio/haptic resolver；章节只选择要消费的 binding。事件型音频与触觉以
+`bindingId:eventOccurrenceKey` 去重，缺少 binding 时保持沉默，浏览器拒绝播放或设备无触觉时直接省略，
+都不能阻塞或回写 gameplay。状态 frame 只观察 authority snapshot；release、collision、entity drain 与
+handoff 不能由图片、声音或表现结束反推。
+
+当前 First Eye 边界只使用 V4 已给出的稳定代表 frame、声音和单次触觉，不拥有动画 playhead、持续时间、
+叠层、房间声床 crossfade 或 reaction 生命周期。加入这些组合规则前必须先明确 focused extension；QA
+preview timeline 不能代替该决定。
+
 ## 4. 时间模型
 
 整数 `tick120` 是唯一 gameplay 时间 identity。毫秒只用于输入/manifest 表达，并在边界向上取整
