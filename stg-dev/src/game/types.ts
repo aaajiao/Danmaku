@@ -123,6 +123,8 @@ export interface SimulationSnapshot {
   combatEnabled: boolean;
   /** Optional committed V4 gaze state; presentation cannot infer this from time. */
   gazeState?: "idle" | "acquiring" | "clamped" | "release-delay";
+  /** Optional committed release barrier; persistent presentation never infers it from a clip. */
+  gazeClampReleased?: boolean;
   /** Optional phase-owned material presence, independent from projectile generation. */
   targetVisible?: boolean;
   /** Optional exact authority projection; legacy Lab computes these locally. */

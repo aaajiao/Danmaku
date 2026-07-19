@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import {
+  CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK,
   CANONICAL_RUN_V4_ASSETS,
   canonicalRunAssetRoom,
 } from "../assets/chapters/canonical-run-v4";
@@ -76,6 +77,8 @@ export function targetFrameForPattern(
   pattern: PatternDefinition,
   elapsedMs: number,
   gazeState?: SimulationSnapshot["gazeState"],
+  gazeClampReleased = false,
+  reducedMotion = false,
 ): string {
   if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
     throw new Error("Target presentation elapsed time must be finite and non-negative");
@@ -88,9 +91,13 @@ export function targetFrameForPattern(
     ) {
       throw new Error("First Eye warning contract drifted");
     }
-    if (gazeState === "acquiring") return "eye.acquire";
-    if (gazeState === "clamped" || gazeState === "release-delay") return "eye.read";
-    return "eye.reveal";
+    if (gazeClampReleased) return CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.release.visual.frameId;
+    if (gazeState === "clamped" || gazeState === "release-delay") {
+      return reducedMotion
+        ? CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp.visual.reducedMotionFrameId
+        : CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp.visual.frameId;
+    }
+    return CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.acquire.visual.frameId;
   }
   if (pattern.category !== "BOSS") {
     const enemies = ["enemy.courier", "enemy.comparator", "enemy.packet_moth", "enemy.seam_walker"];
@@ -350,7 +357,7 @@ export class GameView {
     if (!this.playerSprite || !this.targetSprite) return;
     const cyclicPresentation = cyclicPresentationEnabled(reducedMotion, flashOff);
     this.updateBackground(snapshot.room);
-    this.updateTarget(snapshot);
+    this.updateTarget(snapshot, reducedMotion);
     this.updateGazeWarning(snapshot);
     this.syncBulletSprites(snapshot);
     this.syncShotSprites(snapshot);
@@ -424,11 +431,13 @@ export class GameView {
     this.backgroundSprite.material.needsUpdate = true;
   }
 
-  private updateTarget(snapshot: SimulationSnapshot): void {
+  private updateTarget(snapshot: SimulationSnapshot, reducedMotion: boolean): void {
     const frameId = targetFrameForPattern(
       snapshot.pattern,
       snapshot.patternElapsedMs,
       snapshot.gazeState,
+      snapshot.gazeClampReleased,
+      reducedMotion,
     );
     if (frameId !== this.currentTargetFrame) this.setTargetFrame(frameId);
     if (!this.targetSprite) return;
@@ -548,6 +557,7 @@ export class GameView {
 
   private setTargetFrame(frameId: string): void {
     this.currentTargetFrame = frameId;
+    this.canvas.dataset.presentedTargetFrame = frameId;
     if (!this.targetSprite) {
       this.targetSprite = this.makeSprite(frameId, 120, 1);
       this.targetSprite.position.set(0, 240, 1);

@@ -19,6 +19,7 @@ import betweenBedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/
 import polarizedBedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/rooms/polarized-bed.wav?url";
 import grazeUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/graze-evidence.wav?url";
 import damageUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/player-damage.wav?url";
+import gazeHoldUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/gaze-hold-pulse.wav?url";
 import overrideUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/override-tear.wav?url";
 import deniedUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/override-charge.wav?url";
 import protocolUrl from "../../../1bit-stg-complete-asset-kit-v4/audio/assets/sfx/protocol-withdraw.wav?url";
@@ -51,6 +52,7 @@ const roomBedUrlsBySourcePath = Object.freeze({
 const feedbackAudioUrlsBySourcePath = Object.freeze({
   "audio/assets/sfx/graze-evidence.wav": grazeUrl,
   "audio/assets/sfx/player-damage.wav": damageUrl,
+  "audio/assets/sfx/gaze-hold-pulse.wav": gazeHoldUrl,
   "audio/assets/sfx/override-tear.wav": overrideUrl,
   "audio/assets/sfx/override-charge.wav": deniedUrl,
   "audio/assets/sfx/protocol-withdraw.wav": protocolUrl,

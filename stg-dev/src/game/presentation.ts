@@ -353,6 +353,7 @@ export function projectCanonicalRunSession(
     paused: false,
     combatEnabled: combat !== null && !combat.patternComplete,
     gazeState: run.gaze.state,
+    gazeClampReleased: run.handoff.barriers.gazeClampReleased,
     targetVisible: successor?.targetVisible
       ?? (run.phase === "first_eye" || run.phase === "first_clamp_recovery"),
     safeGapCenterX: safeCenter,

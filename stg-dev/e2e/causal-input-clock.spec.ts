@@ -139,15 +139,26 @@ test("RUN samples forward across boot, backlog, pause, and Focus boundaries", as
 test("first room hands through two occurrences into retained material", async ({page}) => {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
+  const gazeHoldResponses: number[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("response", (response) => {
+    const pathname = new URL(response.url()).pathname;
+    if (
+      response.request().method() === "GET"
+      && /\/assets\/gaze-hold-pulse-[^/]+\.wav$/u.test(pathname)
+    ) {
+      gazeHoldResponses.push(response.status());
+    }
   });
   // Seed 1 formally selects the currently admitted notch_e successor. Seeds
   // that select an unsupported/pool-unmapped plan remain typed-withheld and
   // must not be rerolled merely to make this success-path scenario pass.
   await openControlled(page, "/?seed=1");
   const body = page.locator("body");
+  const canvas = page.locator("#game-canvas");
 
   await page.locator("#boot-button").click();
   await page.waitForTimeout(600);
@@ -164,6 +175,7 @@ test("first room hands through two occurrences into retained material", async ({
   await stepRaf(page, 8.4);
   await advanceControlledRunToTick(page, 960);
   await expect(body).toHaveAttribute("data-run-phase", "first_eye");
+  await expect(canvas).toHaveAttribute("data-presented-target-frame", "eye.reveal");
   await page.keyboard.up("d");
   await stepRaf(page, 0);
 
@@ -171,11 +183,35 @@ test("first room hands through two occurrences into retained material", async ({
   await stepRaf(page, 0);
   await advanceControlledRunToTick(page, 1021);
   await expect(body).toHaveAttribute("data-run-phase", "first_clamp_recovery");
+  await expect(canvas).toHaveAttribute("data-presented-target-frame", "eye.clamp");
+  await expect(body).toHaveAttribute("data-last-canonical-feedback-event", "gaze.clamp.commit");
+  await expect(body).toHaveAttribute("data-last-canonical-feedback-audio", "sfx.gaze_hold_pulse");
+  await expect(body).toHaveAttribute(
+    "data-last-canonical-feedback-audio-key",
+    "gaze-clamp-audio:gaze:1:clamp",
+  );
+  await expect(body).toHaveAttribute("data-last-canonical-feedback-haptic", "0:24:0.55");
+  await expect(body).toHaveAttribute(
+    "data-last-canonical-feedback-haptic-key",
+    "gaze-clamp-haptic:gaze:1:clamp",
+  );
+  await expect(body).toHaveAttribute("data-canonical-haptic-dispatches", "1");
+  await expect.poll(() => gazeHoldResponses.length).toBe(1);
+  expect([200, 206]).toContain(gazeHoldResponses[0]);
   await page.keyboard.up("g");
   await stepRaf(page, 0);
+  await advanceControlledRunToTick(page, 1075);
+  await expect(body).toHaveAttribute("data-gaze-clamp-released", "false");
+  await expect(body).toHaveAttribute("data-flower-recovery-complete", "false");
+  await expect(canvas).toHaveAttribute("data-presented-target-frame", "eye.clamp");
+  await advanceControlledRunToTick(page, 1076);
+  await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
+  await expect(body).toHaveAttribute("data-flower-recovery-complete", "false");
+  await expect(canvas).toHaveAttribute("data-presented-target-frame", "eye.withdraw");
   await advanceControlledRunToTick(page, 1106);
   await expect(body).toHaveAttribute("data-gaze-clamp-released", "true");
   await expect(body).toHaveAttribute("data-flower-recovery-complete", "true");
+  await expect(canvas).toHaveAttribute("data-presented-target-frame", "eye.withdraw");
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
     if (await body.getAttribute("data-run-phase") === "room_sampling") break;
@@ -427,6 +463,9 @@ test("first room hands through two occurrences into retained material", async ({
   await expect(body).toHaveAttribute("data-successor-material-allocated-micro", "80");
   await expect(body).toHaveAttribute("data-successor-room-completion", "withheld");
   await expect(body).toHaveAttribute("data-successor-room-handoff", "withheld");
+  expect(gazeHoldResponses).toHaveLength(1);
+  expect([200, 206]).toContain(gazeHoldResponses[0]);
+  await expect(body).toHaveAttribute("data-canonical-haptic-dispatches", "1");
 
   expect(pageErrors, "controlled first-room closure should have no uncaught errors").toEqual([]);
   expect(consoleErrors, "controlled transition should have no console errors").toEqual([]);

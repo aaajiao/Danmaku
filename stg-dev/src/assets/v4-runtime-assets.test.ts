@@ -4,6 +4,7 @@ import frameIndexManifest from "../../../1bit-stg-complete-asset-kit-v4/manifest
 import backgroundsManifest from "../../../1bit-stg-complete-asset-kit-v4/manifests/v4/backgrounds-v4.json";
 import audioManifest from "../../../1bit-stg-complete-asset-kit-v4/manifests/narrative/audio-manifest-v4.json";
 import {
+  CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK,
   CANONICAL_RUN_V4_ASSETS,
   canonicalRunAssetRoom,
   canonicalRunBackground,
@@ -57,8 +58,38 @@ describe("manifest-derived V4 runtime assets", () => {
     expect(canonicalRunFeedbackAudio("unbound-event")).toBeNull();
     expect(() => canonicalRunAssetRoom("UNKNOWN_ROOM")).toThrow(/no V4 room asset projection/);
 
+    expect(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.acquire).toMatchObject({
+      eventId: "gaze.acquire.begin",
+      visual: {bindingId: "gaze-acquire-visual", frameId: "eye.reveal"},
+    });
+    expect(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp).toMatchObject({
+      eventId: "gaze.clamp.commit",
+      visual: {
+        bindingId: "gaze-clamp-visual",
+        frameId: "eye.clamp",
+        reducedMotionFrameId: "eye.pressure_hold",
+      },
+      audio: {
+        bindingId: "gaze-clamp-audio",
+        asset: {
+          id: "sfx.gaze_hold_pulse",
+          sourcePath: "audio/assets/sfx/gaze-hold-pulse.wav",
+        },
+      },
+      haptic: {
+        bindingId: "gaze-clamp-haptic",
+        pulses: [{atMs: 0, durationMs: 24, strength: 0.55}],
+      },
+    });
+    expect(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.release).toMatchObject({
+      eventId: "gaze.clamp.release",
+      visual: {bindingId: "gaze-release-visual", frameId: "eye.withdraw"},
+    });
+
     expect(Object.isFrozen(V4_SHARED_ASSETS)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK)).toBe(true);
+    expect(Object.isFrozen(CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp.haptic.pulses)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS.atlasIds)).toBe(true);
     expect(Object.isFrozen(CANONICAL_RUN_V4_ASSETS.roomAssetSource)).toBe(true);
   });

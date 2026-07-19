@@ -3,6 +3,7 @@ import {
   canonicalRunFeedbackAudio,
   canonicalRunRoomBed,
 } from "../assets/chapters/canonical-run-v4";
+import type {V4RuntimeAsset} from "../assets/v4-runtime-asset";
 
 export class AudioTrace {
   private enabled = true;
@@ -35,11 +36,15 @@ export class AudioTrace {
   }
 
   play(type: string): void {
-    if (!this.enabled || !this.unlocked) return;
     const source = canonicalRunFeedbackAudio(type);
     if (source === null) return;
+    this.playAsset(source, type === "damage" ? 0.34 : 0.24);
+  }
+
+  playAsset(source: Readonly<V4RuntimeAsset>, volume = 0.24): void {
+    if (!this.enabled || !this.unlocked) return;
     const sound = new Audio(source.url);
-    sound.volume = type === "damage" ? 0.34 : 0.24;
+    sound.volume = volume;
     void sound.play().catch(() => undefined);
   }
 }

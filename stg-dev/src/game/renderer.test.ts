@@ -48,20 +48,29 @@ describe("manifest target presentation position", () => {
 
 describe("First Eye V4 material projection", () => {
   it.each([
-    [undefined, 0, "eye.reveal"],
-    ["idle", FIRST_EYE.durationMs, "eye.reveal"],
-    ["acquiring", 0, "eye.acquire"],
-    ["acquiring", FIRST_EYE.durationMs, "eye.acquire"],
-    ["clamped", 0, "eye.read"],
-    ["clamped", FIRST_EYE.durationMs, "eye.read"],
-    ["release-delay", 0, "eye.read"],
-    ["release-delay", FIRST_EYE.durationMs, "eye.read"],
-  ] as const)("maps committed gaze state %s at %sms to %s", (gazeState, elapsedMs, frame) => {
-    expect(FIRST_EYE.warning.durationMs).toBe(601);
-    expect(targetFrameForPattern(FIRST_EYE, elapsedMs, gazeState)).toBe(frame);
-  });
+    [undefined, false, false, 0, "eye.reveal"],
+    ["idle", false, false, FIRST_EYE.durationMs, "eye.reveal"],
+    ["acquiring", false, false, 0, "eye.reveal"],
+    ["clamped", false, false, FIRST_EYE.durationMs, "eye.clamp"],
+    ["clamped", false, true, 0, "eye.pressure_hold"],
+    ["release-delay", false, false, FIRST_EYE.durationMs, "eye.clamp"],
+    ["idle", true, false, 0, "eye.withdraw"],
+    ["clamped", true, true, FIRST_EYE.durationMs, "eye.withdraw"],
+  ] as const)(
+    "maps gaze=%s released=%s reduced=%s at %sms to %s",
+    (gazeState, released, reducedMotion, elapsedMs, frame) => {
+      expect(FIRST_EYE.warning.durationMs).toBe(601);
+      expect(targetFrameForPattern(
+        FIRST_EYE,
+        elapsedMs,
+        gazeState,
+        released,
+        reducedMotion,
+      )).toBe(frame);
+    },
+  );
 
-  it("does not invent acquire/read from a pattern midpoint or elapsed time", () => {
+  it("does not invent clamp or release from a pattern midpoint or elapsed time", () => {
     const malformed = {
       ...FIRST_EYE,
       timeline: FIRST_EYE.timeline.filter((entry) => entry.event !== "pattern.midpoint"),

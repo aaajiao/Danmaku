@@ -1,4 +1,10 @@
 import {V4_SHARED_ASSETS} from "../shared-v4";
+import {
+  requiredFeedbackResolver,
+  requiredFrame,
+  requiredHapticPulses,
+  requiredStringResolver,
+} from "../v4-feedback";
 import type {V4RuntimeAsset} from "../v4-runtime-asset";
 
 const roomAssetSource = Object.freeze({
@@ -34,6 +40,81 @@ function requiredAsset(
   if (asset === undefined) throw new Error(`Canonical Run ${role} references unknown V4 asset ${id}`);
   return asset;
 }
+
+const gazeAcquireVisual = requiredFeedbackResolver(
+  "gaze-acquire-visual",
+  "gaze.acquire.begin",
+  "visual",
+);
+const gazeClampVisual = requiredFeedbackResolver(
+  "gaze-clamp-visual",
+  "gaze.clamp.commit",
+  "visual",
+);
+const gazeClampAudio = requiredFeedbackResolver(
+  "gaze-clamp-audio",
+  "gaze.clamp.commit",
+  "audio",
+);
+const gazeClampHaptic = requiredFeedbackResolver(
+  "gaze-clamp-haptic",
+  "gaze.clamp.commit",
+  "haptic",
+);
+const gazeReleaseVisual = requiredFeedbackResolver(
+  "gaze-release-visual",
+  "gaze.clamp.release",
+  "visual",
+);
+const gazeClampFallback = gazeClampVisual.resolver.accessibilityFallback;
+if (gazeClampFallback === undefined || !gazeClampFallback.when.includes("motion:reduced")) {
+  throw new Error("Canonical Run V4 gaze clamp requires its reduced-motion fallback");
+}
+
+export const CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK = Object.freeze({
+  acquire: Object.freeze({
+    eventId: gazeAcquireVisual.binding.eventId,
+    visual: Object.freeze({
+      bindingId: gazeAcquireVisual.binding.id,
+      cueId: gazeAcquireVisual.binding.sink.cueId,
+      frameId: requiredFrame(gazeAcquireVisual.resolver.resolver, gazeAcquireVisual.binding.id),
+    }),
+  }),
+  clamp: Object.freeze({
+    eventId: gazeClampVisual.binding.eventId,
+    visual: Object.freeze({
+      bindingId: gazeClampVisual.binding.id,
+      cueId: gazeClampVisual.binding.sink.cueId,
+      frameId: requiredFrame(gazeClampVisual.resolver.resolver, gazeClampVisual.binding.id),
+      reducedMotionFrameId: requiredFrame(
+        gazeClampFallback.resolver,
+        gazeClampVisual.binding.id,
+      ),
+    }),
+    audio: Object.freeze({
+      bindingId: gazeClampAudio.binding.id,
+      cueId: gazeClampAudio.binding.sink.cueId,
+      asset: requiredAsset(
+        V4_SHARED_ASSETS.feedbackAudio,
+        requiredStringResolver(gazeClampAudio.resolver.resolver, gazeClampAudio.binding.id),
+        "First Eye clamp audio",
+      ),
+    }),
+    haptic: Object.freeze({
+      bindingId: gazeClampHaptic.binding.id,
+      cueId: gazeClampHaptic.binding.sink.cueId,
+      pulses: requiredHapticPulses(gazeClampHaptic.resolver.resolver, gazeClampHaptic.binding.id),
+    }),
+  }),
+  release: Object.freeze({
+    eventId: gazeReleaseVisual.binding.eventId,
+    visual: Object.freeze({
+      bindingId: gazeReleaseVisual.binding.id,
+      cueId: gazeReleaseVisual.binding.sink.cueId,
+      frameId: requiredFrame(gazeReleaseVisual.resolver.resolver, gazeReleaseVisual.binding.id),
+    }),
+  }),
+});
 
 for (const assetRoom of Object.values(roomAssetSource)) {
   requiredAsset(V4_SHARED_ASSETS.backgrounds, assetRoom, "background");

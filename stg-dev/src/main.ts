@@ -10,6 +10,7 @@ import {
   type Tick120Boundary,
 } from "./authority/clock";
 import {resolveRawRunSeed} from "./authority/run-seed";
+import {CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK} from "./assets/chapters/canonical-run-v4";
 import {AudioTrace} from "./game/audio";
 import {InputManager, type InputFrame} from "./game/input";
 import {projectCanonicalRunSession} from "./game/presentation";
@@ -146,6 +147,8 @@ const canonicalRun = patternLabMode
     });
 const view = new GameView(canvas, frames);
 let canonicalEventCursor = 0;
+const canonicalFeedbackKeys = new Set<string>();
+let canonicalHapticDispatchCount = 0;
 let canonicalPhase: CanonicalRunSessionSnapshot["phase"] | null = null;
 let canonicalWorldRoom: string | null = null;
 let canonicalPatternId: string | null = null;
@@ -289,6 +292,35 @@ function projectCanonicalEvents(): void {
   while (canonicalEventCursor < events.length) {
     const event = events[canonicalEventCursor++];
     if (!event) continue;
+    const firstEyeClamp = CANONICAL_RUN_FIRST_EYE_V4_FEEDBACK.clamp;
+    if (event.id === firstEyeClamp.eventId) {
+      const audioDedupeKey = `${firstEyeClamp.audio.bindingId}:${event.occurrenceKey}`;
+      if (!canonicalFeedbackKeys.has(audioDedupeKey)) {
+        canonicalFeedbackKeys.add(audioDedupeKey);
+        audio.playAsset(firstEyeClamp.audio.asset);
+        document.body.dataset.lastCanonicalFeedbackEvent = event.id;
+        document.body.dataset.lastCanonicalFeedbackAudio = firstEyeClamp.audio.asset.id;
+        document.body.dataset.lastCanonicalFeedbackAudioKey = audioDedupeKey;
+      }
+
+      const hapticDedupeKey = `${firstEyeClamp.haptic.bindingId}:${event.occurrenceKey}`;
+      if (!canonicalFeedbackKeys.has(hapticDedupeKey)) {
+        canonicalFeedbackKeys.add(hapticDedupeKey);
+        document.body.dataset.lastCanonicalFeedbackHaptic = firstEyeClamp.haptic.pulses
+          .map((pulse) => `${pulse.atMs}:${pulse.durationMs}:${pulse.strength}`)
+          .join(",");
+        document.body.dataset.lastCanonicalFeedbackHapticKey = hapticDedupeKey;
+        for (const pulse of firstEyeClamp.haptic.pulses) {
+          const projectPulse = (): void => {
+            canonicalHapticDispatchCount += 1;
+            document.body.dataset.canonicalHapticDispatches = String(canonicalHapticDispatchCount);
+            void input.pulse(pulse.durationMs, pulse.strength, pulse.strength);
+          };
+          if (pulse.atMs === 0) projectPulse();
+          else window.setTimeout(projectPulse, pulse.atMs);
+        }
+      }
+    }
     const type = event.id === "projectile.graze.commit"
       ? "graze"
       : event.id === "player.damage.commit"
