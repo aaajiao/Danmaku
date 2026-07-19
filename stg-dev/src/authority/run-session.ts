@@ -27,8 +27,11 @@ import {
   type CanonicalRunBehaviorOwnerPhase,
 } from "./run-behavior-facts";
 import {
+  CANONICAL_RUN_FIRST_OCCURRENCE_OBSERVATION_CAPTURE_MISSING,
   CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING,
+  createCanonicalRunFirstOccurrenceObservationCapture,
   createCanonicalRunPreRoomBehaviorCapture,
+  type CanonicalRunFirstOccurrenceObservationCapture,
   type CanonicalRunPreRoomBehaviorCapture,
 } from "./run-behavior-capture";
 import {
@@ -47,6 +50,7 @@ import {
 import {playerInputEligibleAtTick} from "./player";
 import {
   CanonicalRunRoomSession,
+  RUN_ROOM_SESSION_CONTRACT,
   type CanonicalRunRoomSessionSnapshot,
 } from "./run-room-session";
 
@@ -355,6 +359,8 @@ export interface CanonicalRunSessionSnapshot {
   readonly behaviorFacts: CanonicalRunBehaviorFactsSnapshot;
   /** Frozen `[1,H]` facts only; never a room plan or composer input. */
   readonly preRoomBehaviorCapture: CanonicalRunPreRoomBehaviorCapture;
+  /** Frozen `[1,H+1701]` observation; explicitly grants no continuation authority. */
+  readonly firstOccurrenceObservationCapture: CanonicalRunFirstOccurrenceObservationCapture;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -980,6 +986,8 @@ export class CanonicalRunSession {
   private readonly gaze = new GazeAuthority(this.bus);
   private readonly behaviorFacts: CanonicalRunBehaviorFactLedger;
   private preRoomBehaviorCaptureValue: CanonicalRunPreRoomBehaviorCapture | null = null;
+  private firstOccurrenceObservationCaptureValue:
+    CanonicalRunFirstOccurrenceObservationCapture | null = null;
   private phaseValue: CanonicalRunSessionPhase = "quiet_awakening";
   private currentTick120 = 0;
   private phaseStartTick120 = 0;
@@ -1037,6 +1045,7 @@ export class CanonicalRunSession {
         else this.stepFirstEye(validated);
         this.recordBehaviorFacts(ownerPhase, validated, eventCountBefore);
         this.capturePreRoomBehaviorFacts(ownerPhase);
+        this.captureFirstOccurrenceObservation(ownerPhase);
         return this.snapshot();
       } catch (error) {
         this.fatalError = error instanceof Error ? error : new Error(String(error));
@@ -1121,6 +1130,8 @@ export class CanonicalRunSession {
       behaviorFacts: this.behaviorFacts.snapshot(),
       preRoomBehaviorCapture: this.preRoomBehaviorCaptureValue
         ?? CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING,
+      firstOccurrenceObservationCapture: this.firstOccurrenceObservationCaptureValue
+        ?? CANONICAL_RUN_FIRST_OCCURRENCE_OBSERVATION_CAPTURE_MISSING,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1215,6 +1226,38 @@ export class CanonicalRunSession {
       capturedAtTick120: this.currentTick120,
       sourceEventCount: this.bus.committedEventCount(),
       behaviorFacts: this.behaviorFacts.snapshot(),
+    });
+  }
+
+  private captureFirstOccurrenceObservation(ownerPhase: CanonicalRunBehaviorOwnerPhase): void {
+    if (this.firstOccurrenceObservationCaptureValue !== null) return;
+    if (ownerPhase !== "room_sampling") return;
+
+    const preRoomCapture = this.preRoomBehaviorCaptureValue;
+    if (preRoomCapture === null || preRoomCapture.availability !== "available") {
+      throw new Error("first occurrence observation capture lost its pre-room provenance");
+    }
+    const boundaryTick120 = preRoomCapture.capturedAtTick120
+      + RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.fixedSliceComplete;
+    if (this.currentTick120 < boundaryTick120) return;
+    if (this.currentTick120 !== boundaryTick120) {
+      throw new Error("first occurrence observation capture lost the exact slice-close boundary");
+    }
+
+    const roomSnapshot = this.roomSession?.snapshot() ?? null;
+    if (
+      roomSnapshot === null
+      || roomSnapshot.tick120 !== this.currentTick120
+      || roomSnapshot.fixedSliceComplete !== true
+    ) {
+      throw new Error("first occurrence observation capture lost its room slice-close authority");
+    }
+
+    this.firstOccurrenceObservationCaptureValue = createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: this.behaviorFacts.snapshot(),
+      sourceEventCount: this.bus.committedEventCount(),
+      preRoomCapture,
+      roomSnapshot,
     });
   }
 

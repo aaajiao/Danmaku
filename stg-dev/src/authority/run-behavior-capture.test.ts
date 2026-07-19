@@ -1,7 +1,9 @@
 import {describe, expect, it, vi} from "vitest";
 
 import {
+  createCanonicalRunFirstOccurrenceObservationCapture,
   createCanonicalRunPreRoomBehaviorCapture,
+  type CanonicalRunFirstOccurrenceObservationCaptureAvailable,
   type CanonicalRunPreRoomBehaviorCaptureAvailable,
 } from "./run-behavior-capture";
 import {
@@ -91,6 +93,34 @@ function availableCapture(snapshot: CanonicalRunSessionSnapshot): CanonicalRunPr
   const capture = snapshot.preRoomBehaviorCapture;
   if (capture.availability !== "available") throw new Error("pre-room capture is missing");
   return capture;
+}
+
+function availableFirstOccurrenceCapture(
+  snapshot: CanonicalRunSessionSnapshot,
+): CanonicalRunFirstOccurrenceObservationCaptureAvailable {
+  const capture = snapshot.firstOccurrenceObservationCapture;
+  if (capture.availability !== "available") {
+    throw new Error("first-occurrence observation capture is missing");
+  }
+  return capture;
+}
+
+function reachFirstOccurrenceSliceClose(session: CanonicalRunSession): Readonly<{
+  atH: CanonicalRunSessionSnapshot;
+  beforeClose: CanonicalRunSessionSnapshot;
+  eventBytesBeforeClose: string;
+  atClose: CanonicalRunSessionSnapshot;
+}> {
+  const atH = reachH(session).atH;
+  const handoffTick120 = atH.handoff.atTick120;
+  if (handoffTick120 === null) throw new Error("first-occurrence fixture lost H");
+  let beforeClose = atH;
+  while (beforeClose.tick120 < handoffTick120 + 1700) {
+    beforeClose = session.step(neutralInput(beforeClose.tick120 + 1));
+  }
+  const eventBytesBeforeClose = session.canonicalEventSerialization();
+  const atClose = session.step(neutralInput(handoffTick120 + 1701));
+  return Object.freeze({atH, beforeClose, eventBytesBeforeClose, atClose});
 }
 
 describe("EXT-2026-007 pre-room behavior capture", () => {
@@ -291,5 +321,307 @@ describe("EXT-2026-007 pre-room behavior capture", () => {
     }
     expect(() => session.snapshot()).toThrow(/faulted.*exact schema fields/);
     expect(() => session.events()).toThrow(/faulted.*exact schema fields/);
+  });
+});
+
+describe("EXT-2026-008 first-occurrence observation capture", () => {
+  it("freezes H+1701 after the drained fixed slice without granting continuation authority", () => {
+    const session = new CanonicalRunSession(OPTIONS);
+    expect(session.snapshot().firstOccurrenceObservationCapture).toEqual({
+      availability: "missing",
+      reason: "first-occurrence-slice-not-closed",
+      roomComplete: false,
+      distinctVisitedDelta: 0,
+      continuationPolicyAvailable: false,
+      metricProjection: false,
+      selectionAllowed: false,
+      transitionAllowed: false,
+      targetRoom: null,
+      selectionRngDraws: 0,
+      canonicalEventWrites: 0,
+    });
+
+    const {atH, beforeClose, eventBytesBeforeClose, atClose} =
+      reachFirstOccurrenceSliceClose(session);
+    const handoffTick120 = atH.handoff.atTick120;
+    if (handoffTick120 === null) throw new Error("first-occurrence fixture lost H");
+    const preRoomCaptureBytes = JSON.stringify(availableCapture(atH));
+
+    expect(atH.firstOccurrenceObservationCapture.availability).toBe("missing");
+    expect(beforeClose).toMatchObject({
+      tick120: handoffTick120 + 1700,
+      firstOccurrenceObservationCapture: {availability: "missing"},
+      roomSampling: {
+        fixedSliceComplete: false,
+        roomComplete: false,
+        handoffReady: false,
+        entities: {digitalBodies: 0, liveColliders: 0, residueVisuals: 0},
+      },
+    });
+    const room = atClose.roomSampling;
+    if (room === null) throw new Error("first-occurrence fixture lost its room snapshot");
+    const capture = availableFirstOccurrenceCapture(atClose);
+
+    expect(capture).toMatchObject({
+      authority: "canonical-run-first-occurrence-observation-capture-v1",
+      schemaVersion: "1.0.0-ext-2026-008",
+      producerId: "canonical-run-session.first-occurrence-boundary-observer",
+      producerVersion: "1.0.0",
+      extensionPolicy: "EXT-2026-008",
+      sourceEpoch: "current-run-through-first-occurrence-slice",
+      capturedAtTick120: handoffTick120 + 1701,
+      rawRunSeed: OPTIONS.rawRunSeed,
+      contentIdentity: availableCapture(atH).contentIdentity,
+      roomComplete: false,
+      distinctVisitedDelta: 0,
+      continuationPolicyAvailable: false,
+      metricProjection: false,
+      selectionAllowed: false,
+      transitionAllowed: false,
+      targetRoom: null,
+      selectionRngDraws: 0,
+      canonicalEventWrites: 0,
+    });
+    expect(Object.keys(capture).sort()).toEqual([
+      "availability",
+      "authority",
+      "behaviorFacts",
+      "canonicalEventWrites",
+      "capturedAtTick120",
+      "contentIdentity",
+      "continuationPolicyAvailable",
+      "distinctVisitedDelta",
+      "extensionPolicy",
+      "metricProjection",
+      "producerId",
+      "producerVersion",
+      "rawRunSeed",
+      "roomComplete",
+      "schemaVersion",
+      "selectionAllowed",
+      "selectionRngDraws",
+      "sourceBoundary",
+      "sourceEpoch",
+      "targetRoom",
+      "transitionAllowed",
+    ].sort());
+    expect(capture.sourceBoundary).toEqual({
+      preRoomTick120: handoffTick120,
+      roomId: "FORCED_ALIGNMENT",
+      roomOrdinal: 0,
+      patternId: "room.forced.left_right_gate",
+      occurrenceId: "room:0:encounter:0:room.forced.left_right_gate",
+      encounterOrdinal: 0,
+      readStartTick120: handoffTick120 + 159,
+      occurrenceDrainedAtTick120: handoffTick120 + 1699,
+      fixedSliceCompleteTick120: handoffTick120 + 1701,
+      resolvedSeed: room.resolvedSeed,
+    });
+    expect(capture.behaviorFacts).toEqual(atClose.behaviorFacts);
+    expect(capture.behaviorFacts).toMatchObject({
+      tick120: handoffTick120 + 1701,
+      acceptedTickCount: handoffTick120 + 1701,
+      sampling: {lastAcceptedTick120: handoffTick120 + 1701},
+      context: {
+        room: {
+          availability: "available",
+          firstAvailableTick120: handoffTick120 + 1,
+          lastAvailableTick120: handoffTick120 + 1701,
+          sampleCount: 1701,
+          aggregate: {roomTickCounts: [{id: "FORCED_ALIGNMENT", ticks120: 1701}]},
+        },
+      },
+      composerAvailability: {ready: false, selectionAllowed: false},
+      adapterPolicy: {canonicalEventWrites: 0, metricProjection: false},
+    });
+    expect(ticks(capture.behaviorFacts.sampling.ownerPhaseTickCounts, "room_sampling")).toBe(1701);
+    if (capture.behaviorFacts.context.runCombat.availability !== "available") {
+      throw new Error("first-occurrence capture lost run-combat facts");
+    }
+    expect(ticks(
+      capture.behaviorFacts.context.runCombat.aggregate.activeOccurrenceTickCounts,
+      "room:0:encounter:0:room.forced.left_right_gate",
+    )).toBe(1540);
+    expect(room).toMatchObject({
+      phase: "first_room_slice_complete",
+      fixedSliceComplete: true,
+      roomComplete: false,
+      handoffReady: false,
+      entities: {digitalBodies: 0, liveColliders: 0, residueVisuals: 0},
+      combat: {
+        patternComplete: true,
+        projectileLifecycleDrained: true,
+        runTimedStateQuiescent: true,
+        handoffReady: true,
+      },
+      runCombat: {
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+        faulted: false,
+      },
+    });
+    const eventFacts = capture.behaviorFacts.canonicalEvents;
+    expect(eventFacts.tickZeroBaselineCount + eventFacts.observedCount).toBe(session.events().length);
+    expect(eventFacts.lastObservedSequence).toBe(session.events().at(-1)?.sequence ?? null);
+    expect(session.canonicalEventSerialization()).toBe(eventBytesBeforeClose);
+    expect(JSON.stringify(availableCapture(atClose))).toBe(preRoomCaptureBytes);
+    expect(isDeepFrozen(capture)).toBe(true);
+
+    const captureBytes = JSON.stringify(capture);
+    let later = session.step(neutralInput(handoffTick120 + 1702));
+    while (later.tick120 < handoffTick120 + 1720) {
+      later = session.step(neutralInput(later.tick120 + 1));
+    }
+    expect(JSON.stringify(availableFirstOccurrenceCapture(later))).toBe(captureBytes);
+    expect(later.behaviorFacts.tick120).toBe(handoffTick120 + 1720);
+    expect(availableFirstOccurrenceCapture(later).behaviorFacts.tick120)
+      .toBe(handoffTick120 + 1701);
+    expect(later.roomSampling).toMatchObject({roomComplete: false, handoffReady: false});
+    expect(session.canonicalEventSerialization()).toBe(eventBytesBeforeClose);
+  });
+
+  it("is deterministic and rejects non-frozen, extra-field, or wrong-boundary sources", () => {
+    const first = new CanonicalRunSession(OPTIONS);
+    const second = new CanonicalRunSession(OPTIONS);
+    const firstClose = reachFirstOccurrenceSliceClose(first).atClose;
+    const secondClose = reachFirstOccurrenceSliceClose(second).atClose;
+    const firstCapture = availableFirstOccurrenceCapture(firstClose);
+    const secondCapture = availableFirstOccurrenceCapture(secondClose);
+    expect(JSON.stringify(firstCapture)).toBe(JSON.stringify(secondCapture));
+
+    const roomSnapshot = firstClose.roomSampling;
+    if (roomSnapshot === null) throw new Error("hostile-source fixture lost its room snapshot");
+    const preRoomCapture = availableCapture(firstClose);
+    const sourceEventCount = first.events().length;
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: {...firstCapture.behaviorFacts},
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot,
+    })).toThrow(/frozen/);
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: frozenWithExtra(
+        firstCapture.behaviorFacts,
+        "metrics",
+        Object.freeze({avgFlower: 0}),
+      ),
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot,
+    })).toThrow(/exact schema fields/);
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: firstCapture.behaviorFacts,
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot: Object.freeze({...roomSnapshot, tick120: roomSnapshot.tick120 - 1}),
+    })).toThrow(/boundar|H\+1701/);
+
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: firstCapture.behaviorFacts,
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot: frozenWithExtra(roomSnapshot, "metrics", Object.freeze({roomComplete: 1})),
+    })).toThrow(/exact schema fields/);
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: firstCapture.behaviorFacts,
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot: Object.freeze({
+        ...roomSnapshot,
+        resolvedSeed: Object.freeze({
+          ...roomSnapshot.resolvedSeed,
+          value: roomSnapshot.resolvedSeed.value ^ 1,
+        }),
+      }),
+    })).toThrow(/seed.*composition/);
+
+    const runCombatFacts = firstCapture.behaviorFacts.context.runCombat;
+    if (runCombatFacts.availability !== "available") {
+      throw new Error("hostile-source fixture lost run-combat facts");
+    }
+    const occurrenceCountDrift = Object.freeze(runCombatFacts.aggregate.activeOccurrenceTickCounts.map(
+      (entry) => Object.freeze(entry.id === roomSnapshot.occurrenceId
+        ? {...entry, ticks120: entry.ticks120 - 1}
+        : {...entry}),
+    ));
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: Object.freeze({
+        ...firstCapture.behaviorFacts,
+        context: Object.freeze({
+          ...firstCapture.behaviorFacts.context,
+          runCombat: Object.freeze({
+            ...runCombatFacts,
+            aggregate: Object.freeze({
+              ...runCombatFacts.aggregate,
+              activeOccurrenceTickCounts: occurrenceCountDrift,
+            }),
+          }),
+        }),
+      }),
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot,
+    })).toThrow(/1540 accepted ticks/);
+
+    const ownerCounts = firstCapture.behaviorFacts.sampling.ownerPhaseTickCounts;
+    const preRoomOwners = ownerCounts.filter((entry) => entry.id !== "room_sampling");
+    const firstOwner = preRoomOwners[0];
+    const secondOwner = preRoomOwners[1];
+    if (firstOwner === undefined || secondOwner === undefined || secondOwner.ticks120 <= 1) {
+      throw new Error("hostile-source fixture lost two adjustable pre-room owners");
+    }
+    const ownerPrefixDrift = Object.freeze(ownerCounts.map((entry) => Object.freeze({
+      ...entry,
+      ticks120: entry.id === firstOwner.id
+        ? entry.ticks120 + 1
+        : entry.id === secondOwner.id
+          ? entry.ticks120 - 1
+          : entry.ticks120,
+    })));
+    expect(() => createCanonicalRunFirstOccurrenceObservationCapture({
+      behaviorFacts: Object.freeze({
+        ...firstCapture.behaviorFacts,
+        sampling: Object.freeze({
+          ...firstCapture.behaviorFacts.sampling,
+          ownerPhaseTickCounts: ownerPrefixDrift,
+        }),
+      }),
+      sourceEventCount,
+      preRoomCapture,
+      roomSnapshot,
+    })).toThrow(/pre-room owner phase .* changed after H/);
+  }, 10_000);
+
+  it("faults the composite instead of exposing a half-capture when H+1701 validation fails", () => {
+    const session = new CanonicalRunSession(OPTIONS);
+    const atH = reachH(session).atH;
+    const handoffTick120 = atH.handoff.atTick120;
+    if (handoffTick120 === null) throw new Error("fault fixture lost H");
+
+    let beforeClose = atH;
+    while (beforeClose.tick120 < handoffTick120 + 1700) {
+      beforeClose = session.step(neutralInput(beforeClose.tick120 + 1));
+    }
+    expect(beforeClose.firstOccurrenceObservationCapture.availability).toBe("missing");
+
+    const originalSnapshot = CanonicalRunBehaviorFactLedger.prototype.snapshot;
+    const hostileSource = vi.spyOn(CanonicalRunBehaviorFactLedger.prototype, "snapshot")
+      .mockImplementation(function (this: CanonicalRunBehaviorFactLedger) {
+        const facts = originalSnapshot.call(this);
+        return facts.tick120 === handoffTick120 + 1701
+          ? frozenWithExtra(facts, "metrics", Object.freeze({avgFlower: 0}))
+          : facts;
+      });
+    try {
+      expect(() => session.step(neutralInput(handoffTick120 + 1701)))
+        .toThrow(/exact schema fields/);
+    } finally {
+      hostileSource.mockRestore();
+    }
+
+    expect(() => session.snapshot()).toThrow(/faulted.*exact schema fields/);
+    expect(() => session.events()).toThrow(/faulted.*exact schema fields/);
+    expect(() => session.canonicalEventSerialization()).toThrow(/faulted.*exact schema fields/);
+    expect(() => session.behaviorFactSerialization()).toThrow(/faulted.*exact schema fields/);
   });
 });

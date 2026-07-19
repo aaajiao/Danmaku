@@ -6,12 +6,29 @@ import type {
   CanonicalRunBehaviorEventCountEntry,
   CanonicalRunBehaviorFactsSnapshot,
 } from "./run-behavior-facts";
+import {executablePattern} from "./pattern-executor";
+import {
+  RUN_ROOM_SESSION_CONTRACT,
+  type CanonicalRunRoomSessionSnapshot,
+} from "./run-room-session";
 
 const UINT32_MAX = 0xffff_ffff;
 const AUTHORITY = "canonical-run-pre-room-behavior-capture-v1" as const;
 const SCHEMA_VERSION = "1.0.0-ext-2026-007" as const;
 const PRODUCER_ID = "canonical-run-session.pre-room-boundary-observer" as const;
 const PRODUCER_VERSION = "1.0.0" as const;
+const FIRST_OCCURRENCE_AUTHORITY =
+  "canonical-run-first-occurrence-observation-capture-v1" as const;
+const FIRST_OCCURRENCE_SCHEMA_VERSION = "1.0.0-ext-2026-008" as const;
+const FIRST_OCCURRENCE_PRODUCER_ID =
+  "canonical-run-session.first-occurrence-boundary-observer" as const;
+const FIRST_OCCURRENCE_PRODUCER_VERSION = "1.0.0" as const;
+const FIRST_OCCURRENCE_SLICE_TICKS120 =
+  RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.fixedSliceComplete;
+const FIRST_OCCURRENCE_READ_START_OFFSET_TICKS120 =
+  RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.read;
+const FIRST_OCCURRENCE_DRAIN_OFFSET_TICKS120 =
+  RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.residueDrained;
 
 export interface CanonicalRunPreRoomBehaviorCaptureMissing {
   readonly availability: "missing";
@@ -46,12 +63,87 @@ export interface CreateCanonicalRunPreRoomBehaviorCaptureOptions {
   readonly behaviorFacts: CanonicalRunBehaviorFactsSnapshot;
 }
 
+export interface CanonicalRunFirstOccurrenceObservationCaptureMissing {
+  readonly availability: "missing";
+  readonly reason: "first-occurrence-slice-not-closed";
+  readonly roomComplete: false;
+  readonly distinctVisitedDelta: 0;
+  readonly continuationPolicyAvailable: false;
+  readonly metricProjection: false;
+  readonly selectionAllowed: false;
+  readonly transitionAllowed: false;
+  readonly targetRoom: null;
+  readonly selectionRngDraws: 0;
+  readonly canonicalEventWrites: 0;
+}
+
+export interface CanonicalRunFirstOccurrenceObservationCaptureAvailable {
+  readonly availability: "available";
+  readonly authority: typeof FIRST_OCCURRENCE_AUTHORITY;
+  readonly schemaVersion: typeof FIRST_OCCURRENCE_SCHEMA_VERSION;
+  readonly producerId: typeof FIRST_OCCURRENCE_PRODUCER_ID;
+  readonly producerVersion: typeof FIRST_OCCURRENCE_PRODUCER_VERSION;
+  readonly extensionPolicy: "EXT-2026-008";
+  readonly sourceEpoch: "current-run-through-first-occurrence-slice";
+  readonly capturedAtTick120: number;
+  readonly rawRunSeed: CanonicalRunBehaviorFactsSnapshot["rawRunSeed"];
+  readonly contentIdentity: V4ContentIdentity;
+  readonly sourceBoundary: Readonly<{
+    readonly preRoomTick120: number;
+    readonly roomId: CanonicalRunRoomSessionSnapshot["roomId"];
+    readonly roomOrdinal: CanonicalRunRoomSessionSnapshot["roomOrdinal"];
+    readonly patternId: CanonicalRunRoomSessionSnapshot["patternId"];
+    readonly occurrenceId: CanonicalRunRoomSessionSnapshot["occurrenceId"];
+    readonly encounterOrdinal: CanonicalRunRoomSessionSnapshot["encounterOrdinal"];
+    readonly readStartTick120: number;
+    readonly occurrenceDrainedAtTick120: number;
+    readonly fixedSliceCompleteTick120: number;
+    readonly resolvedSeed: CanonicalRunRoomSessionSnapshot["resolvedSeed"];
+  }>;
+  readonly behaviorFacts: CanonicalRunBehaviorFactsSnapshot;
+  readonly roomComplete: false;
+  readonly distinctVisitedDelta: 0;
+  readonly continuationPolicyAvailable: false;
+  readonly metricProjection: false;
+  readonly selectionAllowed: false;
+  readonly transitionAllowed: false;
+  readonly targetRoom: null;
+  readonly selectionRngDraws: 0;
+  readonly canonicalEventWrites: 0;
+}
+
+export type CanonicalRunFirstOccurrenceObservationCapture =
+  | CanonicalRunFirstOccurrenceObservationCaptureMissing
+  | CanonicalRunFirstOccurrenceObservationCaptureAvailable;
+
+export interface CreateCanonicalRunFirstOccurrenceObservationCaptureOptions {
+  readonly behaviorFacts: CanonicalRunBehaviorFactsSnapshot;
+  readonly sourceEventCount: number;
+  readonly preRoomCapture: CanonicalRunPreRoomBehaviorCaptureAvailable;
+  readonly roomSnapshot: CanonicalRunRoomSessionSnapshot;
+}
+
 export const CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING:
   CanonicalRunPreRoomBehaviorCaptureMissing = Object.freeze({
   availability: "missing",
   reason: "pre-room-boundary-not-closed",
   metricProjection: false,
   selectionAllowed: false,
+});
+
+export const CANONICAL_RUN_FIRST_OCCURRENCE_OBSERVATION_CAPTURE_MISSING:
+  CanonicalRunFirstOccurrenceObservationCaptureMissing = Object.freeze({
+  availability: "missing",
+  reason: "first-occurrence-slice-not-closed",
+  roomComplete: false,
+  distinctVisitedDelta: 0,
+  continuationPolicyAvailable: false,
+  metricProjection: false,
+  selectionAllowed: false,
+  transitionAllowed: false,
+  targetRoom: null,
+  selectionRngDraws: 0,
+  canonicalEventWrites: 0,
 });
 
 function compareCodePoints(left: string, right: string): number {
@@ -167,7 +259,7 @@ function assertAvailableAggregateShape(
     path,
   );
   const record = value as Record<string, unknown>;
-  invariant(record.availability === "available", `${path} must be available at H`);
+  invariant(record.availability === "available", `${path} must be available at the capture boundary`);
   const first = safePositiveInteger(record.firstAvailableTick120, `${path}.firstAvailableTick120`);
   const last = safePositiveInteger(record.lastAvailableTick120, `${path}.lastAvailableTick120`);
   const count = safePositiveInteger(record.sampleCount, `${path}.sampleCount`);
@@ -260,7 +352,16 @@ function assertExactSourceShape(facts: CanonicalRunBehaviorFactsSnapshot): void 
   );
 
   assertExactKeys(facts.context, ["room", "runCombat"], "behaviorFacts.context");
-  assertExactKeys(facts.context.room, ["availability", "reason"], "behaviorFacts.context.room");
+  if (facts.context.room.availability === "missing") {
+    assertExactKeys(facts.context.room, ["availability", "reason"], "behaviorFacts.context.room");
+  } else {
+    assertAvailableAggregateShape(
+      facts.context.room,
+      ["roomTickCounts"],
+      "behaviorFacts.context.room",
+      ["roomTickCounts"],
+    );
+  }
   assertAvailableAggregateShape(
     facts.context.runCombat,
     ["noActiveOccurrenceTickCount", "activeOccurrenceTickCounts"],
@@ -345,7 +446,7 @@ function assertSortedUniqueIds(
   }
 }
 
-function validateOwnerPhaseCounts(
+function validatePreRoomOwnerPhaseCounts(
   entries: readonly CanonicalRunBehaviorCountEntry[],
   capturedAtTick120: number,
 ): void {
@@ -385,7 +486,7 @@ function validateEventCounts(
   invariant(total === observedCount, "event ID multiset must equal the observed event count");
 }
 
-function validateSourceFacts(
+function validateCommonSourceFacts(
   facts: CanonicalRunBehaviorFactsSnapshot,
   capturedAtTick120: number,
   sourceEventCount: number,
@@ -416,13 +517,6 @@ function validateSourceFacts(
   invariant(
     facts.sampling.lastAcceptedTick120 === capturedAtTick120,
     "source must end at the capture boundary",
-  );
-  validateOwnerPhaseCounts(facts.sampling.ownerPhaseTickCounts, capturedAtTick120);
-
-  invariant(
-    facts.context.room.availability === "missing"
-      && facts.context.room.reason === "room-context-not-consumed-yet",
-    "room context must remain missing at the pre-room boundary",
   );
   invariant(
     facts.composerAvailability.status === "withheld-metric-projection-policy-not-authored"
@@ -469,12 +563,613 @@ function validateSourceFacts(
   validateEventCounts(facts.canonicalEvents.countsById, observedCount);
 }
 
+function validatePreRoomSourceFacts(
+  facts: CanonicalRunBehaviorFactsSnapshot,
+  capturedAtTick120: number,
+  sourceEventCount: number,
+): void {
+  validateCommonSourceFacts(facts, capturedAtTick120, sourceEventCount);
+  validatePreRoomOwnerPhaseCounts(facts.sampling.ownerPhaseTickCounts, capturedAtTick120);
+  invariant(
+    facts.context.room.availability === "missing"
+      && facts.context.room.reason === "room-context-not-consumed-yet",
+    "room context must remain missing at the pre-room boundary",
+  );
+}
+
+function assertContentIdentity(value: V4ContentIdentity, path: string): void {
+  assertExactKeys(value, [
+    "contentAuthoritySchemaVersion",
+    "packageId",
+    "packageSchemaVersion",
+    "packageManifestSha256",
+    "contentDigestSha256",
+  ], path);
+  invariant(
+    value.contentAuthoritySchemaVersion === V4_CONTENT_IDENTITY.contentAuthoritySchemaVersion
+      && value.packageId === V4_CONTENT_IDENTITY.packageId
+      && value.packageSchemaVersion === V4_CONTENT_IDENTITY.packageSchemaVersion
+      && value.packageManifestSha256 === V4_CONTENT_IDENTITY.packageManifestSha256
+      && value.contentDigestSha256 === V4_CONTENT_IDENTITY.contentDigestSha256,
+    `${path} diverged from the shared V4 content identity`,
+  );
+}
+
+function validateAvailablePreRoomCapture(
+  capture: CanonicalRunPreRoomBehaviorCaptureAvailable,
+  expectedTick120: number,
+  expectedSourceEventCount: number,
+  rawRunSeed: CanonicalRunBehaviorFactsSnapshot["rawRunSeed"],
+): void {
+  assertFrozenJsonData(capture, "preRoomCapture");
+  assertExactKeys(capture, [
+    "availability",
+    "authority",
+    "schemaVersion",
+    "producerId",
+    "producerVersion",
+    "extensionPolicy",
+    "sourceEpoch",
+    "capturedAtTick120",
+    "rawRunSeed",
+    "contentIdentity",
+    "behaviorFacts",
+    "metricProjection",
+    "selectionAllowed",
+  ], "preRoomCapture");
+  invariant(
+    capture.availability === "available"
+      && capture.authority === AUTHORITY
+      && capture.schemaVersion === SCHEMA_VERSION
+      && capture.producerId === PRODUCER_ID
+      && capture.producerVersion === PRODUCER_VERSION
+      && capture.extensionPolicy === "EXT-2026-007"
+      && capture.sourceEpoch === "current-run-pre-room-prefix"
+      && capture.metricProjection === false
+      && capture.selectionAllowed === false,
+    "preRoomCapture identity or firewall is incompatible",
+  );
+  invariant(
+    capture.capturedAtTick120 === expectedTick120,
+    "preRoomCapture must close exactly at source H",
+  );
+  invariant(
+    capture.rawRunSeed.domain === "raw-run-seed"
+      && capture.rawRunSeed.value === rawRunSeed.value,
+    "preRoomCapture raw Run seed diverged from the occurrence source",
+  );
+  assertContentIdentity(capture.contentIdentity, "preRoomCapture.contentIdentity");
+  validatePreRoomSourceFacts(
+    capture.behaviorFacts,
+    expectedTick120,
+    expectedSourceEventCount,
+  );
+  invariant(
+    capture.behaviorFacts.rawRunSeed.value === rawRunSeed.value,
+    "preRoomCapture behavior facts raw Run seed diverged",
+  );
+}
+
+function validateFirstOccurrenceOwnerPhaseCounts(
+  entries: readonly CanonicalRunBehaviorCountEntry[],
+  capturedAtTick120: number,
+): void {
+  const allowed = new Set([
+    "quiet_awakening",
+    "first_eye",
+    "first_clamp_recovery",
+    "room_sampling",
+  ]);
+  let previousId: string | null = null;
+  let total = 0;
+  let recoveryTicks = 0;
+  let roomSamplingTicks = 0;
+  for (const [index, entry] of entries.entries()) {
+    invariant(typeof entry.id === "string" && entry.id.length > 0, `owner phase entry ${index} has no ID`);
+    invariant(allowed.has(entry.id), `owner phase ${entry.id} is outside the first-occurrence prefix`);
+    if (previousId !== null) {
+      invariant(compareCodePoints(previousId, entry.id) < 0, "owner phase counts must be unique and sorted");
+    }
+    const count = safePositiveInteger(entry.ticks120, `owner phase ${entry.id} ticks120`);
+    total = safeAdd(total, count, "owner phase total");
+    if (entry.id === "first_clamp_recovery") recoveryTicks = count;
+    if (entry.id === "room_sampling") roomSamplingTicks = count;
+    previousId = entry.id;
+  }
+  invariant(total === capturedAtTick120, "owner phase counts must cover every accepted source tick");
+  invariant(recoveryTicks > 0, "source must retain the completed first-clamp-recovery prefix");
+  invariant(
+    roomSamplingTicks === FIRST_OCCURRENCE_SLICE_TICKS120,
+    "room_sampling owner must consume exactly the fixed first-occurrence slice",
+  );
+}
+
+function validateFirstOccurrenceRoomContext(
+  facts: CanonicalRunBehaviorFactsSnapshot,
+  preRoomTick120: number,
+  capturedAtTick120: number,
+): void {
+  const room = facts.context.room;
+  invariant(room.availability === "available", "room context must be available at slice close");
+  invariant(
+    room.firstAvailableTick120 === preRoomTick120 + 1
+      && room.lastAvailableTick120 === capturedAtTick120
+      && room.sampleCount === FIRST_OCCURRENCE_SLICE_TICKS120,
+    "room context must cover exactly H+1 through H+1701",
+  );
+  invariant(
+    room.aggregate.roomTickCounts.length === 1
+      && room.aggregate.roomTickCounts[0]?.id === "FORCED_ALIGNMENT"
+      && room.aggregate.roomTickCounts[0]?.ticks120 === FIRST_OCCURRENCE_SLICE_TICKS120,
+    "room context must contain exactly 1701 Forced Alignment ticks",
+  );
+}
+
+function behaviorCountMap(
+  entries: readonly CanonicalRunBehaviorCountEntry[],
+  path: string,
+): Readonly<{counts: ReadonlyMap<string, number>; total: number}> {
+  const counts = new Map<string, number>();
+  let previousId: string | null = null;
+  let total = 0;
+  for (const [index, entry] of entries.entries()) {
+    invariant(typeof entry.id === "string" && entry.id.length > 0, `${path}[${index}].id is invalid`);
+    if (previousId !== null) {
+      invariant(compareCodePoints(previousId, entry.id) < 0, `${path} must be unique and sorted`);
+    }
+    const count = safePositiveInteger(entry.ticks120, `${path}[${index}].ticks120`);
+    counts.set(entry.id, count);
+    total = safeAdd(total, count, `${path} total`);
+    previousId = entry.id;
+  }
+  return Object.freeze({counts, total});
+}
+
+function validateFirstOccurrenceBehaviorPrefix(
+  preRoomFacts: CanonicalRunBehaviorFactsSnapshot,
+  occurrenceFacts: CanonicalRunBehaviorFactsSnapshot,
+  preRoomTick120: number,
+  capturedAtTick120: number,
+): void {
+  const preOwners = behaviorCountMap(
+    preRoomFacts.sampling.ownerPhaseTickCounts,
+    "preRoomCapture owner phase counts",
+  );
+  const occurrenceOwners = behaviorCountMap(
+    occurrenceFacts.sampling.ownerPhaseTickCounts,
+    "first-occurrence owner phase counts",
+  );
+  invariant(
+    occurrenceOwners.counts.size === preOwners.counts.size + 1,
+    "first-occurrence owner phases must add only room_sampling",
+  );
+  for (const [id, count] of preOwners.counts) {
+    invariant(
+      occurrenceOwners.counts.get(id) === count,
+      `pre-room owner phase ${id} changed after H`,
+    );
+  }
+  invariant(
+    occurrenceOwners.counts.get("room_sampling") === FIRST_OCCURRENCE_SLICE_TICKS120,
+    "room_sampling owner must add exactly 1701 ticks after H",
+  );
+
+  const preRunCombat = preRoomFacts.context.runCombat;
+  const occurrenceRunCombat = occurrenceFacts.context.runCombat;
+  invariant(
+    preRunCombat.availability === "available"
+      && occurrenceRunCombat.availability === "available",
+    "run-combat facts must remain available across H",
+  );
+  invariant(
+    preRunCombat.lastAvailableTick120 === preRoomTick120
+      && occurrenceRunCombat.firstAvailableTick120 === preRunCombat.firstAvailableTick120
+      && occurrenceRunCombat.lastAvailableTick120 === capturedAtTick120
+      && occurrenceRunCombat.sampleCount
+        === safeAdd(preRunCombat.sampleCount, FIRST_OCCURRENCE_SLICE_TICKS120, "run-combat samples"),
+    "run-combat availability window must extend by exactly the fixed occurrence slice",
+  );
+
+  const preActive = behaviorCountMap(
+    preRunCombat.aggregate.activeOccurrenceTickCounts,
+    "preRoomCapture active occurrence counts",
+  );
+  const occurrenceActive = behaviorCountMap(
+    occurrenceRunCombat.aggregate.activeOccurrenceTickCounts,
+    "first-occurrence active occurrence counts",
+  );
+  const expectedActiveTicks = FIRST_OCCURRENCE_DRAIN_OFFSET_TICKS120
+    - FIRST_OCCURRENCE_READ_START_OFFSET_TICKS120;
+  invariant(
+    occurrenceActive.counts.size === preActive.counts.size + 1
+      && preActive.counts.has(RUN_ROOM_SESSION_CONTRACT.occurrenceId) === false,
+    "first-occurrence facts must add exactly one new occurrence identity",
+  );
+  for (const [id, count] of preActive.counts) {
+    invariant(
+      occurrenceActive.counts.get(id) === count,
+      `pre-room active occurrence ${id} changed after H`,
+    );
+  }
+  invariant(
+    occurrenceActive.counts.get(RUN_ROOM_SESSION_CONTRACT.occurrenceId) === expectedActiveTicks,
+    "fixed first occurrence must own exactly 1540 accepted ticks",
+  );
+
+  const preNoActive = safeNonNegativeInteger(
+    preRunCombat.aggregate.noActiveOccurrenceTickCount,
+    "preRoomCapture no-active occurrence count",
+  );
+  const occurrenceNoActive = safeNonNegativeInteger(
+    occurrenceRunCombat.aggregate.noActiveOccurrenceTickCount,
+    "first-occurrence no-active occurrence count",
+  );
+  const expectedNoActiveDelta = FIRST_OCCURRENCE_SLICE_TICKS120 - expectedActiveTicks;
+  invariant(
+    occurrenceNoActive === safeAdd(preNoActive, expectedNoActiveDelta, "no-active occurrence delta"),
+    "fixed first occurrence must add exactly 161 no-active ticks",
+  );
+  invariant(
+    safeAdd(preActive.total, preNoActive, "pre-room run-combat accounting")
+      === preRunCombat.sampleCount
+      && safeAdd(occurrenceActive.total, occurrenceNoActive, "first-occurrence run-combat accounting")
+        === occurrenceRunCombat.sampleCount,
+    "run-combat active and no-active counts must cover every available sample",
+  );
+}
+
+function validateClaimedOccurrenceFacts(
+  room: CanonicalRunRoomSessionSnapshot,
+  facts: CanonicalRunBehaviorFactsSnapshot,
+): void {
+  const runCombat = facts.context.runCombat;
+  invariant(runCombat.availability === "available", "claimed occurrence facts must be available");
+  const observedIds = runCombat.aggregate.activeOccurrenceTickCounts.map((entry) => entry.id);
+  invariant(
+    room.runCombat.claimedOccurrenceIds.length === observedIds.length
+      && room.runCombat.claimedOccurrenceIds.every((id, index) => id === observedIds[index]),
+    "shared run claimed occurrences must equal the observed behavior occurrence identities",
+  );
+}
+
+function validateEventPrefixExtension(
+  preRoomFacts: CanonicalRunBehaviorFactsSnapshot,
+  occurrenceFacts: CanonicalRunBehaviorFactsSnapshot,
+): void {
+  invariant(
+    occurrenceFacts.canonicalEvents.tickZeroBaselineCount
+      === preRoomFacts.canonicalEvents.tickZeroBaselineCount,
+    "tick-zero event baseline changed after H",
+  );
+  invariant(
+    occurrenceFacts.canonicalEvents.observedCount >= preRoomFacts.canonicalEvents.observedCount,
+    "H event prefix was truncated during the fixed occurrence",
+  );
+  const occurrenceCounts = new Map(
+    occurrenceFacts.canonicalEvents.countsById.map((entry) => [entry.id, entry.count] as const),
+  );
+  for (const entry of preRoomFacts.canonicalEvents.countsById) {
+    invariant(
+      (occurrenceCounts.get(entry.id) ?? 0) >= entry.count,
+      `H event prefix count for ${entry.id} was truncated`,
+    );
+  }
+}
+
+function assertFirstOccurrenceRoomSnapshotShape(room: CanonicalRunRoomSessionSnapshot): void {
+  assertExactKeys(room, [
+    "authority",
+    "extensionPolicy",
+    "phase",
+    "tick120",
+    "relativeTick120",
+    "roomId",
+    "roomOrdinal",
+    "composerId",
+    "patternId",
+    "occurrenceId",
+    "encounterOrdinal",
+    "tierId",
+    "difficulty",
+    "composer",
+    "weightedSelection",
+    "selectionAuthority",
+    "selectionRngDraws",
+    "parallel",
+    "rawRunSeed",
+    "resolvedSeed",
+    "difficultySalt",
+    "boundaryTicks120",
+    "sourceTraceEventCount",
+    "combat",
+    "runCombat",
+    "entities",
+    "fixedSliceComplete",
+    "roomComplete",
+    "handoffReady",
+    "faulted",
+    "adapterPolicy",
+  ], "roomSnapshot");
+  assertExactKeys(room.rawRunSeed, ["domain", "value"], "roomSnapshot.rawRunSeed");
+  assertExactKeys(room.resolvedSeed, ["domain", "value"], "roomSnapshot.resolvedSeed");
+  assertExactKeys(room.boundaryTicks120, [
+    "start",
+    "telegraphEnd",
+    "read",
+    "materialSettle",
+    "rest",
+    "fixedSliceComplete",
+    "residueDeadline",
+  ], "roomSnapshot.boundaryTicks120");
+  assertExactKeys(
+    room.entities,
+    ["digitalBodies", "liveColliders", "residueVisuals"],
+    "roomSnapshot.entities",
+  );
+  assertExactKeys(room.adapterPolicy, [
+    "sourceHandoff",
+    "directRoomInstall",
+    "preRead",
+    "readStart",
+    "overrideEdges",
+    "tickClosure",
+    "terminalTail",
+    "completion",
+    "provenance",
+  ], "roomSnapshot.adapterPolicy");
+
+  const combat = room.combat;
+  invariant(combat !== null, "room snapshot must retain the drained first occurrence");
+  assertExactKeys(combat, [
+    "authority",
+    "patternId",
+    "occurrenceId",
+    "seed",
+    "difficulty",
+    "startTick120",
+    "tick120",
+    "relativeTick120",
+    "patternComplete",
+    "digitalBodiesDrained",
+    "materialResidueDraining",
+    "projectileLifecycleDrained",
+    "runTimedStateQuiescent",
+    "handoffReady",
+    "rngCallsConsumed",
+    "playerPosition",
+    "player",
+    "evidence",
+    "override",
+    "projectiles",
+    "poolUsage",
+    "lastDamageBatch",
+    "adapterGaps",
+  ], "roomSnapshot.combat");
+  assertExactKeys(
+    combat.poolUsage,
+    ["active", "allocatedSlots", "liveColliders", "residueVisuals"],
+    "roomSnapshot.combat.poolUsage",
+  );
+  assertExactKeys(combat.adapterGaps, [
+    "grazeRadiusPx",
+    "projectileDamage",
+    "projectilePoolClasses",
+    "targetHistorySampling",
+    "positiveAimLeadPolicy",
+    "lateralWallLaneProjection",
+    "provenance",
+  ], "roomSnapshot.combat.adapterGaps");
+
+  assertExactKeys(room.runCombat, [
+    "authority",
+    "tick120",
+    "playerPosition",
+    "focused",
+    "player",
+    "evidence",
+    "override",
+    "activeOccurrenceId",
+    "pendingFlushTick120",
+    "claimedOccurrenceIds",
+    "faulted",
+    "adapterPolicy",
+  ], "roomSnapshot.runCombat");
+  assertExactKeys(room.runCombat.adapterPolicy, [
+    "grazeRadiusPx",
+    "projectileDamage",
+    "projectilePoolClasses",
+    "occurrenceIdentity",
+    "concurrency",
+    "flushOwner",
+    "provenance",
+  ], "roomSnapshot.runCombat.adapterPolicy");
+}
+
+function validateFirstOccurrenceRoomSnapshot(
+  room: CanonicalRunRoomSessionSnapshot,
+  sourceEventCount: number,
+): Readonly<{
+  preRoomTick120: number;
+  capturedAtTick120: number;
+  preRoomSourceEventCount: number;
+}> {
+  assertFrozenJsonData(room, "roomSnapshot");
+  assertFirstOccurrenceRoomSnapshotShape(room);
+  const capturedAtTick120 = safePositiveInteger(room.tick120, "roomSnapshot.tick120");
+  invariant(
+    room.authority === "canonical-run-room-session-v4"
+      && room.extensionPolicy === RUN_ROOM_SESSION_CONTRACT.extensionPolicy
+      && room.phase === "first_room_slice_complete"
+      && room.fixedSliceComplete === true
+      && room.roomComplete === RUN_ROOM_SESSION_CONTRACT.roomComplete
+      && room.handoffReady === RUN_ROOM_SESSION_CONTRACT.handoffReady
+      && room.faulted === false,
+    "room snapshot is not the closed, non-complete first-occurrence slice",
+  );
+  invariant(
+    room.roomId === RUN_ROOM_SESSION_CONTRACT.roomId
+      && room.roomOrdinal === RUN_ROOM_SESSION_CONTRACT.roomOrdinal
+      && room.composerId === RUN_ROOM_SESSION_CONTRACT.composerId
+      && room.patternId === RUN_ROOM_SESSION_CONTRACT.patternId
+      && room.occurrenceId === RUN_ROOM_SESSION_CONTRACT.occurrenceId
+      && room.encounterOrdinal === RUN_ROOM_SESSION_CONTRACT.encounterOrdinal
+      && room.tierId === RUN_ROOM_SESSION_CONTRACT.tierId
+      && room.difficulty === RUN_ROOM_SESSION_CONTRACT.difficulty
+      && room.composer === RUN_ROOM_SESSION_CONTRACT.composer
+      && room.weightedSelection === RUN_ROOM_SESSION_CONTRACT.weightedSelection
+      && room.selectionAuthority === RUN_ROOM_SESSION_CONTRACT.selectionAuthority
+      && room.selectionRngDraws === RUN_ROOM_SESSION_CONTRACT.selectionRngDraws
+      && room.parallel === RUN_ROOM_SESSION_CONTRACT.parallel
+      && room.difficultySalt === RUN_ROOM_SESSION_CONTRACT.difficultySalt,
+    "room snapshot source identity is incompatible",
+  );
+  invariant(
+    room.rawRunSeed.domain === "raw-run-seed"
+      && Number.isSafeInteger(room.rawRunSeed.value)
+      && room.rawRunSeed.value >= 0
+      && room.rawRunSeed.value <= UINT32_MAX
+      && !Object.is(room.rawRunSeed.value, -0),
+    "room snapshot raw Run seed must be a tagged uint32",
+  );
+  invariant(
+    room.resolvedSeed.domain === "resolved-occurrence-seed"
+      && Number.isSafeInteger(room.resolvedSeed.value)
+      && room.resolvedSeed.value >= 0
+      && room.resolvedSeed.value <= UINT32_MAX
+      && !Object.is(room.resolvedSeed.value, -0),
+    "room snapshot resolved occurrence seed must be a tagged uint32",
+  );
+  const pattern = executablePattern(RUN_ROOM_SESSION_CONTRACT.patternId);
+  const expectedResolvedSeed = (
+    room.rawRunSeed.value
+    ^ pattern.seed.base
+    ^ RUN_ROOM_SESSION_CONTRACT.encounterOrdinal
+    ^ RUN_ROOM_SESSION_CONTRACT.difficultySalt
+  ) >>> 0;
+  invariant(
+    room.resolvedSeed.value === expectedResolvedSeed,
+    "room snapshot resolved occurrence seed diverged from the fixed bootstrap composition",
+  );
+  invariant(
+    room.adapterPolicy.sourceHandoff === "typed-ready-for-room-sampling"
+      && room.adapterPolicy.directRoomInstall === "no-transition-or-room-enter-event"
+      && room.adapterPolicy.preRead === "shared-run-idle-zero-room-entities"
+      && room.adapterPolicy.readStart === "close-H+159-on-shared-state-then-claim-local0"
+      && room.adapterPolicy.overrideEdges === "screened-without-reading"
+      && room.adapterPolicy.tickClosure === "shared-run-combat-state-sole-flush-owner"
+      && room.adapterPolicy.terminalTail === "residue-drained-at-H+1699-plus-two-neutral-ticks"
+      && room.adapterPolicy.completion === "slice-only-no-room-completion-or-handoff"
+      && room.adapterPolicy.provenance === "application-policy-EXT-2026-005",
+    "room snapshot adapter policy drifted",
+  );
+
+  const preRoomTick120 = safeNonNegativeInteger(
+    room.boundaryTicks120.start,
+    "roomSnapshot.boundaryTicks120.start",
+  );
+  invariant(
+    room.relativeTick120 === FIRST_OCCURRENCE_SLICE_TICKS120
+      && room.boundaryTicks120.telegraphEnd === safeAdd(
+        preRoomTick120,
+        RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.telegraph,
+        "telegraph boundary",
+      )
+      && room.boundaryTicks120.read
+        === safeAdd(preRoomTick120, FIRST_OCCURRENCE_READ_START_OFFSET_TICKS120, "READ boundary")
+      && room.boundaryTicks120.materialSettle === safeAdd(
+        preRoomTick120,
+        RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.materialSettle,
+        "settle boundary",
+      )
+      && room.boundaryTicks120.rest === safeAdd(
+        preRoomTick120,
+        RUN_ROOM_SESSION_CONTRACT.relativeBoundaryTicks120.rest,
+        "rest boundary",
+      )
+      && room.boundaryTicks120.residueDeadline
+        === safeAdd(preRoomTick120, FIRST_OCCURRENCE_DRAIN_OFFSET_TICKS120, "drain boundary")
+      && room.boundaryTicks120.fixedSliceComplete
+        === safeAdd(preRoomTick120, FIRST_OCCURRENCE_SLICE_TICKS120, "slice-close boundary")
+      && capturedAtTick120 === room.boundaryTicks120.fixedSliceComplete,
+    "room snapshot boundaries must close exactly at H+1701",
+  );
+  invariant(
+    room.entities.digitalBodies === 0
+      && room.entities.liveColliders === 0
+      && room.entities.residueVisuals === 0,
+    "room snapshot must have zero authority entities at slice close",
+  );
+  const combat = room.combat;
+  invariant(combat !== null, "room snapshot must retain the drained first occurrence");
+  invariant(
+    combat.authority === "canonical-combat-v4"
+      && combat.patternId === room.patternId
+      && combat.occurrenceId === room.occurrenceId
+      && combat.seed === room.resolvedSeed.value
+      && combat.difficulty === room.difficulty
+      && combat.startTick120 === room.boundaryTicks120.read
+      && combat.tick120 === room.boundaryTicks120.residueDeadline
+      && combat.relativeTick120
+        === FIRST_OCCURRENCE_DRAIN_OFFSET_TICKS120 - FIRST_OCCURRENCE_READ_START_OFFSET_TICKS120
+      && combat.patternComplete === true
+      && combat.digitalBodiesDrained === true
+      && combat.materialResidueDraining === false
+      && combat.projectileLifecycleDrained === true
+      && combat.runTimedStateQuiescent === true
+      && combat.handoffReady === true
+      && combat.projectiles.length === 0
+      && combat.poolUsage.liveColliders === 0
+      && combat.poolUsage.residueVisuals === 0,
+    "retained occurrence must be drained, quiescent, and occurrence-handoff-ready",
+  );
+  invariant(
+    combat.adapterGaps.targetHistorySampling === "exact-crossed-tick120"
+      && combat.adapterGaps.positiveAimLeadPolicy
+        === "last-authoritative-segment-linear-extrapolation"
+      && combat.adapterGaps.lateralWallLaneProjection
+        === "candidate-center-into-left-to-right-lane-bins"
+      && combat.adapterGaps.provenance === "application-required-v4-omission",
+    "retained occurrence adapter policy drifted",
+  );
+  invariant(
+    room.runCombat.authority === "canonical-run-combat-v4"
+      && room.runCombat.tick120 === capturedAtTick120
+      && room.runCombat.activeOccurrenceId === null
+      && room.runCombat.pendingFlushTick120 === null
+      && room.runCombat.claimedOccurrenceIds.length === 2
+      && room.runCombat.claimedOccurrenceIds[0] === RUN_ROOM_SESSION_CONTRACT.occurrenceId
+      && typeof room.runCombat.claimedOccurrenceIds[1] === "string"
+      && room.runCombat.claimedOccurrenceIds[1]!.length > 0
+      && room.runCombat.faulted === false,
+    "shared run combat state must be closed and occurrence-free at H+1701",
+  );
+  invariant(
+    room.runCombat.adapterPolicy.occurrenceIdentity === "utf8-length-prefixed"
+      && room.runCombat.adapterPolicy.concurrency === "single-spawning-occurrence"
+      && room.runCombat.adapterPolicy.flushOwner === "run-combat-state"
+      && room.runCombat.adapterPolicy.provenance === "application-required-v4-omission",
+    "shared run combat adapter policy drifted",
+  );
+  invariant(
+    room.sourceTraceEventCount <= sourceEventCount,
+    "room source trace cannot exceed the H+1701 event prefix",
+  );
+  return Object.freeze({
+    preRoomTick120,
+    capturedAtTick120,
+    preRoomSourceEventCount: safeNonNegativeInteger(
+      room.sourceTraceEventCount,
+      "roomSnapshot.sourceTraceEventCount",
+    ),
+  });
+}
+
 export function createCanonicalRunPreRoomBehaviorCapture(
   options: CreateCanonicalRunPreRoomBehaviorCaptureOptions,
 ): CanonicalRunPreRoomBehaviorCaptureAvailable {
   const capturedAtTick120 = safePositiveInteger(options.capturedAtTick120, "capturedAtTick120");
   const sourceEventCount = safeNonNegativeInteger(options.sourceEventCount, "sourceEventCount");
-  validateSourceFacts(options.behaviorFacts, capturedAtTick120, sourceEventCount);
+  validatePreRoomSourceFacts(options.behaviorFacts, capturedAtTick120, sourceEventCount);
 
   const behaviorFacts = canonicalFrozenClone(options.behaviorFacts);
   return Object.freeze({
@@ -491,5 +1186,87 @@ export function createCanonicalRunPreRoomBehaviorCapture(
     behaviorFacts,
     metricProjection: false as const,
     selectionAllowed: false as const,
+  });
+}
+
+export function createCanonicalRunFirstOccurrenceObservationCapture(
+  options: CreateCanonicalRunFirstOccurrenceObservationCaptureOptions,
+): CanonicalRunFirstOccurrenceObservationCaptureAvailable {
+  const sourceEventCount = safeNonNegativeInteger(options.sourceEventCount, "sourceEventCount");
+  const boundary = validateFirstOccurrenceRoomSnapshot(options.roomSnapshot, sourceEventCount);
+  validateCommonSourceFacts(
+    options.behaviorFacts,
+    boundary.capturedAtTick120,
+    sourceEventCount,
+  );
+  validateFirstOccurrenceOwnerPhaseCounts(
+    options.behaviorFacts.sampling.ownerPhaseTickCounts,
+    boundary.capturedAtTick120,
+  );
+  validateFirstOccurrenceRoomContext(
+    options.behaviorFacts,
+    boundary.preRoomTick120,
+    boundary.capturedAtTick120,
+  );
+  invariant(
+    options.behaviorFacts.rawRunSeed.value === options.roomSnapshot.rawRunSeed.value,
+    "behavior facts raw Run seed diverged from the room source",
+  );
+  validateAvailablePreRoomCapture(
+    options.preRoomCapture,
+    boundary.preRoomTick120,
+    boundary.preRoomSourceEventCount,
+    options.behaviorFacts.rawRunSeed,
+  );
+  validateFirstOccurrenceBehaviorPrefix(
+    options.preRoomCapture.behaviorFacts,
+    options.behaviorFacts,
+    boundary.preRoomTick120,
+    boundary.capturedAtTick120,
+  );
+  validateClaimedOccurrenceFacts(options.roomSnapshot, options.behaviorFacts);
+  validateEventPrefixExtension(
+    options.preRoomCapture.behaviorFacts,
+    options.behaviorFacts,
+  );
+
+  const behaviorFacts = canonicalFrozenClone(options.behaviorFacts);
+  const sourceBoundary = Object.freeze({
+    preRoomTick120: boundary.preRoomTick120,
+    roomId: options.roomSnapshot.roomId,
+    roomOrdinal: options.roomSnapshot.roomOrdinal,
+    patternId: options.roomSnapshot.patternId,
+    occurrenceId: options.roomSnapshot.occurrenceId,
+    encounterOrdinal: options.roomSnapshot.encounterOrdinal,
+    readStartTick120: options.roomSnapshot.boundaryTicks120.read,
+    occurrenceDrainedAtTick120: options.roomSnapshot.boundaryTicks120.residueDeadline,
+    fixedSliceCompleteTick120: options.roomSnapshot.boundaryTicks120.fixedSliceComplete,
+    resolvedSeed: Object.freeze({
+      domain: options.roomSnapshot.resolvedSeed.domain,
+      value: options.roomSnapshot.resolvedSeed.value,
+    }),
+  });
+  return Object.freeze({
+    availability: "available" as const,
+    authority: FIRST_OCCURRENCE_AUTHORITY,
+    schemaVersion: FIRST_OCCURRENCE_SCHEMA_VERSION,
+    producerId: FIRST_OCCURRENCE_PRODUCER_ID,
+    producerVersion: FIRST_OCCURRENCE_PRODUCER_VERSION,
+    extensionPolicy: "EXT-2026-008" as const,
+    sourceEpoch: "current-run-through-first-occurrence-slice" as const,
+    capturedAtTick120: boundary.capturedAtTick120,
+    rawRunSeed: behaviorFacts.rawRunSeed,
+    contentIdentity: V4_CONTENT_IDENTITY,
+    sourceBoundary,
+    behaviorFacts,
+    roomComplete: false as const,
+    distinctVisitedDelta: 0 as const,
+    continuationPolicyAvailable: false as const,
+    metricProjection: false as const,
+    selectionAllowed: false as const,
+    transitionAllowed: false as const,
+    targetRoom: null,
+    selectionRngDraws: 0 as const,
+    canonicalEventWrites: 0 as const,
   });
 }
