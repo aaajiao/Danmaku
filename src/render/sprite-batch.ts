@@ -44,7 +44,7 @@ export interface SpriteBatchOptions {
   blending?: BlendMode;
   /**
    * Draw order. Depth testing is off — order is explicit and must be, since
-   * the whole scene is coplanar. See CLAUDE.md, rule 4.
+   * the whole scene is coplanar. See CLAUDE.md, rule 5.
    */
   renderOrder?: number;
   /** Discard threshold for alpha. Keeps sprite edges crisp. */

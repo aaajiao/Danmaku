@@ -4,7 +4,7 @@
  * ## Why layers are a first-class concept
  *
  * Depth testing is off, because the play field is coplanar and sprites must
- * composite in a defined order (CLAUDE.md, rule 4). Upstream got that ordering
+ * composite in a defined order (CLAUDE.md, rule 5). Upstream got that ordering
  * implicitly, from the sequence of calls in `StageState._displayElements`. That
  * works right up until you want to insert something — a new effect, a 3D prop,
  * a post-processed pass — and then the ordering lives in the middle of a method
@@ -87,7 +87,7 @@ export class Stage {
     // render-list comparators, which `sortObjects = false` skips entirely. With
     // sorting off, draw order silently degrades to scene-graph insertion order
     // and every `Layer` value becomes decorative. Sorting must stay on for the
-    // explicit ordering rule (CLAUDE.md, rule 4) to mean anything.
+    // explicit ordering rule (CLAUDE.md, rule 5) to mean anything.
     //
     // This does not reintroduce depth sorting: sprite materials keep
     // `depthTest: false`, and renderOrder is the comparators' first key, so z

@@ -2,7 +2,7 @@
  * Procedurally generated placeholder art.
  *
  * Upstream's sprites are Touhou Project derivatives and cannot ship (CLAUDE.md,
- * rule 6). Rather than block on art, the engine generates its own sheet at
+ * rule 9). Rather than block on art, the engine generates its own sheet at
  * runtime — original by construction, and license-clean.
  *
  * This doubles as the executable specification for the real art set: the grid

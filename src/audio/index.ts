@@ -13,7 +13,7 @@
  * ## Placeholder assets
  *
  * Upstream's audio is Touhou Project derivative and cannot ship (CLAUDE.md,
- * rule 6). As with `render/procedural.ts`, the engine synthesises its own
+ * rule 9). As with `render/procedural.ts`, the engine synthesises its own
  * placeholders at runtime: original by construction, and licence-clean. A sound
  * given a `url` loads that file instead, so replacing a placeholder with real
  * work is a `defineSound` call from a content file and nothing more.
