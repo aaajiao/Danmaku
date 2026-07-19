@@ -175,6 +175,13 @@ handoff `H` 的新返回 phase 冒充本 tick owner。契约与 provenance 见
 该 capture 永不改写。契约与 provenance 见
 [EXT-2026-007](adr/EXT-2026-007-pre-room-behavior-capture.md)。
 
+首个 fixed room slice 在 `H+1701` 的 room authority 与 rolling facts 同 tick 关闭后，Run 恰好冻结一次
+accepted ticks `[1,H+1701]` 的观察边界；`H+1702` 及更晚 facts 不得回写该 snapshot。该边界只证明首个
+occurrence 及其 material/rest tail 已被观察闭合，明确保持 `roomComplete=false`，且不取得 continuation、
+metric projection、selection、transition、RNG 或 canonical-event 写入权限。它不替代 `[1,H]` pre-room
+capture，也不授权下一房。契约与 provenance 见
+[EXT-2026-008](adr/EXT-2026-008-first-occurrence-observation-capture.md)。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与

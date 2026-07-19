@@ -1,9 +1,10 @@
 # EXT-2026-008：首个 room occurrence 观察闭合冻结
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
-- 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 分支 / PR：`agent/canonical-run-integration`（已 push 至 `origin/agent/canonical-run-integration`）/ 未创建
+- 实现提交：`9273488d2240cd07078351ab5645f8dbda7a2520`（`feat: freeze first occurrence observation`）
 - 前置记录：[EXT-2026-007](EXT-2026-007-pre-room-behavior-capture.md)
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
@@ -146,20 +147,19 @@ successor ADR 必须依次明确：
 | `narrative/room-thresholds-v4.json` | V4 package / aaajiao | authored JSON / V4 4.0.0 | thresholdCommit wording；无 canonical identity event | repository license | `6215dd680b318e2a23362b10781677054248066f42ea756ea7c7785e2f0bbaf2` |
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | Python QA oracle / V4 4.0.0 | 每房三 pattern fixture仅作反证，不采用为 live policy | repository license | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
 | `src/authority/run-room-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1699 drain、H+1701 fixed slice source | repository license | `c36d27002aa9203c5a8b9f897f76222940905fc272d9a0b998167cf352b31e5e` |
-| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | parent owner/facts/capture ordering seam | repository license | `6bd1936d0043dcaeca415c612b2a50e4c0577e9aad1edc239627c7cdb77ce4ef` |
-| `src/authority/run-behavior-capture.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | exact-schema capture与content pin基线 | repository license | `52a776bbe81c08dfda99467b89f2d82b6a7d52a7aeaaf322767282d880615600` |
+| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | parent owner/facts/capture ordering seam | repository license | `36c1685cb5b2e7a24e97cc507f6dfeb31d1cceb755406b03e1b23a92b494ebc6` |
+| `src/authority/run-behavior-capture.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | H+1701 exact-schema capture、source identity与lifecycle/accounting gate | repository license | `6b90f68b3a19aeadf9a5dbd7b6a932cee59e7698dfae99e5b038921eeb999524` |
+| `src/authority/run-behavior-capture.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | boundary、immutability、hostile source、event/RNG与firewall contracts | repository license | `10704f04436d8d9db005ce31e31baa15df9714e2f298b119dda018bdcdcda8d7` |
 
-V4 source tree保持只读。application hashes是提案基线；接受时补充 implementation/test与最终 Run hashes。
+V4 source tree保持只读；以上 application hashes对应接受提交 `9273488d2240cd07078351ab5645f8dbda7a2520`。
 
-## 验证证据（待实现）
+## 验证证据（接受）
 
-- H+1700 capture missing；H+1701 在 EXT-006 记录后恰好 available；H+1702 与更晚 idle不改写 bytes；
-- source room identity/boundaries、H provenance、entity/run-state drain 与 facts room/occurrence counts精确；
-- roomComplete/distinctVisited/continuation/metric/selection/transition均 false，target null、RNG/event writes为0；
-- capture event cursor/multiset等于 bus prefix，加入 capture不改变 canonical event serialization；
-- rejected/faulted step、hostile extra fields与boundary mismatch fail closed；同 seed/input serialization一致；
-- focused authority tests、strict typecheck、`bun run build`、`git diff --check`通过；无用户可见路径，不跑
-  Playwright或全量 `test:all`。
+- focused Vitest：6 个直接相关文件、56 个测试全部通过，耗时 `13.54s`；覆盖 H+1700 missing、H+1701
+  原子冻结、H+1702 后 bytes不变、source identity/lifecycle/accounting、hostile extra fields与全部 firewall。
+- `bun run typecheck`、`bun run build` 与 `bun run content:check`通过；content check确认 `778` 个 SHA-256，
+  package/content digest保持不变。
+- `git diff --check`通过；review无 P0/P1。该切片无用户可见路径，因此未运行 Playwright。
 
 ## 回滚与迁移
 
@@ -171,5 +171,6 @@ ADR；不得读取 H+1702 后 current rolling facts冒充 H+1701 capture。
 
 ## 决策
 
-PROPOSED。保存首 fixed occurrence完整闭合时不可逆的 observation prefix，但拒绝把单 occurrence、无实体画面、
-QA schedule或presentation cue冒充 room completion/selection/transition 权限。
+ACCEPTED at `9273488d2240cd07078351ab5645f8dbda7a2520`。保存首 fixed occurrence完整闭合时不可逆的
+observation prefix，但拒绝把单 occurrence、无实体画面、QA schedule或presentation cue冒充 room
+completion/selection/transition 权限。

@@ -26,8 +26,9 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence；run-owned ledger持续记录 accepted-tick facts，并在 H 冻结 `[1,H]` pre-room prefix；共享身体、事件 trace 与 run state；尚无 room completion 或下一 handoff |
-| Room composition / execution | WIP（首个 live 切片） | fixed non-composer 首房、有界 raw facts 与 H pre-room capture 已进入默认 Run；14 项 metric projection/metric snapshot、room count、weighted selection、parallel/multi-pool、room completion 与 handoff 未完成 |
+| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence；run-owned ledger 持续记录 accepted-tick facts，并分别在 H 与 H+1701 冻结 pre-room prefix 和首 occurrence 观察；共享身体、事件 trace 与 run state；尚无 room completion 或下一 handoff |
+| First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
+| Room composition / execution | WIP（首个 live 切片） | fixed non-composer 首房、有界 raw facts、H pre-room capture 与 H+1701 observation capture 已进入默认 Run；首房剩余 occurrence/room closure policy、14 项 metric projection/snapshot、room count、weighted selection、transition、parallel/multi-pool 与 handoff 未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
 | Renderer / input / PWA | DONE（基础） | Three.js 像素表现、键盘/触控/标准手柄、manifest、离线 warm reload 与图标已存在；完整 causal clips、升级迁移和实机矩阵未完成 |
@@ -47,9 +48,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | fixed non-composer 首房、accepted-tick raw-facts producer 与 H pre-room capture 已进入默认 Run；仍须补足首房执行期尚未记录的不可逆原始 producer，再明确 14 项 metric 的 source/window/denominator/missing、metric snapshot、room count、完整 difficulty mapping、weighted selection、parallel/weather、tier budget 与 safe-gap handoff producer |
+| P0-05 | Live room composer | WIP | fixed non-composer 首房、accepted-tick raw-facts producer、H pre-room capture 与 H+1701 observation closure 已进入默认 Run；下一阻塞是 authored 首房剩余 occurrence/room closure policy，随后才是 14 项 metric source/window/denominator/missing、metric snapshot、room count、完整 difficulty mapping、weighted selection、transition、parallel/weather、tier budget 与 safe-gap handoff producer |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | quiet awakening、First Eye、typed `ROOM_SAMPLING` boundary、H pre-room capture 与固定首房 occurrence 已闭合；下一步建立 room completion/next handoff，再让其余 rooms、Boss、Dusk、witness 与 input return 均由 authored facts 驱动 |
+| P0-07 | Canonical Run / narrative | WIP | quiet awakening、First Eye、typed `ROOM_SAMPLING` boundary、H pre-room capture、固定首房 occurrence 与 H+1701 observation closure 已闭合；该观察不是 room completion，下一步先 authored 首房剩余 occurrence/room closure policy，再建立真实 completion/next handoff |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
 | P0-09 | Presentation / accessibility | WIP | 完整 Run 的 full/reduced-motion/flash-off gameplay trace 相同；UI、音频、触觉、天气只读投影，关键 causal clips 可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
@@ -58,15 +59,17 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 以已验收的 fixed 首房、rolling raw facts 与 H capture 为基线，建立首房真实 completion、drain 与下一
-   handoff，同时补齐首房执行期间可能被后续 source-window policy 使用的不可逆原始 facts；H+1701 仍只算
-   slice complete。
-2. 原始 producer 足够后，再逐项明确 14 项 metric 的 window、denominator、threshold、missing 与 metric
-   snapshot，并建立 room count、完整 difficulty mapping 与 weighted selection policy；不得复制 QA fixture。
-3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
+1. 以已 DONE 的 H+1701 observation closure 为基线，先 authored 首房剩余 occurrence 数量/顺序与 room
+   closure policy；只有剩余 occurrence、terminal、entity/residue drain 与 narrative barriers 全部满足后，
+   才能提交真实 room completion 与下一 handoff。
+2. 真实首房 closure 及其 source window 明确后，再逐项 authored 14 项 metric 的 producer、window、
+   denominator、threshold、missing 与 frozen snapshot；不得复制 QA fixture 或把 H+1701 观察解释成 metric。
+3. metric snapshot 闭合后才建立 room count、完整 difficulty mapping 与 weighted selection；目标房取得
+   authority 后，才定义 transition gameplay occurrence 与 atomic room FSM join。
+4. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
    isolated capability 冒充 live room/Run。
-4. 接 durable cross-run persistence，再完成完整 Run browser/accessibility/performance 证据。
-5. P0 闭合、完整门禁稳定后恢复 GitHub push/PR 自动 CI，并进入 Alpha 候选。
+5. 接 durable cross-run persistence，再完成完整 Run browser/accessibility/performance 证据。
+6. P0 闭合、完整门禁稳定后恢复 GitHub push/PR 自动 CI，并进入 Alpha 候选。
 
 ## 4. P1：生产硬化（Beta 候选）
 
