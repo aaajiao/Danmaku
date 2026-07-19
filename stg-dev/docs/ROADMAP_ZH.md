@@ -61,9 +61,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 把EXT-019—024既有exact owner链接入Canonical Run Session与只读presentation：Session只能消费同一Run的
-   original owner，继续沿既有零tick transfer与exact-next step推进；不得借接线新增第三occurrence、自动释放
-   80-slot capacity、room completion或handoff。
+1. 实施[EXT-2026-025](adr/EXT-2026-025-second-in-between-session-projection.md)：用章节判别式owner把
+   EXT-019—024接入Canonical Run Session与只读presentation；只消费同一Run的original owner，不新增第三
+   occurrence、自动释放80-slot capacity、room completion或handoff。
 2. 沿进入真实Run的章节事件逐项补causal clip、音频与reaction；只在章节声明中选择共享V4 ID，不复制素材，
    不把preview/QA图当runtime资产，`dist`继续由部署阶段生成。
 3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
