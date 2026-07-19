@@ -177,6 +177,27 @@ Choose evidence from the changed authority and its consumers. The default loop
 is focused and fast; broad gates are milestone/release evidence, not a ritual
 after every edit.
 
+Development throughput is part of the verification design. By default, one
+small vertical slice gets one direct behavior test (or one filtered case), one
+strict typecheck, and one `git diff --check`. Add evidence only for a concrete
+risk introduced by that slice:
+
+- Do not rerun an unchanged broader suite in the same slice. If a check fails,
+  fix the cause and rerun the failed case or smallest affected scope first.
+- A shared low-level seam change gets one directly affected seam test; it does
+  not automatically trigger every consumer, build, browser journey, or full
+  suite when the dependency surface is known.
+- Do not add tests merely to increase counts, mirror implementation branches,
+  or prove facts already guaranteed by a lower authority. Prefer one real
+  producer path plus small pure cases for genuinely distinct boundaries.
+- Use at most one targeted review pass for a new authority boundary by default.
+  Continue implementation once the direct evidence passes and no unresolved
+  P0/P1 remains; more review needs a specific new risk, not general caution.
+- Full unit, build, browser, accessibility, performance, and soak gates belong
+  at player-visible vertical milestones, cross-cutting changes, release/PR
+  readiness, or an explicit request. Defer them deliberately between those
+  points so that most time advances the playable game.
+
 - A completed code slice runs `git diff --check`, strict typecheck, and the
   smallest focused tests that prove the changed contract, lifecycle, hostile
   input, and relevant cadence/profile behavior.
