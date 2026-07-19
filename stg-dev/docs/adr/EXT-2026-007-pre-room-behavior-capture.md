@@ -1,9 +1,12 @@
 # EXT-2026-007：Canonical Run pre-room 行为事实冻结
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
 - 负责人 / 审核人：aaajiao / Codex
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
+- 设计提交：`3f840b0733b45f07ca6dad9a9a1dda11c99725e0`
+- content identity gate 提交：`66904b1db8b880dc9f0b8d6791aa0f7612056220`
+- capture 实现提交：`4bc20fc9295bc23c014f9e66b47097f80ac1a6d1`
 - 前置记录：[EXT-2026-006](EXT-2026-006-canonical-run-behavior-facts.md)
 - aaajiao skill：`1.1.1`；SHA-256 `ccfb41ac8898d7f035a9f8bd9cfd66cb526d213e0184b266d7ef71477fe310e4`；完整读取于 2026-07-19
 - V4 package：schema `4.0.0`；package-manifest SHA-256 `d4810598bdb1795cb44b937eb219d4d86f8eeaf3b32c5789a1e9c642bf1dbe70`；content digest SHA-256 `f5ad0e32d5c15aa9cae52a5b7948af217bc82951bfb7f8f4cb97c3a8c24bc2b2`
@@ -150,27 +153,38 @@ owner。禁止读取 `H+1` 后的 Forced facts再声称首房由这些 facts 选
 | `gameplay/tools/sim_core.py` | V4 package / aaajiao | Python QA oracle / V4 4.0.0 | caller metric fixture、一次性 schedule；不作 live policy | repository license | `d947d3c4c3e0645bb09172a178a883446aee121697e27267ebf2064f88bab277` |
 | `docs/WORLD_REFERENCE_ORIGINAL_ZH.md` | V4 package / aaajiao | original concept reference | run-end/2s formulas仅作历史对照，不接入 | repository license | `1c486c831fc95e0d4c8edff5ee5e2f5423c1b627370901f4e4a52520f00dc6b6` |
 | `src/authority/run-behavior-facts.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | EXT-006 rolling source snapshot | repository license | `7a7deccdfd155bbb61557576ddad653aca4d9629071e0812bb69affecd061955` |
-| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | typed H boundary 与 owner switch | repository license | `f3f57f0f573e74cda1dc7827112716b66cfd2e9312dc27650c03480cdbfe4bcb` |
+| `src/authority/run-behavior-capture.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | exact-schema H capture、content pin、metric/room/RNG firewall | repository license | `52a776bbe81c08dfda99467b89f2d82b6a7d52a7aeaaf322767282d880615600` |
+| `src/authority/run-behavior-capture.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | H−1/H/H+1/READ/slice、replay、hostile fields 与 composite fail-stop | repository license | `3819e1b626cbd9878d0595ef68fb5ac45605f0a2446e6b6582e806e31103c10f` |
+| `src/authority/run-session.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | EXT-006 后、公开 snapshot 前的一次性 H capture seam | repository license | `6bd1936d0043dcaeca415c612b2a50e4c0577e9aad1edc239627c7cdb77ce4ef` |
+| `src/content/v4-content-identity.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | browser-safe V4 schema/package/digest pin | repository license | `bbff369ee9e1c7855ec40ddd6ca4a7f00a295e93d445aedb973ceb457431248e` |
+| `src/content/v4-content-identity.test.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / Vitest | shared pin 与实际 Content Authority exact match | repository license | `945956d27a6afa73dce40607dcfac9eb103451acfe8248b899cf0a081862275b` |
+| `tools/content/validate-content.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | build-time shared identity fail-closed gate | repository license | `38c7aa4f33c5f09eb35a8d2c3f1267b95501b1443138f229170b42ffc67c1701` |
 | `src/authority/run-composer.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | QA-only exact fixture/composer；保持隔离 | repository license | `930295610620fb5e392e251fde91f50f419b6fab6c099b074ff5c29ea1dc3335` |
 | `src/authority/live-run-admission.ts` | Danmaku / aaajiao + Codex | Bun 1.3.14 / TypeScript | caller plan admission；composer=false | repository license | `51885d411e518e072e9402cb44ab5fabe15a7631e634b623f22c0cf07eba7757` |
 
-V4 source tree 保持只读。application hashes 是提案起草时输入基线；接受时补充 capture implementation、
-tests、最终 Run Session hash 与实现提交。
+V4 source tree 保持只读。最终 application hashes 对应 content identity gate `66904b1` 与 capture implementation
+`4bc20fc`；没有修改 asset kit、依赖、lockfile、canonical event schema 或 persistence schema。
 
-## 验证证据（待实现）
+## 验证证据
 
-PROPOSED 阶段不声称未运行测试通过。接受前至少需要：
-
-- H−1 capture missing；H 在 EXT-006 记录后恰好 available；source facts last tick/count 为 H、room owner 0、
-  room context missing；H+1、H+159、H+1701 后 capture canonical bytes 不变；
-- capture 不含 `roomSampling`/room plan/pattern/difficulty，metric universe仍全部 unresolved，selection false；
-- capture source event count/last sequence/ID multiset等于 H bus prefix，且加入 capture 不改变 event serialization；
-- rejected/gap/duplicate input 不创建或更新 capture；cross-authority failure 与 capture invariant failure保持
-  fail-stop/atomicity；snapshot与nested facts全部 frozen；
-- 同 seed/input replay得到同一 capture serialization；Full/Reduced Motion/Flash-Off 不进入 capture source；
-- V4 schema/content digest pin与实际 Content Authority一致，漂移使 focused/build content gate失败；
-- focused authority tests、strict typecheck、`bun run build` 与 `git diff --check` 通过；无 user-visible path，
-  不要求 Playwright或全量 `test:all`。
+- focused Vitest 5 文件共 46 条通过：capture 4、behavior facts 7、Run Session 17、event bus 17、content
+  identity 1；总耗时约 5 秒。按 authority-only 风险层级没有运行无关的 Playwright 或 `test:all`；
+- H−1 为 explicit missing；H 在 EXT-006 rolling update 后恰好 available，source last tick/count 均为 H，
+  `room_sampling` owner count 为 0、room context missing；H+1、H+159 与 H+1701 的 capture bytes 完全不变，
+  同时 live rolling ledger 正常增长且 slice complete 仍不是 room complete/handoff；
+- capture serialization 不含 `roomSampling`、Forced room/pattern、difficulty、tier、metrics 或 room count；14 项
+  metric ID 仍全 unresolved，metric projection 与 selection 均为 false；
+- source event baseline + observed count、last sequence 与按 code-point 排序的 ID multiset等于 H bus prefix；
+  capture 不写 canonical event，不消费 RNG；
+- rejected duplicate tick 不改变 session/capture；错误 boundary、非 frozen source、root/nested `metrics`、room
+  plan、RNG state 与 own-data `__proto__` 均在 clone 前拒绝；H capture invariant failure使 composite fail-stop，
+  snapshot/event observation ports 不公开半份状态；
+- 同 raw seed 与 accepted input 的两个 Run 得到 byte-identical capture；capture 及全部嵌套 facts recursively
+  frozen。Full/Reduced Motion、Flash-Off、RAF、wall clock 与设备身份不在 producer input/schema；
+- browser-safe shared content identity 与实际 Content Authority 五项 exact match；`content:check` 和 production
+  build 共验证 V4 778 个 checksum row、package manifest SHA-256 与 content digest；
+- `bun run typecheck`、`bun run build` 与 `git diff --check` 通过。实现审查发现的 extra-field P1 已修复并复审
+  关闭，无剩余 P0/P1。
 
 ## 回滚与迁移
 
@@ -183,7 +197,7 @@ consumer必须在自己的输入边界拒绝，不得重算、补零或读取 cu
 
 ## 决策
 
-PROPOSED。先保存进入 room owner 前最后一个可无损取得的 EXT-006 aggregate snapshot，不提前决定其
-selection 意义，也不把它冒充 EXT-006 未记录的完备 metric source。14 项 metric、cold-start source、room
-count、weighted selection、tier/difficulty/salt、room completion、下一 handoff、Boss、weather与cross-run
-consumer继续未决。
+ACCEPTED。Canonical Run 现在在 H 的旧 owner 事实关闭并写入 EXT-006 后，一次性保存 current-run `[1,H]`
+aggregate snapshot；shared build gate 将其 provenance pin 到实际 V4 Content Authority。capture 仍没有 metric、
+selection、room plan、RNG 或 persistence 权限。14 项 metric、cold-start source、room count、weighted
+selection、tier/difficulty/salt、room completion、下一 handoff、Boss、weather与cross-run consumer继续未决。

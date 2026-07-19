@@ -169,6 +169,12 @@ universe 限制，不保存逐 tick history。该 port 不计算 composer metric
 handoff `H` 的新返回 phase 冒充本 tick owner。契约与 provenance 见
 [EXT-2026-006](adr/EXT-2026-006-canonical-run-behavior-facts.md)。
 
+进入首个 room owner 的 handoff tick `H` 由旧 owner 关闭；EXT-006 写入 H 后、公开 snapshot 返回前，Run
+恰好冻结一次 accepted ticks `[1,H]` 的 exact aggregate capture。capture 使用共享 V4 content identity pin，
+逐层拒绝额外字段，并明确不含 room plan、metric、selection 或 RNG authority；H+1 后 rolling facts 继续增长，
+该 capture 永不改写。契约与 provenance 见
+[EXT-2026-007](adr/EXT-2026-007-pre-room-behavior-capture.md)。
+
 ## 11. Narrative、snapshot 与 cross-run restore
 
 Snapshot 只观察当前 Run，不评价玩家，也不自行写 cross-run event。Serialize 成功后才能铸造与
