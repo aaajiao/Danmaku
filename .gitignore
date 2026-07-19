@@ -1,6 +1,8 @@
 # macOS / editors
 .DS_Store
 **/.DS_Store
+# Finder custom-folder icon metadata (the filename ends with a carriage return).
+Icon?
 .idea/
 .vscode/
 *.swp
