@@ -27,6 +27,7 @@
 | [EXT-2026-010：首房 closure 的 typed metric projection](EXT-2026-010-first-room-metric-projection.md) | ACCEPTED | H+1702投影2项available ratio与12项typed missing；composer/selection继续withheld |
 | [EXT-2026-011：首房 recent input union](EXT-2026-011-first-room-recent-input-density.md) | ACCEPTED | 首房per-channel-consumed同tickactive union与`recentInputDensity`；projection仍partial |
 | [EXT-2026-012：首房 partial facts 的下一房 target](EXT-2026-012-first-continuation-room-target.md) | ACCEPTED | 保留typed missing，只用available bias和一次Mulberry32 draw冻结ordinal 1 target；不接transition |
+| [EXT-2026-013：首个 continuation target 的 room transition](EXT-2026-013-first-continuation-room-transition.md) | PROPOSED | H+1703拼接atomic FSM与Room Threshold；650ms身份稳定、7800ms gameplay交接及material-only carryover |
 
 ## 新 ADR 规则
 
