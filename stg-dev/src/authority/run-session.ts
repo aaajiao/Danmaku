@@ -27,6 +27,11 @@ import {
   type CanonicalRunBehaviorOwnerPhase,
 } from "./run-behavior-facts";
 import {
+  CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING,
+  createCanonicalRunPreRoomBehaviorCapture,
+  type CanonicalRunPreRoomBehaviorCapture,
+} from "./run-behavior-capture";
+import {
   AUTHORED_PLAYER_Y,
   LOGICAL_VIEW_HEIGHT,
   LOGICAL_VIEW_WIDTH,
@@ -348,6 +353,8 @@ export interface CanonicalRunSessionSnapshot {
   readonly roomSampling: CanonicalRunRoomSessionSnapshot | null;
   /** Bounded observation only; it is neither a metric snapshot nor composer input. */
   readonly behaviorFacts: CanonicalRunBehaviorFactsSnapshot;
+  /** Frozen `[1,H]` facts only; never a room plan or composer input. */
+  readonly preRoomBehaviorCapture: CanonicalRunPreRoomBehaviorCapture;
   readonly adapterPolicy: CanonicalRunSessionAdapterPolicy;
 }
 
@@ -972,6 +979,7 @@ export class CanonicalRunSession {
   private readonly flower = new FlowerIntensityAuthority(this.bus, {authorityId: "player-flower"});
   private readonly gaze = new GazeAuthority(this.bus);
   private readonly behaviorFacts: CanonicalRunBehaviorFactLedger;
+  private preRoomBehaviorCaptureValue: CanonicalRunPreRoomBehaviorCapture | null = null;
   private phaseValue: CanonicalRunSessionPhase = "quiet_awakening";
   private currentTick120 = 0;
   private phaseStartTick120 = 0;
@@ -1028,6 +1036,7 @@ export class CanonicalRunSession {
         else if (this.phaseValue === "room_sampling") this.stepRoomSampling(validated);
         else this.stepFirstEye(validated);
         this.recordBehaviorFacts(ownerPhase, validated, eventCountBefore);
+        this.capturePreRoomBehaviorFacts(ownerPhase);
         return this.snapshot();
       } catch (error) {
         this.fatalError = error instanceof Error ? error : new Error(String(error));
@@ -1110,6 +1119,8 @@ export class CanonicalRunSession {
       },
       roomSampling,
       behaviorFacts: this.behaviorFacts.snapshot(),
+      preRoomBehaviorCapture: this.preRoomBehaviorCaptureValue
+        ?? CANONICAL_RUN_PRE_ROOM_BEHAVIOR_CAPTURE_MISSING,
       adapterPolicy: this.adapterPolicy,
     });
   }
@@ -1185,6 +1196,25 @@ export class CanonicalRunSession {
         canonicalEvents,
         sourceEventCount,
       },
+    });
+  }
+
+  private capturePreRoomBehaviorFacts(ownerPhase: CanonicalRunBehaviorOwnerPhase): void {
+    if (this.preRoomBehaviorCaptureValue !== null) return;
+    if (ownerPhase !== "first_clamp_recovery" || this.phaseValue !== "room_sampling") return;
+    const room = this.roomSession?.snapshot() ?? null;
+    if (
+      room === null
+      || this.handoffReadyAtTick120 !== this.currentTick120
+      || room.boundaryTicks120.start !== this.currentTick120
+      || room.tick120 !== this.currentTick120
+    ) {
+      throw new Error("pre-room behavior capture lost the closed handoff boundary");
+    }
+    this.preRoomBehaviorCaptureValue = createCanonicalRunPreRoomBehaviorCapture({
+      capturedAtTick120: this.currentTick120,
+      sourceEventCount: this.bus.committedEventCount(),
+      behaviorFacts: this.behaviorFacts.snapshot(),
     });
   }
 
