@@ -1,127 +1,160 @@
 # Danmaku repository agent contract
 
-This file applies to the repository root and every descendant unless a deeper
-`AGENTS.md` explicitly narrows a rule.
+This file applies to the repository root and all descendants unless a deeper
+`AGENTS.md` narrows a rule for its own subtree.
 
-## 1. Project identity
+## How to use this contract
+
+- `must`, `never`, and the product/runtime invariants below are hard boundaries.
+- Everything described as a preference, default, or example may be adapted when
+  the change is safer, clearer, or faster another way. Briefly record a material
+  deviation and its reason in the handoff; do not wait for permission for a
+  reversible internal engineering choice.
+- Keep this file durable and broad. Feature-specific numbers, temporary plans,
+  acceptance traces, and one-off implementation lessons belong in the owning
+  design document, ADR, roadmap item, test, or fixture—not as permanent root
+  rules.
+- Optimize for a playable, observable vertical slice. Process exists to protect
+  the work and shorten feedback, not to create ceremony.
+- Proceed with reasonable assumptions for safe, reversible, in-scope work. Ask
+  only when a missing choice would change product meaning, destroy/overwrite
+  material state, affect an external party, or materially expand the scope.
+
+## 1. Non-negotiable product identity
 
 - This repository builds a deterministic 1-bit STG from
   `1bit-stg-complete-asset-kit-v4/`.
-- The product is an observable behavior/material system, not a score, rank,
-  victory, morality, or optimization system. Do not add those concepts through
-  copy, mechanics, telemetry, achievements, or hidden state.
+- The work is an observable behavior/material system, not a score, rank,
+  victory, morality, or optimization system. Do not introduce those concepts
+  through copy, mechanics, telemetry, achievements, or hidden state.
 - Preserve the material/digital double helix: gameplay facts may project into
   visual, audio, haptic, UI, narrative, and memory layers; presentation never
   writes gameplay authority back.
 - Treat subtraction, absence, interruption, residue, witness, and handoff as
-  first-class authored behaviors. Do not fill intentional silence with generic
-  game feedback.
+  authored behaviors. Do not fill intentional silence with generic feedback.
+- Before changing gameplay, narrative, copy, visual/audio language, PWA
+  identity, or content, read and follow the complete project skill:
+  `.agents/skills/aaajiao/SKILL.md`.
+- Content or observable rules outside V4 must pass
+  `stg-dev/docs/CONTENT_EXTENSION_ZH.md` and receive the required extension ADR
+  and provenance. Never create a second gameplay language beside V4.
 
-## 2. Required project skill
+## 2. Authority and deterministic runtime
 
-Before changing gameplay, narrative, copy, visual/audio language, PWA identity,
-or adding content, read the complete project skill:
-
-```text
-.agents/skills/aaajiao/SKILL.md
-```
-
-Follow it throughout the task. Any content outside V4 must also pass
-`stg-dev/docs/CONTENT_EXTENSION_ZH.md` and include an extension ADR/provenance
-record. Never create a second gameplay language beside V4.
-
-## 3. Authority and source order
-
-Use this precedence when sources appear to disagree:
+When sources disagree, use this order:
 
 1. `1bit-stg-complete-asset-kit-v4/manifests/**` canonical contracts;
 2. `1bit-stg-complete-asset-kit-v4/runtime/**` reference machines/oracles;
 3. `1bit-stg-complete-asset-kit-v4/gameplay/tools/sim_core.py` QA oracle;
 4. `stg-dev/src/authority/**` production authority adapters;
-5. `stg-dev/src/game/**` application/presentation integration.
+5. `stg-dev/src/game/**` application and presentation integration.
 
-Do not edit the V4 asset kit to make application tests pass unless the user
-explicitly asks to change the source kit. Fail fast on version, schema, ID,
-reference, file-universe, or SHA-256 drift. Do not commit generated Python
-`__pycache__`/`.pyc`, build output, browser reports, or local caches.
+The following rules are firm:
 
-Before implementing a gameplay slice, trace its authority from source fact to
-producer, deterministic consumer, and observable result. Classify a blocker as
-an authority/design gap, an implementation defect, or a verification problem;
-do not spend test time trying to resolve an unwritten design decision.
-
-- Silence in V4 is not permission to guess. Do not invent formulas,
-  thresholds, normalization, default metrics, RNG scope, room count, or
-  transition rules. Preserve unavailable facts as typed absence; never coerce
-  `missing` to numeric zero, neutral input, or fabricated history.
-- Any necessary rule outside V4 must be accepted in a focused extension ADR
-  before implementation. State the exact omission, the smallest added rule,
-  its negative-space boundary, provenance, rollback, and the playable or
-  observable path it unlocks. Keep the proposal and implementation as separate
-  completed commits.
-- Reject circular readiness gates. A later-room observation cannot be required
-  to enter that room or to select the next room. At each boundary, consume only
-  facts that could actually have been observed by then, with an explicit policy
-  for partial evidence.
-- Prefer the smallest vertical slice that closes an authoritative producer,
-  deterministic consumer, and observable behavior. Do not prioritize a metric,
-  abstraction, or broad scaffold merely because it raises a coverage count; it
-  must advance the playable loop or retire a named production risk.
-- Composition is itself an authority decision. Two individually canonical
-  machines, patterns, or receipts do not define their join timing, ordering,
-  ownership, or failure semantics. If V4 does not bind them explicitly, record
-  the exact gap and accept a focused extension ADR before connecting them; do
-  not infer a join from similar names, nearby timestamps, or convenient test
-  behavior. In particular, the 7800 ms gameplay transition pattern and the
-  650 ms atomic room-identity FSM remain separate authorities until an accepted
-  source defines their composition.
-- Before enabling a selector, router, or transition in the live run, enumerate
-  its complete legal output set and prove that every output has a fail-closed
-  admission path. One convenient integration seed proves only that example.
-  An unsupported target must be rejected before gameplay side effects or
-  single-use receipt consumption; never silently reroll, substitute a supported
-  room, or hard-code the current seed's result.
-- Report integration depth precisely: authority adapter, direct executor,
-  live-admitted capability, session-owned behavior, and player-visible path are
-  different completion states. A passing direct test does not make a capability
-  playable. Prioritize closing the next missing boundary over adding more
-  disconnected direct-only capabilities.
-- Give authority audits a concrete stop condition. Once the canonical sources,
-  existing producer/consumer path, and exact omission are identified, stop
-  open-ended searching: either implement the written rule or propose the
-  smallest extension decision. Do not leave development waiting on speculative
-  archaeology after the decision gap is already proven.
-
-## 4. Runtime invariants
-
-- Integer `tick120` is the only gameplay time identity. Milliseconds are a
-  derived projection. V4 60 Hz machines advance only every second master tick.
+- Do not edit V4 to make application code or tests pass unless the user
+  explicitly requests a source-kit change. Fail closed on version, schema, ID,
+  reference, file-universe, or SHA-256 drift.
+- Silence in V4 is not permission to invent gameplay facts. Preserve unavailable
+  facts as typed absence; do not coerce missing information to zero, neutral
+  input, or fabricated history.
+- Composition is an authority decision. Two valid machines do not imply their
+  join timing, ownership, ordering, or failure semantics. Use a focused
+  extension decision when an observable join is absent from V4.
+- Integer `tick120` is the gameplay time identity. Milliseconds are derived.
+  V4 60 Hz machines advance only on every second master tick.
 - Pause freezes gameplay time and discards wall time observed while paused.
-- Same-tick ordering is:
+- Same-tick ordering is
   `collision-off -> state/damage -> collision-on -> entity-spawn -> feedback`.
-- Canonical event IDs come only from the V4 event schema. Unknown IDs, duplicate
-  occurrence keys, incomplete required payloads, and feedback-to-gameplay writes
-  are errors.
-- Pattern execution uses one seeded Mulberry32 stream, stable cadence/entity
+- Canonical event IDs come only from the V4 schema. Unknown IDs, duplicate
+  occurrence keys, incomplete required payloads, and feedback-to-gameplay
+  writes are errors.
+- Pattern execution uses the canonical seeded RNG stream, stable cadence/entity
   ordering, declaration-order motion operators, enforced safe gaps, and swept
   warning/collision geometry.
-- Projectile and laser flight are entity-owned. Never infer collision or
-  lifecycle completion from animation time, alpha, atlas frames, audio, reduced
-  motion, or renderer state. Never recycle a live collider when a pool is full.
-- Weather and accessibility profiles are projections and must produce the same
-  gameplay trace.
+- Projectile and laser flight are entity-owned. Collision and lifecycle may not
+  be inferred from animation, alpha, atlas frames, audio, reduced motion, or
+  renderer state. Never recycle a live collider when a pool is full.
+- Weather and accessibility are projections and must preserve the gameplay
+  trace.
 - Cross-run restore order is material record, ghost/witness projection, then
   player input return. A run ends in observation/handoff, not victory.
 
-## 5. Bun-only application toolchain
+## 3. Architecture: shared authority, chapter-owned orchestration
 
-The application package manager and JavaScript runtime are Bun 1.3.14. Keep
-`stg-dev/bun.lock` as the only JavaScript lockfile. Do not introduce npm, npx,
-pnpm, Yarn, package-lock, or parallel scripts.
+Organize code by ownership and reason to change, not by line count alone and
+not by story chapter alone.
 
-The available project gates are below. Select them by change risk as described
-in section 6; do not run every gate after every small edit. Run commands from
-`stg-dev/`:
+- Shared authority owns rules that must remain identical across the game:
+  clock, events, RNG, input facts, player/projectile/laser lifecycle, collision,
+  persistence, canonical schemas, and read-only projection ports. Keep one
+  source of truth for each of these.
+- A chapter owns the sequence and policy unique to one playable segment: its
+  admission, local state, pattern assembly, transitions, handoff, chapter-only
+  presentation, and acceptance path. Chapters consume shared authority; they do
+  not copy or fork it.
+- Run/session code should be a thin conductor. It selects the active chapter,
+  routes input and authoritative ticks, and performs explicit handoffs. A
+  chapter should expose a narrow lifecycle such as `start`, `step`, `snapshot`,
+  and `handoff`, while keeping mutable internals private.
+- Keep the dependency direction one-way:
+  `V4 facts -> shared authority -> chapter owner -> presentation/application`.
+  Presentation can observe frozen snapshots and feedback ports only.
+- When introducing a boundary, prefer a recognizable shared area and a chapter
+  area (for example `authority/run/chapters/<chapter>` and, when useful,
+  `game/chapters/<chapter>`). These names are a default, not a demand for a
+  repository-wide move.
+
+A large file is a warning signal, not an automatic failure. Split a file when
+one or more of these are true:
+
+- it owns several independent authorities or several unrelated reasons to
+  change;
+- chapter-specific policy is mixed into reusable mechanisms;
+- a focused test requires constructing most of the game;
+- merge conflicts or review navigation repeatedly slow work;
+- the public surface is hard to describe without listing unrelated behavior;
+- test setup and fixtures obscure the behavior being proved.
+
+Do not split stable cohesive logic into tiny files merely to reduce line count.
+Temporary co-location is acceptable while a boundary is still being learned if
+there is one owner, no duplicated authority, a focused test, and a clear future
+extraction trigger. Prefer incremental extraction along the next real vertical
+slice over a large speculative rewrite. Source and tests should gradually mirror
+the same shared/chapter boundaries.
+
+## 4. Decision and implementation workflow
+
+- Before a non-trivial gameplay slice, trace the source fact to its producer,
+  deterministic consumer, and observable result. Classify a blocker as an
+  authority/design gap, implementation defect, or verification problem.
+- Reversible internal choices—file layout, private names, helper boundaries,
+  test organization, and equivalent algorithms—do not require an ADR when they
+  preserve authority and observable behavior. Make a reasonable choice and
+  continue.
+- Observable rules, content, authority composition, persistence meaning, or a
+  new source of gameplay truth do require the owning design/extension decision
+  before implementation. Keep proposal/acceptance and implementation as
+  separately reviewable changes when practical.
+- Prefer the smallest vertical slice that closes a producer, consumer, and
+  observable behavior. A broad scaffold or higher coverage number is not
+  progress unless it advances the playable loop or retires a named risk.
+- Before enabling a selector, router, or transition in the live run, enumerate
+  its legal outputs and prove each has a fail-closed admission path. Never
+  silently reroll, substitute, or rely on the convenient test seed.
+- Report integration depth honestly: adapter, direct executor, live-admitted
+  capability, session-owned behavior, and player-visible path are different
+  completion states.
+- Authority research needs a stop condition. Once the sources, current path,
+  and exact omission are known, implement the written rule or propose the
+  smallest missing decision; do not keep development waiting on speculative
+  archaeology.
+
+## 5. Toolchain
+
+The application is Bun-only. Use the version pinned by the repository and CI
+(currently 1.3.14), and keep `stg-dev/bun.lock` as the only JavaScript lockfile.
+Do not introduce npm, npx, pnpm, Yarn, `package-lock.json`, or parallel package
+scripts. Run application commands from `stg-dev/`:
 
 ```sh
 bun install --frozen-lockfile
@@ -134,165 +167,146 @@ bun run test:e2e
 bun run test:all
 ```
 
-The V4 package ships several Python reference validators. They are immutable
-oracles rather than an application toolchain; invoke them with `python3 -B` so
-they cannot write bytecode caches. Do not replace oracle evidence with a wrapper
-that merely returns expected hashes.
+V4 Python validators are immutable reference oracles, not an alternate app
+toolchain. Invoke them with `python3 -B` to avoid bytecode output. Do not replace
+oracle evidence with a wrapper that simply returns expected values.
 
-## 6. Risk-based verification workflow
+## 6. Risk-based verification
 
-Choose tests from the changed authority and its consumers. The default feedback
-loop is focused and fast; broad gates are escalation and release evidence, not
-a ritual after every small edit.
+Choose evidence from the changed authority and its consumers. The default loop
+is focused and fast; broad gates are milestone/release evidence, not a ritual
+after every edit.
 
-- Every completed code slice must pass `git diff --check`, strict typecheck, and
-  the smallest test file/name scope that proves the changed behavior. A typical
-  focused command is `bun run test -- <test-file> -t "<case or describe>"`.
-- Declare the slice's verification budget before implementation: focused test
-  files/cases, directly affected consumers, and the condition that would
-  escalate to build or browser evidence. Do not discover an ever-growing test
-  scope at the end of the slice.
-- Keep a normal focused feedback loop under roughly 30 seconds on the standard
-  development machine. If a narrow suite repeatedly exceeds that budget,
-  profile setup and split producer integration from pure-consumer cases before
-  adding timeouts or running fewer assertions. Record a justified exception
-  when the authority itself genuinely requires the longer real-time window.
-- For a long deterministic prefix, retain at least one live integration case
-  that executes the real producer from its authoritative start. Downstream
-  pure projectors may use an immutable exact-schema boundary fixture whose
-  bytes/hash are pinned by that producer case, instead of replaying thousands
-  of ticks for every leaf assertion. Such a fixture is test input only: it may
-  not prove producer lifecycle/order, replace a V4 oracle, or become a second
-  gameplay authority. Refresh it whenever the producer contract changes.
-- Documentation-only changes require `git diff --check` plus link, command, and
-  stale-fact review. Do not run JavaScript suites unless the documentation
-  change also modifies generated content, manifests, executable examples, or a
-  release artifact.
-- Leaf authority or one-pattern changes run their focused contract, lifecycle,
-  determinism, hostile-input, and relevant profile/cadence cases. Expand to
-  directly affected consumer test files when a public contract changes.
-- Shared clock, event bus, projectile/player lifecycle, schema, session, or
-  persistence changes first run focused reproductions, then all directly
-  affected suites. Run `bun run test:unit` once only when the dependency surface
-  is broad enough that enumerating consumers would be less trustworthy.
-- Content, schema, bundle, PWA, or runtime-integration changes run
-  `bun run content:check` and `bun run build` in addition to focused tests and
-  typecheck. Pure leaf authority work does not need a build unless it changes a
-  bundled or user-visible path.
-- User-visible changes run the relevant production-preview Playwright spec.
-  Keep smoke limited to boot and critical availability; complete flows belong
-  in E2E, and unrelated browser specs need not be repeated.
-- Run `bun run test:all` once after targeted scopes are green for a milestone,
-  release candidate, PR readiness check, broad cross-cutting change, or an
-  explicit request. Do not run it once per small commit.
-- Automatic GitHub push/PR CI is intentionally paused during the current
-  `FOUNDATION` phase; `.github/workflows/ci.yml` is manual-only. This does not
-  waive local pre-commit evidence. Do not restore automatic triggers before the
-  roadmap reaches an Alpha candidate with the P0 authority loop closed and the
-  full gate stable, unless the user explicitly asks sooner.
-- When debugging a failure, reproduce the narrow failing scope, fix it, and
-  rerun that scope before escalating. Distinguish assertion failures from time
-  budget failures. Increase a timeout only with measured evidence; never skip,
-  mute, or weaken an assertion to make a gate pass.
-- Do not run heavy suites concurrently: resource contention makes timing
-  evidence unreliable. Cheap independent checks may run in parallel.
-- A prior full-gate result may be reused only while the tested source, fixtures,
-  manifests, dependency lock, and build inputs remain unchanged. State exactly
-  which commands were run; never report an unrun gate as passing.
-- Use the in-app browser/Chrome connector for exploratory visual or logged-in
-  inspection. Keep Playwright for deterministic repository tests and CI. One
-  does not replace the other.
-- Visual screenshots are presentation evidence only; they cannot prove
-  collision, ordering, determinism, or lifecycle correctness. Preserve
-  accessibility trace parity and gamepad edge semantics. Hardware claims
-  require a recorded physical-device matrix, not browser mocks.
+- A completed code slice runs `git diff --check`, strict typecheck, and the
+  smallest focused tests that prove the changed contract, lifecycle, hostile
+  input, and relevant cadence/profile behavior.
+- Documentation-only changes run `git diff --check` plus link, command, owner,
+  and stale-fact review. Do not run application suites unless executable or
+  generated inputs changed.
+- Leaf changes normally run their focused tests. Shared clock, event, schema,
+  player/projectile lifecycle, session, or persistence changes expand to all
+  directly affected consumers; use the full unit suite when that dependency
+  surface cannot be enumerated reliably.
+- Content, schema, bundle, PWA, or runtime-integration changes also run
+  `content:check` and `build`. A user-visible path runs its relevant
+  production-preview Playwright spec.
+- Keep smoke limited to boot and critical availability. Complete journeys and
+  chapter acceptance paths belong in E2E. Run `test:all` for a milestone,
+  release candidate, PR readiness, broad cross-cutting change, or explicit
+  request—not for every small commit.
+- Aim for a focused feedback loop measured in seconds or tens of seconds. If a
+  narrow suite becomes slow, profile setup and separate one real producer case
+  from pure downstream cases before raising timeouts.
+- A long deterministic prefix must retain at least one test using the real
+  authoritative producer. Pure consumers may use an exact-schema fixture pinned
+  to that producer. A fixture is test input, never a second gameplay authority
+  or proof of producer lifecycle/order.
+- Reproduce the narrow failure, fix it, and rerun that scope before escalating.
+  Do not skip, mute, weaken, or inflate timeouts without measured cause.
+- Do not run heavy suites concurrently. Cheap independent checks may run in
+  parallel. Reuse prior evidence only while its source, fixtures, manifests,
+  lockfile, and build inputs remain unchanged.
+- State exactly what ran. Never report an unrun gate as passing.
+- Use the in-app browser/Chrome for exploratory inspection and Playwright for
+  deterministic repository evidence. Screenshots prove presentation only, not
+  collision, ordering, determinism, or lifecycle. Preserve accessibility trace
+  parity and gamepad edge semantics. Hardware claims require a recorded
+  physical-device matrix, not browser mocks.
 
-## 7. Game-development documentation workflow
+Automatic GitHub push/PR CI is intentionally paused during the current early
+development phase. Keep workflows manual-only until the game reaches an Alpha
+candidate with the P0 authoritative loop closed, the full local gate stable,
+and the user explicitly agrees to re-enable automation. Local verification is
+still required.
 
-Treat documentation as owned production artifacts. One fact has one canonical
-document owner; other documents link to it instead of copying mutable counts,
-hashes, test output, or implementation history.
+## 7. Game-development documentation
 
-- Root `README.md` is the repository onboarding and document map: identity,
-  coarse current playable boundary, shortest setup/run/verification path, and
-  links. `stg-dev/README_ZH.md` is the application-package quickstart: directory
-  map, inputs, PWA/dev commands, and stable authority boundary. Neither README
-  is a changelog, pattern ledger, test report, or hash store.
-- `stg-dev/docs/GAME_DESIGN_ZH.md` is the GDD/design bible. It owns player
-  experience, authored loops, game rules, material/negative-space semantics,
-  input intent, and accessibility intent. Do not put implementation class
-  names, current test totals, build results, or engineering coverage there.
-- `stg-dev/docs/ARCHITECTURE_ZH.md` is the technical design document. It owns
-  stable authority boundaries, dependency direction, clocks, event ordering,
-  lifecycle contracts, persistence seams, and cross-module decisions. Current
-  completion percentages, backlog, and per-pattern trace dumps belong elsewhere.
-- `stg-dev/docs/ROADMAP_ZH.md` is the single hand-maintained production-status
-  owner. It records milestones, priority, DONE/WIP/TODO state, dependencies,
-  risks, and concise definitions of done. A compact current coverage snapshot is
-  allowed; per-seed hashes, long test output, and mechanism specifications are
-  not.
-- `stg-dev/docs/TESTING_ZH.md` owns QA strategy, scope-selection rules, commands,
-  release gates, performance policy, and device matrices.
-  `stg-dev/e2e/README.md` may remain a short local E2E runbook. Exact seeds,
-  hashes, event counts, and expected traces live in executable fixtures or
-  immutable generated/CI evidence, not duplicated prose.
-- `stg-dev/docs/CONTENT_EXTENSION_ZH.md` owns extension intake, approval, and
-  provenance requirements. Do not restate those rules in feature status notes.
-- Each ADR owns one durable decision, alternatives, consequences, provenance,
-  and rollback/supersession path. Accepted ADRs do not receive rolling coverage
-  or test-total updates; only status, explicit supersession, or dated errata may
-  change. Preserve historical umbrella ADRs and their provenance, and create a
-  focused successor ADR for a new independent decision.
-- Keep extension ADRs delta-shaped: link predecessor and stable architecture,
-  then state only the missing V4 decision, negative space, source window,
-  failure mode, provenance, and rollback required by the extension process.
-  At acceptance, replace planned evidence with one concise final evidence block
-  and final hashes; do not paste full command output or repeat stable background
-  into the roadmap, architecture, and README.
-- Route a vertical slice only to documents whose owned facts changed: player
-  rule -> GDD; stable technical boundary -> architecture or a focused ADR;
-  production status -> roadmap; QA method -> testing guide. Ordinary capability
-  work should not be copied into every README, GDD, architecture, roadmap, QA,
-  and ADR file.
-- Before a documentation commit, verify links and commands, scan owned status
-  fields for stale dates/counts, and remove duplicate claims. When moving V4
-  authority or provenance, retain the original ADR plus commit/digest and add
-  reciprocal links; never silently rewrite or delete its source history.
+Documentation is a production artifact. One changing fact has one canonical
+owner; other documents link to it instead of copying counts, hashes, status,
+test output, or implementation history.
 
-## 8. Code and file discipline
+- Root `README.md`: repository onboarding, document map, coarse playable
+  boundary, and shortest setup path.
+- `stg-dev/README_ZH.md`: application quickstart, inputs, PWA/dev commands, and
+  stable package map.
+- `stg-dev/docs/GAME_DESIGN_ZH.md`: player experience, authored loop, game
+  rules, material/negative-space meaning, input intent, and accessibility intent.
+- `stg-dev/docs/ARCHITECTURE_ZH.md`: stable technical boundaries, dependency
+  direction, clocks, event/lifecycle contracts, persistence, and shared/chapter
+  architecture.
+- `stg-dev/docs/ROADMAP_ZH.md`: the single current production status, milestone,
+  priority, dependency, risk, and definition-of-done owner.
+- `stg-dev/docs/TESTING_ZH.md`: QA strategy, scope selection, commands, release
+  gates, performance policy, and device evidence.
+- `stg-dev/docs/CONTENT_EXTENSION_ZH.md`: extension intake, approval, and
+  provenance.
+- `stg-dev/docs/adr/**`: one durable decision per ADR, including alternatives,
+  consequences, provenance, rollback, and supersession.
+
+When a chapter needs more than a short GDD/roadmap entry, give it one indexed
+chapter document or small chapter folder that owns its flow, local assets,
+acceptance path, and links to relevant ADRs/tests. Keep shared mechanics in the
+GDD/architecture and current completion in the roadmap; do not duplicate them
+inside every chapter. The exact folder layout may evolve with the game.
+
+Route a slice only to documents whose owned facts changed: player rule to GDD;
+stable technical boundary to architecture/ADR; current state to roadmap; test
+method to the testing guide; chapter-local flow to its chapter document.
+Accepted ADRs are historical decisions, not rolling test reports. Preserve
+provenance and use an erratum or successor when meaning changes.
+
+Before a documentation commit, verify links and commands, check owned status
+for stale claims, and remove duplicated mutable facts.
+
+## 8. Code, assets, and workspace discipline
 
 - Prefer manifest-derived registries over copied ID lists.
-- Keep authority modules renderer-independent and deterministic. Expose frozen
-  snapshots/read-only feedback ports; avoid leaking mutable authority state.
-- Use stable code-point ordering and explicit occurrence identities. Do not rely
-  on object insertion order, locale sort, render cadence, or floating-point time
-  as an identity.
-- Preserve unrelated user changes. Use `apply_patch` for hand edits. Do not use
-  destructive Git commands or broad deletion targets.
-- New generated art must have an approved purpose/provenance and exact PWA or
-  runtime sizing tests. Reuse V4 assets before generating substitutes.
+- Keep authority renderer-independent and deterministic. Expose frozen
+  snapshots/read-only feedback ports; do not leak mutable authority state.
+- Use stable code-point ordering and explicit occurrence identity. Do not rely
+  on locale sort, render cadence, floating-point time, or accidental insertion
+  order as identity.
+- Preserve unrelated user changes. Use `apply_patch` for hand edits. Avoid
+  destructive Git operations and broad deletion targets.
+- Reuse V4 art before generating substitutes. New generated art needs approved
+  purpose/provenance and exact runtime/PWA sizing evidence.
+- Keep Python bytecode, build output, browser reports, local caches, and macOS
+  `Icon\r` metadata ignored and untracked.
+- Intentional `.agents/skills/**` changes are normal repository changes. Review,
+  verify, commit, and push them like other focused work; do not treat them as
+  local Codex cache.
 
 ## 9. Commit and push workflow
 
-- Work on a focused branch; never commit directly to `main`.
-- Finish, verify, commit, and—when authorized—push one reviewable vertical slice
-  before starting the next slice. Do not accumulate several already-complete
-  responsibilities in the worktree.
-- Split commits by authority responsibility: content authority, clock/events,
-  gameplay lifecycle, narrative state, E2E, documentation policy, or another
-  coherent seam. Do not mix V4 source edits, runtime refactors, generated
-  assets, skills, and unrelated documentation in one opaque commit.
-- Stage explicit paths, inspect the staged diff and status, and preserve all
-  unrelated user changes. Never use broad staging to sweep in unknown files.
-  Keep macOS `Icon\r`, generated Python bytecode, build output, browser reports,
-  and local caches untracked. Intentional `.agents/skills/**` changes are normal
-  repository changes and receive their own focused commit when appropriate.
-- Each commit message must state the authority or production-document change,
-  and the handoff must name the exact verification evidence that passed.
-- Pushing requires explicit user authorization. When the user authorizes pushes
-  for the current non-`main` branch/workstream, treat that as continuing
-  authorization to push each newly completed commit on that same branch until
-  revoked; verify the branch and upstream before every push.
-- Never push `main`, open a PR, amend/rebase published history, rewrite history,
-  or force-update a remote without separate explicit authorization. The
-  configured remote is `https://github.com/aaajiao/Danmaku.git`.
+- Work on a focused non-`main` branch. Never commit or push directly to `main`.
+- Finish, verify, commit, and—when authorized—push each reviewable vertical
+  slice before starting another completed responsibility. Do not stockpile
+  finished work in the working tree.
+- A commit must be coherent and usable. Do not knowingly commit a broken or
+  half-integrated state merely to make the tree clean. If work is interrupted,
+  finish the current safe boundary or keep the incomplete paths isolated and
+  report them plainly.
+- Split commits by authority or production responsibility. Avoid opaque mixes
+  of V4 source, runtime refactor, generated assets, skills, tests, and unrelated
+  documentation.
+- Stage explicit paths, inspect the staged diff, and preserve unrelated or
+  unfinished changes. A focused documentation commit may coexist with isolated
+  unstaged implementation work.
+- Commit messages state the authority or production-document change. The
+  handoff names the exact verification evidence.
+- Explicit push authorization for the current non-`main` workstream continues
+  for its subsequent completed commits until revoked. Verify branch, upstream,
+  and staged scope before every push.
+- Opening a PR, amending/rebasing published history, rewriting history, or force
+  updating a remote needs separate explicit authorization. The remote is
+  `https://github.com/aaajiao/Danmaku.git`.
+
+## 10. Completion and communication
+
+- Lead with the playable or production outcome in plain language.
+- Distinguish completed, directly testable, session-integrated, and
+  player-visible work. Name remaining blockers without hiding them behind test
+  counts.
+- Report the commit and push status for every completed slice, plus the tests
+  actually run. If a broader gate was intentionally deferred, say why and when
+  it becomes necessary.
