@@ -37,7 +37,9 @@ import {
 import {
   advanceCanonicalRunFirstContinuationSuccessorPreRead,
   advanceCanonicalRunFirstContinuationSuccessorRead,
+  advanceCanonicalRunFirstContinuationSuccessorTail,
   cancelPreparedCanonicalRunFirstContinuationRoomAdmission,
+  closeCanonicalRunFirstContinuationSuccessorSlice,
   commitPreparedCanonicalRunFirstContinuationRoomAdmission,
   inspectCanonicalRunFirstContinuationDormantSuccessorOwner,
   prepareCanonicalRunFirstContinuationRoomAdmission,
@@ -451,7 +453,7 @@ describe("first continuation transition chapter owner", () => {
     )).toThrow(/dormant successor owner/);
   });
 
-  it("installs READ at H+159 and starts reserved successor combat at H+160", {
+  it("installs READ, starts reserved successor combat, and closes its exact slice", {
     timeout: 30_000,
   }, () => {
     const {fixture, chapter, transition, handoffReceipt} = reachLiveMaterialHandoff();
@@ -550,6 +552,14 @@ describe("first continuation transition chapter owner", () => {
     expect(fixture.runState.snapshot()).toEqual(runAfterRead);
     expect(fixture.eventBus.events()).toEqual(eventsAfterRead);
 
+    expect(() => advanceCanonicalRunFirstContinuationSuccessorRead(owner, {
+      ...combatInput(handoffTick120 + 160),
+      overridePressed: true,
+      overrideDirection: {x: 1, y: 0},
+    })).toThrow(/before Local Resistance/);
+    expect(fixture.runState.snapshot()).toEqual(runAfterRead);
+    expect(fixture.eventBus.events()).toEqual(eventsAfterRead);
+
     const active = advanceCanonicalRunFirstContinuationSuccessorRead(
       owner,
       combatInput(handoffTick120 + 160),
@@ -574,7 +584,7 @@ describe("first continuation transition chapter owner", () => {
         tick120: handoffTick120 + 160,
         poolUsage: {liveColliders: 0},
       },
-      inputOwnership: {override: "active"},
+      inputOwnership: {override: "locked"},
     });
     if (active.combat === null) throw new Error("READ combat disappeared after H+160");
     let firstProjectile = active;
@@ -611,6 +621,84 @@ describe("first continuation transition chapter owner", () => {
       projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
     expect(fixture.eventBus.events().slice(eventsAfterRead.length).some((event) =>
       event.id === "projectile.spawn.commit")).toBe(true);
+    expect(fixture.eventBus.pendingEventCount()).toBe(0);
+
+    let slice = firstProjectile;
+    while (slice.nextMasterTickAction === "advance-read") {
+      if (slice.tick120 >= slice.boundaryTicks120.sliceCompleteTick120) {
+        throw new Error("successor READ crossed its authored slice boundary");
+      }
+      slice = advanceCanonicalRunFirstContinuationSuccessorRead(
+        owner,
+        combatInput(slice.tick120 + 1),
+      );
+    }
+    expect(slice.nextMasterTickAction === "advance-tail"
+      || slice.nextMasterTickAction === "close-slice").toBe(true);
+    expect(slice.runCombat).toMatchObject({
+      activeOccurrenceId: null,
+      pendingFlushTick120: null,
+    });
+    expect(slice.combat).toMatchObject({
+      occurrenceId: preparation.view.plan.occurrence.occurrenceId,
+      patternComplete: true,
+      digitalBodiesDrained: true,
+      poolUsage: {liveColliders: 0},
+    });
+    expect(slice.combat?.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+
+    while (slice.nextMasterTickAction === "advance-tail") {
+      if (slice.tick120 >= slice.boundaryTicks120.sliceCompleteTick120 - 1) {
+        throw new Error("successor tail crossed its exact close boundary");
+      }
+      slice = advanceCanonicalRunFirstContinuationSuccessorTail(
+        owner,
+        combatInput(slice.tick120 + 1),
+      );
+    }
+    expect(slice).toMatchObject({
+      tick120: slice.boundaryTicks120.sliceCompleteTick120 - 1,
+      nextMasterTickAction: "close-slice",
+      runCombat: {
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+      },
+    });
+
+    const complete = closeCanonicalRunFirstContinuationSuccessorSlice(
+      owner,
+      combatInput(slice.tick120 + 1),
+    );
+    expect(complete).toMatchObject({
+      terminalPolicy: "EXT-2026-016",
+      phase: "complete",
+      tick120: complete.boundaryTicks120.sliceCompleteTick120,
+      nextMasterTickAction: "hold-complete",
+      runCombat: {
+        activeOccurrenceId: null,
+        pendingFlushTick120: null,
+      },
+      material: {
+        drained: true,
+        materialCount: 0,
+        poolUsage: {liveColliders: 0},
+      },
+      combat: {
+        occurrenceId: preparation.view.plan.occurrence.occurrenceId,
+        patternComplete: true,
+        digitalBodiesDrained: true,
+        poolUsage: {liveColliders: 0},
+      },
+    });
+    expect(complete.combat?.projectiles.every((projectile) =>
+      projectile.state === "residue" && !projectile.collisionEnabled)).toBe(true);
+    expect(complete.combat?.projectiles.length).toBeGreaterThan(0);
+    expect(complete.combat?.projectileLifecycleDrained).toBe(false);
+    expect(complete.runCombat.claimedOccurrenceIds.filter((occurrenceId) =>
+      occurrenceId === preparation.view.plan.occurrence.occurrenceId)).toHaveLength(1);
+    expect(fixture.eventBus.events().slice(eventsBeforeRead.length).some((event) =>
+      event.id === "room.transition.complete")).toBe(false);
     expect(fixture.eventBus.pendingEventCount()).toBe(0);
   });
 

@@ -1,6 +1,7 @@
 import {
   advanceCanonicalRunFirstContinuationDormantSuccessorPreReadTick,
   advanceCanonicalRunFirstContinuationSuccessorReadTick,
+  advanceCanonicalRunFirstContinuationSuccessorTailTick,
   inspectCanonicalRunFirstContinuationDormantSuccessorBinding,
   startCanonicalRunFirstContinuationSuccessorRead as startCanonicalRunFirstContinuationSuccessorReadBinding,
   type CanonicalCombatSnapshot,
@@ -8,9 +9,9 @@ import {
   type CanonicalRoomThresholdMaterialCarryover,
   type CanonicalRunCombatState,
   type CanonicalRunFirstContinuationDormantSuccessorReservation,
+  type CanonicalRunFirstContinuationSuccessorBoundaryTicks,
 } from "../../combat-kernel";
 import type {CanonicalEventBus} from "../../events";
-import {crossedTickCount} from "../../tick120";
 import type {CanonicalRunFirstContinuationCombinedPoolAdmissionEvaluation} from
   "./first-continuation-room-admission";
 import type {CanonicalRunFirstContinuationDormantSuccessorOwner} from
@@ -20,6 +21,7 @@ import type {CanonicalRunFirstContinuationRoomPlanPayload} from
 
 const OWNER_AUTHORITY = "canonical-run-first-continuation-room-dormant-owner-v1" as const;
 const EXTENSION_POLICY = "EXT-2026-015" as const;
+const TERMINAL_POLICY = "EXT-2026-016" as const;
 const ALLOWED_PRE_READ_EVENT_IDS = Object.freeze([
   "projectile.residue.remove",
   "projectile.lifecycle.complete",
@@ -85,52 +87,23 @@ function requireOwner(
   return record;
 }
 
-function boundaries(
-  plan: CanonicalRunFirstContinuationRoomPlanPayload,
-): Readonly<{
-  readonly handoffTick120: number;
-  readonly telegraphStartTick120: number;
-  readonly entryStartTick120: number;
-  readonly readStartTick120: number;
-}> {
-  const handoffTick120 = plan.plannedAtTick120;
-  const telegraphStartTick120 = handoffTick120 + 1;
-  const entryStartTick120 = handoffTick120 + crossedTickCount(
-    plan.occurrence.segmentsMs.telegraph,
-  );
-  const readStartTick120 = handoffTick120 + crossedTickCount(
-    plan.occurrence.segmentsMs.telegraph + plan.occurrence.segmentsMs.entry,
-  );
-  if (
-    !Number.isSafeInteger(telegraphStartTick120)
-    || !Number.isSafeInteger(entryStartTick120)
-    || !Number.isSafeInteger(readStartTick120)
-    || entryStartTick120 !== handoffTick120 + 63
-    || readStartTick120 !== handoffTick120 + 159
-  ) {
-    throw new Error("first continuation successor pre-READ boundaries drifted");
-  }
-  return Object.freeze({
-    handoffTick120,
-    telegraphStartTick120,
-    entryStartTick120,
-    readStartTick120,
-  });
-}
-
 export type CanonicalRunFirstContinuationSuccessorPreReadPhase =
   | "dormant"
   | "telegraph"
   | "entry"
-  | "read";
+  | "read"
+  | "material-settle"
+  | "rest"
+  | "complete";
 
 export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
   readonly authority: typeof OWNER_AUTHORITY;
   readonly extensionPolicy: typeof EXTENSION_POLICY;
+  readonly terminalPolicy: typeof TERMINAL_POLICY;
   readonly phase: CanonicalRunFirstContinuationSuccessorPreReadPhase;
   readonly tick120: number;
   readonly relativeTick120: number;
-  readonly boundaryTicks120: ReturnType<typeof boundaries>;
+  readonly boundaryTicks120: Readonly<CanonicalRunFirstContinuationSuccessorBoundaryTicks>;
   readonly targetRoom: CanonicalRunFirstContinuationRoomPlanPayload["targetRoom"];
   readonly worldRoom: CanonicalRunFirstContinuationRoomPlanPayload["targetRoom"];
   readonly patternId: string;
@@ -158,7 +131,10 @@ export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
     | "entry"
     | "continue-entry"
     | "claim-read"
-    | "advance-read";
+    | "advance-read"
+    | "advance-tail"
+    | "close-slice"
+    | "hold-complete";
   readonly inputOwnership: Readonly<{
     readonly movement: "continued";
     readonly focus: "continued";
@@ -166,7 +142,7 @@ export interface CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
     readonly gazeInput: "requested-unconsumed";
     readonly flowerAuthority: "frozen";
     readonly gazeAuthority: "frozen";
-    readonly override: "locked" | "active";
+    readonly override: "locked";
   }>;
 }
 
@@ -180,9 +156,10 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
     record.carryover,
     owner,
   );
-  const boundaryTicks120 = boundaries(record.plan);
+  const boundaryTicks120 = binding.boundaryTicks120;
   if (
     binding.plan !== record.plan
+    || binding.terminalPolicy !== TERMINAL_POLICY
     || binding.targetRoom !== record.plan.targetRoom
     || binding.reservation.occurrenceId !== record.plan.occurrence.occurrenceId
     || binding.reservation.patternId !== record.plan.occurrence.patternId
@@ -191,40 +168,57 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
     throw new Error("first continuation successor binding and formal plan diverged");
   }
   const relativeTick120 = binding.tick120 - boundaryTicks120.handoffTick120;
-  const phase: CanonicalRunFirstContinuationSuccessorPreReadPhase = binding.phase === "read"
-    ? "read"
-    : relativeTick120 === 0
+  const phase: CanonicalRunFirstContinuationSuccessorPreReadPhase =
+    binding.phase === "dormant"
       ? "dormant"
-      : binding.tick120 < boundaryTicks120.entryStartTick120
-        ? "telegraph"
-        : "entry";
+      : binding.phase === "pre-read"
+        ? binding.tick120 < boundaryTicks120.entryStartTick120
+          ? "telegraph"
+          : "entry"
+        : binding.phase === "complete"
+          ? "complete"
+          : binding.tick120 < boundaryTicks120.materialSettleStartTick120
+            ? "read"
+            : binding.tick120 < boundaryTicks120.restStartTick120
+              ? "material-settle"
+              : "rest";
   if (
     relativeTick120 < 0
-    || (phase === "read"
-      ? binding.tick120 < boundaryTicks120.readStartTick120
-        || binding.combat === null
-      : binding.tick120 >= boundaryTicks120.readStartTick120
-        || binding.combat !== null)
+    || ((phase === "dormant" || phase === "telegraph" || phase === "entry")
+      ? binding.tick120 >= boundaryTicks120.readStartTick120
+        || binding.combat !== null
+      : binding.tick120 < boundaryTicks120.readStartTick120
+        || binding.combat === null)
     || (phase === "dormant" && binding.phase !== "dormant")
     || ((phase === "telegraph" || phase === "entry") && binding.phase !== "pre-read")
+    || (phase === "complete" && binding.phase !== "complete")
+    || ((phase === "read" || phase === "material-settle" || phase === "rest")
+      && binding.phase !== "read"
+      && binding.phase !== "tail")
   ) {
-    throw new Error("first continuation successor pre-READ phase drifted");
+    throw new Error("first continuation successor authored segment phase drifted");
   }
   const nextMasterTickAction = phase === "dormant"
     ? "telegraph" as const
-    : phase === "read"
+    : binding.phase === "read"
       ? "advance-read" as const
-    : binding.tick120 === boundaryTicks120.readStartTick120 - 1
-      ? "claim-read" as const
-      : binding.tick120 === boundaryTicks120.entryStartTick120 - 1
-        ? "entry" as const
-        : phase === "telegraph"
-          ? "continue-telegraph" as const
-          : "continue-entry" as const;
+      : binding.phase === "tail"
+        ? binding.nextMasterTickAction === "close-slice"
+          ? "close-slice" as const
+          : "advance-tail" as const
+        : binding.phase === "complete"
+          ? "hold-complete" as const
+      : binding.tick120 === boundaryTicks120.readStartTick120 - 1
+        ? "claim-read" as const
+        : binding.tick120 === boundaryTicks120.entryStartTick120 - 1
+          ? "entry" as const
+          : phase === "telegraph"
+            ? "continue-telegraph" as const
+            : "continue-entry" as const;
   const runCombat = record.runState.snapshot();
   if (
     runCombat.tick120 !== binding.tick120
-    || (phase === "read"
+    || (binding.phase === "read"
       ? runCombat.activeOccurrenceId !== record.plan.occurrence.occurrenceId
       : runCombat.activeOccurrenceId !== null)
     || runCombat.pendingFlushTick120 !== null
@@ -234,6 +228,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
   return Object.freeze({
     authority: OWNER_AUTHORITY,
     extensionPolicy: EXTENSION_POLICY,
+    terminalPolicy: TERMINAL_POLICY,
     phase,
     tick120: binding.tick120,
     relativeTick120,
@@ -267,7 +262,7 @@ export function inspectCanonicalRunFirstContinuationDormantSuccessorOwner(
       gazeInput: "requested-unconsumed" as const,
       flowerAuthority: "frozen" as const,
       gazeAuthority: "frozen" as const,
-      override: phase === "read" ? "active" as const : "locked" as const,
+      override: "locked" as const,
     }),
   });
 }
@@ -375,8 +370,7 @@ export function advanceCanonicalRunFirstContinuationSuccessorRead(
   try {
     const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
     if (
-      before.phase !== "read"
-      || before.nextMasterTickAction !== "advance-read"
+      before.nextMasterTickAction !== "advance-read"
       || before.combat === null
     ) {
       throw new Error("first continuation successor READ advance requires its active READ owner");
@@ -391,8 +385,7 @@ export function advanceCanonicalRunFirstContinuationSuccessorRead(
     authoritativeTickAccepted = true;
     const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
     if (
-      after.phase !== "read"
-      || after.tick120 !== before.tick120 + 1
+      after.tick120 !== before.tick120 + 1
       || after.relativeTick120 !== before.relativeTick120 + 1
       || after.combat === null
       || after.combat.tick120 !== advanced.combat.tick120
@@ -402,10 +395,135 @@ export function advanceCanonicalRunFirstContinuationSuccessorRead(
       || after.material.tick120 !== after.tick120
       || after.material.poolUsage.liveColliders !== 0
       || after.runCombat.pendingFlushTick120 !== null
-      || after.nextMasterTickAction !== "advance-read"
-      || after.inputOwnership.override !== "active"
+      || (after.nextMasterTickAction !== "advance-read"
+        && after.nextMasterTickAction !== "advance-tail"
+        && after.nextMasterTickAction !== "close-slice")
+      || after.inputOwnership.override !== "locked"
     ) {
       throw new Error("first continuation successor READ lost its exact one-tick advance");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted || record.runState.snapshot().faulted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function advanceCanonicalRunFirstContinuationSuccessorTail(
+  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation successor tail step is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      before.nextMasterTickAction !== "advance-tail"
+      || before.combat === null
+      || !before.combat.patternComplete
+      || !before.combat.digitalBodiesDrained
+      || before.combat.poolUsage.liveColliders !== 0
+    ) {
+      throw new Error("first continuation successor tail advance requires its released slice owner");
+    }
+    const advanced = advanceCanonicalRunFirstContinuationSuccessorTailTick(
+      record.runState,
+      record.eventBus,
+      record.carryover,
+      owner,
+      input,
+      "advance",
+    );
+    authoritativeTickAccepted = true;
+    const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      after.tick120 !== before.tick120 + 1
+      || after.relativeTick120 !== before.relativeTick120 + 1
+      || after.combat !== advanced.combat
+      || after.combat === null
+      || after.combat.tick120 !== after.tick120
+      || !after.combat.patternComplete
+      || !after.combat.digitalBodiesDrained
+      || after.combat.poolUsage.liveColliders !== 0
+      || advanced.sliceComplete
+      || after.runCombat.activeOccurrenceId !== null
+      || after.runCombat.pendingFlushTick120 !== null
+      || after.material.tick120 !== after.tick120
+      || after.material.poolUsage.liveColliders !== 0
+      || (after.nextMasterTickAction !== "advance-tail"
+        && after.nextMasterTickAction !== "close-slice")
+    ) {
+      throw new Error("first continuation successor tail lost its exact one-tick advance");
+    }
+    return after;
+  } catch (error) {
+    if (authoritativeTickAccepted || record.runState.snapshot().faulted) {
+      record.fatalError = error instanceof Error ? error : new Error(String(error));
+    }
+    throw error;
+  } finally {
+    record.stepping = false;
+  }
+}
+
+export function closeCanonicalRunFirstContinuationSuccessorSlice(
+  owner: CanonicalRunFirstContinuationDormantSuccessorOwner,
+  input: CanonicalCombatStepInput,
+): CanonicalRunFirstContinuationDormantSuccessorOwnerSnapshot {
+  const record = requireOwner(owner);
+  if (record.stepping) {
+    throw new Error("first continuation successor slice close is already active");
+  }
+  record.stepping = true;
+  let authoritativeTickAccepted = false;
+  try {
+    const before = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      before.nextMasterTickAction !== "close-slice"
+      || before.combat === null
+      || !before.combat.patternComplete
+      || !before.combat.digitalBodiesDrained
+      || before.combat.poolUsage.liveColliders !== 0
+    ) {
+      throw new Error("first continuation successor close requires its exact terminal boundary");
+    }
+    const advanced = advanceCanonicalRunFirstContinuationSuccessorTailTick(
+      record.runState,
+      record.eventBus,
+      record.carryover,
+      owner,
+      input,
+      "close",
+    );
+    authoritativeTickAccepted = true;
+    const after = inspectCanonicalRunFirstContinuationDormantSuccessorOwner(owner);
+    if (
+      after.tick120 !== before.boundaryTicks120.sliceCompleteTick120
+      || after.phase !== "complete"
+      || after.nextMasterTickAction !== "hold-complete"
+      || after.combat !== advanced.combat
+      || after.combat === null
+      || after.combat.tick120 !== after.tick120
+      || !after.combat.patternComplete
+      || !after.combat.digitalBodiesDrained
+      || after.combat.poolUsage.liveColliders !== 0
+      || after.combat.projectiles.some((projectile) =>
+        projectile.state !== "residue" || projectile.collisionEnabled)
+      || !advanced.sliceComplete
+      || after.runCombat.activeOccurrenceId !== null
+      || after.runCombat.pendingFlushTick120 !== null
+      || !after.material.drained
+      || after.material.materialCount !== 0
+    ) {
+      throw new Error("first continuation successor slice close did not seal its terminal snapshot");
     }
     return after;
   } catch (error) {
