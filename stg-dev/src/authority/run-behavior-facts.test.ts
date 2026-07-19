@@ -259,7 +259,6 @@ describe("EXT-2026-006 canonical Run rolling behavior facts", () => {
       aggregate: {
         targetIntensitySum: 0.5,
         sourceTickCounts: [{id: "signal", ticks120: 1}],
-        targetIntensityTickCounts: [{value: 0.5, ticks120: 1}],
       },
     });
     expect(facts.committed.gaze.availability).toBe("missing");

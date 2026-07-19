@@ -83,11 +83,6 @@ export interface CanonicalRunBehaviorEventCountEntry {
   readonly count: number;
 }
 
-export interface CanonicalRunBehaviorValueCountEntry {
-  readonly value: number;
-  readonly ticks120: number;
-}
-
 export interface CanonicalRunBehaviorMissing {
   readonly availability: "missing";
   readonly reason:
@@ -153,7 +148,6 @@ export interface CanonicalRunBehaviorFactsSnapshot {
     readonly flower: CanonicalRunBehaviorMissing | CanonicalRunBehaviorAvailable<{
       readonly targetIntensitySum: number;
       readonly sourceTickCounts: readonly CanonicalRunBehaviorCountEntry[];
-      readonly targetIntensityTickCounts: readonly CanonicalRunBehaviorValueCountEntry[];
     }>;
     readonly gaze: CanonicalRunBehaviorMissing | CanonicalRunBehaviorAvailable<{
       readonly clampActiveTickCount: number;
@@ -242,7 +236,6 @@ interface InternalState {
   flower: AvailabilityState & {
     targetIntensitySum: number;
     sourceTickCounts: Record<string, number>;
-    targetIntensityTickCounts: Record<string, Readonly<{value: number; ticks120: number}>>;
   };
   gaze: AvailabilityState & {
     clampActiveTickCount: number;
@@ -456,7 +449,6 @@ function initialState(): InternalState {
       ...availability(),
       targetIntensitySum: 0,
       sourceTickCounts: {},
-      targetIntensityTickCounts: {},
     },
     gaze: {...availability(), clampActiveTickCount: 0, stateTickCounts: {}},
     override: {
@@ -486,7 +478,6 @@ function cloneState(value: InternalState): InternalState {
     flower: {
       ...value.flower,
       sourceTickCounts: {...value.flower.sourceTickCounts},
-      targetIntensityTickCounts: {...value.flower.targetIntensityTickCounts},
     },
     gaze: {...value.gaze, stateTickCounts: {...value.gaze.stateTickCounts}},
     override: {...value.override, stateTickCounts: {...value.override.stateTickCounts}},
@@ -704,12 +695,6 @@ export class CanonicalRunBehaviorFactLedger {
       "Flower target sum",
     );
     increment(next.flower.sourceTickCounts, flower.source, "Flower source ticks");
-    const targetKey = String(Object.is(flower.targetIntensity, -0) ? 0 : flower.targetIntensity);
-    const target = next.flower.targetIntensityTickCounts[targetKey];
-    next.flower.targetIntensityTickCounts[targetKey] = Object.freeze({
-      value: flower.targetIntensity,
-      ticks120: addCount(target?.ticks120 ?? 0, 1, `Flower target ticks ${targetKey}`),
-    });
 
     const gaze = value.committed.gaze;
     if (gaze.tick120 === tick120) {
@@ -813,11 +798,6 @@ export class CanonicalRunBehaviorFactLedger {
       : available(state.flower, {
         targetIntensitySum: state.flower.targetIntensitySum,
         sourceTickCounts: countsSnapshot(state.flower.sourceTickCounts),
-        targetIntensityTickCounts: Object.freeze(
-          Object.values(state.flower.targetIntensityTickCounts)
-            .sort((left, right) => left.value - right.value)
-            .map((entry) => Object.freeze({...entry})),
-        ),
       });
     const gaze = state.gaze.sampleCount === 0
       ? missing("authority-not-consumed-yet")
