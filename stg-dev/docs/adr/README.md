@@ -28,6 +28,7 @@
 | [EXT-2026-011：首房 recent input union](EXT-2026-011-first-room-recent-input-density.md) | ACCEPTED | 首房per-channel-consumed同tickactive union与`recentInputDensity`；projection仍partial |
 | [EXT-2026-012：首房 partial facts 的下一房 target](EXT-2026-012-first-continuation-room-target.md) | ACCEPTED | 保留typed missing，只用available bias和一次Mulberry32 draw冻结ordinal 1 target；不接transition |
 | [EXT-2026-013：首个 continuation target 的 room transition](EXT-2026-013-first-continuation-room-transition.md) | ACCEPTED | H+1703拼接atomic FSM与Room Threshold；650ms身份稳定、7800ms gameplay交接及material-only carryover |
+| [EXT-2026-014：首个 continuation transition 的输入归属](EXT-2026-014-first-continuation-transition-input-ownership.md) | ACCEPTED | 转场期间身体输入继续；Signal/Gaze请求留痕但不消费；Flower/Gaze authority冻结且不伪造旧提交 |
 
 ## 新 ADR 规则
 

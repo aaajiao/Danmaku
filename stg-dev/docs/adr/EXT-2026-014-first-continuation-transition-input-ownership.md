@@ -1,8 +1,8 @@
 # EXT-2026-014：首个 continuation transition 的输入归属
 
-- 状态：PROPOSED
+- 状态：ACCEPTED
 - 日期：2026-07-19
-- 负责人 / 审核人：Codex / aaajiao（待确认）
+- 负责人 / 审核人：Codex / aaajiao
 - 分支 / PR：`agent/canonical-run-integration` / 未创建
 - 前置记录：[EXT-2026-006](EXT-2026-006-canonical-run-behavior-facts.md)、
   [EXT-2026-011](EXT-2026-011-first-room-recent-input-density.md)、
@@ -118,6 +118,6 @@ metric projection、target selection 与历史 snapshot 无需迁移。任何让
 
 ## 决策
 
-PROPOSED。建议选择“身体输入继续，Signal/Gaze/Flower 冻结”：它保留玩家请求、删除额外反馈轨、维持 sealed
-Run 原子性，并用 typed absence 代替旧 snapshot 假提交。待 aaajiao 确认后改为 ACCEPTED；确认前只允许完成
-不依赖本选择的 chapter owner 结构和 EXT-013 direct seam，不接入真实 session。
+ACCEPTED（2026-07-19，aaajiao 明确确认）。“身体输入继续，Signal/Gaze/Flower 冻结”：保留玩家请求、
+删除额外反馈轨、维持 sealed Run 原子性，并用 typed absence 代替旧 snapshot 假提交。该决定现为 session
+接入与后继 room owner 接手前的有效工程约束。
