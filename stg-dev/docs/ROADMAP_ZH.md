@@ -24,7 +24,7 @@
 |---|---|---|
 | V4 Content Authority | DONE | 48 个 executable patterns 与 canonical manifests、ID、引用、文件 universe、SHA-256 均 fail-fast；V4 素材包保持只读 |
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
-| Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
+| Pattern Authority | WIP | direct kernel 为 26/48；exported live-admission registry 为 21，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 3/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
 | Canonical Run | WIP | 首房关闭 → transition/material → successor telegraph/entry/READ → pattern end释放occurrence → collisionless residue与空材料hold已接入正式session及只读presentation；slice complete仍不授予room completion/handoff |
 | First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
@@ -48,9 +48,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 |---|---|---|---|
 | P0-01 | Content index 与 schema | DONE | 所有 V4 入口、版本、ID、引用、文件与 digest fail-fast；未知内容不静默降级 |
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
-| P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
+| P0-03 | 48-pattern production authority | WIP | direct kernel 从 26/48 完成到 48/48；EXT-018已把Misregistration Corridor的单draw相位、orbit/release分段、完整preflight与material drain接入live registry。近期缺口包含 `room.information.missing_ack`、`room.in_between.borrowed_rule` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition及EXT-015—017 successor plan/terminal/session已闭合首个ordinal 1 live slice；下一步为retained residue建立下一消费边界并决定同房下一occurrence，room completion仍withheld |
+| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition及EXT-015—017 successor plan/terminal/session已闭合首个ordinal 1 live slice；EXT-018已移除合法下一pattern的executor阻塞。下一步为retained residue建立交接边界，再提交同房next-occurrence plan/admission；room completion仍withheld |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
 | P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold及successor首slice已进入同一session/只读presentation；下一步关闭目标房的后续occurrence/room handoff，完整Run终点仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
@@ -61,8 +61,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 为slice complete仍在场的collisionless residue建立下一消费边界，再明确同房next occurrence与room completion；
-   不得延长composer segment、清空材料、重抽pattern或扩大已commit预算。
+1. 为slice complete仍在场的collisionless residue建立sealed material-transfer边界，使旧数字body释放后材料仍可
+   与同房next occurrence并存；再提交下一次plan/admission。不得等待residue drain、延长composer segment、
+   清空材料、重抽pattern或扩大已commit预算；room completion继续独立withheld。
 2. 建立只引用V4唯一源文件的共享/章节素材registry，按实际Run章节补齐图集、背景、causal clip与音频；
    不复制二进制素材，不把preview/QA图当runtime资产，并让`dist`继续由部署阶段生成。
 3. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
