@@ -24,6 +24,7 @@
 | [EXT-2026-007：Canonical Run pre-room 行为事实冻结](EXT-2026-007-pre-room-behavior-capture.md) | ACCEPTED | H 后一次性 `[1,H]` raw-facts capture、exact-schema isolation 与 metric/composer firewall |
 | [EXT-2026-008：首个 room occurrence 观察闭合冻结](EXT-2026-008-first-occurrence-observation-capture.md) | ACCEPTED | H+1701 post-occurrence raw-facts capture；room completion/selection/transition 继续 withheld |
 | [EXT-2026-009：首个 fixed room 单 occurrence 关闭](EXT-2026-009-first-fixed-room-closure.md) | ACCEPTED | fixed bootstrap最小cardinality、H+1702 room closure与bounded typed visit fact；metric/selection/transition仍withheld |
+| [EXT-2026-010：首房 closure 的 typed metric projection](EXT-2026-010-first-room-metric-projection.md) | PROPOSED | H+1702投影2项available ratio与12项typed missing；composer/selection继续withheld |
 
 ## 新 ADR 规则
 
