@@ -545,6 +545,8 @@ const CANONICAL_EVENT_BUS_METHOD_NAMES = Object.freeze([
   "enqueuePreparedBatch",
   "claimExclusiveTickFlush",
   "flush",
+  "committedEventCount",
+  "committedEventsFrom",
   "events",
   "canonicalSerialization",
 ] as const);
@@ -846,6 +848,25 @@ export class CanonicalEventBus {
 
   events(): readonly CanonicalGameplayEvent[] {
     return Object.freeze(this.#committed.slice());
+  }
+
+  /** O(1) read cursor for observers that must not copy the complete trace. */
+  committedEventCount(): number {
+    return this.#committed.length;
+  }
+
+  /**
+   * Return an immutable committed suffix without exposing the mutable trace.
+   * This is a read port only; ordering and event authority remain bus-owned.
+   */
+  committedEventsFrom(startIndexValue: number): readonly CanonicalGameplayEvent[] {
+    const startIndex = requireNonNegativeInteger(startIndexValue, "committed event start index");
+    if (startIndex > this.#committed.length) {
+      throw new Error(
+        `committed event start index exceeds trace length: ${startIndex} > ${this.#committed.length}`,
+      );
+    }
+    return Object.freeze(this.#committed.slice(startIndex));
   }
 
   canonicalSerialization(): string {

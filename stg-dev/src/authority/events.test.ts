@@ -87,6 +87,30 @@ describe("envelope and payload validation", () => {
 });
 
 describe("ordered authority bus", () => {
+  it("exposes an immutable O(delta) committed suffix for read-only observers", () => {
+    const bus = new CanonicalEventBus();
+    expect(bus.committedEventCount()).toBe(0);
+    expect(bus.committedEventsFrom(0)).toEqual([]);
+
+    bus.enqueue(damageDraft());
+    bus.flush();
+    bus.enqueue(damageDraft({tick120: 13, occurrenceKey: "damage:13:0"}));
+    bus.flush();
+
+    expect(bus.committedEventCount()).toBe(2);
+    expect(bus.committedEventsFrom(0).map((event) => event.sequence)).toEqual([0, 1]);
+    const suffix = bus.committedEventsFrom(1);
+    expect(suffix.map((event) => event.sequence)).toEqual([1]);
+    expect(Object.isFrozen(suffix)).toBe(true);
+    expect(Object.isFrozen(suffix[0])).toBe(true);
+    expect(bus.committedEventsFrom(2)).toEqual([]);
+    expect(() => bus.committedEventsFrom(-1)).toThrow(/non-negative safe integer/);
+    expect(() => bus.committedEventsFrom(0.5)).toThrow(/non-negative safe integer/);
+    expect(() => bus.committedEventsFrom(3)).toThrow(/exceeds trace length/);
+    expect(bus.committedEventCount()).toBe(2);
+    expect(bus.events()).toHaveLength(2);
+  });
+
   it("issues exact one-use receipts for groups accepted in one prepared batch", () => {
     const bus = new CanonicalEventBus();
     const otherBus = new CanonicalEventBus();
