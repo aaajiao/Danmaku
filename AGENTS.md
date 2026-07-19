@@ -67,6 +67,30 @@ do not spend test time trying to resolve an unwritten design decision.
   deterministic consumer, and observable behavior. Do not prioritize a metric,
   abstraction, or broad scaffold merely because it raises a coverage count; it
   must advance the playable loop or retire a named production risk.
+- Composition is itself an authority decision. Two individually canonical
+  machines, patterns, or receipts do not define their join timing, ordering,
+  ownership, or failure semantics. If V4 does not bind them explicitly, record
+  the exact gap and accept a focused extension ADR before connecting them; do
+  not infer a join from similar names, nearby timestamps, or convenient test
+  behavior. In particular, the 7800 ms gameplay transition pattern and the
+  650 ms atomic room-identity FSM remain separate authorities until an accepted
+  source defines their composition.
+- Before enabling a selector, router, or transition in the live run, enumerate
+  its complete legal output set and prove that every output has a fail-closed
+  admission path. One convenient integration seed proves only that example.
+  An unsupported target must be rejected before gameplay side effects or
+  single-use receipt consumption; never silently reroll, substitute a supported
+  room, or hard-code the current seed's result.
+- Report integration depth precisely: authority adapter, direct executor,
+  live-admitted capability, session-owned behavior, and player-visible path are
+  different completion states. A passing direct test does not make a capability
+  playable. Prioritize closing the next missing boundary over adding more
+  disconnected direct-only capabilities.
+- Give authority audits a concrete stop condition. Once the canonical sources,
+  existing producer/consumer path, and exact omission are identified, stop
+  open-ended searching: either implement the written rule or propose the
+  smallest extension decision. Do not leave development waiting on speculative
+  archaeology after the decision gap is already proven.
 
 ## 4. Runtime invariants
 
