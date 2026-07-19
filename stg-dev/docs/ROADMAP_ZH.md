@@ -26,11 +26,11 @@
 | 120Hz clock / ordered event bus | DONE（核心） | 整数 `tick120`、60Hz even-tick adapter、pause、同 tick 五阶段顺序与 occurrence 去重已建立 |
 | Pattern Authority | WIP | direct kernel 为 25/48；exported live-admission registry 为 20，另有 5 个 private direct-only capability。当前 family 快照：FORCED_ALIGNMENT 4/4、IN_BETWEEN 2/4、INFORMATION 3/4、POLARIZED 4/4、TRANSITION 3/3、weather echo 3/3 |
 | Projectile / player / damage | WIP（核心） | entity-owned flight、collision lease、graze/evidence、damage/respawn 与局部 Override 有 authority 证据；通用跨 authority transaction 与完整 Run 组合未完成 |
-| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence → H+1702首房关闭；run-owned ledger投影3项metric/11项typed missing，并以EXT-012一次draw冻结ordinal 1 target；尚无transition、下一房execution或handoff |
+| Canonical Run | WIP | 默认路径已完成 guarded awakening → First Eye → delayed Flower recovery → fixed Forced Alignment occurrence → H+1702首房关闭 → Room Threshold/material handoff；EXT-015已按原seed冻结下一房首occurrence、合并旧material预算并原子交给dormant successor；尚未执行next-tick telegraph与下一房combat |
 | First-occurrence observation boundary | DONE | EXT-2026-008 在 H+1701 冻结 `[1,H+1701]` 观察；只闭合首 occurrence slice，不授予 room completion、metric、selection 或 transition |
 | First fixed room closure | DONE | EXT-2026-009 在H+1702原子关闭单occurrence bootstrap首房并冻结`1/1/0`与typed visit fact；closure自身仍不承载metric、selection、transition或handoff |
 | First-room metric projection | DONE（partial） | EXT-2026-010/011从exact H+1702来源投影`avgFlower`/`gazeRatio`/`recentInputDensity`，其余11项typed missing；整体不ready，不授权composer、RNG、target、selection或transition |
-| Room composition / execution | WIP（首个 live 切片） | fixed non-composer首房、真实closure、partial metric snapshot与remaining三房weighted target已进入默认Run；总room count、difficulty、pattern selection、transition、下一房execution、parallel/multi-pool与handoff未完成 |
+| Room composition / execution | WIP（首个 live 切片） | fixed non-composer首房、真实closure、partial metric、weighted target、Room Threshold handoff及ordinal 1首occurrence formal plan/combined admission已进入同一Run；next-tick telegraph、首occurrence execution、后续room count/order与完整multi-pool仍未完成 |
 | Boss / laser | WIP（隔离 authority） | 4/8 rigs 的 observe pattern、4/24 Boss patterns 与一条 Misreader enforce-entry/laser seam 可测；完整 phase evaluator、live cycle、resolution 与 renderer 未接 |
 | Narrative / cross-run memory | WIP（authority） | snapshot、in-memory archive、restore 顺序与 narrative reducer 有隔离证据；durable storage、boot rehydrate、null-route、IndexedDB 与完整 handoff 未接 |
 | Renderer / input / PWA | DONE（基础） | Three.js 像素表现、键盘/触控/标准手柄、manifest、离线 warm reload 与图标已存在；完整 causal clips、升级迁移和实机矩阵未完成 |
@@ -50,9 +50,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 | P0-02 | Clock 与 canonical event bus | DONE（核心） | 120/60Hz due-time、pause、五阶段顺序、payload、occurrence 与只读 feedback 契约闭合 |
 | P0-03 | 48-pattern production authority | WIP | direct kernel 从 25/48 完成到 48/48；每个新增 adapter 保留 V4 声明顺序、RNG/identity、safe gap、生命周期与 profile parity。近期缺口包含 `room.information.missing_ack` 与其余未接 patterns；Ash Memory 仅完成 isolated direct authority，尚未取得 live weather scheduling |
 | P0-04 | Projectile/player/damage 闭环 | WIP | 完成 run-owned causality、damage→impact/terminal 组合、pool/budget 语义与失败原子性；表现不拥有 collider/lifecycle |
-| P0-05 | Live room composer | WIP | EXT-012 target与EXT-013 transition已进入真实Run；EXT-015已冻结ordinal 1首occurrence plan、RNG continuation与combined pool语义，下一步实现plan/admission及successor chapter |
+| P0-05 | Live room composer | WIP | EXT-012 target、EXT-013 transition与EXT-015 formal plan/combined reservation已进入真实Run，并在同一flushed tick原子交给dormant successor；下一步执行next-master-tick telegraph、首occurrence claim与combat |
 | P0-06 | Boss/laser phase loop | WIP | 8×3 phases、8 laser、phase evidence evaluator、resolution/terminal 与 room handoff 进入同一 live Run；禁止从 family association 推断 active laser |
-| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target与完整Room Threshold/material handoff已闭合；下一步原子接管target-room首owner，后续room completion仍未授权 |
+| P0-07 | Canonical Run / narrative | WIP | awakening、First Eye、固定首房、captures、partial metrics、target、Room Threshold/material handoff与dormant successor原子接管已闭合；下一步把telegraph/entry接回session，后续room completion仍未授权 |
 | P0-08 | Save/replay/cross-run | WIP | durable archive、versioned migration、boot restore、null-route、corruption isolation 与 deterministic replay 端到端闭合 |
 | P0-09 | Presentation / accessibility | WIP | 完整 Run 的 full/reduced-motion/flash-off gameplay trace 相同；UI、音频、触觉、天气只读投影，关键 causal clips 可追溯到事件/tick |
 | P0-10 | QA / performance | WIP | 完整 Run E2E、oracle/accessibility parity、固定设备性能、10 分钟 soak 与失败 artifact 闭合；恢复自动 CI |
@@ -61,8 +61,9 @@ P0 全部完成后才允许进入 Alpha 候选。
 
 ### 当前生产顺序
 
-1. 实现EXT-015的formal plan、combined pool reservation与next-tick successor接管；旧material允许并行消退，
-   不得复制QA fixture、按当前capability重抽pattern、用默认0伪造完整metrics或从表现反推。
+1. 从已提交的EXT-015 dormant successor在下一master tick执行telegraph，再以同一formal plan取得首occurrence
+   combat authority；旧material允许并行消退，不得复制QA fixture、按当前capability重抽pattern、用默认0伪造
+   完整metrics或从表现反推。
 2. 后续producer ADR按实际进入Run的机制逐项补11个missing metric的window、denominator与threshold；总room
    count、完整room order、difficulty与RNG continuation在各自消费边界明确，禁止再次形成“后置事实先齐”的门。
 3. 沿同一 consumer 边界扩展 rooms、Boss 与 narrative 的单一 Run 路径；在 V4 缺失 policy 明确前，不把
