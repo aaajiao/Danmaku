@@ -132,31 +132,147 @@ function petal(ctx: Ctx, cx: number, cy: number, radius: number): void {
   ctx.fill();
 }
 
-const PAINTERS: Record<BulletCell, (ctx: Ctx, cx: number, cy: number) => void> = {
-  'orb.small': (c, x, y) => orb(c, x, y, 5),
-  'orb.medium': (c, x, y) => orb(c, x, y, 8),
-  'orb.large': (c, x, y) => orb(c, x, y, 13),
-  ring: (c, x, y) => ring(c, x, y, 12, 3),
-  kunai: (c, x, y) => blade(c, x, y, 26, 9),
-  scale: (c, x, y) => shard(c, x, y, 20, 12),
-  star: (c, x, y) => star(c, x, y, 13, 5),
-  shard: (c, x, y) => shard(c, x, y, 26, 7),
-  'glow.small': (c, x, y) => orb(c, x, y, 7, 0.15),
-  'glow.medium': (c, x, y) => orb(c, x, y, 11, 0.12),
-  'glow.large': (c, x, y) => orb(c, x, y, 15, 0.1),
-  halo: (c, x, y) => ring(c, x, y, 15, 2),
-  needle: (c, x, y) => blade(c, x, y, 28, 5),
-  petal: (c, x, y) => petal(c, x, y, 11),
-  spark: (c, x, y) => star(c, x, y, 11, 4),
-  mote: (c, x, y) => orb(c, x, y, 3),
+/**
+ * Largest painted extent a 32px cell may contain.
+ *
+ * `Atlas.uv` applies no half-texel inset, so the outermost fragment column of a
+ * quad interpolates to the boundary between one cell and the next — the first
+ * texel of the neighbour. Padding inside the cell is the only thing between
+ * that and a stripe of the wrong sprite along every seam, and this sheet is
+ * sampled with `LinearFilter`, which reaches across the seam by design.
+ *
+ * 28 in a 32px cell is 2px of margin on each side.
+ *
+ * ## Geometric extent, not the pixel footprint — and why 28 is exactly right
+ *
+ * The extents below are geometric: where the path runs. What antialiasing
+ * actually *paints* is up to a pixel wider, because a boundary landing at a
+ * fractional coordinate gives partial coverage to the pixel outside it.
+ * Measured on a real canvas, centred at 16:
+ *
+ *   geometric 27  →  covers 2.5 .. 29.5  →  pixels 2..29  =  28px, 2px margin
+ *   geometric 28  →  covers 2.0 .. 30.0  →  pixels 2..29  =  28px, 2px margin
+ *   geometric 29  →  covers 1.5 .. 30.5  →  pixels 1..30  =  30px, 1px margin
+ *
+ * So 28 is not a round number someone liked: it is the largest geometric extent
+ * whose painted footprint still clears two pixels, and 29 is the first that does
+ * not. Checking geometry rather than pixels is therefore safe in the direction
+ * that matters — it can never pass something the bitmap would fail.
+ *
+ * This distinction is the same class of error as the one that produced the bug:
+ * a number that looks like it describes the art but describes something one step
+ * removed from it. `procedural.test.ts` says so too, and cannot check it, since
+ * `bun test` has no canvas.
+ */
+export const MAX_CELL_EXTENT = 28;
+
+/**
+ * One cell: how to draw it, and how big the result actually is.
+ *
+ * The extent is declared here rather than in `docs/assets.md` because a number
+ * living only in prose is a number nothing checks. This sheet shipped for the
+ * life of the project with `halo` painting a full 32px — zero margin, its faint
+ * outer stroke sitting exactly on the seam — and the asset spec asserted 2px of
+ * padding throughout. Both were written by hand and neither could catch the
+ * other.
+ *
+ * So every constructor below computes the extent from the same arguments it
+ * hands the painter, and `procedural.test.ts` holds them all against
+ * `MAX_CELL_EXTENT`. Getting one wrong now means changing two expressions that
+ * sit on adjacent lines, rather than a doc nobody reruns.
+ */
+interface CellArt {
+  draw: (ctx: Ctx, cx: number, cy: number) => void;
+  /** Painted bounding box in px. */
+  readonly w: number;
+  readonly h: number;
+}
+
+const orbCell = (radius: number, coreRatio?: number): CellArt => ({
+  draw: (c, x, y) => orb(c, x, y, radius, coreRatio),
+  w: radius * 2,
+  h: radius * 2,
+});
+
+/**
+ * The faint outer stroke is `thickness * 2` wide and centred on
+ * `radius - thickness / 2`, so paint reaches `radius + thickness / 2` — half a
+ * thickness *beyond* the nominal radius. That overhang is what put `halo` on
+ * the cell boundary, and it is invisible from the call site.
+ */
+const ringCell = (radius: number, thickness: number): CellArt => ({
+  draw: (c, x, y) => ring(c, x, y, radius, thickness),
+  w: (radius + thickness / 2) * 2,
+  h: (radius + thickness / 2) * 2,
+});
+
+/**
+ * A quadratic Bézier's apex reaches only half its control offset, so a blade
+ * declared `wide` paints `wide / 2` tall. `docs/assets.md` quoted the control
+ * argument as the height and was roughly double the truth on every blade.
+ */
+const bladeCell = (len: number, wide: number): CellArt => ({
+  draw: (c, x, y) => blade(c, x, y, len, wide),
+  w: len,
+  h: wide / 2,
+});
+
+/** Straight edges to real vertices, so this one is exactly its stated size. */
+const shardCell = (len: number, wide: number): CellArt => ({
+  draw: (c, x, y) => shard(c, x, y, len, wide),
+  w: len,
+  h: wide,
+});
+
+const starCell = (radius: number, points: number): CellArt => ({
+  draw: (c, x, y) => star(c, x, y, radius, points),
+  w: radius * 2,
+  h: radius * 2,
+});
+
+/** Control points at -0.9r and +0.5r; each apex lands at half its offset. */
+const petalCell = (radius: number): CellArt => ({
+  draw: (c, x, y) => petal(c, x, y, radius),
+  w: radius * 2,
+  h: radius * 0.45 + radius * 0.25,
+});
+
+export const CELL_ART: Record<BulletCell, CellArt> = {
+  'orb.small': orbCell(5),
+  'orb.medium': orbCell(8),
+  'orb.large': orbCell(13),
+  ring: ringCell(12, 3),
+  kunai: bladeCell(26, 9),
+  scale: shardCell(20, 12),
+  star: starCell(13, 5),
+  shard: shardCell(26, 7),
+  'glow.small': orbCell(7, 0.15),
+  'glow.medium': orbCell(11, 0.12),
+  // Was radius 15 — a 30px extent, 1px of margin. The gradient's last stop is
+  // fully transparent so it never bled visibly, but it broke the rule the sheet
+  // is meant to demonstrate, and hand-drawn art copying the number would.
+  'glow.large': orbCell(14, 0.1),
+  // Was ring(15, 2): the overhang above put paint at r=16, a full 32px with no
+  // margin at all. 13 + 1 lands exactly on the limit.
+  halo: ringCell(13, 2),
+  needle: bladeCell(28, 5),
+  petal: petalCell(11),
+  spark: starCell(11, 4),
+  mote: orbCell(3),
 };
 
 /**
  * Render the bullet sheet into a texture.
  *
- * Everything is white; colour comes from the per-instance tint. Cells are
- * padded by construction — shapes are drawn well inside their 32px cell — so
- * NEAREST sampling cannot bleed a neighbour in at the edges.
+ * Everything is white; colour comes from the per-instance tint.
+ *
+ * Cells are padded to `MAX_CELL_EXTENT`, which `procedural.test.ts` checks —
+ * "padded by construction" is what this comment used to claim, and it was not
+ * true of `halo` or `glow.large`. It also said NEAREST sampling could not bleed
+ * a neighbour in. Two things wrong with that: this sheet sets `LinearFilter`
+ * eight lines below, precisely because generated art is smooth rather than
+ * pixel art, and linear sampling reaching across the seam is the entire reason
+ * the padding matters. NEAREST is what `loadTexture` gives a dropped-in PNG.
  */
 export function createBulletAtlas(): Atlas {
   const { cellW, cellH } = BULLET_GRID;
@@ -169,7 +285,7 @@ export function createBulletAtlas(): Atlas {
     const row = Math.floor(index / BULLET_COLUMNS);
     const cx = col * cellW + cellW / 2;
     const cy = row * cellH + cellH / 2;
-    PAINTERS[name](ctx, cx, cy);
+    CELL_ART[name].draw(ctx, cx, cy);
   });
 
   const texture = new THREE.CanvasTexture(el);

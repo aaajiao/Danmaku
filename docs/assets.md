@@ -39,7 +39,7 @@ backgrounds, UI illustration.
 
 **And the colour that does survive is display-referred.** `loadTexture` sets
 `colorSpace = NoColorSpace` (`src/render/atlas.ts:166`), and so does every
-generated texture (`src/render/procedural.ts:179`). Nothing decodes sRGB to
+generated texture (`src/render/procedural.ts:274`). Nothing decodes sRGB to
 linear on sample and nothing re-encodes on output. The byte in the PNG is the
 byte the shader multiplies by the tint.
 
@@ -79,38 +79,58 @@ The two filters in this pipeline disagree about how badly it bites:
   (`src/render/atlas.ts:162-163`). A dropped-in PNG is sampled hard, so damage
   is confined to the boundary fragments themselves.
 - `createBulletAtlas` overrides to `LinearFilter`
-  (`src/render/procedural.ts:176-177`), because generated art is smooth rather
+  (`src/render/procedural.ts:271-272`), because generated art is smooth rather
   than pixel art. Linear sampling reaches across the seam by design, so a 1px
   margin is not a margin.
 
 Both paths set `generateMipmaps = false` (`src/render/atlas.ts:164`,
-`src/render/procedural.ts:178`), which removes the usual worst offender: there
+`src/render/procedural.ts:273`), which removes the usual worst offender: there
 is no mip chain averaging whole neighbourhoods of cells together at small sizes.
 
 **Keep at least 2px of fully transparent margin inside every cell.** A 32×32
 cell should contain art no larger than 28×28, centred.
 
-The generated sheet does not obey its own rule, and the two offenders are not
-equally excusable. Both are drawn at radius 15 (`src/render/procedural.ts:146-147`),
-but that radius means different things to the two painters:
+28 is not a round number someone liked. It is the largest shape whose *painted*
+footprint still clears two pixels: a boundary at a fractional coordinate gives
+partial coverage to the pixel outside it, so a 27px-wide path paints 28 pixels
+and a 29px one paints 30. Measured on a canvas, 29 is the first extent that
+loses a pixel of margin. If you are exporting a bitmap rather than describing a
+shape, **measure the alpha bounding box** — it is what the sampler sees, and it
+is up to a pixel wider than the geometry you drew.
 
-- `glow.large` is `orb(r 15)`, so 30px in a 32px cell, 1px of margin. It gets
-  away with it because a radial gradient's outermost stop is
-  `rgba(255,255,255,0)` — the edge is already transparent.
-- `halo` is `ring(15, 2)`, and `ring` paints **past** its radius. It strokes
+The rule is enforced. `CELL_ART` declares each cell's painted extent next to its
+draw call, and `src/render/procedural.test.ts` holds every one of them against
+`MAX_CELL_EXTENT` — so the generated sheet is now the reference implementation
+this section always claimed it was.
+
+It was not one until recently, and the way it failed is the reason to read the
+rest of this section rather than skim it. Two cells broke it:
+
+- `glow.large` was `orb(r 15)` — 30px in a 32px cell, 1px of margin. Mild, and
+  it never bled visibly, because a radial gradient's outermost stop is
+  `rgba(255,255,255,0)`. Now `orb(r 14)`.
+- `halo` was `ring(15, 2)`, and **`ring` paints past its radius**. It strokes
   twice on the same circle at `radius - thickness/2`, the second with
   `lineWidth = thickness * 2` (`src/render/procedural.ts:76-88`), so the outer
-  edge lands at `radius + thickness/2` = 16. That is a **32px extent with zero
-  margin**, sitting exactly on the cell boundary.
+  edge lands at `radius + thickness/2` = 16: a **32px extent with zero margin**,
+  sitting exactly on the cell boundary. Now `ring(13, 2)`, which paints to 14.
 
-`halo` therefore violates the padding rule outright, and it is the worse of the
-two cases rather than the safer one: the 0.3-alpha stroke is not a reason it is
-harmless, it is the ink that is *on* the seam. The bullet atlas is sampled
-`LinearFilter` (`src/render/procedural.ts:176-177`), which reaches across seams by
-design, so `halo`'s edge texels blend with the first texels of `needle` next door
-and vice versa. It reads as acceptable today only because 0.3 alpha of white is a
-faint contribution to a neighbour that is itself white. Replace `halo` with
-hand-drawn art at the same extent and the bleed becomes visible.
+`halo` was the worse case and read as the safer one. The 0.3-alpha outer stroke
+is not a reason it was harmless — it is the ink that was *on* the seam. This
+sheet is sampled `LinearFilter` (`src/render/procedural.ts:271-272`), which
+reaches across seams by design, and `needle` sits in the next cell.
+
+Two lessons for anyone drawing replacement art:
+
+1. **The number in the call is not the extent.** Half a stroke width of paint
+   appeared outside `ring`'s stated radius, and nothing at the call site showed
+   it. A quadratic blade is the same trap in the other direction — it paints
+   *half* its control width. Measure the bitmap, do not trust the parameter.
+2. **Prose cannot check prose.** This document asserted 2px of padding; the
+   generator asserted nothing; the extents quoted in §3.1 were computed by hand
+   in a third place. Three statements, no contradiction detectable between them,
+   and the sheet was wrong for the life of the project. That is why the extents
+   now live in code.
 
 Draw to 28. `halo` is what the rule is for, not an exception to it.
 
@@ -173,7 +193,7 @@ only art outside them — which is why these cells deserve far more attention th
 a 256 × 64 PNG suggests.
 
 The engine generates the sheet at runtime today — `createBulletAtlas`,
-`src/render/procedural.ts:161-186` — and that generator **is** the reference
+`src/render/procedural.ts:256-281` — and that generator **is** the reference
 implementation: the grid, the cell order and every shape are defined there.
 Replacing it with a PNG is not a one-line swap, because `createBulletAtlas` is
 synchronous, names its own cells and chooses its own filter, and `loadAtlas`
@@ -190,7 +210,7 @@ does none of those three things. Section 5 is the actual procedure.
 
 Cells in row-major order, indices as `BULLET_CELLS` declares them
 (`src/render/procedural.ts:30-47`). `flipY` is `false` on every texture
-(`src/render/atlas.ts:165`, `src/render/procedural.ts:180`) and `Atlas.cell`
+(`src/render/atlas.ts:165`, `src/render/procedural.ts:275`) and `Atlas.cell`
 counts rows downward from the origin (`src/render/atlas.ts:88-93`), so **cell 0
 is the top-left of the PNG** — the sheet is laid out exactly as it looks in an
 image editor.
@@ -199,7 +219,7 @@ Names are the contract — content references `'orb.medium'`, never index 1 — 
 re-packing the sheet cannot silently repoint a bullet at the wrong art.
 
 Sizes below are the extents the generator actually paints, read off `PAINTERS`
-(`src/render/procedural.ts:135-152`). Two painters do not paint what their
+(`src/render/procedural.ts:219-241`). Two painters do not paint what their
 arguments read like: `ring` strokes past its radius (§1.2), and `blade` is a
 quadratic Bézier whose control points sit at `±wide/2`, so its apex reaches only
 half of that — painted height is `wide/2`, not `wide`
@@ -220,8 +240,8 @@ threat.
 | 7 | `shard` | `shard(26, 7)`, long thin diamond | 26×7 | **yes** |
 | 8 | `glow.small` | `orb(r 7, core 0.15)`, halo with no hard core | 14px | no |
 | 9 | `glow.medium` | `orb(r 11, core 0.12)` | 22px | no |
-| 10 | `glow.large` | `orb(r 15, core 0.10)` | 30px | no |
-| 11 | `halo` | `ring(r 15, thickness 2)`, thin hollow ring | 32px — see §1.2 | no |
+| 10 | `glow.large` | `orb(r 14, core 0.10)` | 28px | no |
+| 11 | `halo` | `ring(r 13, thickness 2)`, thin hollow ring | 28px — see §1.2 | no |
 | 12 | `needle` | `blade(28, 5)`, long slim blade | 28×2.5 | **yes** |
 | 13 | `petal` | `petal(r 11)`, asymmetric leaf | 22×~7.7 | **yes** |
 | 14 | `spark` | `star(r 11, 4 points)` | 22px | no |
@@ -262,21 +282,21 @@ distribution even where the shape differs.
 `coreRatio` is the whole difference between a bullet and a halo. It defaults to
 **0.45** for the solid shots — `orb.small`, `orb.medium`, `orb.large`, `mote` —
 and drops to **0.15, 0.12 and 0.10** for `glow.small`, `glow.medium` and
-`glow.large` respectively (`src/render/procedural.ts:144-146`). A glow cell has
+`glow.large` respectively (`src/render/procedural.ts:228-233`). A glow cell has
 almost no plateau at all: it starts falling off immediately, which is what stops
 six overlapping explosion particles from compositing into a white disc.
 
 ### 3.2 Player ship — `ship.png`
 
 The only art in the game that is not a bullet cell. `createShipAtlas`
-(`src/render/procedural.ts:189-222`) builds a 64×64 texture with **one named
+(`src/render/procedural.ts:284-317`) builds a 64×64 texture with **one named
 region and no grid**, `atlas.define('ship', { x: 0, y: 0, w: 64, h: 64 })`.
 
 | Property | Value | Verified at |
 |---|---|---|
-| Image size | **64 × 64** | `src/render/procedural.ts:190` |
+| Image size | **64 × 64** | `src/render/procedural.ts:285` |
 | Drawn at | **40 × 40** | `src/main.ts:297-299` |
-| Orientation | **pointing up (−y)** — the ship does not rotate | `src/render/procedural.ts:196-201` |
+| Orientation | **pointing up (−y)** — the ship does not rotate | `src/render/procedural.ts:291-296` |
 | Colour | white/greyscale, tinted for damage flash | `src/main.ts:300-302` |
 
 Note the 40-from-64: the sheet is authored at 1.6× its drawn size, the one place
@@ -291,7 +311,7 @@ Must include a **visually distinct centre point** marking the hitbox. This is
 not a debug affordance — showing the hitbox is standard genre practice and a
 real readability feature, because the ship sprite is many times larger than the
 2.5px lethal radius (`src/game/run.ts:823`). The placeholder marks it with a
-3px-radius disc two pixels below centre (`src/render/procedural.ts:206-209`),
+3px-radius disc two pixels below centre (`src/render/procedural.ts:301-304`),
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
 2.5px radius — close enough to be honest, and worth keeping close.
 
@@ -584,7 +604,7 @@ Three things change that the old version of this document said would not:
   `batches` object on line 62 is built.
 - **`loadAtlas` names nothing.** It returns an `Atlas` with a grid and an empty
   region map; `createBulletAtlas` calls `defineGrid` itself
-  (`src/render/procedural.ts:184`). Skip that second line and every draw throws
+  (`src/render/procedural.ts:279`). Skip that second line and every draw throws
   `atlas region "orb.small" is not defined` (`src/render/atlas.ts:98`).
 - **The filter changes under you.** `loadTexture` sets `NearestFilter`
   (`src/render/atlas.ts:162-163`); the generated sheet was `LinearFilter`. Art
