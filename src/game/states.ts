@@ -55,6 +55,27 @@ export interface Campaign {
   readonly packsData: string;
 }
 
+/**
+ * A pack character and the identity of the pack that owns it, all plain data.
+ *
+ * A pack character (`<pack>/<name>`) drives the simulation with pack content —
+ * its pack shot, option and bomb fire different bullets — even when flown off
+ * the plain START row rather than a campaign. A campaign arms `packsData` when
+ * chosen; this is the one path a campaign row does not cover, so the identity
+ * rides the character too, and `CharacterSelectState` arms `packsData` from it
+ * when a namespaced character is confirmed. Without this a replay flown with a
+ * pack character records `packsData ''` and plays back under different content.
+ *
+ * Declared here, not imported from `src/packs`, for the same reason `Campaign`
+ * is: `src/game` must not import that tree. The shell fills it; the game reads it.
+ */
+export interface CharacterPack {
+  /** Qualified character name (`<pack>/<name>`) as registered. */
+  readonly character: string;
+  /** Owning pack's identity (`name@hash`), for `RunConfig.packsData`. */
+  readonly packsData: string;
+}
+
 export interface GameContext {
   readonly machine: StateMachine;
   /** Seed for the next run. */
@@ -85,6 +106,14 @@ export interface GameContext {
    * the loader as plain data. Empty means today's menu, exactly.
    */
   campaigns?: readonly Campaign[];
+  /**
+   * The pack characters this build registered and the identity of the pack that
+   * owns each — one entry per `<pack>/<name>` character on the SELECT screen,
+   * empty or unset for a built-in-only build. `main.ts` fills it from the loader
+   * as plain data (mirroring `campaigns`). `CharacterSelectState` reads it to arm
+   * strict `packsData` when a pack character is flown off the plain START row.
+   */
+  characterPacks?: readonly CharacterPack[];
   /** Handed the recording when a run ends. */
   onReplay?(replay: Replay): void;
 }
@@ -229,6 +258,14 @@ export class CharacterSelectState extends MenuState {
   protected confirm(index: number): void {
     const name = characterNames()[index];
     if (name === undefined) return;
+    // A pack character drives the simulation with pack content, so its run must
+    // record the owning pack's identity strictly — even off the plain START row,
+    // where the campaign wire never armed `packsData`. Campaigns cover the stage
+    // path; this covers the character path, the one a built-in campaign leaves
+    // empty. A built-in character (no owner) touches nothing, so it still records
+    // whatever the campaign left — `''` off START.
+    const owner = (this.ctx.characterPacks ?? []).find((c) => c.character === name);
+    if (owner !== undefined) this.ctx.packsData = owner.packsData;
     this.ctx.machine.replace(new PlayingState(this.ctx, name));
   }
 

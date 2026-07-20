@@ -126,9 +126,213 @@ export interface ContentStage {
   background?: string;
 }
 
+/**
+ * One pattern slot on a boss phase. Mirrors `PhasePattern` (`src/sim/boss.ts`),
+ * whose shape is identical to a pack enemy's pattern slot — the same motion-DSL
+ * vocabulary drives both, so the fields do not diverge.
+ */
+export interface ContentPhasePattern {
+  pattern: string;
+  options?: Record<string, unknown>;
+  startAt?: number;
+  stopAt?: number;
+}
+
+/**
+ * A pack-format-2 spell card. Mirrors `SpellCard` (`src/sim/boss.ts`) with one
+ * deliberate substitution: **`hpSeconds` replaces `hp`**. Content states the unit
+ * a designer thinks in — seconds a competent player needs — and the injector
+ * computes `hp = phaseHp(hpSeconds)`. `timeLimit` (ticks) stays optional; absent,
+ * the injector defaults it to `phaseClock(hp)`. This keeps the balance.test
+ * coupling alive for pack content: a tuning constant no test can measure drifts
+ * from the thing it describes, so pack bosses re-derive when `REFERENCE_DPS` moves.
+ *
+ * `motion`/`timeline` are typed loosely for the same reason `ContentEnemy`'s are:
+ * their deep shape belongs to the motion DSL; the injector resolves the behaviour
+ * names inside them against the real registry.
+ */
+export interface ContentSpellCard {
+  name: string;
+  /** SECONDS of intended drain, not ticks — the injector computes `hp = phaseHp(hpSeconds)`. */
+  hpSeconds: number;
+  /** Ticks before the phase times out. Absent means the injector's `phaseClock(hp)` default. */
+  timeLimit?: number;
+  patterns: readonly ContentPhasePattern[];
+  motion?: Record<string, unknown>;
+  timeline?: readonly Record<string, unknown>[];
+  bonus?: number;
+  isSpell?: boolean;
+  background?: string;
+}
+
+/**
+ * A pack-format-2 boss: the JSON that becomes a `BossSpec` (`src/sim/boss.ts`).
+ * Mirrors it field for field, except each phase is a `ContentSpellCard`
+ * (`hpSeconds`, not `hp`). The injector qualifies its name, resolves the names
+ * inside (patterns, backgrounds, the `onDeath` effect, spoils item names), and
+ * hands the built spec to `defineBoss`. Redeclared here rather than imported so
+ * this module stays pure; `inject.ts` is the single place that assigns one shape
+ * to the other, where a scalar-field drift is a compile error.
+ */
+export interface ContentBoss {
+  sprite: string;
+  radius: number;
+  width?: number;
+  height?: number;
+  tint?: { r?: number; g?: number; b?: number };
+  entry?: { x: number; y: number; ticks: number };
+  phases: readonly ContentSpellCard[];
+  onDeath?: string;
+  spoils?: readonly (readonly [name: string, count: number])[];
+}
+
+/**
+ * One power tier of a pack shot. Mirrors `ShotSpec` (`src/sim/player.ts`). The
+ * `spec` is a `BulletSpec` and `offsets` are muzzle vectors — both belong to the
+ * bullet and motion models, whose deep shape this module does not own, so they
+ * are typed loosely and the injector resolves the sprite and behaviour names
+ * inside them against the real registries.
+ */
+export interface ContentShotSpec {
+  spec: Record<string, unknown>;
+  offsets: readonly Record<string, unknown>[];
+  period: number;
+}
+
+/**
+ * A pack-format-2 shot: the JSON that becomes a `ShotType` (`src/content/shots.ts`).
+ * The section key is the name — as with enemies and stages, the shape omits it —
+ * and the injector qualifies it and fills `ShotType.name`. A character equips a
+ * shot by name; the injector resolves that reference and hands `defineCharacter`
+ * the levels ladder in place (`CharacterSpec.player.shots`).
+ */
+export interface ContentShot {
+  levels: readonly ContentShotSpec[];
+  description?: string;
+}
+
+/**
+ * A pack-format-2 option set: the JSON that becomes an `OptionSpec`
+ * (`src/sim/option.ts`). `shot` is a `BulletSpec` and `levels` are slot layouts,
+ * both typed loosely for the same reason `ContentShotSpec`'s are; the injector
+ * resolves the two sprite names (`sprite`, `shot.style.sprite`) and any behaviour
+ * names against the real registries.
+ */
+export interface ContentOptions {
+  sprite: string;
+  shot: Record<string, unknown>;
+  period: number;
+  levels: readonly (readonly Record<string, unknown>[])[];
+  followSpeed?: number;
+  tint?: { r?: number; g?: number; b?: number };
+}
+
+/**
+ * A pack-format-2 bomb: the JSON that becomes a `BombSpec` (`src/sim/bomb.ts`),
+ * mirrored field for field. `effect` names a particle effect resolved pack-first
+ * then built-in; a character equips a bomb by name (`CharacterSpec.bomb`).
+ */
+export interface ContentBomb {
+  duration: number;
+  invulnTicks: number;
+  damagePerTick: number;
+  radius?: number;
+  convertBullets?: boolean;
+  effect?: string;
+}
+
+/**
+ * A pack-format-2 effect: the JSON that becomes a `ParticleSpec`
+ * (`src/sim/effects.ts`). Its `sprite` is validated against the injected
+ * sprite-name set — the same set enemy and boss sprites resolve against. The
+ * engine's own effects are declared through a `BulletCell`-typed seam that makes
+ * the sprite a compile-time union; a pack has no compiler at author time, so that
+ * union becomes a **runtime** check here, against the passed-in sprite list.
+ */
+export interface ContentEffect {
+  sprite: string;
+  count: number | { min: number; max: number };
+  speed: number | { min: number; max: number };
+  life: number | { min: number; max: number };
+  spread?: number;
+  direction?: number;
+  drag?: number;
+  gravity?: number;
+  scale?: number | { from: number; to: number };
+  alpha?: { from: number; to: number };
+  spin?: number;
+  tint?: { r?: number; g?: number; b?: number };
+  additive?: boolean;
+}
+
+/**
+ * A pack-format-2 item: the JSON that becomes an `ItemSpec` (`src/sim/item.ts`).
+ *
+ * `kind` is restricted to the engine's existing union — a new kind is a new game
+ * *rule* (the game layer reads `kind` to decide what a pickup does), not pack
+ * data, so an unfamiliar kind is refused by name. A pack item becomes droppable
+ * by being named in some pack enemy's or boss's `spoils`, resolving pack-first.
+ */
+export interface ContentItem {
+  sprite: string;
+  radius: number;
+  value: number;
+  kind: 'power' | 'score' | 'life' | 'bomb';
+  motion?: Record<string, unknown>;
+  tint?: { r?: number; g?: number; b?: number };
+  magnetSpeed?: number;
+}
+
+/**
+ * A pack-format-2 character's ship stats. Mirrors `PlayerConfig`
+ * (`src/sim/player.ts`) minus `bounds` (the run owns the field) and minus
+ * `shots` — the character declares its weapon by name (`ContentCharacter.shot`)
+ * and the injector fills the ladder in.
+ */
+export interface ContentPlayer {
+  x: number;
+  y: number;
+  speed: number;
+  focusSpeed: number;
+  radius: number;
+  grazeRadius: number;
+  lives: number;
+  bombs: number;
+  invulnTicks: number;
+  maxPower?: number;
+}
+
+/**
+ * A pack-format-2 character: the JSON that becomes a `CharacterSpec`
+ * (`src/game/run.ts`). Mirrors it except for the shot indirection — a built-in
+ * character carries its shot table inline, but a pack **names** the shot
+ * (`shot: "<name>"`, pack-first then built-in) and the injector resolves it via
+ * the shot registry into `player.shots`. `options` and `bomb` are likewise names
+ * resolved pack-first. A pack character appears on the SELECT screen exactly as a
+ * built-in does, because that screen enumerates the registry it registers into.
+ */
+export interface ContentCharacter {
+  label: string;
+  shot: string;
+  player: ContentPlayer;
+  options: string;
+  bomb: string;
+  blurb?: string;
+  sprite: string;
+  width?: number;
+  height?: number;
+}
+
 export interface PackContent {
   enemies?: Record<string, ContentEnemy>;
   stages?: Record<string, ContentStage>;
+  bosses?: Record<string, ContentBoss>;
+  shots?: Record<string, ContentShot>;
+  characters?: Record<string, ContentCharacter>;
+  options?: Record<string, ContentOptions>;
+  bombs?: Record<string, ContentBomb>;
+  effects?: Record<string, ContentEffect>;
+  items?: Record<string, ContentItem>;
 }
 
 export interface PackManifest {
@@ -152,10 +356,11 @@ export interface PackManifest {
    */
   requires?: string[];
   /**
-   * Format-2 game content — enemies and stages. Present only alongside the
-   * matching `requires` entries. The injector (`inject.ts`) resolves the names
-   * inside against the real registries and registers it; this module validates
-   * shape only.
+   * Format-2 game content — enemies, stages, bosses, shots, characters,
+   * options, bombs, effects and items. Present only alongside the matching
+   * `requires` entries. The injector (`inject.ts`) resolves the names inside
+   * against the real registries and registers it; this module validates shape
+   * only.
    */
   content?: PackContent;
 }
@@ -172,6 +377,13 @@ export type ValidationResult =
 export const IMPLEMENTED_CAPABILITIES = [
   'content.enemies',
   'content.stages',
+  'content.bosses',
+  'content.shots',
+  'content.characters',
+  'content.options',
+  'content.bombs',
+  'content.effects',
+  'content.items',
 ] as const;
 
 /** Top-level fields understood here, in the order the "valid fields" list prints. */
@@ -209,17 +421,24 @@ const HUD_FIELDS = ['life', 'bomb'] as const;
 const HUD_RESERVED = ['digits', 'font', 'bossBar', 'frame'] as const;
 
 /** `content.*` sections this engine implements. */
-const CONTENT_FIELDS = ['enemies', 'stages'] as const;
-/** `content.*` sections a later format will carry; refused by name today. */
-const CONTENT_RESERVED = [
+const CONTENT_FIELDS = [
+  'enemies',
+  'stages',
   'bosses',
+  'shots',
   'characters',
+  'options',
+  'bombs',
+  'effects',
   'items',
-  'music',
-  'difficulty',
-  'dialog',
-  'backgrounds',
 ] as const;
+/**
+ * `content.*` sections a later format will carry; refused by name today. Each of
+ * these needs an engine feature it does not yet have — music and difficulty are
+ * runtime systems, dialog is a scripting layer, backgrounds are shader code —
+ * so unlike the sections above they are not pure data a pack can simply carry.
+ */
+const CONTENT_RESERVED = ['music', 'difficulty', 'dialog', 'backgrounds'] as const;
 
 const ENEMY_FIELDS = [
   'sprite',
@@ -237,7 +456,8 @@ const ENEMY_FIELDS = [
   'onDeath',
   'despawnMargin',
 ] as const;
-const ENEMY_PATTERN_FIELDS = ['pattern', 'options', 'startAt', 'stopAt'] as const;
+/** A pattern slot's fields — shared by a pack enemy and a pack boss phase. */
+const PATTERN_SLOT_FIELDS = ['pattern', 'options', 'startAt', 'stopAt'] as const;
 const STAGE_FIELDS = [
   'entry',
   'seed',
@@ -258,6 +478,81 @@ const WAVE_FIELDS = [
   'stepX',
   'stepY',
 ] as const;
+const BOSS_FIELDS = [
+  'sprite',
+  'radius',
+  'width',
+  'height',
+  'tint',
+  'entry',
+  'phases',
+  'onDeath',
+  'spoils',
+] as const;
+const BOSS_ENTRY_FIELDS = ['x', 'y', 'ticks'] as const;
+const SPELLCARD_FIELDS = [
+  'name',
+  'hpSeconds',
+  'timeLimit',
+  'patterns',
+  'motion',
+  'timeline',
+  'bonus',
+  'isSpell',
+  'background',
+] as const;
+const SHOT_FIELDS = ['levels', 'description'] as const;
+const SHOT_LEVEL_FIELDS = ['spec', 'offsets', 'period'] as const;
+const OPTIONS_FIELDS = ['sprite', 'shot', 'period', 'levels', 'followSpeed', 'tint'] as const;
+const BOMB_FIELDS = [
+  'duration',
+  'invulnTicks',
+  'damagePerTick',
+  'radius',
+  'convertBullets',
+  'effect',
+] as const;
+const EFFECT_FIELDS = [
+  'sprite',
+  'count',
+  'speed',
+  'life',
+  'spread',
+  'direction',
+  'drag',
+  'gravity',
+  'scale',
+  'alpha',
+  'spin',
+  'tint',
+  'additive',
+] as const;
+const ITEM_FIELDS = ['sprite', 'radius', 'value', 'kind', 'motion', 'tint', 'magnetSpeed'] as const;
+const CHARACTER_FIELDS = [
+  'label',
+  'shot',
+  'player',
+  'options',
+  'bomb',
+  'blurb',
+  'sprite',
+  'width',
+  'height',
+] as const;
+const PLAYER_FIELDS = [
+  'x',
+  'y',
+  'speed',
+  'focusSpeed',
+  'radius',
+  'grazeRadius',
+  'lives',
+  'bombs',
+  'invulnTicks',
+  'maxPower',
+] as const;
+/** The item kinds the game has rules for — an unfamiliar kind is refused by name. */
+const ITEM_KINDS = ['power', 'score', 'life', 'bomb'] as const;
 
 const NAME_PATTERN = /^[a-z0-9-]{1,32}$/;
 
@@ -567,6 +862,50 @@ function validateContent(
   if ('stages' in content && content.stages !== undefined) {
     validateStages(content.stages, prefix, errors);
   }
+  if ('bosses' in content && content.bosses !== undefined) {
+    validateBosses(content.bosses, prefix, errors);
+  }
+  if ('shots' in content && content.shots !== undefined) {
+    validateSection(content.shots, 'shots', validateShot, prefix, errors);
+  }
+  if ('characters' in content && content.characters !== undefined) {
+    validateSection(content.characters, 'characters', validateCharacter, prefix, errors);
+  }
+  if ('options' in content && content.options !== undefined) {
+    validateSection(content.options, 'options', validateOptions, prefix, errors);
+  }
+  if ('bombs' in content && content.bombs !== undefined) {
+    validateSection(content.bombs, 'bombs', validateBomb, prefix, errors);
+  }
+  if ('effects' in content && content.effects !== undefined) {
+    validateSection(content.effects, 'effects', validateEffect, prefix, errors);
+  }
+  if ('items' in content && content.items !== undefined) {
+    validateSection(content.items, 'items', validateItem, prefix, errors);
+  }
+}
+
+/**
+ * The shared shape of every keyed content section: reject a non-object, else
+ * validate each entry with `each`, keyed by its section name. Enemies, stages
+ * and bosses predate this helper and keep their own copies; the six new sections
+ * share it, since the only thing that varied between the old copies was the
+ * per-entry validator.
+ */
+function validateSection(
+  section: unknown,
+  name: string,
+  each: (raw: unknown, where: string, prefix: string, errors: string[]) => void,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(section)) {
+    errors.push(`${prefix}content.${name} must be a JSON object`);
+    return;
+  }
+  for (const [key, entry] of Object.entries(section)) {
+    each(entry, `content.${name}."${key}"`, prefix, errors);
+  }
 }
 
 function validateEnemies(enemies: unknown, prefix: string, errors: string[]): void {
@@ -607,29 +946,12 @@ function validateEnemy(
       errors.push(`${prefix}${where}.patterns must be an array`);
     } else {
       raw.patterns.forEach((slot, i) =>
-        validateEnemyPattern(slot, `${where}.patterns[${i}]`, prefix, errors),
+        validatePatternSlot(slot, `${where}.patterns[${i}]`, prefix, errors),
       );
     }
   }
 
-  if ('spoils' in raw) {
-    if (!Array.isArray(raw.spoils)) {
-      errors.push(`${prefix}${where}.spoils must be an array`);
-    } else {
-      raw.spoils.forEach((entry, i) => {
-        if (
-          !Array.isArray(entry) ||
-          entry.length !== 2 ||
-          typeof entry[0] !== 'string' ||
-          typeof entry[1] !== 'number'
-        ) {
-          errors.push(
-            `${prefix}${where}.spoils[${i}] must be a [name, count] pair — a string and a number`,
-          );
-        }
-      });
-    }
-  }
+  validateSpoils(raw, where, prefix, errors);
 
   for (const key of Object.keys(raw)) {
     if ((ENEMY_FIELDS as readonly string[]).includes(key)) continue;
@@ -637,7 +959,33 @@ function validateEnemy(
   }
 }
 
-function validateEnemyPattern(
+/** A `spoils` list, shared by enemies and bosses: an array of [name, count] pairs. */
+function validateSpoils(
+  raw: Record<string, unknown>,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!('spoils' in raw)) return;
+  if (!Array.isArray(raw.spoils)) {
+    errors.push(`${prefix}${where}.spoils must be an array`);
+    return;
+  }
+  raw.spoils.forEach((entry, i) => {
+    if (
+      !Array.isArray(entry) ||
+      entry.length !== 2 ||
+      typeof entry[0] !== 'string' ||
+      typeof entry[1] !== 'number'
+    ) {
+      errors.push(
+        `${prefix}${where}.spoils[${i}] must be a [name, count] pair — a string and a number`,
+      );
+    }
+  });
+}
+
+function validatePatternSlot(
   raw: unknown,
   where: string,
   prefix: string,
@@ -652,8 +1000,8 @@ function validateEnemyPattern(
   optField(raw, 'startAt', 'number', where, prefix, errors);
   optField(raw, 'stopAt', 'number', where, prefix, errors);
   for (const key of Object.keys(raw)) {
-    if ((ENEMY_PATTERN_FIELDS as readonly string[]).includes(key)) continue;
-    errors.push(unknownField(`${prefix}${where}: `, key, ENEMY_PATTERN_FIELDS));
+    if ((PATTERN_SLOT_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, PATTERN_SLOT_FIELDS));
   }
 }
 
@@ -735,6 +1083,326 @@ function validateWave(
   for (const key of Object.keys(raw)) {
     if ((WAVE_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(`${prefix}${where}: `, key, WAVE_FIELDS));
+  }
+}
+
+function validateBosses(bosses: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(bosses)) {
+    errors.push(`${prefix}content.bosses must be a JSON object`);
+    return;
+  }
+  for (const [name, boss] of Object.entries(bosses)) {
+    validateBoss(boss, `content.bosses."${name}"`, prefix, errors);
+  }
+}
+
+function validateBoss(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'sprite', 'string', where, prefix, errors, 'an atlas cell name');
+  requireField(raw, 'radius', 'number', where, prefix, errors, 'a number');
+  optField(raw, 'width', 'number', where, prefix, errors);
+  optField(raw, 'height', 'number', where, prefix, errors);
+  optField(raw, 'tint', 'object', where, prefix, errors);
+  optField(raw, 'onDeath', 'string', where, prefix, errors);
+
+  if ('entry' in raw && raw.entry !== undefined) {
+    validateBossEntry(raw.entry, `${where}.entry`, prefix, errors);
+  }
+
+  if (!('phases' in raw) || raw.phases === undefined) {
+    errors.push(`${prefix}${where} is missing required field "phases" — an array of spell cards`);
+  } else if (!Array.isArray(raw.phases)) {
+    errors.push(`${prefix}${where}.phases must be an array`);
+  } else {
+    raw.phases.forEach((card, i) =>
+      validateSpellCard(card, `${where}.phases[${i}]`, prefix, errors),
+    );
+  }
+
+  validateSpoils(raw, where, prefix, errors);
+
+  for (const key of Object.keys(raw)) {
+    if ((BOSS_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, BOSS_FIELDS));
+  }
+}
+
+function validateBossEntry(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'x', 'number', where, prefix, errors, 'a number');
+  requireField(raw, 'y', 'number', where, prefix, errors, 'a number');
+  requireField(raw, 'ticks', 'number', where, prefix, errors, 'a whole tick count');
+  for (const key of Object.keys(raw)) {
+    if ((BOSS_ENTRY_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, BOSS_ENTRY_FIELDS));
+  }
+}
+
+function validateSpellCard(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'name', 'string', where, prefix, errors, 'a card name');
+  requireField(raw, 'hpSeconds', 'number', where, prefix, errors, 'seconds of health a competent player needs');
+  optField(raw, 'timeLimit', 'number', where, prefix, errors);
+  optField(raw, 'motion', 'object', where, prefix, errors);
+  optField(raw, 'timeline', 'array', where, prefix, errors);
+  optField(raw, 'bonus', 'number', where, prefix, errors);
+  optField(raw, 'isSpell', 'boolean', where, prefix, errors);
+  optField(raw, 'background', 'string', where, prefix, errors);
+
+  if (!('patterns' in raw) || raw.patterns === undefined) {
+    errors.push(`${prefix}${where} is missing required field "patterns" — an array of pattern slots`);
+  } else if (!Array.isArray(raw.patterns)) {
+    errors.push(`${prefix}${where}.patterns must be an array`);
+  } else {
+    raw.patterns.forEach((slot, i) =>
+      validatePatternSlot(slot, `${where}.patterns[${i}]`, prefix, errors),
+    );
+  }
+
+  for (const key of Object.keys(raw)) {
+    if ((SPELLCARD_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, SPELLCARD_FIELDS));
+  }
+}
+
+/* --- shots ------------------------------------------------------------ */
+
+function validateShot(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  optField(raw, 'description', 'string', where, prefix, errors);
+
+  if (!('levels' in raw) || raw.levels === undefined) {
+    errors.push(`${prefix}${where} is missing required field "levels" — an array of power tiers`);
+  } else if (!Array.isArray(raw.levels)) {
+    errors.push(`${prefix}${where}.levels must be an array`);
+  } else {
+    raw.levels.forEach((lvl, i) =>
+      validateShotLevel(lvl, `${where}.levels[${i}]`, prefix, errors),
+    );
+  }
+
+  for (const key of Object.keys(raw)) {
+    if ((SHOT_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, SHOT_FIELDS));
+  }
+}
+
+function validateShotLevel(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'spec', 'object', where, prefix, errors, 'a bullet spec');
+  requireField(raw, 'offsets', 'array', where, prefix, errors, 'an array of muzzle offsets');
+  requireField(raw, 'period', 'number', where, prefix, errors, 'ticks between volleys');
+  for (const key of Object.keys(raw)) {
+    if ((SHOT_LEVEL_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, SHOT_LEVEL_FIELDS));
+  }
+}
+
+/* --- options ---------------------------------------------------------- */
+
+function validateOptions(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'sprite', 'string', where, prefix, errors, 'an atlas cell name');
+  requireField(raw, 'shot', 'object', where, prefix, errors, 'a bullet spec');
+  requireField(raw, 'period', 'number', where, prefix, errors, 'ticks between volleys');
+  requireField(raw, 'levels', 'array', where, prefix, errors, 'slot layouts by power tier');
+  optField(raw, 'followSpeed', 'number', where, prefix, errors);
+  optField(raw, 'tint', 'object', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((OPTIONS_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, OPTIONS_FIELDS));
+  }
+}
+
+/* --- bombs ------------------------------------------------------------ */
+
+function validateBomb(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'duration', 'number', where, prefix, errors, 'ticks the bomb burns');
+  requireField(raw, 'invulnTicks', 'number', where, prefix, errors, 'ticks of player invulnerability');
+  requireField(raw, 'damagePerTick', 'number', where, prefix, errors, 'damage per tick in range');
+  optField(raw, 'radius', 'number', where, prefix, errors);
+  optField(raw, 'convertBullets', 'boolean', where, prefix, errors);
+  optField(raw, 'effect', 'string', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((BOMB_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, BOMB_FIELDS));
+  }
+}
+
+/* --- effects ---------------------------------------------------------- */
+
+/** An `Amount` (`src/sim/effects.ts`): a scalar or a `{min, max}` range. */
+function isAmount(v: unknown): boolean {
+  return (
+    typeof v === 'number' ||
+    (isRecord(v) && typeof v.min === 'number' && typeof v.max === 'number')
+  );
+}
+
+function requireAmount(
+  raw: Record<string, unknown>,
+  field: string,
+  where: string,
+  prefix: string,
+  errors: string[],
+  hint: string,
+): void {
+  if (!(field in raw) || raw[field] === undefined) {
+    errors.push(`${prefix}${where} is missing required field "${field}" — ${hint}`);
+  } else if (!isAmount(raw[field])) {
+    errors.push(`${prefix}${where}.${field} must be a number or a {min, max} range`);
+  }
+}
+
+function validateEffect(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'sprite', 'string', where, prefix, errors, 'an atlas cell name');
+  requireAmount(raw, 'count', where, prefix, errors, 'particles per emit');
+  requireAmount(raw, 'speed', where, prefix, errors, 'initial speed, px/tick');
+  requireAmount(raw, 'life', where, prefix, errors, 'ticks before a particle expires');
+  optField(raw, 'spread', 'number', where, prefix, errors);
+  optField(raw, 'direction', 'number', where, prefix, errors);
+  optField(raw, 'drag', 'number', where, prefix, errors);
+  optField(raw, 'gravity', 'number', where, prefix, errors);
+  if ('scale' in raw && raw.scale !== undefined && typeof raw.scale !== 'number' && !isRecord(raw.scale)) {
+    errors.push(`${prefix}${where}.scale must be a number or a {from, to} range`);
+  }
+  optField(raw, 'alpha', 'object', where, prefix, errors);
+  optField(raw, 'spin', 'number', where, prefix, errors);
+  optField(raw, 'tint', 'object', where, prefix, errors);
+  optField(raw, 'additive', 'boolean', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((EFFECT_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, EFFECT_FIELDS));
+  }
+}
+
+/* --- items ------------------------------------------------------------ */
+
+function validateItem(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'sprite', 'string', where, prefix, errors, 'an atlas cell name');
+  requireField(raw, 'radius', 'number', where, prefix, errors, 'a pickup radius');
+  requireField(raw, 'value', 'number', where, prefix, errors, 'a power fraction or score points');
+  if (!('kind' in raw) || raw.kind === undefined) {
+    errors.push(
+      `${prefix}${where} is missing required field "kind" — one of ${ITEM_KINDS.join(', ')}`,
+    );
+  } else if (typeof raw.kind !== 'string') {
+    errors.push(`${prefix}${where}.kind must be a string`);
+  } else if (!(ITEM_KINDS as readonly string[]).includes(raw.kind)) {
+    // A new kind is a new game RULE — the game layer switches on `kind` to
+    // decide what a pickup does — so a pack cannot introduce one as data.
+    errors.push(
+      `${prefix}${where}.kind "${raw.kind}" is not a kind this game has — a new kind is a new game rule, not pack data; valid kinds: ${ITEM_KINDS.join(', ')}`,
+    );
+  }
+  optField(raw, 'motion', 'object', where, prefix, errors);
+  optField(raw, 'tint', 'object', where, prefix, errors);
+  optField(raw, 'magnetSpeed', 'number', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((ITEM_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, ITEM_FIELDS));
+  }
+}
+
+/* --- characters ------------------------------------------------------- */
+
+function validateCharacter(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'label', 'string', where, prefix, errors, 'shown on the select screen');
+  requireField(raw, 'shot', 'string', where, prefix, errors, 'a registered shot name');
+  requireField(raw, 'options', 'string', where, prefix, errors, 'a registered option set name');
+  requireField(raw, 'bomb', 'string', where, prefix, errors, 'a registered bomb name');
+  requireField(raw, 'sprite', 'string', where, prefix, errors, 'an atlas cell name');
+  optField(raw, 'blurb', 'string', where, prefix, errors);
+  optField(raw, 'width', 'number', where, prefix, errors);
+  optField(raw, 'height', 'number', where, prefix, errors);
+
+  if (!('player' in raw) || raw.player === undefined) {
+    errors.push(`${prefix}${where} is missing required field "player" — the ship's stats`);
+  } else if (!isRecord(raw.player)) {
+    errors.push(`${prefix}${where}.player must be a JSON object`);
+  } else {
+    validatePlayer(raw.player, `${where}.player`, prefix, errors);
+  }
+
+  for (const key of Object.keys(raw)) {
+    if ((CHARACTER_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, CHARACTER_FIELDS));
+  }
+}
+
+function validatePlayer(
+  raw: Record<string, unknown>,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  requireField(raw, 'x', 'number', where, prefix, errors, 'a number');
+  requireField(raw, 'y', 'number', where, prefix, errors, 'a number');
+  requireField(raw, 'speed', 'number', where, prefix, errors, 'px/tick, unfocused');
+  requireField(raw, 'focusSpeed', 'number', where, prefix, errors, 'px/tick, focused');
+  requireField(raw, 'radius', 'number', where, prefix, errors, 'the lethal hitbox');
+  requireField(raw, 'grazeRadius', 'number', where, prefix, errors, 'the graze radius');
+  requireField(raw, 'lives', 'number', where, prefix, errors, 'a whole life count');
+  requireField(raw, 'bombs', 'number', where, prefix, errors, 'a whole bomb count');
+  requireField(raw, 'invulnTicks', 'number', where, prefix, errors, 'a whole tick count');
+  optField(raw, 'maxPower', 'number', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((PLAYER_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, PLAYER_FIELDS));
   }
 }
 

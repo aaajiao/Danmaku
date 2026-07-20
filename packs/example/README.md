@@ -26,58 +26,91 @@ JSON has no comments, so this table is where the annotation lives.
 | `assets.filter` | `"nearest"` | Texture sampling for both sheets: `"nearest"` or `"linear"`. This pack's art is hard-edged, so `"nearest"` keeps every boundary crisp; smooth, gradient-shaded art should ask for `"linear"` instead. Default is `"nearest"` either way. |
 | `sounds.shot`, `sounds.pickup` | two `.wav` files | One entry per sound this pack replaces — the full list of names the engine plays is in `docs/audio.md` §2; an unknown name is rejected and lists them. This pack only replaces two of the six, which is legal: everything else keeps playing its synthesised placeholder. |
 | `hud.life`, `hud.bomb` | two `.png` files | Replace the ♥/★ glyphs. See "HUD icons are shapes, not compositions" below. |
-| `requires` | `["content.enemies", "content.stages"]` | The capabilities this pack's `content` needs. The engine honours exactly the two named here; anything else is refused by name. Every `content.<section>` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on `requires` before it parses a `content` section it could not load. |
-| `content` | two enemies, two stages | Format-2 game content: the enemies and stages this pack adds. See "Content: enemies and stages" below. |
+| `requires` | all nine `content.*` capabilities | The capabilities this pack's `content` needs. The engine honours exactly the implemented set; anything else is refused by name. Every `content.<section>` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on `requires` before it parses a `content` section it could not load. |
+| `content` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
 The fields this engine still does not implement — the reserved `content`
-sections `bosses`/`characters`/`items`/`music`/`difficulty`/`dialog`/
-`backgrounds`, the top-level `music`/`difficulty`/`dialog`/`backgrounds`, and
-the reserved `hud` names `digits`/`font`/`bossBar`/`frame` — get a dedicated
-rejection naming each as a future section rather than a generic "unknown field"
-error; see `docs/packs.md` §Future.
+sections `music`/`difficulty`/`dialog`/`backgrounds`, the top-level
+`music`/`difficulty`/`dialog`/`backgrounds`, and the reserved `hud` names
+`digits`/`font`/`bossBar`/`frame` — get a dedicated rejection naming each as a
+future section rather than a generic "unknown field" error; see
+`docs/packs.md` §Future.
 
-## Content: enemies and stages
+## Content: one of everything
 
 `content` is where a pack stops reskinning the game and starts adding to it. This
-pack ships two enemies and a two-stage campaign; the row it adds under START on
-the title screen (`example/gauntlet`) is the campaign's entry stage.
+pack ships **one of every implemented section** — two enemies, a boss, a shot, a
+character, an option set, a bomb, a particle effect, an item, and a two-stage
+campaign that reaches all of them. The row it adds under START on the title
+screen (`example/gauntlet`) is the campaign's entry stage.
 
-**A pack enemy IS an `EnemySpec`; a pack stage IS a `StageSpec`.** There is no
-translation — the JSON below is handed straight to `defineEnemy`/`defineStage`
-after its names are checked. So the authoring reference is the engine's own:
-`src/sim/enemy.ts` for an enemy's fields (`sprite`, `hp`, `radius`, `motion`,
-`timeline`, `patterns`, `spoils`, `tint`, …) and `src/content/stage.ts` for a
-stage's (`waves`, `seed`, `outro`, `boss`, `background`, plus `entry`/`next`).
+**A pack entry IS the engine's own spec, minus the name the key carries.** A pack
+enemy is an `EnemySpec`, a pack boss a `BossSpec`, a pack shot a `ShotType`, a
+pack character a `CharacterSpec`, and so on — handed straight to the matching
+`define*` after its names are checked, no translation layer. So the authoring
+reference is the engine's own: `src/sim/enemy.ts`, `src/sim/boss.ts`,
+`src/content/shots.ts`, `src/sim/option.ts`, `src/sim/bomb.ts`,
+`src/sim/effects.ts`, `src/sim/item.ts`, `src/game/run.ts`,
+`src/content/stage.ts`. This section covers only what the pack form adds on top.
 
-**Names resolve pack-first, then built-in.** Your own enemies and stages are
-written **bare** inside your JSON and registered under a `<packname>/` prefix, so
-this pack's `ember` becomes `example/ember`. A bare name that is not one of your
-own resolves to a built-in: `grunt` in a wave is the built-in grunt, `sentinel`
-is the built-in boss, `expanse` and `undertow` are built-in backgrounds,
-`power`/`score` in `spoils` are built-in items, `aimed-fan`/`spiral` are built-in
-patterns. **A pack defines enemies and stages and references everything else by
-name.** Cross-pack references are not supported: a name is either yours or a
-built-in's.
+**Names resolve pack-first, then built-in — for every reference.** Your own
+entries are written **bare** and registered under a `<packname>/` prefix, so this
+pack's `ember` becomes `example/ember` and `raider` fires `emberbolt` which the
+injector resolves to `example/emberbolt`. A bare name that is not one of yours
+resolves to a built-in: `grunt` (enemy), `sentinel` (boss), `expanse`/`undertow`/
+`drift` (backgrounds), `power`/`score` (items), `hit`/`death.big` (effects),
+`aimed-fan`/`spiral`/`ring` (patterns). **A pack defines content and references
+engine code — patterns, behaviours, backgrounds — by name.** Cross-pack
+references are not supported: a name is either yours or a built-in's.
 
-**Bosses and backgrounds are built-ins you reference, never author.**
-`content.bosses` is a reserved future section, and a background is a fragment
-shader — engine code. A pack stage names one of each by string; it cannot ship
-one. Name a boss or background that does not exist and injection refuses the pack
-whole, listing (for backgrounds) the ones that do.
+**A boss is now data — but its `hp` is written as `hpSeconds`.** `content.bosses`
+is implemented, and `pyre` is this pack's end boss for `ashfall`. Its two phases
+mirror `SpellCard` field for field, with one substitution: a phase declares
+**`hpSeconds`** — the *seconds* a competent player should need to drain it — and
+the injector computes `hp = phaseHp(hpSeconds)`, defaulting the absent
+`timeLimit` to `phaseClock(hp)`. You write the unit a designer thinks in, and the
+boss stays sized off `REFERENCE_DPS`: when that constant moves, every pack boss
+re-derives, the same coupling `balance.test.ts` holds the built-ins to. A tuning
+constant no test can measure drifts from the thing it describes — so the spec
+does not let you type raw `hp`. A spell card's `background` still names a built-in
+scene (`pyre`'s second phase overrides the field to `drift`); a background is a
+shader, engine code, so a pack *selects* one and never ships one.
 
-**Registration is not reachability, and the injector enforces it.** Two rules,
-both errors that reject the pack:
+**A character equips its weapons by name, not by table.** A built-in
+`CharacterSpec` carries its shot ladder inline; a pack `character` instead names
+its `shot`, `options` and `bomb` (`raider` names `emberbolt`, `emberwing`,
+`firestorm`), and the injector resolves each pack-first and fills the ship's
+`player.shots` ladder in. That is the one indirection the pack form adds — it is
+why shots, options and bombs register *before* characters. A pack character is
+offered on the SELECT screen exactly as a built-in is, because that screen
+enumerates the registry it lands in.
 
-- At least one stage must be an `entry`, and every stage must be reachable — an
-  `entry`, or the `next` of some stage in the pack. A stage that is neither is
-  dead content. `gauntlet` is the entry; `ashfall` is reached by its `next`.
-- Every enemy the pack defines must be spawned by some wave of some pack stage.
-  An enemy nothing places is dead content. `ember` and `drone` are both flown by
-  `gauntlet`.
+**An item's `kind` is closed.** `relic` is an ordinary `ItemSpec` with
+`kind: "score"` — one of `power`/`score`/`life`/`bomb`. The game layer switches
+on `kind` to decide what a pickup *does*, so a new kind is a new game **rule**,
+not pack data; an unfamiliar one is refused by name. A pack item becomes
+droppable by being named in some `spoils` (`ember` and `pyre` both drop `relic`).
+
+**An effect's `sprite` is a plain cell, checked at runtime.** `cinder` is a
+`ParticleSpec`; the engine's own effects declare their sprite through a
+`BulletCell`-typed seam that makes it a compile-time union, but a pack has no
+compiler at author time, so the injector enforces that union as a runtime check
+against the same sprite set enemy and boss art resolve against.
+
+**Registration is not reachability, and the injector enforces it for every
+kind.** Dead content — a stage no campaign reaches, an enemy no wave spawns, a
+boss no stage sends, a shot/option/bomb no character equips, an effect nothing
+triggers, an item nothing drops — is an error that rejects the pack, naming what
+would have had to reference it. In this pack: `gauntlet` is the entry and
+`ashfall` its `next`; `ember`/`drone` are flown by `gauntlet`; `pyre` is
+`ashfall`'s boss; `raider` fires `emberbolt`, flies `emberwing` and `firestorm`;
+`cinder` is `ember`'s `onDeath` and `firestorm`'s blast; `relic` drops from
+`ember`'s spoils.
 
 Use `next: null` to say a stage is the last one explicitly (an omitted `next`
 means the same, but `null` reads as a decision rather than a gap). `ashfall` ends
-the campaign that way, after a boss wave that summons `sentinel`.
+the campaign that way — after a built-in `sentinel` midboss WAVE mid-schedule and
+the pack boss `pyre` as its end boss.
 
 **A campaign's content is part of the run, so replays of it are strict.** A
 built-in run records an empty pack identity; a run entered through this pack's

@@ -4,21 +4,35 @@
  * `reachability.test.ts` drives the real `StateMachine` to prove no built-in is
  * registered-but-unreachable. Pack content is exempt from *that* scan (its names
  * carry '/'), precisely because a built-in playthrough never enters a pack
- * campaign — so the proof that pack content is reachable has to live here, and it
- * is the same proof shaped to a pack: inject the real `example` pack, drive the
- * real machine through title → its campaign row → character select → playing, and
- * assert the wire holds end to end.
+ * campaign nor flies a pack ship — so the proof that pack content is reachable
+ * has to live here, and it is the same proof shaped to a pack: inject the real
+ * `example` pack, drive the real machine through title → its campaign row →
+ * character select → PLAYING THE PACK SHIP, and assert the whole tier holds end
+ * to end:
  *
  *   - the campaign row appears under START and selecting it starts the pack's
  *     entry stage (not the built-in `stage-1`),
- *   - both pack enemies actually spawn (registration is not reachability — an
- *     enemy no wave fires would pass injection's dead-content check by being
- *     referenced, yet still never appear if the wire from schedule to field were
- *     broken),
+ *   - SELECT offers the pack character and the run flies IT, not a built-in,
+ *   - the pack shot fires (player bullets exist — a pack weapon resolved through
+ *     the shot registry into the ship's `player.shots`),
+ *   - both pack enemies spawn (registration is not reachability — an enemy no
+ *     wave fires would pass injection's dead-content check by being referenced,
+ *     yet still never appear if the wire from schedule to field were broken),
+ *   - the pack effect fires on a pack enemy's death, and the pack item drops
+ *     from its spoils and is collected,
  *   - the `next` chain advances into the second pack stage,
- *   - the built-in boss the second stage names actually arrives, and
+ *   - the built-in `sentinel` midboss WAVE arrives, and the pack END boss `pyre`
+ *     arrives after it, transitions phases, and its spell card's background
+ *     override is reported by `Run.scene`,
+ *   - the campaign clears through the pack boss, and
  *   - the replay the run records carries the campaign's strict `packsData`
  *     identity, the meta a mismatched-content playback is refused on.
+ *
+ * A separate, focused test proves the data tier's one subtle MUST from the other
+ * direction: a pack ship flown off the plain START row — a built-in stage, no
+ * campaign — still records the owning pack's `packsData`, because a pack
+ * character drives the simulation with pack content even when no campaign armed
+ * the identity.
  *
  * The pilot is the compressed-competent one from `reachability.test.ts`: immortal
  * by construction (this measures *can a player reach this*, not *survive it*) and
@@ -35,26 +49,39 @@ import '../sim/item'; // built-in items; content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { Button } from '../core/input';
 import { backgroundNames } from '../render/background';
-import { BULLET_CELLS } from '../render/procedural';
+import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getStage } from '../content/stage';
 import { StateMachine } from '../game/state';
-import { TitleState, type Campaign, type GameContext } from '../game/states';
-import type { Run } from '../game/run';
+import { characterNames, type Run, type RunEventType } from '../game/run';
+import {
+  TitleState,
+  type Campaign,
+  type CharacterPack,
+  type GameContext,
+} from '../game/states';
 import type { Replay } from '../sim/replay';
 import { validateManifest } from './manifest';
 import { injectPack } from './inject';
+import { attachIdentity } from './loader';
 
 const DIR = join(import.meta.dir, '..', '..', 'packs', 'example');
+
+/** The pack character SELECT offers and this test flies, under its qualified name. */
+const PACK_CHARACTER = 'example/raider';
 
 /**
  * A synthetic pack identity. In production the loader hashes the pack's bytes;
  * here any stable string does, because the claim under test is that whatever the
- * campaign carries reaches replay meta unaltered — not what the hash is.
+ * campaign (or the pack character) carries reaches replay meta unaltered — not
+ * what the hash is.
  */
 const PACKS_DATA = 'example@deadbeef01ab';
 
-/** Inject the committed pack against the real render name sets, once. */
-function injectExample(): Campaign[] {
+/** The render name sets the browser loader would hand the injector. */
+const CTX_NAMES = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames() };
+
+/** Validate and inject the committed pack once (idempotent per pack name). */
+function injectExample(): { campaigns: Campaign[]; characterPacks: CharacterPack[] } {
   const parsed = validateManifest(
     JSON.parse(readFileSync(join(DIR, 'pack.json'), 'utf8')),
     'example',
@@ -64,43 +91,63 @@ function injectExample(): Campaign[] {
   }
   // Idempotent per pack name: `example-pack.test.ts` may have injected `example`
   // already in this shared process; this returns that first result rather than
-  // re-registering and throwing a duplicate. The campaign shape the loader
-  // returns is `{ label, stage }`; `main.ts` attaches the entering pack's
-  // identity per campaign, which is what this test does next.
-  const injected = injectPack(parsed.manifest, {
-    sprites: [...BULLET_CELLS, 'ship'],
-    scenes: backgroundNames(),
-  });
-  return injected.campaigns.map((c) => ({ ...c, packsData: PACKS_DATA }));
+  // re-registering and throwing a duplicate. The pairing goes through the
+  // loader's real `attachIdentity` — NOT a copy of it — so this test drives the
+  // same producer the shell does: the campaign row and the pack character each
+  // carry the pack's identity, the two paths a run can enter one. If the loader
+  // ever stopped pairing characters, this would go empty and the tests below
+  // (which assert the identity reaches the run) would fail, which is the whole
+  // point — the previous copy-as-fixture kept a broken shell wire green.
+  const injected = injectPack(parsed.manifest, CTX_NAMES);
+  return attachIdentity(injected, PACKS_DATA);
 }
 
 interface Coverage {
   states: Set<string>;
   stages: Set<string>;
+  characters: Set<string>;
   enemies: Set<string>;
   bosses: Set<string>;
   scenes: Set<string>;
+  /** Sprites of live particles — a pack effect is observed by the cell it emits. */
+  effectSprites: Set<string>;
+  /** Names of items on the field — a pack item is observed by its qualified name. */
+  items: Set<string>;
+  events: Set<RunEventType>;
+  /** Ticks on which at least one player bullet was in the air. */
+  playerBulletTicks: number;
   replays: Replay[];
   ticks: number;
 }
 
 /**
- * Play the example campaign from the title screen to ALL CLEAR.
+ * Play the example campaign from the title screen to ALL CLEAR, flying the pack
+ * ship.
  *
  * Menus are driven by pulsing a button on alternate ticks, because `Edges` reads
  * a press as an edge and suppresses its first update — a held button confirms
- * once and then sits. The title needs two moves: step the cursor down to the
- * campaign row (index 1, under START), then confirm it.
+ * once and then sits. The title steps down to the campaign row (index 1, under
+ * START) and confirms it; SELECT steps down to the pack character's row and
+ * confirms that.
  */
-function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage {
+function playCampaign(
+  campaigns: readonly Campaign[],
+  characterPacks: readonly CharacterPack[],
+  limit = 300_000,
+): Coverage {
   const machine = new StateMachine();
   let seed = 1;
   const cover: Coverage = {
     states: new Set(),
     stages: new Set(),
+    characters: new Set(),
     enemies: new Set(),
     bosses: new Set(),
     scenes: new Set(),
+    effectSprites: new Set(),
+    items: new Set(),
+    events: new Set(),
+    playerBulletTicks: 0,
     replays: [],
     ticks: 0,
   };
@@ -108,9 +155,15 @@ function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage
     machine,
     nextSeed: () => 0x51ee + seed++,
     campaigns,
+    characterPacks,
     onReplay: (r) => cover.replays.push(r),
   };
   machine.push(new TitleState(ctx));
+
+  // The pack character registers last, but its exact index is what indexOf
+  // reports whatever else shares the process — navigate to it rather than assume.
+  const raiderIndex = characterNames().indexOf(PACK_CHARACTER);
+  if (raiderIndex < 0) throw new Error(`expected ${PACK_CHARACTER} in the character registry`);
 
   let pulse = 0;
   let lastRun: Run | undefined;
@@ -134,6 +187,14 @@ function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage
       pulse ^= 1;
       if (selected < 1) buttons = pulse ? Button.Down : 0;
       else buttons = pulse ? Button.Shot : 0;
+    } else if (name === 'character-select') {
+      // Step down to the pack ship's row, then confirm — the run must fly the
+      // pack character, not the built-in the cursor rests on.
+      const view = top?.view?.() as { selected?: number } | undefined;
+      const selected = view?.selected ?? 0;
+      pulse ^= 1;
+      if (selected < raiderIndex) buttons = pulse ? Button.Down : 0;
+      else buttons = pulse ? Button.Shot : 0;
     } else if (name === 'playing') {
       buttons = Button.Shot;
       if (aimX === undefined) {
@@ -148,8 +209,8 @@ function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage
       if (playerY > stationY + 6) buttons |= Button.Up;
       else if (playerY < stationY - 6) buttons |= Button.Down;
     } else {
-      // character-select and the STAGE CLEAR card: the cursor rests on the first
-      // entry (a character, then NEXT STAGE), so pulsing confirm is enough.
+      // The STAGE CLEAR card: the cursor rests on the first entry (NEXT STAGE),
+      // so pulsing confirm is enough.
       pulse ^= 1;
       buttons = pulse ? Button.Shot : 0;
     }
@@ -172,6 +233,7 @@ function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage
 
       playerX = run.player.x;
       playerY = run.player.y;
+      cover.characters.add(run.characterName);
       const scene = run.scene;
       if (scene !== undefined) cover.scenes.add(scene);
       const boss = run.boss.boss;
@@ -180,6 +242,17 @@ function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage
       aimX = boss?.alive && !boss.entering ? boss.x : run.enemies.enemies[0]?.x;
 
       for (const enemy of run.enemies.enemies) cover.enemies.add(enemy.name);
+      // A pack shot puts player-faction bullets in the air; the pack effect emits
+      // particles; the pack item lands as a named drop; events surface the shot,
+      // the boss phase change and the pickup.
+      let sawPlayerBullet = false;
+      for (const b of run.bullets.bullets) {
+        if (b.alive && b.faction === 'player') sawPlayerBullet = true;
+      }
+      if (sawPlayerBullet) cover.playerBulletTicks++;
+      for (const particle of run.effects.particles) cover.effectSprites.add(particle.spec.sprite);
+      for (const item of run.items.items) cover.items.add(item.name);
+      for (const event of run.drainEvents()) cover.events.add(event.type);
     }
 
     // Stop only at the *last* stage's clear card — breaking on the first `cleared`
@@ -195,18 +268,30 @@ function playCampaign(campaigns: readonly Campaign[], limit = 300_000): Coverage
 }
 
 describe('the example pack is reachable and its content runs', () => {
-  const campaigns = injectExample();
-  const cover = playCampaign(campaigns);
+  const { campaigns, characterPacks } = injectExample();
+  const cover = playCampaign(campaigns, characterPacks);
 
-  test('injection contributes exactly the entry campaign row', () => {
+  test('injection contributes exactly the entry campaign row and the pack character', () => {
     expect(campaigns).toEqual([
       { label: 'example/gauntlet', stage: 'example/gauntlet', packsData: PACKS_DATA },
     ]);
+    expect(characterPacks).toEqual([{ character: PACK_CHARACTER, packsData: PACKS_DATA }]);
   });
 
   test('the run played to ALL CLEAR rather than falling out early', () => {
     expect(cover.ticks).toBeGreaterThan(1_000);
     expect(cover.states.has('cleared')).toBe(true);
+  });
+
+  test('SELECT offered the pack character and the run flew it, not a built-in', () => {
+    expect(characterNames()).toContain(PACK_CHARACTER);
+    expect(cover.characters.has(PACK_CHARACTER)).toBe(true);
+    expect(cover.characters.size).toBe(1);
+  });
+
+  test('the pack shot fired — player bullets were in the air', () => {
+    expect(cover.playerBulletTicks).toBeGreaterThan(0);
+    expect(cover.events.has('shot')).toBe(true);
   });
 
   test('both pack stages ran — the entry, and its next chain', () => {
@@ -221,13 +306,32 @@ describe('the example pack is reachable and its content runs', () => {
     expect(cover.enemies.has('example/drone')).toBe(true);
   });
 
-  test('the built-in boss the second stage names arrived', () => {
-    expect(cover.bosses.has('sentinel')).toBe(true);
+  test('the pack effect fired and the pack item dropped and was collected', () => {
+    // `cinder` paints `mote` particles — a cell no built-in effect emits, so a
+    // live `mote` particle can only be the pack effect, fired by `ember`'s death.
+    expect(cover.effectSprites.has('mote')).toBe(true);
+    // `relic` drops from `ember`'s spoils, landing under its qualified name.
+    expect(cover.items.has('example/relic')).toBe(true);
+    // And the pickup mechanic ran — the immortal pilot swept up drops.
+    expect(cover.events.has('pickup')).toBe(true);
   });
 
-  test('each pack stage entered its declared built-in scene', () => {
+  test('the built-in sentinel midboss and the pack end boss both arrived', () => {
+    // `sentinel` is a built-in boss WAVE mid-schedule; `pyre` is the pack stage's
+    // own end boss, arriving after the waves and named under its qualified name.
+    expect(cover.bosses.has('sentinel')).toBe(true);
+    expect(cover.bosses.has('example/pyre')).toBe(true);
+    // The pack boss transitioned past its opening phase.
+    expect(cover.events.has('boss-phase')).toBe(true);
+  });
+
+  test('each pack stage entered its declared built-in scene, and the pack boss overrode it', () => {
     expect(cover.scenes.has('expanse')).toBe(true);
     expect(cover.scenes.has('undertow')).toBe(true);
+    // `pyre`'s spell card overrides the scene to `drift` — a background nothing
+    // else in this campaign names, so seeing it proves the card's override was
+    // reported by `Run.scene`.
+    expect(cover.scenes.has('drift')).toBe(true);
   });
 
   test("every replay carries the campaign's strict packsData identity", () => {
@@ -240,5 +344,73 @@ describe('the example pack is reachable and its content runs', () => {
     }
     const last = cover.replays[cover.replays.length - 1];
     expect(last?.meta?.stage).toBe('example/ashfall');
+  });
+});
+
+/**
+ * The data tier's one subtle MUST, from the other direction: a pack ship flown
+ * off the plain START row — a built-in stage, no campaign to arm `packsData` —
+ * still records the owning pack's identity, because a pack character drives the
+ * simulation with pack content. Without this, a replay of that run records
+ * `packsData ''` and would play back under different content unchecked.
+ *
+ * Proved at the states level with a synthetic character in `states.test.ts`; here
+ * it is the real `example/raider` driven through the real machine, off a menu
+ * with no campaign row at all.
+ */
+describe('a pack ship flown off the plain START row records the pack identity', () => {
+  test('finishRecording carries packsData though the stage is a built-in', () => {
+    // Source `characterPacks` from the loader's real pairing, NOT a hand-built
+    // fixture: the identity must reach the run through the same producer the
+    // shell uses, or a broken shell wire (the `characters` half unmapped) would
+    // pass here while failing in the browser — the exact gap this test closes.
+    const { characterPacks } = injectExample();
+    const machine = new StateMachine();
+    let seed = 1;
+    const ctx: GameContext = {
+      machine,
+      nextSeed: () => 0x51ee + seed++,
+      // No campaigns: START is the only title row, so the campaign wire never
+      // arms `packsData`. The character path is the only thing that can.
+      campaigns: [],
+      characterPacks,
+    };
+    machine.push(new TitleState(ctx));
+
+    const raiderIndex = characterNames().indexOf(PACK_CHARACTER);
+    expect(raiderIndex).toBeGreaterThanOrEqual(0);
+
+    // Drive title (START, row 0) → character select → the pack ship. A short cap:
+    // this only needs to reach PLAYING, not clear anything.
+    let pulse = 0;
+    let playing: { run: Run; characterName: string } | undefined;
+    for (let tick = 0; tick < 2_000 && playing === undefined; tick++) {
+      const top = machine.stack[machine.stack.length - 1];
+      const nm = top?.name ?? '?';
+      let buttons = 0;
+      if (nm === 'character-select') {
+        const view = top?.view?.() as { selected?: number } | undefined;
+        const selected = view?.selected ?? 0;
+        pulse ^= 1;
+        if (selected < raiderIndex) buttons = pulse ? Button.Down : 0;
+        else buttons = pulse ? Button.Shot : 0;
+      } else {
+        // Title (single START row) — pulse confirm.
+        pulse ^= 1;
+        buttons = pulse ? Button.Shot : 0;
+      }
+      machine.tick(buttons);
+      const cur = machine.stack[machine.stack.length - 1];
+      if (cur?.name === 'playing') {
+        playing = cur as unknown as { run: Run; characterName: string };
+      }
+    }
+
+    if (playing === undefined) throw new Error('never reached PLAYING with the pack ship');
+    expect(playing.characterName).toBe(PACK_CHARACTER);
+    // A built-in stage — no campaign steered it — yet the pack identity is armed.
+    expect(playing.run.stageName).toBe('stage-1');
+    expect(ctx.packsData).toBe(PACKS_DATA);
+    expect(playing.run.finishRecording().meta?.packsData).toBe(PACKS_DATA);
   });
 });

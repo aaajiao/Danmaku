@@ -273,15 +273,18 @@ The last row is the one that is not code: an **asset pack** is a folder dropped
 into `packs/`, and it extends the game without touching a registry or the engine
 at all. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
 that patterns, effects and the HUD draw with — bullet sheet, ship, HUD icons,
-sounds. **Content** (format 2, gated by a `requires` capability) adds **stages
-and enemies** as JSON data: an enemy is an `EnemySpec`, a stage is waves chained
-into a selectable campaign that ends on a built-in boss. What a pack never
-carries is *code* — the patterns an enemy fires, the behaviours that steer a
-bullet, the bosses a stage sends and the shader scenes it is set in all stay
-engine code, joined to a pack only by name. A pack paints and arranges; it never
-scripts. The replay contract splits on that line: a reskin cannot change the
-simulation so a skin mismatch **warns**, while content changes what the game does
-so a content mismatch **refuses**, exactly like a mismatched character or stage.
+sounds. **Content** (format 2, gated by a `requires` capability) adds JSON data
+across nine sections — enemies, stages, bosses, shots, characters, options, bombs,
+effects and items: an enemy is an `EnemySpec`, a stage is waves chained into a
+selectable campaign, a boss is spell-card phases sized in seconds, a character
+names its shot/options/bomb and joins the SELECT screen. What a pack never carries
+is *code* — the patterns an enemy or boss fires, the behaviours that steer a bullet
+and the shader scenes a stage is set in all stay engine code, joined to a pack only
+by name, and a new item `kind` stays a game rule. A pack paints and arranges; it
+never scripts a new rule. The replay contract splits on that line: a reskin cannot
+change the simulation so a skin mismatch **warns**, while content changes what the
+game does so a content mismatch **refuses**, exactly like a mismatched character or
+stage — and a pack character flown on any campaign is a content run for that reason.
 The format, both validation layers and the boundary are
 [`docs/packs.md`](./docs/packs.md).
 

@@ -95,6 +95,10 @@ function everyLoadout(): { label: string; dps: number }[] {
   const out: { label: string; dps: number }[] = [];
   for (const character of characterNames()) {
     if (character.startsWith('test')) continue;
+    // A pack character (namespaced) is proven by its own acceptance test, not
+    // here: `REFERENCE_DPS` is derived from the engine's own reference loadouts,
+    // and a pack must not be able to move the number every boss is sized from.
+    if (character.includes('/')) continue;
     const maxPower = new Run({ seed: 1, character, stage: EMPTY }).player.maxPower;
     for (let power = 0; power <= maxPower; power++) {
       for (const focused of [false, true]) {
@@ -155,6 +159,11 @@ describe('the damage model', () => {
 describe('boss health is derived from it', () => {
   for (const name of bossNames()) {
     if (name.startsWith('test')) continue;
+    // Pack bosses (namespaced) are re-derived from the same `phaseHp`/`phaseClock`
+    // functions, so this coupling holds for them by construction; their own
+    // acceptance path proves it, and a pack injected into this shared process
+    // must not turn this engine-reference test red.
+    if (name.includes('/')) continue;
 
     test(`${name}: every phase can be drained inside its own clock`, () => {
       // The defect this catches by name: a phase whose timer expires before its

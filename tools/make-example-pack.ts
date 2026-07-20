@@ -429,33 +429,118 @@ function buildPickup(): Uint8Array {
 
 /**
  * Every field in `content` mirrors an engine spec verbatim — a pack enemy IS an
- * `EnemySpec`, a pack stage IS a `StageSpec` (minus its name, which is the
- * section key) — so there is no translation layer to keep in step, and the
- * numbers below are chosen in the same range as the built-in cast in
- * `src/sim/enemy.ts` and `src/content/stage.ts` so a copy-paste author starts
- * from something balanced rather than from a placeholder that plays wrong.
+ * `EnemySpec`, a pack boss IS a `BossSpec`, a pack shot IS a `ShotType`, and so
+ * on down the tier, each minus the name the section key carries. There is no
+ * translation layer to keep in step, and the numbers below sit in the same range
+ * as the built-in cast (`src/sim/enemy.ts`, `src/sim/boss.ts`,
+ * `src/content/shots.ts`, `src/game/run.ts`) so a copy-paste author starts from
+ * something balanced rather than from a placeholder that plays wrong.
  *
- * Name resolution is pack-first, then built-in. `ember` and `drone` are this
- * pack's own enemies, written bare and qualified to `example/ember` /
- * `example/drone` at injection; `grunt` is a built-in named bare; `sentinel` is
- * a built-in boss (packs may name built-in bosses only — `content.bosses` is
- * reserved); `expanse`/`undertow` are built-in backgrounds; `power`/`score` are
- * built-in item names; `aimed-fan`/`spiral` are built-in patterns. A pack
- * defines enemies and stages; it references everything else by name.
+ * The one substitution is the boss spell card: it declares **`hpSeconds`** where
+ * the engine's `SpellCard` wants `hp`, so a designer writes the unit they think
+ * in and the injector computes `hp = phaseHp(hpSeconds)`. That keeps a pack boss
+ * re-derived when `REFERENCE_DPS` moves, the same coupling `balance.test.ts`
+ * holds the built-ins to.
+ *
+ * Name resolution is pack-first, then built-in, for every reference below. This
+ * pack's own entries — `ember`/`drone` (enemies), `pyre` (boss), `emberbolt`
+ * (shot), `emberwing` (options), `firestorm` (bomb), `cinder` (effect), `relic`
+ * (item), `raider` (character) — are written bare and qualified to
+ * `example/<name>` at injection, so a character equips `emberbolt`/`emberwing`/
+ * `firestorm` by their bare names and the injector resolves them to the pack's.
+ * Everything else is a built-in referenced bare: `grunt` (enemy), `sentinel`
+ * (boss), `expanse`/`undertow`/`drift` (backgrounds), `power`/`score` (items),
+ * `hit`/`death.big` (effects), `aimed-fan`/`spiral`/`ring` (patterns). A pack
+ * defines content and references engine code by name.
  */
 
-/** A bullet the pack's patterns fire — an ordinary `BulletSpec`, white cell, engine-tinted. */
+/** A bullet the pack's enemy patterns fire — an ordinary `BulletSpec`, white cell, engine-tinted. */
 const EMBER_SHOT = {
   style: { sprite: 'orb.small', r: 1, g: 0.6, b: 0.2 },
   radius: 3,
   motion: { r: 2.2, theta: 90 },
 };
 
+/**
+ * The pack ship's gun bullet. `kunai` is a directional cell, so it points +x and
+ * `orientToHeading` turns it to its heading (rule 7). Fired forward — 270 is up.
+ */
+const EMBERBOLT = {
+  style: { sprite: 'kunai', r: 1, g: 0.65, b: 0.25, orientToHeading: true },
+  radius: 4,
+  motion: { r: 10, theta: 270 },
+  damage: 1,
+};
+
+/** The pack option's bullet — weaker per shot than the gun, because options multiply it. */
+const EMBERWING_SHOT = {
+  style: { sprite: 'orb.small', r: 1, g: 0.6, b: 0.25, additive: true },
+  radius: 4,
+  motion: { r: 10, theta: 270 },
+  damage: 1,
+};
+
+/** The pack boss's aimed bullet and its ring petal — enemy fire, heading 90 (down-screen). */
+const PYRE_SHOT = {
+  style: { sprite: 'scale', r: 1, g: 0.6, b: 0.3, orientToHeading: true },
+  radius: 4,
+  motion: { r: 2.2, theta: 90 },
+};
+const PYRE_PETAL = {
+  style: { sprite: 'petal', r: 1, g: 0.5, b: 0.7 },
+  radius: 4,
+  motion: { r: 4, theta: 90, ra: -0.06, rrange: { min: 0.5 } },
+};
+
+/**
+ * The gun's power ladder. Each tier keeps every muzzle the tier below fired and
+ * adds a symmetric pair, periods non-increasing — so it nests by construction.
+ * `shots.test.ts` holds every registered weapon (pack ones injected into the same
+ * process included) to `tier n ⊇ tier n-1`, so a pack shot that redistributed
+ * instead of extending would fail that test, not just play worse.
+ */
+const EMBERBOLT_TIERS = [
+  { spec: EMBERBOLT, offsets: [{ x: 0, y: -12, angle: 270 }], period: 6 },
+  {
+    spec: EMBERBOLT,
+    offsets: [
+      { x: 0, y: -12, angle: 270 },
+      { x: -9, y: -10, angle: 270 },
+      { x: 9, y: -10, angle: 270 },
+    ],
+    period: 6,
+  },
+  {
+    spec: EMBERBOLT,
+    offsets: [
+      { x: 0, y: -12, angle: 270 },
+      { x: -9, y: -10, angle: 270 },
+      { x: 9, y: -10, angle: 270 },
+      { x: -18, y: -8, angle: 270 },
+      { x: 18, y: -8, angle: 270 },
+    ],
+    period: 5,
+  },
+];
+
+/** Option slots, nesting the same way (`option.test.ts` enforces it registry-wide). */
+const EMBERWING_NOSE = { x: 0, y: -20, focusX: 0, focusY: -26, angle: 270 };
+const EMBERWING_PAIR = [
+  { x: -24, y: -4, focusX: -10, focusY: -18, angle: 270 },
+  { x: 24, y: -4, focusX: 10, focusY: -18, angle: 270 },
+];
+const EMBERWING_WIDE = [
+  { x: -42, y: 8, focusX: -20, focusY: -4, angle: 270 },
+  { x: 42, y: 8, focusX: 20, focusY: -4, angle: 270 },
+];
+
 const CONTENT: PackContent = {
   enemies: {
     // Full-featured: a base motion, a timeline that re-inits it (dive, sweep,
     // leave — the `weaver` shape), two patterns with real options, spoils, a
-    // tint, and a score value. Everything an `EnemySpec` can carry.
+    // tint, and a score value. Everything an `EnemySpec` can carry. Its `onDeath`
+    // names the pack effect `cinder`, and its `spoils` drop the pack item `relic`
+    // — both resolved pack-first, so both are reached by this enemy dying.
     ember: {
       sprite: 'star',
       hp: 30,
@@ -471,10 +556,10 @@ const CONTENT: PackContent = {
         { pattern: 'aimed-fan', options: { spec: EMBER_SHOT, count: 3, spread: 28, period: 55 }, startAt: 20 },
         { pattern: 'spiral', options: { spec: EMBER_SHOT, arms: 2, step: 13, period: 8 }, startAt: 30, stopAt: 110 },
       ],
-      spoils: [['power', 2], ['score', 1]] as [string, number][],
+      spoils: [['power', 2], ['score', 1], ['relic', 1]] as [string, number][],
       scoreValue: 300,
       onHit: 'hit',
-      onDeath: 'explosion',
+      onDeath: 'cinder',
     },
     // Minimal: the floor an enemy can be — a hitbox with a heading. No patterns,
     // no spoils, no tint. It descends and can be shot; nothing more.
@@ -483,6 +568,141 @@ const CONTENT: PackContent = {
       hp: 8,
       radius: 8,
       motion: { r: 1.5, theta: 90 },
+    },
+  },
+  // The pack's own particle effect, fired when `ember` dies (and by the pack
+  // bomb). Its `sprite` is a plain atlas cell — the engine's own effects declare
+  // it through a `BulletCell`-typed seam that makes it a compile-time union, but
+  // a pack has no compiler at author time, so the injector checks it at runtime
+  // against the same sprite set enemy and boss art resolve against.
+  effects: {
+    cinder: {
+      sprite: 'mote',
+      count: { min: 8, max: 14 },
+      speed: { min: 1, max: 3 },
+      life: { min: 16, max: 26 },
+      drag: 0.9,
+      scale: { from: 0.9, to: 0.1 },
+      alpha: { from: 1, to: 0 },
+      tint: { r: 1, g: 0.55, b: 0.2 },
+      additive: true,
+    },
+  },
+  // The pack's own pickup, an existing `kind` (a new kind would be a new game
+  // rule, which stays engine — the validator refuses an unfamiliar one by name).
+  // Dropped by `ember`'s and `pyre`'s spoils, so something reaches it.
+  items: {
+    relic: {
+      sprite: 'orb.large',
+      radius: 15,
+      value: 2000,
+      kind: 'score',
+      tint: { r: 1, g: 0.85, b: 0.3 },
+      magnetSpeed: 7,
+    },
+  },
+  // The pack ship's gun, as a named weapon. A character equips it by name, and
+  // the injector resolves the name into the ship's `player.shots` ladder — the
+  // one indirection the pack form adds over `CharacterSpec`.
+  shots: {
+    emberbolt: {
+      description: 'ember bolts that fan wider with each power tier',
+      levels: EMBERBOLT_TIERS,
+    },
+  },
+  // The pack ship's option satellites — fixed forward fire, gathered under focus.
+  options: {
+    emberwing: {
+      sprite: 'orb.medium',
+      shot: EMBERWING_SHOT,
+      period: 6,
+      followSpeed: 1.6,
+      tint: { r: 1, g: 0.7, b: 0.3 },
+      levels: [
+        [EMBERWING_NOSE],
+        [EMBERWING_NOSE, ...EMBERWING_PAIR],
+        [EMBERWING_NOSE, ...EMBERWING_PAIR, ...EMBERWING_WIDE],
+      ],
+    },
+  },
+  // The pack ship's bomb, naming the pack effect `cinder` for its blast (resolved
+  // pack-first). A screen clear that converts fire to score.
+  bombs: {
+    firestorm: {
+      duration: 80,
+      invulnTicks: 140,
+      damagePerTick: 3,
+      convertBullets: true,
+      effect: 'cinder',
+    },
+  },
+  // The pack ship. It equips the pack shot, option set and bomb — all bare names
+  // the injector resolves pack-first — so nothing it flies is a built-in. A pack
+  // character is offered on the SELECT screen exactly as a built-in is, because
+  // that screen enumerates the registry it registers into.
+  characters: {
+    raider: {
+      label: 'RAIDER',
+      sprite: 'ship',
+      blurb: 'pack ship — ember bolts, wing options, firestorm bomb',
+      shot: 'emberbolt',
+      options: 'emberwing',
+      bomb: 'firestorm',
+      player: {
+        x: 240,
+        y: 568,
+        speed: 3.4,
+        focusSpeed: 1.5,
+        radius: 2.5,
+        grazeRadius: 20,
+        lives: 3,
+        bombs: 3,
+        invulnTicks: 90,
+      },
+    },
+  },
+  // The pack's own boss, `ashfall`'s end boss (see the stage below). Two phases:
+  // a non-spell movement opener, then a spell card that overrides the scene to a
+  // built-in background (`drift`) and earns a bonus. Each phase declares
+  // `hpSeconds`; the injector computes `hp = phaseHp(hpSeconds)` and defaults the
+  // absent `timeLimit` to `phaseClock(hp)`.
+  bosses: {
+    pyre: {
+      sprite: 'ring',
+      radius: 18,
+      width: 52,
+      height: 52,
+      tint: { r: 1, g: 0.6, b: 0.3 },
+      entry: { x: 240, y: 140, ticks: 90 },
+      onDeath: 'death.big',
+      spoils: [['relic', 2], ['score', 3]] as [string, number][],
+      phases: [
+        {
+          name: 'Smoulder',
+          hpSeconds: 8,
+          isSpell: false,
+          timeline: [
+            { count: 0, motion: { r: 0.9, theta: 0 } },
+            { count: 90, motion: { r: 0.9, theta: 180 } },
+            { count: 180, jump: 0 },
+          ],
+          patterns: [
+            { pattern: 'aimed-fan', options: { spec: PYRE_SHOT, count: 5, spread: 34, period: 48 } },
+          ],
+        },
+        {
+          name: 'Ember Sign "Ashfall"',
+          hpSeconds: 12,
+          isSpell: true,
+          bonus: 300000,
+          background: 'drift',
+          motion: { r: 0 },
+          patterns: [
+            { pattern: 'ring', options: { spec: PYRE_PETAL, count: 18, period: 42, rotation: 9 } },
+            { pattern: 'aimed-fan', options: { spec: PYRE_SHOT, count: 3, spread: 18, period: 96 }, startAt: 60 },
+          ],
+        },
+      ],
     },
   },
   stages: {
@@ -503,15 +723,17 @@ const CONTENT: PackContent = {
         { at: 520, enemy: 'ember', x: 240, y: -30, count: 2, interval: 60, stepX: -80 },
       ],
     },
-    // The second stage, reached only via `gauntlet`'s `next`. Its climax is a
-    // boss wave naming a built-in boss — the schedule holds there until the boss
-    // is gone, then the tail wave falls due. `next: null` states, explicitly,
-    // that this is the last stage.
+    // The second stage, reached only via `gauntlet`'s `next`. It keeps a built-in
+    // boss WAVE mid-schedule — `sentinel` as a midboss, holding the schedule until
+    // it is gone — and names the pack boss `pyre` as its *end* boss, which arrives
+    // once the waves are spent. `next: null` states, explicitly, that this is the
+    // last stage.
     ashfall: {
       seed: 11,
       background: 'undertow',
       outro: 120,
       next: null,
+      boss: 'pyre',
       waves: [
         { at: 0, enemy: 'drone', x: 90, y: -20, count: 6, interval: 18, stepX: 60 },
         { at: 120, enemy: 'grunt', x: 240, y: -20, count: 2, interval: 40 },
@@ -533,7 +755,7 @@ const MANIFEST: PackManifest = {
   author: 'Danmaku project',
   license: 'CC0-1.0',
   description:
-    'The reference pack: every manifest field, art that follows every rule the loader checks, and a two-stage campaign of format-2 content. Copy this directory, rename it, and swap the files.',
+    'The reference pack: every manifest field, art that follows every rule the loader checks, and one of every format-2 content section — enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. Copy this directory, rename it, and swap the files.',
   assets: {
     bullets: 'bullets.png',
     ship: 'ship.png',
@@ -549,8 +771,19 @@ const MANIFEST: PackManifest = {
   },
   // The covering invariant: every content.<section> present must be named here,
   // and vice versa. It is what lets a v1 engine refuse on `requires` before it
-  // ever parses `content`.
-  requires: ['content.enemies', 'content.stages'],
+  // ever parses `content`. This pack ships every implemented content section, so
+  // it declares every capability.
+  requires: [
+    'content.enemies',
+    'content.stages',
+    'content.bosses',
+    'content.shots',
+    'content.characters',
+    'content.options',
+    'content.bombs',
+    'content.effects',
+    'content.items',
+  ],
   content: CONTENT,
 };
 
@@ -586,58 +819,91 @@ JSON has no comments, so this table is where the annotation lives.
 | \`assets.filter\` | \`"nearest"\` | Texture sampling for both sheets: \`"nearest"\` or \`"linear"\`. This pack's art is hard-edged, so \`"nearest"\` keeps every boundary crisp; smooth, gradient-shaded art should ask for \`"linear"\` instead. Default is \`"nearest"\` either way. |
 | \`sounds.shot\`, \`sounds.pickup\` | two \`.wav\` files | One entry per sound this pack replaces — the full list of names the engine plays is in \`docs/audio.md\` §2; an unknown name is rejected and lists them. This pack only replaces two of the six, which is legal: everything else keeps playing its synthesised placeholder. |
 | \`hud.life\`, \`hud.bomb\` | two \`.png\` files | Replace the ♥/★ glyphs. See "HUD icons are shapes, not compositions" below. |
-| \`requires\` | \`["content.enemies", "content.stages"]\` | The capabilities this pack's \`content\` needs. The engine honours exactly the two named here; anything else is refused by name. Every \`content.<section>\` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on \`requires\` before it parses a \`content\` section it could not load. |
-| \`content\` | two enemies, two stages | Format-2 game content: the enemies and stages this pack adds. See "Content: enemies and stages" below. |
+| \`requires\` | all nine \`content.*\` capabilities | The capabilities this pack's \`content\` needs. The engine honours exactly the implemented set; anything else is refused by name. Every \`content.<section>\` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on \`requires\` before it parses a \`content\` section it could not load. |
+| \`content\` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
 The fields this engine still does not implement — the reserved \`content\`
-sections \`bosses\`/\`characters\`/\`items\`/\`music\`/\`difficulty\`/\`dialog\`/
-\`backgrounds\`, the top-level \`music\`/\`difficulty\`/\`dialog\`/\`backgrounds\`, and
-the reserved \`hud\` names \`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated
-rejection naming each as a future section rather than a generic "unknown field"
-error; see \`docs/packs.md\` §Future.
+sections \`music\`/\`difficulty\`/\`dialog\`/\`backgrounds\`, the top-level
+\`music\`/\`difficulty\`/\`dialog\`/\`backgrounds\`, and the reserved \`hud\` names
+\`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated rejection naming each as a
+future section rather than a generic "unknown field" error; see
+\`docs/packs.md\` §Future.
 
-## Content: enemies and stages
+## Content: one of everything
 
 \`content\` is where a pack stops reskinning the game and starts adding to it. This
-pack ships two enemies and a two-stage campaign; the row it adds under START on
-the title screen (\`example/gauntlet\`) is the campaign's entry stage.
+pack ships **one of every implemented section** — two enemies, a boss, a shot, a
+character, an option set, a bomb, a particle effect, an item, and a two-stage
+campaign that reaches all of them. The row it adds under START on the title
+screen (\`example/gauntlet\`) is the campaign's entry stage.
 
-**A pack enemy IS an \`EnemySpec\`; a pack stage IS a \`StageSpec\`.** There is no
-translation — the JSON below is handed straight to \`defineEnemy\`/\`defineStage\`
-after its names are checked. So the authoring reference is the engine's own:
-\`src/sim/enemy.ts\` for an enemy's fields (\`sprite\`, \`hp\`, \`radius\`, \`motion\`,
-\`timeline\`, \`patterns\`, \`spoils\`, \`tint\`, …) and \`src/content/stage.ts\` for a
-stage's (\`waves\`, \`seed\`, \`outro\`, \`boss\`, \`background\`, plus \`entry\`/\`next\`).
+**A pack entry IS the engine's own spec, minus the name the key carries.** A pack
+enemy is an \`EnemySpec\`, a pack boss a \`BossSpec\`, a pack shot a \`ShotType\`, a
+pack character a \`CharacterSpec\`, and so on — handed straight to the matching
+\`define*\` after its names are checked, no translation layer. So the authoring
+reference is the engine's own: \`src/sim/enemy.ts\`, \`src/sim/boss.ts\`,
+\`src/content/shots.ts\`, \`src/sim/option.ts\`, \`src/sim/bomb.ts\`,
+\`src/sim/effects.ts\`, \`src/sim/item.ts\`, \`src/game/run.ts\`,
+\`src/content/stage.ts\`. This section covers only what the pack form adds on top.
 
-**Names resolve pack-first, then built-in.** Your own enemies and stages are
-written **bare** inside your JSON and registered under a \`<packname>/\` prefix, so
-this pack's \`ember\` becomes \`example/ember\`. A bare name that is not one of your
-own resolves to a built-in: \`grunt\` in a wave is the built-in grunt, \`sentinel\`
-is the built-in boss, \`expanse\` and \`undertow\` are built-in backgrounds,
-\`power\`/\`score\` in \`spoils\` are built-in items, \`aimed-fan\`/\`spiral\` are built-in
-patterns. **A pack defines enemies and stages and references everything else by
-name.** Cross-pack references are not supported: a name is either yours or a
-built-in's.
+**Names resolve pack-first, then built-in — for every reference.** Your own
+entries are written **bare** and registered under a \`<packname>/\` prefix, so this
+pack's \`ember\` becomes \`example/ember\` and \`raider\` fires \`emberbolt\` which the
+injector resolves to \`example/emberbolt\`. A bare name that is not one of yours
+resolves to a built-in: \`grunt\` (enemy), \`sentinel\` (boss), \`expanse\`/\`undertow\`/
+\`drift\` (backgrounds), \`power\`/\`score\` (items), \`hit\`/\`death.big\` (effects),
+\`aimed-fan\`/\`spiral\`/\`ring\` (patterns). **A pack defines content and references
+engine code — patterns, behaviours, backgrounds — by name.** Cross-pack
+references are not supported: a name is either yours or a built-in's.
 
-**Bosses and backgrounds are built-ins you reference, never author.**
-\`content.bosses\` is a reserved future section, and a background is a fragment
-shader — engine code. A pack stage names one of each by string; it cannot ship
-one. Name a boss or background that does not exist and injection refuses the pack
-whole, listing (for backgrounds) the ones that do.
+**A boss is now data — but its \`hp\` is written as \`hpSeconds\`.** \`content.bosses\`
+is implemented, and \`pyre\` is this pack's end boss for \`ashfall\`. Its two phases
+mirror \`SpellCard\` field for field, with one substitution: a phase declares
+**\`hpSeconds\`** — the *seconds* a competent player should need to drain it — and
+the injector computes \`hp = phaseHp(hpSeconds)\`, defaulting the absent
+\`timeLimit\` to \`phaseClock(hp)\`. You write the unit a designer thinks in, and the
+boss stays sized off \`REFERENCE_DPS\`: when that constant moves, every pack boss
+re-derives, the same coupling \`balance.test.ts\` holds the built-ins to. A tuning
+constant no test can measure drifts from the thing it describes — so the spec
+does not let you type raw \`hp\`. A spell card's \`background\` still names a built-in
+scene (\`pyre\`'s second phase overrides the field to \`drift\`); a background is a
+shader, engine code, so a pack *selects* one and never ships one.
 
-**Registration is not reachability, and the injector enforces it.** Two rules,
-both errors that reject the pack:
+**A character equips its weapons by name, not by table.** A built-in
+\`CharacterSpec\` carries its shot ladder inline; a pack \`character\` instead names
+its \`shot\`, \`options\` and \`bomb\` (\`raider\` names \`emberbolt\`, \`emberwing\`,
+\`firestorm\`), and the injector resolves each pack-first and fills the ship's
+\`player.shots\` ladder in. That is the one indirection the pack form adds — it is
+why shots, options and bombs register *before* characters. A pack character is
+offered on the SELECT screen exactly as a built-in is, because that screen
+enumerates the registry it lands in.
 
-- At least one stage must be an \`entry\`, and every stage must be reachable — an
-  \`entry\`, or the \`next\` of some stage in the pack. A stage that is neither is
-  dead content. \`gauntlet\` is the entry; \`ashfall\` is reached by its \`next\`.
-- Every enemy the pack defines must be spawned by some wave of some pack stage.
-  An enemy nothing places is dead content. \`ember\` and \`drone\` are both flown by
-  \`gauntlet\`.
+**An item's \`kind\` is closed.** \`relic\` is an ordinary \`ItemSpec\` with
+\`kind: "score"\` — one of \`power\`/\`score\`/\`life\`/\`bomb\`. The game layer switches
+on \`kind\` to decide what a pickup *does*, so a new kind is a new game **rule**,
+not pack data; an unfamiliar one is refused by name. A pack item becomes
+droppable by being named in some \`spoils\` (\`ember\` and \`pyre\` both drop \`relic\`).
+
+**An effect's \`sprite\` is a plain cell, checked at runtime.** \`cinder\` is a
+\`ParticleSpec\`; the engine's own effects declare their sprite through a
+\`BulletCell\`-typed seam that makes it a compile-time union, but a pack has no
+compiler at author time, so the injector enforces that union as a runtime check
+against the same sprite set enemy and boss art resolve against.
+
+**Registration is not reachability, and the injector enforces it for every
+kind.** Dead content — a stage no campaign reaches, an enemy no wave spawns, a
+boss no stage sends, a shot/option/bomb no character equips, an effect nothing
+triggers, an item nothing drops — is an error that rejects the pack, naming what
+would have had to reference it. In this pack: \`gauntlet\` is the entry and
+\`ashfall\` its \`next\`; \`ember\`/\`drone\` are flown by \`gauntlet\`; \`pyre\` is
+\`ashfall\`'s boss; \`raider\` fires \`emberbolt\`, flies \`emberwing\` and \`firestorm\`;
+\`cinder\` is \`ember\`'s \`onDeath\` and \`firestorm\`'s blast; \`relic\` drops from
+\`ember\`'s spoils.
 
 Use \`next: null\` to say a stage is the last one explicitly (an omitted \`next\`
 means the same, but \`null\` reads as a decision rather than a gap). \`ashfall\` ends
-the campaign that way, after a boss wave that summons \`sentinel\`.
+the campaign that way — after a built-in \`sentinel\` midboss WAVE mid-schedule and
+the pack boss \`pyre\` as its end boss.
 
 **A campaign's content is part of the run, so replays of it are strict.** A
 built-in run records an empty pack identity; a run entered through this pack's

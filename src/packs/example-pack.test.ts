@@ -23,9 +23,16 @@ import '../content'; // built-in patterns, behaviours, enemies, bosses, stages
 import '../sim/item'; // built-in items (power, score, …); content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { backgroundNames } from '../render/background';
-import { BULLET_CELLS } from '../render/procedural';
+import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { hasEnemy } from '../sim/enemy';
 import { hasStage } from '../content/stage';
+import { hasBoss } from '../sim/boss';
+import { hasItem } from '../sim/item';
+import { shotNames } from '../content/shots';
+import { optionNames } from '../sim/option';
+import { bombNames } from '../sim/bomb';
+import { effectNames } from '../sim/effects';
+import { characterNames } from '../game/run';
 import { validateManifest, type PackManifest } from './manifest';
 import { injectPack } from './inject';
 import { parsePng } from '../../tools/png';
@@ -44,7 +51,7 @@ function readManifest(): unknown {
  * boundary permits `render`), so the injection this test proves is the one that
  * runs for real rather than a hand-kept copy of the valid names.
  */
-const CTX = { sprites: [...BULLET_CELLS, 'ship'], scenes: backgroundNames() };
+const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames() };
 
 /** Validate the committed manifest and hand back the accepted `PackManifest`. */
 function acceptedManifest(): PackManifest {
@@ -138,23 +145,53 @@ describe('packs/example — the reference pack', () => {
  * a duplicate-definition throw — which is why neither needs `resetInjectedForTest`.
  */
 describe('packs/example — format-2 content', () => {
-  test('the manifest carries requires + content, both validated as shape', () => {
+  test('the manifest carries requires + content for every section, validated as shape', () => {
     const manifest = acceptedManifest();
-    expect(manifest.requires).toEqual(['content.enemies', 'content.stages']);
-    expect(Object.keys(manifest.content?.enemies ?? {}).sort()).toEqual(['drone', 'ember']);
-    expect(Object.keys(manifest.content?.stages ?? {}).sort()).toEqual(['ashfall', 'gauntlet']);
+    // The reference pack ships one of every implemented section, so it declares
+    // every capability — the covering invariant then demands the section for each.
+    expect(manifest.requires).toEqual([
+      'content.enemies',
+      'content.stages',
+      'content.bosses',
+      'content.shots',
+      'content.characters',
+      'content.options',
+      'content.bombs',
+      'content.effects',
+      'content.items',
+    ]);
+    const content = manifest.content ?? {};
+    expect(Object.keys(content.enemies ?? {}).sort()).toEqual(['drone', 'ember']);
+    expect(Object.keys(content.stages ?? {}).sort()).toEqual(['ashfall', 'gauntlet']);
+    expect(Object.keys(content.bosses ?? {})).toEqual(['pyre']);
+    expect(Object.keys(content.shots ?? {})).toEqual(['emberbolt']);
+    expect(Object.keys(content.characters ?? {})).toEqual(['raider']);
+    expect(Object.keys(content.options ?? {})).toEqual(['emberwing']);
+    expect(Object.keys(content.bombs ?? {})).toEqual(['firestorm']);
+    expect(Object.keys(content.effects ?? {})).toEqual(['cinder']);
+    expect(Object.keys(content.items ?? {})).toEqual(['relic']);
   });
 
-  test('inject resolves every name and registers under qualified names', () => {
+  test('inject resolves every name and registers the whole tier under qualified names', () => {
     const result = injectPack(acceptedManifest(), CTX);
 
     // Only the entry stage becomes a campaign row, labelled by its qualified name.
     expect(result.campaigns).toEqual([{ label: 'example/gauntlet', stage: 'example/gauntlet' }]);
+    // The injector reports which qualified characters it registered, so the shell
+    // can pair each with the pack's strict identity (the replay MUST).
+    expect(result.characters).toEqual(['example/raider']);
 
     // Every pack entry lands namespaced; the built-ins it references are untouched.
     expect(hasEnemy('example/ember')).toBe(true);
     expect(hasEnemy('example/drone')).toBe(true);
     expect(hasStage('example/gauntlet')).toBe(true);
     expect(hasStage('example/ashfall')).toBe(true);
+    expect(hasBoss('example/pyre')).toBe(true);
+    expect(hasItem('example/relic')).toBe(true);
+    expect(shotNames()).toContain('example/emberbolt');
+    expect(optionNames()).toContain('example/emberwing');
+    expect(bombNames()).toContain('example/firestorm');
+    expect(effectNames()).toContain('example/cinder');
+    expect(characterNames()).toContain('example/raider');
   });
 });

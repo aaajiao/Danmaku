@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
 import { Button } from '../core/input';
+import { getShot } from '../content/shots';
 import type { Replay } from '../sim/replay';
 import { Edges, type GameState, StateMachine, type StateView } from './state';
-import { characterNames, getCharacter, type Run } from './run';
+import { characterNames, defineCharacter, getCharacter, type Run } from './run';
 import {
   CharacterSelectState,
   ClearedState,
@@ -13,6 +14,28 @@ import {
   PlayingState,
   TitleState,
 } from './states';
+
+/**
+ * A pack character, registered namespaced so the reachability and balance scans
+ * (both filter '/') leave it alone and it is reachable only by being offered on
+ * SELECT — exactly how the real injector registers one. It reuses built-in
+ * shot/options/bomb because this file tests the replay-identity WIRE, not the
+ * content: what matters is that its qualified name and owning-pack identity flow
+ * into `RunConfig.packsData` off the plain START row.
+ */
+const PACK_CHARACTER = 'demo/raider';
+const PACK_DATA = 'demo@abcdef012345';
+defineCharacter(PACK_CHARACTER, {
+  label: 'RAIDER',
+  sprite: 'ship',
+  options: 'standard',
+  bomb: 'spread',
+  player: {
+    x: 240, y: 560, speed: 3.6, focusSpeed: 1.5, radius: 2.5,
+    grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90,
+    shots: getShot('spread').levels,
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */
@@ -458,6 +481,42 @@ describe('screens', () => {
     press(ctx.machine, Button.Shot);
     const playing = ctx.machine.current as PlayingState;
     expect(playing.run.tickCount).toBe(0);
+  });
+
+  test('a pack character flown off the plain START row records the owning pack', () => {
+    // The one subtle MUST of the data tier: a pack character drives the
+    // simulation with pack content, so even without a campaign row (packsData
+    // left empty by START) the run must record the pack's identity strictly.
+    const ctx = context({
+      characterPacks: [{ character: PACK_CHARACTER, packsData: PACK_DATA }],
+    });
+    const index = characterNames().indexOf(PACK_CHARACTER);
+    expect(index).toBeGreaterThanOrEqual(0);
+
+    open(ctx.machine, new CharacterSelectState(ctx));
+    tap(ctx.machine, Button.Down, index);
+    press(ctx.machine, Button.Shot);
+
+    // Armed even though the plain START row left packsData undefined.
+    expect(ctx.packsData).toBe(PACK_DATA);
+    const playing = ctx.machine.current as PlayingState;
+    expect(playing.characterName).toBe(PACK_CHARACTER);
+    // And it reaches the recording — where a mismatched replay is then refused
+    // (proved strictly in run.test.ts).
+    expect(playing.run.finishRecording().meta?.['packsData']).toBe(PACK_DATA);
+  });
+
+  test('a built-in character off START records no pack identity, even with a mapping present', () => {
+    // The owning-pack lookup only fires for the character that was chosen: a
+    // built-in ship is not in `characterPacks`, so it leaves packsData empty.
+    const ctx = context({
+      characterPacks: [{ character: PACK_CHARACTER, packsData: PACK_DATA }],
+    });
+    open(ctx.machine, new CharacterSelectState(ctx));
+    // Row 0 is a built-in (registration order puts the pack character last).
+    press(ctx.machine, Button.Shot);
+    expect(ctx.packsData).toBeUndefined();
+    expect((ctx.machine.current as PlayingState).characterName).not.toBe(PACK_CHARACTER);
   });
 });
 

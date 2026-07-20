@@ -979,6 +979,12 @@ was — `step` now takes two targets and selects by faction (see §3 and
 lesson worth keeping is the shape: a registered weapon no character equipped was
 invisible to every unit test, because a unit test aims the bullet itself.
 
+**Or ship it in a pack.** A weapon is also pack data: a `content.shots.<name>` is
+this `ShotType` as JSON (minus `name`, which the key supplies), equipped by a pack
+character that names it. The injector resolves every sprite and behaviour the
+bullets name, and a shot no pack character fires is rejected as dead content. See
+[`docs/packs.md`](./packs.md) §9.
+
 ### `defineOptions` — the satellites
 
 `OptionSpec` is `sprite`, `shot`, `period` and `levels`, plus optional
@@ -1020,6 +1026,12 @@ defaults to 1.4 px/tick, roughly a third of a ship.
 radians `Bullet.angle` carries, which is a render value converted at the edge
 (`src/sim/option.ts:85-89`).
 
+**Or ship it in a pack.** An option loadout is also pack data: a
+`content.options.<name>` is this `OptionSpec` as JSON, equipped by a pack character
+that names it; its sprite and its bullet's sprite/behaviours are resolved at inject
+time, and an option set no pack character equips is rejected. See
+[`docs/packs.md`](./packs.md) §9.
+
 ### `defineBomb` — the panic button
 
 `BombSpec` is `duration`, `invulnTicks` and `damagePerTick`, plus optional
@@ -1057,6 +1069,11 @@ resource the player cannot see being spent and lands at a moment they did not
 choose (`src/sim/bomb.ts:102-109`). `duration` is floored at one tick, since a
 zero-duration bomb would consume a stock and do nothing, which reads as a dropped
 input.
+
+**Or ship it in a pack.** A bomb is also pack data: a `content.bombs.<name>` is
+this `BombSpec` as JSON, its `effect` resolved pack-first (a pack bomb may throw a
+pack effect), equipped by a pack character that names it; a bomb no pack character
+equips is rejected. See [`docs/packs.md`](./packs.md) §9.
 
 ### `defineCharacter` — the ship that makes all three reachable
 
@@ -1122,6 +1139,15 @@ character file importing `game/run` for `defineCharacter` while `run` imports
 beside the registry, the same way `sim/option.ts` and `sim/bomb.ts` hold their
 own starter sets.
 
+**Or ship it in a pack.** A character is also pack data: a
+`content.characters.<name>` mirrors `CharacterSpec` but **names** its `shot`
+(pack-first, then built-in) rather than carrying the ladder inline — the injector
+resolves it into `player.shots` — and names its `options`/`bomb` the same way. A
+pack character appears on the SELECT screen exactly as a built-in does, and because
+its pack shot, option and bomb change the simulation, a replay flown with one
+records the owning pack's identity strictly, even off the plain START row. See
+[`docs/packs.md`](./packs.md) §9.
+
 ---
 
 ## 8. Adding a pickup
@@ -1168,6 +1194,12 @@ for the same reason: `step` rewrites the live list in place, and a collection
 callback firing mid-sweep would run arbitrary game code — awarding power,
 spawning an effect, possibly spawning more items — against a half-rewritten list,
 skipping the entity in the slot being written (`src/sim/item.ts:24-31`).
+
+**Or ship it in a pack.** A pickup is also pack data: a `content.items.<name>` is
+this `ItemSpec` as JSON, made droppable by being named in a pack enemy's or boss's
+`spoils` (pack-first). `kind` is restricted to the existing union — a new kind is a
+new game rule, not pack data, and an unfamiliar one is refused by name. An item
+nothing drops is rejected. See [`docs/packs.md`](./packs.md) §9.
 
 ---
 
@@ -1227,6 +1259,13 @@ The starter set is registered through a private `defineSprite` helper that types
 build instead of silently drawing the wrong shape
 (`src/sim/effects.ts:237-249`). The import that makes that possible is
 `import type` — effects must stay testable without a canvas. See §15.
+
+**Or ship it in a pack.** An effect is also pack data: a `content.effects.<name>`
+is this `ParticleSpec` as JSON. The `BulletCell`-typed `sprite` seam above becomes
+a **runtime** check for a pack — a pack has no compiler at author time, so its
+`sprite` is validated against the atlas cell set at inject time — and an effect
+nothing (enemy, boss or bomb) triggers is rejected. See
+[`docs/packs.md`](./packs.md) §9.
 
 ---
 

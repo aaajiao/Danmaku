@@ -362,6 +362,15 @@ export async function bulletAtlas(url?: string): Promise<Atlas> {
 /** The ship sheet is a single square cell. The real art set must match it. */
 export const SHIP_SIZE = 64;
 
+/**
+ * The ship atlas's region names, as `BULLET_CELLS` is the bullet sheet's. The
+ * two sheets are separate namespaces: a character wears a ship region and
+ * everything else wears a bullet cell, and a validator that pools them accepts
+ * sprites the batch that actually draws the entity cannot resolve. Both
+ * `define('ship', …)` sites below use this constant so it cannot drift.
+ */
+export const SHIP_CELLS = ['ship'] as const;
+
 /** A simple ship silhouette, pointing up (-y). Placeholder for the player. */
 export function createShipAtlas(): Atlas {
   const size = SHIP_SIZE;
@@ -394,7 +403,7 @@ export function createShipAtlas(): Atlas {
   texture.needsUpdate = true;
 
   const atlas = new Atlas(texture, size, size);
-  atlas.define('ship', { x: 0, y: 0, w: size, h: size });
+  atlas.define(SHIP_CELLS[0], { x: 0, y: 0, w: size, h: size });
   return atlas;
 }
 
@@ -423,6 +432,6 @@ export async function shipAtlas(url?: string): Promise<Atlas> {
         `expected ${SHIP_SIZE}×${SHIP_SIZE} (one ${SHIP_SIZE}×${SHIP_SIZE} cell)`,
     );
   }
-  atlas.define('ship', { x: 0, y: 0, w: atlas.width, h: atlas.height });
+  atlas.define(SHIP_CELLS[0], { x: 0, y: 0, w: atlas.width, h: atlas.height });
   return atlas;
 }

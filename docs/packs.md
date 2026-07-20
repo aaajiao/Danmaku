@@ -13,12 +13,12 @@ this document:
   sounds. The same patterns fire, the same bosses appear, the same replay plays
   back; a replay recorded under one skin plays under any other, so a skin
   mismatch **warns**, never refuses.
-- **Content** (`content.enemies`, `content.stages`, gated by `requires`) adds
-  enemies and stages as data. That changes what the game *does* — different
-  bullets in the air — so a replay recorded under a content pack **refuses** to
-  play under different content. Patterns, behaviours, bosses, characters, items,
-  backgrounds and effects stay engine code the content joins by name; a pack
-  carries the *data* that arranges them, never the code.
+- **Content** (the `content` object, gated by `requires`) adds game data —
+  enemies, stages, bosses, shots, characters, options, bombs, effects and items.
+  That changes what the game *does* — different bullets in the air — so a replay
+  recorded under a content pack **refuses** to play under different content.
+  Patterns, motion behaviours and background shaders stay engine code the content
+  joins by name; a pack carries the *data* that arranges them, never the code.
 
 This document is written for a pack author who has never read the engine. It
 covers the folder layout, how a pack activates, every manifest field, every
@@ -50,22 +50,30 @@ A pack **can also**, with a `content` section (§9), add game data:
 - **enemies** — a full `EnemySpec` as JSON: hitbox, motion, timeline, the
   patterns it fires, what it drops;
 - **stages** — waves of those enemies (and built-in ones), chained into a
-  selectable campaign, ending on a built-in boss.
+  selectable campaign;
+- **bosses** — a `BossSpec` as JSON: spell-card phases sized in *seconds*, sent by
+  a pack stage as a midboss wave or an end boss;
+- **shots, options and bombs** — a player's weapon, satellites and panic button as
+  data, equipped by a pack character;
+- **characters** — a `CharacterSpec` that names its shot/options/bomb and appears
+  on the SELECT screen;
+- **effects and items** — a `ParticleSpec` an enemy, boss or bomb triggers, and an
+  `ItemSpec` a drop scatters.
 
 A pack **cannot** change the *code* that data drives: no new patterns, no new
-motion behaviours, no new bosses, no new characters, no new items, no new
-backgrounds, no difficulty curves, no music, no dialogue. Those are engine code,
+motion behaviours, no new backgrounds, no difficulty curves, no music, no
+dialogue, and no new item *kind* (a kind is a game rule). Those are engine code,
 reserved or registered under a string name — see §9 for what content reaches and
 §10 for what stays reserved. The dividing line is simple and permanent:
 
-> **Skins and arrangements are pack data. Everything that generates motion or
-> effect is engine code, joined to a pack only by name.** A bullet's *picture*
-> comes from a pack, and so does the *arrangement* of an enemy — which pattern it
-> fires, where a wave puts it — but the *pattern* itself, the three.js/shader
-> *effect* that flares when a bullet dies, the *behaviour* that steers it and the
-> *boss* a stage sends are all code, registered in the engine by a string name
-> (the same arrangement as `definePattern` / `defineBehaviour` / `defineBoss` /
-> `defineBackground`). A pack paints and it arranges; it never scripts.
+> **Skins and arrangements are pack data. Motion and behaviour are engine code,
+> joined to a pack only by name.** A bullet's *picture* comes from a pack, and so
+> does the *arrangement* of an enemy — which pattern it fires, where a wave puts
+> it, which spell cards a boss runs, which weapon a character equips — but the
+> *pattern* itself, the *behaviour* that steers a bullet and the shader *scene* a
+> stage is set in are all code, registered in the engine by a string name (the
+> same arrangement as `definePattern` / `defineBehaviour` / `defineBackground`). A
+> pack paints and it arranges; it never scripts a new rule.
 
 Because presentation is optional and always degrades to a placeholder, the game
 is **never blocked on it**. The procedural placeholders
@@ -202,8 +210,8 @@ The types below are exactly what `src/packs/manifest.ts` validates.
 | `assets` | no | object | `bullets?`, `ship?`, `filter?` — see §5.1–5.2. |
 | `sounds` | no | object | One entry per replaced sound, keyed by the sound's registered name — see §5.3. |
 | `hud` | no | object | `life?`, `bomb?` icon PNGs — see §5.4. |
-| `requires` | no | string[] | Engine capabilities the pack needs. This engine implements `content.enemies` and `content.stages`; anything else is refused, naming what it does not implement and what it does. A `content` section and its covering `requires` entry are one contract — see §9. Omit it entirely for a reskin-only pack (do not write `[]`). |
-| `content` | no | object | Format-2 game data: `enemies?`, `stages?`. Present only alongside the matching `requires` entries — see §9. |
+| `requires` | no | string[] | Engine capabilities the pack needs. This engine implements the nine `content.*` capabilities (enemies, stages, bosses, shots, characters, options, bombs, effects, items); anything else is refused, naming what it does not implement and what it does. A `content` section and its covering `requires` entry are one contract — see §9. Omit it entirely for a reskin-only pack (do not write `[]`). |
+| `content` | no | object | Format-2 game data: `enemies?`, `stages?`, `bosses?`, `shots?`, `characters?`, `options?`, `bombs?`, `effects?`, `items?`. Present only alongside the matching `requires` entries — see §9. |
 
 **Unknown fields are errors, not warnings.** A misspelled `assets.bulets` or a
 stray top-level key is rejected with a "did you mean" suggestion. This is
@@ -318,12 +326,13 @@ and the placeholders carry on.
 | Condition | Message |
 |---|---|
 | Not an array of strings | `requires must be an array of strings` |
-| Any entry the engine does not implement | `requires lists capabilities this engine does not implement: <a, b> — implemented: content.enemies, content.stages; see docs/packs.md §Future` |
+| Any entry the engine does not implement | `requires lists capabilities this engine does not implement: <a, b> — implemented: content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items; see docs/packs.md §Future` |
 
-The two implemented capabilities, `content.enemies` and `content.stages`, are
-**accepted** — and each demands its matching `content` section (§9). Everything
-else in `requires` is refused, naming both the offending capabilities and the
-implemented set.
+The nine implemented capabilities — `content.enemies`, `content.stages`,
+`content.bosses`, `content.shots`, `content.characters`, `content.options`,
+`content.bombs`, `content.effects` and `content.items` — are **accepted**, and
+each demands its matching `content` section (§9). Everything else in `requires` is
+refused, naming both the offending capabilities and the implemented set.
 
 ### 6.3 `assets`
 
@@ -508,54 +517,66 @@ console keeps the full text.
 
 ---
 
-## 9. Content packs — enemies and stages as data
+## 9. Content packs — the game-data tier
 
-A pack that declares `requires` and carries a `content` object adds **enemies**
-and **stages** to the game as data. The format number stays `1`; the capability
-gate is what turns content on, so a pack manifest is forward-compatible by
-construction (§9.1). Content is validated in **two layers** — shape, then
+A pack that declares `requires` and carries a `content` object adds **game data**
+to the engine: enemies, stages, bosses, shots, characters, options, bombs,
+effects and items — the whole pure-data tier. The format number stays `1`; the
+capability gate is what turns content on, so a pack manifest is forward-compatible
+by construction (§9.1). Content is validated in **two layers** — shape, then
 semantics — and either can reject the pack whole (§9.4). A pack that clears both
-registers its enemies and stages under namespaced names and contributes one
-**campaign row** to the title menu per entry stage (§9.5), and its identity is
-pinned into any replay it records with a strict check (§9.6).
+registers every entry under namespaced names, contributes one **campaign row** to
+the title menu per entry stage and one SELECT-screen row per character (§9.5), and
+pins its identity into any replay it records with a strict check (§9.6).
 
-`packs/example/` is the reference: two enemies (`ember`, exercising motion,
-timeline, patterns, spoils and tint; `drone`, the minimal three-field form) and a
-two-stage campaign (`gauntlet` chaining into `ashfall`, which sends the built-in
-`sentinel` boss). Copy it. Everything below is drawn from it.
+The nine sections mirror nine engine registries. The JSON **is** the engine's own
+spec object — there is no translation layer — so the authoring guide for each is
+its section of [`docs/extending.md`](./extending.md), and this document covers
+only what the pack form adds: a section key as the entry's name, three
+substitutions (a stage's `entry`/`next`, a boss card's `hpSeconds`, a character's
+`shot` by name), and name resolution that runs pack-first (§9.3).
+
+`packs/example/` is the reference and carries one of every section: two enemies
+(`ember` and the minimal `drone`), a boss (`pyre`, two phases), a shot
+(`emberbolt`), options (`emberwing`), a bomb (`firestorm`), a character (`raider`,
+equipping all three), an effect (`cinder`), an item (`relic`), and a two-stage
+campaign (`gauntlet` → `ashfall`, which sends the built-in `sentinel` as a midboss
+wave and the pack's own `pyre` as its end boss). Copy it. Everything below is
+drawn from it.
 
 ### 9.1 The gate: `requires` and the covering invariant
 
-Content is opt-in through `requires`. This engine implements two capabilities —
-`content.enemies` and `content.stages` — and a pack must **declare the capability
-for every content section it ships, and ship the section for every capability it
-declares.** That agreement is the *covering invariant*, and it is exact on
-purpose: an older engine that does not implement these capabilities refuses on
-`requires` **before it ever parses `content`**, so a section it could not load can
-never reach it unannounced.
+Content is opt-in through `requires`. This engine implements nine capabilities —
+`content.enemies`, `content.stages`, `content.bosses`, `content.shots`,
+`content.characters`, `content.options`, `content.bombs`, `content.effects` and
+`content.items` — and a pack must **declare the capability for every content
+section it ships, and ship the section for every capability it declares.** That
+agreement is the *covering invariant*, and it is exact on purpose: an older engine
+that does not implement a capability refuses on `requires` **before it ever parses
+`content`**, so a section it could not load can never reach it unannounced.
 
 ```json
-"requires": ["content.enemies", "content.stages"],
+"requires": ["content.enemies", "content.stages", "content.bosses"],
 "content": {
   "enemies": { "…": "…" },
-  "stages":  { "…": "…" }
+  "stages":  { "…": "…" },
+  "bosses":  { "…": "…" }
 }
 ```
 
 A capability without its section, or a section without its capability, is an
 error (§9.4). A `requires` entry naming anything else — `netplay`,
-`content.bosses` — is refused, because those capabilities are not implemented
+`content.music` — is refused, because those capabilities are not implemented
 (§6.2, §10).
 
 ### 9.2 The shapes
 
-The content JSON **is** the engine's own spec object — there is no translation
-layer. A `content.enemies.<name>` is an `EnemySpec`
-(`src/sim/enemy.ts`, and §4 of [`docs/extending.md`](./extending.md)) written as
-JSON; a `content.stages.<name>` is a `StageSpec` (`src/content/stage.ts`, and §6
-there) minus its `name` (the key is the name) plus two fields the JSON form adds:
-`entry` and a nullable `next`. So the authoring guide for enemies and stages is
-`docs/extending.md`; this section covers only what the pack form adds on top.
+Each `content.<section>.<name>` is the matching engine spec written as JSON, minus
+its `name` (the section key is the name). The specs and their fields are documented
+in [`docs/extending.md`](./extending.md) — `EnemySpec` (§4), `BossSpec`/`SpellCard`
+(§5), `StageSpec` (§6), `ShotType` (§7), `OptionSpec` (§7), `BombSpec` (§7),
+`CharacterSpec` (§7), `ItemSpec` (§8), `ParticleSpec` (§9). This section covers
+only what the pack form adds on top, per kind.
 
 **An enemy** — the full form and the minimal one, both from the example:
 
@@ -576,10 +597,10 @@ there) minus its `name` (the key is the name) plus two fields the JSON form adds
       { "pattern": "aimed-fan", "options": { "spec": { "…": "a BulletSpec" }, "count": 3, "spread": 28, "period": 55 }, "startAt": 20 },
       { "pattern": "spiral",    "options": { "spec": { "…": "a BulletSpec" }, "arms": 2, "step": 13, "period": 8 }, "startAt": 30, "stopAt": 110 }
     ],
-    "spoils": [ ["power", 2], ["score", 1] ],
+    "spoils": [ ["power", 2], ["score", 1], ["relic", 1] ],
     "scoreValue": 300,
     "onHit": "hit",
-    "onDeath": "explosion"
+    "onDeath": "cinder"
   },
   "drone": { "sprite": "shard", "hp": 8, "radius": 8, "motion": { "r": 1.5, "theta": 90 } }
 }
@@ -634,37 +655,194 @@ holds the schedule until the fight ends, exactly as a built-in `BossWave` does
   the last stage" explicitly, where a built-in `StageSpec` leaves the field
   `undefined`.
 
+**A boss** — a `BossSpec` whose one substitution is the phase clock. From the
+example (`pyre`, abbreviated):
+
+```json
+"bosses": {
+  "pyre": {
+    "sprite": "ring", "radius": 18, "width": 52, "height": 52,
+    "tint": { "r": 1, "g": 0.6, "b": 0.3 },
+    "entry": { "x": 240, "y": 140, "ticks": 90 },
+    "onDeath": "death.big",
+    "spoils": [ ["relic", 2], ["score", 3] ],
+    "phases": [
+      { "name": "Smoulder", "hpSeconds": 8, "isSpell": false,
+        "timeline": [ "…" ],
+        "patterns": [ { "pattern": "aimed-fan", "options": { "…": "…" } } ] },
+      { "name": "Ember Sign \"Ashfall\"", "hpSeconds": 12, "isSpell": true,
+        "bonus": 300000, "background": "drift", "motion": { "r": 0 },
+        "patterns": [ { "pattern": "ring", "options": { "…": "…" } } ] }
+    ]
+  }
+}
+```
+
+`sprite`, `radius` and `phases` are required; a phase (spell card) requires `name`,
+`hpSeconds` and `patterns`. **Every field matches `BossSpec`/`SpellCard`
+field-for-field except one: a card declares `hpSeconds` (seconds of health a
+competent player needs to drain) where the engine's `SpellCard` carries `hp`
+(raw).** The injector computes `hp = phaseHp(hpSeconds)`, and an omitted
+`timeLimit` (ticks) defaults to `phaseClock(hp)` — the same derivation the
+engine's own bosses use. The reason content states seconds, not ticks:
+
+> `hpSeconds` keeps a pack boss coupled to the engine's measured damage model. A
+> tuning constant no test can measure drifts away from the thing it describes, so
+> `REFERENCE_DPS` (the rate every boss is sized from, re-measured by
+> `balance.test.ts`) computes the health, and a pack boss re-derives automatically
+> when it moves. `hpSeconds` is capped at 180 — beyond that is almost always a
+> ticks-for-seconds units error (§9.4).
+
+A pack boss reaches the field by being named by a pack stage — as a boss wave
+(midboss) or the stage's end `boss` — resolving pack-first (§9.3). A boss no pack
+stage sends is dead content (§9.4). A card's `background` overrides the scene for
+that phase and names a **built-in** scene (§9.3). Advisory: size pack bosses inside
+the reference-DPS envelope the built-ins assume — `hpSeconds` sizing is only
+meaningful against it.
+
+**A shot** — a `ShotType`, the weapon ladder by power tier. From `emberbolt`:
+
+```json
+"shots": {
+  "emberbolt": {
+    "description": "ember bolts that fan wider with each power tier",
+    "levels": [
+      { "spec": { "…": "a BulletSpec" }, "offsets": [ { "x": 0, "y": -12, "angle": 270 } ], "period": 6 },
+      { "spec": { "…": "a BulletSpec" }, "offsets": [ "… three muzzles …" ], "period": 6 }
+    ]
+  }
+}
+```
+
+`levels` is required (`description` optional); each level is a `ShotSpec` of `spec`
+(a `BulletSpec`), `offsets` (muzzle vectors) and `period` (ticks between volleys).
+A shot does not name itself — a **character equips it by name** (below), and a
+shot no pack character fires is dead content (§9.4).
+
+**Options and a bomb** — an `OptionSpec` and a `BombSpec`, also equipped by a
+character. From `emberwing` and `firestorm`, abbreviated:
+
+```json
+"options": {
+  "emberwing": {
+    "sprite": "orb.medium", "shot": { "…": "a BulletSpec" }, "period": 6,
+    "followSpeed": 1.6, "tint": { "r": 1, "g": 0.7, "b": 0.3 },
+    "levels": [ [ { "x": 0, "y": -20, "focusX": 0, "focusY": -26, "angle": 270 } ], "… wider tiers …" ]
+  }
+},
+"bombs": {
+  "firestorm": { "duration": 80, "invulnTicks": 140, "damagePerTick": 3, "convertBullets": true, "effect": "cinder" }
+}
+```
+
+An option set requires `sprite`, `shot`, `period` and `levels`; a bomb requires
+`duration`, `invulnTicks` and `damagePerTick`. A bomb's `effect` names a particle
+effect resolved **pack-first** (`firestorm` throws the pack's own `cinder`). An
+option set or bomb no pack character equips is dead content (§9.4).
+
+**An effect and an item** — a `ParticleSpec` and an `ItemSpec`. From `cinder` and
+`relic`:
+
+```json
+"effects": {
+  "cinder": { "sprite": "mote", "count": { "min": 8, "max": 14 }, "speed": { "min": 1, "max": 3 },
+              "life": { "min": 16, "max": 26 }, "drag": 0.9, "scale": { "from": 0.9, "to": 0.1 },
+              "alpha": { "from": 1, "to": 0 }, "tint": { "r": 1, "g": 0.55, "b": 0.2 }, "additive": true }
+},
+"items": {
+  "relic": { "sprite": "orb.large", "radius": 15, "value": 2000, "kind": "score",
+             "tint": { "r": 1, "g": 0.85, "b": 0.3 }, "magnetSpeed": 7 }
+}
+```
+
+An effect requires `sprite`, `count`, `speed` and `life` (`count`/`speed`/`life`
+each take a number or a `{min, max}` range; `scale` takes a number or a
+`{from, to}` range). Its `sprite` is validated against the atlas cell set — **the
+`BulletCell`-typed seam the engine uses to make an effect's sprite a compile-time
+union becomes a runtime check for a pack**, since a pack has no compiler at author
+time. An effect nothing (enemy, boss or bomb) triggers is dead content (§9.4).
+
+An item requires `sprite`, `radius`, `value` and `kind`. **`kind` is restricted to
+the existing union** — `power`, `score`, `life`, `bomb`. A new kind is a new game
+*rule* (the game layer switches on `kind` to decide what a pickup does), not pack
+data, so an unfamiliar kind is refused by name (§9.4). A pack item becomes
+droppable by being named in a pack enemy's or boss's `spoils`, pack-first; an item
+nothing drops is dead content (§9.4).
+
+**A character** — a `CharacterSpec` whose one substitution is the weapon
+indirection. From `raider`:
+
+```json
+"characters": {
+  "raider": {
+    "label": "RAIDER", "sprite": "ship",
+    "blurb": "pack ship — ember bolts, wing options, firestorm bomb",
+    "shot": "emberbolt", "options": "emberwing", "bomb": "firestorm",
+    "player": {
+      "x": 240, "y": 568, "speed": 3.4, "focusSpeed": 1.5,
+      "radius": 2.5, "grazeRadius": 20, "lives": 3, "bombs": 3, "invulnTicks": 90
+    }
+  }
+}
+```
+
+`label`, `shot`, `options`, `bomb`, `sprite` and `player` are required. The
+character's `sprite` is a **ship-sheet region** (`ship` is the only one), not a
+bullet cell — the player is drawn from the ship atlas, a separate namespace
+from the sixteen cells everything else wears. **Where a
+built-in character carries its shot table inline, a pack character *names* its
+`shot`** (`shot: "emberbolt"`, pack-first then built-in) and the injector resolves
+it through the shot registry into `player.shots` — so `player` mirrors
+`PlayerConfig` minus both `bounds` (the run owns the field) and `shots` (the name
+supplies it). `options` and `bomb` are likewise names resolved pack-first. A
+registered pack character appears on the SELECT screen exactly as a built-in does
+(§9.5), so — unlike a shot/option/bomb — it needs no separate reachability check;
+being registered is being offered. Because a pack character flies pack content, a
+replay recorded with one is strict even off the plain START row (§9.6).
+
 ### 9.3 Name resolution: pack-first, then built-in
 
 Every name a pack writes resolves **pack-first, then built-in**:
 
-- A pack's **own** enemies and stages are written **bare** in its JSON. The
-  injector qualifies them to `<packname>/<entry>` at registration —
-  `example/ember`, `example/gauntlet` — so a pack may reuse a built-in name
+- A pack's **own** entries — enemies, stages, bosses, shots, options, bombs,
+  effects, items, characters — are written **bare** in its JSON. The injector
+  qualifies each to `<packname>/<entry>` at registration — `example/ember`,
+  `example/pyre`, `example/emberbolt` — so a pack may reuse a built-in name
   without collision, and a bare reference inside the pack resolves to the pack's
-  entry first.
+  entry first, a built-in second.
 - **Built-ins** are referenced bare: a built-in enemy in a wave (`grunt`), a
-  built-in boss (`sentinel`), a built-in background (`expanse`), a registered
-  pattern (`aimed-fan`), a motion behaviour, an item name in `spoils`. These
-  resolve straight to the engine registries.
-- **Bosses and backgrounds are built-in only.** `content.bosses` is reserved
-  (§10) and a background is a fragment shader (engine code), so a pack stage may
-  *select* a registered boss or scene by name but never ship one.
+  built-in boss (`sentinel`), a registered pattern (`aimed-fan`), a motion
+  behaviour, a built-in effect (`hit`) or item name in `spoils`. These resolve
+  straight to the engine registries. So a pack stage may send the built-in
+  `sentinel` *and* the pack's own `pyre`, and a character may equip a pack shot or
+  a built-in one.
+- **Backgrounds, patterns and behaviours are built-in only.** A background is a
+  fragment shader, a pattern is a factory, a behaviour is a function — all engine
+  code named by a string (§10). A pack may *select* a registered one by name but
+  never ship one, which is why a stage's `background`, an enemy's `pattern` and a
+  motion `behaviour` resolve only against the engine registries.
 - **Cross-pack references are not supported.** A name that is neither the pack's
   own nor a built-in is an error; one pack cannot reach into another's content.
 
-Two **reachability** rules — the project's "registration is not reachability" law
+Reachability rules — the project's "registration is not reachability" law
 (CLAUDE.md), applied to pack data so dead content fails the pack rather than
-shipping unreachable:
+shipping unreachable. Each is an error naming what would have to reference it:
 
-- A pack stage must be an **entry** or the `next` of some **pack** stage. (A
-  built-in `next` leaves the pack; it does not reach back in.) A stage that is
-  neither is rejected.
-- A pack enemy must be **spawned by some wave** of some pack stage. An enemy
-  nothing fires is rejected — which also closes a gap the built-in path leaves
-  open, where a `defineEnemy` with a typo'd pattern name that no wave ever spawns
-  can register silently (§4 of `docs/extending.md`); here every pack enemy is
-  both name-checked and reached.
+- A pack **stage** must be an **entry** or the `next` of some **pack** stage. (A
+  built-in `next` leaves the pack; it does not reach back in.)
+- A pack **enemy** must be **spawned by some wave** of some pack stage — which also
+  closes a gap the built-in path leaves open, where a `defineEnemy` with a typo'd
+  pattern name that no wave ever spawns can register silently (§4 of
+  `docs/extending.md`).
+- A pack **boss** must be **named by some pack stage** — a boss wave or a stage's
+  end `boss`.
+- A pack **shot, option or bomb** must be **equipped by some pack character**.
+- A pack **effect** must be **triggered** by some pack enemy (`onHit`/`onDeath`),
+  boss (`onDeath`) or bomb (`effect`).
+- A pack **item** must be **dropped** by some pack enemy's or boss's `spoils`.
+
+A **character** needs no such check: a registered character is always offered on
+the SELECT screen, so it is reachable by construction.
 
 ### 9.4 The two validators, and their golden strings
 
@@ -677,13 +855,21 @@ did-you-mean on unknown keys, and the covering invariant. It imports no registry
 so it cannot know whether a *name* resolves — only that the shape is right. Every
 message carries the `pack "<folder>": pack.json: ` prefix.
 
+The covering invariant and `content` container:
+
 | Condition | Message (after the prefix) |
 |---|---|
 | A declared capability has no section | `requires lists "content.stages" but there is no content.stages section — add the section or drop the capability` |
 | A section has no declared capability | `content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content` |
 | `content` not an object | `content must be a JSON object` |
-| A reserved `content.*` section | `content.bosses is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future` |
-| Unknown key directly under `content` | `content: unknown field "<key>" — did you mean "<nearest>"?` (or `content: unknown field "<key>" — valid fields here: enemies, stages`) |
+| A reserved `content.*` section | `content.music is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
+| Unknown key directly under `content` | `content: unknown field "<key>" — did you mean "<nearest>"?` (or `content: unknown field "<key>" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items`) |
+
+**Enemies and stages** (representative — the full field lists are in
+`src/packs/manifest.ts`):
+
+| Condition | Message (after the prefix) |
+|---|---|
 | `content.enemies` not an object | `content.enemies must be a JSON object` |
 | Enemy missing `sprite` | `content.enemies."ember" is missing required field "sprite" — an atlas cell name` |
 | Enemy `hp` mistyped | `content.enemies."ember".hp must be a number` |
@@ -701,6 +887,51 @@ message carries the `pack "<folder>": pack.json: ` prefix.
 | Wave names both | `content.stages."gauntlet".waves[0] names both "enemy" and "boss" — a wave is one or the other` |
 | Unknown field on a wave | `content.stages."gauntlet".waves[0]: unknown field "zzz" — valid fields here: at, enemy, boss, x, y, count, interval, stepX, stepY` |
 
+**Bosses** (the pattern-slot rows are shared with enemies; a boss phase reuses
+the same validator):
+
+| Condition | Message (after the prefix) |
+|---|---|
+| `content.bosses` not an object | `content.bosses must be a JSON object` |
+| Boss missing `sprite` | `content.bosses."pyre" is missing required field "sprite" — an atlas cell name` |
+| Boss missing `radius` | `content.bosses."pyre" is missing required field "radius" — a number` |
+| Boss missing `phases` | `content.bosses."pyre" is missing required field "phases" — an array of spell cards` |
+| Unknown field on a boss | `content.bosses."pyre": unknown field "phazes" — did you mean "phases"?` |
+| `entry` missing `ticks` | `content.bosses."pyre".entry is missing required field "ticks" — a whole tick count` |
+| Phase missing `name` | `content.bosses."pyre".phases[0] is missing required field "name" — a card name` |
+| Phase missing `hpSeconds` | `content.bosses."pyre".phases[0] is missing required field "hpSeconds" — seconds of health a competent player needs` |
+| Phase missing `patterns` | `content.bosses."pyre".phases[0] is missing required field "patterns" — an array of pattern slots` |
+| Unknown field on a phase | `content.bosses."pyre".phases[0]: unknown field "hpSecnds" — did you mean "hpSeconds"?` |
+| A `spoils` entry is not a pair | `content.bosses."pyre".spoils[0] must be a [name, count] pair — a string and a number` |
+
+**Shots, options and bombs**:
+
+| Condition | Message (after the prefix) |
+|---|---|
+| `content.shots` not an object | `content.shots must be a JSON object` |
+| Shot missing `levels` | `content.shots."emberbolt" is missing required field "levels" — an array of power tiers` |
+| Level missing `spec` | `content.shots."emberbolt".levels[0] is missing required field "spec" — a bullet spec` |
+| Level missing `offsets` | `content.shots."emberbolt".levels[0] is missing required field "offsets" — an array of muzzle offsets` |
+| Level missing `period` | `content.shots."emberbolt".levels[0] is missing required field "period" — ticks between volleys` |
+| Options missing `shot` | `content.options."emberwing" is missing required field "shot" — a bullet spec` |
+| Options missing `levels` | `content.options."emberwing" is missing required field "levels" — slot layouts by power tier` |
+| Bomb missing `damagePerTick` | `content.bombs."firestorm" is missing required field "damagePerTick" — damage per tick in range` |
+| Bomb missing `duration` | `content.bombs."firestorm" is missing required field "duration" — ticks the bomb burns` |
+
+**Effects, items and characters**:
+
+| Condition | Message (after the prefix) |
+|---|---|
+| `content.effects` not an object | `content.effects must be a JSON object` |
+| Effect missing `count` | `content.effects."cinder" is missing required field "count" — particles per emit` |
+| Effect `count` not a number/range | `content.effects."cinder".count must be a number or a {min, max} range` |
+| Effect `scale` not a number/range | `content.effects."cinder".scale must be a number or a {from, to} range` |
+| Item missing `kind` | `content.items."relic" is missing required field "kind" — one of power, score, life, bomb` |
+| Item `kind` unfamiliar | `content.items."relic".kind "elixir" is not a kind this game has — a new kind is a new game rule, not pack data; valid kinds: power, score, life, bomb` |
+| Character missing `shot` | `content.characters."raider" is missing required field "shot" — a registered shot name` |
+| Character missing `player` | `content.characters."raider" is missing required field "player" — the ship's stats` |
+| Player stat missing | `content.characters."raider".player is missing required field "speed" — px/tick, unfocused` |
+
 **Layer 2 — semantics (`src/packs/inject.ts`).** It imports `sim` and `content`
 (that direction is legal; the forbidden one is `sim`/`content`/`game` → `packs`),
 resolves every name against the real registries, enforces the reachability rules,
@@ -709,36 +940,83 @@ sprite and background names are **passed in** by the caller (the loader hands it
 `BULLET_CELLS` and `backgroundNames()`; a test hands the same). Every message
 carries the `pack "<name>": ` prefix.
 
+Name resolution and numbers, by kind (`<known sprites>`/`<known backgrounds>`
+stand in for the caller's sorted lists):
+
 | Condition | Message (after the prefix) |
 |---|---|
-| Unknown sprite | `enemy "ember" uses unknown sprite "orb.huge" — known sprites: halo, orb.large, ring, shard, ship` |
-| Unknown pattern | `enemy "ember" uses unknown pattern "sprial" — no such pattern is registered` |
-| Unknown motion behaviour | `enemy "ember" uses unknown motion behaviour "homng" — no such behaviour is registered` |
-| Unknown spoils item | `enemy "ember" drops unknown item "powr" — no such item is registered` |
+| Enemy: unknown sprite | `enemy "ember" uses unknown sprite "orb.huge" — known sprites: <known sprites>` |
+| Enemy: unknown pattern | `enemy "ember" uses unknown pattern "sprial" — no such pattern is registered` |
+| Enemy: unknown behaviour | `enemy "ember" uses unknown motion behaviour "homng" — no such behaviour is registered` |
+| Enemy: unknown `onHit`/`onDeath` effect | `enemy "ember" onHit names unknown effect "cindr" — no such effect in this pack or built in` |
+| Enemy: unknown spoils item | `enemy "ember" drops unknown item "powr" — no such item in this pack or built in` |
+| Boss: unknown sprite | `boss "pyre" uses unknown sprite "orb.huge" — known sprites: <known sprites>` |
+| Boss: no phases | `boss "pyre" declares no phases — a boss needs at least one phase` |
+| Boss: `hpSeconds` not positive | `boss "pyre" phase "Smoulder": hpSeconds must be positive, got 0` |
+| Boss: `hpSeconds` over ceiling | `boss "pyre" phase "Smoulder": hpSeconds 600 exceeds the ceiling of 180 — hpSeconds is SECONDS of intended drain, not ticks` |
+| Boss: `timeLimit` not whole | `boss "pyre" phase "Smoulder": timeLimit must be a whole tick count, got 12.5` |
+| Boss: unknown phase pattern | `boss "pyre" phase "Smoulder" uses unknown pattern "spiro" — patterns are engine code, not pack data; no such pattern is registered` |
+| Boss: unknown phase behaviour | `boss "pyre" phase "Smoulder" uses unknown motion behaviour "homng" — no such behaviour is registered` |
+| Boss: unknown card background | `boss "pyre" phase "Ashfall" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
+| Boss: unknown `onDeath` effect | `boss "pyre" onDeath names unknown effect "cindr" — no such effect in this pack or built in` |
+| Boss: unknown spoils item | `boss "pyre" drops unknown item "relik" — no such item in this pack or built in` |
+| Shot: unknown bullet sprite | `shot "emberbolt" level 0 uses unknown sprite "kunia" — known sprites: <known sprites>` |
+| Shot: unknown bullet behaviour | `shot "emberbolt" level 0 uses unknown motion behaviour "homng" — no such behaviour is registered` |
+| Options: unknown sprite | `options "emberwing" uses unknown sprite "orb.hue" — known sprites: <known sprites>` |
+| Options: unknown fired sprite | `options "emberwing" fires unknown sprite "orb.sml" — known sprites: <known sprites>` |
+| Bomb: unknown effect | `bomb "firestorm" names unknown effect "cindr" — no such effect in this pack or built in` |
+| Effect: unknown sprite | `effect "cinder" uses unknown sprite "moet" — known sprites: <known sprites>` |
+| Item: unknown sprite | `item "relic" uses unknown sprite "orb.hue" — known sprites: <known sprites>` |
+| Item: unknown behaviour | `item "relic" uses unknown motion behaviour "drfit" — no such behaviour is registered` |
+| Character: unknown sprite | `character "raider" uses unknown ship sprite "shp" — characters wear the ship sheet; known ship sprites: <ship sprites>` |
+| Character: unknown shot | `character "raider" fires unknown shot "embrbolt" — no such shot in this pack or built in` |
+| Character: unknown options | `character "raider" equips unknown options "embrwing" — no such options in this pack or built in` |
+| Character: unknown bomb | `character "raider" equips unknown bomb "firstorm" — no such bomb in this pack or built in` |
 | Wave enemy unresolved | `stage "gauntlet" wave 1 references unknown enemy "gremlin" — no such enemy in this pack or built in` |
-| Wave boss unresolved | `stage "gauntlet" wave 1 references unknown boss "sentinl" — pack stages may name a built-in boss only; no built-in boss "sentinl" exists` |
-| Stage `boss` unresolved | `stage "gauntlet" names unknown boss "overlord" — pack stages may name a built-in boss only; no built-in boss "overlord" exists` |
-| Stage `background` unresolved | `stage "gauntlet" is set in unknown background "nebula" — known backgrounds: expanse, undertow` |
+| Wave boss unresolved | `stage "gauntlet" wave 1 references unknown boss "sentinl" — no such boss in this pack or built in` |
+| Stage `boss` unresolved | `stage "gauntlet" names unknown boss "overlord" — no such boss in this pack or built in` |
+| Stage `background` unresolved | `stage "gauntlet" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
 | Stage `next` unresolved | `stage "gauntlet" chains next into unknown stage "stage-99" — no such stage in this pack or built in` |
 | Wave `at` not whole | `stage "gauntlet" wave 0: "at" must be a whole tick count, got 12.5` |
 | Wave `count` not positive whole | `stage "gauntlet" wave 0: "count" must be a positive whole number, got 0` |
 | Wave `interval` not whole | `stage "gauntlet" wave 0: "interval" must be a whole tick count, got -1` |
 | Stage `outro` not whole | `stage "gauntlet": outro must be a whole tick count, got 1.5` |
+
+Reachability (each ends `— dead content (registration is not reachability)`):
+
+| Condition | Message (after the prefix) |
+|---|---|
 | Stages present, no entry | `has content.stages but no entry stage — mark a campaign start with "entry": true` |
 | Unreachable stage | `stage "orphan" is neither an entry nor any stage's next — dead content (registration is not reachability)` |
 | Unspawned enemy | `enemy "ghost" is spawned by no wave of any pack stage — dead content (registration is not reachability)` |
+| Unsent boss | `boss "pyre" is named by no stage of this pack — dead content (registration is not reachability)` |
+| Unfired shot | `shot "emberbolt" is fired by no character of this pack — dead content (registration is not reachability)` |
+| Unequipped options | `options "emberwing" are equipped by no character of this pack — dead content (registration is not reachability)` |
+| Unequipped bomb | `bomb "firestorm" is equipped by no character of this pack — dead content (registration is not reachability)` |
+| Untriggered effect | `effect "cinder" is triggered by no enemy, boss or bomb of this pack — dead content (registration is not reachability)` |
+| Undropped item | `item "relic" is dropped by no enemy or boss of this pack — dead content (registration is not reachability)` |
 
 Note **which messages list the known set and which do not.** Sprite and
-background names come from the caller, so those two messages *list* the known
-values (`known sprites: …`, `known backgrounds: …`). Pattern, behaviour, item,
-boss, enemy and stage names come from process-global registries that other test
-files register fixtures into — so listing their contents would not be a stable
-golden. Those messages name the bad value and say it did not resolve, and stop.
+background names come from the caller, so those messages *list* the known values
+(`known sprites: …`, `known backgrounds: …`). Pattern, behaviour, effect, item,
+shot, option, bomb, boss, enemy and stage names come from process-global
+registries that other test files register fixtures into — so listing their
+contents would not be a stable golden. Those messages name the bad value and say
+it did not resolve, and stop.
 
 Semantic validation is **atomic**: every problem is collected first, and if there
 is one the pack registers **nothing** and the injector throws with the whole
 list. That is what makes "a failed content pack has no campaign row" structural
 rather than a convention — nothing half-registers.
+
+Registration order within a pack is a **dependency order**, deterministic and
+documented: shots → options → bombs → effects → items → characters → enemies →
+bosses → stages. References point backwards — a character resolves its `shot` name
+through the shot registry at build time (exactly as a built-in character does at
+module load), so the pack's shots must already be registered when its characters
+are built; every later kind names something earlier. Injection is also
+**idempotent** per pack name: a second call returns the first call's result
+without re-registering, so test files sharing one process cannot double-register.
 
 ### 9.5 What makes it reachable
 
@@ -757,27 +1035,50 @@ is the same shape as everything else in the game reaching content by name:
   Selecting a row arms the run to start on that qualified stage; `START` is
   today's built-in game, unchanged. Zero content packs means the title menu is
   byte-for-byte what it was.
-- **The boot report** prints a `content.enemies: <pack> (<n> registered)` line
-  and a `content.stages: <pack> (<chain>)` line per entry campaign (§8), so a
-  developer sees the data took effect, not just the reskin.
+- **Character rows are free.** The SELECT screen enumerates the character registry,
+  so a pack character appears on it the moment it registers, with no wire to add —
+  the same "if it lists the registry, the row is free" the boss/enemy registries
+  already give. A pack shot, option or bomb reaches a player only *through* that
+  character, which is why each has a reachability check and a character does not.
+- **The boot report** prints a `content.<section>: <pack> (…)` line per shipped
+  section (§8) — a count for enemies, the `next` chain for stages — so a developer
+  sees the data took effect, not just the reskin.
 - **A test proves it, it is not a claim.** `src/packs/example-play.test.ts`
-  injects the real example pack and drives the **real** `StateMachine` through
-  title → the campaign row → character select → playing, asserting the pack stage
-  runs, its enemies spawn under qualified names, the `next` chain reaches
-  `ashfall`, and the built-in `sentinel` arrives. This is the format-2 acceptance
-  test, in the spirit of `reachability.test.ts` — which itself exempts namespaced
-  names (any containing `/`) from its built-in scan, because pack content is
-  reachable only through its own campaign.
+  injects the real example pack and drives the **real** `StateMachine` flying the
+  **pack character** `raider`: title → the campaign row → SELECT (navigating to
+  `example/raider`) → playing. It asserts the pack shot fires, both pack enemies
+  spawn, the pack effect (`cinder`, sprite `mote`) fires on death and the pack item
+  (`example/relic`) drops and is collected, the `next` chain reaches `ashfall`, the
+  built-in `sentinel` midboss *and* the pack `example/pyre` end boss both arrive,
+  the card's `drift` background override shows up in `Run.scene`, the campaign
+  clears, and every replay records the strict `packsData`. This is the format-2
+  acceptance test, in the spirit of `reachability.test.ts` — which itself exempts
+  namespaced names (any containing `/`) from its built-in scan, because pack
+  content is reachable only through its own campaign or character.
 
 ### 9.6 Replay: content is strict
 
 A reskin cannot change the simulation, so a skin mismatch on replay **warns**
 (§11 below, `RunConfig.packs`). **Content can** — different enemies fire different
 bullets — so a replay recorded under a content pack records `RunConfig.packsData`
-(`name@hash` of the pack whose campaign it entered) and **refuses** to play back
-under different content, exactly as it refuses a mismatched character, stage or
-boss. A built-in run records `''` even with content packs loaded, because injected
-enemies a built-in stage never references cannot affect it.
+(`name@hash` of the pack whose content the run entered) and **refuses** to play
+back under different content, exactly as it refuses a mismatched character, stage
+or boss.
+
+`packsData` is armed by **two** paths, because content reaches a run two ways:
+
+- Choosing a pack **campaign** row records that pack's identity — the run enters
+  the pack's stage.
+- Choosing a pack **character** (a `/`-namespaced name) records the owning pack's
+  identity **even off the plain START row**. A pack character flies a pack shot,
+  option and bomb, all of which change the simulation, so a built-in campaign
+  flown with one is still a pack run. Without this a replay flown with a pack ship
+  would record `''` and replay under different content — the one subtle strictness
+  this tier turns on, and `example-play.test.ts` proves it end to end.
+
+A wholly built-in run — a built-in character on a built-in campaign — records `''`
+even with content packs loaded, because injected content a built-in stage and ship
+never reference cannot affect it.
 
 > The one-sentence why: **pack content changes what the game does, so a replay
 > under different content is a different run and must be rejected, not warned** —
@@ -793,10 +1094,15 @@ enemies a built-in stage never references cannot affect it.
 > instead of getting a generic "unknown field", and a future format 2 can claim
 > these names without colliding with anything a v1 pack was allowed to use.
 
-`content.enemies` and `content.stages` are **not** in this list — they are
+The nine `content.*` sections of §9 are **not** in this list — they are
 implemented, and §9 is their reference. What remains reserved is everything a
-pack still cannot ship. Each reserved name and the exact rejection the engine
-emits **now**:
+pack still cannot ship, and each such section needs an engine *feature* it does
+not yet have: music and difficulty are runtime systems, dialog is a scripting
+layer, backgrounds are shader code. Each reserved name and the exact rejection the
+engine emits **now** (the interpolated implemented-list is abbreviated `<the nine>`
+= `content.enemies, content.stages, content.bosses, content.shots,
+content.characters, content.options, content.bombs, content.effects,
+content.items`):
 
 | Reserved name | What a future format might do with it | Rejection today |
 |---|---|---|
@@ -804,13 +1110,12 @@ emits **now**:
 | `difficulty` (top-level) | tuning curves as data | `difficulty is a pack-format-2 section …` |
 | `dialog` (top-level) | cutscene/portrait scripts | `dialog is a pack-format-2 section …` |
 | `backgrounds` (top-level) | scene selection | `backgrounds is a pack-format-2 section …` |
-| `content.bosses`, `content.characters`, `content.items` | bosses, ships, pickups as data | `content.bosses is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future` |
-| `content.music`, `content.difficulty`, `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.music is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future` |
+| `content.music`, `content.difficulty`, `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.music is a pack-format-2 section this engine does not implement — it implements <the nine> only; see docs/packs.md §Future` |
 | `hud.digits`, `hud.font` | number/font glyph sheets | `hud.digits is a pack-format-2 resource and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `hud.bossBar`, `hud.frame` | boss-bar skin, screen frame | `hud.bossBar is a pack-format-2 resource …` |
 
-Two reserved names deserve a word on *why* they stay code and not data, because
-it is the same reason and it is load-bearing:
+Two lines deserve a word on *why* they stay code and not data, because it is the
+same reason and it is load-bearing:
 
 - **`backgrounds` stay shaders.** A background is a fragment shader in
   `src/render/backgrounds/`, registered by name with `defineBackground`, and a
@@ -818,15 +1123,17 @@ it is the same reason and it is load-bearing:
   image and no plan for one — see `docs/assets.md` §3.4 and CLAUDE.md's
   "Backgrounds are scenes". A pack could at most *select* a registered scene; it
   can never *ship* one — which is exactly what a pack stage's `background: "expanse"`
-  does today (§9.3).
-- **`content.bosses` and the rest stay code joined by name.** This is the
-  dual-track line from §1, and it is what §9 already lives by: a pack *arranges*
-  registered code — it names the `sentinel` boss a stage sends, the `aimed-fan`
-  pattern an enemy fires, the `homing` behaviour that steers a bullet — but it
-  never *ships* the boss, the pattern, the behaviour or the effect. Definitions
-  are code; invocations are data. `content.enemies` and `content.stages` are data
-  because an enemy and a stage are arrangements of code that already exists; a
-  boss's spell-card script or a new pattern is that code, and stays reserved.
+  or a boss card's `background: "drift"` does today (§9.3).
+- **Patterns, behaviours and game rules stay code joined by name.** This is the
+  dual-track line from §1, and it is what §9 lives by: a pack *arranges* registered
+  code — it names the `aimed-fan` pattern an enemy or boss fires, the `homing`
+  behaviour that steers a bullet, the scene a stage is set in — but it never
+  *ships* the pattern, the behaviour or the shader. Definitions are code;
+  invocations are data. The nine implemented sections are data because each is an
+  *arrangement* of code that already exists — a boss is spell-card timing over
+  built-in patterns, a character is stats plus three named loadouts, an item is a
+  hitbox with a `kind` the game already has a rule for. A **new** pattern, a **new**
+  behaviour, or a **new** item `kind` is that code, and stays engine.
 
 ---
 
@@ -843,10 +1150,11 @@ keys with two policies:
   The warning exists so a viewer knows the run *looked* different from how it was
   recorded — nothing more.
 - **`RunConfig.packsData`** — the **content** identity: `name@hash` of the pack
-  whose campaign this run entered (`''` for a built-in campaign, even with content
-  packs loaded). Because content changes what the game *does*, a mismatch here
-  **refuses**, exactly as a mismatched character, stage or boss does (§9.6). This
-  is the strict path the v1 spec reserved and format 2 made real.
+  whose content this run entered — its campaign, or its character flown off any row
+  (§9.6) — and `''` for a wholly built-in run, even with content packs loaded.
+  Because content changes what the game *does*, a mismatch here **refuses**, exactly
+  as a mismatched character, stage or boss does. This is the strict path the v1
+  spec reserved and format 2 made real.
 
 The hash is a SHA-256 over the manifest bytes followed by each loaded file's
 bytes, in a fixed canonical order, so it is stable regardless of how an author

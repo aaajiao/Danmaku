@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "Danmaku project",
   "license": "CC0-1.0",
-  "description": "The reference pack: every manifest field, art that follows every rule the loader checks, and a two-stage campaign of format-2 content. Copy this directory, rename it, and swap the files.",
+  "description": "The reference pack: every manifest field, art that follows every rule the loader checks, and one of every format-2 content section — enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. Copy this directory, rename it, and swap the files.",
   "assets": {
     "bullets": "bullets.png",
     "ship": "ship.png",
@@ -20,7 +20,14 @@
   },
   "requires": [
     "content.enemies",
-    "content.stages"
+    "content.stages",
+    "content.bosses",
+    "content.shots",
+    "content.characters",
+    "content.options",
+    "content.bombs",
+    "content.effects",
+    "content.items"
   ],
   "content": {
     "enemies": {
@@ -116,11 +123,15 @@
           [
             "score",
             1
+          ],
+          [
+            "relic",
+            1
           ]
         ],
         "scoreValue": 300,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "cinder"
       },
       "drone": {
         "sprite": "shard",
@@ -130,6 +141,432 @@
           "r": 1.5,
           "theta": 90
         }
+      }
+    },
+    "effects": {
+      "cinder": {
+        "sprite": "mote",
+        "count": {
+          "min": 8,
+          "max": 14
+        },
+        "speed": {
+          "min": 1,
+          "max": 3
+        },
+        "life": {
+          "min": 16,
+          "max": 26
+        },
+        "drag": 0.9,
+        "scale": {
+          "from": 0.9,
+          "to": 0.1
+        },
+        "alpha": {
+          "from": 1,
+          "to": 0
+        },
+        "tint": {
+          "r": 1,
+          "g": 0.55,
+          "b": 0.2
+        },
+        "additive": true
+      }
+    },
+    "items": {
+      "relic": {
+        "sprite": "orb.large",
+        "radius": 15,
+        "value": 2000,
+        "kind": "score",
+        "tint": {
+          "r": 1,
+          "g": 0.85,
+          "b": 0.3
+        },
+        "magnetSpeed": 7
+      }
+    },
+    "shots": {
+      "emberbolt": {
+        "description": "ember bolts that fan wider with each power tier",
+        "levels": [
+          {
+            "spec": {
+              "style": {
+                "sprite": "kunai",
+                "r": 1,
+                "g": 0.65,
+                "b": 0.25,
+                "orientToHeading": true
+              },
+              "radius": 4,
+              "motion": {
+                "r": 10,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "kunai",
+                "r": 1,
+                "g": 0.65,
+                "b": 0.25,
+                "orientToHeading": true
+              },
+              "radius": 4,
+              "motion": {
+                "r": 10,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "kunai",
+                "r": 1,
+                "g": 0.65,
+                "b": 0.25,
+                "orientToHeading": true
+              },
+              "radius": 4,
+              "motion": {
+                "r": 10,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -8,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -8,
+                "angle": 270
+              }
+            ],
+            "period": 5
+          }
+        ]
+      }
+    },
+    "options": {
+      "emberwing": {
+        "sprite": "orb.medium",
+        "shot": {
+          "style": {
+            "sprite": "orb.small",
+            "r": 1,
+            "g": 0.6,
+            "b": 0.25,
+            "additive": true
+          },
+          "radius": 4,
+          "motion": {
+            "r": 10,
+            "theta": 270
+          },
+          "damage": 1
+        },
+        "period": 6,
+        "followSpeed": 1.6,
+        "tint": {
+          "r": 1,
+          "g": 0.7,
+          "b": 0.3
+        },
+        "levels": [
+          [
+            {
+              "x": 0,
+              "y": -20,
+              "focusX": 0,
+              "focusY": -26,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": -20,
+              "focusX": 0,
+              "focusY": -26,
+              "angle": 270
+            },
+            {
+              "x": -24,
+              "y": -4,
+              "focusX": -10,
+              "focusY": -18,
+              "angle": 270
+            },
+            {
+              "x": 24,
+              "y": -4,
+              "focusX": 10,
+              "focusY": -18,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": -20,
+              "focusX": 0,
+              "focusY": -26,
+              "angle": 270
+            },
+            {
+              "x": -24,
+              "y": -4,
+              "focusX": -10,
+              "focusY": -18,
+              "angle": 270
+            },
+            {
+              "x": 24,
+              "y": -4,
+              "focusX": 10,
+              "focusY": -18,
+              "angle": 270
+            },
+            {
+              "x": -42,
+              "y": 8,
+              "focusX": -20,
+              "focusY": -4,
+              "angle": 270
+            },
+            {
+              "x": 42,
+              "y": 8,
+              "focusX": 20,
+              "focusY": -4,
+              "angle": 270
+            }
+          ]
+        ]
+      }
+    },
+    "bombs": {
+      "firestorm": {
+        "duration": 80,
+        "invulnTicks": 140,
+        "damagePerTick": 3,
+        "convertBullets": true,
+        "effect": "cinder"
+      }
+    },
+    "characters": {
+      "raider": {
+        "label": "RAIDER",
+        "sprite": "ship",
+        "blurb": "pack ship — ember bolts, wing options, firestorm bomb",
+        "shot": "emberbolt",
+        "options": "emberwing",
+        "bomb": "firestorm",
+        "player": {
+          "x": 240,
+          "y": 568,
+          "speed": 3.4,
+          "focusSpeed": 1.5,
+          "radius": 2.5,
+          "grazeRadius": 20,
+          "lives": 3,
+          "bombs": 3,
+          "invulnTicks": 90
+        }
+      }
+    },
+    "bosses": {
+      "pyre": {
+        "sprite": "ring",
+        "radius": 18,
+        "width": 52,
+        "height": 52,
+        "tint": {
+          "r": 1,
+          "g": 0.6,
+          "b": 0.3
+        },
+        "entry": {
+          "x": 240,
+          "y": 140,
+          "ticks": 90
+        },
+        "onDeath": "death.big",
+        "spoils": [
+          [
+            "relic",
+            2
+          ],
+          [
+            "score",
+            3
+          ]
+        ],
+        "phases": [
+          {
+            "name": "Smoulder",
+            "hpSeconds": 8,
+            "isSpell": false,
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 0.9,
+                  "theta": 0
+                }
+              },
+              {
+                "count": 90,
+                "motion": {
+                  "r": 0.9,
+                  "theta": 180
+                }
+              },
+              {
+                "count": 180,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 1,
+                      "g": 0.6,
+                      "b": 0.3,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 5,
+                  "spread": 34,
+                  "period": 48
+                }
+              }
+            ]
+          },
+          {
+            "name": "Ember Sign \"Ashfall\"",
+            "hpSeconds": 12,
+            "isSpell": true,
+            "bonus": 300000,
+            "background": "drift",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.5,
+                      "b": 0.7
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 4,
+                      "theta": 90,
+                      "ra": -0.06,
+                      "rrange": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "count": 18,
+                  "period": 42,
+                  "rotation": 9
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 1,
+                      "g": 0.6,
+                      "b": 0.3,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 3,
+                  "spread": 18,
+                  "period": 96
+                },
+                "startAt": 60
+              }
+            ]
+          }
+        ]
       }
     },
     "stages": {
@@ -192,6 +629,7 @@
         "background": "undertow",
         "outro": 120,
         "next": null,
+        "boss": "pyre",
         "waves": [
           {
             "at": 0,

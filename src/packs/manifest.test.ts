@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   editDistance,
   hashPack,
+  IMPLEMENTED_CAPABILITIES,
   packsMetaString,
   parseIndex,
   SOUND_NAMES,
@@ -173,7 +174,7 @@ describe('description and requires', () => {
 
   test('an unimplemented capability is refused, naming what IS implemented', () => {
     expect(errorsOf({ ...valid(), requires: ['netplay'] })).toContain(
-      'pack "candy": pack.json: requires lists capabilities this engine does not implement: netplay — implemented: content.enemies, content.stages; see docs/packs.md §Future',
+      'pack "candy": pack.json: requires lists capabilities this engine does not implement: netplay — implemented: content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items; see docs/packs.md §Future',
     );
   });
 
@@ -185,7 +186,7 @@ describe('description and requires', () => {
       content: { enemies: { ember: { sprite: 'ship', hp: 10, radius: 6 } } },
     };
     expect(errorsOf(raw)).toContain(
-      'pack "candy": pack.json: requires lists capabilities this engine does not implement: netplay — implemented: content.enemies, content.stages; see docs/packs.md §Future',
+      'pack "candy": pack.json: requires lists capabilities this engine does not implement: netplay — implemented: content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items; see docs/packs.md §Future',
     );
   });
 
@@ -390,9 +391,9 @@ describe('content — format-2 sections', () => {
   });
 
   test('a still-reserved content section is refused by name', () => {
-    const raw = { ...valid(), requires: ['content.bosses'], content: { bosses: {} } };
+    const raw = { ...valid(), requires: ['content.music'], content: { music: {} } };
     expect(errorsOf(raw)).toContain(
-      'pack "candy": pack.json: content.bosses is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future',
+      'pack "candy": pack.json: content.music is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
     );
   });
 
@@ -527,6 +528,345 @@ describe('content — format-2 sections', () => {
         'pack "candy": pack.json: content.stages."gauntlet".waves[0]: unknown field "zzz" — valid fields here: at, enemy, boss, x, y, count, interval, stepX, stepY',
       );
     });
+  });
+
+  describe('bosses', () => {
+    function boss(spec: Record<string, unknown>): Record<string, unknown> {
+      return {
+        ...valid(),
+        requires: ['content.bosses'],
+        content: { bosses: { warlord: spec } },
+      };
+    }
+
+    /** A shape-valid boss to layer overrides onto (names are the injector's to resolve). */
+    function base(): Record<string, unknown> {
+      return {
+        sprite: 'orb.large',
+        radius: 16,
+        phases: [{ name: 'opening', hpSeconds: 10, patterns: [{ pattern: 'ring' }] }],
+      };
+    }
+
+    test('a full boss round-trips (shape only — names are the injector\'s)', () => {
+      const raw = {
+        ...valid(),
+        requires: ['content.bosses'],
+        content: {
+          bosses: {
+            warlord: {
+              sprite: 'orb.large',
+              radius: 16,
+              width: 32,
+              height: 32,
+              tint: { r: 1, g: 0.5 },
+              entry: { x: 100, y: 60, ticks: 90 },
+              onDeath: 'explosion',
+              spoils: [['power', 3]],
+              phases: [
+                { name: 'move', hpSeconds: 8, isSpell: false, patterns: [{ pattern: 'ring' }] },
+                {
+                  name: 'spell',
+                  hpSeconds: 15,
+                  timeLimit: 1800,
+                  isSpell: true,
+                  bonus: 50000,
+                  background: 'undertow',
+                  motion: { r: 1 },
+                  timeline: [{ count: 0 }],
+                  patterns: [{ pattern: 'ring', options: {}, startAt: 0 }],
+                },
+              ],
+            },
+          },
+        },
+      };
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('content.bosses must be an object', () => {
+      const raw = { ...valid(), requires: ['content.bosses'], content: { bosses: [] } };
+      expect(errorsOf(raw)).toContain(
+        'pack "candy": pack.json: content.bosses must be a JSON object',
+      );
+    });
+
+    test('a missing required field names it and the expected shape', () => {
+      const spec = base();
+      delete spec.sprite;
+      expect(errorsOf(boss(spec))).toContain(
+        'pack "candy": pack.json: content.bosses."warlord" is missing required field "sprite" — an atlas cell name',
+      );
+    });
+
+    test('a boss missing phases', () => {
+      const spec = base();
+      delete spec.phases;
+      expect(errorsOf(boss(spec))).toContain(
+        'pack "candy": pack.json: content.bosses."warlord" is missing required field "phases" — an array of spell cards',
+      );
+    });
+
+    test('an unknown boss field suggests the near key', () => {
+      expect(errorsOf(boss({ ...base(), sprait: 'x' }))).toContain(
+        'pack "candy": pack.json: content.bosses."warlord": unknown field "sprait" — did you mean "sprite"?',
+      );
+    });
+
+    test('a malformed entry names its missing field', () => {
+      expect(errorsOf(boss({ ...base(), entry: { x: 100, y: 60 } }))).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".entry is missing required field "ticks" — a whole tick count',
+      );
+    });
+
+    test('a phase missing hpSeconds', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'opening', patterns: [{ pattern: 'ring' }] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0] is missing required field "hpSeconds" — seconds of health a competent player needs',
+      );
+    });
+
+    test('a phase missing patterns', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'opening', hpSeconds: 10 }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0] is missing required field "patterns" — an array of pattern slots',
+      );
+    });
+
+    test('an unknown phase field suggests the near key', () => {
+      expect(
+        errorsOf(boss({
+          ...base(),
+          phases: [{ name: 'opening', hpSeconds: 10, patterns: [{ pattern: 'ring' }], hpSecnods: 9 }],
+        })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0]: unknown field "hpSecnods" — did you mean "hpSeconds"?',
+      );
+    });
+
+    test('a phase pattern slot missing its name', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'opening', hpSeconds: 10, patterns: [{ startAt: 0 }] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0].patterns[0] is missing required field "pattern" — a registered pattern name',
+      );
+    });
+
+    test('a malformed boss spoils pair', () => {
+      expect(errorsOf(boss({ ...base(), spoils: [['power']] }))).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".spoils[0] must be a [name, count] pair — a string and a number',
+      );
+    });
+  });
+});
+
+describe('content — the new data-tier sections', () => {
+  /** Wrap one section's entries in a manifest whose `requires` covers it. */
+  function withSection(section: string, entries: Record<string, unknown>): Record<string, unknown> {
+    return { ...valid(), requires: [`content.${section}`], content: { [section]: entries } };
+  }
+
+  describe('shots', () => {
+    const base = { levels: [{ spec: { style: { sprite: 'glow' } }, offsets: [], period: 5 }] };
+
+    test('a full shot round-trips (shape only)', () => {
+      const raw = withSection('shots', { spread: { ...base, description: 'wide' } });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('a shot missing levels', () => {
+      expect(errorsOf(withSection('shots', { spread: { description: 'x' } }))).toContain(
+        'pack "candy": pack.json: content.shots."spread" is missing required field "levels" — an array of power tiers',
+      );
+    });
+
+    test('a level missing its period', () => {
+      expect(
+        errorsOf(withSection('shots', { spread: { levels: [{ spec: {}, offsets: [] }] } })),
+      ).toContain(
+        'pack "candy": pack.json: content.shots."spread".levels[0] is missing required field "period" — ticks between volleys',
+      );
+    });
+
+    test('an unknown shot field suggests the near key', () => {
+      expect(errorsOf(withSection('shots', { spread: { ...base, levles: [] } }))).toContain(
+        'pack "candy": pack.json: content.shots."spread": unknown field "levles" — did you mean "levels"?',
+      );
+    });
+  });
+
+  describe('options', () => {
+    const base = { sprite: 'opt', shot: { style: { sprite: 'glow' } }, period: 6, levels: [[]] };
+
+    test('a full option set round-trips (shape only)', () => {
+      const raw = withSection('options', {
+        seeker: { ...base, followSpeed: 1.4, tint: { r: 1 } },
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('missing shot', () => {
+      const spec = { ...base } as Record<string, unknown>;
+      delete spec.shot;
+      expect(errorsOf(withSection('options', { seeker: spec }))).toContain(
+        'pack "candy": pack.json: content.options."seeker" is missing required field "shot" — a bullet spec',
+      );
+    });
+
+    test('an unknown option field suggests the near key', () => {
+      expect(errorsOf(withSection('options', { seeker: { ...base, sprit: 'x' } }))).toContain(
+        'pack "candy": pack.json: content.options."seeker": unknown field "sprit" — did you mean "sprite"?',
+      );
+    });
+  });
+
+  describe('bombs', () => {
+    const base = { duration: 120, invulnTicks: 150, damagePerTick: 3 };
+
+    test('a full bomb round-trips (shape only)', () => {
+      const raw = withSection('bombs', {
+        nova: { ...base, radius: 200, convertBullets: true, effect: 'boom' },
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('missing damagePerTick', () => {
+      expect(errorsOf(withSection('bombs', { nova: { duration: 1, invulnTicks: 1 } }))).toContain(
+        'pack "candy": pack.json: content.bombs."nova" is missing required field "damagePerTick" — damage per tick in range',
+      );
+    });
+
+    test('an unknown bomb field suggests the near key', () => {
+      expect(errorsOf(withSection('bombs', { nova: { ...base, effekt: 'x' } }))).toContain(
+        'pack "candy": pack.json: content.bombs."nova": unknown field "effekt" — did you mean "effect"?',
+      );
+    });
+  });
+
+  describe('effects', () => {
+    const base = { sprite: 'spark', count: 8, speed: { min: 1, max: 3 }, life: 30 };
+
+    test('a full effect round-trips (shape only), amounts scalar or range', () => {
+      const raw = withSection('effects', {
+        boom: { ...base, spread: 360, scale: { from: 1, to: 0 }, alpha: { from: 1, to: 0 }, tint: { r: 1 }, additive: true },
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('missing count', () => {
+      expect(errorsOf(withSection('effects', { boom: { sprite: 'spark', speed: 1, life: 1 } }))).toContain(
+        'pack "candy": pack.json: content.effects."boom" is missing required field "count" — particles per emit',
+      );
+    });
+
+    test('a malformed amount is refused with the range hint', () => {
+      expect(errorsOf(withSection('effects', { boom: { ...base, count: 'lots' } }))).toContain(
+        'pack "candy": pack.json: content.effects."boom".count must be a number or a {min, max} range',
+      );
+    });
+
+    test('an unknown effect field suggests the near key', () => {
+      expect(errorsOf(withSection('effects', { boom: { ...base, directon: 90 } }))).toContain(
+        'pack "candy": pack.json: content.effects."boom": unknown field "directon" — did you mean "direction"?',
+      );
+    });
+  });
+
+  describe('items', () => {
+    const base = { sprite: 'gem', radius: 12, value: 1, kind: 'power' };
+
+    test('a full item round-trips (shape only)', () => {
+      const raw = withSection('items', {
+        shard: { ...base, motion: { r: 1 }, tint: { g: 1 }, magnetSpeed: 6 },
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('missing kind', () => {
+      expect(errorsOf(withSection('items', { shard: { sprite: 'gem', radius: 1, value: 1 } }))).toContain(
+        'pack "candy": pack.json: content.items."shard" is missing required field "kind" — one of power, score, life, bomb',
+      );
+    });
+
+    test('an unknown kind is refused as a game rule, not pack data', () => {
+      expect(errorsOf(withSection('items', { shard: { ...base, kind: 'shield' } }))).toContain(
+        'pack "candy": pack.json: content.items."shard".kind "shield" is not a kind this game has — a new kind is a new game rule, not pack data; valid kinds: power, score, life, bomb',
+      );
+    });
+
+    test('an unknown item field suggests the near key', () => {
+      expect(errorsOf(withSection('items', { shard: { ...base, magntSpeed: 6 } }))).toContain(
+        'pack "candy": pack.json: content.items."shard": unknown field "magntSpeed" — did you mean "magnetSpeed"?',
+      );
+    });
+  });
+
+  describe('characters', () => {
+    function player(): Record<string, unknown> {
+      return {
+        x: 240, y: 560, speed: 3.6, focusSpeed: 1.5, radius: 2.5,
+        grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90,
+      };
+    }
+    function base(): Record<string, unknown> {
+      return {
+        label: 'RAIDER', shot: 'spread', options: 'standard', bomb: 'nova',
+        sprite: 'ship', blurb: 'a pack ship', player: player(),
+      };
+    }
+
+    test('a full character round-trips (shape only — names are the injector\'s)', () => {
+      const raw = withSection('characters', { raider: { ...base(), width: 40, height: 40 } });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('a character declares its shot by name, not an inline table', () => {
+      const spec = base();
+      delete spec.shot;
+      expect(errorsOf(withSection('characters', { raider: spec }))).toContain(
+        'pack "candy": pack.json: content.characters."raider" is missing required field "shot" — a registered shot name',
+      );
+    });
+
+    test('a character missing its player stats', () => {
+      const spec = base();
+      delete spec.player;
+      expect(errorsOf(withSection('characters', { raider: spec }))).toContain(
+        'pack "candy": pack.json: content.characters."raider" is missing required field "player" — the ship\'s stats',
+      );
+    });
+
+    test('a player missing a stat names it', () => {
+      const p = player();
+      delete p.speed;
+      expect(errorsOf(withSection('characters', { raider: { ...base(), player: p } }))).toContain(
+        'pack "candy": pack.json: content.characters."raider".player is missing required field "speed" — px/tick, unfocused',
+      );
+    });
+
+    test('an unknown character field suggests the near key', () => {
+      expect(errorsOf(withSection('characters', { raider: { ...base(), lable: 'X' } }))).toContain(
+        'pack "candy": pack.json: content.characters."raider": unknown field "lable" — did you mean "label"?',
+      );
+    });
+  });
+});
+
+describe('IMPLEMENTED_CAPABILITIES', () => {
+  test('names every implemented content section, in dependency order', () => {
+    expect(IMPLEMENTED_CAPABILITIES).toEqual([
+      'content.enemies',
+      'content.stages',
+      'content.bosses',
+      'content.shots',
+      'content.characters',
+      'content.options',
+      'content.bombs',
+      'content.effects',
+      'content.items',
+    ]);
   });
 });
 

@@ -228,6 +228,11 @@ const context: GameContext = {
   nextSeed: () => Date.now() & 0xffffffff,
   packs: packs.packsMeta || undefined,
   campaigns: packs.campaigns,
+  // The pack characters this build registered, each with its owning pack's
+  // identity — the character path's mirror of `campaigns`. `CharacterSelectState`
+  // arms strict `packsData` from it when a pack ship is flown off the plain START
+  // row, where no campaign armed it. Same plain-data crossing as `campaigns`.
+  characterPacks: packs.characterPacks,
   onReplay(replay) {
     // Kept only in memory, and exposed so a finished run can be inspected or
     // saved from the console. Persisting these is the natural next step; the
