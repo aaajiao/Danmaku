@@ -1177,3 +1177,142 @@ defineCharacter('lance', {
     shots: getShot('needle').levels,
   },
 });
+
+/**
+ * `hound` and `spire` exist because `homing` and `laser` did not.
+ *
+ * Both weapons were registered, imported, unit-tested and equipped by nobody:
+ * `getShot` was called exactly twice in the whole project. That is the defect
+ * the reachability work is about, one layer up — a registry entry is not
+ * content until something asks for it — and the fix is a consumer, not a
+ * deletion.
+ *
+ * Adding them also buys the thing two characters could not. With two ships
+ * every registry entry in the game had exactly one consumer, so nothing proved
+ * `shot`, `options` and `bomb` were independent fields rather than three names
+ * for the same choice. `hound` fires `homing` and bombs `spread`; `spire` fires
+ * `laser` and flies `lance`'s bomb and `lance`'s options. `seeker`, `spread`
+ * and `lance` now each have a second consumer, and `character.bomb` is
+ * demonstrably its own axis.
+ *
+ * Neither ship moves the balance envelope, and that was a constraint rather
+ * than an outcome. Measured across every character × tier × focus state the
+ * loadout spread is **4.125**, the same figure the two-ship roster produced:
+ * `spire` p0 ties `lance`'s floor at 0.3333 and `spire` p3 ties its ceiling at
+ * 1.3717 against 1.3750, with `hound` wholly inside. So `REFERENCE_DPS` is
+ * untouched and no boss needed resizing — see `balance.test.ts`, which
+ * re-derives all of it.
+ */
+
+/**
+ * Half the rate over four times the width.
+ *
+ * Measured at tier 3, guns only: `needle` lands 1.000 dead ahead and **0.000**
+ * at 80px of lateral offset — a ±19° slot. `homing` lands 0.489 dead ahead and
+ * 0.480 at 283px on a 32° bearing, keeping 98% of its rate across a wide
+ * forward cone at any range, where `spread` and `needle` both land nothing.
+ *
+ * It is not `lance` with better aim, and the inversion is exact. `lance`'s gun
+ * is fixed forward and narrow while its `seeker` options cover all 360°, so it
+ * has no blind spot and a narrow gun. `hound`'s gun covers a wide cone without
+ * being pointed while its `picket` battery covers nothing but straight ahead,
+ * so it has a wide gun and a real blind spot: the shot's turn circle is 133px
+ * (r 7 at 3°/tick), and against a target level with the ship it measures
+ * **0.000** where `lance` and `spire` both land 0.372 from their aimed options.
+ * Dead ahead `lance` out-damages it 1.372 to 0.765.
+ */
+defineCharacter('hound', {
+  label: 'HOUND',
+  blurb: 'self-aiming gun, hand-aimed options',
+  options: 'picket',
+  bomb: 'spread',
+  player: {
+    x: START_X,
+    y: START_Y,
+    // The slowest ship, against scout's 3.6 and lance's 3.1. Every other ship's
+    // movement does two jobs — dodging and aiming — and is priced for both.
+    // This gun keeps 98% of its rate at a 32° bearing, so this ship's movement
+    // does one job and is priced for one.
+    speed: 2.9,
+    // And the fastest focus, above scout's 1.5. The exact inversion of lance,
+    // by the same argument run backwards: lance crawls at 1.2 because its
+    // options aim for it, so focus is for threading only. These options are
+    // fixed forward and land nothing off-axis, so focus is where this ship
+    // aims, and a battery the player cannot walk onto a target is not an
+    // upgrade.
+    focusSpeed: 1.6,
+    // Unchanged from both existing ships, deliberately: it is the genre's ratio
+    // against a 40px sprite, and it is the one dial that would make a ship
+    // strictly better in a way `balance.test.ts` cannot see — that test
+    // measures damage dealt and never damage taken.
+    radius: 2.5,
+    // Above scout's 20 and lance's 24. This is the lowest-damage ship in the
+    // game at every tier flown dead ahead, so its fights are the longest and it
+    // spends the most time under fire. Graze is pure reward and costs nothing
+    // else, so it is the right place to pay that back.
+    grazeRadius: 26,
+    // The only odd stock in the game, against scout's 3/3 and lance's 2/3. Long
+    // fights are survived rather than escaped, so the length is paid in lives
+    // and charged in bombs. Nothing in the suite reads either number; this is a
+    // play decision and is stated as one.
+    lives: 3,
+    bombs: 2,
+    // Identical to both ships on purpose. `Run` applies
+    // `max(player.invulnTicks, bomb.invulnTicks)` and `spread` declares 150
+    // against `lance`'s 90, so the bombs already differentiate the window; a
+    // per-ship dial on top would double-count it.
+    invulnTicks: 90,
+    shots: getShot('homing').levels,
+  },
+});
+
+/**
+ * Commitment and reach.
+ *
+ * The beam is anchored where it was fired and cannot be turned, so every change
+ * of target is a change of position: its lethal width is 6px, and it measures
+ * 1.000 at 120px dead ahead against **0.000** at 40px of lateral offset. It has
+ * to be walked onto its target. And because `growth` accumulates only while a
+ * beam lives, power buys *range* rather than rate — p0 lands 0.167 at 200px and
+ * nothing at 380px, p3 lands 0.800 and 0.600.
+ *
+ * This ship is also the only production caller of two paths that unit tests
+ * were the sole users of: `pierce` on the player-fire side of
+ * `#resolvePlayerShots`, and `BulletSpec.life` expiry on a player bullet — no
+ * other player bullet in the game has a life, because no other one is
+ * stationary enough to need one.
+ */
+defineCharacter('spire', {
+  label: 'SPIRE',
+  blurb: 'planted beam, point-blank bomb',
+  options: 'seeker',
+  bomb: 'lance',
+  player: {
+    x: START_X,
+    y: START_Y,
+    // The fastest ship, above scout's 3.6. The beam cannot be re-aimed, so this
+    // ship's action loop is crossing the field, and it has to cross faster than
+    // the ships that can simply turn.
+    speed: 4.2,
+    // And the slowest focus, below lance's 1.2. Measured rather than felt: the
+    // beam's half-width is 3, so against a radius-11 grunt the window the
+    // player must hold is ±14px. At lance's 1.2px/tick that 28px window is 23
+    // ticks wide; at 1.0 it is 28. The number is the width of the correction
+    // window in ticks, and the fastest free speed in the game is what buys it.
+    focusSpeed: 1,
+    radius: 2.5,
+    // The largest in the game. The beam pays for time spent stationary, and
+    // standing still is the most expensive thing a player can do in this genre.
+    // This ship is obliged to do it, so it is the ship that should be paid for
+    // it, and the loop closes on itself: the gun wants you planted, planted is
+    // dangerous, danger is graze, graze is score.
+    grazeRadius: 28,
+    // The mirror of hound's 3/2. It survives by bombing out of the place it
+    // planted itself rather than flying out of it, so it carries the stock and
+    // pays the life.
+    lives: 2,
+    bombs: 3,
+    invulnTicks: 90,
+    shots: getShot('laser').levels,
+  },
+});

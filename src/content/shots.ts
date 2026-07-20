@@ -278,23 +278,32 @@ defineShot('homing', {
  * telegraph exists so the *player* can read an incoming beam, and a weapon that
  * announced itself to the enemy would only be a delay.
  *
- * ## It has no reach yet, and piercing is the smaller half of that
+ * ## It had no reach, and the ladder was priced while it had none
  *
- * `Run.#resolvePlayerShots` resolves player fire with
- * `enemies.hitTest(b.x, b.y, b.radius)` — a `radius`-px circle at the **muzzle**.
- * The segment hitbox in `sim/bullet.ts` is only consulted by
- * `BulletSystem.hitTest`, which is the enemy-fire-versus-player path. So the
- * beam's whole length is inert against enemies: measured against a stationary
- * target 68px away, this weapon deals **0** damage in 400 ticks while its beam
- * is drawn and collidable out to 318px. Only a target within a few px of the
- * ship's nose is ever hit.
+ * This weapon used to deal a measured **0** damage in 400 ticks against a target
+ * 68px away, while its beam was drawn and collidable out to 318px:
+ * `Run.#resolvePlayerShots` tested `enemies.hitTest(b.x, b.y, b.radius)`, a
+ * circle at the **muzzle**, so the whole length was inert, and it despawned the
+ * bullet on its first hit, so even point-blank the beam died on one enemy. Both
+ * are fixed — `Run` tests the segment and honours `pierce`.
  *
- * Piercing is the second half of the same gap: `#resolvePlayerShots` despawns a
- * player bullet the moment it damages anything, so even at point blank the beam
- * dies on the first enemy it touches. Both are game-layer decisions — the beam
- * needs `Run` to test the segment and to keep the bullet alive through a hit —
- * so neither can be fixed from here. Registered, but not fit to put on a
- * character until it is.
+ * The ladder below is the part that fix did not touch, and it is worth recording
+ * because the shape recurs. Tier counts written against a weapon that dealt zero
+ * are not measurements, they are guesses, and nothing failed when the weapon
+ * started working — it simply became enormous. A beam hits **once per tick per
+ * live beam**, so a muzzle's rate is exactly `(life - 1) / period`, and the old
+ * tier 3 fired three muzzles at 0 and ±8 that all land inside a radius-12
+ * target: 3 × (6-1)/3 = **5.0 damage/tick**, against a game whose best loadout
+ * was 1.375 and whose bosses are sized from a `REFERENCE_DPS` of 1.125.
+ *
+ * Worse than large, it was invisible: three contiguous beams triple against any
+ * target wider than 11px, so against a boss they delivered triple what the
+ * radius-12 sink in `balance.test.ts` reports. So the ladder is now **one
+ * muzzle at every tier**, and what the tiers buy is duration and reach rather
+ * than muzzle count — the beam goes from a strobe (life 3 against period 6: on
+ * three ticks, off three) to unbroken (life 6 against period 5), and from dying
+ * at 228px to reaching 520. Measured on the real `Run`: 0.333 / 0.500 / 0.667 /
+ * 1.000, strictly monotone, ceiling equal to `needle`'s.
  */
 const BEAM = {
   style: {
@@ -318,37 +327,26 @@ const BEAM = {
   pierce: true,
 } as const;
 
+/** The single emitter, shared by every tier so the nesting invariant is not a claim. */
+const MUZZLE = [{ x: 0, y: -12, angle: FORWARD }] as const;
+
 defineShot('laser', {
   name: 'laser',
   description: 'stationary piercing beam; reach instead of a spread',
   levels: [
-    { spec: { ...BEAM, life: 4 }, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 4 },
+    // One muzzle at every tier, so nesting holds by construction — an identical
+    // single offset is trivially a superset of itself, and the periods are
+    // non-increasing. See the header for why muzzle count is the wrong dial.
+    { spec: { ...BEAM, life: 3 }, offsets: MUZZLE, period: 6 },
+    { spec: { ...BEAM, life: 4 }, offsets: MUZZLE, period: 6 },
+    { spec: { ...BEAM, life: 5 }, offsets: MUZZLE, period: 6 },
     {
-      spec: { ...BEAM, life: 5 },
-      offsets: [{ x: 0, y: -12, angle: FORWARD }],
-      period: 4,
-    },
-    {
-      spec: { ...BEAM, life: 5 },
-      offsets: [
-        { x: 0, y: -12, angle: FORWARD },
-        { x: -8, y: -10, angle: FORWARD },
-        { x: 8, y: -10, angle: FORWARD },
-      ],
-      period: 4,
-    },
-    {
-      // Same three muzzles as tier 2, longer-lived and faster. The flanking
-      // beams used to sit at ±9 with the centre one moved to y -14, which is a
-      // different set rather than a superset — see the nesting invariant on
-      // `NEEDLE`.
+      // The tier that makes the beam continuous rather than wider: life 6
+      // against period 5 leaves no gap, and the faster `growth` is what buys
+      // the last of the reach.
       spec: { ...BEAM, life: 6, laser: { ...BEAM.laser, growth: 120 } },
-      offsets: [
-        { x: 0, y: -12, angle: FORWARD },
-        { x: -8, y: -10, angle: FORWARD },
-        { x: 8, y: -10, angle: FORWARD },
-      ],
-      period: 3,
+      offsets: MUZZLE,
+      period: 5,
     },
   ],
 });

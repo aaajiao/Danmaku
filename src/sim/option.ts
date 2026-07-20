@@ -356,3 +356,86 @@ defineOptions('seeker', {
     ],
   ],
 });
+
+/**
+ * Fixed forward fire, and the only formation in the game armed at power 0.
+ *
+ * ## Tier 0 is not empty, and that is not a style choice
+ *
+ * `standard` and `seeker` both open on `[]`, arguing that tier 0 is the bare
+ * ship so the first power-up has something to give. That argument assumes the
+ * bare ship can fight. The `homing` ladder cannot: measured on the real `Run`
+ * its gun alone lands 0.110 damage/tick at tier 0 — one bullet every nine ticks
+ * — 0.220 at tier 1 and 0.370 at tier 2. `balance.test.ts` requires every
+ * tier-0 loadout above `FLOOR_DPS / 2` and every tier-1 loadout above
+ * `FLOOR_DPS`; a `homing` ship flying `standard` measures 0.110 and 0.227 and
+ * fails both, on `seeker` 0.110 and 0.345 and fails both. No registered
+ * formation can carry that weapon. That is the whole case for a third: `hound`
+ * is not nicer with `picket`, it is unshippable without it.
+ *
+ * ## Period 4, the fastest in the game
+ *
+ * `standard` is 5 and `seeker` is 8. This is bolted to the slowest gun in the
+ * game — `homing` fires every 8 to 9 ticks against `needle`'s 6 and `spread`'s
+ * 4 — and the battery is what keeps the ship in the fight between volleys.
+ * Measured rather than felt: at period 5 the bare tier 0 lands 0.3083, below
+ * `lance`'s 0.3333, which would make it the game's new minimum and widen the
+ * whole loadout spread from 4.125 to 4.459. At period 4 it lands 0.3583, the
+ * minimum stays where it was, and the spread does not move at all.
+ *
+ * ## Three slots converge; the rest stay wide, in both states
+ *
+ * `NOSE` and `INNER` gather onto the axis under focus. `MID` and `OUTER` do
+ * not — their focused offsets (±22, ±36) sit outside the ±16px window a
+ * radius-12 target presents, so they buy lanes rather than concentration. That
+ * is a budget and not a dodge: at period 4 a fourth converging slot is worth
+ * 0.25 damage/tick and a fifth 0.50, against a ceiling with roughly 0.29 of
+ * headroom left. `standard`'s tier-3 pair diverges for the same reason and is
+ * worth 0.0067 against a target held dead ahead; `OUTER` measures the same
+ * 0.0067. A tier whose gain is width is a tier this game already writes.
+ *
+ * Pull `MID`'s focused offsets inward and `balance.test.ts` fails. That is the
+ * coupling working, not the test being brittle.
+ */
+const PICKET_SHOT: BulletSpec = {
+  style: { sprite: 'orb.small', r: 0.7, g: 0.9, b: 1, additive: true },
+  radius: 4,
+  motion: { r: 11, theta: FORWARD },
+  damage: 1,
+};
+
+const PICKET_NOSE = [
+  { x: 0, y: -22, focusX: 0, focusY: -28, angle: FORWARD },
+] as const;
+
+/** The pair that gathers — focused at ±8, inside a small target's width. */
+const PICKET_INNER = [
+  { x: -22, y: -6, focusX: -8, focusY: -20, angle: FORWARD },
+  { x: 22, y: -6, focusX: 8, focusY: -20, angle: FORWARD },
+] as const;
+
+/** Wide in both states: coverage, not concentration. See the header. */
+const PICKET_MID = [
+  { x: -40, y: 8, focusX: -22, focusY: -6, angle: FORWARD },
+  { x: 40, y: 8, focusX: 22, focusY: -6, angle: FORWARD },
+] as const;
+
+const PICKET_OUTER = [
+  { x: -58, y: 18, focusX: -36, focusY: 6, angle: FORWARD },
+  { x: 58, y: 18, focusX: 36, focusY: 6, angle: FORWARD },
+] as const;
+
+defineOptions('picket', {
+  sprite: 'orb.medium',
+  shot: PICKET_SHOT,
+  period: 4,
+  followSpeed: 1.8,
+  tint: { r: 0.75, g: 0.9, b: 1 },
+  // 1 / 3 / 5 / 7 slots, each tier the one below plus a pair, nothing re-placed.
+  levels: [
+    [...PICKET_NOSE],
+    [...PICKET_NOSE, ...PICKET_INNER],
+    [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID],
+    [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID, ...PICKET_OUTER],
+  ],
+});

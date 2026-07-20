@@ -68,13 +68,14 @@ import '../content';
 import { Button } from '../core/input';
 import { bossNames, getBossSpec } from '../sim/boss';
 import { effectNames, getEffectSpec } from '../sim/effects';
+import { bombNames } from '../sim/bomb';
 import { itemNames } from '../sim/item';
 import { getOptionSpec, optionNames } from '../sim/option';
 import { getStage, stageNames } from '../content/stage';
 import { getShot, shotNames } from '../content/shots';
 import { StateMachine } from './state';
 import { TitleState, type GameContext } from './states';
-import type { Run, RunEventType } from './run';
+import { characterNames, type Run, type RunEventType } from './run';
 
 /**
  * Ticks at the start of each run during which the pilot can be killed.
@@ -83,11 +84,27 @@ import type { Run, RunEventType } from './run';
  */
 const MORTAL_TICKS = 1500;
 
-/** Registered under a `test`/`probe`/`balance` prefix: fixtures, not content. */
+/**
+ * Registered by a test rather than by the game: a fixture, not content.
+ *
+ * Two conventions are in use and both have to be caught. Most fixtures take a
+ * `test`/`probe.`/`balance.` prefix; `shots.test.ts` instead names its after
+ * its own file, as `shots.test.duplicate`. The `.test.` clause was added when
+ * the shot-type assertion below passed alone and failed under the full suite —
+ * a registry populated by whichever sibling happened to run first is exactly
+ * the cross-file coupling this file exists to make visible, and it is worth
+ * noting that the failure was *correct*: nothing was flying `shots.test.*`.
+ */
 const isFixture = (name: string): boolean =>
-  name.startsWith('test') || name.startsWith('probe.') || name.startsWith('balance.');
+  name.startsWith('test') ||
+  name.startsWith('probe.') ||
+  name.startsWith('balance.') ||
+  name.includes('.test.');
 
 const content = (names: readonly string[]): string[] => names.filter((n) => !isFixture(n));
+
+const union = <T>(runs: readonly Coverage[], pick: (c: Coverage) => Set<T>): Set<T> =>
+  new Set(runs.flatMap((run) => [...pick(run)]));
 
 interface Coverage {
   states: Set<string>;
@@ -98,9 +115,30 @@ interface Coverage {
   effects: Set<string>;
   events: Set<RunEventType>;
   scenes: Set<string>;
+  /** Characters actually flown, by registry name. */
+  characters: Set<string>;
+  /** Option formations a flown ship deployed, by registry name. */
+  optionSets: Set<string>;
+  /** Bombs that actually detonated, by registry name — not merely equipped. */
+  bombsFired: Set<string>;
+  /** Shot types a flown ship carried, by registry name. */
+  shots: Set<string>;
   maxPower: number;
   maxOptions: number;
   ticks: number;
+}
+
+/**
+ * Which registered shot type this ship is carrying.
+ *
+ * `CharacterSpec` stores the resolved `levels` array rather than the name it
+ * came from, so the name has to be recovered by identity. That is not a
+ * weakness of the test: `getShot(n).levels` returns the registry's own array,
+ * so a match is proof the character was built from that entry rather than from
+ * a copy that happens to look like it.
+ */
+function shotNameOf(run: Run): string | undefined {
+  return content(shotNames()).find((n) => getShot(n).levels === run.character.player.shots);
 }
 
 /**
@@ -108,8 +146,17 @@ interface Coverage {
  *
  * Menus are driven by pulsing CONFIRM on alternate ticks, because `Edges` reads
  * a press as an edge — holding the button would confirm once and then sit.
+ *
+ * `characterIndex` selects a ship by pressing Down that many times on the
+ * select screen before confirming. It exists because the first version of this
+ * probe took the default and therefore flew `scout` every time, which left the
+ * second half of three separate registries — `seeker` options, the `lance`
+ * bomb, the `needle` ladder — touched by nothing that drives the real machine.
+ * That is the same defect the file is named for, one menu index down, and it
+ * survived here precisely because a probe that reaches the end of the game
+ * looks like it has covered the game.
  */
-function playThroughGame(limit = 400_000): Coverage {
+function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
   const machine = new StateMachine();
   let seed = 1;
   const ctx: GameContext = { machine, nextSeed: () => 0x51ee + seed++ };
@@ -124,12 +171,17 @@ function playThroughGame(limit = 400_000): Coverage {
     effects: new Set(),
     events: new Set(),
     scenes: new Set(),
+    characters: new Set(),
+    optionSets: new Set(),
+    bombsFired: new Set(),
+    shots: new Set(),
     maxPower: 0,
     maxOptions: 0,
     ticks: 0,
   };
 
   let confirm = 0;
+  let descended = 0;
   let seenRuns = 0;
   let lastRun: Run | undefined;
   /**
@@ -182,6 +234,14 @@ function playThroughGame(limit = 400_000): Coverage {
       // flag, so bombing during one would cost the bonuses this pilot needs in
       // order to reach the extend thresholds.
       if (!fightingBoss && Math.floor(tick / 300) % 4 === 0) buttons |= Button.Bomb;
+    } else if (name === 'character-select' && descended < characterIndex) {
+      // Walk down to the requested ship first, pulsed for the same reason
+      // CONFIRM is: `Edges` reads a press as an edge, so a held Down moves once.
+      confirm ^= 1;
+      if (confirm) {
+        buttons = Button.Down;
+        descended++;
+      }
     } else {
       confirm ^= 1;
       buttons = confirm ? Button.Shot : 0;
@@ -197,7 +257,16 @@ function playThroughGame(limit = 400_000): Coverage {
         lastRun = run;
         seenRuns++;
         cover.stages.add(run.stageName);
+        cover.characters.add(run.characterName);
+        cover.optionSets.add(run.character.options);
+        const shot = shotNameOf(run);
+        if (shot !== undefined) cover.shots.add(shot);
       }
+
+      // Sampled rather than declared. `BombSystem.name` is set on deploy and
+      // cleared when the blast ends, so a name here is proof one detonated —
+      // whereas `character.bomb` would only prove the ship was carrying it.
+      if (run.bombs.name !== '') cover.bombsFired.add(run.bombs.name);
 
       // See the header: mortal early, untouchable later, always restocked.
       if (run.player.lives < 3) run.player.lives = 3;
@@ -242,11 +311,36 @@ function playThroughGame(limit = 400_000): Coverage {
 }
 
 /**
- * One playthrough, shared. It is a few hundred thousand ticks of real
- * simulation — cheap enough to run in `bun test`, not cheap enough to run once
- * per assertion.
+ * One playthrough per registered character, unioned.
+ *
+ * Shared across every assertion below: each is a few hundred thousand ticks of
+ * real simulation — cheap enough to run in `bun test`, not cheap enough to run
+ * once per assertion.
+ *
+ * Per *character* rather than once, because a ship's loadout is three registry
+ * entries — shot, options, bomb — and the only way a playthrough touches them
+ * is by flying it. Unioning is honest here: the claim each assertion makes is
+ * "a real player can reach this", and a real player picks a ship.
  */
-const COVER = playThroughGame();
+const RUNS = content(characterNames()).map((_, index) => playThroughGame(index));
+
+const COVER: Coverage = {
+  states: union(RUNS, (c) => c.states),
+  stages: union(RUNS, (c) => c.stages),
+  bosses: union(RUNS, (c) => c.bosses),
+  phases: union(RUNS, (c) => c.phases),
+  items: union(RUNS, (c) => c.items),
+  effects: union(RUNS, (c) => c.effects),
+  events: union(RUNS, (c) => c.events),
+  scenes: union(RUNS, (c) => c.scenes),
+  characters: union(RUNS, (c) => c.characters),
+  optionSets: union(RUNS, (c) => c.optionSets),
+  bombsFired: union(RUNS, (c) => c.bombsFired),
+  shots: union(RUNS, (c) => c.shots),
+  maxPower: Math.max(...RUNS.map((c) => c.maxPower)),
+  maxOptions: Math.max(...RUNS.map((c) => c.maxOptions)),
+  ticks: Math.max(...RUNS.map((c) => c.ticks)),
+};
 
 describe('a real playthrough reaches', () => {
   test('every registered stage', () => {
@@ -333,6 +427,35 @@ describe('a real playthrough reaches', () => {
     expect([...COVER.states].sort()).toEqual(
       ['character-select', 'cleared', 'playing', 'title'].sort(),
     );
+  });
+
+  test('every registered character', () => {
+    // The select screen is data-driven from `characterNames()`, so a registered
+    // ship is always *offered*. This asserts one was actually flown, which is
+    // the claim the three assertions below depend on: a character is the only
+    // thing that reaches a shot type, an option formation or a bomb.
+    expect([...COVER.characters].sort()).toEqual(content(characterNames()).sort());
+  });
+
+  test('every registered shot type', () => {
+    // `homing` and `laser` were registered, imported, unit-tested and equipped
+    // by nobody — `getShot` had exactly two callers in the project — so two of
+    // the four weapons in the game could not be fired by any sequence of
+    // inputs. `hound` and `spire` are the consumers; this is the assertion that
+    // stops the next weapon sitting in the same state.
+    expect([...COVER.shots].sort()).toEqual(content(shotNames()).sort());
+  });
+
+  test('every registered option formation', () => {
+    expect([...COVER.optionSets].sort()).toEqual(content(optionNames()).sort());
+  });
+
+  test('every registered bomb, actually detonated', () => {
+    // Sampled from `BombSystem.name` while a blast is live, so this proves a
+    // bomb went off rather than that a ship was carrying one. Equipping is a
+    // spec field; detonating is a code path, and `#resolveBombDamage` dealt
+    // zero damage for the life of the project without either being noticed.
+    expect([...COVER.bombsFired].sort()).toEqual(content(bombNames()).sort());
   });
 });
 
