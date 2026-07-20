@@ -89,6 +89,28 @@ export interface StageSpec {
   /** Ticks after the last wave before the stage is considered complete. */
   outro?: number;
   /**
+   * The boss sent once the script is spent and the field is clear, by name.
+   *
+   * A stage that declares one cannot be cleared without fighting it. This is
+   * the stage's own answer to "who is at the end of me", and it is the only
+   * place that answer belongs: `RunConfig.boss` used to be the sole source, so
+   * a boss existed only if whoever built the run happened to name one. Nothing
+   * in the shipped shell ever did, which is why three bosses, ten phases and
+   * seven spell cards were unreachable in a game you could actually launch.
+   *
+   * `RunConfig.boss` still overrides this, for tests that want to point a stage
+   * at a different fight without authoring a stage to hold it.
+   */
+  boss?: string;
+  /**
+   * The stage that follows this one, by name. Unset means this is the last.
+   *
+   * A **name** for the same reason `background` is one: a stage may not import
+   * its sibling, or the two files would have to know about each other in a
+   * cycle. `states.ts` resolves it when a run clears.
+   */
+  next?: string;
+  /**
    * The scene this stage is set in, by registered background name.
    *
    * A **name**, resolved by whoever is drawing, and never an import. Registering
@@ -444,6 +466,8 @@ defineStage('stage-1', {
   seed: 0x5747a1,
   outro: 180,
   background: 'expanse',
+  boss: 'sentinel',
+  next: 'stage-2',
   waves: [
     /* Opening: two columns, offset, so the player is taught to move sideways
        rather than to sit still and shoot. */

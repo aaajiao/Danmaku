@@ -19,9 +19,10 @@
  */
 
 import { Button } from '../core/input';
+import { getStage } from '../content/stage';
 import type { Replay } from '../sim/replay';
 import { Edges, type GameState, type StateMachine, type StateView } from './state';
-import { characterNames, getCharacter, Run } from './run';
+import { characterNames, getCharacter, Run, type PlayerCarry } from './run';
 
 /**
  * What every state needs and none of them should construct for itself.
@@ -194,6 +195,15 @@ export class CharacterSelectState extends MenuState {
 /* Playing                                                             */
 /* ------------------------------------------------------------------ */
 
+/** What a `PlayingState` needs beyond the character, all optional. */
+export interface PlayingOptions {
+  seed?: number;
+  /** Overrides `GameContext.stage`. Set when advancing past the first stage. */
+  stage?: string;
+  /** Resources carried in from the stage before. */
+  carry?: PlayerCarry;
+}
+
 export class PlayingState implements GameState {
   readonly name = 'playing';
   readonly run: Run;
@@ -205,14 +215,19 @@ export class PlayingState implements GameState {
   /** The recording is taken once, on the tick the run ends. */
   #recorded = false;
 
-  constructor(ctx: GameContext, characterName: string, seed?: number) {
+  constructor(ctx: GameContext, characterName: string, options: PlayingOptions = {}) {
     this.#ctx = ctx;
     this.characterName = characterName;
+    const stage = options.stage ?? ctx.stage;
     this.run = new Run({
-      seed: seed ?? ctx.nextSeed(),
+      seed: options.seed ?? ctx.nextSeed(),
       character: characterName,
-      ...(ctx.stage === undefined ? {} : { stage: ctx.stage }),
+      ...(stage === undefined ? {} : { stage }),
+      // Still an override, and now rarely used: a stage names its own boss.
+      // Left on the context so a debug shell can point one stage at another's
+      // fight without authoring a stage to hold it.
       ...(ctx.boss === undefined ? {} : { boss: ctx.boss }),
+      ...(options.carry === undefined ? {} : { carry: options.carry }),
     });
   }
 
@@ -247,9 +262,41 @@ export class PlayingState implements GameState {
     this.#ctx.machine.push(ending);
   }
 
-  /** A genuinely fresh run — new seed, nothing carried. */
+  /**
+   * A genuinely fresh run — new seed, nothing carried, and back to the stage
+   * this run was actually played on rather than to the start of the game.
+   */
   restart(): PlayingState {
-    return new PlayingState(this.#ctx, this.characterName);
+    return new PlayingState(this.#ctx, this.characterName, {
+      stage: this.run.stageName,
+    });
+  }
+
+  /**
+   * The next stage, flown by the same ship, carrying what was earned.
+   *
+   * Returns undefined when this stage declares no `next` — the last stage of
+   * the game, where clearing means the game is over rather than continuing.
+   */
+  advance(): PlayingState | undefined {
+    const next = this.nextStage;
+    if (next === undefined) return undefined;
+    return new PlayingState(this.#ctx, this.characterName, {
+      stage: next,
+      carry: this.run.carry,
+    });
+  }
+
+  /**
+   * The name of the stage after this one, or undefined at the end of the game.
+   *
+   * Separate from `advance()` so a screen can ask *whether* there is more
+   * without building a `Run` to find out — constructing one draws a seed from
+   * `nextSeed()`, and a seed drawn to answer a question about a menu entry is
+   * a seed the run that eventually starts will not have.
+   */
+  get nextStage(): string | undefined {
+    return getStage(this.run.stageName).next;
   }
 
   view(): StateView {
@@ -381,17 +428,57 @@ export class GameOverState extends EndingState {
   }
 }
 
+/**
+ * Clearing a stage is the one ending that might not be an ending.
+ *
+ * Before stages declared a `next`, this screen offered RETRY and TITLE and
+ * nothing else, so stage 2 — a finished stage with five enemy types, a midboss,
+ * and a four-phase boss — was reachable by no sequence of inputs at all. The
+ * only thing missing was somewhere to go from here.
+ */
 export class ClearedState extends EndingState {
   readonly name = 'cleared';
 
+  /**
+   * Whether a stage follows, decided once on entry. The `PlayingState` for it
+   * is built on confirm rather than here, so declining costs no seed.
+   */
+  readonly #hasNext: boolean;
+
   constructor(ctx: GameContext, playing: PlayingState) {
     super(ctx, playing);
+    this.#hasNext = playing.nextStage !== undefined;
+  }
+
+  protected override get entries(): readonly string[] {
+    return this.#hasNext ? ['NEXT STAGE', ...super.entries] : super.entries;
+  }
+
+  protected override confirm(index: number): void {
+    if (!this.#hasNext) {
+      super.confirm(index);
+      return;
+    }
+    if (index > 0) {
+      // The base class numbers its own entries from zero; this screen prepended
+      // one, so shift before delegating. Passing the raw index would make TITLE
+      // retry and RETRY advance.
+      super.confirm(index - 1);
+      return;
+    }
+
+    const next = this.playing.advance();
+    if (next === undefined) return;
+    // Same order as RETRY: the card leaves first, then the finished run beneath
+    // it is swapped for the next stage's.
+    this.ctx.machine.pop();
+    this.ctx.machine.replace(next);
   }
 
   view(): StateView {
     return {
       kind: 'cleared',
-      title: 'STAGE CLEAR',
+      title: this.#hasNext ? 'STAGE CLEAR' : 'ALL CLEAR',
       lines: this.scoreLines(),
       menu: this.entries,
       selected: this.selected,

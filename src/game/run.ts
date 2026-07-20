@@ -41,6 +41,7 @@
 
 import { Button } from '../core/input';
 import { Random } from '../core/random';
+import { getShot } from '../content/shots';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec } from '../sim/boss';
@@ -125,7 +126,43 @@ export interface RunConfig {
   boss?: string;
   /** Replay to play back instead of reading live input. */
   replay?: Replay;
+  /**
+   * Player state carried in from the stage before this one.
+   *
+   * Unset means a fresh start, which is what a first stage and every retry
+   * get. It is part of the replay meta for the same reason the seed and the
+   * character are: a stage-2 recording flown from 3 lives and full power is a
+   * different run from the same inputs flown from 2 and none, and a replay
+   * system that cannot tell them apart reports success on the wrong one.
+   */
+  carry?: PlayerCarry;
   field?: { width: number; height: number; margin: number };
+}
+
+/**
+ * What survives a stage boundary.
+ *
+ * Everything here is a resource the player earned; everything omitted is
+ * per-stage state that must not leak across (position, invulnerability, the
+ * graze bookkeeping). Listing what carries is safer than listing what resets,
+ * because a field added to `Player` later defaults to *not* carrying, and a
+ * counter that wrongly resets is a visible annoyance while one that wrongly
+ * carries is a run its own seed no longer describes.
+ */
+export interface PlayerCarry {
+  score: number;
+  lives: number;
+  bombs: number;
+  power: number;
+  graze: number;
+  deathCount: number;
+}
+
+/** Compact, stable, and comparable as a string — see `RunConfig.carry`. */
+function encodeCarry(carry: PlayerCarry | undefined): string {
+  if (carry === undefined) return '';
+  const { score, lives, bombs, power, graze, deathCount } = carry;
+  return `${score}:${lives}:${bombs}:${power}:${graze}:${deathCount}`;
 }
 
 export type RunOutcome = 'playing' | 'cleared' | 'failed';
@@ -180,6 +217,17 @@ const CLEARED_BULLET_SCORE = 20;
 /** Where a boss enters from, relative to the field. */
 const BOSS_ENTRY_Y = -60;
 
+/**
+ * What a death costs, and how much of it is left on the floor.
+ *
+ * One whole tier, of which roughly half is recoverable — eight `power` items
+ * at 0.05 each. The asymmetry is the point: a death has to cost something or
+ * the resource is not one, and it has to leave something or the run enters a
+ * spiral where the player is weakest exactly when the stage is hardest.
+ */
+const DEATH_POWER_LOSS = 1;
+const DEATH_POWER_ITEMS = 8;
+
 /** Items a defeated boss showers, by registry name and count. */
 const BOSS_SPOILS: readonly (readonly [string, number])[] = [
   ['big-power', 4],
@@ -205,6 +253,8 @@ export class Run {
   readonly character: CharacterSpec;
   readonly characterName: string;
   readonly stageName: string;
+  /** Boss this run owes, resolved from the stage unless the config overrode it. */
+  readonly bossName: string | undefined;
   readonly seed: number;
 
   readonly #field: { width: number; height: number; margin: number };
@@ -235,6 +285,17 @@ export class Run {
     this.character = getCharacter(characterName);
     this.stageName = config.stage ?? 'stage-1';
 
+    // Resolved here rather than beside `StageRunner` further down, because the
+    // replay check below needs the boss name and a mismatch has to be caught
+    // before anything is constructed.
+    const stageSpec = getStage(this.stageName);
+
+    // The stage's own answer, unless the config overrides it. Read this and
+    // never `config.boss`: for the whole life of the shipped shell `config.boss`
+    // was undefined, so every guard spelled in terms of it silently agreed that
+    // this run had no boss and cleared without one.
+    this.bossName = config.boss ?? stageSpec.boss;
+
     const replay = config.replay;
     if (replay !== undefined) {
       // A replay flown by a different ship, on a different stage, or from a
@@ -248,7 +309,8 @@ export class Run {
       }
       expectMeta(replay, 'character', characterName);
       expectMeta(replay, 'stage', this.stageName);
-      expectMeta(replay, 'boss', config.boss ?? '');
+      expectMeta(replay, 'boss', this.bossName ?? '');
+      expectMeta(replay, 'carry', encodeCarry(config.carry));
       this.#playback = new ReplayPlayback(replay);
     }
 
@@ -270,9 +332,16 @@ export class Run {
     this.options = new OptionSystem(this.character.options);
     this.player = new Player({
       ...this.character.player,
+      // The ceiling is the game layer's to compute, because the game layer is
+      // the only thing holding both tables power indexes. Left to `Player`,
+      // which can only see the shot table, a 1-entry weapon pinned power to 0
+      // and the 4-tier option set below was unreachable.
+      maxPower: Math.max(
+        this.character.player.shots.length,
+        this.options.spec.levels.length,
+      ) - 1,
       bounds: { width: bounds.width, height: bounds.height },
     });
-    const stageSpec = getStage(this.stageName);
     this.stage = new StageRunner(stageSpec, this.enemies);
     this.#stageScene = stageSpec.background;
 
@@ -285,7 +354,41 @@ export class Run {
     // stage-1, i.e. after the whole stage has been survived. A run that is
     // going to fail on a typo must fail before it is played.
     getBombSpec(this.character.bomb);
-    if (config.boss !== undefined) getBossSpec(config.boss);
+    if (this.bossName !== undefined) getBossSpec(this.bossName);
+
+    this.#applyCarry();
+  }
+
+  /**
+   * Overwrite the fresh player with what the previous stage handed over.
+   *
+   * After `Player.reset()` in both call sites, never instead of it: reset is
+   * what clears the per-stage state, and a carry that skipped it would bring
+   * the last stage's invulnerability window and graze map along with the score.
+   */
+  #applyCarry(): void {
+    const carry = this.config.carry;
+    if (carry === undefined) return;
+    const player = this.player;
+    player.score = carry.score;
+    player.lives = carry.lives;
+    player.bombs = carry.bombs;
+    player.power = carry.power;
+    player.graze = carry.graze;
+    player.deathCount = carry.deathCount;
+  }
+
+  /** What this run would hand the stage after it. See `RunConfig.carry`. */
+  get carry(): PlayerCarry {
+    const p = this.player;
+    return {
+      score: p.score,
+      lives: p.lives,
+      bombs: p.bombs,
+      power: p.power,
+      graze: p.graze,
+      deathCount: p.deathCount,
+    };
   }
 
   /* ---------------------------------------------------------------- */
@@ -508,10 +611,25 @@ export class Run {
     if (hit === undefined) return;
 
     this.bullets.despawn(hit);
+    const powerBefore = player.power;
     player.kill();
     this.boss.notePlayerDeath();
     this.effects.emit('death.big', player.x, player.y);
     this.#emit({ type: 'player-death', x: player.x, y: player.y });
+
+    // Dying costs power, and scatters some of it back where the ship fell.
+    //
+    // Without this there is no power economy in either direction: pickups only
+    // ever added, so once the ceiling was reached nothing could take it away
+    // and the resource stopped being a resource. Dropping the loss as items
+    // rather than deleting it is what keeps a death a *setback* instead of a
+    // punishment — the ground the player died on is now worth returning to,
+    // which is a decision, and the invulnerability window is exactly the tool
+    // for taking it.
+    if (powerBefore <= 0 || !player.alive) return;
+    const lost = Math.min(powerBefore, DEATH_POWER_LOSS);
+    player.addPower(-lost);
+    this.items.burst('power', player.x, player.y, DEATH_POWER_ITEMS, this.#rng);
   }
 
   #resolveBossEvents(rng: Random): void {
@@ -549,7 +667,16 @@ export class Run {
           });
           break;
         case 'defeated': {
-          this.#bossDefeated = true;
+          // Scoped to *this stage's* boss, not to "a boss died". A midboss is
+          // also a boss, and the unscoped flag meant killing stage 2's warden
+          // satisfied the end-of-run guard — so the magistrate, a finished
+          // four-phase fight, could never be spawned even when named. Both
+          // halves are load-bearing: `#bossSent` is set only by the stage-boss
+          // branch of `#sendBoss`, so a midboss that happened to share a name
+          // still cannot latch this.
+          if (this.#bossSent && event.boss.name === this.bossName) {
+            this.#bossDefeated = true;
+          }
           if (event.boss.spec.onDeath) this.effects.emit(event.boss.spec.onDeath, x, y);
           for (const [name, count] of BOSS_SPOILS) {
             this.items.burst(name, x, y, count, rng);
@@ -586,11 +713,11 @@ export class Run {
     // resuming is.
     if (this.stage.waiting && !this.boss.active) this.stage.resume();
 
-    if (this.#bossSent || this.config.boss === undefined) return;
+    if (this.#bossSent || this.bossName === undefined) return;
     if (!this.stage.finished || this.enemies.count > 0 || this.boss.active) return;
 
     this.#bossSent = true;
-    this.boss.spawn(this.config.boss, this.#field.width / 2, BOSS_ENTRY_Y, rng);
+    this.boss.spawn(this.bossName, this.#field.width / 2, BOSS_ENTRY_Y, rng);
   }
 
   /** Nearest enemy to the player, for aimed options. Boss counts as a target. */
@@ -634,7 +761,23 @@ export class Run {
     }
 
     if (!this.stage.finished || this.enemies.count > 0) return;
-    if (this.config.boss !== undefined && !this.#bossDefeated) return;
+    if (this.bossName !== undefined && !this.#bossDefeated) return;
+
+    // A boss still on the field is a fight still owed, even once `#bossDefeated`
+    // is set — a midboss can be mid-entry on the tick the guard above passes.
+    if (this.boss.active) return;
+
+    // Do not freeze the run on top of its own reward. A defeated boss showers
+    // `BOSS_SPOILS` — 17 items, 4 of them big-power — on the same tick it dies,
+    // and the outcome used to settle in that same tick, so every one of them was
+    // stranded under the clear banner. Measured at 6000 points, 31% of the final
+    // score, and the only spawn site 4 of the 5 registered item kinds have.
+    //
+    // No timer guards this and none is needed: an item is either magnetised, in
+    // which case `ItemSystem` forces it onto a live player and clamps the last
+    // step so it cannot tunnel past, or it is not, in which case it leaves the
+    // field under its own motion and is culled. Both terminate.
+    if (this.items.count > 0) return;
 
     this.#outcome = 'cleared';
     this.#emit({ type: 'cleared', x: this.player.x, y: this.player.y });
@@ -721,7 +864,8 @@ export class Run {
     return this.#recorder.finish(this.#tick, {
       character: this.characterName,
       stage: this.stageName,
-      boss: this.config.boss ?? '',
+      boss: this.bossName ?? '',
+      carry: encodeCarry(this.config.carry),
       outcome: this.#outcome,
       score: this.player.score,
     });
@@ -765,6 +909,7 @@ export class Run {
     this.bombs.clear();
     this.options.reset();
     this.player.reset();
+    this.#applyCarry();
     this.stage.reset();
 
     // Drain rather than trust: a system's `clear` is not obliged to discard a
@@ -825,21 +970,7 @@ defineCharacter('scout', {
     lives: 3,
     bombs: 3,
     invulnTicks: 90,
-    shots: [
-      {
-        spec: {
-          style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 },
-          radius: 4,
-          motion: { r: 9, theta: 270 },
-          damage: 1,
-        },
-        offsets: [
-          { x: -6, y: -10 },
-          { x: 6, y: -10 },
-        ],
-        period: 5,
-      },
-    ],
+    shots: getShot('spread').levels,
   },
 });
 
@@ -859,17 +990,6 @@ defineCharacter('lance', {
     lives: 2,
     bombs: 3,
     invulnTicks: 90,
-    shots: [
-      {
-        spec: {
-          style: { sprite: 'needle', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
-          radius: 3,
-          motion: { r: 11, theta: 270 },
-          damage: 2,
-        },
-        offsets: [{ x: 0, y: -12 }],
-        period: 6,
-      },
-    ],
+    shots: getShot('needle').levels,
   },
 });

@@ -8,7 +8,7 @@ import { defineShot, getShot, shotNames, type ShotType } from './shots';
 
 const FIELD: FieldBounds = { width: 480, height: 480, margin: 48 };
 
-const STARTERS = ['spread', 'homing', 'laser'] as const;
+const STARTERS = ['spread', 'homing', 'laser', 'needle'] as const;
 
 function makeSystem(): BulletSystem {
   return new BulletSystem({ bounds: FIELD, initial: 256 });
@@ -84,17 +84,12 @@ describe('the shot table contract', () => {
     }
   });
 
-  test('power never makes a weapon strictly worse', () => {
-    for (const name of STARTERS) {
-      const levels = getShot(name).levels;
-      for (let i = 1; i < levels.length; i++) {
-        const previous = levels[i - 1] as (typeof levels)[number];
-        const current = levels[i] as (typeof levels)[number];
-        expect(current.offsets.length).toBeGreaterThanOrEqual(previous.offsets.length);
-        expect(current.period).toBeLessThanOrEqual(previous.period);
-      }
-    }
-  });
+  // "power never makes a weapon strictly worse" used to live here, comparing
+  // muzzle counts and periods. It passed for the entire life of `spread`'s
+  // broken top tier, because four muzzles at ±8/±17 is still four muzzles: the
+  // count was right and the *identity* was not. Replaced by the set-inclusion
+  // check in "power tiers never go backwards" below, which is what the weaker
+  // version should have been.
 });
 
 describe('spread', () => {
@@ -299,5 +294,90 @@ describe('a shot table drives a real player', () => {
     } finally {
       Math.random = real;
     }
+  });
+});
+
+/**
+ * A power tier must never be worse than the tier below it.
+ *
+ * This is checked structurally rather than by measuring damage, because a
+ * measurement only ever covers the target it was taken against. `spread`'s top
+ * tier measured *stronger* than tier 2 against a radius-14 enemy and 35% weaker
+ * against a radius-22 one, and both numbers were true. What was wrong was the
+ * shape: tier 3 re-spaced its inner bolts from ±7/±15 to ±8/±17, so it was a
+ * different muzzle set rather than a wider one, and a different set can drop
+ * bullets the old set was landing.
+ *
+ * The invariant that removes the whole class:
+ *
+ *   tier n's muzzle set ⊇ tier n-1's, and period(n) ≤ period(n-1)
+ *
+ * Under it, every bullet tier n-1 puts on a target tier n also puts there, at
+ * least as often — for any target, at any range, with no measurement needed.
+ *
+ * **Aimed weapons are exempt from the geometry half**, and the exemption is
+ * narrow and stated rather than assumed: a bullet that steers to its target
+ * cannot be moved off it by shifting the muzzle, so for those only the count
+ * and the cadence have to hold. `homing` is the one that qualifies, by naming a
+ * steering behaviour on its motion.
+ */
+describe('power tiers never go backwards', () => {
+  const key = (o: { x: number; y: number; angle?: number }) =>
+    `${o.x},${o.y},${o.angle ?? 'aimed'}`;
+
+  const steers = (type: ShotType, tier: number): boolean =>
+    type.levels[tier]?.spec.motion?.behaviour !== undefined;
+
+  for (const name of shotNames()) {
+    // Fixtures other tests register are not content and are not held to this.
+    if (name.startsWith('test.')) continue;
+
+    test(`${name}: each tier keeps what the one below it fired`, () => {
+      const type = getShot(name);
+      for (let tier = 1; tier < type.levels.length; tier++) {
+        const below = type.levels[tier - 1];
+        const here = type.levels[tier];
+        if (below === undefined || here === undefined) continue;
+        const where = `${name} tier ${tier}`;
+
+        // Cadence first: a tier that fires less often is weaker however its
+        // muzzles are arranged, and this is the half that caught the first
+        // draft of `needle`, where three muzzles at period 7 replaced two at
+        // period 6 and lost damage against anything thin enough to slip
+        // between them.
+        expect(`${where} period ${here.period}`).toBe(
+          `${where} period ${Math.min(here.period, below.period)}`,
+        );
+
+        expect(`${where} muzzles ${here.offsets.length}`).toBe(
+          `${where} muzzles ${Math.max(here.offsets.length, below.offsets.length)}`,
+        );
+
+        if (steers(type, tier) || steers(type, tier - 1)) continue;
+
+        const present = new Set(here.offsets.map(key));
+        const dropped = below.offsets.map(key).filter((k) => !present.has(k));
+        expect(`${where} dropped ${JSON.stringify(dropped)}`).toBe(`${where} dropped []`);
+      }
+    });
+  }
+
+  test('the check can fail', () => {
+    // A ladder nobody has watched reject anything is not evidence. This is the
+    // exact shape `spread` shipped as.
+    const shifted: ShotType = {
+      name: 'test.shifted',
+      levels: [
+        { spec: { style: { sprite: 'glow.small' }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 },
+          offsets: [{ x: -7, y: -10, angle: 270 }, { x: 7, y: -10, angle: 270 }],
+          period: 5 },
+        { spec: { style: { sprite: 'glow.small' }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 },
+          offsets: [{ x: -8, y: -10, angle: 270 }, { x: 8, y: -10, angle: 270 }],
+          period: 5 },
+      ],
+    };
+    const present = new Set(shifted.levels[1]!.offsets.map(key));
+    const dropped = shifted.levels[0]!.offsets.map(key).filter((k) => !present.has(k));
+    expect(dropped).toEqual(['-7,-10,270', '7,-10,270']);
   });
 });

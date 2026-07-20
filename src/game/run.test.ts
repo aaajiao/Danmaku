@@ -283,10 +283,24 @@ describe('record then replay', () => {
   });
 
   test('a replay played against a different boss is refused', () => {
+    // "Different" has to be named now. This test used to leave the second
+    // config's boss unset and rely on that meaning *no boss*, which it no
+    // longer does: stage-1 declares `sentinel` itself. That the assertion held
+    // for the life of the project is the bug in miniature — the value the
+    // shipped shell actually passed was `undefined`, and every guard written
+    // against it agreed the run had no boss to fight.
     const live = new Run(config({ boss: 'sentinel' }));
     play(live, 300);
     const replay = live.finishRecording();
-    expect(() => new Run(config({ replay }))).toThrow(/boss/);
+    expect(() => new Run(config({ boss: 'warden', replay }))).toThrow(/boss/);
+  });
+
+  test('a run inherits its stage\'s boss when the config names none', () => {
+    // The seam cluster A closed: `RunConfig.boss` is an override, and a stage
+    // that declares a boss cannot be cleared without one being sent.
+    expect(new Run(config()).bossName).toBe('sentinel');
+    expect(new Run(config({ stage: 'stage-2' })).bossName).toBe('magistrate');
+    expect(new Run(config({ boss: 'warden' })).bossName).toBe('warden');
   });
 
   test('a replay recorded without meta is accepted', () => {

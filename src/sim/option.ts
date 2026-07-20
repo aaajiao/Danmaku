@@ -285,10 +285,38 @@ const SEEKER_SHOT: BulletSpec = {
  * ship, so the first power-up has something visible to give.
  *
  * The focused offsets are inside the unfocused ones on every tier, which is
- * what makes focus read as "gather". Tier 3 keeps four options but pushes the
- * outer pair further out and forward, so the upgrade is a spread change rather
- * than one more identical satellite.
+ * what makes focus read as "gather".
+ *
+ * ## Each tier keeps the last tier's slots and adds a pair
+ *
+ * It used to re-place them: tier 3 held four options like tier 2, but pushed
+ * out to ±44 and forward, "so the upgrade is a spread change rather than one
+ * more identical satellite". That reads well and it cost the player damage.
+ * These options fire straight forward (`angle: FORWARD`), so moving a slot
+ * sideways moves its column off the target — measured on a scout holding focus
+ * against a radius-11 enemy, tier 2 dealt 77.2 damage per 60 ticks and tier 3
+ * dealt 53.8, a 30% cut for the tier that costs the most to reach.
+ *
+ * Nesting the tiers makes the defect unrepresentable: whatever tier 2 hit,
+ * tier 3 also hits, because tier 2's slots are still there. `option.test.ts`
+ * holds every registered set to it. The same invariant governs the weapon
+ * ladders in `content/shots.ts`, and for the same reason.
  */
+const STANDARD_INNER = [
+  { x: -26, y: 6, focusX: -11, focusY: -10, angle: FORWARD },
+  { x: 26, y: 6, focusX: 11, focusY: -10, angle: FORWARD },
+] as const;
+
+const STANDARD_FORWARD = [
+  { x: -18, y: -16, focusX: -7, focusY: -24, angle: FORWARD },
+  { x: 18, y: -16, focusX: 7, focusY: -24, angle: FORWARD },
+] as const;
+
+const STANDARD_OUTER = [
+  { x: -44, y: 14, focusX: -16, focusY: -4, angle: FORWARD },
+  { x: 44, y: 14, focusX: 16, focusY: -4, angle: FORWARD },
+] as const;
+
 defineOptions('standard', {
   sprite: 'orb.medium',
   shot: OPTION_SHOT,
@@ -296,22 +324,9 @@ defineOptions('standard', {
   followSpeed: 1.6,
   levels: [
     [],
-    [
-      { x: -26, y: 6, focusX: -11, focusY: -10, angle: FORWARD },
-      { x: 26, y: 6, focusX: 11, focusY: -10, angle: FORWARD },
-    ],
-    [
-      { x: -34, y: 10, focusX: -14, focusY: -6, angle: FORWARD },
-      { x: 34, y: 10, focusX: 14, focusY: -6, angle: FORWARD },
-      { x: -18, y: -16, focusX: -7, focusY: -24, angle: FORWARD },
-      { x: 18, y: -16, focusX: 7, focusY: -24, angle: FORWARD },
-    ],
-    [
-      { x: -44, y: 14, focusX: -16, focusY: -4, angle: FORWARD },
-      { x: 44, y: 14, focusX: 16, focusY: -4, angle: FORWARD },
-      { x: -24, y: -22, focusX: -8, focusY: -26, angle: FORWARD },
-      { x: 24, y: -22, focusX: 8, focusY: -26, angle: FORWARD },
-    ],
+    [...STANDARD_INNER],
+    [...STANDARD_INNER, ...STANDARD_FORWARD],
+    [...STANDARD_INNER, ...STANDARD_FORWARD, ...STANDARD_OUTER],
   ],
 });
 

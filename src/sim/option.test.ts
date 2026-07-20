@@ -468,3 +468,69 @@ describe('determinism', () => {
     expect(bullets.count).toBe(5);
   });
 });
+
+/**
+ * An option tier must never be worse than the tier below it.
+ *
+ * The same invariant `content/shots.test.ts` holds weapons to, and it belongs
+ * here for the same reason: `power` indexes both tables, so a player who earns
+ * a tier gets a new weapon *and* a new formation, and either one can quietly
+ * take damage away.
+ *
+ * `standard` did. Its tier 3 held four options like tier 2 but re-placed them
+ * wider and further forward — deliberately, with a comment explaining that the
+ * upgrade was "a spread change rather than one more identical satellite". These
+ * options fire on a fixed heading, so moving a slot moves its column off the
+ * target: measured on a focused scout against a radius-11 enemy, 77.2 damage
+ * per 60 ticks at tier 2 and 53.8 at tier 3.
+ *
+ * **Aimed sets are held only to the count.** A slot with no `angle` steers at
+ * whatever the option system is aiming at, so its position cannot take it off
+ * target and nesting buys nothing. `seeker` is that case. The exemption is
+ * stated here rather than left implicit, because an exemption nobody wrote down
+ * is indistinguishable from a check nobody ran.
+ */
+describe('option tiers never go backwards', () => {
+  const key = (s: OptionSlot) =>
+    `${s.x},${s.y},${s.focusX ?? s.x},${s.focusY ?? s.y},${s.angle ?? 'aimed'}`;
+
+  const aimed = (slots: readonly OptionSlot[]) =>
+    slots.some((s) => s.angle === undefined);
+
+  for (const name of optionNames()) {
+    if (name.startsWith('test.')) continue;
+
+    test(`${name}: each tier keeps the slots the one below it had`, () => {
+      const levels = getOptionSpec(name).levels;
+      for (let tier = 1; tier < levels.length; tier++) {
+        const below = levels[tier - 1];
+        const here = levels[tier];
+        if (below === undefined || here === undefined) continue;
+        const where = `${name} tier ${tier}`;
+
+        expect(`${where} slots ${here.length}`).toBe(
+          `${where} slots ${Math.max(here.length, below.length)}`,
+        );
+
+        if (aimed(below) || aimed(here)) continue;
+
+        const present = new Set(here.map(key));
+        const dropped = below.map(key).filter((k) => !present.has(k));
+        expect(`${where} dropped ${JSON.stringify(dropped)}`).toBe(`${where} dropped []`);
+      }
+    });
+  }
+
+  test('the check can fail, on the shape standard actually shipped', () => {
+    const two: OptionSlot[] = [
+      { x: -34, y: 10, focusX: -14, focusY: -6, angle: 270 },
+      { x: 34, y: 10, focusX: 14, focusY: -6, angle: 270 },
+    ];
+    const three: OptionSlot[] = [
+      { x: -44, y: 14, focusX: -16, focusY: -4, angle: 270 },
+      { x: 44, y: 14, focusX: 16, focusY: -4, angle: 270 },
+    ];
+    const present = new Set(three.map(key));
+    expect(two.map(key).filter((k) => !present.has(k))).toHaveLength(2);
+  });
+});

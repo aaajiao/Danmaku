@@ -108,7 +108,79 @@ defineShot('spread', {
     { spec: BOLT, offsets: fan([]), period: 5 },
     { spec: BOLT, offsets: fan([7]), period: 5 },
     { spec: BOLT, offsets: fan([7, 15]), period: 4 },
-    { spec: BOLT, offsets: fan([8, 17, 26]), period: 4 },
+    // 7 and 15 again, not 8 and 17. The top tier used to re-space its inner
+    // angles, which makes it a different muzzle set rather than a wider one —
+    // and a different set can be a worse one. Measured against a radius-22
+    // target it was: 83.8 damage per 60 ticks at tier 2, 54.2 at tier 3, a 35%
+    // downgrade for the tier the player worked hardest to reach. See the
+    // nesting invariant on `NEEDLE`.
+    { spec: BOLT, offsets: fan([7, 15, 26]), period: 4 },
+  ],
+});
+
+/**
+ * The concentrated weapon: parallel needles, and nothing else.
+ *
+ * `lance` flew this inline on its `CharacterSpec` as a single tier, which is
+ * how the whole registry came to be orphaned — a weapon written at the call
+ * site cannot be named, so nothing could reference it and nothing did. Lifted
+ * here unchanged at tier 0, so the ship it belongs to plays identically at the
+ * power it was actually reachable at.
+ *
+ * Every tier fires **straight forward** — the counterpart to `spread`'s fan.
+ *
+ * ## Why the tiers nest
+ *
+ * A power tier must never deal less damage than the tier below it, and against
+ * a *small enough* target almost any redesign can. The first draft of this
+ * ladder spread N muzzles evenly across a widening rake, which reads as an
+ * upgrade and measured as one against a fat target — and inverted against a
+ * thin one: tier 2's muzzles at ±10 both miss a radius-6 enemy that tier 1's at
+ * ±6 both hit, so tier 2 landed one needle where tier 1 landed two. Measured
+ * 47.0 → 38.6 damage per 60 ticks. It was written with a comment claiming
+ * parallel muzzles could not do this. They can.
+ *
+ * So the ladder is built on an invariant instead of on judgement:
+ *
+ *   **tier n's muzzle set ⊇ tier n-1's, and period(n) ≤ period(n-1)**
+ *
+ * Under it, every bullet the weaker tier put on a target the stronger tier also
+ * puts there, at least as often — monotonic against *any* geometry, with no
+ * measurement required. `shots.test.ts` enforces it for every registered
+ * weapon, which is what makes it a property of the file rather than of this
+ * comment.
+ */
+const NEEDLE = {
+  style: { sprite: 'needle', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
+  radius: 3,
+  motion: { r: 11, theta: FORWARD },
+  damage: 2,
+} as const;
+
+/**
+ * The centre muzzle, then symmetric pairs at 9px steps outward. Each `count`
+ * extends the one before it rather than redistributing, which is what makes the
+ * ladder nest.
+ */
+function rake(pairs: number): ShotSpec['offsets'] {
+  const offsets: { x: number; y: number; angle?: number }[] = [
+    { x: 0, y: -12, angle: FORWARD },
+  ];
+  for (let i = 1; i <= pairs; i++) {
+    offsets.push({ x: -9 * i, y: -12, angle: FORWARD });
+    offsets.push({ x: 9 * i, y: -12, angle: FORWARD });
+  }
+  return offsets;
+}
+
+defineShot('needle', {
+  name: 'needle',
+  description: 'parallel needles; concentration instead of coverage',
+  levels: [
+    { spec: NEEDLE, offsets: rake(0), period: 6 },
+    { spec: NEEDLE, offsets: rake(1), period: 6 },
+    { spec: NEEDLE, offsets: rake(2), period: 6 },
+    { spec: NEEDLE, offsets: rake(3), period: 6 },
   ],
 });
 
@@ -248,17 +320,22 @@ defineShot('laser', {
     {
       spec: { ...BEAM, life: 5 },
       offsets: [
+        { x: 0, y: -12, angle: FORWARD },
         { x: -8, y: -10, angle: FORWARD },
         { x: 8, y: -10, angle: FORWARD },
       ],
       period: 4,
     },
     {
+      // Same three muzzles as tier 2, longer-lived and faster. The flanking
+      // beams used to sit at ±9 with the centre one moved to y -14, which is a
+      // different set rather than a superset — see the nesting invariant on
+      // `NEEDLE`.
       spec: { ...BEAM, life: 6, laser: { ...BEAM.laser, growth: 120 } },
       offsets: [
-        { x: -9, y: -10, angle: FORWARD },
-        { x: 0, y: -14, angle: FORWARD },
-        { x: 9, y: -10, angle: FORWARD },
+        { x: 0, y: -12, angle: FORWARD },
+        { x: -8, y: -10, angle: FORWARD },
+        { x: 8, y: -10, angle: FORWARD },
       ],
       period: 3,
     },

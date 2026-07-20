@@ -43,6 +43,21 @@ export interface PlayerConfig {
   invulnTicks: number;
   /** Shot table indexed by power level. */
   shots: readonly ShotSpec[];
+  /**
+   * Highest power the ship can hold. Defaults to the shot table's top index.
+   *
+   * It has to be settable because **power indexes more than one table**, and
+   * the default is only ever right by coincidence. `OptionSpec.levels` is
+   * indexed by the same number, so a ship with a 1-entry shot table and a
+   * 4-tier option set had its power clamped to 0 and never deployed an option
+   * — which is exactly what both shipped characters did, in every run, for the
+   * life of the project. `Player` cannot see the option table, so whoever owns
+   * both tables passes the ceiling in; see `Run`.
+   *
+   * A ceiling above the shot table is safe: `#shot` clamps the index, so the
+   * ship keeps its strongest weapon rather than disarming.
+   */
+  maxPower?: number;
   bounds: { width: number; height: number };
 }
 
@@ -257,11 +272,18 @@ export class Player {
     return counted;
   }
 
-  /** Power is clamped to the shot table, so the index is always valid. */
+  /** Power is clamped to `maxPower`, so every table it indexes stays valid. */
   addPower(amount: number): void {
-    const max = Math.max(0, this.#config.shots.length - 1);
+    const max = this.maxPower;
     const total = Math.round((this.power + amount) * POWER_QUANTUM) / POWER_QUANTUM;
     this.power = Math.min(Math.max(total, 0), max);
+  }
+
+  /** The ceiling `addPower` clamps to. See `PlayerConfig.maxPower`. */
+  get maxPower(): number {
+    const declared = this.#config.maxPower;
+    if (declared !== undefined) return Math.max(0, declared);
+    return Math.max(0, this.#config.shots.length - 1);
   }
 
   /** Back to the start of a run. */

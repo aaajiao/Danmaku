@@ -605,6 +605,7 @@ defineStage('stage-2', {
   seed: 0x2b0f91,
   outro: 90,
   background: 'undertow',
+  boss: STAGE_2_BOSS,
   waves: [
     /* Opening. Two offset columns, then a diagonal — the same grammar stage 1
        opens on, so a player arriving here already knows how to read it, and
