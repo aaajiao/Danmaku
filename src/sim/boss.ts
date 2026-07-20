@@ -640,6 +640,26 @@ const NEEDLE: BulletSpec = {
   motion: { r: 3.4, theta: 90 },
 };
 
+/**
+ * The reference boss, and the reference for tuning one.
+ *
+ * ## The damage model these numbers assume
+ *
+ * Measured, not guessed: an immortal probe at full power, tracking its target
+ * and holding Shot, lands **0.56 damage per tick** on a boss. A real player
+ * lands roughly 0.4 — they dodge, they lose power, they die.
+ *
+ * Phase hp is set so a strong player drains at about **65% of the time limit**,
+ * which leaves a weaker one timing out. Both are clears; only the bonus differs.
+ * That gap is the difficulty curve, and it is the whole reason a phase has both
+ * a health pool and a timer.
+ *
+ * These were previously 900/1400/1800, which needed 1607/2500/3214 ticks
+ * against limits of 1800/2400/2700 — so two of the three phases could not be
+ * drained by *any* player, and the fight's length was independent of how well
+ * it was fought. If you change player damage, change these with it, or the
+ * relationship silently inverts again.
+ */
 defineBoss('sentinel', {
   sprite: 'halo',
   radius: 20,
@@ -652,7 +672,7 @@ defineBoss('sentinel', {
   phases: [
     {
       name: 'Approach',
-      hp: 900,
+      hp: 650,
       timeLimit: 60 * 30,
       isSpell: false,
       // A slow horizontal drift, reversed by the timeline so it paces rather
@@ -669,7 +689,7 @@ defineBoss('sentinel', {
     },
     {
       name: 'Sign "Tidal Corolla"',
-      hp: 1400,
+      hp: 880,
       timeLimit: 60 * 45,
       isSpell: true,
       bonus: 200000,
@@ -691,7 +711,7 @@ defineBoss('sentinel', {
     },
     {
       name: 'Last Sign "Vigil Unbroken"',
-      hp: 1800,
+      hp: 980,
       timeLimit: 60 * 50,
       isSpell: true,
       bonus: 500000,

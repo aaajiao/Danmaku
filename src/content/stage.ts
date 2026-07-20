@@ -21,10 +21,11 @@
  */
 
 import { sim, type Random } from '../core/random';
+import { getBossSpec } from '../sim/boss';
 import { EnemySystem, getEnemySpec } from '../sim/enemy';
 import { patternNames } from './patterns';
 
-export interface WaveEntry {
+export interface EnemyWave {
   /** Tick, relative to the stage start. */
   at: number;
   enemy: string;
@@ -36,6 +37,42 @@ export interface WaveEntry {
   /** Offset each successive spawn. */
   stepX?: number;
   stepY?: number;
+}
+
+/**
+ * A boss fought partway through the script — a midboss.
+ *
+ * Reaching one **holds the schedule**: the runner stops advancing entirely
+ * until `resume()` is called, so the waves authored after it do not pour in
+ * during the fight. That is why every `at` in a stage is a *script* tick rather
+ * than a wall-clock one, and why a midboss can be moved without retiming
+ * everything that follows it.
+ *
+ * The hold lives here rather than in the caller because the schedule lives
+ * here. A caller that had to know when to stop stepping would be reimplementing
+ * the timeline it was handed.
+ */
+export interface BossWave {
+  at: number;
+  boss: string;
+  /** Entry position. Defaults to top-centre of the field. */
+  x?: number;
+  y?: number;
+}
+
+export type WaveEntry = EnemyWave | BossWave;
+
+const EMPTY_CUES: readonly BossCue[] = [];
+
+function isBossWave(wave: WaveEntry): wave is BossWave {
+  return (wave as BossWave).boss !== undefined;
+}
+
+/** A boss the schedule has reached and is waiting on. */
+export interface BossCue {
+  boss: string;
+  x: number | undefined;
+  y: number | undefined;
 }
 
 export interface StageSpec {
@@ -116,11 +153,17 @@ function validate(spec: StageSpec): void {
   for (let i = 0; i < spec.waves.length; i++) {
     const wave = spec.waves[i];
     if (wave === undefined) continue;
-    const where = `stage "${spec.name}" wave ${i} (${wave.enemy})`;
+    const subject = isBossWave(wave) ? wave.boss : wave.enemy;
+    const where = `stage "${spec.name}" wave ${i} (${subject})`;
 
     if (!Number.isInteger(wave.at) || wave.at < 0) {
       throw new Error(`${where}: "at" must be a whole tick count, got ${wave.at}`);
     }
+
+    // A boss wave has no repeat arithmetic — it is one fight, and `count` on it
+    // would be a request nobody could satisfy.
+    if (isBossWave(wave)) continue;
+
     const count = wave.count ?? 1;
     if (!Number.isInteger(count) || count < 1) {
       throw new Error(`${where}: "count" must be a positive whole number, got ${count}`);
@@ -134,13 +177,16 @@ function validate(spec: StageSpec): void {
   }
 }
 
-/** One resolved spawn: a wave's repeats flattened out. */
-interface StageSpawn {
-  tick: number;
-  enemy: string;
-  x: number;
-  y: number;
-}
+/**
+ * One resolved schedule entry: a wave's repeats flattened out.
+ *
+ * Enemy spawns and boss cues share one sorted timeline rather than living in
+ * separate lists, because their relative order is the thing that matters and
+ * two lists would have to be re-merged at every step to recover it.
+ */
+type StageSpawn =
+  | { tick: number; kind: 'enemy'; enemy: string; x: number; y: number }
+  | { tick: number; kind: 'boss'; boss: string; x: number | undefined; y: number | undefined };
 
 /**
  * Flatten waves into the exact spawn list a run will replay.
@@ -153,6 +199,11 @@ function expand(spec: StageSpec): StageSpawn[] {
   const spawns: StageSpawn[] = [];
 
   for (const wave of sortWaves(spec.waves)) {
+    if (isBossWave(wave)) {
+      spawns.push({ tick: wave.at, kind: 'boss', boss: wave.boss, x: wave.x, y: wave.y });
+      continue;
+    }
+
     const count = wave.count ?? 1;
     const interval = wave.interval ?? 0;
     const stepX = wave.stepX ?? 0;
@@ -161,6 +212,7 @@ function expand(spec: StageSpec): StageSpawn[] {
     for (let k = 0; k < count; k++) {
       spawns.push({
         tick: wave.at + k * interval,
+        kind: 'enemy',
         enemy: wave.enemy,
         x: wave.x + k * stepX,
         y: wave.y + k * stepY,
@@ -195,6 +247,10 @@ export class StageRunner {
   /** Index of the next spawn owed. The schedule is sorted, so this only moves forward. */
   #cursor = 0;
 
+  /** Stopped at a midboss until `resume()`. */
+  #waiting = false;
+  #cues: BossCue[] = [];
+
   constructor(spec: StageSpec, enemies: EnemySystem) {
     this.#enemies = enemies;
     validate(spec);
@@ -217,6 +273,13 @@ export class StageRunner {
     const known = new Set(patternNames());
     const seen = new Set<string>();
     for (const spawn of this.#spawns) {
+      // Boss specs are resolved here for the same reason enemy names are: a
+      // typo in a midboss would otherwise surface only when the script reached
+      // it, which is the deepest point in the stage.
+      if (spawn.kind === 'boss') {
+        getBossSpec(spawn.boss);
+        continue;
+      }
       if (seen.has(spawn.enemy)) continue;
       seen.add(spawn.enemy);
       const enemy = getEnemySpec(spawn.enemy);
@@ -242,9 +305,21 @@ export class StageRunner {
    * subsequent bullet by how many enemies it happened to have spawned.
    */
   step(rng: Random = sim): void {
+    // Held at a midboss. The tick does not advance either, so every `at` after
+    // the boss stays a script tick and the fight's length cannot retime the
+    // rest of the stage.
+    if (this.#waiting) return;
+
     while (this.#cursor < this.#spawns.length) {
       const spawn = this.#spawns[this.#cursor];
       if (spawn === undefined || spawn.tick > this.#tick) break;
+
+      if (spawn.kind === 'boss') {
+        this.#cues.push({ boss: spawn.boss, x: spawn.x, y: spawn.y });
+        this.#waiting = true;
+        this.#cursor++;
+        return;
+      }
 
       // A refused spawn (pool at its ceiling) still consumes the entry.
       // Retrying it on a later tick would make authored timing depend on how
@@ -255,6 +330,28 @@ export class StageRunner {
     }
 
     this.#tick++;
+  }
+
+  /**
+   * Bosses the schedule has reached. Drained, not delivered by callback — a
+   * callback firing mid-schedule would run the caller's boss-spawning code
+   * inside this loop.
+   */
+  drainBossCues(): readonly BossCue[] {
+    if (this.#cues.length === 0) return EMPTY_CUES;
+    const drained = this.#cues;
+    this.#cues = [];
+    return drained;
+  }
+
+  /** Release the hold. The caller calls this when the midboss is gone. */
+  resume(): void {
+    this.#waiting = false;
+  }
+
+  /** True while the schedule is stopped at a midboss. */
+  get waiting(): boolean {
+    return this.#waiting;
   }
 
   /** Ticks elapsed — equivalently, the tick the next `step` will process. */
@@ -281,6 +378,8 @@ export class StageRunner {
   reset(): void {
     this.#tick = 0;
     this.#cursor = 0;
+    this.#waiting = false;
+    this.#cues = [];
   }
 }
 

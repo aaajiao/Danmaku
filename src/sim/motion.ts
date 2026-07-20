@@ -111,6 +111,18 @@ export function defineBehaviour(name: string, behaviour: MotionBehaviour): void 
   behaviours.set(name, behaviour);
 }
 
+/**
+ * Every registered behaviour name.
+ *
+ * Present so this registry matches the others — patterns, enemies, bosses,
+ * items, stages and shots all expose one. An enumerable registry is what lets a
+ * caller validate a name up front instead of discovering a typo when the slot
+ * falls due, and what lets tooling list what content can actually use.
+ */
+export function behaviourNames(): readonly string[] {
+  return [...behaviours.keys()];
+}
+
 export function getBehaviour(name: string): MotionBehaviour | undefined {
   return behaviours.get(name);
 }

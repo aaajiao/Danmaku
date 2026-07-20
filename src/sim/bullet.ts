@@ -9,6 +9,7 @@
 
 import { Pool } from '../core/pool';
 import { sim, type Random } from '../core/random';
+import { cosDeg, sinDeg } from '../core/trig';
 import { circlesOverlap, SpatialGrid } from './collision';
 import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } from './motion';
 
@@ -36,6 +37,30 @@ export interface BulletStyle {
   spin?: number;
 }
 
+/**
+ * A bullet that is a *line*, not a point.
+ *
+ * `BulletStyle.height` is static and shared by every bullet drawn from the same
+ * spec, so a beam that lengthens cannot express itself there — the growing
+ * extent is per-bullet state (`Bullet.length`), and this is the recipe it grows
+ * by.
+ *
+ * The bullet's `x`/`y` is the **muzzle**, and the tip is `length` px along the
+ * vector's heading. A renderer drawing a centred quad must therefore offset it
+ * by half the length; anchoring the hitbox at the muzzle instead is what lets
+ * the origin stay put while the beam extends, which is the whole shape of the
+ * effect.
+ */
+export interface LaserSpec {
+  /** Length at spawn, px. */
+  length: number;
+  /** Growth per tick until maxLength. */
+  growth?: number;
+  maxLength?: number;
+  /** Ticks spent fading in before it becomes lethal — the telegraph. */
+  warmup?: number;
+}
+
 export interface BulletSpec {
   style: BulletStyle;
   /** Collision radius. Danmaku hitboxes are far smaller than the sprite. */
@@ -50,6 +75,8 @@ export interface BulletSpec {
   /** Bounces allowed before the bullet despawns. 0 (default) means unlimited. */
   maxBounces?: number;
   damage?: number;
+  /** Makes this a beam: a segment hitbox that grows from the muzzle. */
+  laser?: LaserSpec;
 }
 
 export class Bullet {
@@ -99,11 +126,38 @@ export class Bullet {
   /** Whether this bullet's spec supplied a timeline. Read by the system's step. */
   hasTimeline = false;
 
+  /**
+   * The beam recipe, or undefined for an ordinary bullet. Its presence is what
+   * makes this bullet a line: collision switches to a segment test and the
+   * renderer to a stretched quad, both keyed off this one field rather than off
+   * a sprite name they would have to agree on.
+   */
+  laser: LaserSpec | undefined;
+
+  /** Current beam extent, px, from the muzzle along the heading. */
+  length = 0;
+
+  /**
+   * False during warmup: drawn, but not yet dangerous.
+   *
+   * A laser that is lethal on the tick it appears is not a pattern, it is a
+   * coin flip — there is no information in the field before it kills. The
+   * telegraph is what turns it into something that can be read and dodged, so
+   * the flag gates the hit test rather than merely tinting the sprite.
+   */
+  lethal = false;
+
   reset(): void {
     this.alive = false;
     this.age = 0;
     this.hasTimeline = false;
     this.bounceCount = 0;
+    // Extent is per-life state. Left behind, the next bullet in this slot
+    // spawns with the previous beam's reach — and since the free list is LIFO
+    // that is the very next spawn, not a rare one.
+    this.laser = undefined;
+    this.length = 0;
+    this.lethal = false;
   }
 
   spawn(x: number, y: number, spec: BulletSpec, faction: Faction, rng: Random): void {
@@ -121,6 +175,15 @@ export class Bullet {
     this.angle = 0;
     this.bounceCount = 0;
     this.generation++;
+
+    // Written unconditionally, not only when the spec is a laser: an ordinary
+    // bullet reusing a beam's slot must come back a point.
+    const laser = spec.laser;
+    this.laser = laser;
+    this.length = laser?.length ?? 0;
+    // Age 0 is already past a zero-tick warmup, so an undeclared warmup means
+    // lethal from the first tick and `warmup: 1` costs exactly one tick.
+    this.lethal = laser === undefined || (laser.warmup ?? 0) <= 0;
 
     this.vector.init(spec.motion, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -217,6 +280,8 @@ export class BulletSystem {
       b.y += b.vector.moveY();
       b.age++;
 
+      if (b.laser !== undefined) this.#growLaser(b);
+
       if (b.style.orientToHeading) {
         b.angle = (b.vector.theta * Math.PI) / 180;
       } else if (b.style.spin) {
@@ -225,12 +290,21 @@ export class BulletSystem {
 
       if (b.bounce) this.#bounceOffWalls(b);
 
+      // The offscreen cull reads the muzzle, and a laser is the one bullet
+      // whose muzzle does not bound it: the body reaches `length` px further
+      // on. An emitter parked above the field firing down therefore has its
+      // beam deleted on the tick it spawns, while most of that beam — and all
+      // of its hitbox — is on screen. Widening the cull by the reach is the
+      // conservative direction: keeping a beam a few ticks too long costs a
+      // step, deleting a live one costs the player a hit they could not read.
+      const reach = b.laser === undefined ? margin : margin + b.length;
+
       const expired =
         (b.life > 0 && b.age >= b.life) ||
-        b.x < -margin ||
-        b.x > width + margin ||
-        b.y < -margin ||
-        b.y > height + margin ||
+        b.x < -reach ||
+        b.x > width + reach ||
+        b.y < -reach ||
+        b.y > height + reach ||
         (b.maxBounces > 0 && b.bounceCount >= b.maxBounces);
 
       if (expired) {
@@ -242,6 +316,28 @@ export class BulletSystem {
       this.bullets[write++] = b;
     }
     this.bullets.length = write;
+  }
+
+  /**
+   * Extend the beam and retire its telegraph.
+   *
+   * Read against `age`, which `step` has already incremented, so `warmup: 4`
+   * means four ticks in which the beam is on screen and harmless. An elapsed
+   * count rather than a countdown: a countdown is state that has to survive
+   * pooling, and `age` is already reset for us.
+   */
+  #growLaser(b: Bullet): void {
+    const laser = b.laser;
+    if (laser === undefined) return;
+
+    const growth = laser.growth ?? 0;
+    if (growth !== 0) {
+      const length = b.length + growth;
+      const max = laser.maxLength;
+      b.length = max !== undefined && length > max ? max : length;
+    }
+
+    b.lethal = b.age >= (laser.warmup ?? 0);
   }
 
   #bounceOffWalls(b: Bullet): void {
@@ -276,18 +372,24 @@ export class BulletSystem {
     // largest radius present or a big bullet overlapping the circle is never
     // visited — the very miss `collision.ts` exists to avoid. Tracking the
     // real maximum also beats a fixed slack: typical fire is 3px, not 32.
-    let maxRadius = 0;
+    //
+    // A laser is indexed at its muzzle while its body reaches `length` px away,
+    // so its reach is the radius of the circle around the muzzle that contains
+    // the whole segment. Without that a 300px beam is only ever found by
+    // something standing on the emitter.
+    let maxReach = 0;
     for (const b of this.bullets) {
       if (b.faction !== faction) continue;
       this.#grid.insert(b.x, b.y, b);
-      if (b.radius > maxRadius) maxRadius = b.radius;
+      const reach = b.laser === undefined ? b.radius : b.radius + b.length;
+      if (reach > maxReach) maxReach = reach;
     }
 
     let hit: Bullet | undefined;
-    const reach = radius + maxRadius;
+    const reach = radius + maxReach;
     this.#grid.query(x, y, reach, (b) => {
       if (hit || !b.alive) return;
-      if (circlesOverlap(x, y, radius, b.x, b.y, b.radius)) hit = b;
+      if (bulletOverlaps(b, x, y, radius)) hit = b;
     });
     return hit;
   }
@@ -342,4 +444,66 @@ export class BulletSystem {
   get poolGrowth(): number {
     return this.#pool.growthCount;
   }
+}
+
+/**
+ * Exact phase of the hit test: the bullet's real shape against a circle.
+ *
+ * A laser tested as a circle at its stored position is a laser the player can
+ * stand inside — the muzzle is one end of it, not its middle, so a point
+ * anywhere along a 300px beam reads as 300px away from the thing that is
+ * killing it.
+ */
+function bulletOverlaps(b: Bullet, x: number, y: number, radius: number): boolean {
+  if (b.laser === undefined) {
+    return circlesOverlap(x, y, radius, b.x, b.y, b.radius);
+  }
+  // Drawn but harmless. Gated here rather than at the call sites so that every
+  // present and future collision path inherits the telegraph, instead of each
+  // one having to remember it (the argument rule 8 makes about `alive`).
+  if (!b.lethal) return false;
+
+  const theta = b.vector.theta;
+  const tipX = b.x + b.length * cosDeg(theta);
+  const tipY = b.y + b.length * sinDeg(theta);
+  // `radius` is the bullet's half-width: a beam is a capsule, not a bare line.
+  return segmentHitsCircle(b.x, b.y, tipX, tipY, x, y, radius + b.radius);
+}
+
+/**
+ * Closest-point test between a segment and a circle.
+ *
+ * Built only from `+ - * /` and comparisons, all IEEE-exact, so it is
+ * bit-reproducible on any engine (CLAUDE.md, rule 3). Squared distances
+ * throughout — `Math.sqrt` would be exact too, but there is nothing to spend it
+ * on when both sides can be compared squared.
+ *
+ * It lives here rather than in `collision.ts` only because that file is not
+ * this agent's to edit; it belongs beside `circlesOverlap`.
+ */
+function segmentHitsCircle(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  radius: number,
+): boolean {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+
+  // A zero-length beam is its own muzzle — the degenerate case a bare
+  // projection would divide by zero on.
+  let t = 0;
+  if (lengthSq > 0) {
+    t = ((cx - ax) * dx + (cy - ay) * dy) / lengthSq;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+  }
+
+  const nearX = ax + t * dx - cx;
+  const nearY = ay + t * dy - cy;
+  return nearX * nearX + nearY * nearY <= radius * radius;
 }

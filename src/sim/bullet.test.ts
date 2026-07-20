@@ -1156,6 +1156,374 @@ describe('hitTest', () => {
   });
 });
 
+describe('lasers', () => {
+  /** A beam pointing right (theta 0), so its tip is at x + length. */
+  const beam = (laser: Partial<BulletSpec['laser'] & object> = {}): BulletSpec =>
+    makeSpec({
+      radius: 2,
+      motion: { r: 0, theta: 0 },
+      laser: { length: 100, ...laser },
+    });
+
+  test('a laser spawns at its declared length', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(100, 100, beam(), 'enemy', rng()) as Bullet;
+
+    expect(bullet.laser).toBeDefined();
+    expect(bullet.length).toBe(100);
+  });
+
+  test('an ordinary bullet has no laser and zero length', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(100, 100, makeSpec(), 'enemy', rng()) as Bullet;
+
+    expect(bullet.laser).toBeUndefined();
+    expect(bullet.length).toBe(0);
+  });
+
+  test('growth extends the beam by a constant every tick', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(
+      100,
+      100,
+      beam({ length: 20, growth: 15 }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    stepTimes(system, 4);
+    expect(bullet.length).toBeCloseTo(80, 9);
+  });
+
+  test('growth stops at maxLength and never overshoots it', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(
+      100,
+      100,
+      beam({ length: 20, growth: 15, maxLength: 50 }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+
+    stepTimes(system, 40);
+    expect(bullet.length).toBe(50);
+  });
+
+  test('a laser with no growth keeps its spawn length', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(100, 100, beam({ length: 60 }), 'enemy', rng()) as Bullet;
+
+    stepTimes(system, 20);
+    expect(bullet.length).toBe(60);
+  });
+
+  test('the muzzle is the origin — the beam extends along the heading', () => {
+    // theta 90 is down, so a stationary beam at (100, 100) covers y 100..200
+    // and nothing above it. Anchored at the centre instead it would reach up
+    // to y = 50, which is the bug this pins.
+    const system = makeSystem();
+    system.spawn(
+      100,
+      100,
+      makeSpec({ radius: 2, motion: { r: 0, theta: 90 }, laser: { length: 100 } }),
+      'enemy',
+      rng(),
+    );
+
+    expect(system.hitTest(100, 150, 1, 'enemy')).toBeDefined();
+    expect(system.hitTest(100, 200, 1, 'enemy')).toBeDefined();
+    expect(system.hitTest(100, 90, 1, 'enemy')).toBeUndefined();
+  });
+
+  test('the hitbox follows the whole segment, not a circle at the muzzle', () => {
+    const system = makeSystem();
+    const bullet = system.spawn(100, 100, beam({ length: 200 }), 'enemy', rng()) as Bullet;
+
+    // Every point along it is lethal — standing inside a laser is not safety.
+    for (let along = 0; along <= 200; along += 20) {
+      expect(system.hitTest(100 + along, 100, 1, 'enemy')).toBe(bullet);
+    }
+
+    // Past the tip, and off to the side, it misses.
+    expect(system.hitTest(304, 100, 1, 'enemy')).toBeUndefined();
+    expect(system.hitTest(200, 104, 1, 'enemy')).toBeUndefined();
+  });
+
+  test('the segment test honours the sum of the radii, like the circle one', () => {
+    const system = makeSystem();
+    system.spawn(100, 100, beam({ length: 200 }), 'enemy', rng());
+
+    // Bullet radius 2, so a probe of radius 3 reaches 5px off the axis.
+    expect(system.hitTest(200, 105, 3, 'enemy')).toBeDefined();
+    expect(system.hitTest(200, 105.01, 3, 'enemy')).toBeUndefined();
+  });
+
+  test('a beam only as long as it has grown cannot hit past its own tip', () => {
+    const system = makeSystem();
+    system.spawn(100, 100, beam({ length: 10, growth: 10 }), 'enemy', rng());
+
+    expect(system.hitTest(160, 100, 1, 'enemy')).toBeUndefined();
+
+    stepTimes(system, 6);
+    expect(system.hitTest(160, 100, 1, 'enemy')).toBeDefined();
+  });
+
+  test('a diagonal beam is tested along its real heading', () => {
+    const system = makeSystem();
+    system.spawn(
+      100,
+      100,
+      makeSpec({ radius: 2, motion: { r: 0, theta: 45 }, laser: { length: 200 } }),
+      'enemy',
+      rng(),
+    );
+
+    // A point on the 45° line, and one the same distance out but off it.
+    expect(system.hitTest(170.71, 170.71, 1, 'enemy')).toBeDefined();
+    expect(system.hitTest(170.71, 100, 1, 'enemy')).toBeUndefined();
+  });
+
+  describe('warmup', () => {
+    test('a warming laser is not lethal and registers no hit', () => {
+      const system = makeSystem();
+      const bullet = system.spawn(
+        100,
+        100,
+        beam({ length: 200, warmup: 4 }),
+        'enemy',
+        rng(),
+      ) as Bullet;
+
+      // It is on screen from the first tick — the telegraph has to be visible
+      // to be a telegraph — but nothing along it can be hit.
+      for (let tick = 0; tick < 4; tick++) {
+        expect(bullet.lethal).toBe(false);
+        expect(system.count).toBe(1);
+        expect(system.hitTest(200, 100, 1, 'enemy')).toBeUndefined();
+        system.step(0, 0, rng());
+      }
+
+      expect(bullet.lethal).toBe(true);
+      expect(system.hitTest(200, 100, 1, 'enemy')).toBe(bullet);
+    });
+
+    test('warmup is counted in ticks, exactly', () => {
+      const ticksUntilLethal = (warmup: number): number => {
+        const system = makeSystem();
+        const bullet = system.spawn(
+          100,
+          100,
+          beam({ warmup }),
+          'enemy',
+          rng(),
+        ) as Bullet;
+
+        let ticks = 0;
+        while (!bullet.lethal && ticks < 100) {
+          system.step(0, 0, rng());
+          ticks++;
+        }
+        return ticks;
+      };
+
+      expect(ticksUntilLethal(1)).toBe(1);
+      expect(ticksUntilLethal(6)).toBe(6);
+      expect(ticksUntilLethal(30)).toBe(30);
+    });
+
+    test('a laser without warmup is lethal on the tick it spawns', () => {
+      const system = makeSystem();
+      const bullet = system.spawn(100, 100, beam(), 'enemy', rng()) as Bullet;
+
+      expect(bullet.lethal).toBe(true);
+      expect(system.hitTest(180, 100, 1, 'enemy')).toBe(bullet);
+    });
+
+    test('a warming laser blocks nothing else from being found', () => {
+      // The gate must skip the beam, not abandon the query — an orb sharing
+      // the field stays lethal while the laser is still winding up.
+      const system = makeSystem();
+      system.spawn(100, 100, beam({ length: 200, warmup: 30 }), 'enemy', rng());
+      const orb = system.spawn(200, 100, makeSpec({ radius: 4 }), 'enemy', rng()) as Bullet;
+
+      expect(system.hitTest(200, 100, 1, 'enemy')).toBe(orb);
+    });
+  });
+
+  describe('pooling', () => {
+    test('an ordinary bullet reusing a beam slot comes back a point', () => {
+      const system = makeSystem({ initial: 1, max: 1 });
+      const first = system.spawn(
+        100,
+        100,
+        { ...beam({ length: 200, growth: 20 }), life: 2 },
+        'enemy',
+        rng(),
+      ) as Bullet;
+
+      stepTimes(system, 2);
+      expect(system.count).toBe(0);
+      expect(first.length).toBeGreaterThan(200);
+
+      const second = system.spawn(100, 100, makeSpec(), 'enemy', rng()) as Bullet;
+      expect(second).toBe(first);
+      expect(second.laser).toBeUndefined();
+      expect(second.length).toBe(0);
+
+      // And the stale reach is gone: nothing 200px away is hit any more.
+      expect(system.hitTest(300, 100, 1, 'enemy')).toBeUndefined();
+    });
+
+    test('a beam reusing a slot restarts at its spawn length, not the last tip', () => {
+      const system = makeSystem({ initial: 1, max: 1 });
+      const spec = { ...beam({ length: 40, growth: 25 }), life: 4 };
+
+      const first = system.spawn(100, 100, spec, 'enemy', rng()) as Bullet;
+      stepTimes(system, 4);
+      expect(first.length).toBe(140);
+
+      const second = system.spawn(100, 100, spec, 'enemy', rng()) as Bullet;
+      expect(second).toBe(first);
+      expect(second.length).toBe(40);
+    });
+
+    test('a fresh warmup runs for each new life in the same slot', () => {
+      // `lethal` left true from the previous beam is the pooling bug that
+      // deletes the telegraph — silently, and only for the second laser onward.
+      const system = makeSystem({ initial: 1, max: 1 });
+      const spec = { ...beam({ length: 100, warmup: 3 }), life: 6 };
+
+      const first = system.spawn(100, 100, spec, 'enemy', rng()) as Bullet;
+      stepTimes(system, 6);
+      expect(first.lethal).toBe(true);
+      expect(system.count).toBe(0);
+
+      const second = system.spawn(100, 100, spec, 'enemy', rng()) as Bullet;
+      expect(second).toBe(first);
+      expect(second.lethal).toBe(false);
+      expect(system.hitTest(150, 100, 1, 'enemy')).toBeUndefined();
+    });
+  });
+
+  test('a long beam agrees with a brute-force segment scan', () => {
+    // The broad phase indexes muzzles. A beam whose muzzle sits many cells away
+    // from the probe must still be visited, which is what the reach widening
+    // buys; asserting hits alone would pass on an implementation that found
+    // nothing.
+    const system = makeSystem();
+    const r = rng(31);
+    const beams: Bullet[] = [];
+    for (let i = 0; i < 40; i++) {
+      beams.push(
+        system.spawn(
+          r.range(0, 480),
+          r.range(0, 480),
+          makeSpec({
+            radius: 3,
+            motion: { r: 0, theta: r.range(0, 360) },
+            laser: { length: r.range(40, 260) },
+          }),
+          'enemy',
+          r,
+        ) as Bullet,
+      );
+    }
+
+    const nearSegment = (b: Bullet, x: number, y: number, radius: number): boolean => {
+      const steps = 4000;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const px = b.x + b.length * t * Math.cos((b.vector.theta * Math.PI) / 180);
+        const py = b.y + b.length * t * Math.sin((b.vector.theta * Math.PI) / 180);
+        if (circlesOverlap(x, y, radius, px, py, b.radius)) return true;
+      }
+      return false;
+    };
+
+    let found = 0;
+    for (let i = 0; i < 300; i++) {
+      const x = r.range(0, 480);
+      const y = r.range(0, 480);
+      const hit = system.hitTest(x, y, 5, 'enemy');
+      const expected = beams.filter((b) => nearSegment(b, x, y, 5));
+
+      if (hit !== undefined) {
+        found++;
+        expect(expected).toContain(hit);
+      } else {
+        // Sampling the segment can only miss by less than a step, so anything
+        // the scan is sure about must have been found.
+        expect(expected).toHaveLength(0);
+      }
+    }
+    expect(found).toBeGreaterThan(20);
+  });
+
+  test('a laser draws no randomness of its own', () => {
+    // Growth and warmup are arithmetic on the tick count, so a field of beams
+    // must leave the stream exactly where a field of orbs would.
+    const consume = (withLaser: boolean): unknown => {
+      const r = rng(77);
+      const system = makeSystem();
+      for (let tick = 0; tick < 40; tick++) {
+        system.spawn(
+          240,
+          240,
+          withLaser
+            ? makeSpec({ motion: { r: 0, theta: 0 }, laser: { length: 50, growth: 5, warmup: 3 } })
+            : makeSpec({ motion: { r: 0, theta: 0 } }),
+          'enemy',
+          r,
+        );
+        system.step(240, 400, r);
+        system.hitTest(300, 240, 4, 'enemy');
+      }
+      return r.getState();
+    };
+
+    expect(consume(true)).toEqual(consume(false));
+  });
+
+  describe('the offscreen cull accounts for the beam, not just the muzzle', () => {
+    // FIELD is 480x480 with a 32px margin, so a muzzle at y = -200 is well
+    // outside what culls an ordinary bullet.
+    const downward = (length: number): BulletSpec =>
+      makeSpec({ radius: 2, motion: { r: 0, theta: 90 }, laser: { length } });
+
+    test('a beam whose muzzle is offscreen survives while its body is on the field', () => {
+      const system = makeSystem();
+      system.spawn(240, -200, downward(400), 'enemy', rng());
+
+      stepTimes(system, 1);
+
+      expect(system.count).toBe(1);
+      // And it is still the lethal object it looks like, 250px down the beam.
+      expect(system.hitTest(240, 50, 2, 'enemy')).toBeDefined();
+    });
+
+    test('a beam is culled once its whole body has left the field', () => {
+      const system = makeSystem();
+      // Tip at y = -190, above the field and past the 32px margin.
+      system.spawn(240, -200, downward(10), 'enemy', rng());
+
+      stepTimes(system, 1);
+
+      expect(system.count).toBe(0);
+    });
+
+    test('an ordinary bullet at the same muzzle is culled as before', () => {
+      // The widening must be the laser's alone: a point bullet keeps the plain
+      // margin, or this "fix" would quietly keep every stray bullet alive.
+      const system = makeSystem();
+      system.spawn(240, -200, makeSpec(), 'enemy', rng());
+
+      stepTimes(system, 1);
+
+      expect(system.count).toBe(0);
+    });
+  });
+});
+
 describe('despawn', () => {
   test('removes exactly the given bullet, alive, from the live list, and returns it to the pool', () => {
     const system = makeSystem({ initial: 3, max: 3 });

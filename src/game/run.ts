@@ -557,9 +557,32 @@ export class Run {
   }
 
   /** The boss arrives once the script is spent and the field it left is clear. */
+  /**
+   * Release whichever boss is owed: a midboss the script has reached, or the
+   * stage boss once the script is spent.
+   *
+   * The midboss path runs first and returns, because the schedule is already
+   * held at that point and letting the end-of-stage branch also fire would put
+   * two bosses on the field with one health bar between them.
+   */
   #sendBoss(rng: Random): void {
+    for (const cue of this.stage.drainBossCues()) {
+      this.boss.spawn(
+        cue.boss,
+        cue.x ?? this.#field.width / 2,
+        cue.y ?? BOSS_ENTRY_Y,
+        rng,
+      );
+      return;
+    }
+
+    // The schedule stops dead at a midboss, so `finished` cannot be true while
+    // one is alive — but it is not the runner's job to know a boss died, and
+    // resuming is.
+    if (this.stage.waiting && !this.boss.active) this.stage.resume();
+
     if (this.#bossSent || this.config.boss === undefined) return;
-    if (!this.stage.finished || this.enemies.count > 0) return;
+    if (!this.stage.finished || this.enemies.count > 0 || this.boss.active) return;
 
     this.#bossSent = true;
     this.boss.spawn(this.config.boss, this.#field.width / 2, BOSS_ENTRY_Y, rng);

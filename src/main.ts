@@ -7,6 +7,10 @@
  * all. Anything added here that decides something belongs in `Run` instead.
  */
 
+// Side-effect import: content registers itself when its module is evaluated, so
+// a stage nothing imports simply does not exist at runtime. See content/index.ts.
+import './content';
+
 import { Audio } from './audio';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
@@ -16,6 +20,7 @@ import type { Replay } from './sim/replay';
 import type { Run } from './game/run';
 import { Background } from './render/background';
 import { createBulletAtlas, createShipAtlas } from './render/procedural';
+import { PostProcessing } from './render/post';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
 
@@ -62,6 +67,16 @@ stage.add(batches.playerShots.mesh, 'PlayerShots');
 stage.add(batches.enemyShots.mesh, 'EnemyShots');
 stage.add(batches.effects.mesh, 'Effects');
 
+/**
+ * Bloom is on by default, and that is a product decision rather than a default
+ * left alone. Bullets ship as white art tinted per instance; without bloom a
+ * full curtain composites as flat stickers on black, and with it the cores
+ * bleed into their neighbours and read as light. It costs fill rate, so `B`
+ * turns it off — and if the composer cannot be built at all, `PostProcessing`
+ * falls back to `stage.render()` and the game still draws.
+ */
+const post = new PostProcessing(stage, { enabled: true });
+
 /* ------------------------------------------------------------------ */
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
@@ -71,6 +86,24 @@ const input = new Input();
 input.attach();
 
 const machine = new StateMachine();
+
+/**
+ * The bloom toggle listens here rather than joining `Input`.
+ *
+ * A replay is a frame-indexed log of the button mask and nothing else
+ * (CLAUDE.md, rule 4). A display setting that entered that mask would be
+ * recorded into replays and would make how the game looked part of what the
+ * game did. `KeyB` is deliberately absent from `input.ts`'s `KEY_MAP`, so this
+ * and the simulation cannot collide.
+ */
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyB' || e.repeat) return;
+  post.enabled = !post.enabled;
+});
+
+// Exposed for the by-eye checks documented in `render/post.ts` — the tuning
+// sweeps are driven from the console because there is no GL context in tests.
+(globalThis as { __post?: PostProcessing }).__post = post;
 
 /**
  * Seeds come from the wall clock, which is fine: a seed is chosen once, before
@@ -140,7 +173,7 @@ const loop = new Loop({
 
     for (const batch of Object.values(batches)) batch.end();
 
-    stage.render();
+    post.render();
     drawOverlay(hud);
   },
 });
@@ -203,13 +236,18 @@ function drawRun(run: Run): void {
     });
   }
 
+  // Read from the spec, not hardcoded: `OptionSpec` already declares a sprite
+  // and a tint per option set, and a shell that picks its own makes those two
+  // fields decorative — `seeker` authors a tinted `ring` and was drawn as
+  // `standard`'s untinted orb.
+  const optionSpec = run.options.spec;
   for (const option of run.options.options) {
     if (!option.active) continue;
-    batches.options.draw(option.x, option.y, 'glow.small', {
+    batches.options.draw(option.x, option.y, optionSpec.sprite, {
       rotation: option.angle,
-      r: 0.8,
-      g: 0.95,
-      b: 1,
+      r: optionSpec.tint?.r,
+      g: optionSpec.tint?.g,
+      b: optionSpec.tint?.b,
     });
   }
 
@@ -251,6 +289,13 @@ function drawSidebar(run: Run | undefined): void {
 
   surface.fillStyle = '#cfcfcf';
   surface.fillText('DANMAKU', x, 26);
+
+  // Drawn whether or not a run is live: it is a display setting, and the state
+  // has to be readable on the title screen too. It also reads `post.enabled`
+  // back rather than tracking the keypress, so a composer that failed to build
+  // reports "off" instead of claiming a bloom nobody is drawing.
+  surface.fillStyle = post.enabled ? '#8fc8a8' : '#5a5a5a';
+  surface.fillText(`bloom  ${post.enabled ? 'on ' : 'off'}  [B]`, x, 200);
 
   if (!run) return;
 
