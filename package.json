@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun ./index.html",
+    "dev": "bun tools/serve.ts",
     "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",
     "test:assets": "PORT=3007 bun ./test/visual/asset-loading.html",
     "test:density": "PORT=3008 bun ./test/visual/density.html",
-    "build": "bun build ./index.html --outdir=dist --production",
+    "build": "bun build ./index.html --outdir=dist --production && bun tools/copy-packs.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

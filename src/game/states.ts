@@ -40,6 +40,14 @@ export interface GameContext {
   stage?: string;
   /** Boss sent once the stage script runs out. */
   boss?: string;
+  /**
+   * Identity of the resource packs loaded for this run, as a plain string
+   * (`name@hash` pairs comma-joined, or unset when none). `main.ts` sets it
+   * from the loader; forwarded into `RunConfig.packs` so `finishRecording`
+   * records what was active. A string by contract — `src/game` never learns
+   * what a pack is (see `RunConfig.packs`).
+   */
+  packs?: string;
   /** Handed the recording when a run ends. */
   onReplay?(replay: Replay): void;
 }
@@ -228,6 +236,9 @@ export class PlayingState implements GameState {
       // fight without authoring a stage to hold it.
       ...(ctx.boss === undefined ? {} : { boss: ctx.boss }),
       ...(options.carry === undefined ? {} : { carry: options.carry }),
+      // Recorded into replay meta, not consumed by the run — the pack identity
+      // travels on the context the same way the boss override does.
+      ...(ctx.packs === undefined ? {} : { packs: ctx.packs }),
     });
   }
 

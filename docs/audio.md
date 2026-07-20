@@ -100,6 +100,20 @@ a real sample wants its own voice, register it and repoint the row — two lines
 
 ## 3. Replacing a synth with a real sample
 
+### The preferred route is a pack — no code edit at all
+
+As with art, the higher-level swap needs no editing of `src/`: an
+[asset pack](./packs.md) can carry sounds. A `pack.json` with a `sounds` object
+keyed by the registered names — `shot`, `hit`, `explosion`, `graze`, `pickup`,
+`death` — drops a WAV per name into `packs/<name>/`, and the loader re-registers
+each through the same `defineSound` `url` branch shown below. An unknown sound
+name is **rejected loudly** at load — `sounds."explsion" is not a sound this game
+plays — valid names: …` — which closes the one gap the source-level route leaves
+open (a mistyped name registering a new, un-cued sound; see below). The authoring
+constraints in "Authoring constraints" apply to a packed WAV unchanged. This is
+the right choice for shipping replacement sound; the source-level call below is
+the seam the pack loader itself uses.
+
 ```ts
 import ROAR_URL from '../assets/boss-roar.ogg';
 import { defineSound } from '../audio';

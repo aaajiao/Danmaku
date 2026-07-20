@@ -359,9 +359,12 @@ export async function bulletAtlas(url?: string): Promise<Atlas> {
   return atlas;
 }
 
+/** The ship sheet is a single square cell. The real art set must match it. */
+export const SHIP_SIZE = 64;
+
 /** A simple ship silhouette, pointing up (-y). Placeholder for the player. */
 export function createShipAtlas(): Atlas {
-  const size = 64;
+  const size = SHIP_SIZE;
   const { el, ctx } = canvas(size, size);
   const cx = size / 2;
   const cy = size / 2;
@@ -392,5 +395,34 @@ export function createShipAtlas(): Atlas {
 
   const atlas = new Atlas(texture, size, size);
   atlas.define('ship', { x: 0, y: 0, w: size, h: size });
+  return atlas;
+}
+
+/**
+ * The ship sheet, generated or loaded — the player's half of the art seam.
+ *
+ * Symmetric with `bulletAtlas(url?)` in every way that matters: `undefined`
+ * generates the placeholder silhouette, a URL loads a PNG, and both branches
+ * end defining the same single `ship` region so every consumer downstream is
+ * untouched. The dimension check is the point for the same reason it is on the
+ * bullet seam — `Atlas` computes UVs from the size it is handed, so a
+ * wrong-sized sheet silently repoints the region at a crop of the wrong shape
+ * and the game runs. A mismatch throws here instead, naming both figures.
+ *
+ * A loaded sheet keeps `loadTexture`'s NearestFilter; smooth art opts into
+ * linear at the call site (a pack declares `assets.filter`), which is why this
+ * does not re-decide the filter the way the two placeholder generators do.
+ */
+export async function shipAtlas(url?: string): Promise<Atlas> {
+  if (url === undefined) return createShipAtlas();
+
+  const atlas = await loadAtlas(url);
+  if (atlas.width !== SHIP_SIZE || atlas.height !== SHIP_SIZE) {
+    throw new Error(
+      `ship sheet "${url}" is ${atlas.width}×${atlas.height}, ` +
+        `expected ${SHIP_SIZE}×${SHIP_SIZE} (one ${SHIP_SIZE}×${SHIP_SIZE} cell)`,
+    );
+  }
+  atlas.define('ship', { x: 0, y: 0, w: atlas.width, h: atlas.height });
   return atlas;
 }

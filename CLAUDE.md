@@ -20,10 +20,12 @@ src/render/backgrounds/   the authored scenes, one fragment shader per file
 src/content/       danmaku patterns, shot types, motion behaviours, stages
 src/game/          run rules, state machine, screens — all game logic, no three.js
 src/audio/         sound registry and runtime synthesis
+src/packs/         drop-in asset packs: pure manifest validation + browser loader
 src/main.ts        the browser shell: input in, pixels out, nothing else
-docs/              asset specification, extension guide
+docs/              asset specification, extension guide, pack format
+packs/             asset packs on disk (packs/example is the reference)
 test/visual/       checks that need a real GL context and cannot run in `bun test`
-tools/             fixture generation
+tools/             fixture and example-pack generation, dev server, build copy
 ```
 
 Four tests scan whole trees rather than testing one module, and all four exist
@@ -262,9 +264,17 @@ engine. Every extension point is a registry:
 | Sounds | `defineSound` | `src/audio/index.ts` |
 | Sprite regions | `Atlas.define` / `defineGrid` | `src/render/atlas.ts` |
 | Render layers | `Layer` constants | `src/render/stage.ts` |
+| Asset packs (reskins) | drop a folder in `packs/` | `docs/packs.md` |
 
 Content references registry entries **by name**, never by index, so re-packing an
 atlas or reordering a table cannot silently repoint at the wrong thing.
+
+The last row is the one that is not code: an **asset pack** is a folder of art and
+sound dropped into `packs/`, and it reskins the game without touching a registry
+or the engine at all. It is presentation only — it replaces the sprite *skins*
+that patterns, effects and the HUD draw with, never the patterns, effects or
+behaviours themselves, which stay code joined to a pack only by name. The format,
+its validation and its boundary are [`docs/packs.md`](./docs/packs.md).
 
 **A registry only has what something imported.** A module nobody imports never
 runs, so its `define*` calls never happen and the name resolves to nothing at the
@@ -474,6 +484,16 @@ bun run build
 
 Dev server: `bun run dev`. Install: `bun install` (never `npm install` — the
 lockfile is `bun.lock`).
+
+`bun run dev` now runs `tools/serve.ts`, a Bun wrapper that serves the app *and*
+the `packs/` tree plus a synthesized `/packs/index.json`, because the bare
+`bun ./index.html` answers every unknown route with the HTML entry and so can
+never serve a pack. `bun run build` gains `tools/copy-packs.ts`, which stages
+`packs/` into `dist/`. Both are dev/build tooling; the built output stays plain
+static files. If a change touches the pack manifest, note that **the error
+strings in `src/packs/manifest.ts` are a compatibility contract** — asserted
+verbatim in `manifest.test.ts`, quoted verbatim in `docs/packs.md`, and matched
+by pack-author tooling — so rewording one is a breaking change, not a cleanup.
 
 Tests must be green before a change is done, and "green" means you ran them and
 saw it. If a change touches the simulation, motion DSL, RNG, input, or content

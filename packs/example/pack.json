@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "name": "example",
+  "version": "1.0.0",
+  "author": "Danmaku project",
+  "license": "CC0-1.0",
+  "description": "The reference pack: every v1 field, and art that follows every rule the loader checks. Copy this directory, rename it, and swap the files.",
+  "assets": {
+    "bullets": "bullets.png",
+    "ship": "ship.png",
+    "filter": "nearest"
+  },
+  "sounds": {
+    "shot": "shot.wav",
+    "pickup": "pickup.wav"
+  },
+  "hud": {
+    "life": "life.png",
+    "bomb": "bomb.png"
+  }
+}

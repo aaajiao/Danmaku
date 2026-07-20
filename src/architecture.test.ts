@@ -169,3 +169,64 @@ describe('the scanner detects what it claims to', () => {
     expect(renderImports(`// registering one means importing render/background`)).toEqual([]);
   });
 });
+
+/**
+ * `src/packs` is browser-side and its boundary is **total** — stricter than the
+ * render one above.
+ *
+ * The pack loader fetches over the network, decodes images against a canvas and
+ * touches the DOM; none of that can exist in a headless run. But the deeper
+ * reason is the same one `StageSpec.background` is a string: pack identity
+ * reaches the simulation as a plain `name@hash` in replay meta and nowhere else.
+ * There is no shared type worth coupling to, so unlike `render/` — where a
+ * type-only import erases and is allowed — even a type import of `src/packs`
+ * from sim, content or game is an offence. The shell computes pack identity and
+ * passes it across as text; the sim never learns a pack exists.
+ *
+ * Deliberately crude for the same reason `renderImports` is: the thing detected
+ * is a literal line someone typed, and a regex sees it without a TypeScript
+ * program in a unit test.
+ */
+function packsImports(source: string): string[] {
+  return source
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^(import|export)\b/.test(line))
+    .filter((line) => /['"][^'"]*\bpacks\//.test(line));
+}
+
+describe('the simulation does not depend on the pack loader', () => {
+  test.each(HEADLESS_TREES)('src/%s imports nothing from src/packs', (tree) => {
+    const offences: string[] = [];
+
+    for (const path of sourceFiles(`${ROOT}${tree}`)) {
+      const source = readFileSync(path, 'utf8');
+      for (const line of packsImports(source)) {
+        offences.push(`${path.slice(ROOT.length)}: ${line}`);
+      }
+    }
+
+    expect(offences).toEqual([]);
+  });
+});
+
+describe('the packs scanner detects what it claims to', () => {
+  test('a value import of a packs module is an offence', () => {
+    expect(packsImports(`import { validateManifest } from '../packs/manifest';`)).toHaveLength(1);
+  });
+
+  test('a type-only import is an offence too, because the boundary is total', () => {
+    // The exemption that makes a render type-import safe does NOT apply here.
+    expect(packsImports(`import type { PackManifest } from '../packs/manifest';`)).toHaveLength(1);
+  });
+
+  test('prose naming the path is not an import', () => {
+    expect(packsImports(` * pack identity crosses as a string; see packs/loader.ts`)).toEqual([]);
+    expect(packsImports(`// packs/manifest is the pure half`)).toEqual([]);
+  });
+
+  test('an unrelated path that merely contains the letters is not matched', () => {
+    // `\bpacks/` requires a boundary before "packs", so "unpacks/" is not a hit.
+    expect(packsImports(`import { thing } from './unpacks/util';`)).toEqual([]);
+  });
+});

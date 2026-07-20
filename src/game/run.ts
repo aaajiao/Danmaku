@@ -158,6 +158,19 @@ export interface RunConfig {
    */
   carry?: PlayerCarry;
   field?: { width: number; height: number; margin: number };
+  /**
+   * Identity of the resource packs loaded for this run: `name@hash` pairs
+   * comma-joined, `''` when none. Recorded into replay meta by
+   * `finishRecording`, and on playback a mismatch WARNS rather than refuses —
+   * v1 packs are presentation-only, so they change how the run looked, never
+   * what it did.
+   *
+   * A plain **string** by contract: `src/game` must not import `src/packs` at
+   * all (`architecture.test.ts` enforces it, values and types alike), so pack
+   * identity crosses that boundary as text and nothing here learns what a pack
+   * is. The shell computes it; this only carries it.
+   */
+  packs?: string;
 }
 
 /**
@@ -383,6 +396,11 @@ export class Run {
       expectMeta(replay, 'stage', this.stageName);
       expectMeta(replay, 'boss', this.bossName ?? '');
       expectMeta(replay, 'carry', encodeCarry(config.carry));
+      // Packs are presentation-only: a different pack changes how the run looked,
+      // never what it did, so a mismatch WARNS and never refuses. Deliberately
+      // not routed through `expectMeta`, which throws — the strict-refusal path
+      // is reserved for a future data-pack meta key.
+      warnMeta(replay, 'packs', config.packs);
       this.#playback = new ReplayPlayback(replay);
     }
 
@@ -1093,6 +1111,9 @@ export class Run {
       stage: this.stageName,
       boss: this.bossName ?? '',
       carry: encodeCarry(this.config.carry),
+      // Presentation-only: a mismatch on playback warns, so this is recorded to
+      // be reported, not to gate the run. '' when no pack was loaded.
+      packs: this.config.packs ?? '',
       outcome: this.#outcome,
       score: this.player.score,
     });
@@ -1154,6 +1175,24 @@ export class Run {
     this.#extends = 0;
     this.#events.length = 0;
     this.#spare.length = 0;
+  }
+}
+
+/**
+ * The soft half of the replay-meta check: a mismatch is reported, not refused.
+ *
+ * Only warns when both sides name a pack and they differ — an absent recorded
+ * value (a replay from before packs existed) and an absent live value (no pack
+ * loaded now) are both silent, matching `expectMeta`'s absent-is-accepted rule.
+ */
+function warnMeta(replay: Replay, key: string, live: string | undefined): void {
+  const recorded = replay.meta?.[key];
+  if (recorded === undefined || recorded === '') return;
+  if (live === undefined || live === '') return;
+  if (String(recorded) !== live) {
+    console.warn(
+      `run: replay recorded with ${key} "${String(recorded)}", replaying under "${live}" — presentation may differ`,
+    );
   }
 }
 

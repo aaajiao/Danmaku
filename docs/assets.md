@@ -269,7 +269,7 @@ workhorse and `orb.large` still reads as a threat.
 The last column is stricter than it looks. It does not mean "something sets
 `orientToHeading` on this cell today" — `kunai`, `scale`, `needle` and
 `glow.small` are the only four with a caller that does
-(`src/content/stage-2.ts:95`, `src/sim/enemy.ts:414`, `src/sim/boss.ts:711`, and
+(`src/content/stage-2.ts:95`, `src/sim/enemy.ts:423`, `src/sim/boss.ts:720`, and
 the BEAM shot at `src/content/shots.ts:308-316`). It means the shape is elongated
 or asymmetric and so has a direction at all, and rule 7 says that direction is
 east. `shard` and `petal` have no rotating caller yet and must still be drawn
@@ -579,6 +579,25 @@ cannot:
 This is the section the rest of the file exists for. It is written as a
 procedure because the obvious one-line version does not work, and each step
 below is a place it stops working.
+
+### 5.0 The preferred route is a pack — no code edit at all
+
+Before the source-level swap below, know that there is a higher-level one that
+needs **no editing of `src/` at all**: drop an [asset pack](./packs.md) into
+`packs/`. A pack is a folder with a `pack.json` manifest naming a `bullets.png`
+(and optionally a ship, HUD icons and sounds); the loader fetches it, runs the
+same dimension, margin and whiteness checks this section describes — in the
+browser, against your real pixels — and reports every failure by name. It layers
+over the placeholders, needs only a page refresh under `bun run dev`, and is the
+right choice for shipping a reskin. **`packs/example/` is a complete worked
+example of everything in section 3.**
+
+The rest of this section is the **low-level seam beneath that**: the
+`BULLET_SHEET` constant in `main.ts` and the `bulletAtlas(url)` function a pack's
+loader itself calls. Read it when you are wiring a sheet into the engine directly
+— building the pack loader, bundling a single fixed sheet, or debugging the seam
+— rather than authoring a drop-in pack. Everything about the *art* (§1–§4) is
+identical either way; only the delivery differs.
 
 ### 5.1 Author the file
 

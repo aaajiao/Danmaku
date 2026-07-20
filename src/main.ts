@@ -15,7 +15,8 @@ import './content';
 // far from the file that is actually missing. See render/backgrounds/index.ts.
 import './render/backgrounds';
 
-import { Audio } from './audio';
+import * as THREE from 'three';
+import { Audio, defineSound } from './audio';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
@@ -23,8 +24,9 @@ import { StateMachine } from './game/state';
 import { EVENT_SOUNDS } from './game/cues';
 import type { Replay } from './sim/replay';
 import { FIELD, type Run } from './game/run';
+import { loadPacks } from './packs/loader';
 import { Background } from './render/background';
-import { bulletAtlas as makeBulletAtlas, createShipAtlas } from './render/procedural';
+import { bulletAtlas as makeBulletAtlas, shipAtlas as makeShipAtlas } from './render/procedural';
 import { PostProcessing } from './render/post';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
@@ -75,10 +77,32 @@ const SCENE_FADE_TICKS = 60;
 const background = new Background(stage, 'drift');
 
 /**
- * Where the bullet sheet comes from — **the one line real art changes.**
+ * Discover and validate resource packs before anything reads their assets.
  *
- * `undefined` generates the placeholder set. To ship real art, import the PNG
- * and put the URL here:
+ * Awaited here, at the top of boot: the sheets, sound URLs and hud icons it
+ * returns must be in place before the atlases are built and before the audio
+ * graph can unlock. Total by construction — no packs, a broken pack, or a
+ * server that cannot serve them all degrade to the procedural placeholders and
+ * the game runs. See `packs/loader.ts` and `docs/packs.md`.
+ */
+const packs = await loadPacks();
+
+// Re-register any sounds a pack replaced, BEFORE the first `audio.unlock()` in
+// the loop can fire. `Audio.unlock` pre-renders every registered sound's buffer
+// (see `audio/index.ts` `#start`), so a url swapped in after that first unlock
+// would never be decoded. This runs at module top level, before `loop.start()`,
+// which is what guarantees the ordering.
+for (const [name, url] of Object.entries(packs.soundUrls)) {
+  defineSound(name, { url });
+}
+
+/**
+ * Where the bullet sheet comes from when no pack supplies one — **the
+ * low-level seam real art can also arrive through.**
+ *
+ * A loaded pack's `assets.bullets` wins over this: `packs.bulletsUrl ?? …`
+ * below. This constant stays as the documented direct route — to ship a sheet
+ * without authoring a pack, import the PNG and put the URL here:
  *
  * ```ts
  * import BULLETS_URL from './assets/bullets.png';
@@ -95,8 +119,20 @@ const background = new Background(stage, 'drift');
  */
 const BULLET_SHEET: string | undefined = undefined;
 
-const bulletAtlas = await makeBulletAtlas(BULLET_SHEET);
-const shipAtlas = createShipAtlas();
+const bulletAtlas = await makeBulletAtlas(packs.bulletsUrl ?? BULLET_SHEET);
+const shipAtlas = await makeShipAtlas(packs.shipUrl);
+
+// A pack may ask for linear sampling (smooth art); the default `nearest`
+// matches `loadTexture`, so only the opt-in needs applying. The placeholder
+// generators already choose their own filter, and a pack that supplied no
+// sheet leaves them untouched.
+if (packs.filter === 'linear') {
+  for (const atlas of [bulletAtlas, shipAtlas]) {
+    atlas.texture.magFilter = THREE.LinearFilter;
+    atlas.texture.minFilter = THREE.LinearFilter;
+    atlas.texture.needsUpdate = true;
+  }
+}
 
 /** One batch per layer and blend mode; each is a single instanced draw call. */
 const batches = {
@@ -174,9 +210,13 @@ window.addEventListener('keydown', (e) => {
  * a run starts, and is then recorded. Nothing inside the simulation ever reads
  * a clock — see CLAUDE.md rule 1.
  */
+// The loaded pack identity travels on the context so `PlayingState` can forward
+// it into `RunConfig.packs`, which records it into replay meta — read there the
+// same way `ctx.boss` is.
 const context: GameContext = {
   machine,
   nextSeed: () => Date.now() & 0xffffffff,
+  packs: packs.packsMeta || undefined,
   onReplay(replay) {
     // Kept only in memory, and exposed so a finished run can be inspected or
     // saved from the console. Persisting these is the natural next step; the
@@ -435,9 +475,9 @@ function drawHud(run: Run | undefined): void {
   // Top-right: the resources a player checks between waves.
   surface.textAlign = 'right';
   surface.fillStyle = '#9a9aa4';
-  surface.fillText(`♥ ${p.lives}`, FIELD_W - 8, topY);
+  hudResource(packs.hudIcons.life, '♥', `${p.lives}`, FIELD_W - 8, topY);
   surface.fillStyle = '#6f6f78';
-  surface.fillText(`★ ${p.bombs}   P ${p.power.toFixed(2)}`, FIELD_W - 8, topY + 14);
+  hudResource(packs.hudIcons.bomb, '★', `${p.bombs}   P ${p.power.toFixed(2)}`, FIELD_W - 8, topY + 14);
 
   // Bottom-right: diagnostics, dimmest text on screen.
   surface.fillStyle = '#3a3a3a';
@@ -457,6 +497,40 @@ function drawHud(run: Run | undefined): void {
  * timer as a named spell card. The distinction is the genre's basic grammar —
  * a spell card is the thing you capture — and it was invisible.
  */
+/**
+ * A right-aligned HUD resource: an icon-and-number when a pack supplied the
+ * icon, the ♥/★ glyph otherwise.
+ *
+ * The pack supplies the **shape** only — position, size and alpha stay
+ * engine-owned, the same structural split as white-bullets-with-engine-tint. So
+ * a loaded icon is drawn at a fixed small size and low alpha to the left of the
+ * number, exactly where the glyph would have sat, and never gets to move the
+ * HUD around. The glyph remains the fallback, so a pack that ships no hud art
+ * changes nothing here.
+ */
+const HUD_ICON = 10;
+const HUD_ICON_GAP = 3;
+const HUD_ICON_ALPHA = 0.85;
+
+function hudResource(
+  icon: HTMLImageElement | undefined,
+  glyph: string,
+  text: string,
+  rightX: number,
+  baselineY: number,
+): void {
+  if (icon === undefined) {
+    surface.fillText(`${glyph} ${text}`, rightX, baselineY);
+    return;
+  }
+  surface.fillText(text, rightX, baselineY);
+  const iconX = rightX - surface.measureText(text).width - HUD_ICON - HUD_ICON_GAP;
+  surface.save();
+  surface.globalAlpha = HUD_ICON_ALPHA;
+  surface.drawImage(icon, iconX, baselineY - HUD_ICON, HUD_ICON, HUD_ICON);
+  surface.restore();
+}
+
 function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
   const w = FIELD_W - 60;
   const spell = boss.phase.isSpell === true;
