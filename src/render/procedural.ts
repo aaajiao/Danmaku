@@ -176,7 +176,7 @@ export function createBulletAtlas(): Atlas {
   texture.magFilter = THREE.LinearFilter; // generated art is smooth, not pixel art
   texture.minFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
   texture.flipY = false;
   texture.needsUpdate = true;
 
@@ -212,7 +212,7 @@ export function createShipAtlas(): Atlas {
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
   texture.flipY = false;
   texture.needsUpdate = true;
 

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>asset loading</title>
+    <style>
+      body { margin: 0; background: #000; color: #ddd; font: 13px monospace; }
+      canvas { display: block; }
+      #prompt { padding: 12px 12px 0; color: #ff0; }
+      #result { padding: 12px; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <canvas id="field" width="384" height="288"></canvas>
+    <div id="prompt"></div>
+    <div id="result">running…</div>
+    <script type="module" src="./asset-loading.ts"></script>
+  </body>
+</html>

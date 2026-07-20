@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>density check</title>
+    <style>
+      body {
+        margin: 0;
+        background: #000;
+        color: #ddd;
+        font: 13px monospace;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: normal;
+        color: #fff;
+        margin: 0 0 4px;
+      }
+      p.note {
+        color: #888;
+        max-width: 720px;
+        margin: 0 0 16px;
+      }
+      #result {
+        white-space: pre;
+        padding: 12px;
+        background: #111;
+        border: 1px solid #333;
+        margin-bottom: 20px;
+        overflow-x: auto;
+      }
+      .fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      figcaption {
+        color: #999;
+      }
+      canvas {
+        display: block;
+        background: #000;
+        border: 1px solid #333;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>density check</h1>
+    <p class="note">
+      Performance numbers below are measured automatically. The three stills are a
+      <strong>human check</strong> — docs/assets.md asks for this and it has never been
+      run: "put 500 of them on screen at once ... this is where art that looked
+      beautiful in isolation turns into unreadable soup." Look at them and judge.
+    </p>
+    <div id="result">running…</div>
+    <div class="fields">
+      <figure>
+        <figcaption>500 bullets</figcaption>
+        <canvas id="field-500" width="480" height="480"></canvas>
+      </figure>
+      <figure>
+        <figcaption>2000 bullets</figcaption>
+        <canvas id="field-2000" width="480" height="480"></canvas>
+      </figure>
+      <figure>
+        <figcaption>5000 bullets</figcaption>
+        <canvas id="field-5000" width="480" height="480"></canvas>
+      </figure>
+    </div>
+    <script type="module" src="./density.ts"></script>
+  </body>
+</html>

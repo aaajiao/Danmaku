@@ -35,8 +35,15 @@ import { join } from 'node:path';
  * Directories whose contents run inside the simulation and therefore must be
  * bit-reproducible. `src/render` is deliberately absent — it draws, it does not
  * decide anything.
+ *
+ * `game` is here because `run.ts` owns the tick *order* — the sequence of
+ * system calls that a replay reproduces — and settles score, drops, deaths and
+ * boss transitions. It is simulation by every test this guard applies, and it
+ * was outside the scan while holding the most decision-making code in the
+ * project: the guard would have reported green on a `Math.atan2` in the aim
+ * target, which is the exact regression its header describes.
  */
-const SIMULATION_TREES = ['sim', 'content', 'core'];
+const SIMULATION_TREES = ['sim', 'content', 'core', 'game'];
 
 /**
  * Math members the spec permits an engine to approximate. `sqrt` is absent

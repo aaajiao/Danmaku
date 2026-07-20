@@ -129,14 +129,42 @@ export class Atlas {
  * filtering on a grid sheet bleeds neighbouring cells into each other at the
  * edges. Upstream also rounded textures up to a power of two — a WebGL1
  * constraint we do not inherit.
+ *
+ * ## Colour is display-referred, and that is deliberate
+ *
+ * `colorSpace` is `NoColorSpace`, so texels reach the shader unchanged.
+ *
+ * Tagging textures `SRGBColorSpace` makes the GPU decode sRGB to linear on
+ * sample. That is correct in a linear pipeline — but `SpriteBatch` writes a raw
+ * `ShaderMaterial`, and three.js only applies output encoding to materials that
+ * include its own colorspace fragment chunk. Ours does not, so linear values
+ * landed straight in an sRGB framebuffer and everything drew dark. Measured
+ * before the fix: 128 in the source became 55 on screen, 96 became 30.
+ *
+ * There are two ways out, and the choice is not obvious:
+ *
+ * - Encode back to sRGB in the fragment shader, keeping a linear pipeline.
+ *   Physically correct, and the right answer if lighting were being computed.
+ * - Skip colour management entirely, which is what this does.
+ *
+ * The second wins here because the art is generated white and every colour in
+ * the game is a hand-authored tint like `{ r: 0.45, g: 0.75, b: 1 }`. Those
+ * numbers mean "the colour I want to see". A linear pipeline would require the
+ * person writing them to mentally convert, forever, in exchange for physical
+ * correctness that a 2D game with no lighting model never collects on.
+ *
+ * If real lighting or HDR bloom arrives, revisit this — but change both ends
+ * together, and re-tune the content tints, rather than restoring the sRGB tag
+ * on its own and reintroducing the dark render.
  */
 export async function loadTexture(url: string): Promise<THREE.Texture> {
   const texture = await new THREE.TextureLoader().loadAsync(url);
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
-  texture.colorSpace = THREE.SRGBColorSpace;
   texture.flipY = false;
+  texture.colorSpace = THREE.NoColorSpace;
+
   return texture;
 }
 
