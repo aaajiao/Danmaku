@@ -44,7 +44,7 @@ import { Random } from '../core/random';
 import { getShot } from '../content/shots';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
-import { BossSystem, getBossSpec } from '../sim/boss';
+import { BossSystem, getBossSpec, type DialogueLine } from '../sim/boss';
 import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
 import { EffectSystem } from '../sim/effects';
@@ -267,6 +267,34 @@ export interface RunEvent {
 }
 
 /**
+ * What the shell needs to draw the current dialogue line, or `undefined` when no
+ * exchange is running. Read as *state*, like `scene` and `music`, never drained
+ * as an event. `speaker` is an opaque portrait name — the sim does not know what
+ * a portrait is (see `DialogueLine`).
+ */
+export interface DialogueView {
+  speaker: string;
+  text: string;
+  /** Zero-based index of the line on screen. */
+  index: number;
+  /** Total lines in the exchange. */
+  count: number;
+}
+
+/**
+ * A dialogue exchange in progress: the lines, the line on screen, and the boss
+ * held behind it. Private to `Run` — the shell sees only `DialogueView`.
+ */
+interface DialogueState {
+  lines: readonly DialogueLine[];
+  index: number;
+  /** The boss to spawn once the last line is passed, and where. */
+  boss: string;
+  x: number;
+  y: number;
+}
+
+/**
  * Play field. All content in `src/content` is authored in this space.
  *
  * 480×640 is 3:4 — the traditional Japanese STG portrait frame — and the frame
@@ -387,6 +415,17 @@ export class Run {
   #outcome: RunOutcome = 'playing';
   #bossSent = false;
   #bossDefeated = false;
+
+  /** The pre-fight exchange in progress, or undefined when none is. */
+  #dialogue: DialogueState | undefined;
+  /**
+   * The button mask from the previous dialogue tick, for the fresh-Shot edge
+   * that advances a line. Mirrors `Player.#previous` (CLAUDE.md rule 4): a
+   * replay is a log of masks, so the tap edge is derived here, not read from a
+   * device. Seeded to `Button.Shot` on entry so a Shot already held from
+   * clearing the stage does not advance the first line.
+   */
+  #dialoguePrev = 0;
   /** How many `EXTEND_SCORES` thresholds this run has already paid out. */
   #extends = 0;
 
@@ -486,9 +525,10 @@ export class Run {
     // `options` and `stage` are already checked by construction above. The
     // other two were not, and they are the two that fail latest: the bomb is
     // looked up when the player first presses Bomb, and the boss only once the
-    // stage script is spent and the field is clear — measured at tick 3091 on
-    // stage-1, i.e. after the whole stage has been survived. A run that is
-    // going to fail on a typo must fail before it is played.
+    // stage script is spent and the field is clear — around three thousand ticks
+    // into stage-1, later still if the boss carries dialogue, i.e. after the
+    // whole stage has been survived. A run that is going to fail on a typo must
+    // fail before it is played.
     getBombSpec(this.character.bomb);
     if (this.bossName !== undefined) getBossSpec(this.bossName);
 
@@ -553,8 +593,23 @@ export class Run {
     const rng = this.#rng;
     const player = this.player;
 
-    this.stage.step(rng);
-    this.#sendBoss(rng);
+    // A dialogue exchange is a phase of its own: the field is frozen, the player
+    // moves but cannot act, and each fresh Shot advances a line. It is entered by
+    // `#sendBoss` when a boss carrying dialogue comes due, and it holds the whole
+    // rest of the tick — nothing else steps — so the only state that advances is
+    // the player's position and the line index, both pure functions of the input
+    // log. That is what keeps a replay reproducing it (CLAUDE.md rules 1, 4). The
+    // stage and boss are only consulted while no exchange is running, which is
+    // also what stops spawning during one.
+    if (this.#dialogue === undefined) {
+      this.stage.step(rng);
+      this.#sendBoss(rng);
+    }
+    if (this.#dialogue !== undefined) {
+      this.#stepDialogue(mask, rng);
+      this.#tick++;
+      return;
+    }
 
     this.enemies.step(player.x, player.y, rng);
     this.boss.step(player.x, player.y, rng);
@@ -989,7 +1044,7 @@ export class Run {
    */
   #sendBoss(rng: Random): void {
     for (const cue of this.stage.drainBossCues()) {
-      this.boss.spawn(
+      this.#releaseBoss(
         cue.boss,
         cue.x ?? this.#field.width / 2,
         cue.y ?? BOSS_ENTRY_Y,
@@ -1007,7 +1062,60 @@ export class Run {
     if (!this.stage.finished || this.enemies.count > 0 || this.boss.active) return;
 
     this.#bossSent = true;
-    this.boss.spawn(this.bossName, this.#field.width / 2, BOSS_ENTRY_Y, rng);
+    this.#releaseBoss(this.bossName, this.#field.width / 2, BOSS_ENTRY_Y, rng);
+  }
+
+  /**
+   * Spawn a boss — but if its spec carries dialogue, enter the dialogue phase
+   * first and hold the spawn until the exchange is tapped through.
+   *
+   * Both `#sendBoss` call sites route through here, and both must: `warden` is a
+   * midboss reached only by the cue path, and if only the end-of-stage spawn
+   * checked for dialogue its exchange would be registered and unreachable — the
+   * exact failure class `reachability.test.ts` exists to catch.
+   */
+  #releaseBoss(name: string, x: number, y: number, rng: Random): void {
+    const lines = getBossSpec(name).dialogue;
+    if (lines === undefined || lines.length === 0) {
+      this.boss.spawn(name, x, y, rng);
+      return;
+    }
+
+    // Entering the exchange: clear the field (the genre's mercy) and hold the
+    // spawn. `Button.Shot` seeds the tap edge so a Shot held from the stage that
+    // just ended does not advance line 0 — the first tap must be a fresh press.
+    this.bullets.clear();
+    this.#dialogue = { lines, index: 0, boss: name, x, y };
+    this.#dialoguePrev = Button.Shot;
+  }
+
+  /**
+   * One dialogue tick: move the player, advance on a fresh Shot press, and spawn
+   * the held boss once the last line is passed.
+   *
+   * `mask` is the raw sampled mask, read here for the tap edge; the value handed
+   * to `player.step` has Shot and Bomb cleared, so the same press that advances a
+   * line never also fires or spends a bomb (a bomb spent here would never blast —
+   * `#resolveBomb` does not run during dialogue — and would be silently lost).
+   */
+  #stepDialogue(mask: number, rng: Random): void {
+    const dialogue = this.#dialogue;
+    if (dialogue === undefined) return;
+
+    const shotEdge =
+      (mask & Button.Shot) !== 0 && (this.#dialoguePrev & Button.Shot) === 0;
+    this.#dialoguePrev = mask;
+
+    this.player.step(mask & ~(Button.Shot | Button.Bomb), this.bullets, this.#tick);
+
+    if (!shotEdge) return;
+
+    dialogue.index++;
+    if (dialogue.index < dialogue.lines.length) return;
+
+    // Last line passed: the boss enters exactly as it would have.
+    this.#dialogue = undefined;
+    this.boss.spawn(dialogue.boss, dialogue.x, dialogue.y, rng);
   }
 
   /** Nearest enemy to the player, for aimed options. Boss counts as a target. */
@@ -1172,6 +1280,27 @@ export class Run {
   }
 
   /**
+   * The dialogue line on screen, or `undefined` when no exchange is running.
+   *
+   * Declared state the shell reconciles, like `scene` and `music`, never a
+   * drained event — reading it is idempotent, so a paused or replayed run needs
+   * no resynchronisation. `speaker` is an opaque portrait name; the simulation
+   * never learns portraits exist (see `DialogueLine`).
+   */
+  get dialogue(): DialogueView | undefined {
+    const dialogue = this.#dialogue;
+    if (dialogue === undefined) return undefined;
+    const line = dialogue.lines[dialogue.index];
+    if (line === undefined) return undefined;
+    return {
+      speaker: line.speaker,
+      text: line.text,
+      index: dialogue.index,
+      count: dialogue.lines.length,
+    };
+  }
+
+  /**
    * The recording of this run, for saving.
    *
    * The meta is not decoration: it is what `new Run({ replay })` checks itself
@@ -1251,6 +1380,8 @@ export class Run {
     this.#outcome = 'playing';
     this.#bossSent = false;
     this.#bossDefeated = false;
+    this.#dialogue = undefined;
+    this.#dialoguePrev = 0;
     this.#extends = 0;
     this.#events.length = 0;
     this.#spare.length = 0;

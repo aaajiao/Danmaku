@@ -42,6 +42,10 @@ const CTX = {
   sprites: ['orb.large', 'ring', 'halo', 'shard'],
   shipSprites: ['ship'],
   scenes: ['expanse', 'undertow'],
+  // A fixed built-in portrait set — a dialogue speaker resolves against these ∪
+  // the pack's own `portraits`. Kept small and stable so the "unknown portrait"
+  // golden that lists them does not drift as built-ins are added.
+  portraits: ['player', 'sentinel'],
 };
 
 let counter = 0;
@@ -50,7 +54,12 @@ function uniqueName(): string {
   return `p.test.${counter++}`;
 }
 
-function manifest(name: string, content: PackContent, music?: PackMusic): PackManifest {
+function manifest(
+  name: string,
+  content: PackContent,
+  music?: PackMusic,
+  portraits?: Record<string, string>,
+): PackManifest {
   const requires: string[] = [];
   if (content.enemies) requires.push('content.enemies');
   if (content.stages) requires.push('content.stages');
@@ -63,6 +72,7 @@ function manifest(name: string, content: PackContent, music?: PackMusic): PackMa
   if (content.items) requires.push('content.items');
   const m: PackManifest = { format: 1, name, version: '1.0.0', author: 'x', license: 'CC0-1.0', requires, content };
   if (music) m.music = music;
+  if (portraits) m.portraits = portraits;
   return m;
 }
 
@@ -641,6 +651,76 @@ describe('music resolves pack-first — like a background, but a pack may add it
       ),
     ).toContain(
       `pack "${name}": boss "warlord" names unknown music "nope" — no such music in this pack or built in`,
+    );
+  });
+});
+
+describe('boss dialogue — speakers resolve against portraits, pack-first', () => {
+  function bossWithDialogue(name: string, dialogue: { speaker: string; text: string }[], portraits?: Record<string, string>) {
+    return manifest(
+      name,
+      {
+        enemies: { ember: enemy() },
+        bosses: { warlord: boss({ dialogue }) },
+        stages: {
+          gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+        },
+      },
+      undefined,
+      portraits,
+    );
+  }
+
+  test('a built-in speaker stays bare on the built boss spec', () => {
+    const name = uniqueName();
+    // 'sentinel' and 'player' are in CTX.portraits (the built-in set) and not the
+    // pack's own, so they resolve to the bare built-in portrait names.
+    injectPack(
+      bossWithDialogue(name, [
+        { speaker: 'sentinel', text: 'Far enough.' },
+        { speaker: 'player', text: 'The gate is behind you.' },
+      ]),
+      CTX,
+    );
+    expect(getBossSpec(`${name}/warlord`).dialogue).toEqual([
+      { speaker: 'sentinel', text: 'Far enough.' },
+      { speaker: 'player', text: 'The gate is behind you.' },
+    ]);
+  });
+
+  test("a speaker the pack's own portraits section names qualifies to <pack>/<name>", () => {
+    const name = uniqueName();
+    injectPack(
+      bossWithDialogue(
+        name,
+        [
+          { speaker: 'warlord', text: 'You should not have come.' },
+          { speaker: 'player', text: 'And yet.' },
+        ],
+        { warlord: 'warlord.png' },
+      ),
+      CTX,
+    );
+    // The pack portrait `warlord` qualifies; the built-in `player` stays bare.
+    expect(getBossSpec(`${name}/warlord`).dialogue).toEqual([
+      { speaker: `${name}/warlord`, text: 'You should not have come.' },
+      { speaker: 'player', text: 'And yet.' },
+    ]);
+  });
+
+  test('an unknown speaker is a golden error listing the known portraits', () => {
+    const name = uniqueName();
+    expect(problemsOf(bossWithDialogue(name, [{ speaker: 'nobody', text: 'x' }]))).toContain(
+      `pack "${name}": boss "warlord" dialogue line 0 names unknown portrait "nobody" — known portraits: player, sentinel`,
+    );
+  });
+
+  test("the pack's own portrait joins the known set for the error listing", () => {
+    const name = uniqueName();
+    expect(
+      problemsOf(bossWithDialogue(name, [{ speaker: 'nobody', text: 'x' }], { warlord: 'warlord.png' })),
+    ).toContain(
+      `pack "${name}": boss "warlord" dialogue line 0 names unknown portrait "nobody" — known portraits: player, sentinel, warlord`,
     );
   });
 });

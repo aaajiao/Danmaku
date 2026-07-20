@@ -261,6 +261,7 @@ engine. Every extension point is a registry:
 | Particle effects | `defineEffect` | `src/sim/effects.ts` |
 | Stages and waves | `defineStage` | `src/content/stage.ts` |
 | Background scenes | `defineBackground` | `src/render/background.ts` |
+| Dialogue portraits | `definePortrait` | `src/render/portrait.ts` |
 | Sounds | `defineSound` | `src/audio/index.ts` |
 | Music tracks | `defineMusic` | `src/audio/music.ts` |
 | Sprite regions | `Atlas.define` / `defineGrid` | `src/render/atlas.ts` |
@@ -274,18 +275,23 @@ The last row is the one that is not code: an **asset pack** is a folder dropped
 into `packs/`, and it extends the game without touching a registry or the engine
 at all. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
 that patterns, effects and the HUD draw with — bullet sheet, ship, HUD icons,
-sounds, and music tracks (a stage or boss names a track by string, exactly as it
+sounds, music tracks (a stage or boss names a track by string, exactly as it
 names a scene; the file is presentation and stays under the warn-only skin
-identity, while the track name it carries in the spec is content). **Content**
+identity, while the track name it carries in the spec is content), and dialogue
+portraits (a `portraits` section of name→image, the face a boss's `speaker` names —
+presentation, warn-only, with a procedural silhouette as the floor). **Content**
 (format 2, gated by a `requires` capability) adds JSON data
 across nine sections — enemies, stages, bosses, shots, characters, options, bombs,
 effects and items: an enemy is an `EnemySpec`, a stage is waves chained into a
-selectable campaign, a boss is spell-card phases sized in seconds, a character
+selectable campaign, a boss is spell-card phases sized in seconds — and may carry a
+pre-fight dialogue exchange, which is boss content and travels strict — a character
 names its shot/options/bomb and joins the SELECT screen. What a pack never carries
 is *code* — the patterns an enemy or boss fires, the behaviours that steer a bullet
 and the shader scenes a stage is set in all stay engine code, joined to a pack only
-by name, and a new item `kind` stays a game rule. A pack paints and arranges; it
-never scripts a new rule. The replay contract splits on that line: a reskin cannot
+by name, and a new item `kind` stays a game rule. Dialogue is the boundary drawn
+once more: the *text* is content the sim runs (advancing a line is input that
+delays the boss), the *portrait* is only presentation. A pack paints and arranges;
+it never scripts a new rule. The replay contract splits on that line: a reskin cannot
 change the simulation so a skin mismatch **warns**, while content changes what the
 game does so a content mismatch **refuses**, exactly like a mismatched character or
 stage — and a pack character flown on any campaign is a content run for that reason.

@@ -206,11 +206,11 @@ describe('unknown and reserved top-level fields', () => {
 
   test('an unrecognisable key lists the valid fields', () => {
     expect(errorsOf({ ...valid(), wibble: 1 })).toContain(
-      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content',
+      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, portraits, requires, content',
     );
   });
 
-  for (const reserved of ['dialog', 'backgrounds']) {
+  for (const reserved of ['backgrounds']) {
     test(`reserved section "${reserved}" gets a dedicated rejection`, () => {
       expect(errorsOf({ ...valid(), [reserved]: {} })).toContain(
         `pack "candy": pack.json: ${reserved} is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future`,
@@ -218,12 +218,22 @@ describe('unknown and reserved top-level fields', () => {
     });
   }
 
+  test('dialog is no longer a reserved top-level section — boss dialogue is content, portraits are a section', () => {
+    // `dialog` left the reserved list when the feature landed: pre-boss dialogue
+    // rides inside `content.bosses.<name>.dialogue` and the images live in the
+    // top-level `portraits` section, so there is no `dialog` section at all. A
+    // stray top-level `dialog` therefore reads as an ordinary unknown field.
+    expect(errorsOf({ ...valid(), dialog: {} })).toContain(
+      'pack "candy": pack.json: unknown field "dialog" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, portraits, requires, content',
+    );
+  });
+
   test('difficulty is no longer a reserved top-level section — it is a per-pattern override', () => {
     // Difficulty retired from the reserved list the same way music did: it is not
     // a section at all but an override inside pattern slots and spell cards, so a
     // stray top-level `difficulty` reads as an ordinary unknown field.
     expect(errorsOf({ ...valid(), difficulty: {} })).toContain(
-      'pack "candy": pack.json: unknown field "difficulty" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content',
+      'pack "candy": pack.json: unknown field "difficulty" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, portraits, requires, content',
     );
   });
 });
@@ -292,6 +302,28 @@ describe('music', () => {
   test('a valid music section round-trips', () => {
     const result = validateManifest(
       { ...valid(), music: { ashen: { file: 'ashen.wav', loopStart: 0.6, loopEnd: 4.2 } } },
+      'candy',
+    );
+    expect('manifest' in result).toBe(true);
+  });
+});
+
+describe('portraits', () => {
+  test('not an object', () => {
+    expect(errorsOf({ ...valid(), portraits: [] })).toContain(
+      'pack "candy": pack.json: portraits must be a JSON object',
+    );
+  });
+
+  test('a portrait path that is not a string', () => {
+    expect(errorsOf({ ...valid(), portraits: { pyre: 3 } })).toContain(
+      'pack "candy": pack.json: portraits."pyre" must be a string (a path to a PNG)',
+    );
+  });
+
+  test('a valid portraits section round-trips (names are open-ended)', () => {
+    const result = validateManifest(
+      { ...valid(), portraits: { pyre: 'pyre.png', warlord: 'warlord.png' } },
       'candy',
     );
     expect('manifest' in result).toBe(true);
@@ -470,10 +502,20 @@ describe('content — format-2 sections', () => {
     );
   });
 
-  test('a still-reserved content section is refused by name', () => {
-    const raw = { ...valid(), requires: ['content.dialog'], content: { dialog: {} } };
+  test('a still-reserved content section (backgrounds) is refused by name', () => {
+    const raw = { ...valid(), content: { backgrounds: {} } };
     expect(errorsOf(raw)).toContain(
-      'pack "candy": pack.json: content.dialog is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
+      'pack "candy": pack.json: content.backgrounds is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
+    );
+  });
+
+  test('content.dialog is no longer reserved — dialogue rides on content.bosses, not its own section', () => {
+    // `dialog` left the reserved content list when boss dialogue became real: it
+    // is a field on `content.bosses.<name>` (`dialogue`), never a `content` section
+    // of its own, so a stray `content.dialog` reads as an ordinary unknown field.
+    const raw = { ...valid(), content: { dialog: {} } };
+    expect(errorsOf(raw)).toContain(
+      'pack "candy": pack.json: content: unknown field "dialog" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items',
     );
   });
 
@@ -848,6 +890,55 @@ describe('content — format-2 sections', () => {
         'pack "candy": pack.json: content.bosses."warlord".phases[0].patterns[0].difficulty: "nromal" is not a difficulty tier — did you mean "normal"?',
       );
     });
+
+    describe('dialogue', () => {
+      test('a boss with a valid dialogue round-trips (speaker resolution is the injector\'s)', () => {
+        const raw = boss({
+          ...base(),
+          dialogue: [
+            { speaker: 'warlord', text: 'You should not have come.' },
+            { speaker: 'player', text: 'And yet.' },
+          ],
+        });
+        expect('manifest' in validateManifest(raw, 'candy')).toBe(true);
+      });
+
+      test('dialogue must be an array', () => {
+        expect(errorsOf(boss({ ...base(), dialogue: {} }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogue must be an array of {speaker, text} lines',
+        );
+      });
+
+      test('a dialogue line that is not an object', () => {
+        expect(errorsOf(boss({ ...base(), dialogue: ['hello'] }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogue[0] must be a JSON object',
+        );
+      });
+
+      test('a line missing its speaker', () => {
+        expect(errorsOf(boss({ ...base(), dialogue: [{ text: 'hi' }] }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogue[0] is missing required field "speaker" — a portrait name',
+        );
+      });
+
+      test('a line missing its text', () => {
+        expect(errorsOf(boss({ ...base(), dialogue: [{ speaker: 'warlord' }] }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogue[0] is missing required field "text" — the line spoken',
+        );
+      });
+
+      test('a non-string speaker', () => {
+        expect(errorsOf(boss({ ...base(), dialogue: [{ speaker: 3, text: 'hi' }] }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogue[0].speaker must be a string',
+        );
+      });
+
+      test('an unknown line field suggests the near key', () => {
+        expect(errorsOf(boss({ ...base(), dialogue: [{ speaker: 'warlord', text: 'hi', txet: 'x' }] }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogue[0]: unknown field "txet" — did you mean "text"?',
+        );
+      });
+    });
   });
 });
 
@@ -1085,7 +1176,7 @@ describe('errors are collected, not reported first-only', () => {
       'pack "candy": pack.json: missing required field "name" — it must equal the directory name "candy" and match [a-z0-9-]{1,32}',
     );
     expect(errors).toContain(
-      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content',
+      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, portraits, requires, content',
     );
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });

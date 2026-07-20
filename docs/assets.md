@@ -525,6 +525,39 @@ Two properties of the particle system that constrain what those cells can be:
   life (`src/sim/effects.ts:319`), so `glow.large` is drawn anywhere between
   51px and 10px. Detail that only exists at one size is wasted at both ends.
 
+### 3.6 Dialogue portraits — `portrait.png`, one per speaker, exactly 96×96
+
+The face drawn beside a boss's pre-fight dialogue line. It is not on any sheet and
+not tied to a grid — each portrait is its own square image, named and drawn on the
+2D overlay canvas beside the dialogue box, never batched into the field.
+
+| Property | Value | Verified at |
+|---|---|---|
+| Image size | **exactly 96 × 96** | `PORTRAIT_SIZE`, `src/render/portrait.ts` |
+| Namespace | a **portrait name**, what a `DialogueLine.speaker` names | `src/render/portrait.ts` |
+| Colour | may be **full colour** — unlike bullets and the ship, a portrait is not tinted white | `src/render/portrait.ts` |
+| Fallback | a procedural tinted silhouette carrying the name, for any speaker with no image | `portraitImage`, `src/render/portrait.ts` |
+
+Three things set it apart from the white-and-tinted sheets above:
+
+- **96×96 is exact, not a ceiling.** The shell composites the portrait at a fixed
+  size, so a wrong one does not scale cleanly — the loader enforces the exact
+  square with the ship-sheet's `!==` idiom, not the HUD icon's tolerant `≤`. A
+  portrait that is not 96×96 is rejected, naming the measured size.
+- **Colour is yours.** A portrait is one of the few places real hue belongs (§1),
+  because it is drawn as itself, never multiplied by an engine tint. Paint a face,
+  not a white silhouette.
+- **It never blocks a boss on art.** A speaker with no registered portrait draws a
+  procedural silhouette — a dark tinted panel with the name — so dialogue is
+  authored and playable before any face exists. The image only replaces that
+  placeholder. In the source path a portrait is registered with `definePortrait`
+  (`docs/extending.md` §12); in a pack it is the `portraits` section, dimension-
+  checked at load (`docs/packs.md` §5.5).
+
+The drawn box is a readability judgement — legible against the field, obeying the
+negative-space budget while the player still flies — so it is checked by eye in
+`bun run dev`, not asserted by a pixel test.
+
 ---
 
 ## 4. Generating art with an image model

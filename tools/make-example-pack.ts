@@ -332,6 +332,65 @@ function verifyHudIcon(name: string, bytes: Uint8Array): void {
 }
 
 /* ------------------------------------------------------------------ */
+/* Dialogue portrait — the face the shell draws beside a boss's line   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The one square a portrait occupies (`PORTRAIT_SIZE`, `src/render/portrait.ts`).
+ * The loader's dimension check is EXACT — the ship-sheet idiom, not the tolerant
+ * hud-icon `≤` — so a portrait that is anything other than this size rejects the
+ * pack. Imported rather than hardcoded so this generator and the loader agree on
+ * the one number.
+ */
+const PORTRAIT_SIZE = 96;
+
+/**
+ * `pyre`'s portrait: the speaker face `content.bosses.pyre.dialogue` names. Flat
+ * and hard-edged like the rest of this pack's art — deliberately UNLIKE the
+ * built-in procedural placeholder (`paintSilhouette` in `src/render/portrait.ts`,
+ * a soft tinted gradient with a name plate) — so an author can see at a glance
+ * that a pack portrait took the place of the silhouette. An ember bust on a dark
+ * panel: a head, shoulders rising to the base, and a visor band, all in the pack's
+ * ember palette so the face reads as `pyre`'s fight the way its bullets do.
+ *
+ * A portrait need not be white the way a bullet cell must — it is drawn once, not
+ * per-instance tinted — so this carries its own colour.
+ */
+function buildPortrait(): Uint8Array {
+  const cx = PORTRAIT_SIZE / 2;
+  const inBust = (x: number, y: number): boolean => {
+    const dx = x - cx;
+    // Head.
+    if (dx * dx + (y - 34) * (y - 34) <= 18 * 18) return true;
+    // Shoulders: a body widening toward the base, leaving a margin at the edge.
+    if (y >= 52) {
+      const halfW = 12 + (y - 52) * 0.72;
+      if (Math.abs(dx) <= Math.min(halfW, 42)) return true;
+    }
+    return false;
+  };
+  // A visor band across the head — the small detail that marks this as authored
+  // art, not a blank silhouette.
+  const inVisor = (x: number, y: number): boolean =>
+    y >= 30 && y <= 38 && Math.abs(x - cx) <= 15;
+
+  return encodePng(PORTRAIT_SIZE, PORTRAIT_SIZE, ColourType.RGBA, (x, y) => {
+    if (inVisor(x, y)) return [255, 205, 120, 255]; // bright ember visor
+    if (inBust(x, y)) return [200, 110, 45, 255]; // ember bust, mid luminance
+    // Dark ember panel, a faint top-to-bottom step so the cell reads as tinted.
+    return y < PORTRAIT_SIZE / 2 ? [30, 17, 9, 255] : [18, 10, 5, 255];
+  });
+}
+
+function verifyPortrait(name: string, bytes: Uint8Array): string {
+  const png = parsePng(bytes);
+  if (png.width !== PORTRAIT_SIZE || png.height !== PORTRAIT_SIZE) {
+    throw new Error(`${name}: ${png.width}x${png.height}, must be exactly ${PORTRAIT_SIZE}x${PORTRAIT_SIZE}`);
+  }
+  return `  ${png.width}x${png.height} — exactly ${PORTRAIT_SIZE}x${PORTRAIT_SIZE}`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Sound — a minimal inline WAV encoder                                 */
 /* ------------------------------------------------------------------ */
 
@@ -769,6 +828,16 @@ const CONTENT: PackContent = {
       entry: { x: 240, y: 140, ticks: 90 },
       onDeath: 'death.big',
       spoils: [['relic', 2], ['score', 3]] as [string, number][],
+      // A two-line pre-fight exchange. The first speaker, `pyre`, names this
+      // pack's own portrait (bare, resolved pack-first to `example/pyre`); the
+      // second, `player`, is a built-in portrait referenced bare. When `ashfall`
+      // sends this boss, the Run enters a dialogue phase — bullets cleared, the
+      // ship still flying but unable to fire — that a fresh Shot press advances,
+      // one line at a time, before the fight begins.
+      dialogue: [
+        { speaker: 'pyre', text: 'You reached the ash. Few do.' },
+        { speaker: 'player', text: 'Then few have put it out.' },
+      ],
       phases: [
         {
           name: 'Smoulder',
@@ -904,6 +973,13 @@ const MANIFEST: PackManifest = {
     life: 'life.png',
     bomb: 'bomb.png',
   },
+  // One dialogue portrait, a NEW name (no built-in portrait is called `pyre`), so
+  // it registers as `example/pyre` and `content.bosses.pyre.dialogue` names it
+  // bare, resolved pack-first. A top-level presentation section, sibling to
+  // `sounds` and `music`: a portrait is a file, and a boss only names one.
+  portraits: {
+    pyre: 'portrait.png',
+  },
   // The covering invariant: every content.<section> present must be named here,
   // and vice versa. It is what lets a v1 engine refuse on `requires` before it
   // ever parses `content`. This pack ships every implemented content section, so
@@ -955,18 +1031,21 @@ JSON has no comments, so this table is where the annotation lives.
 | \`sounds.shot\`, \`sounds.pickup\` | two \`.wav\` files | One entry per sound this pack replaces — the full list of names the engine plays is in \`docs/audio.md\` §2; an unknown name is rejected and lists them. This pack only replaces two of the six, which is legal: everything else keeps playing its synthesised placeholder. |
 | \`hud.life\`, \`hud.bomb\` | two \`.png\` files | Replace the ♥/★ glyphs. See "HUD icons are shapes, not compositions" below. |
 | \`music.ashen\` | one \`.wav\` with loop points | A background track — a top-level section, sibling to \`sounds\`. See "Music: an intro and a loop" below. |
+| \`portraits.pyre\` | one \`.png\`, exactly 96×96 | A dialogue portrait — the face drawn beside a boss's line. A top-level section, sibling to \`sounds\`/\`music\`. See "Dialogue: who speaks, and who is drawn" below. |
 | \`requires\` | all nine \`content.*\` capabilities | The capabilities this pack's \`content\` needs. The engine honours exactly the implemented set; anything else is refused by name. Every \`content.<section>\` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on \`requires\` before it parses a \`content\` section it could not load. |
 | \`content\` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
-The fields this engine still does not implement — the top-level
-\`dialog\`/\`backgrounds\`, the reserved \`hud\` names
-\`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated rejection naming each as a
-future section rather than a generic "unknown field" error; see
-\`docs/packs.md\` §Future. (\`content.dialog\`/\`content.backgrounds\` are refused the
-same way inside \`content\`. \`music\` and \`difficulty\` are no longer among them —
-\`music\` is a real top-level section now, and \`difficulty\` is not a section at all
-but a per-pattern override that lives inside the content shapes; both are
-documented above and below.)
+The fields this engine still does not implement — the top-level \`backgrounds\`,
+the reserved \`hud\` names \`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated
+rejection naming each as a future section rather than a generic "unknown field"
+error; see \`docs/packs.md\` §Future. (\`content.backgrounds\` is refused the same way
+inside \`content\`.) What remains reserved is only the one permanent code line:
+\`backgrounds\` are shader code the engine owns, named by a string and never shipped
+as pack data — the same boundary as patterns and behaviours. \`dialog\` left the
+list when this feature landed — boss dialogue is now a field on
+\`content.bosses\` and portraits a real top-level section (both below); \`music\` is a
+real top-level section too; and \`difficulty\` is not a section at all but a
+per-pattern override inside the content shapes.
 
 ## Content: one of everything
 
@@ -1191,6 +1270,57 @@ The built-in tracks (\`menu\`, and one per built-in stage and boss — see
 Naming one of *those* in your \`music\` section replaces it, last-wins, the same
 as a \`sounds\` reskin; a new name like \`ashen\` adds a track your own stages and
 bosses can name.
+
+## Dialogue: who speaks, and who is drawn
+
+A boss can carry a **pre-fight exchange**. When \`ashfall\` sends \`pyre\`, the run
+enters a dialogue phase before the boss spawns: the screen's bullets are cleared,
+enemies stop coming, and the ship still flies but cannot fire. Each **fresh Shot
+press** advances one line — a *tap*, not a hold, so leaning on the fire button
+does not skip it — and after the last line \`pyre\` enters and the fight begins.
+
+Dialogue is two halves that live in two different places, because they are two
+different kinds of thing.
+
+**The lines are content — they ride inside the boss.** \`pyre\`'s exchange is a
+\`dialogue\` array on \`content.bosses.pyre\`, each entry a \`{ speaker, text }\`:
+
+\`\`\`json
+"dialogue": [
+  { "speaker": "pyre",   "text": "You reached the ash. Few do." },
+  { "speaker": "player", "text": "Then few have put it out." }
+]
+\`\`\`
+
+A \`speaker\` is a **portrait name**, resolved pack-first then built-in exactly like
+every other reference: \`pyre\` is this pack's own portrait (qualified to
+\`example/pyre\`), and \`player\` is a built-in. Because dialogue changes what the
+run *does* — it delays the boss, so a replay must reproduce the taps — the lines
+travel with the boss spec under the run's strict \`packsData\` identity, the same as
+a stage or a character. **A replay recorded against different dialogue is refused,
+not warned.**
+
+**The faces are presentation — they ride in a top-level \`portraits\` section.** A
+portrait is a file the shell draws beside the line; it changes nothing the
+simulation can see, so a \`portraits\` entry is a reskin, **warn-only** on replay
+like \`assets\` and \`sounds\`. This pack adds one:
+
+\`\`\`json
+"portraits": { "pyre": "portrait.png" }
+\`\`\`
+
+A NEW name (no built-in portrait is called \`pyre\`) registers as \`example/pyre\`,
+which is what \`pyre\`'s \`dialogue\` names bare and the injector qualifies. **A
+portrait must be exactly 96×96** — the shell composites it into a fixed cell, so
+the loader's check is exact (a mismatch is rejected with the measured size),
+unlike a hud icon's tolerant upper bound.
+
+**Every speaker draws, art or no art.** A speaker with no \`portraits\` entry — a
+built-in \`player\`, or a name you have not drawn yet — is not an error at draw
+time: the shell paints a **procedural silhouette** seeded from the name, the same
+permanent floor as bullets and ship. So the text half is what a boss needs to
+speak; the portrait half only *replaces the silhouette with your art*. That split
+— strict lines, warn-only faces — is why they sit in two sections rather than one.
 `;
 
 /* ------------------------------------------------------------------ */
@@ -1207,6 +1337,7 @@ const shotWav = buildShot();
 const pickupWav = buildPickup();
 const ashenSamples = buildAshen();
 const ashenWav = encodeWavMono(ashenSamples);
+const portraitPng = buildPortrait();
 
 files['bullets.png'] = bulletsPng;
 files['ship.png'] = shipPng;
@@ -1215,6 +1346,7 @@ files['bomb.png'] = bombPng;
 files['shot.wav'] = shotWav;
 files['pickup.wav'] = pickupWav;
 files['ashen.wav'] = ashenWav;
+files['portrait.png'] = portraitPng;
 files['pack.json'] = JSON.stringify(MANIFEST, null, 2) + '\n';
 files['README.md'] = README;
 
@@ -1238,6 +1370,9 @@ for (const [name, bytes] of hudIcons) {
 
 report.push('ashen.wav — music loop:');
 report.push(verifyAshen(ashenSamples));
+
+report.push('portrait.png — dialogue portrait:');
+report.push(verifyPortrait('portrait.png', portraitPng));
 
 // The manifest this script is about to write, checked against the real
 // validator it will be loaded by — not a second, hand-maintained idea of what

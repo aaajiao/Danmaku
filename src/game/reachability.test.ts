@@ -237,6 +237,16 @@ function playThroughGame(
   let playerX = 240;
   let playerY = 400;
   let fightingBoss = false;
+  /**
+   * Whether the run was showing a dialogue line at the end of the previous tick.
+   *
+   * A boss carrying dialogue holds behind an exchange that a *fresh* Shot press
+   * advances — a held Shot never does. The combat pilot holds Shot continuously,
+   * so without this it would never produce the edge and would stall at the first
+   * exchange until the tick limit, timing out with the boss unreached. Observed
+   * from `run.dialogue` after each tick, and used to pulse Shot on the next one.
+   */
+  let inDialogue = false;
 
   for (let tick = 0; tick < limit; tick++) {
     cover.ticks = tick;
@@ -245,7 +255,14 @@ function playThroughGame(
     cover.states.add(name);
 
     let buttons = 0;
-    if (name === 'playing') {
+    if (name === 'playing' && inDialogue) {
+      // Tap through the pre-boss exchange: a fresh Shot press advances a line, a
+      // held one does not, so pulse it. The field is frozen, so nothing else the
+      // combat pilot does matters — it only has to keep pressing to reach the
+      // fight. This is the proof the feature sits on the real path.
+      confirm ^= 1;
+      buttons = confirm ? Button.Shot : 0;
+    } else if (name === 'playing') {
       // Sweep across the field while firing, and lift toward the auto-collect
       // line periodically so drops are actually picked up rather than falling
       // past. Nothing here is skilful; it only has to touch things.
@@ -332,6 +349,8 @@ function playThroughGame(
 
       playerX = run.player.x;
       playerY = run.player.y;
+      // Observed here, consumed by the pilot next tick to pulse Shot through it.
+      inDialogue = run.dialogue !== undefined;
       const boss = run.boss.boss;
       if (boss?.alive) {
         cover.bosses.add(boss.name);

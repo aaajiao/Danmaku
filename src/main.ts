@@ -29,6 +29,7 @@ import { loadPacks } from './packs/loader';
 import { Background } from './render/background';
 import { bulletAtlas as makeBulletAtlas, shipAtlas as makeShipAtlas } from './render/procedural';
 import { PostProcessing } from './render/post';
+import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
 
@@ -488,6 +489,14 @@ function drawOverlay(run: Run | undefined): void {
 
   drawHud(run);
 
+  // A pre-boss exchange is drawn over the field the player is still flying. It
+  // sits above the HUD and below any menu (a pause taken mid-exchange composites
+  // over it). `run.dialogue` is read as declared state, exactly like `scene`.
+  if (run) {
+    const line = run.dialogue;
+    if (line) drawDialogue(line, run.tickCount);
+  }
+
   // Menus and messages are the states' own business; they describe themselves
   // and this only paints what they describe.
   for (const view of machine.views()) {
@@ -662,6 +671,110 @@ function drawView(view: { kind: string; title?: string; lines?: readonly string[
   });
 
   surface.textAlign = 'left';
+}
+
+/**
+ * The pre-boss exchange box. Same negative-space grammar as the HUD (thin, dark,
+ * edges, dimmest text for the diagnostics-tier readouts), kept low on the frame
+ * so it never sits where a curtain would — the bullets are cleared during an
+ * exchange, but the player is still flying and the field must stay legible.
+ *
+ * Only the current line's speaker is shown, so the speaking side is always the
+ * portrait side: it takes the highlight (a tinted rim, a tinted name plate)
+ * while everything else stays in the dim register.
+ *
+ * `tickCount` drives the advance marker's blink — a tick counter, never a wall
+ * clock, so the hint pulses identically on replay as it did live.
+ */
+const DIALOG_MARGIN = 12;
+const DIALOG_H = 118;
+const DIALOG_PAD = 11;
+const DIALOG_PORTRAIT = 88;
+
+function drawDialogue(
+  line: { speaker: string; text: string; index: number; count: number },
+  tickCount: number,
+): void {
+  const boxX = DIALOG_MARGIN;
+  const boxY = FIELD_H - DIALOG_MARGIN - DIALOG_H;
+  const boxW = FIELD_W - 2 * DIALOG_MARGIN;
+  const tint = tintFor(line.speaker);
+
+  // Panel: a dark fill and a thin edge, nothing that reaches a bullet's white.
+  surface.fillStyle = 'rgba(10,10,14,0.74)';
+  surface.fillRect(boxX, boxY, boxW, DIALOG_H);
+  surface.strokeStyle = '#2a2a32';
+  surface.lineWidth = 1;
+  surface.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, DIALOG_H - 1);
+
+  // Portrait on the left, drawn from its fixed square down to the box height.
+  const pX = boxX + DIALOG_PAD;
+  const pY = boxY + (DIALOG_H - DIALOG_PORTRAIT) / 2;
+  surface.drawImage(portraitImage(line.speaker), pX, pY, DIALOG_PORTRAIT, DIALOG_PORTRAIT);
+  // Speaking-side highlight: the portrait's rim in its own tint.
+  surface.strokeStyle = `rgba(${Math.round(tint.r * 200)},${Math.round(tint.g * 200)},${Math.round(tint.b * 210)},0.75)`;
+  surface.strokeRect(pX + 0.5, pY + 0.5, DIALOG_PORTRAIT - 1, DIALOG_PORTRAIT - 1);
+
+  const textX = pX + DIALOG_PORTRAIT + DIALOG_PAD;
+  const textW = boxX + boxW - DIALOG_PAD - textX;
+  surface.textAlign = 'left';
+
+  // Name plate: tinted and bright, the speaking side's cue.
+  surface.font = '12px monospace';
+  surface.fillStyle = `rgb(${Math.round(tint.r * 220)},${Math.round(tint.g * 220)},${Math.round(tint.b * 230)})`;
+  surface.fillText(line.speaker.toUpperCase(), textX, boxY + DIALOG_PAD + 12);
+
+  // Body: wrapped to the panel width, HUD-primary luminance.
+  surface.font = '12px monospace';
+  surface.fillStyle = '#9a9aa4';
+  let lineY = boxY + DIALOG_PAD + 34;
+  for (const row of wrapText(line.text, textW)) {
+    surface.fillText(row, textX, lineY);
+    lineY += 16;
+  }
+
+  // Line counter: dimmest register, low-right, like the HUD diagnostics.
+  surface.fillStyle = '#3a3a3a';
+  surface.textAlign = 'right';
+  surface.fillText(`${line.index + 1} / ${line.count}`, boxX + boxW - DIALOG_PAD, boxY + DIALOG_H - DIALOG_PAD);
+
+  // Advance hint: the genre's small blinking marker, pulsed on the tick clock so
+  // it is identical on replay. Shown for two-thirds of each second.
+  if (Math.floor(tickCount / 20) % 3 !== 2) {
+    surface.fillText('▸ shot', boxX + boxW - DIALOG_PAD, boxY + DIALOG_PAD + 8);
+  }
+  surface.textAlign = 'left';
+}
+
+/**
+ * Greedy word-wrap against the current font, so a long line stays in the box.
+ * A lone token wider than the column breaks at the character level: built-in
+ * lines never need it, but pack dialogue is any string an author types, and an
+ * unbroken token must not escape the panel.
+ */
+function wrapText(text: string, maxWidth: number): string[] {
+  const words = text.split(' ');
+  const rows: string[] = [];
+  let row = '';
+  for (const word of words) {
+    const candidate = row === '' ? word : `${row} ${word}`;
+    if (row !== '' && surface.measureText(candidate).width > maxWidth) {
+      rows.push(row);
+      row = word;
+    } else {
+      row = candidate;
+    }
+    while (row.length > 1 && surface.measureText(row).width > maxWidth) {
+      let cut = 1;
+      while (cut < row.length && surface.measureText(row.slice(0, cut + 1)).width <= maxWidth) {
+        cut++;
+      }
+      rows.push(row.slice(0, cut));
+      row = row.slice(cut);
+    }
+  }
+  if (row !== '') rows.push(row);
+  return rows;
 }
 
 loop.start();

@@ -49,6 +49,7 @@ import '../sim/item'; // built-in items; content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { Button } from '../core/input';
 import { backgroundNames } from '../render/background';
+import { portraitNames } from '../render/portrait';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getStage } from '../content/stage';
 import { StateMachine } from '../game/state';
@@ -79,7 +80,7 @@ const PACK_CHARACTER = 'example/raider';
 const PACKS_DATA = 'example@deadbeef01ab';
 
 /** The render name sets the browser loader would hand the injector. */
-const CTX_NAMES = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames() };
+const CTX_NAMES = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames(), portraits: portraitNames() };
 
 /** Validate and inject the committed pack once (idempotent per pack name). */
 function injectExample(): { campaigns: Campaign[]; characterPacks: CharacterPack[] } {
@@ -116,6 +117,8 @@ interface Coverage {
   effectSprites: Set<string>;
   /** Names of items on the field — a pack item is observed by its qualified name. */
   items: Set<string>;
+  /** Speakers seen in `Run.dialogue` — a pack portrait shows under its qualified name. */
+  dialogueSpeakers: Set<string>;
   events: Set<RunEventType>;
   /** Ticks on which at least one player bullet was in the air. */
   playerBulletTicks: number;
@@ -150,6 +153,7 @@ function playCampaign(
     music: new Set(),
     effectSprites: new Set(),
     items: new Set(),
+    dialogueSpeakers: new Set(),
     events: new Set(),
     playerBulletTicks: 0,
     replays: [],
@@ -175,6 +179,17 @@ function playCampaign(
   let playerX = 240;
   let playerY = 400;
   let fightingBoss = false;
+  /**
+   * Whether the run was showing a dialogue line at the end of the previous tick.
+   *
+   * `ashfall` sends the built-in `sentinel` as a midboss wave AND the pack boss
+   * `pyre` as its end boss, and both carry a pre-fight exchange a *fresh* Shot
+   * press advances (a held one does not). This combat pilot holds Shot
+   * continuously, so without pulsing it here it would stall at the first exchange
+   * until the tick limit and never reach the pack end boss. Mirrors the same
+   * branch in `reachability.test.ts`, and generic — it taps through any dialogue.
+   */
+  let inDialogue = false;
 
   for (let tick = 0; tick < limit; tick++) {
     cover.ticks = tick;
@@ -199,6 +214,12 @@ function playCampaign(
       pulse ^= 1;
       if (selected < raiderIndex) buttons = pulse ? Button.Down : 0;
       else buttons = pulse ? Button.Shot : 0;
+    } else if (name === 'playing' && inDialogue) {
+      // Tap through the pre-boss exchange: a fresh Shot advances a line, a held
+      // one does not, so pulse it. The field is frozen — the pilot only has to
+      // keep pressing to reach the fight.
+      pulse ^= 1;
+      buttons = pulse ? Button.Shot : 0;
     } else if (name === 'playing') {
       buttons = Button.Shot;
       if (aimX === undefined) {
@@ -237,6 +258,9 @@ function playCampaign(
 
       playerX = run.player.x;
       playerY = run.player.y;
+      // Observed here, consumed by the pilot next tick to pulse Shot through it.
+      inDialogue = run.dialogue !== undefined;
+      if (run.dialogue !== undefined) cover.dialogueSpeakers.add(run.dialogue.speaker);
       cover.characters.add(run.characterName);
       const scene = run.scene;
       if (scene !== undefined) cover.scenes.add(scene);
@@ -329,6 +353,17 @@ describe('the example pack is reachable and its content runs', () => {
     expect(cover.bosses.has('example/pyre')).toBe(true);
     // The pack boss transitioned past its opening phase.
     expect(cover.events.has('boss-phase')).toBe(true);
+  });
+
+  test('the pack boss dialogue was reached — its exchange is on the real path', () => {
+    // `pyre` carries a two-line exchange the pilot taps through before the fight.
+    // Seeing `example/pyre` as a dialogue speaker proves the whole wire: the pack
+    // `portraits` name qualified onto the boss spec, the Run entered the dialogue
+    // phase on boss-send, and the getter exposed the speaker — the honesty-rule
+    // feature is on the campaign's real path, not merely registered.
+    expect(cover.dialogueSpeakers.has('example/pyre')).toBe(true);
+    // The built-in `sentinel` midboss exchange was tapped through too (bare name).
+    expect(cover.dialogueSpeakers.has('sentinel')).toBe(true);
   });
 
   test('each pack stage entered its declared built-in scene, and the pack boss overrode it', () => {

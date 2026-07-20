@@ -26,6 +26,9 @@
     "life": "life.png",
     "bomb": "bomb.png"
   },
+  "portraits": {
+    "pyre": "portrait.png"
+  },
   "requires": [
     "content.enemies",
     "content.stages",
@@ -493,6 +496,16 @@
             "score",
             3
           ]
+        ],
+        "dialogue": [
+          {
+            "speaker": "pyre",
+            "text": "You reached the ash. Few do."
+          },
+          {
+            "speaker": "player",
+            "text": "Then few have put it out."
+          }
         ],
         "phases": [
           {

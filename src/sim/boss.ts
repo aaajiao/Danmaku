@@ -111,6 +111,17 @@ export interface SpellCard {
   background?: string;
 }
 
+/**
+ * One line of a pre-fight exchange. `speaker` is an opaque **portrait name** —
+ * a registry string the render layer resolves; the simulation never learns that
+ * portraits exist, exactly as a stage names a background it never imports. `text`
+ * is plain.
+ */
+export interface DialogueLine {
+  speaker: string;
+  text: string;
+}
+
 export interface BossSpec {
   /** Atlas cell name. */
   sprite: string;
@@ -142,6 +153,20 @@ export interface BossSpec {
    * leaves the stage's own track playing.
    */
   music?: string;
+  /**
+   * The pre-fight exchange, shown before the boss spawns.
+   *
+   * When present and non-empty, `Run` enters a dialogue phase the moment this
+   * boss comes due: the field is cleared, spawning stops, the player moves but
+   * cannot act, and each fresh Shot press advances one line; after the last the
+   * boss enters exactly as it would have. Dialogue is simulation — it delays the
+   * boss and is driven by input — so it lives in the tick-and-mask world and a
+   * replay reproduces it (see `Run`). Unset means the boss spawns immediately.
+   *
+   * Identical for every player character in v1. Per-character variants would move
+   * onto a shape keyed by character name here; nothing wants them yet.
+   */
+  dialogue?: readonly DialogueLine[];
   /**
    * Items showered when the boss dies, by registry name and count. See
    * `Spoils`. Unset means the game layer's default shower — a boss that wants
@@ -875,6 +900,12 @@ defineBoss('sentinel', {
   entry: { x: 240, y: 140, ticks: 90 },
   music: 'nemesis',
   onDeath: 'death.big',
+  // Speakers are portrait names: the boss's own, and 'player' for the ship.
+  dialogue: [
+    { speaker: 'sentinel', text: 'Far enough.' },
+    { speaker: 'player', text: 'The gate is behind you.' },
+    { speaker: 'sentinel', text: 'The gate is me.' },
+  ],
   phases: [
     {
       name: 'Approach',

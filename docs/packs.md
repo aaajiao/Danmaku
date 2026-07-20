@@ -43,7 +43,8 @@ A pack **can** replace, as a reskin:
   see `docs/assets.md` §3.1);
 - the **player ship** sprite;
 - any of the six **sounds** the game plays;
-- the **♥ life** and **★ bomb** HUD icons.
+- the **♥ life** and **★ bomb** HUD icons;
+- a **portrait** — the face drawn beside a boss's dialogue line (§5.5).
 
 A pack **can also**, with a `content` section (§9), add game data:
 
@@ -52,7 +53,8 @@ A pack **can also**, with a `content` section (§9), add game data:
 - **stages** — waves of those enemies (and built-in ones), chained into a
   selectable campaign;
 - **bosses** — a `BossSpec` as JSON: spell-card phases sized in *seconds*, sent by
-  a pack stage as a midboss wave or an end boss;
+  a pack stage as a midboss wave or an end boss, and optionally a **pre-fight
+  dialogue** exchange (§9.2) whose speakers name portraits;
 - **shots, options and bombs** — a player's weapon, satellites and panic button as
   data, equipped by a pack character;
 - **characters** — a `CharacterSpec` that names its shot/options/bomb and appears
@@ -61,8 +63,11 @@ A pack **can also**, with a `content` section (§9), add game data:
   `ItemSpec` a drop scatters.
 
 A pack **cannot** change the *code* that data drives: no new patterns, no new
-motion behaviours, no new backgrounds, no dialogue, and no new item *kind* (a
-kind is a game rule). It *can* author difficulty — the tier axis is per-pattern
+motion behaviours, no new backgrounds, and no new item *kind* (a
+kind is a game rule). Dialogue is the one former entry on this list that left it:
+a boss may now carry dialogue *text* (boss content) and a pack may supply
+*portraits* (presentation) — but the exchange is played by engine code the data
+drives, never a new script a pack ships. It *can* author difficulty — the tier axis is per-pattern
 data (§9.2), not a curve the engine scales — so that is not on this list. Those
 are engine code,
 reserved or registered under a string name — see §9 for what content reaches and
@@ -212,6 +217,7 @@ The types below are exactly what `src/packs/manifest.ts` validates.
 | `assets` | no | object | `bullets?`, `ship?`, `filter?` — see §5.1–5.2. |
 | `sounds` | no | object | One entry per replaced sound, keyed by the sound's registered name — see §5.3. |
 | `hud` | no | object | `life?`, `bomb?` icon PNGs — see §5.4. |
+| `portraits` | no | object | Name → PNG path, one per speaker face. Each is an exact 96×96 image drawn beside a boss's dialogue line — see §5.5. |
 | `requires` | no | string[] | Engine capabilities the pack needs. This engine implements the nine `content.*` capabilities (enemies, stages, bosses, shots, characters, options, bombs, effects, items); anything else is refused, naming what it does not implement and what it does. A `content` section and its covering `requires` entry are one contract — see §9. Omit it entirely for a reskin-only pack (do not write `[]`). |
 | `content` | no | object | Format-2 game data: `enemies?`, `stages?`, `bosses?`, `shots?`, `characters?`, `options?`, `bombs?`, `effects?`, `items?`. Present only alongside the matching `requires` entries — see §9. |
 
@@ -286,6 +292,39 @@ white-bullets-with-engine-tint. The pack supplies **shape only**: a solid white,
 hard-edged mark with no background and no assumption about how large it lands or
 what sits behind it (`drawHud` draws it at a fixed 10px, 0.85 alpha, to the left
 of the number — `src/main.ts:517`). Larger than 16×16 is rejected. See §7.4.
+
+### 5.5 `portraits.<name>` — a dialogue face
+
+A top-level presentation section — a sibling of `sounds`, `hud` and `music`, not a
+`content` section. Each entry maps a **portrait name** to a PNG path; that name is
+what a boss's dialogue line names as its `speaker` (§9.2). A portrait is the face
+drawn beside the pre-fight exchange, and it is presentation for the same reason a
+bullet skin is: the *text* is boss content (it changes the run), the *picture* is
+not (§9.6). So a portrait, like a sheet or a sound, **warns** on a replay
+mismatch and never refuses.
+
+```json
+"portraits": { "pyre": "portrait.png" }
+```
+
+Three things bind it:
+
+- **Exactly 96×96.** `PORTRAIT_SIZE` (`src/render/portrait.ts`) is a fixed square,
+  enforced by the loader with the ship-sheet's exact-match idiom — not the
+  tolerant `≤` bound the HUD icons use — because the shell composites the face at
+  a fixed size and a wrong one would not scale cleanly. A portrait that is not
+  96×96 rejects the pack whole, naming the measured size (§6.7).
+- **It registers qualified, always.** A pack portrait joins the registry as
+  `<pack>/<name>` — `example/pyre` — even when its name matches a built-in, because
+  `definePortrait` refuses a duplicate, so a bare replacement of a built-in face
+  could never register. `inject.ts` qualifies the boss's dialogue `speaker` to
+  match (§9.3), so the qualified name the loader registers is the one the shell
+  looks up.
+- **It never blocks the exchange.** A speaker with no supplied portrait draws a
+  procedural silhouette (a tinted panel carrying the name), so a boss can carry
+  dialogue before any portrait file exists. The portrait only replaces that
+  placeholder — the same "always degrades to a placeholder" floor as every other
+  resource.
 
 ---
 
@@ -387,16 +426,30 @@ browser with the real duration in the error (like the sheet pixel checks).
 | Unknown track key | `music."<key>": unknown field "<field>" — did you mean "<nearest>"?` (or `… valid fields here: file, loopStart, loopEnd, volume`) |
 | `loopEnd` past the track (loader, browser) | `<file>: loopEnd <n>s is past the track's <d>s — the loop would run off the end` |
 
+### 6.5b `portraits`
+
+A top-level presentation section (§5.5). `manifest.ts` checks the shape; the
+`96×96` dimension bound needs the decoded image, so it is the loader's, in §6.7.
+
+| Condition | Message |
+|---|---|
+| `portraits` not an object | `portraits must be a JSON object` |
+| A portrait path not a string | `portraits."<key>" must be a string (a path to a PNG)` |
+
 ### 6.6 Unknown and reserved top-level fields
 
 | Condition | Message |
 |---|---|
-| Reserved future section (`dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content`) |
+| Reserved future section (`backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
+| Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, portraits, requires, content`) |
 
 `content` is no longer refused here — it is an implemented top-level section
-(§9), and its own errors are in §9.4. The valid-fields list now ends in
-`content`.
+(§9), and its own errors are in §9.4. **`dialog` is no longer reserved here
+either:** boss dialogue became real (`ContentBoss.dialogue`, §9.2) and portraits
+became the real `portraits` section (§5.5), so a stray top-level `dialog` now
+reads as a plain unknown field, not a reserved one. The only reserved top-level
+name left is `backgrounds` — shader code, permanently engine-side (§10). The
+valid-fields list gained `portraits` and still ends in `content`.
 
 ### 6.7 Asset-loading errors (in the browser loader)
 
@@ -416,6 +469,8 @@ rejects the pack whole and names it in the boot report.
   `pack "<name>": <path>: ship sheet is <w>×<h>, expected 64×64`
 - HUD icon too large:
   `pack "<name>": <path>: hud icon is <w>×<h>, over the 16×16 limit — it stands in for a glyph, so it is drawn small`
+- Portrait not the fixed size:
+  `pack "<name>": <path>: portrait is <w>×<h>, expected 96×96`
 - A named file could not be fetched or decoded:
   `could not be fetched (HTTP <status>)` / `could not be decoded as an image`
   (the `pack.json` manifest is the one exception: a missing manifest reports
@@ -591,8 +646,9 @@ that does not implement a capability refuses on `requires` **before it ever pars
 
 A capability without its section, or a section without its capability, is an
 error (§9.4). A `requires` entry naming anything else — `netplay`,
-`content.dialog` — is refused, because those capabilities are not implemented
-(§6.2, §10).
+`content.cutscene` — is refused, because those capabilities are not implemented
+(§6.2, §10). (Boss dialogue needs no capability of its own: the text is a
+`content.bosses` field, so `content.bosses` already covers it.)
 
 ### 9.2 The shapes
 
@@ -757,6 +813,32 @@ injector enforces the engine's floor — **every tier must keep at least one pha
   "patterns": [ { "pattern": "ring", "options": { "…": "…" } } ] }
 ```
 
+**A boss may carry a `dialogue` — the pre-fight exchange.** It is an array of
+`{ speaker, text }` lines, matching `BossSpec.dialogue` field-for-field
+(`docs/extending.md` §5). Each `speaker` names a **portrait** — resolved pack-first
+(the pack's own `portraits` section, §5.5) then built-in (§9.3) — and `text` is the
+line spoken. Dialogue is *text*, so it rides in boss content and is strict on
+replay; the portrait *image* it names is presentation and warns (§9.6).
+
+```json
+"pyre": {
+  "sprite": "ring", "radius": 18,
+  "dialogue": [
+    { "speaker": "pyre", "text": "You reached the ash. Few do." },
+    { "speaker": "player", "text": "Then few have put it out." }
+  ],
+  "phases": [ "…" ]
+}
+```
+
+The exchange plays before the boss spawns — the field clears, the player moves but
+cannot fire, and a fresh Shot tap advances each line — and a replay reproduces it
+from the input log with no new meta, because dialogue is simulation (the taps
+delay the fight). That mechanism is engine code; the pack supplies only the lines
+and, optionally, the faces. A `speaker` with no portrait still draws a procedural
+silhouette, so dialogue never blocks on art — but an *unresolvable* speaker name is
+a typo, and is rejected (§9.4).
+
 A pack boss reaches the field by being named by a pack stage — as a boss wave
 (midboss) or the stage's end `boss` — resolving pack-first (§9.3). A boss no pack
 stage sends is dead content (§9.4). A card's `background` overrides the scene for
@@ -893,6 +975,13 @@ Every name a pack writes resolves **pack-first, then built-in**:
   stage or boss names is *not* dead content the way a pack enemy is — music is
   presentation, so a `music` section may also just reskin built-in tracks a
   built-in stage already reaches.
+- **Portraits resolve pack-first, and qualify like content, not like a reskin.**
+  A boss dialogue `speaker` resolves against built-in portrait names ∪ the pack's
+  own `portraits` section, pack-first. Unlike a music track — which registers bare
+  when it *replaces* a built-in — a pack portrait always registers qualified
+  `<pack>/<name>`, because `definePortrait` refuses a duplicate, so a bare
+  replacement of a built-in face could never register. The injector qualifies the
+  speaker name to match (`refPortrait`), exactly as it qualifies an effect or item.
 - **Cross-pack references are not supported.** A name that is neither the pack's
   own nor a built-in is an error; one pack cannot reach into another's content.
 
@@ -934,7 +1023,7 @@ The covering invariant and `content` container:
 | A declared capability has no section | `requires lists "content.stages" but there is no content.stages section — add the section or drop the capability` |
 | A section has no declared capability | `content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content` |
 | `content` not an object | `content must be a JSON object` |
-| A reserved `content.*` section | `content.dialog is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
+| A reserved `content.*` section | `content.backgrounds is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
 | Unknown key directly under `content` | `content: unknown field "<key>" — did you mean "<nearest>"?` (or `content: unknown field "<key>" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items`) |
 
 **Enemies and stages** (representative — the full field lists are in
@@ -981,6 +1070,11 @@ the same validator):
 | A tier in `difficulties` not a string | `content.bosses."pyre".phases[0].difficulties[0] must be a string` |
 | Unknown tier in `difficulties` | `content.bosses."pyre".phases[0].difficulties[0] "lunatci" is not a difficulty tier — did you mean "lunatic"?` |
 | A `spoils` entry is not a pair | `content.bosses."pyre".spoils[0] must be a [name, count] pair — a string and a number` |
+| `dialogue` not an array | `content.bosses."pyre".dialogue must be an array of {speaker, text} lines` |
+| A dialogue line not an object | `content.bosses."pyre".dialogue[0] must be a JSON object` |
+| Line missing `speaker` | `content.bosses."pyre".dialogue[0] is missing required field "speaker" — a portrait name` |
+| Line missing `text` | `content.bosses."pyre".dialogue[0] is missing required field "text" — the line spoken` |
+| Unknown field on a line | `content.bosses."pyre".dialogue[0]: unknown field "spekaer" — did you mean "speaker"?` |
 
 **Shots, options and bombs**:
 
@@ -1039,6 +1133,7 @@ stand in for the caller's sorted lists):
 | Boss: unknown card background | `boss "pyre" phase "Ashfall" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
 | Boss: unknown `onDeath` effect | `boss "pyre" onDeath names unknown effect "cindr" — no such effect in this pack or built in` |
 | Boss: unknown `music` | `boss "pyre" names unknown music "nokturn" — no such music in this pack or built in` |
+| Boss: dialogue speaker unresolved | `boss "pyre" dialogue line 0 names unknown portrait "sentinl" — known portraits: <known portraits>` |
 | Boss: unknown spoils item | `boss "pyre" drops unknown item "relik" — no such item in this pack or built in` |
 | Shot: unknown bullet sprite | `shot "emberbolt" level 0 uses unknown sprite "kunia" — known sprites: <known sprites>` |
 | Shot: unknown bullet behaviour | `shot "emberbolt" level 0 uses unknown motion behaviour "homng" — no such behaviour is registered` |
@@ -1077,9 +1172,9 @@ Reachability (each ends `— dead content (registration is not reachability)`):
 | Untriggered effect | `effect "cinder" is triggered by no enemy, boss or bomb of this pack — dead content (registration is not reachability)` |
 | Undropped item | `item "relic" is dropped by no enemy or boss of this pack — dead content (registration is not reachability)` |
 
-Note **which messages list the known set and which do not.** Sprite and
-background names come from the caller, so those messages *list* the known values
-(`known sprites: …`, `known backgrounds: …`). Pattern, behaviour, effect, item,
+Note **which messages list the known set and which do not.** Sprite, background
+and portrait names come from the caller, so those messages *list* the known values
+(`known sprites: …`, `known backgrounds: …`, `known portraits: …`). Pattern, behaviour, effect, item,
 shot, option, bomb, boss, enemy and stage names come from process-global
 registries that other test files register fixtures into — so listing their
 contents would not be a stable golden. Those messages name the bad value and say
@@ -1164,6 +1259,14 @@ A wholly built-in run — a built-in character on a built-in campaign — record
 even with content packs loaded, because injected content a built-in stage and ship
 never reference cannot affect it.
 
+**Dialogue splits on the same line, once more.** A boss's dialogue *text* is boss
+content — it delays the fight, so it changes the run — and rides in `packsData`,
+strict, like every other boss field. The *portrait* it names is presentation: it
+changes only which face is drawn beside the line, so it rides the reskin identity
+(`RunConfig.packs`) and **warns**. This is the text-strict / image-warn split of
+§5.5, and it is the reskin/content boundary applied one more time: the words are
+what the simulation does, the picture is only how it looks.
+
 > The one-sentence why: **pack content changes what the game does, so a replay
 > under different content is a different run and must be rejected, not warned** —
 > the same reason presentation, which changes only how it looks, is only warned.
@@ -1178,26 +1281,29 @@ never reference cannot affect it.
 > instead of getting a generic "unknown field", and a future format 2 can claim
 > these names without colliding with anything a v1 pack was allowed to use.
 
-The nine `content.*` sections of §9 are **not** in this list — they are
-implemented, and §9 is their reference. Nor is `music`: it left this section when
-the top-level `music` section became real (§6.5a — background tracks are
-presentation, a file, not code). Nor is `difficulty`: it left too, when the tier
-axis became per-pattern content data (§9.2 — `ContentDifficultyOverrides` and a
-card's `difficulties` gate) rather than a section of its own, so `difficulty` and
-`content.difficulty` now read as plain unknown fields, not reserved ones. What
-remains reserved is everything a pack still cannot ship, and each such section
-needs an engine *feature* it does not yet have: dialog is a scripting layer,
-backgrounds are shader code. Each reserved name and the exact rejection the
-engine emits **now** (the interpolated implemented-list is abbreviated `<the nine>`
-= `content.enemies, content.stages, content.bosses, content.shots,
-content.characters, content.options, content.bombs, content.effects,
-content.items`):
+**This section no longer reserves a single content *kind*.** The nine `content.*`
+sections of §9 are implemented, and §9 is their reference. Everything that was ever
+reserved here as pure data has since become real, one name at a time: `content`
+when its enemies and stages became real, `music` when the top-level `music` section
+did (§6.5a — background tracks are a file, not code), `difficulty` when the tier
+axis became per-pattern content data (§9.2 — a pattern slot's overrides and a
+card's `difficulties` gate), and finally `dialog` when boss dialogue became a boss
+field (`ContentBoss.dialogue`, §9.2) and portraits became the real `portraits`
+section (§5.5). So `dialog`, `content.dialog`, `difficulty` and `content.difficulty`
+now read as **plain unknown fields**, not reserved ones.
 
-| Reserved name | What a future format might do with it | Rejection today |
+What is left reserved is not a future content kind at all — it is the one
+**permanent code line** a pack can never ship as data: patterns, motion
+behaviours, background shaders and the sim rules that a new item `kind` would be.
+Of these, only `backgrounds` (and its nested `content.backgrounds`) has a reserved
+*name*, because a stage could plausibly try to write scene data; the hud glyph
+sheets are reserved as future *presentation* the engine has not built. Each
+reserved name and the exact rejection the engine emits **now**:
+
+| Reserved name | Why it stays engine-side / what a future format might do | Rejection today |
 |---|---|---|
-| `dialog` (top-level) | cutscene/portrait scripts | `dialog is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| `backgrounds` (top-level) | scene selection | `backgrounds is a pack-format-2 section …` |
-| `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.dialog is a pack-format-2 section this engine does not implement — it implements <the nine> only; see docs/packs.md §Future` |
+| `backgrounds` (top-level) | scene *code*, never data — a shader, permanently engine-side (below) | `backgrounds is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
+| `content.backgrounds` | the same name nested under content | `content.backgrounds is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
 | `hud.digits`, `hud.font` | number/font glyph sheets | `hud.digits is a pack-format-2 resource and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `hud.bossBar`, `hud.frame` | boss-bar skin, screen frame | `hud.bossBar is a pack-format-2 resource …` |
 

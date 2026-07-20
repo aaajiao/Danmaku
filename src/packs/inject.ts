@@ -145,6 +145,13 @@ export interface InjectContext {
   shipSprites: readonly string[];
   /** Registered background scene names. */
   scenes: readonly string[];
+  /**
+   * Registered built-in portrait names (`src/render/portrait.ts`) — the faces a
+   * boss's `dialogue` speaker may name. Supplied like `sprites`/`scenes` because
+   * the portrait registry is render-side and this module may not import it; a
+   * pack's own `portraits` section extends this set pack-first.
+   */
+  portraits: readonly string[];
 }
 
 export interface InjectResult {
@@ -357,6 +364,19 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
   const musicKnown = (name: string): boolean => packMusicNames.has(name) || builtinMusic.has(name);
   const refMusic = (name: string): string =>
     packMusicNames.has(name) && !builtinMusic.has(name) ? q(name) : name;
+  // Portraits resolve pack-first, but UNLIKE music they qualify like content, not
+  // like a reskin. A pack portrait is registered `<pack>/<name>` even when its
+  // name matches a built-in — the render registry (`definePortrait`) forbids a
+  // duplicate, so a bare replacement could not register anyway — so `refPortrait`
+  // qualifies any name the pack's own `portraits` section carries, exactly as
+  // `refEffect`/`refItem` do, and a bare name that is not the pack's resolves to
+  // a built-in portrait. Built-in names come from the caller (render-side).
+  const builtinPortraits = new Set(context.portraits);
+  const packPortraits = manifest.portraits ?? {};
+  const packPortraitNames = new Set(Object.keys(packPortraits));
+  const portraitKnown = (name: string): boolean =>
+    packPortraitNames.has(name) || builtinPortraits.has(name);
+  const portraits = new Set([...context.portraits, ...packPortraitNames]);
   const builtinItems = new Set(itemNames());
   const builtinEffects = new Set(effectNames());
   const builtinShots = new Set(shotNames());
@@ -546,6 +566,18 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
         `pack "${pack}": ${where} names unknown music "${b.music}" — no such music in this pack or built in`,
       );
     }
+
+    // Each dialogue speaker names a portrait, resolved pack-first (the pack's own
+    // `portraits` section) then built-in. A speaker with no such portrait is a
+    // rejection — the shell would fall back to a procedural silhouette, but a
+    // dangling name is more likely a typo, and the pack surface refuses those.
+    (b.dialogue ?? []).forEach((line, i) => {
+      if (!portraitKnown(line.speaker)) {
+        problems.push(
+          `pack "${pack}": ${where} dialogue line ${i} names unknown portrait "${line.speaker}" — known portraits: ${list(portraits)}`,
+        );
+      }
+    });
 
     for (const [item] of b.spoils ?? []) {
       if (!itemKnown(item)) {
@@ -881,6 +913,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
   const refShot = (name: string): string => (packShotNames.has(name) ? q(name) : name);
   const refOption = (name: string): string => (packOptionNames.has(name) ? q(name) : name);
   const refBomb = (name: string): string => (packBombNames.has(name) ? q(name) : name);
+  const refPortrait = (name: string): string => (packPortraitNames.has(name) ? q(name) : name);
 
   // --- build (only past a clean validation) -----------------------------
   const builtShots: BuiltShot[] = shotKeys.map((name) => ({
@@ -919,7 +952,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
   }));
   const builtBosses: BuiltBoss[] = bossKeys.map((name) => ({
     name: q(name),
-    spec: toBossSpec(packBosses[name] as ContentBoss, refEffect, refItem, refMusic),
+    spec: toBossSpec(packBosses[name] as ContentBoss, refEffect, refItem, refMusic, refPortrait),
   }));
   const builtStages: BuiltStage[] = stageKeys.map((name) => ({
     name: q(name),
@@ -1004,13 +1037,15 @@ function toWave(
  * assignment — which is the compile-time drift guard: rename a field on either
  * shape and this stops compiling. `phases` is translated (a pack spell card
  * declares `hpSeconds` where the engine's `SpellCard` wants `hp`), and the
- * `onDeath` effect, `music` track and `spoils` item names are qualified pack-first.
+ * `onDeath` effect, `music` track, `spoils` item names and each dialogue
+ * speaker's portrait are qualified pack-first.
  */
 function toBossSpec(
   b: ContentBoss,
   refEffect: (name: string) => string,
   refItem: (name: string) => string,
   refMusic: (name: string) => string,
+  refPortrait: (name: string) => string,
 ): BossSpec {
   const spec: BossSpec = {
     sprite: b.sprite,
@@ -1025,6 +1060,12 @@ function toBossSpec(
   if (b.music !== undefined) spec.music = refMusic(b.music);
   if (b.spoils !== undefined) {
     spec.spoils = b.spoils.map(([name, count]): readonly [string, number] => [refItem(name), count]);
+  }
+  if (b.dialogue !== undefined) {
+    // A pack speaker qualifies to its own portrait; a built-in speaker stays
+    // bare. The shell reads `speaker` off `Run.dialogue` and hands it to
+    // `portraitImage`, so the qualified name must match what the loader registered.
+    spec.dialogue = b.dialogue.map((line) => ({ speaker: refPortrait(line.speaker), text: line.text }));
   }
   return spec;
 }

@@ -31,6 +31,7 @@
 
 import { defineMusic, musicNames, type MusicSpec } from '../audio/music';
 import { backgroundNames } from '../render/background';
+import { definePortrait, hasPortrait, portraitNames, PORTRAIT_SIZE } from '../render/portrait';
 import {
   BULLET_CELLS,
   SHIP_CELLS,
@@ -186,10 +187,11 @@ const HUD_ICON_MAX = 16;
 /**
  * The two sheet slots, which lead the boot-report ordering. The full canonical
  * order files are fetched and hashed in — bullets, ship, sounds in
- * `SOUND_NAMES` order, then hud, then music in manifest-declared order — is
- * fixed by the call order of the `gather*` functions, so the recorded hash is
- * stable. Music track names are dynamic (a pack invents them), so they cannot
- * live in this fixed list; the report appends them separately, sorted.
+ * `SOUND_NAMES` order, then hud, then music, then portraits, both in
+ * manifest-declared order — is fixed by the call order of the `gather*`
+ * functions, so the recorded hash is stable. Music and portrait names are
+ * dynamic (a pack invents them), so they cannot live in this fixed list; the
+ * report appends them separately, sorted.
  */
 const RESOURCE_ORDER = ['assets.bullets', 'assets.ship'] as const;
 
@@ -256,6 +258,9 @@ export async function loadPacks(): Promise<LoadedPacks> {
     sprites: [...BULLET_CELLS],
     shipSprites: [...SHIP_CELLS],
     scenes: backgroundNames(),
+    // Built-in portrait names a boss `dialogue` speaker may resolve against; a
+    // pack's own `portraits` section extends this set pack-first inside injection.
+    portraits: portraitNames(),
   };
 
   const winners = new Map<string, Winner>();
@@ -422,11 +427,13 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
   const orderedBytes: Uint8Array[] = [];
   const reasons: string[] = [];
   const musicRegs: MusicRegistration[] = [];
+  const portraitRegs: PortraitRegistration[] = [];
 
   await gatherAssets(name, manifest, slots, orderedBytes, reasons);
   await gatherSounds(name, manifest, slots, orderedBytes, reasons);
   await gatherHud(name, manifest, slots, orderedBytes, reasons);
   await gatherMusic(name, manifest, slots, orderedBytes, reasons, musicRegs);
+  await gatherPortraits(name, manifest, slots, orderedBytes, reasons, portraitRegs);
 
   if (reasons.length > 0) throw new PackError(reasons);
 
@@ -463,6 +470,17 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
   // registers namespaced, matching the qualified name `inject.ts` put in the
   // stage/boss spec. `defineMusic` overwrites by name, so re-loading is a no-op.
   for (const reg of musicRegs) defineMusic(reg.name, reg.spec);
+
+  // Register the pack's portraits LAST, past the same all-or-nothing gate as
+  // music. Each is registered under its qualified `<pack>/<name>` — a pack
+  // portrait is content-qualified, not a bare reskin, because `definePortrait`
+  // forbids a duplicate (`src/render/portrait.ts`), so a bare built-in
+  // replacement could not register in the first place; the `hasPortrait` guard
+  // keeps a second boot-time load of the same directory a no-op rather than a
+  // duplicate throw. `inject.ts` qualified the boss dialogue speaker to match.
+  for (const reg of portraitRegs) {
+    if (!hasPortrait(reg.name)) definePortrait(reg.name, { image: reg.image });
+  }
 
   return { slots, hash, campaigns, characterPacks, content: contentSummary(manifest) };
 }
@@ -698,9 +716,83 @@ function offlineAudioContextCtor(): OfflineCtor | undefined {
   return scope.OfflineAudioContext ?? scope.webkitOfflineAudioContext;
 }
 
+/** A portrait to register via `definePortrait` once the whole pack is clean. */
+interface PortraitRegistration {
+  /** The qualified name it registers under, `<pack>/<name>`. */
+  name: string;
+  /** The decoded, dimension-checked image drawn beside a dialogue line. */
+  image: HTMLImageElement;
+}
+
+/**
+ * Fetch, dimension-check and collect the pack's `portraits` for registration.
+ *
+ * A portrait is presentation — a file, like a `sounds` or `music` entry — so its
+ * bytes join the pack hash (in manifest-declared order, after the music tracks,
+ * keeping the hash stable) and it lands in the slot map for the boot report. It
+ * registers under its qualified `<pack>/<name>` (see `loadOnePack`): a pack
+ * portrait is content-qualified, matching the name `inject.ts` put in the boss
+ * dialogue speaker, not a bare reskin of a built-in.
+ *
+ * The dimension check is EXACT — `PORTRAIT_SIZE`×`PORTRAIT_SIZE`, the ship-sheet
+ * idiom, not the tolerant hud-icon bound — because the shell composites a portrait
+ * into a fixed cell and a mismatch would stretch or crop it. The measured size is
+ * named in the error, and a portrait bigger or smaller rejects the pack whole.
+ *
+ * Nothing is registered here; the payloads are collected and `loadOnePack` calls
+ * `definePortrait` only once the whole pack is clean, so a rejected pack mutates
+ * no registry.
+ */
+async function gatherPortraits(
+  name: string,
+  manifest: PackManifest,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+  registrations: PortraitRegistration[],
+): Promise<void> {
+  const portraits = manifest.portraits;
+  if (portraits === undefined) return;
+
+  // Manifest-declared order, so the hash is stable for a given manifest.
+  for (const portrait of Object.keys(portraits)) {
+    const path = portraits[portrait];
+    if (path === undefined) continue;
+    const url = fileUrl(name, path);
+    try {
+      orderedBytes.push(await fetchBytes(url));
+      const image = await loadImage(url);
+      checkPortrait(name, path, image, reasons);
+      const registered = `${name}/${portrait}`;
+      registrations.push({ name: registered, image });
+      slots.set(`portrait.${registered}`, { url });
+    } catch (error) {
+      reasons.push(`pack "${name}": ${path}: ${(error as Error).message}`);
+    }
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Machine checks (need a real canvas — the framebuffer oracle stays test:assets) */
 /* ------------------------------------------------------------------ */
+
+/**
+ * A portrait must be exactly `PORTRAIT_SIZE`×`PORTRAIT_SIZE`. The shell draws it
+ * into that fixed cell, so — unlike a hud icon, whose check is a `≤` bound — the
+ * match is exact, the same discipline `checkShipSheet` holds the ship sheet to.
+ */
+function checkPortrait(
+  name: string,
+  path: string,
+  image: HTMLImageElement,
+  reasons: string[],
+): void {
+  if (image.naturalWidth !== PORTRAIT_SIZE || image.naturalHeight !== PORTRAIT_SIZE) {
+    reasons.push(
+      `pack "${name}": ${path}: portrait is ${image.naturalWidth}×${image.naturalHeight}, expected ${PORTRAIT_SIZE}×${PORTRAIT_SIZE}`,
+    );
+  }
+}
 
 /**
  * The bullet sheet must match the grid, keep every cell inside its padding, and
@@ -880,10 +972,12 @@ function report(state: {
   const lines: string[] = ['packs: boot report'];
 
   const order = slotOrder();
-  // Music slots are dynamic (their names come from the pack), so they are not in
-  // the fixed `slotOrder`; append them sorted, after the fixed resource slots.
+  // Music and portrait slots are dynamic (their names come from the pack), so
+  // they are not in the fixed `slotOrder`; append them sorted, after the fixed
+  // resource slots, music before portraits to match the hash order.
   const musicSlots = [...winners.keys()].filter((slot) => slot.startsWith('music.')).sort();
-  const active = [...order, ...musicSlots].filter((slot) => winners.has(slot));
+  const portraitSlots = [...winners.keys()].filter((slot) => slot.startsWith('portrait.')).sort();
+  const active = [...order, ...musicSlots, ...portraitSlots].filter((slot) => winners.has(slot));
   if (active.length === 0) {
     lines.push('  (no pack resources active — running on placeholders)');
   } else {

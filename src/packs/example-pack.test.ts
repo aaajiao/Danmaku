@@ -23,6 +23,7 @@ import '../content'; // built-in patterns, behaviours, enemies, bosses, stages
 import '../sim/item'; // built-in items (power, score, …); content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { backgroundNames } from '../render/background';
+import { portraitNames } from '../render/portrait';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getEnemySpec, hasEnemy } from '../sim/enemy';
 import { getStage, hasStage } from '../content/stage';
@@ -52,7 +53,7 @@ function readManifest(): unknown {
  * boundary permits `render`), so the injection this test proves is the one that
  * runs for real rather than a hand-kept copy of the valid names.
  */
-const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames() };
+const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames(), portraits: portraitNames() };
 
 /** Validate the committed manifest and hand back the accepted `PackManifest`. */
 function acceptedManifest(): PackManifest {
@@ -89,6 +90,7 @@ describe('packs/example — the reference pack', () => {
       sounds?: Record<string, string>;
       music?: Record<string, { file?: string }>;
       hud?: { life?: string; bomb?: string };
+      portraits?: Record<string, string>;
     };
 
     const declared: string[] = [
@@ -98,6 +100,7 @@ describe('packs/example — the reference pack', () => {
       manifest.hud?.bomb,
       ...Object.values(manifest.sounds ?? {}),
       ...Object.values(manifest.music ?? {}).map((t) => t.file),
+      ...Object.values(manifest.portraits ?? {}),
     ].filter((p): p is string => typeof p === 'string');
 
     // The manifest is meant to exercise every v1 resource field — a pack this
@@ -131,6 +134,12 @@ describe('packs/example — the reference pack', () => {
       const png = parsePng(new Uint8Array(readFileSync(join(DIR, name))));
       expect(png.width).toBeLessThanOrEqual(16);
       expect(png.height).toBeLessThanOrEqual(16);
+    });
+
+    test('portrait.png is exactly 96×96 (the fixed portrait cell)', () => {
+      const png = parsePng(new Uint8Array(readFileSync(join(DIR, 'portrait.png'))));
+      expect(png.width).toBe(96);
+      expect(png.height).toBe(96);
     });
   });
 });
@@ -182,6 +191,28 @@ describe('packs/example — format-2 content', () => {
     expect(manifest.music?.ashen?.file).toBe('ashen.wav');
     expect(manifest.music?.ashen?.loopStart).toBeGreaterThan(0); // a real intro
     expect(manifest.content?.stages?.gauntlet?.music).toBe('ashen');
+  });
+
+  test('the manifest declares the pyre portrait and pyre carries a dialogue exchange', () => {
+    const manifest = acceptedManifest();
+    // Portraits are a top-level presentation section — a NEW name, so it registers
+    // qualified. The dialogue that names it rides inside the boss (content, strict).
+    expect(manifest.portraits?.pyre).toBe('portrait.png');
+    const pyre = manifest.content?.bosses?.pyre;
+    expect(pyre?.dialogue?.length).toBe(2);
+    // The first speaker names the pack's own portrait (bare, pack-first); the
+    // second a built-in. Both are just strings the injector resolves.
+    expect(pyre?.dialogue?.[0]?.speaker).toBe('pyre');
+    expect(pyre?.dialogue?.[1]?.speaker).toBe('player');
+  });
+
+  test('inject qualifies the pack portrait onto the boss dialogue speaker', () => {
+    injectPack(acceptedManifest(), CTX);
+    // `pyre` is a NEW portrait name, so the speaker qualifies to `example/pyre` —
+    // the string the shell hands `portraitImage`. The built-in `player` stays bare.
+    const dialogue = getBossSpec('example/pyre').dialogue;
+    expect(dialogue?.[0]?.speaker).toBe('example/pyre');
+    expect(dialogue?.[1]?.speaker).toBe('player');
   });
 
   test('inject qualifies the pack track onto the stage spec', () => {

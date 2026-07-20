@@ -22,6 +22,7 @@ preferences, and §16 of this document lists the ones you can break silently.
 | A sound | `defineSound` | `src/audio/index.ts` |
 | A music track | `defineMusic` | `src/audio/music.ts` |
 | A background scene | `defineBackground` | `src/render/background.ts` |
+| A dialogue portrait | `definePortrait` | `src/render/portrait.ts` |
 | A sprite region | `Atlas.define` / `Atlas.defineGrid` | `src/render/atlas.ts` |
 | A render layer | a `Layer` constant | `src/render/stage.ts` |
 
@@ -846,6 +847,53 @@ Transitions are announced, not enacted. Clearing the field between cards is a
 game decision — erase the fire, convert it to score, leave it — so this system
 emits the event and reaches into nothing.
 
+### A pre-fight exchange: `BossSpec.dialogue`
+
+A boss may carry `dialogue?: readonly DialogueLine[]`
+(`src/sim/boss.ts:120-169`), a list of `{ speaker, text }` lines shown before it
+spawns. `speaker` is a **portrait name** — an opaque registry string, resolved by
+the render layer exactly as `background` and `music` are — and the simulation
+never learns portraits exist (§15). `text` is plain.
+
+```ts
+defineBoss('herald', {
+  sprite: 'halo',
+  radius: 20,
+  dialogue: [
+    { speaker: 'herald', text: 'You climbed the tide for this.' },
+    { speaker: 'player', text: 'For the quiet after it.' },
+  ],
+  phases: [ /* … */ ],
+});
+```
+
+**Dialogue is simulation, not presentation, and that is the whole reason it lives
+on the spec rather than in the shell.** When a boss carrying a non-empty
+`dialogue` comes due, `Run` enters a dialogue phase *before* the boss spawns: the
+field is cleared, spawning stops, the player still moves but cannot shoot or bomb,
+and each **fresh Shot press** (a tap, not a hold — the latched taps of rule 4
+exist for this) advances one line; after the last, the boss enters exactly as it
+would have. Advancing a line is an input and the exchange delays the fight, so it
+changes the run's timeline — which means it must be inside the tick-and-mask
+world, or a replay of the fight would not line up. A replay reproduces the whole
+exchange from the input log with **zero new meta**: the taps are already in the
+frame-indexed mask. `Run.dialogue` exposes a read-only `{ speaker, text, index,
+count } | undefined` the shell renders, declared state like `Run.scene` and
+`Run.music`, never an event.
+
+The interposition wraps **both** boss-spawn paths — the midboss cue and the
+end-of-stage boss — so a boss reached only as a midboss (like `warden`) still
+gets its exchange; a dialogue registered but never advanced would be the empty
+wire this repo keeps finding, so the built-in bosses each carry a short one and
+`reachability.test.ts` advances dialogue to reach them. The lines are identical
+for every player character in v1; per-character variants would key by character
+name on this field and are noted there, not built.
+
+The portrait a `speaker` names is registered on the render side with
+`definePortrait` (§12) — but the boss author never touches it: a speaker name that
+has no portrait still draws, as a procedural silhouette, which is what lets a boss
+be written with dialogue before any face is drawn.
+
 ### Tuning phase hp, which has been got wrong here before
 
 Do not type hp or a clock as a literal. Ask for a phase in the units a designer
@@ -1604,6 +1652,38 @@ Read `src/render/backgrounds/expanse.ts` and `undertow.ts` before writing one.
 They carry the reasoning at length — including why `undertow` has exactly six
 flutes, which is a genuine seam problem with a non-obvious fix — and it is not
 worth repeating here.
+
+### Dialogue portraits: `definePortrait`, a sibling render registry
+
+A portrait is the face drawn beside a boss's pre-fight dialogue line (§5). It is
+a **render-side** registry for the same reason a background is: the name lives in
+the sim (a `DialogueLine.speaker`), the pixels live in the shell, and the two
+meet where `main.ts` draws the dialogue box. `definePortrait(name, spec)`
+(`src/render/portrait.ts`) mirrors `defineBackground` — it throws
+`portrait "<name>" is already defined` on a duplicate — and a `PortraitSpec` is a
+`tint?` and an optional `image?: CanvasImageSource`.
+
+```ts
+import { definePortrait } from '../render/portrait';
+
+definePortrait('herald', { tint: { r: 1, g: 0.85, b: 0.9 } });
+```
+
+The load-bearing property is that **it never blocks a boss author on art.**
+`portraitImage(name)` returns a drawable for *any* string and never throws:
+supplied art when a portrait was registered with an `image`, otherwise a
+procedural silhouette — a dark tinted panel with the name — painted from the
+declared `tint`, or a deterministic hash-seeded one (FNV-1a over the name, no RNG
+and no trig, `fx`-side presentation) when none was declared. So a boss can name a
+speaker that has no registered portrait and still draw a legible exchange, exactly
+as an unskinned bullet still draws. `PORTRAIT_SIZE` (96) is the one square a
+supplied image must be; a pack registers its portrait through the same `image`
+seam, dimension-checked at load (`docs/packs.md` §5.5).
+
+The four built-in bosses' speakers (`sentinel`, `warden`, `magistrate`) and
+`player` are pre-registered, tinted to read as that fight. The painted result
+needs a DOM, so `bun test` proves only the registry and the tint arithmetic; the
+drawn box is judged in `bun run dev`.
 
 ---
 

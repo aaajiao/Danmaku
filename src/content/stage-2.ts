@@ -436,6 +436,13 @@ defineBoss('warden', {
   entry: { x: 240, y: 120, ticks: 70 },
   music: 'nemesis',
   onDeath: 'death.big',
+  // Speakers are portrait names (see `BossSpec.dialogue`): the boss's own, and
+  // 'player' for the ship.
+  dialogue: [
+    { speaker: 'warden', text: 'This corridor is closed.' },
+    { speaker: 'player', text: 'Open it.' },
+    { speaker: 'warden', text: 'I open nothing. I only hold.' },
+  ],
   phases: [
     {
       name: 'Patrol',
@@ -586,6 +593,14 @@ defineBoss('magistrate', {
   entry: { x: 240, y: 150, ticks: 90 },
   music: 'nemesis',
   onDeath: 'death.big',
+  // Speakers are portrait names (see `BossSpec.dialogue`): the boss's own, and
+  // 'player' for the ship.
+  dialogue: [
+    { speaker: 'magistrate', text: 'You have come a long way to be sentenced.' },
+    { speaker: 'player', text: 'Read the charge, then.' },
+    { speaker: 'magistrate', text: 'Trespass. Persistence. The verdict is the same.' },
+    { speaker: 'player', text: 'Then I appeal.' },
+  ],
   phases: [
     {
       name: 'Arraignment',

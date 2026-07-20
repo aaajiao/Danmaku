@@ -83,6 +83,21 @@ export interface PackMusicTrack {
 export type PackMusic = Record<string, PackMusicTrack>;
 
 /**
+ * The top-level `portraits` section: a map of portrait name → image file. A
+ * portrait is presentation — the face the shell draws beside a dialogue line —
+ * exactly like a `sounds` or `music` entry: a file the loader fetches,
+ * dimension-checks against the shell's fixed cell size, and registers through
+ * `definePortrait` (`src/render/portrait.ts`). A NEW name (one no built-in
+ * portrait carries) registers namespaced `<pack>/<name>` and this pack's own
+ * boss `dialogue` may then name it *bare* (pack-first resolution). Names are
+ * open-ended — a pack invents its speakers — so this module checks only the
+ * shape it owns: each value is a string path. The `PORTRAIT_SIZE` dimension
+ * bound needs the decoded image, so the loader measures it (the same split as
+ * the sheet pixel checks: shape here, measured pixels in the browser).
+ */
+export type PackPortraits = Record<string, string>;
+
+/**
  * The difficulty tiers a pack may name — the closed union, mirrored from
  * `Difficulty` (`src/sim/difficulty.ts`). Redeclared here rather than imported
  * because this module stays pure (a value *or type* import from `sim` breaches
@@ -234,13 +249,27 @@ export interface ContentSpellCard {
 }
 
 /**
+ * One line of a pre-fight exchange, mirroring `DialogueLine` (`src/sim/boss.ts`).
+ * `speaker` is a PORTRAIT NAME — a registry name the shell resolves against
+ * built-in portraits ∪ the pack's own `portraits` section (pack-first); the
+ * simulation never learns portraits exist. `text` is the plain line spoken.
+ * Redeclared here rather than imported so this module stays pure; `inject.ts`
+ * assigns one shape to the other.
+ */
+export interface DialogueLine {
+  speaker: string;
+  text: string;
+}
+
+/**
  * A pack-format-2 boss: the JSON that becomes a `BossSpec` (`src/sim/boss.ts`).
  * Mirrors it field for field, except each phase is a `ContentSpellCard`
  * (`hpSeconds`, not `hp`). The injector qualifies its name, resolves the names
- * inside (patterns, backgrounds, the `onDeath` effect, spoils item names), and
- * hands the built spec to `defineBoss`. Redeclared here rather than imported so
- * this module stays pure; `inject.ts` is the single place that assigns one shape
- * to the other, where a scalar-field drift is a compile error.
+ * inside (patterns, backgrounds, the `onDeath` effect, spoils item names, and
+ * each dialogue speaker's portrait), and hands the built spec to `defineBoss`.
+ * Redeclared here rather than imported so this module stays pure; `inject.ts` is
+ * the single place that assigns one shape to the other, where a scalar-field
+ * drift is a compile error.
  */
 export interface ContentBoss {
   sprite: string;
@@ -261,6 +290,15 @@ export interface ContentBoss {
    * `ContentSpellCard` beside `background`, mirroring `BossSpec.music`'s note.)
    */
   music?: string;
+  /**
+   * A pre-fight exchange (`BossSpec.dialogue`): when present and non-empty, the
+   * Run enters a dialogue phase before this boss spawns, one line advanced per
+   * fresh Shot press. Each speaker names a portrait resolved pack-first (the
+   * pack's own `portraits` section) then built-in. Identical for every player
+   * character in this format — per-character variants would key by character
+   * name here, mirroring `BossSpec.dialogue`'s own future note.
+   */
+  dialogue?: readonly DialogueLine[];
 }
 
 /**
@@ -432,6 +470,13 @@ export interface PackManifest {
    */
   music?: PackMusic;
   /**
+   * Dialogue portrait images. A top-level presentation section, sibling to
+   * `sounds` and `music` — a portrait is a file, not game data; a boss's
+   * `content.bosses.<name>.dialogue` references one only by NAME. The loader
+   * fetches, dimension-checks and registers these through `definePortrait`.
+   */
+  portraits?: PackPortraits;
+  /**
    * Declared engine capabilities. A capability the engine implements
    * (`IMPLEMENTED_CAPABILITIES`) is honoured; anything else is refused. Every
    * `content.*` section present must be covered by a matching capability here,
@@ -482,6 +527,7 @@ const TOP_FIELDS = [
   'sounds',
   'hud',
   'music',
+  'portraits',
   'requires',
   'content',
 ] as const;
@@ -489,18 +535,18 @@ const TOP_FIELDS = [
 /**
  * Sections that belong to a later format. They are refused by name so an author
  * who read a later draft learns precisely what is fiction, rather than seeing a
- * generic "unknown field". `content` left this list when its enemies and stages
- * sections became real; `music` left it when the top-level `music` section did
- * (background music is now implemented — see `PackMusic`); `difficulty` left it
- * when per-pattern tier overrides became part of the content shapes
- * (`ContentDifficultyOverrides`, `ContentSpellCard.difficulties`) rather than a
- * section of their own. The sections still reserved *inside* `content` are
+ * generic "unknown field". Names have left this list as the engine grew:
+ * `content` when its enemies and stages sections became real, `music` when the
+ * top-level `music` section did, `difficulty` when per-pattern tier overrides
+ * became part of the content shapes, and `dialog` when boss dialogue landed
+ * (`ContentBoss.dialogue`) and portraits became a real top-level `portraits`
+ * section. What is left is not a future *content* kind at all but the one
+ * permanent code line: `backgrounds` are shader code the engine owns, named by a
+ * string and never shipped as pack data — the same boundary as patterns,
+ * behaviours and sim rules. The sections still reserved *inside* `content` are
  * `CONTENT_RESERVED`.
  */
-const RESERVED_TOP = [
-  'dialog',
-  'backgrounds',
-] as const;
+const RESERVED_TOP = ['backgrounds'] as const;
 
 const ASSET_FIELDS = ['bullets', 'ship', 'filter'] as const;
 const MUSIC_TRACK_FIELDS = ['file', 'loopStart', 'loopEnd', 'volume'] as const;
@@ -521,16 +567,18 @@ const CONTENT_FIELDS = [
   'items',
 ] as const;
 /**
- * `content.*` sections a later format will carry; refused by name today. Each of
- * these needs an engine feature it does not yet have — dialog is a scripting
- * layer, backgrounds are shader code — so unlike the implemented sections above
- * they are not pure data a pack can simply carry. (Neither music nor difficulty
- * is here: music is a top-level presentation section, and difficulty is not a
- * `content` section at all — it lives inside pattern slots and spell cards as a
- * per-tier override — so `content.music`/`content.difficulty` read as plain
- * unknown fields, not reserved ones.)
+ * `content.*` sections still refused by name. Only `backgrounds` remains, and it
+ * is not a future *content* kind: a background is a shader — engine code, named
+ * by a string, never pack data — so it stays reserved permanently, the same code
+ * line as patterns, behaviours and sim rules. `dialog` left this list when boss
+ * dialogue became real (`ContentBoss.dialogue`, with portraits a top-level
+ * section); no pure-data content kind is reserved any longer. (Neither music nor
+ * difficulty is here: music is a top-level presentation section, and difficulty
+ * is not a `content` section at all — it lives inside pattern slots and spell
+ * cards as a per-tier override — so `content.music`/`content.difficulty` read as
+ * plain unknown fields, not reserved ones.)
  */
-const CONTENT_RESERVED = ['dialog', 'backgrounds'] as const;
+const CONTENT_RESERVED = ['backgrounds'] as const;
 
 const ENEMY_FIELDS = [
   'sprite',
@@ -582,8 +630,11 @@ const BOSS_FIELDS = [
   'onDeath',
   'spoils',
   'music',
+  'dialogue',
 ] as const;
 const BOSS_ENTRY_FIELDS = ['x', 'y', 'ticks'] as const;
+/** The fields of one `dialogue` line — a speaker (portrait name) and its text. */
+const DIALOGUE_LINE_FIELDS = ['speaker', 'text'] as const;
 const SPELLCARD_FIELDS = [
   'name',
   'hpSeconds',
@@ -794,6 +845,9 @@ export function validateManifest(
   // --- hud (optional object) --------------------------------------------
   if ('hud' in raw) validateHud(raw.hud, prefix, errors);
 
+  // --- portraits (optional object) --------------------------------------
+  if ('portraits' in raw) validatePortraits(raw.portraits, prefix, errors);
+
   // --- content (format-2 sections) + the requires↔content covering invariant
   validateContent(raw, prefix, errors);
 
@@ -959,6 +1013,25 @@ function validateHud(hud: unknown, prefix: string, errors: string[]): void {
       continue;
     }
     errors.push(unknownField(prefix, key, HUD_FIELDS));
+  }
+}
+
+/**
+ * The top-level `portraits` section: a map of portrait name → image file path.
+ * Open-ended names (a pack invents its speakers), so unlike `sounds` there is no
+ * closed name list to check against — only that each value is a string. The
+ * `PORTRAIT_SIZE` dimension bound needs the decoded image, so it is the loader's,
+ * measured with the real size in the error.
+ */
+function validatePortraits(portraits: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(portraits)) {
+    errors.push(`${prefix}portraits must be a JSON object`);
+    return;
+  }
+  for (const [key, file] of Object.entries(portraits)) {
+    if (typeof file !== 'string') {
+      errors.push(`${prefix}portraits."${key}" must be a string (a path to a PNG)`);
+    }
   }
 }
 
@@ -1352,6 +1425,10 @@ function validateBoss(
     validateBossEntry(raw.entry, `${where}.entry`, prefix, errors);
   }
 
+  if ('dialogue' in raw && raw.dialogue !== undefined) {
+    validateDialogue(raw.dialogue, `${where}.dialogue`, prefix, errors);
+  }
+
   if (!('phases' in raw) || raw.phases === undefined) {
     errors.push(`${prefix}${where} is missing required field "phases" — an array of spell cards`);
   } else if (!Array.isArray(raw.phases)) {
@@ -1368,6 +1445,39 @@ function validateBoss(
     if ((BOSS_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(`${prefix}${where}: `, key, BOSS_FIELDS));
   }
+}
+
+/**
+ * A boss's `dialogue`: an array of `{speaker, text}` lines. Shape only — the
+ * speaker names a portrait, but whether that portrait resolves (against built-in
+ * portraits ∪ the pack's own `portraits` section) is a registry question, so it
+ * belongs to `inject.ts`, not this pure module. Here: an array, each entry a
+ * `{speaker, text}` object of two strings, with a did-you-mean on an unknown line
+ * field the same as everywhere else.
+ */
+function validateDialogue(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(raw)) {
+    errors.push(`${prefix}${where} must be an array of {speaker, text} lines`);
+    return;
+  }
+  raw.forEach((line, i) => {
+    const lw = `${where}[${i}]`;
+    if (!isRecord(line)) {
+      errors.push(`${prefix}${lw} must be a JSON object`);
+      return;
+    }
+    requireField(line, 'speaker', 'string', lw, prefix, errors, 'a portrait name');
+    requireField(line, 'text', 'string', lw, prefix, errors, 'the line spoken');
+    for (const key of Object.keys(line)) {
+      if ((DIALOGUE_LINE_FIELDS as readonly string[]).includes(key)) continue;
+      errors.push(unknownField(`${prefix}${lw}: `, key, DIALOGUE_LINE_FIELDS));
+    }
+  });
 }
 
 function validateBossEntry(

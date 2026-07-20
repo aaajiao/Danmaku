@@ -5,6 +5,7 @@ import { Button } from '../core/input';
 import { sim } from '../core/random';
 import { defineBoss } from '../sim/boss';
 import { getBombSpec } from '../sim/bomb';
+import { defineStage } from '../content/stage';
 import { deserialize, serialize, type Replay } from '../sim/replay';
 import {
   characterNames,
@@ -51,6 +52,18 @@ defineBoss(OTHER_BOSS, {
   radius: 12,
   phases: [{ name: 'test other', hp: 40, timeLimit: 120, patterns: [] }],
 });
+
+/**
+ * A stage with no waves and no boss, for the no-boss clear path.
+ *
+ * stage-1 now ends in `sentinel`, whose pre-fight dialogue an idle pilot (one
+ * that never presses Shot) cannot tap through — so a run left on stage-1 with
+ * zero input stalls at the exchange rather than clearing, which is correct. This
+ * stage has nothing to fight, so a run of it clears the moment its empty script
+ * runs out, which is the path the no-boss test below is about.
+ */
+const NO_BOSS_STAGE = 'test-no-boss-stage';
+defineStage(NO_BOSS_STAGE, { name: NO_BOSS_STAGE, outro: 0, waves: [] });
 
 /**
  * A scripted pilot: deterministic, busy, and not a straight line.
@@ -449,11 +462,13 @@ describe('lifecycle', () => {
   });
 
   test('a run with no boss clears once the stage and the field are done', () => {
-    const run = new Run(config());
-    // Idle: the ship never fires, so nothing is killed and the clear must come
-    // from the script running out and the survivors leaving on their own.
+    // A genuinely boss-less stage. On stage-1 an idle pilot now stalls at
+    // `sentinel`'s dialogue (a fresh Shot advances a line and idle never presses
+    // one), so this points at an empty no-boss stage to keep testing the clear
+    // path the comment describes: the script runs out and nothing is owed.
+    const run = new Run(config({ stage: NO_BOSS_STAGE }));
     for (let t = 0; t < 40000 && !run.finished; t++) run.tick(0);
-    expect(['cleared', 'failed']).toContain(run.outcome);
+    expect(run.outcome).toBe('cleared');
   });
 
   test('dying out fails the run', () => {
