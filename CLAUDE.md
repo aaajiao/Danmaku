@@ -409,7 +409,7 @@ page you open by hand:
 
 ```
 bun run test:visual     # → http://localhost:3006   layer ordering
-bun run test:assets     # → http://localhost:3007   atlas loading and orientation
+bun run test:assets     # → http://localhost:3007   atlas loading, and cell padding
 bun run test:density    # → http://localhost:3008   readability under bullet load
 ```
 
@@ -417,6 +417,13 @@ bun run test:density    # → http://localhost:3008   readability under bullet l
 they cross, and then repeats the measurement with `sortObjects` forced off to
 prove it can fail. Run it after any change to `Stage`, `SpriteBatch`, or the
 `Layer` constants.
+
+`test:assets` is the only thing that measures the **generated sheet's actual
+pixels**. `procedural.test.ts` checks each cell's declared geometry against
+`MAX_CELL_EXTENT`, which is sound but is arithmetic — `bun test` has no canvas.
+Run this after touching a painter in `render/procedural.ts`, and read the
+printed table: geometry and painted footprint differ in both directions, and it
+is the painted number `docs/assets.md` quotes.
 
 `test:density` is the one to run after touching a tint or bloom. It is a
 judgement call rather than an assertion — whether a single bullet stays findable

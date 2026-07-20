@@ -43,7 +43,14 @@
 import { Atlas, loadAtlas, loadTexture } from '../../src/render/atlas';
 import { SpriteBatch } from '../../src/render/sprite-batch';
 import { Stage } from '../../src/render/stage';
-import { BULLET_COLUMNS, BULLET_GRID, BULLET_ROWS } from '../../src/render/procedural';
+import {
+  BULLET_CELLS,
+  BULLET_COLUMNS,
+  BULLET_GRID,
+  BULLET_ROWS,
+  createBulletAtlas,
+  MAX_CELL_EXTENT,
+} from '../../src/render/procedural';
 import { Audio, defineSound, soundNames } from '../../src/audio';
 
 /* ------------------------------------------------------------------ */
@@ -837,6 +844,159 @@ function finish(): void {
     audio: audioResult,
     wav: { blip, stereo },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* The generated sheet: does every cell actually keep its padding?      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The one check `procedural.test.ts` cannot make.
+ *
+ * That suite holds every cell's *declared* extent against `MAX_CELL_EXTENT`,
+ * and says plainly that it is checking a declaration rather than a bitmap —
+ * `bun test` has no canvas, so nothing there ever renders. The declaration and
+ * the painter could drift and the suite would stay green.
+ *
+ * This page has a canvas. So it builds the real sheet, reads the real pixels,
+ * and measures the alpha bounding box of every cell. It is the difference
+ * between believing the arithmetic and looking at the result.
+ *
+ * That difference is not hypothetical here. `halo` shipped as `ring(15, 2)`,
+ * which reads like a 30px shape and paints 32 — `ring` strokes a second time at
+ * `lineWidth = thickness * 2`, so paint lands half a thickness outside the
+ * stated radius. Zero margin, on a sheet sampled `LinearFilter`, with `needle`
+ * in the adjacent cell. Nothing in the repository could see it, because the only
+ * statements of the rule were prose in `docs/assets.md` and hand-computed
+ * numbers that were themselves wrong.
+ *
+ * ## Margin, not extent
+ *
+ * Geometric extent and painted pixels differ by up to one: a boundary at a
+ * fractional coordinate gives partial coverage to the pixel outside it, so
+ * `ring(12, 3)` is geometrically 27 and paints 28. The assertion here is on
+ * **margin**, because margin is what the sampler can reach across, and here it
+ * is measured rather than derived.
+ */
+section('generated bullet sheet — measured, not declared');
+
+/** 2px each side of a 28px shape in a 32px cell. */
+const MIN_MARGIN = (BULLET_GRID.cellW - MAX_CELL_EXTENT) / 2;
+
+interface Painted {
+  w: number;
+  h: number;
+  /** Smallest gap between ink and any of the cell's four edges. */
+  margin: number;
+}
+
+/**
+ * Alpha bounding box of one cell rect. `alpha > 0` rather than a threshold: a
+ * faint antialiased texel is exactly what linear sampling drags across a seam,
+ * so anything not fully transparent counts as ink.
+ */
+function paintedIn(
+  ctx: CanvasRenderingContext2D,
+  r: { x: number; y: number; w: number; h: number },
+): Painted {
+  const { data } = ctx.getImageData(r.x, r.y, r.w, r.h);
+
+  let minX = r.w;
+  let maxX = -1;
+  let minY = r.h;
+  let maxY = -1;
+
+  for (let y = 0; y < r.h; y++) {
+    for (let x = 0; x < r.w; x++) {
+      if (data[(y * r.w + x) * 4 + 3] === 0) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  // An empty cell has no ink to bleed, so its margin is unbounded rather than
+  // zero. Reporting 0 would fail a cell for being blank.
+  if (maxX < 0) return { w: 0, h: 0, margin: Number.POSITIVE_INFINITY };
+
+  return {
+    w: maxX - minX + 1,
+    h: maxY - minY + 1,
+    margin: Math.min(minX, r.w - 1 - maxX, minY, r.h - 1 - maxY),
+  };
+}
+
+const bulletAtlas = createBulletAtlas();
+const sheet = bulletAtlas.texture.image as HTMLCanvasElement;
+const sheetCtx = sheet.getContext('2d');
+
+if (!sheetCtx) {
+  check('the generated sheet is readable', false, 'no 2D context on the atlas canvas');
+} else {
+  const painted = BULLET_CELLS.map((name) => ({
+    name,
+    ...paintedIn(sheetCtx, bulletAtlas.get(name)),
+  }));
+
+  const inked = painted.filter((c) => Number.isFinite(c.margin));
+  const tight = painted.filter((c) => c.margin < MIN_MARGIN);
+  const tightest = inked.reduce((a, b) => (a.margin <= b.margin ? a : b));
+
+  check(
+    'every generated cell keeps its transparent margin',
+    tight.length === 0,
+    tight.length === 0
+      ? `all ${painted.length} cells clear ${MIN_MARGIN}px — tightest is ${tightest.name} at ${tightest.margin}px`
+      : tight.map((c) => `${c.name} ${c.w}x${c.h}, margin ${c.margin}px`).join('; '),
+  );
+
+  const wide = painted.filter((c) => c.w > MAX_CELL_EXTENT || c.h > MAX_CELL_EXTENT);
+
+  check(
+    'no generated cell paints wider than the limit',
+    wide.length === 0,
+    wide.length === 0
+      ? `widest painted extent is ${Math.max(...painted.map((c) => Math.max(c.w, c.h)))}px, limit ${MAX_CELL_EXTENT}`
+      : wide.map((c) => `${c.name} ${c.w}x${c.h}`).join('; '),
+  );
+
+  // The measurement, printed. `docs/assets.md` quotes these numbers, and a table
+  // in a document is a copy — this is the original.
+  for (const c of painted) {
+    lines.push(
+      `  ${c.name.padEnd(12)} ${`${c.w}x${c.h}`.padEnd(9)} margin ` +
+        (Number.isFinite(c.margin) ? `${c.margin}px` : 'empty cell'),
+    );
+  }
+
+  /**
+   * Mutation proof, in the manner `layer-order.ts` established: a check only
+   * ever seen green is not evidence.
+   *
+   * The sheet is copied, one cell is painted edge to edge, and the *same*
+   * measurement runs over it. If that still reported an acceptable margin, every
+   * PASS above would be worthless.
+   */
+  const scratch = document.createElement('canvas');
+  scratch.width = sheet.width;
+  scratch.height = sheet.height;
+  const scratchCtx = scratch.getContext('2d');
+
+  if (scratchCtx) {
+    scratchCtx.drawImage(sheet, 0, 0);
+    const victim = bulletAtlas.get('halo');
+    scratchCtx.fillStyle = 'rgba(255,255,255,1)';
+    scratchCtx.fillRect(victim.x, victim.y, victim.w, victim.h);
+
+    const violated = paintedIn(scratchCtx, victim);
+
+    check(
+      'the margin check can fail — a cell painted edge to edge is rejected',
+      violated.margin < MIN_MARGIN,
+      `deliberately filled halo measures ${violated.w}x${violated.h}, margin ${violated.margin}px, below the ${MIN_MARGIN}px floor`,
+    );
+  }
 }
 
 finish();

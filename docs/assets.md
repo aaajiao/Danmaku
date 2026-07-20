@@ -218,34 +218,49 @@ image editor.
 Names are the contract — content references `'orb.medium'`, never index 1 — so
 re-packing the sheet cannot silently repoint a bullet at the wrong art.
 
-Sizes below are the extents the generator actually paints, read off `PAINTERS`
-(`src/render/procedural.ts:219-241`). Two painters do not paint what their
-arguments read like: `ring` strokes past its radius (§1.2), and `blade` is a
-quadratic Bézier whose control points sit at `±wide/2`, so its apex reaches only
-half of that — painted height is `wide/2`, not `wide`
-(`src/render/procedural.ts:91-98`). They are a starting point rather than a
-requirement: what a replacement must preserve is the **relative** ordering, so
-`orb.small` still reads as the cheap workhorse and `orb.large` still reads as a
-threat.
+The **Painted** and **Margin** columns are the alpha bounding box measured off
+the real sheet by `bun run test:assets`, which prints all sixteen rows and is
+where these were copied from. They are deliberately *not* the arguments in the
+`Painted as` column, and the two disagree in both directions:
 
-| # | Name | Painted as | Extent | Must point +x |
-|---|---|---|---|---|
-| 0 | `orb.small` | `orb(r 5)`, the workhorse shot | 10px | no |
-| 1 | `orb.medium` | `orb(r 8)` | 16px | no |
-| 2 | `orb.large` | `orb(r 13)`, heavy round shot | 26px | no |
-| 3 | `ring` | `ring(r 12, thickness 3)`, reads through dense fire | 27px | no |
-| 4 | `kunai` | `blade(26, 9)`, leaf-shaped | 26×4.5 | **yes** |
-| 5 | `scale` | `shard(20, 12)`, short diamond | 20×12 | **yes** |
-| 6 | `star` | `star(r 13, 5 points)` | 26px | no |
-| 7 | `shard` | `shard(26, 7)`, long thin diamond | 26×7 | **yes** |
-| 8 | `glow.small` | `orb(r 7, core 0.15)`, halo with no hard core | 14px | no |
-| 9 | `glow.medium` | `orb(r 11, core 0.12)` | 22px | no |
-| 10 | `glow.large` | `orb(r 14, core 0.10)` | 28px | no |
-| 11 | `halo` | `ring(r 13, thickness 2)`, thin hollow ring | 28px — see §1.2 | no |
-| 12 | `needle` | `blade(28, 5)`, long slim blade | 28×2.5 | **yes** |
-| 13 | `petal` | `petal(r 11)`, asymmetric leaf | 22×~7.7 | **yes** |
-| 14 | `spark` | `star(r 11, 4 points)` | 22px | no |
-| 15 | `mote` | `orb(r 3)`, dust for trails | 6px | no |
+- `needle` is called with a length of 28 and paints **26** — its tips taper to
+  nothing, so the last texel at each end never accumulates enough coverage to
+  register. `star` loses 2px the same way, at five points.
+- `kunai` is geometrically 4.5 tall and paints **6** — a blunt edge landing at a
+  fractional coordinate spills coverage into the pixel it overlaps.
+- `ring` is geometrically 27 and paints **28**, for the same reason.
+
+Two painters also do not paint what their arguments read like at all: `ring`
+strokes past its radius (§1.2), and `blade` is a quadratic Bézier whose control
+points sit at `±wide/2`, so its apex reaches only half of that — geometric
+height is `wide/2`, not `wide` (`src/render/procedural.ts:91-98`).
+
+**Reproduce the painted numbers, not the arguments.** `CELL_ART`
+(`src/render/procedural.ts:219-241`) declares the geometry, which is what the
+padding rule is checked against; only the bitmap knows the rest.
+
+These are a starting point rather than a requirement. What a replacement must
+preserve is the **relative** ordering, so `orb.small` still reads as the cheap
+workhorse and `orb.large` still reads as a threat.
+
+| # | Name | Painted as | Painted | Margin | Must point +x |
+|---|---|---|---|---|---|
+| 0 | `orb.small` | `orb(r 5)`, the workhorse shot | 10×10 | 11px | no |
+| 1 | `orb.medium` | `orb(r 8)` | 16×16 | 8px | no |
+| 2 | `orb.large` | `orb(r 13)`, heavy round shot | 26×26 | 3px | no |
+| 3 | `ring` | `ring(r 12, thickness 3)`, reads through dense fire | 28×28 | 2px | no |
+| 4 | `kunai` | `blade(26, 9)`, leaf-shaped | 26×6 | 3px | **yes** |
+| 5 | `scale` | `shard(20, 12)`, short diamond | 20×12 | 6px | **yes** |
+| 6 | `star` | `star(r 13, 5 points)` | 24×24 | 3px | no |
+| 7 | `shard` | `shard(26, 7)`, long thin diamond | 26×8 | 3px | **yes** |
+| 8 | `glow.small` | `orb(r 7, core 0.15)`, halo with no hard core | 14×14 | 9px | no |
+| 9 | `glow.medium` | `orb(r 11, core 0.12)` | 22×22 | 5px | no |
+| 10 | `glow.large` | `orb(r 14, core 0.10)` | 28×28 | 2px | no |
+| 11 | `halo` | `ring(r 13, thickness 2)`, thin hollow ring | 28×28 | 2px — see §1.2 | no |
+| 12 | `needle` | `blade(28, 5)`, long slim blade | 26×4 | 3px | **yes** |
+| 13 | `petal` | `petal(r 11)`, asymmetric leaf | 22×8 | 5px | **yes** |
+| 14 | `spark` | `star(r 11, 4 points)` | 22×22 | 5px | no |
+| 15 | `mote` | `orb(r 3)`, dust for trails | 6×6 | 13px | no |
 
 The last column is stricter than it looks. It does not mean "something sets
 `orientToHeading` on this cell today" — `kunai`, `scale`, `needle` and

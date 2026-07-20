@@ -97,12 +97,27 @@ describe('the guard can fail', () => {
   });
 });
 
-describe('painted extents, as the asset spec quotes them', () => {
-  // `docs/assets.md` reproduces these. Pinning them here means the doc has a
-  // source of truth rather than a hand computation — the blades in particular
-  // were quoted at roughly double their real height for the life of the file,
-  // because the control argument is not the painted height.
-
+/**
+ * These are **geometric** extents — where the path runs — and they are not the
+ * pixel footprint. Measured on a canvas, the two disagree in both directions:
+ *
+ *   kunai   geometric 26x4.5  →  painted 26x6    blunt, so coverage spills
+ *   needle  geometric 28x2.5  →  painted 26x4    tips too thin to register
+ *   star    geometric 26x26   →  painted 24x24   same, at five points
+ *   ring    geometric 27      →  painted 28      fractional boundary
+ *
+ * The guard is still sound, and the direction is worth stating because it is not
+ * obvious. For a shape centred in a 32px cell with geometric extent E ≤ 28, the
+ * path spans `16 ± E/2`, so it touches no pixel below index 2 and none above 29
+ * — margin 2, whatever the silhouette. E = 28.5 is the first that reaches pixel
+ * 1. So a geometric check can never pass something the bitmap would fail, and
+ * `kunai` painting 6 where 4.5 was declared is harmless at that size.
+ *
+ * What it *cannot* do is give `docs/assets.md` numbers to quote. Those must come
+ * from the bitmap, and the measurement lives in `test/visual/asset-loading.ts`,
+ * which prints all sixteen.
+ */
+describe('declared geometry', () => {
   test('a blade paints half its control width', () => {
     expect(CELL_ART.kunai.w).toBe(26);
     expect(CELL_ART.kunai.h).toBe(4.5);
