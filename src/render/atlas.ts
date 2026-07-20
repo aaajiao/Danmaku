@@ -3,7 +3,7 @@
  *
  * Upstream addressed sheets as a uniform grid: UVs were computed from a cell
  * index and the entity's own width/height (`ElementView._initCoordinates`,
- * toho-like-js/source/Element.js:307). That is simple and it works, but it
+ * upstream source/Element.js:307). That is simple and it works, but it
  * forces every cell on a sheet to be the same size and gives an artist no way
  * to pack tightly.
  *

@@ -2,10 +2,11 @@
 
 A bullet-hell (danmaku) shooter built on three.js.
 
-Its starting point is [toho-like-js](https://github.com/takahirox/toho-like-js) by
-takahirox — a raw-WebGL Touhou-style shooter, vendored here at commit `8ff780d`
-(2017-06-13). This project is **not** a port. Upstream is a reference
-implementation and a source of proven mechanisms; the destination is our own game.
+It began by studying [toho-like-js](https://github.com/takahirox/toho-like-js) by
+takahirox, a raw-WebGL Touhou-style shooter at commit `8ff780d` (2017-06-13).
+This is **not** a port, and upstream is not in this repository. What was taken
+across is mechanism — chiefly the polar motion DSL its patterns are written in —
+along with a list of its mistakes, recorded below so they are not repeated.
 
 ## Repository layout
 
@@ -16,7 +17,6 @@ src/render/     three.js: sprite batching, atlases, layered stage, post-processi
 src/content/    danmaku patterns, stage definitions
 src/audio/      sound registry
 docs/           asset specification, extension guide
-toho-like-js/   frozen upstream baseline — READ-ONLY, never edit
 ```
 
 `src/sim/` and `src/content/` must not import from `src/render/`. The simulation
@@ -24,8 +24,10 @@ is engine-agnostic by construction, which is what makes it testable headlessly a
 reproducible. If you find yourself wanting a renderer type in a sim module, the
 design is wrong, not the rule.
 
-`toho-like-js/` exists so behaviour can be compared against a working original.
-Treat it as a fossil: read it, learn from it, never modify it.
+Upstream is **not in this repository** — not in the tree, not in the history.
+See NOTICE for why. What it taught is recorded below under "What upstream is good
+for"; if you want to read the original, clone it separately. `.gitignore` has an
+entry for `toho-like-js/` so a local copy can never be committed by accident.
 
 ## Stack
 
@@ -220,7 +222,8 @@ JS. Instancing addresses both.
 
 ## What upstream is good for
 
-Read it for mechanism, not structure.
+Read it for mechanism, not structure — clone it separately if you want to.
+File references below are paths **inside the upstream repository**, not this one.
 
 **Worth studying:** the motion DSL (`source/MoveVector.js`, `source/Element.js`)
 and the pattern data in `data/` — polar velocity with derivatives, clamps,
@@ -245,8 +248,9 @@ follows it.
 
 ### Upstream replay fixtures cannot validate this engine
 
-`toho-like-js/replay/*.txt` were originally intended as a migration oracle. **They
-cannot serve that purpose and must not be used for it.**
+Upstream's replay fixtures were originally intended as a migration oracle. **They
+cannot serve that purpose and must not be used for it**, quite apart from no
+longer being in the tree.
 
 Our generator differs from upstream's in two ways that both change the sequence:
 it mixes with logical shifts (`>>>`) where upstream uses arithmetic ones (`>>`,

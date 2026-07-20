@@ -6,7 +6,7 @@
  * own file, and the reason it draws exclusively from the `fx` stream.
  *
  * Upstream scattered damage-effect particles using its single global generator
- * (`toho-like-js/source/Effect.js:1244`), which welded visuals to determinism:
+ * (`upstream source/Effect.js:1244`), which welded visuals to determinism:
  * adding one particle shifted every subsequent bullet, and any change to effect
  * spawning desynced a replay. See CLAUDE.md, rule 2.
  *

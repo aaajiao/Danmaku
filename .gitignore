@@ -28,3 +28,7 @@ test-results/
 # Claude Code local state (project skills and launch config stay tracked)
 .claude/settings.local.json
 .claude/.cc-writes/
+
+# Upstream reference, kept on disk and deliberately out of version control.
+# See NOTICE: we hold no rights to it and cannot redistribute it.
+toho-like-js/

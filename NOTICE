@@ -7,20 +7,21 @@ The MIT licence in LICENSE covers **our own work only**:
     docs/           documentation
     index.html, package.json, tsconfig.json, README.md, CLAUDE.md
 
-It does **not** cover the vendored directory described below.
+It does **not** cover the third-party work described below.
 
 
-Third-party: toho-like-js/
---------------------------
+Third-party: toho-like-js
+-------------------------
 
-`toho-like-js/` is an unmodified copy of
+This project was developed by studying
 
     https://github.com/takahirox/toho-like-js
     commit 8ff780d, 2017-06-13
     Copyright (c) takahirox
 
-It is vendored as a read-only reference implementation. **We do not hold rights
-to it and cannot license it to anyone.** Two separate reasons:
+**It is not part of this repository** — not in the tree, and removed from the
+history. We do not hold rights to it and cannot license it to anyone, for two
+separate reasons:
 
 1. The upstream repository contains no licence file. Under the Berne Convention
    the default is all rights reserved, so there is no grant to pass on — not
@@ -29,13 +30,17 @@ to it and cannot license it to anyone.** Two separate reasons:
 2. Its art and audio are derivative works of the Touhou Project by Team Shanghai
    Alice (ZUN), whose rights are held by neither us nor upstream.
 
-Nothing under `toho-like-js/` may be redistributed as part of this project, and
-no asset from it may appear in a build. Everything we ship is original work:
-placeholder art and sound are generated procedurally at runtime, specifically so
-that no borrowed asset is ever needed. See CLAUDE.md rule 7 and docs/assets.md.
+Upstream also credits third parties for its own art and audio, so the rights
+chain runs further than upstream itself — there is no plausible route to a
+licence for any of it.
 
-If this project is ever published, `toho-like-js/` should be removed from the
-distributed tree, and from history if the repository itself is published.
+Nothing from it may appear in a build. Everything we ship is original work:
+placeholder art and sound are generated procedurally at runtime, specifically so
+that no borrowed asset is ever needed. See CLAUDE.md rule 9 and docs/assets.md.
+
+A working copy may be kept locally for reference — `.gitignore` has an entry for
+`toho-like-js/` so that a clone of it sitting in the working tree can never be
+committed by accident.
 
 
 Dependencies

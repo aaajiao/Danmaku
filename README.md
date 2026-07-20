@@ -2,10 +2,12 @@
 
 A bullet-hell shooter built on three.js.
 
-Its starting point is [toho-like-js](https://github.com/takahirox/toho-like-js) by
-takahirox — a raw-WebGL Touhou-style shooter from 2017, vendored unmodified in
-`toho-like-js/` as a reference baseline. This is not a faithful port. Upstream is
-a source of proven mechanisms; the destination is our own game.
+It began by studying [toho-like-js](https://github.com/takahirox/toho-like-js)
+by takahirox, a raw-WebGL Touhou-style shooter from 2017. That is not a port and
+upstream is not in this repository — see the licence note below. What was taken
+across is mechanism: the polar motion DSL its bullet patterns are written in,
+and a long list of things it got wrong that are documented in `CLAUDE.md` so we
+do not repeat them.
 
 ## Running it
 
@@ -29,7 +31,6 @@ src/core/       loop, input, seeded RNG, object pool
 src/sim/        motion DSL, collision, bullets — engine-agnostic simulation
 src/render/     three.js: instanced sprite batching, atlases, layered stage
 src/content/    danmaku patterns
-toho-like-js/   frozen upstream baseline, read-only
 docs/           asset spec and extension guide
 ```
 
@@ -59,9 +60,10 @@ every subtle way to break this project runs through breaking one of them.
 
 MIT — see [`LICENSE`](./LICENSE). **It covers our work only.**
 
-`toho-like-js/` is vendored third-party code with no licence of its own, and its
-art and audio are Touhou Project derivatives. We hold no rights to it and cannot
-license it onward. It is present as a read-only reference — nothing under it may
-ship, and no asset from it may be used.
+[toho-like-js](https://github.com/takahirox/toho-like-js) is third-party code
+with no licence of its own, and its art and audio are Touhou Project derivatives.
+We hold no rights to it and cannot license it onward, so **it is not in this
+repository at all** — not in the tree and not in the history. Clone it separately
+if you want it for reference.
 
-[`NOTICE`](./NOTICE) states the scope precisely. See also `CLAUDE.md` rule 7.
+[`NOTICE`](./NOTICE) states the scope precisely. See also `CLAUDE.md` rule 9.

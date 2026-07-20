@@ -10,7 +10,7 @@
  * Upstream was already well batched — roughly 17 draw calls a frame regardless
  * of bullet count. Its cost was elsewhere: a full `bufferData` re-upload of
  * four buffers per drawer per frame, and `Math.cos`/`Math.sin` per vertex in
- * JS (toho-like-js/source/Element.js:417). Instancing addresses exactly those
+ * JS (upstream source/Element.js:417). Instancing addresses exactly those
  * two, which is the real performance argument for the port.
  *
  * Usage is immediate-mode, once per frame:
