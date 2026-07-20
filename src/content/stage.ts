@@ -428,7 +428,7 @@ export class StageRunner {
  * `sim/enemy.ts`. It exists to prove the whole engine composes, so it is
  * paced like a stage rather than sized like a fixture.
  *
- * The field is 480×480 and enemies enter from above, so every `y` here is
+ * The field is 480×640 and enemies enter from above, so every `y` here is
  * negative: a wave is authored where it *starts*, offscreen, and flies in.
  *
  * Shape:

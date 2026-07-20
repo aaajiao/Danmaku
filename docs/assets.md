@@ -155,11 +155,15 @@ should stay visually upright.
 
 | Property | Value |
 |---|---|
-| Play field | **480 × 480** px |
-| Full frame | **640 × 480** px (right 160px is the HUD sidebar) |
+| Play field | **480 × 640** px — 3:4 portrait, the traditional STG frame |
+| Full frame | same 480 × 640: the field **is** the screen; the HUD composites over its edges, there is no sidebar |
 | Origin | top-left, **y increases downward** |
 | Units | 1 world unit = 1 pixel |
 | Depth | disabled; order is explicit via layers |
+
+The logical frame is fixed; `main.ts` scales it to the viewport (integer steps
+above 1×) and the renderer already multiplies the backing store by
+`devicePixelRatio`, so art drawn at logical size stays crisp at any window size.
 
 Art is authored at **final display size**. There is no global scale factor.
 A 32px bullet occupies 32 of the field's 480 pixels — about 6.7% of its width.
@@ -168,7 +172,7 @@ Per-draw scaling is a different thing and it exists. `SpriteStyle.width` and
 `height` default to the region's own size (`src/render/sprite-batch.ts:31-32`,
 `:242-243`) and callers override them freely: the boss draws a 32px cell at 56px
 (`src/sim/boss.ts:746-747`), the turret at 40px (`src/sim/enemy.ts:469-470`), the
-ship's 64px art at 40px (`src/main.ts:349-351`), and particles anywhere from
+ship's 64px art at 40px (`src/main.ts:367-369`), and particles anywhere from
 1.6× to 0.05×. So "final display size" means the size to design *for*, not the
 only size a cell will ever be drawn at. The practical consequence is at the top
 of section 3.5: detail that only reads at one size is wasted.
@@ -181,7 +185,7 @@ of section 3.5: detail that only reads at one size is wasted.
 
 The name is a historical accident and it will mislead you. **This sheet is not
 just bullets.** Every `SpriteBatch` in the game except the player's own is built
-on it (`src/main.ts:84-103`): enemies wear `orb.large`, `ring` and `halo`
+on it (`src/main.ts:102-119`): enemies wear `orb.large`, `ring` and `halo`
 (`src/sim/enemy.ts:420`, `:441`, `:466`), the boss wears `halo`
 (`src/sim/boss.ts:744`), items wear `shard`, `star`, `mote`, `petal` and `ring`
 (`src/sim/item.ts:407-451`), particles draw `glow.medium`, `spark`, `needle`,
@@ -334,7 +338,7 @@ neutral. A ship drawn blue would flash grey.
 Must include a **visually distinct centre point** marking the hitbox. This is
 not a debug affordance — showing the hitbox is standard genre practice and a
 real readability feature, because the ship sprite is many times larger than the
-2.5px lethal radius (`src/game/run.ts:1185-1186`). The placeholder marks it with a
+2.5px lethal radius (`src/game/run.ts:1196-1197`). The placeholder marks it with a
 3px-radius disc two pixels below centre (`src/render/procedural.ts:380-383`),
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
 2.5px radius — close enough to be honest, and worth keeping close.
@@ -349,7 +353,7 @@ request.
 
 There is no `enemies.png` and no `createEnemyAtlas`. The status is not "not yet
 implemented" — enemies are drawn, right now, from the **bullet atlas**:
-`batches.enemies` is constructed on it (`src/main.ts:85`), `grunt` is a tinted
+`batches.enemies` is constructed on it (`src/main.ts:103`), `grunt` is a tinted
 `orb.large`, `weaver` a `ring`, `turret` a `halo` (`src/sim/enemy.ts:420`,
 `:441`, `:466`), and the boss `sentinel` is a `halo` drawn at 56×56 out of a
 32px cell (`src/sim/boss.ts:743-748`). `width` and `height` default to the cell
@@ -435,7 +439,7 @@ added, so it never lands at 0.155 on screen. This is not a stylistic preference
 about moodiness; see the constraint below.
 
 There is also a hard ceiling above these numbers. Bloom is on in the shipped game
-— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:121`
+— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:139`
 passes `{ enabled: true }` — with a threshold of `0.95`
 (`src/render/post.ts:171-173`), chosen to catch bullet cores
 and nothing else. A background that approached it would bloom, and the bloom
@@ -516,7 +520,7 @@ Two properties of the particle system that constrain what those cells can be:
   to whatever is under it. Anything that relies on occluding the background will
   not read; luminance is the only channel doing work.
 - **Everything scales, and the quad size is hardcoded.** A particle is drawn at
-  `32 * p.scale` on both axes (`src/main.ts:314-315`) — the cell size is assumed,
+  `32 * p.scale` on both axes (`src/main.ts:332-333`) — the cell size is assumed,
   not read from the atlas. `death.big` runs from 1.6× down to 0.3× across its
   life (`src/sim/effects.ts:319`), so `glow.large` is drawn anywhere between
   51px and 10px. Detail that only exists at one size is wasted at both ends.

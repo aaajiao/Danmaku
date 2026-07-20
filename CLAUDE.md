@@ -440,6 +440,28 @@ propose again. It was considered and rejected on those grounds, not overlooked.
 
 ---
 
+## Multi-agent workflows: pick the model per stage
+
+When orchestrating subagents (the Workflow tool), do not let every stage inherit
+the session model. Match the model to what the stage actually does:
+
+- **Sonnet 5** (`model: 'sonnet'`) for mechanical stages: inventory scans,
+  citation sweeps, grep-and-report mapping, fixture generation, applying a
+  mapped fix across files. Pair with `effort: 'low'` or `'medium'` when the
+  task is rote.
+- **Opus 4.8** (`model: 'opus'`) for stages that decide or verify: design
+  proposals, judging, adversarial verification, anything writing simulation
+  code or reasoning about the determinism contract.
+- The session model is for the main loop — final synthesis and the judgement
+  calls that follow the workflow, not for fan-out stages.
+
+The reasoning is the same as the `sim`/`fx` RNG split: spend the expensive
+resource only where it changes the outcome. A mapping agent on the top-tier
+model produces the same grep results at several times the cost; a judge on a
+small model produces confident verdicts that have to be re-checked anyway.
+
+---
+
 ## Verification
 
 Run before declaring any change done, and show the output:

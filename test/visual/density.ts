@@ -63,7 +63,7 @@ import { Emitter } from '../../src/content/patterns';
 import { BulletSystem, type BulletSpec } from '../../src/sim/bullet';
 
 const FIELD_W = 480;
-const FIELD_H = 480;
+const FIELD_H = 640;
 const MARGIN = 48;
 const SEED = 0xd3f5b17;
 

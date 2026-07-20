@@ -223,8 +223,19 @@ export interface RunEvent {
   name?: string;
 }
 
-/** Play field. All content in `src/content` is authored in this space. */
-const FIELD = { width: 480, height: 480, margin: 48 } as const;
+/**
+ * Play field. All content in `src/content` is authored in this space.
+ *
+ * 480×640 is 3:4 — the traditional Japanese STG portrait frame — and the frame
+ * IS the whole screen: there is no sidebar, the HUD composites over the field
+ * edges. Exported because the shell must agree with the sim about this and has
+ * no business declaring its own copy: until it imported this constant,
+ * `main.ts` carried an independent `FIELD_W/FIELD_H` pair that happened to
+ * match, which is exactly the two-sources-of-truth shape this project keeps
+ * finding defects in. The shell may import game values; game may not import
+ * the renderer, so the dependency points the safe way.
+ */
+export const FIELD = { width: 480, height: 640, margin: 48 } as const;
 
 /** Item pickup reach, px. Focus widens it — leaning in should pay twice. */
 const MAGNET_RADIUS = 26;

@@ -404,7 +404,7 @@ import './lattice';   // load-bearing: nothing else registers the pattern
 function run(seed: number): string {
   const rng = new Random(seed);
   const bullets = new BulletSystem({
-    bounds: { width: 480, height: 480, margin: 48 },
+    bounds: { width: 480, height: 640, margin: 48 },
     initial: 512,
     max: 512,
   });
@@ -1414,9 +1414,9 @@ cannot live next to the stage that uses it, and the name is resolved by whoever
 is drawing.
 
 `Run.scene` reports what the run currently wants, preferring the live card's
-background over the stage's (`src/game/run.ts:1063-1069`), and `src/main.ts`
+background over the stage's (`src/game/run.ts:1074-1080`), and `src/main.ts`
 reconciles it against the live quad each tick, cross-fading when it and
-`background.name` disagree (`src/main.ts:208-210`).
+`background.name` disagree (`src/main.ts:226-228`).
 
 **That is declared state, not an event, and the distinction is load-bearing.**
 Everything else the presentation layer reacts to arrives through `drainEvents`,
@@ -1426,7 +1426,7 @@ pushing conditions through an event queue is how presentation drifts out of sync
 with the run: miss one event, or drain it in a state that is not drawing, and the
 screen stays wrong until something unrelated corrects it. Reconciliation is
 idempotent, so a run that is paused, replayed or restarted needs no separate
-resynchronisation path (`src/game/run.ts:1042-1048`).
+resynchronisation path (`src/game/run.ts:1053-1059`).
 
 ### Three constraints, and the one that is not obvious
 

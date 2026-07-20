@@ -22,21 +22,39 @@ import { TitleState, type GameContext } from './game/states';
 import { StateMachine } from './game/state';
 import { EVENT_SOUNDS } from './game/cues';
 import type { Replay } from './sim/replay';
-import type { Run, RunEventType } from './game/run';
+import { FIELD, type Run } from './game/run';
 import { Background } from './render/background';
 import { bulletAtlas as makeBulletAtlas, createShipAtlas } from './render/procedural';
 import { PostProcessing } from './render/post';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
 
-const FIELD_W = 480;
-const FIELD_H = 480;
+// The sim's field constant, not a local copy: the whole screen is the play
+// field now (3:4, HUD composited over it), so the shell and the sim must mean
+// the same thing by "the frame" — see the comment on `FIELD` in game/run.ts.
+const FIELD_W = FIELD.width;
+const FIELD_H = FIELD.height;
 
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
 
 const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
+
+/**
+ * Fit the fixed 480×640 logical frame to the viewport. Integer scales above
+ * 1× keep the pixel art crisp (`image-rendering: pixelated` does the rest);
+ * below 1× a fractional fit beats clipping. The sim never learns any of this —
+ * scaling is CSS transform only, input is already digital bits (rule 4).
+ */
+function fitStage(): void {
+  const el = document.getElementById('stage')!;
+  const raw = Math.min(innerWidth / FIELD_W, innerHeight / FIELD_H);
+  const scale = raw >= 1 ? Math.max(1, Math.floor(raw)) : raw;
+  el.style.transform = `scale(${scale})`;
+}
+addEventListener('resize', fitStage);
+fitStage();
 
 /**
  * Ticks a scene change takes. One second: long enough that entering a spell
@@ -362,10 +380,8 @@ function drawRun(run: Run): void {
 
 function drawOverlay(run: Run | undefined): void {
   surface.clearRect(0, 0, overlay.width, overlay.height);
-  surface.fillStyle = '#0a0a0a';
-  surface.fillRect(FIELD_W, 0, overlay.width - FIELD_W, overlay.height);
 
-  drawSidebar(run);
+  drawHud(run);
 
   // Menus and messages are the states' own business; they describe themselves
   // and this only paints what they describe.
@@ -375,37 +391,64 @@ function drawOverlay(run: Run | undefined): void {
   }
 }
 
-function drawSidebar(run: Run | undefined): void {
-  const x = FIELD_W + 14;
+/**
+ * The whole screen is the play field, so the HUD composites over it — the
+ * arcade grammar, not the PC-port sidebar. That makes the HUD part of the
+ * negative-space budget, and every choice here follows from that:
+ *
+ * - **Edges and corners only.** The centre of the field belongs to bullets;
+ *   nothing may sit where a curtain's gaps have to stay readable.
+ * - **Thin strokes, low luminance.** The reference grammar (PCB's in-field
+ *   spell display) dims live statistics to near-invisibility — that is the
+ *   standard, not a defect. Nothing here approaches a bullet's 1.0 white.
+ * - **The one large glyph lives in a corner** (the spell timer, top-right),
+ *   matching where the genre trained players to glance for it.
+ *
+ * Layout: score/graze top-left under the boss bar's line; lives/bombs
+ * top-right; power bottom-left; diagnostics bottom-right, dimmest of all.
+ * `test:density` judges readability with this HUD composited, so a change
+ * here is a change to that judgement.
+ */
+function drawHud(run: Run | undefined): void {
   surface.font = '11px monospace';
+  surface.textAlign = 'left';
 
-  surface.fillStyle = '#cfcfcf';
-  surface.fillText('DANMAKU', x, 26);
-
-  // Drawn whether or not a run is live: it is a display setting, and the state
-  // has to be readable on the title screen too. It also reads `post.enabled`
-  // back rather than tracking the keypress, so a composer that failed to build
-  // reports "off" instead of claiming a bloom nobody is drawing.
-  surface.fillStyle = post.enabled ? '#8fc8a8' : '#5a5a5a';
-  surface.fillText(`bloom  ${post.enabled ? 'on ' : 'off'}  [B]`, x, 200);
+  // Display setting, readable on the title screen too. Reads `post.enabled`
+  // back rather than tracking the keypress, so a composer that failed to
+  // build reports "off" instead of claiming a bloom nobody is drawing.
+  surface.fillStyle = post.enabled ? '#4a6a58' : '#3a3a3a';
+  surface.fillText(`bloom ${post.enabled ? 'on' : 'off'} [B]`, 8, FIELD_H - 8);
 
   if (!run) return;
 
   const p = run.player;
-  surface.fillStyle = '#b8b8b8';
-  surface.fillText(`score  ${p.score}`, x, 52);
-  surface.fillText(`graze  ${p.graze}`, x, 68);
-  surface.fillText(`lives  ${p.lives}`, x, 84);
-  surface.fillText(`bombs  ${p.bombs}`, x, 100);
-  surface.fillText(`power  ${p.power.toFixed(2)}`, x, 116);
-
-  surface.fillStyle = '#6f6f6f';
-  surface.fillText(`tick   ${run.tickCount}`, x, 144);
-  surface.fillText(`bullet ${run.bullets.count}`, x, 160);
-  surface.fillText(`calls  ${stage.stats.calls}`, x, 176);
-
   const boss = run.boss.boss;
-  if (boss?.alive) drawBossBar(boss);
+  const bossUp = boss?.alive === true;
+
+  // Top-left: score and graze, pushed below the boss bar when one is up.
+  const topY = bossUp ? 50 : 16;
+  surface.fillStyle = '#9a9aa4';
+  surface.fillText(`score ${p.score}`, 8, topY);
+  surface.fillStyle = '#6f6f78';
+  surface.fillText(`graze ${p.graze}`, 8, topY + 14);
+
+  // Top-right: the resources a player checks between waves.
+  surface.textAlign = 'right';
+  surface.fillStyle = '#9a9aa4';
+  surface.fillText(`♥ ${p.lives}`, FIELD_W - 8, topY);
+  surface.fillStyle = '#6f6f78';
+  surface.fillText(`★ ${p.bombs}   P ${p.power.toFixed(2)}`, FIELD_W - 8, topY + 14);
+
+  // Bottom-right: diagnostics, dimmest text on screen.
+  surface.fillStyle = '#3a3a3a';
+  surface.fillText(
+    `${run.tickCount} t  ${run.bullets.count} b  ${stage.stats.calls} dc`,
+    FIELD_W - 8,
+    FIELD_H - 8,
+  );
+  surface.textAlign = 'left';
+
+  if (bossUp && boss) drawBossBar(boss);
 }
 
 /**
@@ -440,7 +483,9 @@ function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
 
 function drawView(view: { kind: string; title?: string; lines?: readonly string[]; menu?: readonly string[]; selected?: number }): void {
   const cx = FIELD_W / 2;
-  let y = 150;
+  // Upper third of the 3:4 frame: high enough that a menu never sits where
+  // the player's ship idles, low enough not to collide with the boss bar.
+  let y = Math.round(FIELD_H * 0.3);
 
   if (view.title) {
     surface.fillStyle = '#e8e8e8';

@@ -8,23 +8,23 @@ body {
   overflow: hidden;
 }
 
+/* The frame IS the play field: 480x640 logical pixels, 3:4 portrait. main.ts
+   scales this element to fit the viewport (integer steps above 1x, fractional
+   below), so everything inside is authored at logical size and never knows. */
 #stage {
   position: relative;
-  width: 640px;
-  height: 480px;
+  width: 480px;
+  height: 640px;
   image-rendering: pixelated;
 }
 
-/* Play field sits inset at the left, matching upstream's 480x480 WebGL canvas
-   inside a 640x480 frame. The remaining 160px is the score sidebar, drawn by
-   the 2D overlay. */
 /* Explicit CSS size: the renderer scales the backing store by devicePixelRatio,
    so the intrinsic canvas size is not the layout size we want. */
 #field {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset: 0;
   width: 480px;
-  height: 480px;
+  height: 640px;
   z-index: 1;
 }
 
