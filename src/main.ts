@@ -21,7 +21,7 @@ import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
 import { StateMachine } from './game/state';
 import type { Replay } from './sim/replay';
-import type { Run } from './game/run';
+import type { Run, RunEventType } from './game/run';
 import { Background } from './render/background';
 import { createBulletAtlas, createShipAtlas } from './render/procedural';
 import { PostProcessing } from './render/post';
@@ -149,15 +149,33 @@ machine.push(new TitleState(context));
 
 let unlocked = false;
 
-/** Sound is a reaction to events the run drains, never something it triggers. */
-const EVENT_SOUNDS: Readonly<Record<string, string>> = {
+/**
+ * Sound is a reaction to events the run drains, never something it triggers.
+ *
+ * Typed as a `Partial<Record<RunEventType, …>>` rather than
+ * `Record<string, string>`, and that is the fix, not decoration. The old type
+ * accepted any key, so `'item-collected'` — a `RunEventType` that has never
+ * existed; the run emits `'pickup'` — sat here silently for the life of the
+ * project and every pickup in every run was mute. Under this annotation the
+ * same typo is a compile error (verified: TS2353), which turns a whole class
+ * of "wired to a name nobody checked" into something the build catches.
+ */
+const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
+  shot: 'shot',
   'shot-hit': 'hit',
   'enemy-killed': 'explosion',
   'boss-hit': 'hit',
+  'boss-entered': 'explosion',
+  'boss-phase': 'pickup',
+  'boss-cleared': 'explosion',
+  'boss-defeated': 'explosion',
   'player-death': 'death',
-  'item-collected': 'pickup',
+  pickup: 'pickup',
+  extend: 'pickup',
   graze: 'graze',
   bomb: 'explosion',
+  cleared: 'pickup',
+  failed: 'death',
 };
 
 const loop = new Loop({
@@ -316,7 +334,10 @@ function drawRun(run: Run): void {
   for (const option of run.options.options) {
     if (!option.active) continue;
     batches.options.draw(option.x, option.y, optionSpec.sprite, {
-      rotation: option.angle,
+      // `Option.angle` is DEGREES — its own doc comment says so, and contrasts
+      // itself with `Bullet.angle`, which is the radians this attribute wants.
+      // Fed across unconverted, an option aiming at 270 was drawn at 349.9.
+      rotation: (option.angle * Math.PI) / 180,
       r: optionSpec.tint?.r,
       g: optionSpec.tint?.g,
       b: optionSpec.tint?.b,
@@ -388,22 +409,34 @@ function drawSidebar(run: Run | undefined): void {
   if (boss?.alive) drawBossBar(boss);
 }
 
+/**
+ * `SpellCard.isSpell` is written by seven phases across three bosses and was
+ * read by nothing, so a warm-up movement drew the same card banner and spell
+ * timer as a named spell card. The distinction is the genre's basic grammar —
+ * a spell card is the thing you capture — and it was invisible.
+ */
 function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
   const w = FIELD_W - 60;
+  const spell = boss.phase.isSpell === true;
+
   surface.fillStyle = '#2a1a1a';
   surface.fillRect(30, 12, w, 4);
-  surface.fillStyle = '#d8607a';
+  surface.fillStyle = spell ? '#d8607a' : '#8a8a9a';
   surface.fillRect(30, 12, w * boss.phaseHpFraction, 4);
 
   // The timer runs down beside the health, because surviving it is a clear too.
-  surface.fillStyle = '#2a2a1a';
-  surface.fillRect(30, 20, w, 2);
-  surface.fillStyle = '#c8b060';
-  surface.fillRect(30, 20, w * (1 - boss.phaseTimeFraction), 2);
+  // Only a spell card gets one drawn: a non-spell phase has a clock as well,
+  // but showing it makes every movement look like a card being captured.
+  if (spell) {
+    surface.fillStyle = '#2a2a1a';
+    surface.fillRect(30, 20, w, 2);
+    surface.fillStyle = '#c8b060';
+    surface.fillRect(30, 20, w * (1 - boss.phaseTimeFraction), 2);
+  }
 
-  surface.fillStyle = '#9a9a9a';
+  surface.fillStyle = spell ? '#d8b0c0' : '#8a8a8a';
   surface.font = '10px monospace';
-  surface.fillText(boss.phase.name, 30, 36);
+  surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, 30, 36);
 }
 
 function drawView(view: { kind: string; title?: string; lines?: readonly string[]; menu?: readonly string[]; selected?: number }): void {

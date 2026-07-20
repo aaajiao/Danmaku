@@ -98,6 +98,17 @@ export class Player {
    */
   bombing = false;
 
+  /**
+   * True for exactly the tick a volley left the muzzles.
+   *
+   * Same shape as `bombing`, and there for the same reason: firing is the most
+   * frequent thing the player does and the game layer had no way to know it had
+   * happened, so the `shot` sound and the `muzzle` particle effect — both
+   * registered, both complete — were emitted by nothing. Player gunfire had no
+   * feedback at all.
+   */
+  fired = false;
+
   /** Lethal hitbox radius. The game tests enemy fire against this. */
   readonly radius: number;
   /** Near-miss radius. Scoring only — nothing here can kill. */
@@ -141,6 +152,7 @@ export class Player {
     this.#previous = this.#buttons;
     this.#buttons = buttons;
     this.bombing = false;
+    this.fired = false;
 
     // Ahead of everything else, so a bomb or a death landing this tick sets a
     // full allowance that is not immediately spent by its own step.
@@ -194,6 +206,7 @@ export class Player {
     // drift depends on when firing started, so two identical runs diverge.
     if (shot.period > 0 && tick % shot.period !== 0) return;
 
+    this.fired = true;
     for (const muzzle of shot.offsets) {
       const bullet = bullets.spawn(
         this.x + muzzle.x,
@@ -300,6 +313,7 @@ export class Player {
     this.alive = true;
     this.deathCount = 0;
     this.bombing = false;
+    this.fired = false;
     this.#buttons = 0;
     this.#previous = 0;
     this.#grazed.clear();

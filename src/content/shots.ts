@@ -199,17 +199,19 @@ defineShot('needle', {
  * turn rate, which keeps the tuning in one place rather than duplicated across
  * every spec that uses it.
  *
- * ## It does not track an enemy, and cannot yet
+ * ## It used to track the ship that fired it
  *
- * `BulletSystem.step` is handed one aim target for the whole field — the
- * player's position, since that is what enemy fire aims at — and `homing` reads
+ * `BulletSystem.step` was handed one aim target for the whole field — the
+ * player's position, since that is what enemy fire aims at — and `homing` read
  * it off `MotionContext` without knowing its own faction. A player bullet
- * carrying this behaviour therefore steers back toward the ship that fired it:
- * measured, these shots curve around and return, landing 12 damage on a
- * stationary target in 400 ticks where `spread` lands 306. Fixing it means
- * giving `MotionContext` a faction-appropriate target, which is an engine
- * change, not a content one. Until then this weapon is registered but must not
- * be put on a character.
+ * carrying this behaviour therefore steered back toward the ship that fired it,
+ * landing a measured 12 damage on a stationary target in 400 ticks where
+ * `spread` landed 306, and this comment carried a standing warning that the
+ * weapon must not be put on a character.
+ *
+ * `step` now takes a separate player-side target, and `Run` passes the same one
+ * its options aim with. Nothing here changed: the fix was an engine change, as
+ * the warning said it would have to be.
  *
  * Priced against `spread` by fire rate and speed, not damage: a bullet that
  * cannot miss is worth far more per shot, so it is slower in the air and comes

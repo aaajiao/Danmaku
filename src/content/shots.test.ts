@@ -185,11 +185,39 @@ describe('homing', () => {
     const spec = getShot('homing').levels[0]?.spec as Parameters<BulletSystem['spawn']>[2];
     const bullet = system.spawn(240, 400, spec, 'player', new Random(1)) as Bullet;
 
+    // The enemy-side target and the player-side one are now separate
+    // arguments, and this is a **player** bullet — so it steers at the fourth,
+    // not the first two. This test used to pass the target as the field-wide
+    // one and read a player bullet turning toward it as success, which is
+    // precisely the defect: in a real run that field-wide target is the ship's
+    // own position, so the weapon curved around and came home.
     const target = { x: 80, y: 120 };
-    for (let tick = 0; tick < 30; tick++) system.step(target.x, target.y, new Random(1));
+    const playerPosition = { x: 240, y: 400 };
+    for (let tick = 0; tick < 30; tick++) {
+      system.step(playerPosition.x, playerPosition.y, new Random(1), target);
+    }
 
     expect(bullet.vector.theta).not.toBe(270);
     expect(bullet.x).toBeLessThan(240);
+  });
+
+  test('a player shot does not steer at the player', () => {
+    // The regression itself. Given only the enemy-side target — the ship — a
+    // player bullet must hold its heading rather than turn around.
+    if (getBehaviour('homing') === undefined) return;
+
+    const system = makeSystem();
+    const spec = getShot('homing').levels[0]?.spec as Parameters<BulletSystem['spawn']>[2];
+    // Fired to the left of the ship, so "turns toward the player" is a turn to
+    // the right and unmistakable in `theta`.
+    const bullet = system.spawn(140, 400, spec, 'player', new Random(1)) as Bullet;
+
+    for (let tick = 0; tick < 30; tick++) {
+      system.step(240, 400, new Random(1));
+    }
+
+    expect(bullet.vector.theta).toBe(270);
+    expect(bullet.x).toBe(140);
   });
 });
 

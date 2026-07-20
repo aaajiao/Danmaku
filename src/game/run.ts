@@ -176,6 +176,7 @@ export type RunOutcome = 'playing' | 'cleared' | 'failed';
  * maps these to sounds; a test ignores them; neither has to pretend.
  */
 export type RunEventType =
+  | 'shot'
   | 'shot-hit'
   | 'enemy-killed'
   | 'boss-hit'
@@ -237,6 +238,26 @@ const BOSS_ENTRY_Y = -60;
 const DEATH_POWER_LOSS = 1;
 const DEATH_POWER_ITEMS = 8;
 
+/**
+ * Score thresholds that drop an extra life, ascending.
+ *
+ * The `life` item is fully implemented — registered, tinted, magnetised,
+ * collected, and it fires an `extend` event nothing else fires — and it had
+ * **no spawn site anywhere in the game**. No enemy's `drops` can name it,
+ * `BOSS_SPOILS` does not list it, and no score threshold existed. An extra life
+ * was unobtainable by any sequence of inputs.
+ *
+ * A score extend rather than a drop table entry, because that is the decision
+ * the genre actually makes: it rewards the scoring game specifically, which is
+ * what grazing and spell-card capture feed. Crossed once each, ascending, so a
+ * run that jumps two thresholds in one pickup is owed both.
+ *
+ * These numbers are provisional and should be revisited once the HP retune
+ * lands — a spell card currently pays 100k and up, so the first extend sits at
+ * roughly "cleared one boss well".
+ */
+const EXTEND_SCORES: readonly number[] = [500_000, 1_500_000, 3_500_000];
+
 /** Items a defeated boss showers, by registry name and count. */
 const BOSS_SPOILS: readonly (readonly [string, number])[] = [
   ['big-power', 4],
@@ -278,6 +299,8 @@ export class Run {
   #outcome: RunOutcome = 'playing';
   #bossSent = false;
   #bossDefeated = false;
+  /** How many `EXTEND_SCORES` thresholds this run has already paid out. */
+  #extends = 0;
 
   #events: RunEvent[] = [];
   #spare: RunEvent[] = [];
@@ -433,7 +456,15 @@ export class Run {
     this.boss.step(player.x, player.y, rng);
 
     player.step(mask, this.bullets, this.#tick);
+    this.#resolveFire();
     this.#resolveBomb();
+
+    // Chosen once and shared, not recomputed per consumer. `bombs.step` below
+    // can kill enemies, so asking twice would let an option and a tracking
+    // bullet aim at two different things in the same tick — and the one that
+    // asked later would be steering at something that had just stopped
+    // existing. Order in `tick` is the contract (see the header); so is this.
+    const aim = this.#aimTarget();
 
     this.options.step(
       player.x,
@@ -443,12 +474,16 @@ export class Run {
       (mask & Button.Shot) !== 0 && player.alive,
       this.#tick,
       this.bullets,
-      this.#aimTarget(),
+      aim,
     );
 
     this.bombs.step(this.bullets, this.enemies, rng);
     this.#resolveBombDamage();
-    this.bullets.step(player.x, player.y, rng);
+    // Enemy fire steers at the player; player fire steers at whatever the
+    // options are already aiming at. Sharing `aim` keeps a tracking shot and a
+    // tracking option agreeing about what "the target" is, which is what makes
+    // them read as one loadout rather than two systems.
+    this.bullets.step(player.x, player.y, rng, aim);
 
     this.items.step(
       player.x,
@@ -467,6 +502,10 @@ export class Run {
 
     const grazed = player.checkGraze(this.bullets);
     if (grazed > 0) {
+      // The `graze` effect was registered, complete, and emitted by nothing, so
+      // a near miss made a sound and left no mark on the screen — in a genre
+      // where leaning into fire is the scoring system.
+      this.effects.emit('graze', player.x, player.y);
       this.#emit({ type: 'graze', x: player.x, y: player.y, count: grazed });
     }
 
@@ -474,6 +513,8 @@ export class Run {
     this.#resolveBossEvents(rng);
 
     this.effects.step();
+
+    this.#resolveExtends(rng);
 
     this.#tick++;
     this.#settleOutcome();
@@ -610,8 +651,52 @@ export class Run {
           this.player.bombs += value;
           break;
       }
+      // 29 to 46 pickups a run, every one of them silent and unmarked: the
+      // sound never played because `main.ts` keyed the table on an event type
+      // that does not exist, and the `pickup` effect was never emitted at all.
+      this.effects.emit('pickup', pickup.x, pickup.y);
       this.#emit({ type: 'pickup', x: pickup.x, y: pickup.y, name: pickup.name });
     }
+  }
+
+  /**
+   * Score extends: the only way an extra life enters the game.
+   *
+   * Dropped as an **item** rather than credited straight to `lives`, so the
+   * player has to fly to it and so the whole pickup path — the magnet, the
+   * `pickup` effect, the `extend` event, the sound — runs for the rarest and
+   * most valuable drop in the game. Crediting it silently would leave the one
+   * reward worth celebrating as the only one with no feedback.
+   *
+   * A `while`, not an `if`: a single spell-card bonus can cross more than one
+   * threshold, and a run is owed every extend it earned.
+   */
+  #resolveExtends(rng: Random): void {
+    if (!this.player.alive) return;
+    while (
+      this.#extends < EXTEND_SCORES.length &&
+      this.player.score >= (EXTEND_SCORES[this.#extends] as number)
+    ) {
+      this.#extends++;
+      this.items.burst('life', this.player.x, this.player.y - 40, 1, rng);
+    }
+  }
+
+  /**
+   * A volley left the muzzles: make it visible and audible.
+   *
+   * `Player.fired` is the seam. The `shot` sound and the `muzzle` effect were
+   * both registered and complete and reached by nothing, because firing
+   * happens inside `Player.step` and the game layer had no way to observe it.
+   * Emitted at the ship rather than at each muzzle: one particle burst per
+   * volley, not one per bolt, or a tier-3 fan would throw seven of them a
+   * frame.
+   */
+  #resolveFire(): void {
+    const player = this.player;
+    if (!player.fired) return;
+    this.effects.emit('muzzle', player.x, player.y - 12);
+    this.#emit({ type: 'shot', x: player.x, y: player.y });
   }
 
   /**
@@ -1020,6 +1105,7 @@ export class Run {
     this.#outcome = 'playing';
     this.#bossSent = false;
     this.#bossDefeated = false;
+    this.#extends = 0;
     this.#events.length = 0;
     this.#spare.length = 0;
   }

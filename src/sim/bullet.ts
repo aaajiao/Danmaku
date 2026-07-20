@@ -295,7 +295,31 @@ export class BulletSystem {
     return bullet;
   }
 
-  step(targetX: number, targetY: number, rng: Random = sim): void {
+  /**
+   * Advance every bullet.
+   *
+   * `targetX`/`targetY` is what enemy fire steers at — the player. `playerAim`
+   * is what *player* fire steers at, and it is a separate argument because a
+   * single field-wide target is the wrong model the moment both factions can
+   * steer.
+   *
+   * That is not hypothetical. Before this argument existed, `MotionContext`
+   * carried one target for everything, and the registered `homing` weapon read
+   * it without knowing its own faction — so a player's tracking shot curved
+   * around and steered back at the ship that fired it. Measured, it landed 12
+   * damage on a stationary target in 400 ticks where `spread` landed 306. The
+   * weapon was documented as "registered but must not be put on a character".
+   *
+   * Undefined means there is nothing to aim at, and a steering player bullet
+   * then keeps its heading rather than turning toward the origin — which is
+   * what a `{x: 0, y: 0}` default would silently mean.
+   */
+  step(
+    targetX: number,
+    targetY: number,
+    rng: Random = sim,
+    playerAim?: { x: number; y: number },
+  ): void {
     const { width, height, margin } = this.#bounds;
     const context = { age: 0, x: 0, y: 0, targetX, targetY };
 
@@ -312,6 +336,15 @@ export class BulletSystem {
       context.age = b.age;
       context.x = b.x;
       context.y = b.y;
+      if (b.faction === 'player') {
+        // No target: aim at itself, so `atan2Deg(0, 0)` leaves the heading
+        // alone rather than pointing the shot somewhere arbitrary.
+        context.targetX = playerAim?.x ?? b.x;
+        context.targetY = playerAim?.y ?? b.y;
+      } else {
+        context.targetX = targetX;
+        context.targetY = targetY;
+      }
       b.vector.step(context, rng);
 
       b.x += b.vector.moveX();
