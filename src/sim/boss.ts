@@ -636,8 +636,11 @@ const PETAL: BulletSpec = {
 
 const NEEDLE: BulletSpec = {
   style: { sprite: 'needle', r: 1, g: 0.9, b: 0.5, orientToHeading: true, additive: true },
-  radius: 3,
+  // Half the painted thickness, with the length carried by `blade` — the shape
+  // the sprite has always drawn. See `BulletSpec.blade`.
+  radius: 2,
   motion: { r: 3.4, theta: 90 },
+  blade: { length: 26 },
 };
 
 /**

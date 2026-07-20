@@ -45,8 +45,7 @@ import { getShot } from '../content/shots';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec } from '../sim/boss';
-import { BulletSystem } from '../sim/bullet';
-import { circlesOverlap } from '../sim/collision';
+import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
 import { ItemSystem } from '../sim/item';
@@ -119,9 +118,10 @@ export interface RunConfig {
   /**
    * Boss to send once the stage script has run out and the field is clear.
    *
-   * On the config rather than in `StageSpec` because `content/stage.ts` has no
-   * boss field yet; this is the seam until it grows one, at which point the
-   * stage's own answer should win and this becomes the override.
+   * **An override.** `StageSpec.boss` is where the answer normally comes from,
+   * which is what this field's own comment predicted it should become. It was
+   * the only source for the life of the project, and the shipped shell never
+   * set it, so the shipped game had no boss fight at all.
    */
   boss?: string;
   /** Replay to play back instead of reading live input. */
@@ -213,6 +213,15 @@ const AUTO_COLLECT_LINE = 96;
 
 /** Score per bullet a converting bomb erased. This is why bombing scores. */
 const CLEARED_BULLET_SCORE = 20;
+
+/**
+ * What a spell card pays when its timer runs out instead of its health.
+ *
+ * A quarter: enough that outlasting a card is worth something, small enough
+ * that killing it is always worth more. See the payout branch in
+ * `#resolveBossEvents` for what paying the full bonus did to the incentives.
+ */
+const TIMEOUT_BONUS_FRACTION = 0.25;
 
 /** Where a boss enters from, relative to the field. */
 const BOSS_ENTRY_Y = -60;
@@ -438,6 +447,7 @@ export class Run {
     );
 
     this.bombs.step(this.bullets, this.enemies, rng);
+    this.#resolveBombDamage();
     this.bullets.step(player.x, player.y, rng);
 
     this.items.step(
@@ -474,8 +484,24 @@ export class Run {
    *
    * Enemies first because they are in front of it: during a fight with escorts,
    * a shot should be eaten by the escort it visibly touched. Backwards by index
-   * — `despawn` splices the live list, and a forward walk would skip the entity
-   * shifted into the slot just vacated.
+   * — `despawn` and `damage` both splice their live lists, and a forward walk
+   * would skip the entity shifted into the slot just vacated.
+   *
+   * ## The bullet's own shape, not a circle at its position
+   *
+   * This used to call `enemies.hitTest(b.x, b.y, b.radius)`, which is a circle
+   * at the **muzzle**. For a round bullet those are the same thing. For a beam
+   * they are not remotely: `laser` is anchored at the muzzle and reaches
+   * hundreds of pixels forward, so the whole body of it was inert against
+   * enemies and only a target sitting on the ship's nose was ever hit. The
+   * registered `laser` weapon dealt a measured **0** damage in 400 ticks to a
+   * target 68px away, while drawing a lethal-looking line straight through it.
+   *
+   * `bulletHitsCircle` asks the bullet what shape it is. The segment test it
+   * runs for a beam was already written, already correct, and already used by
+   * the enemy-fire-versus-player path — the player-fire path simply never
+   * called it. That is the whole bug, and it is the shape of most of the bugs
+   * this file's audit turned up.
    */
   #resolvePlayerShots(): void {
     const boss = this.boss.boss;
@@ -484,13 +510,28 @@ export class Run {
       const b = this.bullets.bullets[i];
       if (b === undefined || b.faction !== 'player') continue;
 
-      const hit = this.enemies.hitTest(b.x, b.y, b.radius);
-      if (hit !== undefined) {
-        const killed = this.enemies.damage(hit, b.damage);
-        if (!killed && hit.spec.onHit) this.effects.emit(hit.spec.onHit, b.x, b.y);
-        this.#emit({ type: 'shot-hit', x: b.x, y: b.y, name: hit.name });
-        // Shot does not pierce. `despawn`, never `alive = false` — CLAUDE.md
-        // rule 8: the flag is not a control surface and clears nothing.
+      let spent = false;
+
+      for (let j = this.enemies.enemies.length - 1; j >= 0; j--) {
+        const enemy = this.enemies.enemies[j];
+        if (enemy === undefined || !enemy.alive) continue;
+        if (!bulletHitsCircle(b, enemy.x, enemy.y, enemy.spec.radius)) continue;
+
+        const killed = this.enemies.damage(enemy, b.damage);
+        if (!killed && enemy.spec.onHit) this.effects.emit(enemy.spec.onHit, b.x, b.y);
+        this.#emit({ type: 'shot-hit', x: b.x, y: b.y, name: enemy.name });
+
+        // A piercing beam keeps going and keeps damaging; anything else is
+        // spent on the first thing it touches.
+        if (!b.pierce) {
+          spent = true;
+          break;
+        }
+      }
+
+      if (spent) {
+        // `despawn`, never `alive = false` — CLAUDE.md rule 8: the flag is not
+        // a control surface and clears nothing.
         this.bullets.despawn(b);
         continue;
       }
@@ -498,12 +539,11 @@ export class Run {
       // Invulnerable during entry, so the fight cannot be skipped by parking
       // a wall of shot on the spot the boss is about to arrive at.
       if (boss === undefined || boss.entering) continue;
-      if (!circlesOverlap(b.x, b.y, b.radius, boss.x, boss.y, boss.spec.radius)) {
-        continue;
-      }
+      if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
+
       this.boss.damage(b.damage);
       this.#emit({ type: 'boss-hit', x: b.x, y: b.y, name: boss.name });
-      this.bullets.despawn(b);
+      if (!b.pierce) this.bullets.despawn(b);
     }
   }
 
@@ -594,6 +634,22 @@ export class Run {
       return;
     }
 
+    const spec = getBombSpec(this.character.bomb);
+
+    // The bomb's own window, not the ship's respawn one. `Player.bomb` sets
+    // `invuln` from its own config because it has nothing else to reach for,
+    // and `BombSpec.invulnTicks` says in its doc comment that the game applies
+    // it — nothing did. Both bombs therefore covered the player for exactly the
+    // character's 90 ticks, so `spread`'s declared 150 and a hypothetical 600
+    // produced identical play, and the field the docs teach you to tune was
+    // inert.
+    this.player.invuln = Math.max(this.player.invuln, spec.invulnTicks);
+
+    // The blast. `BombSpec.effect` is declared by both bombs and
+    // `docs/extending.md` teaches it with a worked example; it had no reader,
+    // so a bomb erased half the screen in complete silence.
+    if (spec.effect) this.effects.emit(spec.effect, this.player.x, this.player.y);
+
     this.boss.notePlayerBomb();
     this.#emit({
       type: 'bomb',
@@ -601,6 +657,29 @@ export class Run {
       y: this.player.y,
       name: this.character.bomb,
     });
+  }
+
+  /**
+   * A burning bomb damages the boss too.
+   *
+   * `BombSystem.step` is handed the `EnemySystem` and walks it; the boss is in
+   * `BossSystem` and was never passed, so a bomb dealt **zero** damage to every
+   * boss in the game — measured 650 hp before and 650 after, for both bombs
+   * against both bosses — while still spending a stock and voiding the spell
+   * card bonus. Bombing a boss was strictly worse than not bombing it.
+   *
+   * Entry is excluded for the same reason player shot is: an invulnerable
+   * arrival cannot be skipped by pre-firing at the spot it appears.
+   */
+  #resolveBombDamage(): void {
+    const boss = this.boss.boss;
+    if (boss === undefined || !boss.alive || boss.entering) return;
+
+    const damage = this.bombs.damageAt(boss.x, boss.y, boss.spec.radius);
+    if (damage <= 0) return;
+
+    this.boss.damage(damage);
+    this.#emit({ type: 'boss-hit', x: boss.x, y: boss.y, name: boss.name });
   }
 
   #resolvePlayerHit(): void {
@@ -655,9 +734,26 @@ export class Run {
           break;
         case 'phase-cleared':
         case 'timeout':
-          // Surviving the timer is a clear; `clean` is what separates the two,
-          // and the payout is ours to decide. A clean card pays its bonus.
-          if (event.clean === true) this.player.score += card?.bonus ?? 0;
+          // Both end the card, and both are a clear — surviving the timer is a
+          // legitimate way through. They are **not** worth the same.
+          //
+          // Paying the full bonus for a timeout makes the dominant strategy not
+          // shooting: the timer runs out either way, and never firing is a
+          // strictly safer way to hold `clean`. Measured on the magistrate, a
+          // pacifist scored 1,000,740 against a shooter's 1,000,600 — the whole
+          // fight was worth less than the rounding on it, and it paid more to
+          // put the controller down.
+          //
+          // So a kill pays the card, and a timeout pays a fraction of it. The
+          // fraction is not zero, because surviving `Last Word "Assize"` for its
+          // full clock is a real thing to have done; it is small, because doing
+          // it without firing must never beat doing it with.
+          if (event.clean === true) {
+            const bonus = card?.bonus ?? 0;
+            this.player.score += Math.floor(
+              event.type === 'phase-cleared' ? bonus : bonus * TIMEOUT_BONUS_FRACTION,
+            );
+          }
           this.#emit({
             type: 'boss-cleared',
             x,

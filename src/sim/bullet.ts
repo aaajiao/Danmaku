@@ -10,7 +10,7 @@
 import { Pool } from '../core/pool';
 import { sim, type Random } from '../core/random';
 import { cosDeg, sinDeg } from '../core/trig';
-import { circlesOverlap, SpatialGrid } from './collision';
+import { circlesOverlap, segmentHitsCircle, SpatialGrid } from './collision';
 import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } from './motion';
 
 export type Faction = 'player' | 'enemy';
@@ -77,6 +77,32 @@ export interface BulletSpec {
   damage?: number;
   /** Makes this a beam: a segment hitbox that grows from the muzzle. */
   laser?: LaserSpec;
+  /**
+   * Makes this a blade: a capsule of `length` px **centred on the bullet**,
+   * lying along its heading, with `radius` as the half-thickness.
+   *
+   * The difference from `laser` is only where the segment is anchored — a beam
+   * grows forward from a fixed muzzle, a blade is carried by a bullet that
+   * moves. Both are the same test underneath.
+   *
+   * Set this on anything drawn with `orientToHeading`, because a circle is the
+   * wrong shape for those in two directions at once. A 28x2.5 needle given a
+   * radius-3 circle overhangs its own painted thickness by 1.75px on the short
+   * axis — measured, 29.3% of its kills landed with the blade visually clear of
+   * the target — while covering 11px less than it draws on the long axis, so
+   * 83.3% of the sweeps a player saw pass through them were never lethal. One
+   * wrong shape, both complaints.
+   */
+  blade?: { length: number };
+  /**
+   * Keep going after damaging something, instead of despawning on first hit.
+   *
+   * Beams want this and nothing else does yet. It is stated rather than
+   * inferred from `laser` because "is a line" and "passes through" are separate
+   * claims, and a future beam that stops on its first target should be able to
+   * say so without pretending not to be a beam.
+   */
+  pierce?: boolean;
 }
 
 export class Bullet {
@@ -147,6 +173,12 @@ export class Bullet {
    */
   lethal = false;
 
+  /** Half the blade's length, or 0 for a bullet that is a point. See the spec. */
+  bladeHalf = 0;
+
+  /** Whether damaging something ends this bullet. See `BulletSpec.pierce`. */
+  pierce = false;
+
   reset(): void {
     this.alive = false;
     this.age = 0;
@@ -158,6 +190,8 @@ export class Bullet {
     this.laser = undefined;
     this.length = 0;
     this.lethal = false;
+    this.bladeHalf = 0;
+    this.pierce = false;
   }
 
   spawn(x: number, y: number, spec: BulletSpec, faction: Faction, rng: Random): void {
@@ -184,6 +218,10 @@ export class Bullet {
     // Age 0 is already past a zero-tick warmup, so an undeclared warmup means
     // lethal from the first tick and `warmup: 1` costs exactly one tick.
     this.lethal = laser === undefined || (laser.warmup ?? 0) <= 0;
+    // Same reason as `laser` above: written every spawn, so a round bullet
+    // inheriting a blade's slot does not inherit its reach.
+    this.bladeHalf = spec.blade === undefined ? 0 : spec.blade.length / 2;
+    this.pierce = spec.pierce ?? false;
 
     this.vector.init(spec.motion, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -381,7 +419,7 @@ export class BulletSystem {
     for (const b of this.bullets) {
       if (b.faction !== faction) continue;
       this.#grid.insert(b.x, b.y, b);
-      const reach = b.laser === undefined ? b.radius : b.radius + b.length;
+      const reach = bulletReach(b);
       if (reach > maxReach) maxReach = reach;
     }
 
@@ -389,7 +427,7 @@ export class BulletSystem {
     const reach = radius + maxReach;
     this.#grid.query(x, y, reach, (b) => {
       if (hit || !b.alive) return;
-      if (bulletOverlaps(b, x, y, radius)) hit = b;
+      if (bulletHitsCircle(b, x, y, radius)) hit = b;
     });
     return hit;
   }
@@ -454,56 +492,45 @@ export class BulletSystem {
  * anywhere along a 300px beam reads as 300px away from the thing that is
  * killing it.
  */
-function bulletOverlaps(b: Bullet, x: number, y: number, radius: number): boolean {
-  if (b.laser === undefined) {
-    return circlesOverlap(x, y, radius, b.x, b.y, b.radius);
-  }
+export function bulletHitsCircle(
+  b: Bullet,
+  x: number,
+  y: number,
+  radius: number,
+): boolean {
   // Drawn but harmless. Gated here rather than at the call sites so that every
   // present and future collision path inherits the telegraph, instead of each
   // one having to remember it (the argument rule 8 makes about `alive`).
   if (!b.lethal) return false;
 
-  const theta = b.vector.theta;
-  const tipX = b.x + b.length * cosDeg(theta);
-  const tipY = b.y + b.length * sinDeg(theta);
-  // `radius` is the bullet's half-width: a beam is a capsule, not a bare line.
-  return segmentHitsCircle(b.x, b.y, tipX, tipY, x, y, radius + b.radius);
-}
-
-/**
- * Closest-point test between a segment and a circle.
- *
- * Built only from `+ - * /` and comparisons, all IEEE-exact, so it is
- * bit-reproducible on any engine (CLAUDE.md, rule 3). Squared distances
- * throughout — `Math.sqrt` would be exact too, but there is nothing to spend it
- * on when both sides can be compared squared.
- *
- * It lives here rather than in `collision.ts` only because that file is not
- * this agent's to edit; it belongs beside `circlesOverlap`.
- */
-function segmentHitsCircle(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-  cx: number,
-  cy: number,
-  radius: number,
-): boolean {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const lengthSq = dx * dx + dy * dy;
-
-  // A zero-length beam is its own muzzle — the degenerate case a bare
-  // projection would divide by zero on.
-  let t = 0;
-  if (lengthSq > 0) {
-    t = ((cx - ax) * dx + (cy - ay) * dy) / lengthSq;
-    if (t < 0) t = 0;
-    else if (t > 1) t = 1;
+  if (b.laser !== undefined) {
+    const theta = b.vector.theta;
+    const tipX = b.x + b.length * cosDeg(theta);
+    const tipY = b.y + b.length * sinDeg(theta);
+    // A beam runs *from* the muzzle: the stored position is one end, not the
+    // middle. `radius` is the bullet's half-width — a capsule, not a bare line.
+    return segmentHitsCircle(b.x, b.y, tipX, tipY, x, y, radius + b.radius);
   }
 
-  const nearX = ax + t * dx - cx;
-  const nearY = ay + t * dy - cy;
-  return nearX * nearX + nearY * nearY <= radius * radius;
+  if (b.bladeHalf > 0) {
+    // A blade is carried, so its capsule is centred on the bullet rather than
+    // anchored behind it.
+    const theta = b.vector.theta;
+    const dx = b.bladeHalf * cosDeg(theta);
+    const dy = b.bladeHalf * sinDeg(theta);
+    return segmentHitsCircle(
+      b.x - dx, b.y - dy,
+      b.x + dx, b.y + dy,
+      x, y,
+      radius + b.radius,
+    );
+  }
+
+  return circlesOverlap(x, y, radius, b.x, b.y, b.radius);
+}
+
+/** How far from `b.x`/`b.y` this bullet's lethal shape can reach. */
+export function bulletReach(b: Bullet): number {
+  if (b.laser !== undefined) return b.radius + b.length;
+  return b.radius + b.bladeHalf;
 }

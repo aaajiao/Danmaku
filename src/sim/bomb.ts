@@ -191,6 +191,29 @@ export class BombSystem {
   }
 
   /**
+   * Damage this bomb owes something at the given position, this tick, or 0.
+   *
+   * The escape hatch for targets this system does not own. `step` walks the
+   * `EnemySystem` it is handed and nothing else, and a **boss is not in it** —
+   * it lives in `BossSystem` and was never passed here. So a bomb dealt exactly
+   * zero damage to every boss in the game while still costing a stock and
+   * voiding the spell card's bonus, which inverts the entire point of the
+   * mechanic: `lance`'s stated identity is "4x damage, no conversion,
+   * point-blank on a boss", and point-blank on a boss was its worst use.
+   *
+   * A query rather than another system parameter, because the alternative is
+   * `BombSystem` importing `BossSystem` to reach one number. The game layer
+   * already holds both and is where the rule belongs.
+   */
+  damageAt(x: number, y: number, radius: number): number {
+    const spec = this.#spec;
+    if (spec === undefined || this.#remaining <= 0) return 0;
+    if (spec.damagePerTick <= 0) return 0;
+    if (!this.#inRange(x, y, radius, spec)) return 0;
+    return spec.damagePerTick;
+  }
+
+  /**
    * Bullets cleared since the last drain, oldest first. The game turns these
    * into score items; this system does not decide what they are worth.
    *

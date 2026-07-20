@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { Random, sim } from '../core/random';
 import {
   Bullet,
+  bulletHitsCircle,
+  bulletReach,
   BulletSystem,
   type BulletSpec,
   type BulletSystemOptions,
@@ -1906,5 +1908,114 @@ describe('accounting', () => {
     system.spawn(100, 100, makeSpec(), 'enemy', rng());
     expect(system.poolSize).toBe(16);
     expect(system.count).toBe(1);
+  });
+});
+
+/**
+ * A bullet's lethal shape is whatever its spec says it is.
+ *
+ * Three shapes, one test: a point, a beam anchored at its muzzle, and a blade
+ * centred on itself. The last two were both being stood in for by a circle, and
+ * a circle is wrong for them in opposite directions — too short along the art
+ * and too fat across it — so measuring one extent alone would have looked fine.
+ */
+describe('bullet shapes', () => {
+  const bounds: FieldBounds = { width: 480, height: 480, margin: 48 };
+  const make = (spec: BulletSpec, theta: number) => {
+    const system = new BulletSystem({ bounds, initial: 8 });
+    const bullet = system.spawn(240, 240, spec, 'enemy', new Random(1)) as Bullet;
+    bullet.vector.theta = theta;
+    return bullet;
+  };
+
+  /** Furthest a radius-`r` circle can sit from the origin and still be hit. */
+  const extent = (b: Bullet, dx: number, dy: number, r: number): number => {
+    let hi = 0;
+    for (let d = 0; d <= 200; d += 0.25) {
+      if (bulletHitsCircle(b, 240 + dx * d, 240 + dy * d, r)) hi = d;
+    }
+    return hi;
+  };
+
+  const NEEDLE: BulletSpec = {
+    style: { sprite: 'needle', orientToHeading: true },
+    radius: 2,
+    motion: { r: 0, theta: 270 },
+    blade: { length: 26 },
+  };
+
+  test('a blade reaches along the art and not across it', () => {
+    // 270 is up, so the capsule lies on the y axis. Half-length 13 plus half
+    // thickness 2, against a radius-6 target: 21 up the blade and 8 beside it.
+    const b = make(NEEDLE, 270);
+    expect(extent(b, 0, -1, 6)).toBe(21);
+    expect(extent(b, 1, 0, 6)).toBe(8);
+  });
+
+  test('a blade turns with its heading', () => {
+    // The same shape rotated: now long on x and thin on y. A hitbox that
+    // ignored `theta` would report the previous test's numbers here.
+    const b = make(NEEDLE, 0);
+    expect(extent(b, 1, 0, 6)).toBe(21);
+    expect(extent(b, 0, -1, 6)).toBe(8);
+  });
+
+  test('the circle it replaced was wrong in both directions', () => {
+    // The spec as it shipped: radius 3, no blade. Isotropic — which is the
+    // defect, since the sprite is 26x4.
+    const round: BulletSpec = { ...NEEDLE, radius: 3, blade: undefined };
+    const b = make(round, 270);
+    expect(extent(b, 0, -1, 6)).toBe(9); // 10px short of the drawn tip
+    expect(extent(b, 1, 0, 6)).toBe(9); // 1px past the drawn edge
+  });
+
+  test('a beam runs forward from its muzzle, not out from its centre', () => {
+    const beam: BulletSpec = {
+      style: { sprite: 'needle' },
+      radius: 3,
+      motion: { r: 0, theta: 270 },
+      laser: { length: 100 },
+    };
+    const b = make(beam, 270);
+    // Up: the full 100px body plus the half-width and the target's radius.
+    expect(extent(b, 0, -1, 6)).toBe(109);
+    // Down, behind the muzzle: nothing but the cap.
+    expect(extent(b, 0, 1, 6)).toBe(9);
+  });
+
+  test('reach covers whatever shape the bullet has', () => {
+    // `BulletSystem.hitTest` sizes its broad-phase query with this. A blade or
+    // a beam reported as its bare radius is a bullet the grid never visits, so
+    // the exact test below it never runs — a miss that looks like a clean dodge.
+    expect(bulletReach(make(NEEDLE, 270))).toBe(15);
+    expect(bulletReach(make({ ...NEEDLE, radius: 3, blade: undefined }, 270))).toBe(3);
+  });
+});
+
+describe('piercing', () => {
+  const bounds: FieldBounds = { width: 480, height: 480, margin: 48 };
+
+  test('pierce is per-life state, so a slot cannot inherit it', () => {
+    // The same argument `laser` and `length` are reset for: the free list is
+    // LIFO, so the slot a piercing beam releases is handed to the very next
+    // spawn. A round bullet that inherited `pierce` would refuse to despawn on
+    // contact and fly on through everything it touched.
+    const system = new BulletSystem({ bounds, initial: 2 });
+    const beam: BulletSpec = {
+      style: { sprite: 'needle' }, radius: 3,
+      motion: { r: 0, theta: 270 }, laser: { length: 40 }, pierce: true,
+    };
+    const plain: BulletSpec = {
+      style: { sprite: 'orb.small' }, radius: 3, motion: { r: 2, theta: 90 },
+    };
+
+    const first = system.spawn(240, 240, beam, 'player', new Random(1)) as Bullet;
+    expect(first.pierce).toBe(true);
+    system.despawn(first);
+
+    const second = system.spawn(240, 240, plain, 'player', new Random(1)) as Bullet;
+    expect(second.pierce).toBe(false);
+    expect(second.bladeHalf).toBe(0);
+    expect(second.laser).toBeUndefined();
   });
 });

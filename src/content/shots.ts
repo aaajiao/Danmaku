@@ -152,9 +152,13 @@ defineShot('spread', {
  */
 const NEEDLE = {
   style: { sprite: 'needle', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
-  radius: 3,
+  // Half the painted thickness (the cell measures 26x4), not a radius that
+  // circumscribes the sprite. With `blade` below, the shape is now the capsule
+  // the art already draws.
+  radius: 2,
   motion: { r: 11, theta: FORWARD },
   damage: 2,
+  blade: { length: 26 },
 } as const;
 
 /**
@@ -305,6 +309,11 @@ const BEAM = {
   motion: { r: 0, theta: FORWARD },
   damage: 1,
   laser: { length: 48, growth: 90, maxLength: 520 },
+  // Both halves of what made this weapon inert. `Run.#resolvePlayerShots` now
+  // tests the segment rather than a circle at the muzzle, and `pierce` stops it
+  // being spent on the first enemy it touches — a beam that died on contact
+  // would have reach and still only ever kill one thing.
+  pierce: true,
 } as const;
 
 defineShot('laser', {

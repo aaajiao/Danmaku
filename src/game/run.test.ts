@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Button } from '../core/input';
 import { sim } from '../core/random';
 import { defineBoss } from '../sim/boss';
+import { getBombSpec } from '../sim/bomb';
 import { deserialize, serialize, type Replay } from '../sim/replay';
 import {
   characterNames,
@@ -32,6 +33,23 @@ defineCharacter(ENDURANCE, {
   ...getCharacter('scout'),
   label: 'ENDURANCE',
   player: { ...getCharacter('scout').player, lives: 40 },
+});
+
+/**
+ * A second boss, for the tests that need one that is *not* the stage's own.
+ *
+ * Registered here rather than borrowed from content, and that is the point.
+ * Two tests in this file reached for `warden`, which lives in
+ * `content/stage-2.ts` — a module this file never imports. They passed under
+ * `bun test`, where some other file had already registered it into the same
+ * process, and failed the moment this file was run on its own. A test that
+ * depends on another test file's side effects is not testing what it says.
+ */
+const OTHER_BOSS = 'test-other-boss';
+defineBoss(OTHER_BOSS, {
+  sprite: 'orb.large',
+  radius: 12,
+  phases: [{ name: 'test other', hp: 40, timeLimit: 120, patterns: [] }],
 });
 
 /**
@@ -292,15 +310,19 @@ describe('record then replay', () => {
     const live = new Run(config({ boss: 'sentinel' }));
     play(live, 300);
     const replay = live.finishRecording();
-    expect(() => new Run(config({ boss: 'warden', replay }))).toThrow(/boss/);
+    expect(() => new Run(config({ boss: OTHER_BOSS, replay }))).toThrow(/boss/);
   });
 
   test('a run inherits its stage\'s boss when the config names none', () => {
-    // The seam cluster A closed: `RunConfig.boss` is an override, and a stage
-    // that declares a boss cannot be cleared without one being sent.
+    // Only stage-1, for the reason the `scene` block below spells out: this
+    // file reaches `content/stage.ts` transitively and never imports the
+    // content index, so stage-2 is genuinely unregistered here. Asserting the
+    // stage-2 mapping passed anyway while the whole suite ran in one process
+    // and failed the moment this file ran alone — a registry dependency on
+    // another test file, which is the flake `content/index.ts` exists to stop.
+    // That mapping is `reachability.test.ts`'s to prove; it imports both halves.
     expect(new Run(config()).bossName).toBe('sentinel');
-    expect(new Run(config({ stage: 'stage-2' })).bossName).toBe('magistrate');
-    expect(new Run(config({ boss: 'warden' })).bossName).toBe('warden');
+    expect(new Run(config({ boss: OTHER_BOSS })).bossName).toBe(OTHER_BOSS);
   });
 
   test('a replay recorded without meta is accepted', () => {
@@ -608,5 +630,94 @@ describe('scene', () => {
     boss!.phaseIndex = 99;
     expect(() => run.scene).not.toThrow();
     expect(run.scene).toBe('expanse');
+  });
+});
+
+/**
+ * What a boss encounter is worth.
+ *
+ * Both of these were inert in the shipped game and both inverted the incentive
+ * they exist to create: a bomb cost a stock and the card, and returned no
+ * damage; a card that timed out paid exactly what a card you killed paid. Put
+ * together, the dominant strategy against a boss was to stop playing — measured
+ * on the magistrate, a pacifist outscored a shooter 1,000,740 to 1,000,600.
+ */
+describe('a boss encounter pays for damage', () => {
+  const BONUS = 100_000;
+  const PAYOUT_BOSS = 'test-payout-boss';
+
+  defineBoss(PAYOUT_BOSS, {
+    sprite: 'orb.large',
+    radius: 12,
+    // One card, small enough to kill inside its clock and short enough to time
+    // out inside a test.
+    phases: [{ name: 'test payout', hp: 40, timeLimit: 120, patterns: [], bonus: BONUS }],
+  });
+
+  /** Run the card to its end, either by shooting it or by waiting it out. */
+  const fightCard = (shoot: boolean): number => {
+    const run = new Run(config({ boss: PAYOUT_BOSS }));
+    run.boss.spawn(PAYOUT_BOSS, run.player.x, run.player.y - 90, sim);
+
+    let paid = 0;
+    for (let t = 0; t < 600; t++) {
+      // Untouchable, so the card stays `clean` and the bonus is actually owed.
+      // Without this the test would compare two zeroes and pass on anything.
+      run.player.invuln = 999;
+      const before = run.player.score;
+      run.tick(shoot ? Button.Shot : 0);
+      const events = run.drainEvents();
+      if (events.some((e) => e.type === 'boss-cleared')) {
+        paid = run.player.score - before;
+        break;
+      }
+    }
+    return paid;
+  };
+
+  test('killing a card pays its full bonus', () => {
+    expect(fightCard(true)).toBe(BONUS);
+  });
+
+  test('outlasting a card pays a fraction of it, never the same', () => {
+    const timedOut = fightCard(false);
+    expect(timedOut).toBeGreaterThan(0);
+    expect(timedOut).toBeLessThan(BONUS);
+    // A quarter. Stated exactly, because "less than" would still pass at 99%,
+    // and 99% would leave not shooting the better play once the risk of dying
+    // to the pattern is priced in.
+    expect(timedOut).toBe(BONUS / 4);
+  });
+
+  test('a bomb damages the boss', () => {
+    // `BombSystem.step` walks the `EnemySystem` and the boss is not in it, so
+    // this measured 650 -> 650 for both bombs against both bosses.
+    const run = new Run(config({ boss: PAYOUT_BOSS }));
+    run.boss.spawn(PAYOUT_BOSS, run.player.x, run.player.y - 20, sim);
+    for (let t = 0; t < 40 && run.boss.boss?.entering; t++) run.tick(0);
+
+    const boss = run.boss.boss;
+    expect(boss).toBeDefined();
+    const before = (boss as NonNullable<typeof boss>).hp;
+
+    run.player.bombs = 3;
+    run.tick(Button.Bomb);
+    for (let t = 0; t < 60; t++) run.tick(0);
+
+    expect((boss as NonNullable<typeof boss>).hp).toBeLessThan(before);
+  });
+
+  test('a bomb applies its own invulnerability window, not the ship\'s', () => {
+    // `BombSpec.invulnTicks` is documented as "read by the game"; nothing read
+    // it, so both bombs gave exactly the character's 90-tick respawn window and
+    // `spread`'s declared 150 did nothing.
+    const run = new Run(config({ character: 'scout' }));
+    run.player.bombs = 3;
+    run.player.invuln = 0;
+    run.tick(Button.Bomb);
+
+    expect(getBombSpec('spread').invulnTicks).toBe(150);
+    // One tick has already been spent by the time we look.
+    expect(run.player.invuln).toBeGreaterThan(getCharacter('scout').player.invulnTicks);
   });
 });

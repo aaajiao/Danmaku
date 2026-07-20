@@ -85,7 +85,11 @@ const SPARK: BulletSpec = {
  */
 const SEEKER: BulletSpec = {
   style: { sprite: 'kunai', r: 0.55, g: 1, b: 0.82, orientToHeading: true },
+  // A capsule, because the art is a blade. `kunai` paints 26x6, so the lethal
+  // shape is a 26px segment of half-thickness 3 — which is both narrower and
+  // far longer than the radius-3 circle that used to stand in for it.
   radius: 3,
+  blade: { length: 26 },
   motion: {
     r: 2,
     theta: 90,
@@ -106,7 +110,14 @@ const SEEKER: BulletSpec = {
  * still is never the answer.
  */
 const LANCE: BulletSpec = {
-  style: { sprite: 'needle', r: 1, g: 0.45, b: 0.6, width: 7, additive: true, orientToHeading: true },
+  // `height` matters as much as `width` here. A beam is drawn as a quad
+  // stretched to `Bullet.length` along its heading, and the un-stretched cell
+  // is 28px long — declaring only `width: 7` squashed the sprite to an
+  // anisotropic dot, which is what a 600px lethal beam looked like on screen.
+  style: {
+    sprite: 'needle', r: 1, g: 0.45, b: 0.6,
+    width: 7, height: 7, additive: true, orientToHeading: true,
+  },
   radius: 4,
   motion: { r: 0, theta: 90 },
   laser: { length: 40, growth: 22, maxLength: 600, warmup: 28 },
@@ -115,7 +126,10 @@ const LANCE: BulletSpec = {
 
 /** The boss's beam: slower to draw, longer lived, so a ring of them is a room. */
 const COLUMN: BulletSpec = {
-  style: { sprite: 'needle', r: 0.7, g: 0.6, b: 1, width: 9, additive: true, orientToHeading: true },
+  style: {
+    sprite: 'needle', r: 0.7, g: 0.6, b: 1,
+    width: 9, height: 9, additive: true, orientToHeading: true,
+  },
   radius: 5,
   motion: { r: 0, theta: 90 },
   laser: { length: 24, growth: 14, maxLength: 620, warmup: 44 },

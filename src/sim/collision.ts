@@ -43,6 +43,48 @@ export function circlesOverlap(
 }
 
 /**
+ * Closest-point test between a segment and a circle.
+ *
+ * Built only from `+ - * /` and comparisons, all IEEE-exact, so it is
+ * bit-reproducible on any engine (CLAUDE.md, rule 3). Squared distances
+ * throughout — `Math.sqrt` would be exact too, but there is nothing to spend it
+ * on when both sides can be compared squared.
+ *
+ * This is the shape half of the genre. A danmaku hitbox is almost never a
+ * circle: a beam is a segment anchored at its muzzle, and a needle or a kunai
+ * is a segment centred on itself. Standing a circle in for either is wrong in
+ * *both* directions at once — it overhangs the thin axis, killing players the
+ * blade visibly missed, and undercovers the long one, so most of the sweep the
+ * player dodged was never lethal to begin with.
+ */
+export function segmentHitsCircle(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  radius: number,
+): boolean {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+
+  // A zero-length segment is its own endpoint — the degenerate case a bare
+  // projection would divide by zero on.
+  let t = 0;
+  if (lengthSq > 0) {
+    t = ((cx - ax) * dx + (cy - ay) * dy) / lengthSq;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+  }
+
+  const nearX = ax + t * dx - cx;
+  const nearY = ay + t * dy - cy;
+  return nearX * nearX + nearY * nearY <= radius * radius;
+}
+
+/**
  * Cell coordinates pack into a single integer key, and that packing must be
  * injective over every cell an item can reach — negative cells above and left
  * of the field, and cells past the right edge, both of which are routine while

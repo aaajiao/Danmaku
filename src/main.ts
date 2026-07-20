@@ -253,6 +253,38 @@ function drawRun(run: Run): void {
 
   for (const b of run.bullets.bullets) {
     const batch = b.faction === 'player' ? batches.playerShots : batches.enemyShots;
+
+    // A beam is a line, and its stored position is the **muzzle** — one end,
+    // not the middle. Drawn as an ordinary centred quad it collapses to a stub
+    // pinned to the emitter: `LaserSpec`'s own header says a renderer "must
+    // therefore offset it by half the length", and this loop never did. The
+    // result was a fully lethal 600px hitbox represented on screen by a few
+    // pixels of sprite, which is the one thing a bullet-hell game may not do.
+    //
+    // The quad is stretched along +x and rotated by the heading, because that
+    // is the direction a rotating sprite points (CLAUDE.md, rule 7).
+    if (b.laser !== undefined && b.length > 0) {
+      const half = b.length / 2;
+      batch.draw(
+        b.x + half * Math.cos(b.angle),
+        b.y + half * Math.sin(b.angle),
+        b.style.sprite,
+        {
+          rotation: b.angle,
+          width: b.length,
+          height: b.style.height ?? b.style.width,
+          r: b.style.r,
+          g: b.style.g,
+          b: b.style.b,
+          // Faded while it is still only a telegraph, solid once it can kill.
+          // The warmup is already the difference between a readable pattern and
+          // a coin flip; showing it costs one multiply.
+          a: (b.style.a ?? 1) * (b.lethal ? 1 : 0.45),
+        },
+      );
+      continue;
+    }
+
     batch.draw(b.x, b.y, b.style.sprite, {
       rotation: b.angle,
       width: b.style.width,
