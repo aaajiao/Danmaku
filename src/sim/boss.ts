@@ -723,12 +723,15 @@ const NEEDLE: BulletSpec = {
  * here is derived from, and `src/game/balance.test.ts` for the measurement that
  * keeps them honest.
  *
- * Phase hp is `REFERENCE_DPS x the seconds the phase should last`, and the
- * clock is `hp / FLOOR_DPS` rounded up — so a competent player drains it in the
- * intended time and the weakest reachable loadout can still drain it at all,
- * rather than being told to sit through a timer it can never beat.
+ * Phase hp is `phaseHp(seconds)` — `REFERENCE_DPS × the seconds the phase
+ * should last — and the clock is `phaseClock(hp)`, twice what the reference
+ * drain needs. **Not `hp / FLOOR_DPS`**; that was the first attempt and
+ * `CLOCK_MARGIN` above says at length why it was wrong — it sizes the timer so
+ * the weakest loadout drains it exactly, which lets a good player time out a
+ * third of the way in and makes never firing a 183-second exit. A factor of two
+ * over the reference drain is the property `balance.test.ts` actually holds.
  *
- * A stage-1 boss, so it is the short one: about 30 seconds across three phases.
+ * A stage-1 boss, so it is the short one: about 28 seconds across three phases.
  * It was 650/880/980 against a belief that the player landed 0.56 damage a
  * tick, which was itself measured at a power level nothing could reach. At the
  * rate a player actually sustains that fight ran 37 seconds while stage 2's

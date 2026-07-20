@@ -70,6 +70,7 @@ import { bossNames, getBossSpec } from '../sim/boss';
 import { effectNames, getEffectSpec } from '../sim/effects';
 import { soundNames } from '../audio';
 import { bombNames } from '../sim/bomb';
+import { enemyNames } from '../sim/enemy';
 import { itemNames } from '../sim/item';
 import { getOptionSpec, optionNames } from '../sim/option';
 import { getStage, stageNames } from '../content/stage';
@@ -125,6 +126,8 @@ interface Coverage {
   bombsFired: Set<string>;
   /** Shot types a flown ship carried, by registry name. */
   shots: Set<string>;
+  /** Enemy types that actually spawned, by registry name. */
+  enemies: Set<string>;
   maxPower: number;
   maxOptions: number;
   ticks: number;
@@ -177,6 +180,7 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
     optionSets: new Set(),
     bombsFired: new Set(),
     shots: new Set(),
+    enemies: new Set(),
     maxPower: 0,
     maxOptions: 0,
     ticks: 0,
@@ -289,6 +293,7 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
       fightingBoss = boss?.alive === true;
       aimX = boss?.alive && !boss.entering ? boss.x : run.enemies.enemies[0]?.x;
 
+      for (const enemy of run.enemies.enemies) cover.enemies.add(enemy.name);
       for (const item of run.items.items) cover.items.add(item.name);
       for (const particle of run.effects.particles) cover.effects.add(particle.spec.sprite);
       for (const event of run.drainEvents()) cover.events.add(event.type);
@@ -339,6 +344,7 @@ const COVER: Coverage = {
   optionSets: union(RUNS, (c) => c.optionSets),
   bombsFired: union(RUNS, (c) => c.bombsFired),
   shots: union(RUNS, (c) => c.shots),
+  enemies: union(RUNS, (c) => c.enemies),
   maxPower: Math.max(...RUNS.map((c) => c.maxPower)),
   maxOptions: Math.max(...RUNS.map((c) => c.maxOptions)),
   ticks: Math.max(...RUNS.map((c) => c.ticks)),
@@ -353,6 +359,15 @@ describe('a real playthrough reaches', () => {
   test('every registered boss', () => {
     // The failure: `GameContext` never named a boss, so none of them existed.
     expect([...COVER.bosses].sort()).toEqual(content(bossNames()).sort());
+  });
+
+  test('every registered enemy type', () => {
+    // Name *resolution* is already guarded — `StageRunner`'s constructor
+    // resolves every enemy a wave names, eagerly, so a typo throws at load.
+    // This is the other claim: that a registered enemy is actually placed by
+    // some stage a real run reaches. An enemy defined and imported but named by
+    // no wave resolves fine and spawns never, which registration cannot see.
+    expect([...COVER.enemies].sort()).toEqual(content(enemyNames()).sort());
   });
 
   test('every phase of every boss', () => {

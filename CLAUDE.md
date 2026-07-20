@@ -81,8 +81,13 @@ entry for `toho-like-js/` so a local copy can never be committed by accident.
 
 Bun was chosen because this project needs no framework plugins. Shaders stay
 **inline template strings**, so there is no GLSL-loader dependency. Use standard
-ESM imports and standard asset URLs (`new URL('./x.png', import.meta.url)`). If
-Bun ever falls short, swapping bundlers should be a config change, not a refactor.
+ESM imports; for an asset, a bundler-resolved default import
+(`import URL from './x.png'`, typed by `src/assets.d.ts`), which Bun copies into
+`dist/` and rewrites — verified through `bun run build`. **Not**
+`new URL('./x.png', import.meta.url)`: under this dev server that keeps the
+source file's `file://` path in the client bundle and 404s, which is why
+`docs/assets.md` §5 walks the import form instead. If Bun ever falls short,
+swapping bundlers should be a config change, not a refactor.
 
 ---
 

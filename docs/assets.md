@@ -39,7 +39,7 @@ backgrounds, UI illustration.
 
 **And the colour that does survive is display-referred.** `loadTexture` sets
 `colorSpace = NoColorSpace` (`src/render/atlas.ts:166`), and so does every
-generated texture (`src/render/procedural.ts:274`). Nothing decodes sRGB to
+generated texture (`src/render/procedural.ts:304`). Nothing decodes sRGB to
 linear on sample and nothing re-encodes on output. The byte in the PNG is the
 byte the shader multiplies by the tint.
 
@@ -79,12 +79,12 @@ The two filters in this pipeline disagree about how badly it bites:
   (`src/render/atlas.ts:162-163`). A dropped-in PNG is sampled hard, so damage
   is confined to the boundary fragments themselves.
 - `createBulletAtlas` overrides to `LinearFilter`
-  (`src/render/procedural.ts:271-272`), because generated art is smooth rather
+  (`src/render/procedural.ts:301-302`), because generated art is smooth rather
   than pixel art. Linear sampling reaches across the seam by design, so a 1px
   margin is not a margin.
 
 Both paths set `generateMipmaps = false` (`src/render/atlas.ts:164`,
-`src/render/procedural.ts:273`), which removes the usual worst offender: there
+`src/render/procedural.ts:303`), which removes the usual worst offender: there
 is no mip chain averaging whole neighbourhoods of cells together at small sizes.
 
 **Keep at least 2px of fully transparent margin inside every cell.** A 32×32
@@ -111,13 +111,13 @@ rest of this section rather than skim it. Two cells broke it:
   `rgba(255,255,255,0)`. Now `orb(r 14)`.
 - `halo` was `ring(15, 2)`, and **`ring` paints past its radius**. It strokes
   twice on the same circle at `radius - thickness/2`, the second with
-  `lineWidth = thickness * 2` (`src/render/procedural.ts:76-88`), so the outer
+  `lineWidth = thickness * 2` (`src/render/procedural.ts:85-97`), so the outer
   edge lands at `radius + thickness/2` = 16: a **32px extent with zero margin**,
   sitting exactly on the cell boundary. Now `ring(13, 2)`, which paints to 14.
 
 `halo` was the worse case and read as the safer one. The 0.3-alpha outer stroke
 is not a reason it was harmless — it is the ink that was *on* the seam. This
-sheet is sampled `LinearFilter` (`src/render/procedural.ts:271-272`), which
+sheet is sampled `LinearFilter` (`src/render/procedural.ts:301-302`), which
 reaches across seams by design, and `needle` sits in the next cell.
 
 Two lessons for anyone drawing replacement art:
@@ -167,8 +167,8 @@ A 32px bullet occupies 32 of the field's 480 pixels — about 6.7% of its width.
 Per-draw scaling is a different thing and it exists. `SpriteStyle.width` and
 `height` default to the region's own size (`src/render/sprite-batch.ts:31-32`,
 `:242-243`) and callers override them freely: the boss draws a 32px cell at 56px
-(`src/sim/boss.ts:666-667`), the turret at 40px (`src/sim/enemy.ts:469-470`), the
-ship's 64px art at 40px (`src/main.ts:297-299`), and particles anywhere from
+(`src/sim/boss.ts:746-747`), the turret at 40px (`src/sim/enemy.ts:469-470`), the
+ship's 64px art at 40px (`src/main.ts:349-351`), and particles anywhere from
 1.6× to 0.05×. So "final display size" means the size to design *for*, not the
 only size a cell will ever be drawn at. The practical consequence is at the top
 of section 3.5: detail that only reads at one size is wasted.
@@ -181,19 +181,19 @@ of section 3.5: detail that only reads at one size is wasted.
 
 The name is a historical accident and it will mislead you. **This sheet is not
 just bullets.** Every `SpriteBatch` in the game except the player's own is built
-on it (`src/main.ts:63-81`): enemies wear `orb.large`, `ring` and `halo`
+on it (`src/main.ts:84-103`): enemies wear `orb.large`, `ring` and `halo`
 (`src/sim/enemy.ts:420`, `:441`, `:466`), the boss wears `halo`
-(`src/sim/boss.ts:664`), items wear `shard`, `star`, `mote`, `petal` and `ring`
+(`src/sim/boss.ts:744`), items wear `shard`, `star`, `mote`, `petal` and `ring`
 (`src/sim/item.ts:407-451`), particles draw `glow.medium`, `spark`, `needle`,
 `star`, `glow.small` and `glow.large` (`src/sim/effects.ts:251-323`), and the
 player's shots draw `glow.small` and `scale` (`src/content/shots.ts:85`,
-`:144`). All sixteen cells are in use by something. Sixteen 32×32 cells carry
+`:222`). All sixteen cells are in use by something. Sixteen 32×32 cells carry
 essentially the whole visual vocabulary of the game — the player ship is the
 only art outside them — which is why these cells deserve far more attention than
 a 256 × 64 PNG suggests.
 
 The engine generates the sheet at runtime today — `createBulletAtlas`,
-`src/render/procedural.ts:256-281` — and that generator **is** the reference
+`src/render/procedural.ts:286-311` — and that generator **is** the reference
 implementation: the grid, the cell order and every shape are defined there.
 Replacing it with a PNG is not a one-line swap, because `createBulletAtlas` is
 synchronous, names its own cells and chooses its own filter, and `loadAtlas`
@@ -209,8 +209,8 @@ does none of those three things. Section 5 is the actual procedure.
 | Format | PNG, RGBA, 8-bit |
 
 Cells in row-major order, indices as `BULLET_CELLS` declares them
-(`src/render/procedural.ts:30-47`). `flipY` is `false` on every texture
-(`src/render/atlas.ts:165`, `src/render/procedural.ts:275`) and `Atlas.cell`
+(`src/render/procedural.ts:39-56`). `flipY` is `false` on every texture
+(`src/render/atlas.ts:165`, `src/render/procedural.ts:305`) and `Atlas.cell`
 counts rows downward from the origin (`src/render/atlas.ts:88-93`), so **cell 0
 is the top-left of the PNG** — the sheet is laid out exactly as it looks in an
 image editor.
@@ -233,10 +233,10 @@ where these were copied from. They are deliberately *not* the arguments in the
 Two painters also do not paint what their arguments read like at all: `ring`
 strokes past its radius (§1.2), and `blade` is a quadratic Bézier whose control
 points sit at `±wide/2`, so its apex reaches only half of that — geometric
-height is `wide/2`, not `wide` (`src/render/procedural.ts:91-98`).
+height is `wide/2`, not `wide` (`src/render/procedural.ts:99-107`).
 
 **Reproduce the painted numbers, not the arguments.** `CELL_ART`
-(`src/render/procedural.ts:219-241`) declares the geometry, which is what the
+(`src/render/procedural.ts:249-271`) declares the geometry, which is what the
 padding rule is checked against; only the bitmap knows the rest.
 
 These are a starting point rather than a requirement. What a replacement must
@@ -265,8 +265,8 @@ workhorse and `orb.large` still reads as a threat.
 The last column is stricter than it looks. It does not mean "something sets
 `orientToHeading` on this cell today" — `kunai`, `scale`, `needle` and
 `glow.small` are the only four with a caller that does
-(`src/content/stage-2.ts:87`, `src/sim/enemy.ts:414`, `src/sim/boss.ts:638`, and
-the BEAM shot at `src/content/shots.ts:221-228`). It means the shape is elongated
+(`src/content/stage-2.ts:95`, `src/sim/enemy.ts:414`, `src/sim/boss.ts:711`, and
+the BEAM shot at `src/content/shots.ts:308-316`). It means the shape is elongated
 or asymmetric and so has a direction at all, and rule 7 says that direction is
 east. `shard` and `petal` have no rotating caller yet and must still be drawn
 pointing right, because the first content that rotates them will not think to
@@ -290,43 +290,52 @@ them instantly. Two demands that pull against each other:
 - **A soft outer falloff** so a dense curtain does not turn into a solid mass.
 
 The procedural generator resolves this with one four-stop radial gradient
-(`src/render/procedural.ts:63-73`): alpha 1.0 at the centre, 0.95 at
+(`src/render/procedural.ts:73-77`): alpha 1.0 at the centre, 0.95 at
 `coreRatio`, 0.35 at 82% of the radius, 0 at the edge. Match that energy
 distribution even where the shape differs.
 
 `coreRatio` is the whole difference between a bullet and a halo. It defaults to
 **0.45** for the solid shots — `orb.small`, `orb.medium`, `orb.large`, `mote` —
 and drops to **0.15, 0.12 and 0.10** for `glow.small`, `glow.medium` and
-`glow.large` respectively (`src/render/procedural.ts:228-233`). A glow cell has
+`glow.large` respectively (`src/render/procedural.ts:258-263`). A glow cell has
 almost no plateau at all: it starts falling off immediately, which is what stops
 six overlapping explosion particles from compositing into a white disc.
 
-### 3.2 Player ship — `ship.png`
+### 3.2 Player ship — `ship.png`, one region per character
 
 The only art in the game that is not a bullet cell. `createShipAtlas`
-(`src/render/procedural.ts:284-317`) builds a 64×64 texture with **one named
-region and no grid**, `atlas.define('ship', { x: 0, y: 0, w: 64, h: 64 })`.
+(`src/render/procedural.ts`) builds a 64×64 texture with **named regions and no
+grid**, `atlas.define('ship', { x: 0, y: 0, w: 64, h: 64 })`.
+
+**One region is not enough — the roster is four ships.** `scout`, `lance`,
+`hound` and `spire` each name their art through `CharacterSpec.sprite`
+(`src/game/run.ts`), and today all four name `'ship'` because that is the only
+region the placeholder paints. A real art set gives each ship its own region and
+repoints its `sprite` string; the shell already reads the field, so no code
+changes. Register the regions the way the bullet grid names its cells — a
+`defineShip`-style helper, or `atlas.define('scout', …)` per ship — and give this
+section a row per character. Until then, one silhouette stands in for all four.
 
 | Property | Value | Verified at |
 |---|---|---|
-| Image size | **64 × 64** | `src/render/procedural.ts:285` |
-| Drawn at | **40 × 40** | `src/main.ts:297-299` |
-| Orientation | **pointing up (−y)** — the ship does not rotate | `src/render/procedural.ts:291-296` |
-| Colour | white/greyscale, tinted for damage flash | `src/main.ts:300-302` |
+| Image size | **64 × 64** per region | `src/render/procedural.ts` (`createShipAtlas`) |
+| Drawn at | **40 × 40** (each ship's `width`/`height`, default 40) | `src/main.ts` (player draw) |
+| Orientation | **pointing up (−y)** — the ship does not rotate | `src/render/procedural.ts` (`createShipAtlas`) |
+| Colour | white/greyscale, tinted for damage flash | `src/main.ts` (player draw) |
 
 Note the 40-from-64: the sheet is authored at 1.6× its drawn size, the one place
 in the game where art is not at final display size. Detail below about 1.6px in
 the source will not survive to the screen.
 
 The damage flash drives `g` and `b` to 0.5 and alpha to 0.35 on alternating
-4-tick blocks (`src/main.ts:296`, `:300-302`), so it reads as red only if the art is
+4-tick blocks (`src/main.ts:343`, `:352-354`), so it reads as red only if the art is
 neutral. A ship drawn blue would flash grey.
 
 Must include a **visually distinct centre point** marking the hitbox. This is
 not a debug affordance — showing the hitbox is standard genre practice and a
 real readability feature, because the ship sprite is many times larger than the
-2.5px lethal radius (`src/game/run.ts:823`). The placeholder marks it with a
-3px-radius disc two pixels below centre (`src/render/procedural.ts:301-304`),
+2.5px lethal radius (`src/game/run.ts:1173-1174`). The placeholder marks it with a
+3px-radius disc two pixels below centre (`src/render/procedural.ts:380-383`),
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
 2.5px radius — close enough to be honest, and worth keeping close.
 
@@ -340,10 +349,10 @@ request.
 
 There is no `enemies.png` and no `createEnemyAtlas`. The status is not "not yet
 implemented" — enemies are drawn, right now, from the **bullet atlas**:
-`batches.enemies` is constructed on it (`src/main.ts:63`), `grunt` is a tinted
+`batches.enemies` is constructed on it (`src/main.ts:85`), `grunt` is a tinted
 `orb.large`, `weaver` a `ring`, `turret` a `halo` (`src/sim/enemy.ts:420`,
 `:441`, `:466`), and the boss `sentinel` is a `halo` drawn at 56×56 out of a
-32px cell (`src/sim/boss.ts:664-668`). `width` and `height` default to the cell
+32px cell (`src/sim/boss.ts:743-748`). `width` and `height` default to the cell
 size and are overridden per enemy — the turret is 40×40
 (`src/sim/enemy.ts:469-470`).
 
@@ -426,7 +435,7 @@ added, so it never lands at 0.155 on screen. This is not a stylistic preference
 about moodiness; see the constraint below.
 
 There is also a hard ceiling above these numbers. Bloom is on in the shipped game
-— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:99`
+— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:121`
 passes `{ enabled: true }` — with a threshold of `0.95`
 (`src/render/post.ts:171-173`), chosen to catch bullet cores
 and nothing else. A background that approached it would bloom, and the bloom
@@ -507,7 +516,7 @@ Two properties of the particle system that constrain what those cells can be:
   to whatever is under it. Anything that relies on occluding the background will
   not read; luminance is the only channel doing work.
 - **Everything scales, and the quad size is hardcoded.** A particle is drawn at
-  `32 * p.scale` on both axes (`src/main.ts:270-271`) — the cell size is assumed,
+  `32 * p.scale` on both axes (`src/main.ts:314-315`) — the cell size is assumed,
   not read from the atlas. `death.big` runs from 1.6× down to 0.3× across its
   life (`src/sim/effects.ts:319`), so `glow.large` is drawn anywhere between
   51px and 10px. Detail that only exists at one size is wasted at both ends.
@@ -570,73 +579,82 @@ below is a place it stops working.
 ### 5.1 Author the file
 
 256 × 64, eight columns by two rows of 32px, RGBA. Cell order is exactly
-`BULLET_CELLS` (`src/render/procedural.ts:30-47`), cell 0 top-left. Everything
+`BULLET_CELLS` (`src/render/procedural.ts:39-56`), cell 0 top-left. Everything
 in section 3.1 applies.
 
 ### 5.2 Get the file into the bundle
 
-`new URL('./bullets.png', import.meta.url)` is the form CLAUDE.md prefers, and
-**it does not work under Bun's dev server.** `import.meta.url` stays the source
-file's own `file://` path in the client bundle, so the URL resolves to a local
-path the browser refuses to fetch. Nor can you fetch by repository path: an
-HTML-entry dev server answers every unknown route with the entry document, so
-`/assets/bullets.png` returns 200 with the page HTML and the PNG decoder fails
-on markup. This is not speculation — both failures are recorded at
-`test/visual/asset-loading.ts:54-70`, which reaches its fixtures the only way
-that works:
+Create `src/assets/` and drop the PNG in, then import it:
 
 ```ts
-// @ts-expect-error no ambient declaration for *.png
-import GRID_URL from '../fixtures/grid-8x2.png';
+import BULLETS_URL from './assets/bullets.png';
 ```
 
-Your own sheet takes the same form — `import BULLETS_URL from '../assets/bullets.png'`
-— once there is a file to import; there is none in the repository today.
+`src/assets.d.ts` already declares `*.png`, `*.wav` and `*.ogg`, so this
+type-checks with no `@ts-expect-error`. The bundler resolves the import, copies
+the file into `dist/` under a hashed name and rewrites the specifier to the
+emitted URL — verified through `bun run build`, which lists the PNG as an asset.
 
-An asset import is resolved by the bundler and served verbatim. The
-`@ts-expect-error` is needed because `bun-types` declares `*.txt`, `*.toml` and
-`*.html` but no image module; a `*.png` declaration in a `.d.ts` removes it.
+**Do not use `new URL('./bullets.png', import.meta.url)`.** It is the form the
+root CLAUDE.md used to prefer, and it does not work under Bun's dev server:
+`import.meta.url` stays the source file's own `file://` path in the client
+bundle, so the URL resolves to a local path the browser refuses to fetch. Nor
+can you fetch by repository path — an HTML-entry dev server answers every unknown
+route with the entry document, so `/assets/bullets.png` returns 200 with the page
+HTML and the PNG decoder fails on markup. Both failures are recorded at
+`test/visual/asset-loading.ts`, and CLAUDE.md's "Stay bundler-agnostic" note now
+records the import form instead.
 
-### 5.3 Change the two lines in `src/main.ts`
+### 5.3 Change the one line in `src/main.ts`
 
-`src/main.ts:58` is the whole integration point:
+`main.ts` has a single `BULLET_SHEET` constant, and it is the whole integration
+point:
 
 ```ts
-const bulletAtlas = createBulletAtlas();
+const BULLET_SHEET: string | undefined = undefined;
 ```
 
 becomes
 
 ```ts
-const bulletAtlas = await loadAtlas(BULLETS_URL, BULLET_GRID);
-bulletAtlas.defineGrid([...BULLET_CELLS]);
+import BULLETS_URL from './assets/bullets.png';
+const BULLET_SHEET: string | undefined = BULLETS_URL;
 ```
 
-Three things change that the old version of this document said would not:
+That is the entire swap. `bulletAtlas(url)` (`src/render/procedural.ts`) does the
+rest: it loads the sheet, checks its dimensions against the grid and **throws
+naming both figures if they disagree** — a wrong-sized sheet otherwise repoints
+every cell at a crop of the wrong shape and the game silently runs — then calls
+`defineGrid` so the cell names, their order and the grid are identical to the
+generated set. Pass `undefined` and it generates the placeholder as before.
 
-- **`loadAtlas` is async.** `createBulletAtlas` is not. `main.ts` is an ES module
-  so top-level `await` is available, but the atlas now has to exist before the
-  `batches` object on line 62 is built.
-- **`loadAtlas` names nothing.** It returns an `Atlas` with a grid and an empty
-  region map; `createBulletAtlas` calls `defineGrid` itself
-  (`src/render/procedural.ts:279`). Skip that second line and every draw throws
-  `atlas region "orb.small" is not defined` (`src/render/atlas.ts:98`).
-- **The filter changes under you.** `loadTexture` sets `NearestFilter`
-  (`src/render/atlas.ts:162-163`); the generated sheet was `LinearFilter`. Art
-  designed to be soft will arrive noticeably harder-edged. If that is wrong for
-  your art, set `magFilter`/`minFilter` on `bulletAtlas.texture` after loading —
-  and re-read section 1.2, because `LINEAR` is what makes the 2px margin
-  non-negotiable rather than merely advisable.
+This used to be three hand-edits — reorder `main.ts`'s module top level for the
+`await`, remember `defineGrid`, re-decide the texture filter — and this document
+walked all three. The seam exists now, so it does not. Two things still worth
+knowing:
 
-Everything downstream is genuinely untouched. Content references cells by name,
-so no pattern, enemy, item or effect changes. That is the payoff for naming
-cells, and it is the one part of the old text that held up.
+- **Everything downstream is genuinely untouched, as long as the names hold.**
+  Content references cells by name, so no pattern, enemy, item or effect changes
+  — *provided every name in `BULLET_CELLS` still exists*. A real drop that renames
+  or removes a cell is the one edit that breaks this, and it breaks it in two
+  consumers loudly (`CELL_ART` and `effects.ts` fail the build) and in five
+  others silently (enemy, boss, item, option and bullet-style `sprite` strings
+  throw at draw time). `src/render/sprites.test.ts` is the guard that turns the
+  silent five into a build failure — run it after touching `BULLET_CELLS`.
+- **The filter.** A loaded sheet is drawn with `NearestFilter`
+  (`src/render/atlas.ts`, `loadTexture`); the generated sheet used `LinearFilter`.
+  Art designed to be soft will arrive harder-edged. If that is wrong for your art,
+  set `magFilter`/`minFilter` on the texture after loading — and re-read §1.2,
+  because `LINEAR` is what makes the 2px margin non-negotiable rather than merely
+  advisable.
 
-For non-grid art — the ship — name regions explicitly instead:
+For the ship — non-grid art — see §3.2: each character names its region through
+`CharacterSpec.sprite`, and the ship atlas names regions explicitly rather than
+on a grid.
 
-```ts
-atlas.define('ship', { x: 0, y: 0, w: 64, h: 64 });
-```
+Audio replaces the same way, through a different door: a sound is swapped by
+giving its `defineSound` call a `url`, no shell edit at all. That path, and why
+it fails *silently* where art fails loudly, is [`docs/audio.md`](./audio.md).
 
 ### 5.4 Verify, in this order
 
@@ -649,7 +667,17 @@ bun test
 bun run test:assets   # → http://localhost:3007/test/visual/asset-loading.html
 bun run test:density  # → http://localhost:3008/test/visual/density.html
 bun run dev
+bun run build         # and confirm the PNG is emitted into dist/
 ```
+
+**`bun run build` is not optional, and it is the step this list used to omit.**
+Every other command runs against the dev server; the shipped game runs against
+the production bundle, and the two resolve asset imports differently. `bun run
+build` must list your PNG among its emitted assets — if it does not, the import
+did not resolve and the built game will 404 the sheet while the dev server
+serves it fine. This was verified once end to end by wiring the committed
+`grid-8x2.png` fixture through the seam: the build emits it and the running game
+draws every bullet from it. Do the same with your own file before shipping.
 
 **`bun run test:assets` proves the pipeline, not your art.** It loads
 `test/fixtures/grid-8x2.png` — sixteen flat, maximally distinct colours on the

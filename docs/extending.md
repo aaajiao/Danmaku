@@ -166,8 +166,8 @@ beam extends, which is the whole shape of the effect. A renderer drawing a
 centred quad has to offset it by half the length itself.
 
 **`warmup` is the telegraph, and it gates the hit test, not the tint.**
-`Bullet.lethal` stays false until `age >= warmup`, and `bulletOverlaps` returns
-false for a bullet that is not lethal (`src/sim/bullet.ts:464`). A laser that is
+`Bullet.lethal` stays false until `age >= warmup`, and `bulletHitsCircle` returns
+false for a bullet that is not lethal (`src/sim/bullet.ts:528`). A laser that is
 lethal on the tick it appears is not a pattern, it is a coin flip — there is no
 information in the field before it kills. The gate lives inside the hit test
 rather than at the call sites so that every present and future collision path
@@ -180,14 +180,46 @@ blob around the muzzle. Tested against a circle at its stored position instead, 
 
 **The offscreen cull widens with the beam.** A point bullet is culled at
 `bounds.margin`; a laser is culled at `margin + length`
-(`src/sim/bullet.ts:300`), because the muzzle does not bound it. Without that,
+(`src/sim/bullet.ts:371`), because the muzzle does not bound it. Without that,
 an emitter parked above the field firing down has its beam deleted on the tick it
 spawns while most of the body — and all of the hitbox — is on screen.
 
-Growth and warmup want tuning together. `LANCE` in `src/content/stage-2.ts:108`
-is 40px plus 28 ticks at 22px/tick, which is 656 against a 600 cap, so the beam
+Growth and warmup want tuning together. `LANCE` in `src/content/stage-2.ts` is
+40px plus 28 ticks at 22px/tick, which is 656 against a 600 cap, so the beam
 finishes drawing itself out at almost exactly the tick it becomes lethal: the
 player watches a line reach across the field, and then it is live.
+
+### Blades: a bullet that is a line, but carried
+
+`blade: { length }` (`src/sim/bullet.ts:80-96`) makes a bullet a segment like
+`laser` does — but **centred on the bullet and moving with it**, where a laser's
+segment grows forward from a fixed muzzle. A blade is for a spinning shard or a
+sword that sweeps through space; a laser is for a planted beam.
+
+```ts
+export const cleaver: BulletSpec = {
+  style: { sprite: 'shard', orientToHeading: true },
+  radius: 2,          // half-thickness once `blade` is set, not a blob radius
+  motion: { r: 3, theta: 0, spin: 6 },
+  blade: { length: 26 },
+};
+```
+
+The one trap is `radius`. On a plain bullet it is the whole hitbox; on a blade,
+as on a beam, it becomes the capsule's **half-thickness** — so the 3–4px the
+"Hitbox radius is not sprite size" table above prescribes is wrong for a blade,
+which wants 2 or less. `Bullet.bladeHalf` holds `length / 2`, and collision uses
+the same capsule test as a laser (`src/sim/bullet.ts:548`). Point a blade **+x**,
+like everything with `orientToHeading` (rule 7).
+
+### Piercing: a shot that is not spent on the first thing it hits
+
+`pierce: true` (`src/sim/bullet.ts:97-105`) stops a player bullet being removed
+the moment it damages something, so a beam or a blade cuts through a whole column
+rather than dying on the front rank. Without it `Run.#resolvePlayerShots`
+despawns the bullet on its first hit — correct for an ordinary shot, wrong for a
+weapon whose entire point is reach. `laser` sets it; a plain `spread` bolt does
+not. It is read only on the player-fire path; enemy fire has no equivalent.
 
 ### Timelines
 
@@ -482,16 +514,24 @@ Notes that are easy to get wrong:
   behaviour, not off memory.
 - **`context.age` is the *bullet's* age; `vector.age` is the *segment's*.**
   `BulletSystem.step` assigns `context.age = b.age`
-  (`src/sim/bullet.ts:274`), which no timeline segment resets, while
+  (`src/sim/bullet.ts:336`), which no timeline segment resets, while
   `MoveVector.init` zeroes `vector.age` (`src/sim/motion.ts:186`) every time a
   segment falls due. A window gated on `context.age` is therefore already expired
   if a `MotionTimeline` hands the vector a steering segment at tick 200. Every
   shipped behaviour gates on `vector.age` (`src/content/behaviours.ts:85, 118,
   150, 194`) and the module states the distinction at `:21-29`. Behaviours run
   before `step()` increments it, so a segment's first invocation sees age 0.
-- **`context.targetX/targetY` are whatever the caller passed to
-  `BulletSystem.step`** — usually the player. A behaviour does not get to look
-  anything up.
+- **`context.targetX/targetY` are the target for *this bullet's faction*,
+  chosen before the behaviour runs.** `BulletSystem.step` takes two aim points
+  and selects by faction (`src/sim/bullet.ts:339-347`): enemy fire steers at the
+  player, player fire steers at the enemy it was aimed at. So a tracking
+  behaviour does the right thing on a player shot without knowing it is on one —
+  a homing weapon chases enemies, not the ship. It used to take one field-wide
+  target, and a tracking shot put on the player therefore steered *at the
+  player*; that was an engine change to fix, not a content one, and it has been
+  made. A behaviour still does not get to look anything up — it reads the target
+  it is handed. Player aim of `undefined` means the bullet keeps its heading
+  (`src/sim/bullet.ts:313-315`).
 - **Behaviours are looked up at `init`, by name, and throw if unknown**
   (`src/sim/motion.ts:196-199`). That is on the tick the first bullet spawns, not
   at definition, so import the module that registers them from wherever you
@@ -706,19 +746,41 @@ emits the event and reaches into nothing.
 
 ### Tuning phase hp, which has been got wrong here before
 
-The numbers on `sentinel` are measured, not guessed (`src/sim/boss.ts:643-662`).
-An immortal probe at full power, tracking its target and holding Shot, lands
-**0.56 damage per tick** on a boss; a real player lands roughly **0.4**, because
-they dodge, lose power and die. Phase hp is set so a strong player drains at
-about **65% of the time limit**, which leaves a weaker one timing out. Both are
-clears; the gap between them is the difficulty curve, and it is the entire reason
-a phase carries both a health pool and a timer.
+Do not type hp or a clock as a literal. Ask for a phase in the units a designer
+thinks in, and let the model convert:
 
-Those phases were previously 900/1400/1800 hp, needing 1607/2500/3214 ticks
-against limits of 1800/2400/2700 — so two of the three could not be drained by
-*any* player, and the fight's length was independent of how well it was fought.
-Change player damage and these must change with it, or the relationship inverts
-again in silence.
+```ts
+import { phaseHp, phaseClock } from '../sim/boss';
+
+const hp = phaseHp(10);        // health a good player spends in 10 seconds
+const timeLimit = phaseClock(hp);  // the timer that health earns
+```
+
+`phaseHp(seconds)` is `REFERENCE_DPS × seconds × 60`, and `REFERENCE_DPS` is
+**1.125** damage per tick — the rate a competent player sustains, measured by
+driving the real `Run`, not guessed. `phaseClock(hp)` is twice what that rate
+needs to spend the health (`CLOCK_MARGIN = 2`), so a good player finishes at the
+half-way mark and a weaker one times out; both are clears, and the gap between
+them is the difficulty curve. Timing out pays a quarter of the card's bonus, so
+outlasting a phase is a worse clear rather than a free one.
+
+**Every number here is derived, and a test holds it there.**
+`src/game/balance.test.ts` re-measures `REFERENCE_DPS` from every character ×
+power tier × focus state and fails if player damage moves for any reason — a
+weapon tier, an option layout, a hitbox. When it fails, the boss content is what
+has to be revisited, because the constant it was sized from just changed. That
+coupling is the whole point: the number used to be a `0.56` literal typed into a
+test and repeated in three comments, and each of its three readers was wrong in
+a different direction — `sentinel` sized above it into phases no loadout could
+drain inside their own clocks, while stage-2 read the same literal, judged it
+far too generous, and sized a midboss below two trash enemies.
+
+Do **not** size a clock as `hp / FLOOR_DPS`. `FLOOR_DPS` (0.4) is the
+drainability floor — the weakest loadout a player *arrives* with — and sizing
+the timer so that loadout only just drains it lets a good player time out a
+third of the way in and makes never firing a 183-second exit. `phaseClock`
+exists precisely so this cannot be done by hand; `src/sim/boss.ts`'s
+`CLOCK_MARGIN` comment argues it in full.
 
 ---
 
@@ -780,7 +842,7 @@ on one tick, which is how a formation is written
 **A boss wave holds the schedule.** Reaching one stops the runner advancing
 entirely — the tick counter included — until `resume()` is called, so the waves
 authored after it do not pour in during the fight
-(`src/content/stage.ts:42-54`, `:321-347`). That is why every `at` is a *script*
+(`src/content/stage.ts:42-54`, `:343-369`). That is why every `at` is a *script*
 tick rather than a wall-clock one, and why a midboss can be moved without
 retiming everything after it. The runner reports the cue through
 `drainBossCues()` rather than a callback, since a callback would run the caller's
@@ -825,7 +887,7 @@ it cannot be an import.
 
 ---
 
-## 7. Adding a weapon, an option loadout, or a bomb
+## 7. Adding a weapon, an option loadout, a bomb, or a character
 
 Three registries the player's side is assembled from. None of them owns any of
 the player's counters; each hands data to the game layer and stops.
@@ -874,15 +936,17 @@ same bullet and the upgrade is more of them across a wider arc. A tier that
 raised `damage` instead would make the same fight easier without changing how it
 is played (`src/content/shots.ts:71-83`).
 
-**`homing` is registered and must not be put on a character yet.**
-`BulletSystem.step` is handed one aim target for the whole field — the player's
-position, since that is what enemy fire aims at — and the `homing` behaviour
-reads it off `MotionContext` without knowing its own faction. A player bullet
-carrying it therefore steers back toward the ship that fired it. Measured, those
-shots curve around and return, landing **12 damage on a stationary target in 400
-ticks where `spread` lands 306**. The fix is giving `MotionContext` a
-faction-appropriate target, which is an engine change, not a content one
-(`src/content/shots.ts:126-137`).
+A tracking weapon steers at enemies, not at the ship, and that is now true —
+`hound` flies `homing`. It was once a standing warning here that `homing` must
+not be put on a character: `BulletSystem.step` took one aim target for the whole
+field, the player's position, and a player bullet carrying `homing` read it and
+curved *back toward the ship that fired it*, landing 12 damage on a stationary
+target in 400 ticks where `spread` landed 306. That was an engine defect, and
+the warning said fixing it was an engine change rather than a content one. It
+was — `step` now takes two targets and selects by faction (see §3 and
+`src/sim/bullet.ts:339-347`) — so the weapon is shippable and shipped. The
+lesson worth keeping is the shape: a registered weapon no character equipped was
+invisible to every unit test, because a unit test aims the bullet itself.
 
 ### `defineOptions` — the satellites
 
@@ -962,6 +1026,70 @@ resource the player cannot see being spent and lands at a moment they did not
 choose (`src/sim/bomb.ts:102-109`). `duration` is floored at one tick, since a
 zero-duration bomb would consume a stock and do nothing, which reads as a dropped
 input.
+
+### `defineCharacter` — the ship that makes all three reachable
+
+Everything above this line is unreachable on its own. A weapon, an option
+loadout and a bomb are all consumed **exclusively** through a `CharacterSpec` —
+nothing in a running game reads `getShot`, `getOptionSpec` or `getBombSpec`
+except a character that names them. Register the `cascade` bomb by itself and it
+is a bomb no ship can fire; the section you just read is only half of adding one.
+This is the project's central lesson written into the guide: registration is not
+reachability, and the wire that closes the gap is a character.
+
+```ts
+import { defineCharacter } from '../game/run';
+import { getShot } from '../content/shots';
+
+defineCharacter('ranger', {
+  label: 'RANGER',              // shown on the select screen, uppercase
+  blurb: 'wide fire, panic bomb', // one lowercase line under it
+  sprite: 'ship',               // atlas region; 'ship' is the only one so far
+  options: 'wide',              // a registered defineOptions name
+  bomb: 'cascade',              // a registered defineBomb name
+  player: {
+    x: 240, y: 408,             // spawn; the run overrides bounds, not these
+    speed: 3.4, focusSpeed: 1.4,
+    radius: 2.5,                // the lethal hitbox — the genre's ratio, keep it
+    grazeRadius: 22,
+    lives: 3, bombs: 3, invulnTicks: 90,
+    shots: getShot('spread').levels,  // a registered defineShot's ladder
+  },
+});
+```
+
+The select screen is data-driven from `characterNames()`, so a registered ship
+appears on it with nothing told about it, in registration order. Four things are
+worth knowing:
+
+- **`sprite` is the ship's art, by name** (§11), exactly as `EnemySpec` and the
+  rest name theirs. Every shipped ship names `'ship'` because that is the only
+  region the placeholder generator paints; the field is what lets a real second
+  silhouette drop in without editing the shell. `width`/`height` default to 40.
+- **The three loadout fields are strings and a ladder.** `options` and `bomb`
+  are registry *names*, checked when the run is built; `shots` is the resolved
+  `getShot(name).levels` array. Give a ship a weapon no one else flies and you
+  have covered a seam that two ships cannot — see below.
+- **`radius` is the one number not to tune for advantage.** It is the lethal
+  hitbox against a 40px sprite, and `balance.test.ts` measures damage *dealt*
+  and never damage *taken*, so a smaller radius is a strictly-better ship no test
+  can see. Leave it at 2.5.
+- **Adding a ship changes the balance envelope, and a test holds it.**
+  `balance.test.ts` drives the real `Run` across every character × power tier ×
+  focus and asserts the spread between the strongest and weakest loadout in the
+  whole game stays under 5×. A ship whose numbers are hand-waved fails it; reason
+  about the DPS numerically, the way `scout` and the rest argue every field
+  against an existing one. And `reachability.test.ts` now flies **every**
+  registered character, so a ship that is registered but somehow unreachable, or
+  a weapon only it carries, fails the build.
+
+`defineCharacter` lives in `src/game/run.ts` rather than in a `src/content`
+file, which is the one exception to "a new registry entry is a new file". It is
+deliberate: a character names shots, options and bombs, and a `content/`
+character file importing `game/run` for `defineCharacter` while `run` imports
+`content/shots` would close a module cycle. The starter roster therefore sits
+beside the registry, the same way `sim/option.ts` and `sim/bomb.ts` hold their
+own starter sets.
 
 ---
 
@@ -1075,40 +1203,53 @@ build instead of silently drawing the wrong shape
 
 `SoundSpec` is four optional fields: `url`, `volume`, `polyphony`, `throttleMs`
 (`src/audio/index.ts:30-38`). Omit `url` and the engine synthesises a
-placeholder.
+placeholder; give one and the file is loaded instead.
 
 ```ts
 import { defineSound } from '../audio';
 
 defineSound('shield', { volume: 0.4, polyphony: 2, throttleMs: 80 });
-defineSound('boss.roar', { url: '/audio/roar.ogg', volume: 0.9, polyphony: 1 });
 ```
 
+**Registering a sound does not make it play.** A sound is played by a *cue*: a
+`RunEventType` mapped to a sound name in `src/game/cues.ts`, which the shell
+reads. Add a `defineSound` and nothing else, and you have a sound the game never
+reaches — the same registration-is-not-reachability gap that leaves a bomb no
+ship can fire (§7). To make it audible, either repoint an existing cue at your
+new name, or map a new event to it — and note that a *new* event also has to be
+raised by `Run`, or the cue never fires. `reachability.test.ts` holds this: every
+registered sound must be named by a cue, and every cue must name a registered
+sound, so an unplayed sound and an unplayable cue both fail the build.
+
+**Replacing a sound with a real file is the `url`, and nothing else.** But get
+the `url` from a bundler import, not a bare path:
+
+```ts
+import ROAR_URL from '../assets/boss-roar.ogg';
+defineSound('explosion', { url: ROAR_URL, volume: 0.6 });
+```
+
+A bare `url: '/audio/roar.ogg'` does **not** work under the dev server for the
+same reason `new URL(..., import.meta.url)` fails for art — the route returns the
+entry HTML — and audio fails *silently* where art now fails loudly, because
+`Audio.#load` swallows every error so `play` can never throw into the loop. So a
+wrong `url` is no console error and no crash, just a cue that never sounds. The
+full authoring guide — mono, zero-amplitude edges, the `peak`-versus-`volume`
+split, the swap and its traps — is [`docs/audio.md`](./audio.md).
+
 **This is the one registry that does not throw on a duplicate name**
-(`src/audio/index.ts:62-79`). The built-in placeholders exist to be replaced, and
-swapping one for a real asset has to be possible from a content file — requiring
-an edit to `src/audio/index.ts` would make the engine own the content. So
-`defineSound` overwrites, deliberately, and it is the exception that the rest of
-this document's "registries throw" rule is stated against.
+(`src/audio/index.ts:62-79`), because replacing a placeholder from a content file
+has to be possible without editing the engine. `defineSound` overwrites,
+deliberately, and it is the exception the rest of this document's "registries
+throw" rule is stated against. The cost: a typo registers a new unplayed sound
+rather than replacing the one you meant.
 
-Audio is a render-side concern and nothing else: it reads no simulation state and
-can write none. Every entry point is total — `play` on an unknown name is a
-no-op, and nothing in the module may throw into the game loop. A missing asset, a
-refused `AudioContext`, or a runtime with no WebAudio at all degrades to silence
-rather than taking the run down with it.
-
-A registered name with no synth of its own gets an audible default rather than
-silence (`src/audio/index.ts:392-397`), so a sound nobody has authored is noticed
-instead of quietly missing.
-
-`volume` is clamped to 0..1 and `polyphony` floored at 1 — a sound registered
-with zero voices can never play, which is a typo rather than an intent, and not
-registering it says that better. `throttleMs` is **milliseconds**, and it is the
-one clock in this project that is wall time on purpose: audio has no tick
-(`src/audio/index.ts:185-188`). Synthesis noise comes from `fx`, never `sim`.
-
-`Audio.unlock()` must be called from a user gesture; browsers refuse to run a
-graph outside one. Calling it where WebAudio does not exist is harmless.
+`volume` is clamped to 0..1 and `polyphony` floored at 1 — a sound with zero
+voices can never play, which is a typo rather than an intent. `throttleMs` is
+**milliseconds**, the one clock in this project that is wall time on purpose:
+audio has no tick (`src/audio/index.ts:185-188`). Synthesis noise comes from
+`fx`, never `sim`. `Audio.unlock()` must be called from a user gesture; calling
+it where WebAudio does not exist is harmless.
 
 ---
 
@@ -1258,9 +1399,9 @@ cannot live next to the stage that uses it, and the name is resolved by whoever
 is drawing.
 
 `Run.scene` reports what the run currently wants, preferring the live card's
-background over the stage's (`src/game/run.ts:704-710`), and `src/main.ts`
+background over the stage's (`src/game/run.ts:1051-1058`), and `src/main.ts`
 reconciles it against the live quad each tick, cross-fading when it and
-`background.name` disagree (`src/main.ts:193-194`).
+`background.name` disagree (`src/main.ts:208-210`).
 
 **That is declared state, not an event, and the distinction is load-bearing.**
 Everything else the presentation layer reacts to arrives through `drainEvents`,
@@ -1270,7 +1411,7 @@ pushing conditions through an event queue is how presentation drifts out of sync
 with the run: miss one event, or drain it in a state that is not drawing, and the
 screen stays wrong until something unrelated corrects it. Reconciliation is
 idempotent, so a run that is paused, replayed or restarted needs no separate
-resynchronisation path (`src/game/run.ts:669-703`).
+resynchronisation path (`src/game/run.ts:1019-1034`).
 
 ### Three constraints, and the one that is not obvious
 
