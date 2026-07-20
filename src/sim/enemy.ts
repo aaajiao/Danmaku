@@ -21,6 +21,7 @@ import { Pool } from '../core/pool';
 import { sim, type Random } from '../core/random';
 import type { BulletSystem, FieldBounds } from './bullet';
 import { circlesOverlap } from './collision';
+import type { Spoils } from './item';
 import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } from './motion';
 
 /**
@@ -49,7 +50,15 @@ export interface EnemySpec {
   timeline?: readonly MotionSegment[];
   tint?: { r?: number; g?: number; b?: number };
   patterns?: readonly EnemyPattern[];
-  drops?: { power?: number; score?: number };
+  /**
+   * Items this enemy scatters on death, by registry name and count. See
+   * `Spoils`. A bare `power` drop is `[['power', 2]]`; the field used to be
+   * `{ power, score }`, but `score` was never read — `scoreValue` is the
+   * kill's immediate points, and a `score` *item* is a separate thing a spoils
+   * entry can now name if a design wants one.
+   */
+  spoils?: Spoils;
+  /** Immediate points for the kill, credited on death — not a dropped item. */
   scoreValue?: number;
   /** Effect names emitted on hit and on death. Resolved by the effect system. */
   onHit?: string;
@@ -431,7 +440,7 @@ defineEnemy('grunt', {
       startAt: 30,
     },
   ],
-  drops: { power: 1, score: 100 },
+  spoils: [['power', 1]],
   scoreValue: 100,
   onHit: 'hit',
   onDeath: 'explosion',
@@ -456,7 +465,7 @@ defineEnemy('weaver', {
       stopAt: 90,
     },
   ],
-  drops: { power: 2, score: 300 },
+  spoils: [['power', 2]],
   scoreValue: 300,
   onHit: 'hit',
   onDeath: 'explosion',
@@ -484,7 +493,7 @@ defineEnemy('turret', {
   ],
   // It crawls in from well above the field and is meant to survive the trip.
   despawnMargin: 96,
-  drops: { power: 3, score: 1000 },
+  spoils: [['power', 3]],
   scoreValue: 1000,
   onHit: 'hit',
   // The heaviest thing in the cast, so it gets the heaviest death.

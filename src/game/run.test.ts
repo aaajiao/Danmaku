@@ -441,9 +441,9 @@ describe('rules', () => {
   });
 
   test('power arrives in item-sized steps, not whole tiers per kill', () => {
-    // `drops.power` is a count of items. Read as a power fraction it would put
-    // the ship on its top tier within the first wave, which is what the
-    // pre-item game did.
+    // A `power` spoils entry is a count of items. Read as a power fraction it
+    // would put the ship on its top tier within the first wave, which is what
+    // the pre-item game did.
     const run = new Run(config());
     play(run, 240);
     expect(run.player.power).toBeLessThan(1);

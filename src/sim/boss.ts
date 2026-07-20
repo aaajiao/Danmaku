@@ -39,6 +39,7 @@
 import { Emitter, patternNames } from '../content/patterns';
 import { sim, type Random } from '../core/random';
 import type { BulletSpec, BulletSystem, FieldBounds } from './bullet';
+import type { Spoils } from './item';
 import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } from './motion';
 
 /**
@@ -97,6 +98,14 @@ export interface BossSpec {
   phases: readonly SpellCard[];
   /** Effect name emitted when the last phase ends. Resolved by the effect system. */
   onDeath?: string;
+  /**
+   * Items showered when the boss dies, by registry name and count. See
+   * `Spoils`. Unset means the game layer's default shower — a boss that wants
+   * to reward differently declares its own. It used to be a single hardcoded
+   * table in `Run`, applied identically to every boss, so a third boss could
+   * not pay out differently from the first however it was written.
+   */
+  spoils?: Spoils;
 }
 
 const registry = new Map<string, BossSpec>();

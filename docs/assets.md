@@ -334,7 +334,7 @@ neutral. A ship drawn blue would flash grey.
 Must include a **visually distinct centre point** marking the hitbox. This is
 not a debug affordance — showing the hitbox is standard genre practice and a
 real readability feature, because the ship sprite is many times larger than the
-2.5px lethal radius (`src/game/run.ts:1173-1174`). The placeholder marks it with a
+2.5px lethal radius (`src/game/run.ts:1185-1186`). The placeholder marks it with a
 3px-radius disc two pixels below centre (`src/render/procedural.ts:380-383`),
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
 2.5px radius — close enough to be honest, and worth keeping close.

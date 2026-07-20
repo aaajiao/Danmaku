@@ -154,7 +154,7 @@ defineEnemy('test.rich', {
   width: 48,
   height: 48,
   tint: { r: 0.2, g: 0.4, b: 0.6 },
-  drops: { power: 4, score: 750 },
+  spoils: [['power', 4]],
   scoreValue: 750,
   onHit: 'test.hit',
   onDeath: 'test.death',
@@ -180,7 +180,7 @@ describe('registry', () => {
     expect(spec.width).toBe(48);
     expect(spec.height).toBe(48);
     expect(spec.tint).toEqual({ r: 0.2, g: 0.4, b: 0.6 });
-    expect(spec.drops).toEqual({ power: 4, score: 750 });
+    expect(spec.spoils).toEqual([['power', 4]]);
     expect(spec.scoreValue).toBe(750);
     expect(spec.onHit).toBe('test.hit');
     expect(spec.onDeath).toBe('test.death');
@@ -525,7 +525,7 @@ describe('damage and deaths', () => {
     expect(deaths[0]?.y).toBe(170);
     expect(deaths[0]?.spec).toBe(getEnemySpec('test.rich'));
     expect(deaths[0]?.spec.onDeath).toBe('test.death');
-    expect(deaths[0]?.spec.drops).toEqual({ power: 4, score: 750 });
+    expect(deaths[0]?.spec.spoils).toEqual([['power', 4]]);
   });
 
   test('the recorded position is where it died, not where it started', () => {

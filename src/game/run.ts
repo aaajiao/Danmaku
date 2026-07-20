@@ -48,7 +48,7 @@ import { BossSystem, getBossSpec } from '../sim/boss';
 import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
-import { ItemSystem } from '../sim/item';
+import { ItemSystem, type Spoils } from '../sim/item';
 import { OptionSystem } from '../sim/option';
 import { Player, type PlayerConfig } from '../sim/player';
 import {
@@ -264,9 +264,9 @@ const DEATH_POWER_ITEMS = 8;
  *
  * The `life` item is fully implemented — registered, tinted, magnetised,
  * collected, and it fires an `extend` event nothing else fires — and it had
- * **no spawn site anywhere in the game**. No enemy's `drops` can name it,
- * `BOSS_SPOILS` does not list it, and no score threshold existed. An extra life
- * was unobtainable by any sequence of inputs.
+ * **no spawn site anywhere in the game**. No enemy's spoils named it, the boss
+ * shower did not list it, and no score threshold existed. An extra life was
+ * unobtainable by any sequence of inputs.
  *
  * A score extend rather than a drop table entry, because that is the decision
  * the genre actually makes: it rewards the scoring game specifically, which is
@@ -281,8 +281,14 @@ const DEATH_POWER_ITEMS = 8;
  */
 const EXTEND_SCORES: readonly number[] = [100_000, 300_000, 600_000];
 
-/** Items a defeated boss showers, by registry name and count. */
-const BOSS_SPOILS: readonly (readonly [string, number])[] = [
+/**
+ * The shower a defeated boss drops when its own `BossSpec.spoils` is unset.
+ *
+ * A default rather than the only table: it used to be the sole source, applied
+ * identically to every boss, so no boss could reward differently from another.
+ * A boss now declares its own spoils and falls back to this.
+ */
+const DEFAULT_BOSS_SPOILS: Spoils = [
   ['big-power', 4],
   ['score', 12],
   ['bomb', 1],
@@ -612,25 +618,30 @@ export class Run {
   }
 
   /**
-   * Kills pay score directly and drop items for their power.
+   * Kills pay their score directly and scatter their spoils as items.
    *
-   * `drops.power` is read as a **count of `power` items**, not as a power
-   * fraction. It is authored 1/2/3 across the cast while a single `power` item
-   * is worth 0.05, so the fraction reading maxes the weapon on the first grunt —
-   * which is what the pre-item game did, since it had nowhere else to put the
-   * number.
+   * `scoreValue` is the kill's **immediate** points, credited on death.
+   * `spoils` is what it drops for the player to fly to and collect — a
+   * name→count list, so an enemy can drop any registered item. Every enemy in
+   * the game currently drops only `power`, counted 1/2/3 across the cast; a
+   * single `power` item is worth 0.05, so this is a count of items, not a power
+   * fraction, and reading it as a fraction is what maxed the weapon on the first
+   * grunt in the pre-item game.
    *
-   * `drops.score` is deliberately not paid: it is identical to `scoreValue` on
-   * every enemy currently defined, so paying both would silently double the
-   * value of a kill.
+   * The two are separate mechanisms on purpose. An enemy used to carry a dead
+   * `drops.score` field equal to its `scoreValue`; paying both would have
+   * doubled the kill, so it was never read, and now it is gone — a `score`
+   * *item* is a spoils entry a design can add, distinct from the immediate
+   * points.
    */
   #resolveDeaths(rng: Random): void {
     for (const death of this.enemies.drainDeaths()) {
       if (death.spec.onDeath) this.effects.emit(death.spec.onDeath, death.x, death.y);
       this.player.score += death.spec.scoreValue ?? 0;
 
-      const power = death.spec.drops?.power ?? 0;
-      if (power > 0) this.items.burst('power', death.x, death.y, power, rng);
+      for (const [name, count] of death.spec.spoils ?? []) {
+        this.items.burst(name, death.x, death.y, count, rng);
+      }
 
       this.#emit({
         type: 'enemy-killed',
@@ -882,7 +893,7 @@ export class Run {
             this.#bossDefeated = true;
           }
           if (event.boss.spec.onDeath) this.effects.emit(event.boss.spec.onDeath, x, y);
-          for (const [name, count] of BOSS_SPOILS) {
+          for (const [name, count] of event.boss.spec.spoils ?? DEFAULT_BOSS_SPOILS) {
             this.items.burst(name, x, y, count, rng);
           }
           this.#emit({ type: 'boss-defeated', x, y, name: event.boss.name });
@@ -972,10 +983,11 @@ export class Run {
     if (this.boss.active) return;
 
     // Do not freeze the run on top of its own reward. A defeated boss showers
-    // `BOSS_SPOILS` — 17 items, 4 of them big-power — on the same tick it dies,
-    // and the outcome used to settle in that same tick, so every one of them was
-    // stranded under the clear banner. Measured at 6000 points, 31% of the final
-    // score, and the only spawn site 4 of the 5 registered item kinds have.
+    // its spoils — the default is 17 items, 4 of them big-power — on the same
+    // tick it dies, and the outcome used to settle in that same tick, so every
+    // one of them was stranded under the clear banner. Measured at 6000 points,
+    // 31% of the final score, and the only spawn site 4 of the 5 registered item
+    // kinds have.
     //
     // No timer guards this and none is needed: an item is either magnetised, in
     // which case `ItemSystem` forces it onto a live player and clamps the last

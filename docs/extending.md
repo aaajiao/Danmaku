@@ -569,8 +569,8 @@ patterns. Everything specific to one lives in its `EnemySpec`, so a stage adds
 new opposition by writing a file.
 
 `sprite`, `hp` and `radius` are required; `width`, `height`, `motion`,
-`timeline`, `tint`, `patterns`, `drops`, `scoreValue`, `onHit`, `onDeath` and
-`despawnMargin` are not (`src/sim/enemy.ts:38-63`).
+`timeline`, `tint`, `patterns`, `spoils`, `scoreValue`, `onHit`, `onDeath` and
+`despawnMargin` are not (`src/sim/enemy.ts:39-71`).
 
 ```ts
 import { defineEnemy } from '../sim/enemy';
@@ -598,12 +598,21 @@ defineEnemy('skirmisher', {
       stopAt: 300,
     },
   ],
-  drops: { power: 1, score: 150 },
+  spoils: [['power', 1]],
   scoreValue: 150,
   onHit: 'hit',
   onDeath: 'explosion',
 });
 ```
+
+`scoreValue` is the kill's **immediate** points; `spoils` is what it scatters
+for the player to collect, a `[name, count]` list over the item registry. Every
+enemy in the game drops only `power`, so `[['power', 1]]` — but the list can name
+any registered item, so an enemy that dropped a `bomb` or a `score` pickup is
+`spoils: [['power', 1], ['bomb', 1]]` and nothing in `Run` needs to learn the
+name. It used to be `drops: { power, score }`: two fixed fields, only `power`
+ever read, and `score` dead because it duplicated `scoreValue`. A boss uses the
+same `Spoils` shape (§5), so the two drop through one code path.
 
 `startAt` and `stopAt` are **ticks since this enemy spawned**, not since the
 stage began (`src/sim/enemy.ts:26-36`). An enemy's script must not depend on when
@@ -619,17 +628,17 @@ guards on `alive` first, because two player bullets can land on the same enemy i
 one collision sweep and the second would otherwise pay its score twice
 (`src/sim/enemy.ts:304-307`).
 
-**Nothing in this file spends what it records.** `drops`, `scoreValue`, `onHit`
-and `onDeath` are names and numbers handed to the game layer through
-`drainDeaths`; what a `power: 1` is worth is not a question `sim/enemy.ts` can
-answer. Deaths are recorded rather than dispatched for the reason given at
+**Nothing in this file spends what it records.** `spoils`, `scoreValue`,
+`onHit` and `onDeath` are names and numbers handed to the game layer through
+`drainDeaths`; what a `['power', 1]` is worth is not a question `sim/enemy.ts`
+can answer. Deaths are recorded rather than dispatched for the reason given at
 `src/sim/enemy.ts:12-17` — `damage` runs inside a caller's collision sweep, and a
 callback firing there would run arbitrary game code while the live list is being
 rewritten.
 
 `despawnMargin` defaults to the field's own margin. Raise it for something that
 dives off the edge and is meant to come back: `turret` carries 96
-(`src/sim/enemy.ts:486`) because it crawls in from well above the field. The cull
+(`src/sim/enemy.ts:495`) because it crawls in from well above the field. The cull
 also refuses to fire until the enemy has been inside the field once
 (`Enemy.entered`, `src/sim/enemy.ts:105-113`), or every authored entrance would
 be deleted on the tick it was created. The cost of that is real and worth
@@ -648,9 +657,15 @@ A boss is an enemy with a script: a sequence of `SpellCard` phases, each with it
 own health, clock, movement and fire.
 
 `BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
-`tint`, `entry` and `onDeath` (`src/sim/boss.ts:83-100`). A `SpellCard` requires
-`name`, `hp`, `timeLimit` and `patterns`, and takes optional `motion`,
+`tint`, `entry`, `onDeath` and `spoils` (`src/sim/boss.ts:84-109`). A `SpellCard`
+requires `name`, `hp`, `timeLimit` and `patterns`, and takes optional `motion`,
 `timeline`, `bonus`, `isSpell` and `background` (`src/sim/boss.ts:56-81`).
+
+`spoils` is the item shower dropped on death — the same `[name, count]` list an
+enemy carries (§4), over the item registry. Omit it and the boss drops the game
+layer's default shower (`big-power ×4`, `score ×12`, `bomb ×1`); declare it and
+this boss rewards differently. It was a single hardcoded table in `Run` applied
+to every boss, so a spec is where a boss's own payout belongs.
 
 ```ts
 import { defineBoss } from '../sim/boss';
@@ -1399,7 +1414,7 @@ cannot live next to the stage that uses it, and the name is resolved by whoever
 is drawing.
 
 `Run.scene` reports what the run currently wants, preferring the live card's
-background over the stage's (`src/game/run.ts:1051-1058`), and `src/main.ts`
+background over the stage's (`src/game/run.ts:1063-1069`), and `src/main.ts`
 reconciles it against the live quad each tick, cross-fading when it and
 `background.name` disagree (`src/main.ts:208-210`).
 
@@ -1411,7 +1426,7 @@ pushing conditions through an event queue is how presentation drifts out of sync
 with the run: miss one event, or drain it in a state that is not drawing, and the
 screen stays wrong until something unrelated corrects it. Reconciliation is
 idempotent, so a run that is paused, replayed or restarted needs no separate
-resynchronisation path (`src/game/run.ts:1019-1034`).
+resynchronisation path (`src/game/run.ts:1042-1048`).
 
 ### Three constraints, and the one that is not obvious
 

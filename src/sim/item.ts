@@ -56,6 +56,23 @@ export interface ItemSpec {
 }
 
 /**
+ * What a kill scatters: registered item names and how many of each.
+ *
+ * A **name → count** list rather than a fixed set of typed fields, so a spawner
+ * can drop any item the registry holds without the game layer learning its
+ * name. An enemy used to carry `drops: { power, score }` — two hardcoded fields,
+ * of which only `power` was ever read and `score` was dead — so nothing could
+ * drop a `life` or a `bomb` item however the content was written, while a boss's
+ * spoils were a separate hardcoded table in `Run`. This is the one shape both
+ * use: `[['power', 2], ['score', 4]]`.
+ *
+ * Order is part of the determinism contract. `ItemSystem.burst` draws two `sim`
+ * values per item in list order, so reordering the entries or the counts changes
+ * every subsequent draw in the run (CLAUDE.md rule 2).
+ */
+export type Spoils = readonly (readonly [name: string, count: number])[];
+
+/**
  * The genre's drop arc, expressed as one polar segment rather than a timeline.
  *
  * `theta = 270` is up, and `r` decays through zero into negative, which reverses
