@@ -66,6 +66,12 @@ import { describe, expect, test } from 'bun:test';
 
 import '../content';
 import { Button } from '../core/input';
+import {
+  activePhaseIndices,
+  DEFAULT_DIFFICULTY,
+  DIFFICULTIES,
+  type Difficulty,
+} from '../sim/difficulty';
 import { bossNames, getBossSpec } from '../sim/boss';
 import { effectNames, getEffectSpec } from '../sim/effects';
 import { soundNames } from '../audio';
@@ -138,6 +144,8 @@ interface Coverage {
   shots: Set<string>;
   /** Enemy types that actually spawned, by registry name. */
   enemies: Set<string>;
+  /** The tier each run in this coverage was actually flown on, via `run.difficulty`. */
+  difficulties: Set<string>;
   maxPower: number;
   maxOptions: number;
   ticks: number;
@@ -171,11 +179,25 @@ function shotNameOf(run: Run): string | undefined {
  * survived here precisely because a probe that reaches the end of the game
  * looks like it has covered the game.
  */
-function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
+function playThroughGame(
+  characterIndex = 0,
+  difficulty: Difficulty = DEFAULT_DIFFICULTY,
+  limit = 400_000,
+): Coverage {
   const machine = new StateMachine();
   let seed = 1;
   const ctx: GameContext = { machine, nextSeed: () => 0x51ee + seed++ };
   machine.push(new TitleState(ctx));
+
+  // Steps of Down needed to move the difficulty cursor from its NORMAL default
+  // onto the wanted tier, wrapping — the screen opens on Normal, so a tier below
+  // it is reached the long way round, exactly as a player's Downs would.
+  const tierSteps =
+    (DIFFICULTIES.indexOf(difficulty) -
+      DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY) +
+      DIFFICULTIES.length) %
+    DIFFICULTIES.length;
+  let tierDescended = 0;
 
   const cover: Coverage = {
     states: new Set(),
@@ -192,6 +214,7 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
     bombsFired: new Set(),
     shots: new Set(),
     enemies: new Set(),
+    difficulties: new Set(),
     maxPower: 0,
     maxOptions: 0,
     ticks: 0,
@@ -251,6 +274,16 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
       // flag, so bombing during one would cost the bonuses this pilot needs in
       // order to reach the extend thresholds.
       if (!fightingBoss && Math.floor(tick / 300) % 4 === 0) buttons |= Button.Bomb;
+    } else if (name === 'difficulty-select' && tierDescended < tierSteps) {
+      // Walk the tier cursor onto the wanted difficulty before confirming,
+      // pulsed like every other menu move. Once it arrives the generic branch
+      // below pulses CONFIRM and the run starts on this tier — so a probe asked
+      // for Normal takes zero Downs and confirms the default, unchanged.
+      confirm ^= 1;
+      if (confirm) {
+        buttons = Button.Down;
+        tierDescended++;
+      }
     } else if (name === 'character-select' && descended < characterIndex) {
       // Walk down to the requested ship first, pulsed for the same reason
       // CONFIRM is: `Edges` reads a press as an edge, so a held Down moves once.
@@ -275,6 +308,7 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
         seenRuns++;
         cover.stages.add(run.stageName);
         cover.characters.add(run.characterName);
+        cover.difficulties.add(run.difficulty);
         cover.optionSets.add(run.character.options);
         const shot = shotNameOf(run);
         if (shot !== undefined) cover.shots.add(shot);
@@ -360,6 +394,7 @@ const COVER: Coverage = {
   bombsFired: union(RUNS, (c) => c.bombsFired),
   shots: union(RUNS, (c) => c.shots),
   enemies: union(RUNS, (c) => c.enemies),
+  difficulties: union(RUNS, (c) => c.difficulties),
   maxPower: Math.max(...RUNS.map((c) => c.maxPower)),
   maxOptions: Math.max(...RUNS.map((c) => c.maxOptions)),
   ticks: Math.max(...RUNS.map((c) => c.ticks)),
@@ -385,14 +420,23 @@ describe('a real playthrough reaches', () => {
     expect([...COVER.enemies].sort()).toEqual(content(enemyNames()).sort());
   });
 
-  test('every phase of every boss', () => {
+  test('every phase of every boss active on the flown tier', () => {
     // A boss that spawns but whose later cards are never seen is the same bug
     // one level down — `magistrate` reached only phase 0 while its health was
     // sized against a damage figure no player could produce.
+    //
+    // These runs are all on Normal, and a tier-gated card (`sentinel`'s
+    // Lunatic-only fourth phase) is not fought on Normal, so `expected` is the
+    // phases *active on the flown tier*, not every declared phase. Reading the
+    // whole `phases` array would demand coverage of content this playthrough
+    // cannot by construction reach; the Lunatic-only card is proved reachable in
+    // the per-tier pass below instead. This is the stated phase-coverage policy.
     const expected: string[] = [];
     for (const name of content(bossNames())) {
       const phases = getBossSpec(name).phases;
-      for (let i = 0; i < phases.length; i++) expected.push(`${name}#${i}`);
+      for (const i of activePhaseIndices(phases, DEFAULT_DIFFICULTY)) {
+        expected.push(`${name}#${i}`);
+      }
     }
     expect([...COVER.phases].sort()).toEqual(expected.sort());
   });
@@ -493,7 +537,7 @@ describe('a real playthrough reaches', () => {
 
   test('every state screen', () => {
     expect([...COVER.states].sort()).toEqual(
-      ['character-select', 'cleared', 'playing', 'title'].sort(),
+      ['character-select', 'cleared', 'difficulty-select', 'playing', 'title'].sort(),
     );
   });
 
@@ -589,6 +633,60 @@ describe('a real playthrough emits', () => {
       expect(`${type}: ${COVER.events.has(type)}`).toBe(`${type}: true`);
     });
   }
+});
+
+/**
+ * The difficulty axis is wired end to end and its gated content is reachable.
+ *
+ * The full playthrough above stays on Normal — difficulty is not about survival
+ * (that is `balance.test.ts`) but about which content exists, and the Normal
+ * coverage is what every assertion above measures. This block adds the tier
+ * dimension in the cheapest honest way.
+ *
+ * Cost measured: a full per-character Normal playthrough is ~150ms (the `RUNS`
+ * union above is four of them, ~0.63s total). Running a full probe once per tier
+ * would be ~0.6s more; but only Lunatic needs a full run, to reach the
+ * Lunatic-only card that sits after the stage-1 boss's third phase. Easy, Normal
+ * and Hard only need to prove the tier was selected and reached a run, which the
+ * first few hundred ticks settle — so those are short smokes and Lunatic alone
+ * is a full run. One full run + three smokes measured at ~0.34s here, well
+ * inside the suite budget, so no truncated per-tier density check is needed.
+ */
+describe('each difficulty tier is reachable and real', () => {
+  const LUNATIC = playThroughGame(0, 'lunatic');
+  const SMOKE_LIMIT = 3000;
+  const smokes = (['easy', 'normal', 'hard'] as const).map((tier) => ({
+    tier,
+    cover: playThroughGame(0, tier, SMOKE_LIMIT),
+  }));
+
+  test('the difficulty-select screen is on the path to every run', () => {
+    // The screen `TitleState` now replaces into: no tier reaches a run without
+    // passing through it, on the full Lunatic run and on every smoke alike.
+    for (const { cover } of smokes) expect(cover.states.has('difficulty-select')).toBe(true);
+    expect(LUNATIC.states.has('difficulty-select')).toBe(true);
+  });
+
+  test('each tier is the tier the run is actually flown on', () => {
+    // Proves the selection wire — title → difficulty-select → character-select →
+    // RunConfig.difficulty — carries the chosen tier all the way to the `Run`.
+    for (const { tier, cover } of smokes) {
+      expect(`${tier}: ${[...cover.difficulties].sort().join(',')}`).toBe(`${tier}: ${tier}`);
+    }
+    expect([...LUNATIC.difficulties]).toEqual(['lunatic']);
+  });
+
+  test('a Lunatic-only card is reached only on Lunatic', () => {
+    // `sentinel`'s fourth phase is `difficulties: ['lunatic']`. The Normal
+    // coverage must never touch it (the phase-coverage policy above depends on
+    // that), and the real Lunatic playthrough must — proved by fighting it, not
+    // asserted from the spec. Its spec index is the count of ungated phases.
+    const spec = getBossSpec('sentinel');
+    const gatedIndex = activePhaseIndices(spec.phases, DEFAULT_DIFFICULTY).length;
+    const gated = `sentinel#${gatedIndex}`;
+    expect(`normal has ${gated}: ${COVER.phases.has(gated)}`).toBe(`normal has ${gated}: false`);
+    expect(`lunatic has ${gated}: ${LUNATIC.phases.has(gated)}`).toBe(`lunatic has ${gated}: true`);
+  });
 });
 
 describe('the probe itself is honest', () => {

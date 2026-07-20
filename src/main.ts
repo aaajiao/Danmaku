@@ -544,6 +544,16 @@ function drawHud(run: Run | undefined): void {
   surface.fillStyle = '#6f6f78';
   hudResource(packs.hudIcons.bomb, '★', `${p.bombs}   P ${p.power.toFixed(2)}`, FIELD_W - 8, topY + 14);
 
+  // The tier, one row under the resources: set once at the SELECT screen and
+  // never changing, so it sits at the very bottom of the visual hierarchy in the
+  // screen's dimmest grey. Rendered on every tier, Normal included — a constant
+  // fixture reads cleaner than a readout that blinks in only on the tiers a
+  // player deliberately picked. (`#3a3a3a` is the dimmest text the HUD uses; the
+  // decisions doc's "dimmest style" is read literally rather than as "one step
+  // down within this cluster", which would be `#6f6f78`.)
+  surface.fillStyle = '#3a3a3a';
+  surface.fillText(run.difficulty.toUpperCase(), FIELD_W - 8, topY + 28);
+
   // Bottom-right: diagnostics, dimmest text on screen.
   surface.fillStyle = '#3a3a3a';
   surface.fillText(

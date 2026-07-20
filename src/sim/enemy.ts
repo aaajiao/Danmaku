@@ -21,6 +21,7 @@ import { Pool } from '../core/pool';
 import { sim, type Random } from '../core/random';
 import type { BulletSystem, FieldBounds } from './bullet';
 import { circlesOverlap } from './collision';
+import { DEFAULT_DIFFICULTY, mergeOptions, type Difficulty, type DifficultyOverrides } from './difficulty';
 import type { Spoils } from './item';
 import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } from './motion';
 
@@ -32,6 +33,12 @@ import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } fro
 export interface EnemyPattern {
   pattern: string;
   options?: Record<string, unknown>;
+  /**
+   * Per-tier overrides. `options` is the Normal truth; each tier listed here
+   * shallow-merges its fields over it at instantiation (see `mergeOptions`).
+   * Omit for a pattern that fires identically on every tier.
+   */
+  difficulty?: DifficultyOverrides;
   startAt?: number;
   stopAt?: number;
 }
@@ -181,6 +188,7 @@ export class Enemy {
     targetX: number,
     targetY: number,
     rng: Random,
+    difficulty: Difficulty = DEFAULT_DIFFICULTY,
   ): void {
     const patterns = this.spec.patterns;
     if (patterns === undefined) return;
@@ -198,7 +206,10 @@ export class Enemy {
 
       let emitter = this.#emitters[i];
       if (emitter === undefined) {
-        emitter = new Emitter(slot.pattern, this.x, this.y, 'enemy', slot.options);
+        // The tier's merged options, computed once when the emitter is built —
+        // a fresh object per `mergeOptions`, never the shared spec's own.
+        const options = mergeOptions(slot.options, slot.difficulty, difficulty);
+        emitter = new Emitter(slot.pattern, this.x, this.y, 'enemy', options);
         this.#emitters[i] = emitter;
       }
 
@@ -222,6 +233,8 @@ export interface EnemySystemOptions {
   bullets: BulletSystem;
   initial?: number;
   max?: number;
+  /** The run's tier, fixed for its life. Selects each pattern's tier override. */
+  difficulty?: Difficulty;
 }
 
 /** A death worth reacting to — score, drops, effects. Culling is not one. */
@@ -237,6 +250,7 @@ export class EnemySystem {
   readonly #pool: Pool<Enemy>;
   readonly #bounds: FieldBounds;
   readonly #bullets: BulletSystem;
+  readonly #difficulty: Difficulty;
 
   /** Double-buffered so a drain on a quiet tick still costs no allocation. */
   #deaths: EnemyDeath[] = [];
@@ -248,6 +262,7 @@ export class EnemySystem {
   constructor(options: EnemySystemOptions) {
     this.#bounds = options.bounds;
     this.#bullets = options.bullets;
+    this.#difficulty = options.difficulty ?? DEFAULT_DIFFICULTY;
     this.#pool = new Pool(() => new Enemy(), {
       initial: options.initial ?? 64,
       max: options.max ?? 512,
@@ -293,7 +308,7 @@ export class EnemySystem {
 
       // Patterns fire from where the enemy now is, and gate on the age it
       // entered the tick with, so `startAt: 0` fires on its very first tick.
-      e.stepPatterns(this.#bullets, targetX, targetY, rng);
+      e.stepPatterns(this.#bullets, targetX, targetY, rng, this.#difficulty);
       e.age++;
 
       const reach = e.spec.despawnMargin ?? margin;
@@ -443,6 +458,13 @@ defineEnemy('grunt', {
       pattern: 'aimed-fan',
       options: { spec: ENEMY_SHOT, count: 3, spread: 24, period: 50 },
       startAt: 30,
+      // The opening's chaff, and so the stage's difficulty axis before any
+      // boss: Easy thins the fan and slows it, Lunatic widens and quickens it.
+      difficulty: {
+        easy: { count: 2, period: 62 },
+        hard: { count: 4, spread: 30, period: 42 },
+        lunatic: { count: 5, spread: 36, period: 36 },
+      },
     },
   ],
   spoils: [['power', 1]],
@@ -468,6 +490,11 @@ defineEnemy('weaver', {
       options: { spec: ENEMY_SHOT, arms: 2, step: 17, period: 5 },
       startAt: 40,
       stopAt: 90,
+      difficulty: {
+        easy: { arms: 1, period: 7 },
+        hard: { arms: 3, period: 4 },
+        lunatic: { arms: 4, period: 4 },
+      },
     },
   ],
   spoils: [['power', 2]],
@@ -489,11 +516,23 @@ defineEnemy('turret', {
       pattern: 'ring',
       options: { spec: HEAVY_SHOT, count: 12, period: 70, rotation: 9 },
       startAt: 20,
+      // The wall, and stage-1's densest single pattern — the wave the tier axis
+      // must visibly move. Easy opens the ring's gaps, Lunatic closes them.
+      difficulty: {
+        easy: { count: 8 },
+        hard: { count: 16, period: 60 },
+        lunatic: { count: 20, period: 54 },
+      },
     },
     {
       pattern: 'spray',
       options: { spec: ENEMY_SHOT, count: 2, period: 24, spread: 50 },
       startAt: 120,
+      difficulty: {
+        easy: { count: 1, period: 32 },
+        hard: { count: 3, period: 20 },
+        lunatic: { count: 4, period: 18 },
+      },
     },
   ],
   // It crawls in from well above the field and is meant to survive the trip.

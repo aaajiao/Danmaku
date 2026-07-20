@@ -5,9 +5,11 @@ import { getShot } from '../content/shots';
 import type { Replay } from '../sim/replay';
 import { Edges, type GameState, StateMachine, type StateView } from './state';
 import { characterNames, defineCharacter, getCharacter, type Run } from './run';
+import { DEFAULT_DIFFICULTY, DIFFICULTIES } from '../sim/difficulty';
 import {
   CharacterSelectState,
   ClearedState,
+  DifficultySelectState,
   GameOverState,
   type GameContext,
   PauseState,
@@ -366,18 +368,18 @@ describe('screens', () => {
     open(ctx.machine, new TitleState(ctx));
 
     // Start held down and never released. On held bits rather than press edges
-    // this walks title → select → playing in three ticks, which is the bug the
-    // whole `Edges` mechanism exists to prevent: the player taps Start once and
-    // the game deals them a character they never chose.
+    // this walks title → difficulty → select → playing in four ticks, which is
+    // the bug the whole `Edges` mechanism exists to prevent: the player taps
+    // Start once and the game deals them a run they never chose.
     for (let t = 0; t < 10; t++) ctx.machine.tick(Button.Start);
-    expect(ctx.machine.current?.name).toBe('character-select');
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
   });
 
-  test('title advances to character select on a press', () => {
+  test('title advances to difficulty select on a press', () => {
     const ctx = context();
     open(ctx.machine, new TitleState(ctx));
     press(ctx.machine, Button.Start);
-    expect(ctx.machine.current?.name).toBe('character-select');
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
   });
 
   test('with no campaigns the title menu is exactly START and steers nothing', () => {
@@ -388,7 +390,7 @@ describe('screens', () => {
     expect(title.view().menu).toEqual(['START']);
 
     press(ctx.machine, Button.Shot);
-    expect(ctx.machine.current?.name).toBe('character-select');
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
     // START touches neither, so a built-in run defaults its stage and records
     // an empty pack identity.
     expect(ctx.stage).toBeUndefined();
@@ -408,7 +410,8 @@ describe('screens', () => {
     tap(ctx.machine, Button.Down);
     press(ctx.machine, Button.Shot);
 
-    expect(ctx.machine.current?.name).toBe('character-select');
+    // The tier screen is next; the campaign's steering is already applied.
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
     // The chosen campaign armed both the qualified stage and the strict pack
     // identity that will gate this run's replay.
     expect(ctx.stage).toBe('example/gauntlet');
@@ -424,7 +427,7 @@ describe('screens', () => {
     // Row 0 without moving the cursor.
     press(ctx.machine, Button.Shot);
 
-    expect(ctx.machine.current?.name).toBe('character-select');
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
     expect(ctx.stage).toBeUndefined();
     expect(ctx.packsData).toBeUndefined();
   });
@@ -517,6 +520,91 @@ describe('screens', () => {
     press(ctx.machine, Button.Shot);
     expect(ctx.packsData).toBeUndefined();
     expect((ctx.machine.current as PlayingState).characterName).not.toBe(PACK_CHARACTER);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Difficulty select                                                   */
+/* ------------------------------------------------------------------ */
+
+describe('difficulty select', () => {
+  test('offers the four tiers, cursor defaulting to NORMAL', () => {
+    const ctx = context();
+    const select = new DifficultySelectState(ctx);
+    open(ctx.machine, select);
+    const view = select.view();
+    expect(view.menu).toEqual(['EASY', 'NORMAL', 'HARD', 'LUNATIC']);
+    // Opening on NORMAL is what keeps the default path unchanged: hold confirm
+    // through the menus and the run is Normal, as it was before this screen.
+    expect(view.selected).toBe(DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY));
+    expect(view.lines?.length).toBe(1);
+  });
+
+  test('confirming without moving lands on Normal and advances to character select', () => {
+    const ctx = context();
+    open(ctx.machine, new DifficultySelectState(ctx));
+    press(ctx.machine, Button.Shot);
+    expect(ctx.difficulty).toBe('normal');
+    expect(ctx.machine.current?.name).toBe('character-select');
+  });
+
+  test('moving the cursor selects a different tier', () => {
+    const ctx = context();
+    open(ctx.machine, new DifficultySelectState(ctx));
+    // NORMAL (index 1) down one is HARD.
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.difficulty).toBe('hard');
+  });
+
+  test('the cursor wraps in both directions', () => {
+    const ctx = context();
+    const select = new DifficultySelectState(ctx);
+    open(ctx.machine, select);
+    const count = DIFFICULTIES.length;
+    // Up from NORMAL (1) reaches EASY (0); another Up wraps to LUNATIC (last).
+    tap(ctx.machine, Button.Up);
+    expect(select.view().selected).toBe(DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY) - 1);
+    tap(ctx.machine, Button.Up);
+    expect(select.view().selected).toBe(count - 1);
+  });
+
+  test('cancelling out of difficulty select returns to the title', () => {
+    const ctx = context();
+    open(ctx.machine, new DifficultySelectState(ctx));
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current?.name).toBe('title');
+  });
+
+  test('the chosen tier reaches the run and its recording, strictly', () => {
+    // The whole point of the wire: difficulty-select → RunConfig.difficulty →
+    // the live `Run` and the replay meta a mismatch then refuses (proved in
+    // run.test.ts). NORMAL (1) down twice is LUNATIC (3).
+    const ctx = context();
+    open(ctx.machine, new DifficultySelectState(ctx));
+    tap(ctx.machine, Button.Down, 2);
+    tap(ctx.machine, Button.Shot);
+    tap(ctx.machine, Button.Shot);
+
+    const playing = ctx.machine.current as PlayingState;
+    expect(playing.name).toBe('playing');
+    expect(playing.run.difficulty).toBe('lunatic');
+    expect(playing.run.finishRecording().meta?.['difficulty']).toBe('lunatic');
+  });
+
+  test('the full title flow threads the tier all the way in', () => {
+    // End to end through the real machine: title → difficulty → character →
+    // playing, no state constructed by hand. HARD is NORMAL down one.
+    const ctx = context();
+    open(ctx.machine, new TitleState(ctx));
+    tap(ctx.machine, Button.Shot); // START → difficulty-select
+    tap(ctx.machine, Button.Down); // NORMAL → HARD
+    tap(ctx.machine, Button.Shot); // → character-select
+    tap(ctx.machine, Button.Shot); // → playing
+
+    const playing = ctx.machine.current as PlayingState;
+    expect(playing.name).toBe('playing');
+    expect(playing.run.difficulty).toBe('hard');
   });
 });
 

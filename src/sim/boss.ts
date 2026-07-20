@@ -39,6 +39,14 @@
 import { Emitter, patternNames } from '../content/patterns';
 import { sim, type Random } from '../core/random';
 import type { BulletSpec, BulletSystem, FieldBounds } from './bullet';
+import {
+  activePhaseIndices,
+  DEFAULT_DIFFICULTY,
+  DIFFICULTIES,
+  mergeOptions,
+  type Difficulty,
+  type DifficultyOverrides,
+} from './difficulty';
 import type { Spoils } from './item';
 import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } from './motion';
 
@@ -50,19 +58,41 @@ import { MotionTimeline, MoveVector, type MotionParams, type MotionSegment } fro
 export interface PhasePattern {
   pattern: string;
   options?: Record<string, unknown>;
+  /**
+   * Per-tier overrides. `options` is the Normal truth; each tier listed here
+   * shallow-merges its fields over it at instantiation (see `mergeOptions`).
+   * Omit for a pattern that fires identically on every tier.
+   */
+  difficulty?: DifficultyOverrides;
   startAt?: number;
   stopAt?: number;
 }
 
 export interface SpellCard {
   name: string;
-  /** Health for this phase. */
+  /**
+   * Health for this phase.
+   *
+   * Does **not** vary by tier in v1: player damage is constant across tiers
+   * (see `game/balance.test.ts`), so density is the difficulty axis, not health.
+   * A future tier-scaled `hp` would move onto `difficulty`-shaped overrides here.
+   */
   hp: number;
   /**
    * Ticks before it times out. Surviving the timer is a valid clear.
    * Zero or negative means no limit — the phase ends only when drained.
+   *
+   * Like `hp`, fixed across tiers in v1 — the clock is sized from the reference
+   * drain, which does not change with difficulty.
    */
   timeLimit: number;
+  /**
+   * The tiers this card exists on. Absent means every tier. Listing tiers makes
+   * a card tier-gated — the genre's Lunatic-only cards are `['lunatic']` — and a
+   * boss then fights a different phase sequence per tier. `defineBoss` requires
+   * every tier to keep at least one phase, so a boss can never die unfought.
+   */
+  difficulties?: readonly Difficulty[];
   /** Patterns fired during the phase. */
   patterns: readonly PhasePattern[];
   /** Movement during the phase. */
@@ -132,6 +162,16 @@ export function defineBoss(name: string, spec: BossSpec): void {
   // looks like a working fight until someone plays it.
   if (spec.phases.length === 0) {
     throw new Error(`boss "${name}" must declare at least one phase`);
+  }
+
+  // Tier-gating (`SpellCard.difficulties`) can empty a tier's phase sequence,
+  // which is the same instant-defeat bug one level down: a boss with every card
+  // gated off a tier dies unfought there. Checked at definition, for every tier,
+  // so a mis-gated card fails as this file loads rather than mid-fight.
+  for (const tier of DIFFICULTIES) {
+    if (activePhaseIndices(spec.phases, tier).length === 0) {
+      throw new Error(`boss "${name}" has no phase on difficulty "${tier}" — every tier must keep at least one`);
+    }
   }
 
   // Pattern names are otherwise resolved on the tick a slot's `startAt` falls
@@ -222,6 +262,17 @@ export class Boss {
   readonly #emitters: (Emitter | undefined)[] = [];
   readonly #retired: boolean[] = [];
 
+  /** The run's tier, captured at spawn. Selects tier-gated cards and merges. */
+  #difficulty: Difficulty = DEFAULT_DIFFICULTY;
+
+  /**
+   * Indices into `spec.phases` that exist on this run's tier, computed once at
+   * spawn. `phaseIndex` always names a real `spec.phases` slot (events, the HUD
+   * and reachability all read it that way); this list is only how the system
+   * finds the *next* one, skipping cards gated off the tier.
+   */
+  #activePhases: number[] = [];
+
   get phase(): SpellCard {
     const phase = this.spec.phases[this.phaseIndex];
     // Only reachable if phaseIndex ran past the end, which the system prevents
@@ -266,11 +317,13 @@ export class Boss {
     // but a cleared boss is readable before the next one arrives and must not
     // report the previous fight's cleanliness.
     this.clean = true;
+    this.#activePhases.length = 0;
+    this.#difficulty = DEFAULT_DIFFICULTY;
     this.#emitters.length = 0;
     this.#retired.length = 0;
   }
 
-  spawn(name: string, spec: BossSpec, x: number, y: number): void {
+  spawn(name: string, spec: BossSpec, x: number, y: number, difficulty: Difficulty = DEFAULT_DIFFICULTY): void {
     this.name = name;
     this.spec = spec;
     this.x = x;
@@ -279,9 +332,13 @@ export class Boss {
     this.angle = 0;
     this.alive = true;
     this.clean = true;
-    this.phaseIndex = 0;
+    this.#difficulty = difficulty;
+    // `defineBoss` guarantees at least one active phase per tier, so index 0 of
+    // the list exists; the `?? 0` only quiets the index-access type.
+    this.#activePhases = activePhaseIndices(spec.phases, difficulty);
+    this.phaseIndex = this.#activePhases[0] ?? 0;
     this.phaseTicks = 0;
-    this.hp = spec.phases[0]?.hp ?? 1;
+    this.hp = spec.phases[this.phaseIndex]?.hp ?? 1;
 
     this.#fromX = x;
     this.#fromY = y;
@@ -320,6 +377,22 @@ export class Boss {
     this.x = this.#fromX + (entry.x - this.#fromX) * t;
     this.y = this.#fromY + (entry.y - this.#fromY) * t;
     return false;
+  }
+
+  /** The first `spec.phases` index this run's tier fights. Always exists. */
+  firstPhaseIndex(): number {
+    return this.#activePhases[0] ?? 0;
+  }
+
+  /**
+   * The next active `spec.phases` index after `after`, or undefined if that was
+   * the last card on this tier — which is how the system knows the fight is won.
+   * Skips any card gated off the run's tier.
+   */
+  nextPhaseIndex(after: number): number | undefined {
+    const pos = this.#activePhases.indexOf(after);
+    if (pos < 0) return undefined;
+    return this.#activePhases[pos + 1];
   }
 
   /**
@@ -378,7 +451,10 @@ export class Boss {
 
       let emitter = this.#emitters[i];
       if (emitter === undefined) {
-        emitter = new Emitter(slot.pattern, this.x, this.y, 'enemy', slot.options);
+        // The tier's merged options, computed once when the emitter is built —
+        // a fresh object per `mergeOptions`, never the shared spec's own.
+        const options = mergeOptions(slot.options, slot.difficulty, this.#difficulty);
+        emitter = new Emitter(slot.pattern, this.x, this.y, 'enemy', options);
         this.#emitters[i] = emitter;
       }
 
@@ -421,11 +497,14 @@ export interface BossEvent {
 export interface BossSystemOptions {
   bounds: FieldBounds;
   bullets: BulletSystem;
+  /** The run's tier, fixed for its life. Gates cards and selects tier overrides. */
+  difficulty?: Difficulty;
 }
 
 export class BossSystem {
   readonly #bounds: FieldBounds;
   readonly #bullets: BulletSystem;
+  readonly #difficulty: Difficulty;
 
   // One boss, reused. There is never a second, so there is no pool: a pool of
   // one is a free list with extra steps.
@@ -451,6 +530,7 @@ export class BossSystem {
   constructor(options: BossSystemOptions) {
     this.#bounds = options.bounds;
     this.#bullets = options.bullets;
+    this.#difficulty = options.difficulty ?? DEFAULT_DIFFICULTY;
   }
 
   get boss(): Boss | undefined {
@@ -472,7 +552,7 @@ export class BossSystem {
     this.#rng = rng;
     const spec = getBossSpec(name);
     const boss = this.#boss;
-    boss.spawn(name, spec, x, y);
+    boss.spawn(name, spec, x, y, this.#difficulty);
 
     // A boss with no entry is already in place, so phase 0 starts on the same
     // tick — the entry event still fires, because "settled" is what it means
@@ -574,8 +654,11 @@ export class BossSystem {
     const boss = this.#boss;
     boss.entering = false;
     this.#emit('entered', 0);
-    boss.beginPhase(0, this.#rng);
-    this.#emit('phase-start', 0, boss.clean);
+    // The first card the tier fights — not necessarily `spec.phases[0]`, which a
+    // tier gate may skip. `defineBoss` guarantees this index exists.
+    const first = boss.firstPhaseIndex();
+    boss.beginPhase(first, this.#rng);
+    this.#emit('phase-start', first, boss.clean);
   }
 
   /**
@@ -591,8 +674,10 @@ export class BossSystem {
     const index = boss.phaseIndex;
     this.#emit(type, index, boss.clean);
 
-    const next = index + 1;
-    if (next < boss.spec.phases.length) {
+    // The next card on this tier, skipping any gated off it. Undefined means
+    // `index` was the last active phase, so the fight is won.
+    const next = boss.nextPhaseIndex(index);
+    if (next !== undefined) {
       boss.beginPhase(next, this.#rng);
       this.#emit('phase-start', next, boss.clean);
       return;
@@ -759,7 +844,8 @@ const NEEDLE: BulletSpec = {
  * third of the way in and makes never firing a 183-second exit. A factor of two
  * over the reference drain is the property `balance.test.ts` actually holds.
  *
- * A stage-1 boss, so it is the short one: about 28 seconds across three phases.
+ * A stage-1 boss, so it is the short one: about 28 seconds across three phases
+ * on Normal, plus a fourth card sized inline below that only Lunatic fights.
  * It was 650/880/980 against a belief that the player landed 0.56 damage a
  * tick, which was itself measured at a power level nothing could reach. At the
  * rate a player actually sustains that fight ran 37 seconds while stage 2's
@@ -768,6 +854,17 @@ const NEEDLE: BulletSpec = {
 /** Six, ten and twelve seconds against a good player: ~28s of boss. */
 const SENTINEL_HP = [phaseHp(6), phaseHp(10), phaseHp(12)] as const;
 
+/**
+ * The stage-1 boss carries the built-in tier authoring: every signature card
+ * varies by tier, and one card exists only on Lunatic. `options` is the Normal
+ * truth; each `difficulty` block is a sparse shallow merge over it (see
+ * `mergeOptions`) — Easy thins the count, Lunatic raises it and tightens the
+ * period, and neither is a global multiplier. The counts stay inside the
+ * readability budget (`docs/assets.md`): a Lunatic curtain is markedly denser
+ * but keeps negative space, which is why Lunatic tightens rather than saturates.
+ * `hp`/`timeLimit` do not vary — player damage is constant across tiers, so
+ * density is the only axis (`game/balance.test.ts`).
+ */
 defineBoss('sentinel', {
   sprite: 'halo',
   radius: 20,
@@ -793,8 +890,25 @@ defineBoss('sentinel', {
         { count: 180, jump: 0 },
       ],
       patterns: [
-        { pattern: 'aimed-fan', options: { spec: SHARD, count: 5, spread: 34, period: 48 } },
-        { pattern: 'spray', options: { spec: SHARD, count: 2, period: 30, spread: 70 }, startAt: 120 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SHARD, count: 5, spread: 34, period: 48 },
+          difficulty: {
+            easy: { count: 3, period: 60 },
+            hard: { count: 7, spread: 40, period: 40 },
+            lunatic: { count: 9, spread: 46, period: 36 },
+          },
+        },
+        {
+          pattern: 'spray',
+          options: { spec: SHARD, count: 2, period: 30, spread: 70 },
+          startAt: 120,
+          difficulty: {
+            easy: { count: 1, period: 40 },
+            hard: { count: 3, period: 24 },
+            lunatic: { count: 4, period: 20 },
+          },
+        },
       ],
     },
     {
@@ -813,10 +927,36 @@ defineBoss('sentinel', {
       patterns: [
         // Two counter-rotating rings. Their offsets drift apart at different
         // rates, so the safe gaps sweep instead of standing still.
-        { pattern: 'ring', options: { spec: PETAL, count: 18, period: 42, rotation: 9 } },
-        { pattern: 'ring', options: { spec: PETAL, count: 18, period: 42, rotation: -14 }, startAt: 21 },
+        {
+          pattern: 'ring',
+          options: { spec: PETAL, count: 18, period: 42, rotation: 9 },
+          difficulty: {
+            easy: { count: 12 },
+            hard: { count: 22, period: 36 },
+            lunatic: { count: 26, period: 33 },
+          },
+        },
+        {
+          pattern: 'ring',
+          options: { spec: PETAL, count: 18, period: 42, rotation: -14 },
+          startAt: 21,
+          difficulty: {
+            easy: { count: 12 },
+            hard: { count: 22, period: 36 },
+            lunatic: { count: 26, period: 33 },
+          },
+        },
         // One aimed volley per cycle, so standing in a gap is not free.
-        { pattern: 'aimed-fan', options: { spec: NEEDLE, count: 3, spread: 18, period: 96 }, startAt: 60 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: NEEDLE, count: 3, spread: 18, period: 96 },
+          startAt: 60,
+          difficulty: {
+            easy: { count: 1 },
+            hard: { count: 5, spread: 24 },
+            lunatic: { count: 7, spread: 30, period: 84 },
+          },
+        },
       ],
     },
     {
@@ -832,11 +972,59 @@ defineBoss('sentinel', {
         { count: 160, jump: 0 },
       ],
       patterns: [
-        { pattern: 'spiral', options: { spec: NEEDLE, arms: 4, step: 13, period: 4 } },
+        {
+          pattern: 'spiral',
+          options: { spec: NEEDLE, arms: 4, step: 13, period: 4 },
+          difficulty: {
+            easy: { arms: 2, period: 6 },
+            hard: { arms: 5, period: 3 },
+            lunatic: { arms: 6, period: 3 },
+          },
+        },
         // Ring pressure arrives late, once the player has settled into reading
         // the spiral, and is what actually makes the timer matter.
-        { pattern: 'ring', options: { spec: PETAL, count: 20, period: 90, rotation: 11 }, startAt: 240 },
-        { pattern: 'aimed-fan', options: { spec: SHARD, count: 7, spread: 50, period: 75 }, startAt: 420 },
+        {
+          pattern: 'ring',
+          options: { spec: PETAL, count: 20, period: 90, rotation: 11 },
+          startAt: 240,
+          difficulty: {
+            easy: { count: 14 },
+            hard: { count: 26, period: 78 },
+            lunatic: { count: 30, period: 72 },
+          },
+        },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SHARD, count: 7, spread: 50, period: 75 },
+          startAt: 420,
+          difficulty: {
+            easy: { count: 4 },
+            hard: { count: 9, spread: 56 },
+            lunatic: { count: 11, spread: 60, period: 66 },
+          },
+        },
+      ],
+    },
+    {
+      // Lunatic-only, the genre's extra card. `difficulties: ['lunatic']` gates
+      // it off every other tier, so on Normal the fight ends after 'Vigil
+      // Unbroken' and `nextPhaseIndex` never reaches here; `defineBoss` still
+      // sees at least one phase on every tier, and reachability's normal
+      // playthrough never counts this index (it reads the active set per tier).
+      // Sized ~13s so sentinel's full clock stays under the stage-2 boss's
+      // (`game/balance.test.ts` escalation), and never fought at all on Normal.
+      name: 'Lunatic "Total Eclipse"',
+      hp: phaseHp(13),
+      timeLimit: phaseClock(phaseHp(13)),
+      isSpell: true,
+      difficulties: ['lunatic'],
+      bonus: 800000,
+      background: 'surge',
+      motion: { r: 0 },
+      patterns: [
+        { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
+        { pattern: 'ring', options: { spec: PETAL, count: 24, period: 66, rotation: 15 }, startAt: 40 },
+        { pattern: 'aimed-fan', options: { spec: SHARD, count: 7, spread: 44, period: 60 }, startAt: 90 },
       ],
     },
   ],

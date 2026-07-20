@@ -46,6 +46,7 @@ import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec } from '../sim/boss';
 import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
+import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
 import { ItemSystem, type Spoils } from '../sim/item';
@@ -186,6 +187,20 @@ export interface RunConfig {
    * this only carries it.
    */
   packsData?: string;
+  /**
+   * The difficulty tier this run is flown on. Default `'normal'`, which is what
+   * `options` alone declares — a run with no tier selected is Normal.
+   *
+   * Strict on playback like `stage`/`character`/`packsData`: a tier changes what
+   * bullets are in the air (per-pattern overrides and tier-gated cards), so a
+   * replay flown on a different tier is a different run and is refused, not
+   * warned. Recorded into replay meta by `finishRecording`.
+   *
+   * Nothing but presentation reads the tier in v1 — there is no score multiplier;
+   * the tier is recorded and displayed and otherwise inert. A future scoring
+   * bonus would read it here.
+   */
+  difficulty?: Difficulty;
 }
 
 /**
@@ -356,6 +371,8 @@ export class Run {
   readonly stageName: string;
   /** Boss this run owes, resolved from the stage unless the config overrode it. */
   readonly bossName: string | undefined;
+  /** The tier this run is flown on. `'normal'` unless the config selected one. */
+  readonly difficulty: Difficulty;
   readonly seed: number;
 
   readonly #field: { width: number; height: number; margin: number };
@@ -398,6 +415,7 @@ export class Run {
     // was undefined, so every guard spelled in terms of it silently agreed that
     // this run had no boss and cleared without one.
     this.bossName = config.boss ?? stageSpec.boss;
+    this.difficulty = config.difficulty ?? DEFAULT_DIFFICULTY;
 
     const replay = config.replay;
     if (replay !== undefined) {
@@ -420,6 +438,10 @@ export class Run {
       // different run and is refused. Presentation cannot change what the run
       // did; content can — which is the whole reason the two are split.
       expectMeta(replay, 'packsData', config.packsData ?? '');
+      // Strict, like stage/character/packsData: the tier changes what bullets are
+      // in the air, so a replay flown on a different tier is a different run and is
+      // refused. Absent-is-accepted covers fixtures recorded before the field.
+      expectMeta(replay, 'difficulty', this.difficulty);
       // Packs are presentation-only: a different pack changes how the run looked,
       // never what it did, so a mismatch WARNS and never refuses. Deliberately
       // not routed through `expectMeta`, which throws.
@@ -433,14 +455,14 @@ export class Run {
 
     const bounds = this.#field;
     this.bullets = new BulletSystem({ bounds, initial: 4000 });
-    this.enemies = new EnemySystem({ bounds, bullets: this.bullets, initial: 64 });
+    this.enemies = new EnemySystem({ bounds, bullets: this.bullets, initial: 64, difficulty: this.difficulty });
     this.items = new ItemSystem({
       bounds,
       autoCollectLine: AUTO_COLLECT_LINE,
       initial: 256,
     });
     this.effects = new EffectSystem({ initial: 1024 });
-    this.boss = new BossSystem({ bounds, bullets: this.bullets });
+    this.boss = new BossSystem({ bounds, bullets: this.bullets, difficulty: this.difficulty });
     this.bombs = new BombSystem({ bounds });
     this.options = new OptionSystem(this.character.options);
     this.player = new Player({
@@ -1162,6 +1184,9 @@ export class Run {
       stage: this.stageName,
       boss: this.bossName ?? '',
       carry: encodeCarry(this.config.carry),
+      // Strict on playback: the tier changes what the simulation did, so a
+      // mismatch refuses the replay rather than warning.
+      difficulty: this.difficulty,
       // Strict on playback: content changed the simulation, so a mismatch gates
       // the run rather than warning. '' for a built-in campaign.
       packsData: this.config.packsData ?? '',

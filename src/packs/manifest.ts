@@ -83,11 +83,35 @@ export interface PackMusicTrack {
 export type PackMusic = Record<string, PackMusicTrack>;
 
 /**
- * One pattern slot on a pack enemy. Mirrors `EnemyPattern` (`src/sim/enemy.ts`).
+ * The difficulty tiers a pack may name — the closed union, mirrored from
+ * `Difficulty` (`src/sim/difficulty.ts`). Redeclared here rather than imported
+ * because this module stays pure (a value *or type* import from `sim` breaches
+ * the boundary `manifest.test.ts` proves by reading this file's source); the two
+ * are kept in step by `inject.ts`, which assigns one shape to the other.
+ */
+export type ContentDifficulty = 'easy' | 'normal' | 'hard' | 'lunatic';
+
+/**
+ * A pattern slot's sparse per-tier option overrides. `options` is the Normal
+ * truth; each tier that differs names only the fields it changes, and the engine
+ * shallow-merges them at instantiation (`mergeOptions`, `src/sim/difficulty.ts`).
+ * The merge is one level deep — a nested object under a tier replaces the base
+ * field whole, it is not merged into — so shape validation here checks only that
+ * each key is a tier and each value an object; the deeper shape is the option's,
+ * exactly as the base `options` is typed loosely.
+ */
+export type ContentDifficultyOverrides = Partial<
+  Record<ContentDifficulty, Record<string, unknown>>
+>;
+
+/**
+ * One pattern slot on a pack enemy. Mirrors `EnemyPattern` (`src/sim/enemy.ts`),
+ * `difficulty` block included.
  */
 export interface ContentEnemyPattern {
   pattern: string;
   options?: Record<string, unknown>;
+  difficulty?: ContentDifficultyOverrides;
   startAt?: number;
   stopAt?: number;
 }
@@ -169,6 +193,7 @@ export interface ContentStage {
 export interface ContentPhasePattern {
   pattern: string;
   options?: Record<string, unknown>;
+  difficulty?: ContentDifficultyOverrides;
   startAt?: number;
   stopAt?: number;
 }
@@ -192,6 +217,14 @@ export interface ContentSpellCard {
   hpSeconds: number;
   /** Ticks before the phase times out. Absent means the injector's `phaseClock(hp)` default. */
   timeLimit?: number;
+  /**
+   * The tiers this card exists on (`SpellCard.difficulties`, `src/sim/boss.ts`).
+   * Absent means every tier; listing tiers makes a Lunatic-only card the way the
+   * genre ships them, `["lunatic"]`. The injector enforces the engine's rule that
+   * every tier keeps at least one phase, so a gated card can never leave a boss
+   * unfought on some tier.
+   */
+  difficulties?: readonly ContentDifficulty[];
   patterns: readonly ContentPhasePattern[];
   motion?: Record<string, unknown>;
   timeline?: readonly Record<string, unknown>[];
@@ -458,11 +491,13 @@ const TOP_FIELDS = [
  * who read a later draft learns precisely what is fiction, rather than seeing a
  * generic "unknown field". `content` left this list when its enemies and stages
  * sections became real; `music` left it when the top-level `music` section did
- * (background music is now implemented — see `PackMusic`). The sections still
- * reserved *inside* `content` are `CONTENT_RESERVED`.
+ * (background music is now implemented — see `PackMusic`); `difficulty` left it
+ * when per-pattern tier overrides became part of the content shapes
+ * (`ContentDifficultyOverrides`, `ContentSpellCard.difficulties`) rather than a
+ * section of their own. The sections still reserved *inside* `content` are
+ * `CONTENT_RESERVED`.
  */
 const RESERVED_TOP = [
-  'difficulty',
   'dialog',
   'backgrounds',
 ] as const;
@@ -487,13 +522,15 @@ const CONTENT_FIELDS = [
 ] as const;
 /**
  * `content.*` sections a later format will carry; refused by name today. Each of
- * these needs an engine feature it does not yet have — difficulty is a runtime
- * system, dialog is a scripting layer, backgrounds are shader code — so unlike
- * the sections above they are not pure data a pack can simply carry. (Music is
- * not here: it is not a `content` section at all but a top-level presentation one,
- * so `content.music` is a plain unknown field, not a reserved one.)
+ * these needs an engine feature it does not yet have — dialog is a scripting
+ * layer, backgrounds are shader code — so unlike the implemented sections above
+ * they are not pure data a pack can simply carry. (Neither music nor difficulty
+ * is here: music is a top-level presentation section, and difficulty is not a
+ * `content` section at all — it lives inside pattern slots and spell cards as a
+ * per-tier override — so `content.music`/`content.difficulty` read as plain
+ * unknown fields, not reserved ones.)
  */
-const CONTENT_RESERVED = ['difficulty', 'dialog', 'backgrounds'] as const;
+const CONTENT_RESERVED = ['dialog', 'backgrounds'] as const;
 
 const ENEMY_FIELDS = [
   'sprite',
@@ -512,7 +549,7 @@ const ENEMY_FIELDS = [
   'despawnMargin',
 ] as const;
 /** A pattern slot's fields — shared by a pack enemy and a pack boss phase. */
-const PATTERN_SLOT_FIELDS = ['pattern', 'options', 'startAt', 'stopAt'] as const;
+const PATTERN_SLOT_FIELDS = ['pattern', 'options', 'difficulty', 'startAt', 'stopAt'] as const;
 const STAGE_FIELDS = [
   'entry',
   'seed',
@@ -551,6 +588,7 @@ const SPELLCARD_FIELDS = [
   'name',
   'hpSeconds',
   'timeLimit',
+  'difficulties',
   'patterns',
   'motion',
   'timeline',
@@ -610,6 +648,8 @@ const PLAYER_FIELDS = [
 ] as const;
 /** The item kinds the game has rules for — an unfamiliar kind is refused by name. */
 const ITEM_KINDS = ['power', 'score', 'life', 'bomb'] as const;
+/** The difficulty tiers a pattern override or a card gate may name (`ContentDifficulty`). */
+const DIFFICULTY_TIERS = ['easy', 'normal', 'hard', 'lunatic'] as const;
 
 const NAME_PATTERN = /^[a-z0-9-]{1,32}$/;
 
@@ -1122,10 +1162,80 @@ function validatePatternSlot(
   optField(raw, 'options', 'object', where, prefix, errors);
   optField(raw, 'startAt', 'number', where, prefix, errors);
   optField(raw, 'stopAt', 'number', where, prefix, errors);
+  if ('difficulty' in raw && raw.difficulty !== undefined) {
+    validatePatternDifficulty(raw.difficulty, where, prefix, errors);
+  }
   for (const key of Object.keys(raw)) {
     if ((PATTERN_SLOT_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(`${prefix}${where}: `, key, PATTERN_SLOT_FIELDS));
   }
+}
+
+/** Did-you-mean for a bad difficulty tier, mirroring `unknownField`'s two forms. */
+function tierHint(tier: string): string {
+  const suggestion = nearest(tier, DIFFICULTY_TIERS);
+  return suggestion
+    ? `did you mean "${suggestion}"?`
+    : `valid tiers: ${DIFFICULTY_TIERS.join(', ')}`;
+}
+
+/**
+ * A pattern slot's `difficulty` block: `{ easy: {...}, hard: {...} }`. Each key
+ * must be a tier from the closed union — an unknown one is refused by name with a
+ * did-you-mean — and each value an object of option overrides. Only the two
+ * checks this module owns run here: the override's deeper shape is the pattern
+ * option's, merged one level deep by the engine, so a nested value inside it is
+ * left alone exactly as the base `options` object is.
+ */
+function validatePatternDifficulty(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where}.difficulty must be a JSON object`);
+    return;
+  }
+  for (const [tier, override] of Object.entries(raw)) {
+    if (!(DIFFICULTY_TIERS as readonly string[]).includes(tier)) {
+      errors.push(
+        `${prefix}${where}.difficulty: "${tier}" is not a difficulty tier — ${tierHint(tier)}`,
+      );
+      continue;
+    }
+    if (!isRecord(override)) {
+      errors.push(
+        `${prefix}${where}.difficulty.${tier} must be a JSON object of option overrides`,
+      );
+    }
+  }
+}
+
+/**
+ * A spell card's `difficulties` gate: an array of tiers, `["lunatic"]` for a
+ * Lunatic-only card. Absent means every tier. An unknown tier is refused by name
+ * with a did-you-mean, the same idiom an unknown field gets.
+ */
+function validateDifficultyGate(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!Array.isArray(raw)) {
+    errors.push(`${prefix}${where}.difficulties must be an array of difficulty tiers`);
+    return;
+  }
+  raw.forEach((tier, i) => {
+    if (typeof tier !== 'string') {
+      errors.push(`${prefix}${where}.difficulties[${i}] must be a string`);
+    } else if (!(DIFFICULTY_TIERS as readonly string[]).includes(tier)) {
+      errors.push(
+        `${prefix}${where}.difficulties[${i}] "${tier}" is not a difficulty tier — ${tierHint(tier)}`,
+      );
+    }
+  });
 }
 
 function validateStages(stages: unknown, prefix: string, errors: string[]): void {
@@ -1297,6 +1407,9 @@ function validateSpellCard(
   optField(raw, 'bonus', 'number', where, prefix, errors);
   optField(raw, 'isSpell', 'boolean', where, prefix, errors);
   optField(raw, 'background', 'string', where, prefix, errors);
+  if ('difficulties' in raw && raw.difficulties !== undefined) {
+    validateDifficultyGate(raw.difficulties, where, prefix, errors);
+  }
 
   if (!('patterns' in raw) || raw.patterns === undefined) {
     errors.push(`${prefix}${where} is missing required field "patterns" — an array of pattern slots`);

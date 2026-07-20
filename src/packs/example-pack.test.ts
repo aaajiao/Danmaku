@@ -24,9 +24,10 @@ import '../sim/item'; // built-in items (power, score, …); content imports it 
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { backgroundNames } from '../render/background';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
-import { hasEnemy } from '../sim/enemy';
+import { getEnemySpec, hasEnemy } from '../sim/enemy';
 import { getStage, hasStage } from '../content/stage';
-import { hasBoss } from '../sim/boss';
+import { getBossSpec, hasBoss } from '../sim/boss';
+import { activePhaseIndices } from '../sim/difficulty';
 import { hasItem } from '../sim/item';
 import { shotNames } from '../content/shots';
 import { optionNames } from '../sim/option';
@@ -211,5 +212,19 @@ describe('packs/example — format-2 content', () => {
     expect(bombNames()).toContain('example/firestorm');
     expect(effectNames()).toContain('example/cinder');
     expect(characterNames()).toContain('example/raider');
+  });
+
+  test('the reference pack authors tiers — ember patterns vary, and pyre has a Lunatic-only card', () => {
+    injectPack(acceptedManifest(), CTX);
+    // The pack is the reference an author copies, so it must demonstrate the tier
+    // axis, not just leave it possible: at least one enemy pattern carries a
+    // `difficulty` block (this is what the play test proves fires differently).
+    const ember = getEnemySpec('example/ember');
+    expect(ember.patterns?.some((p) => p.difficulty !== undefined)).toBe(true);
+    // And pyre's third card is gated to Lunatic — Normal fights the first two, so
+    // every tier keeps a phase (the injector's rule) while Lunatic gets the extra.
+    const phases = getBossSpec('example/pyre').phases;
+    expect(activePhaseIndices(phases, 'normal')).toEqual([0, 1]);
+    expect(activePhaseIndices(phases, 'lunatic')).toEqual([0, 1, 2]);
   });
 });

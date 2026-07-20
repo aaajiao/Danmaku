@@ -619,9 +619,33 @@ const CONTENT: PackContent = {
         { count: 50, motion: { r: 1.6, theta: 0, w: 2 } },
         { count: 110, motion: { r: 3, theta: 270 } },
       ],
+      // `options` is the Normal truth; each `difficulty` block is a sparse
+      // shallow merge over it (one level deep — see `mergeOptions`). Easy thins,
+      // Lunatic thickens, and the negative space is still designed at every tier
+      // (docs/assets.md §readability binds a Lunatic curtain too). This is what a
+      // gauntlet run at Lunatic fires more of than at Normal.
       patterns: [
-        { pattern: 'aimed-fan', options: { spec: EMBER_SHOT, count: 3, spread: 28, period: 55 }, startAt: 20 },
-        { pattern: 'spiral', options: { spec: EMBER_SHOT, arms: 2, step: 13, period: 8 }, startAt: 30, stopAt: 110 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: EMBER_SHOT, count: 3, spread: 28, period: 55 },
+          difficulty: {
+            easy: { count: 2, spread: 24 },
+            hard: { count: 4, spread: 34, period: 48 },
+            lunatic: { count: 6, spread: 42, period: 42 },
+          },
+          startAt: 20,
+        },
+        {
+          pattern: 'spiral',
+          options: { spec: EMBER_SHOT, arms: 2, step: 13, period: 8 },
+          difficulty: {
+            easy: { arms: 1 },
+            hard: { arms: 3, step: 11 },
+            lunatic: { arms: 4, step: 9, period: 6 },
+          },
+          startAt: 30,
+          stopAt: 110,
+        },
       ],
       spoils: [['power', 2], ['score', 1], ['relic', 1]] as [string, number][],
       scoreValue: 300,
@@ -728,11 +752,13 @@ const CONTENT: PackContent = {
       },
     },
   },
-  // The pack's own boss, `ashfall`'s end boss (see the stage below). Two phases:
-  // a non-spell movement opener, then a spell card that overrides the scene to a
-  // built-in background (`drift`) and earns a bonus. Each phase declares
-  // `hpSeconds`; the injector computes `hp = phaseHp(hpSeconds)` and defaults the
-  // absent `timeLimit` to `phaseClock(hp)`.
+  // The pack's own boss, `ashfall`'s end boss (see the stage below). Three cards:
+  // a non-spell movement opener, then a signature spell card that overrides the
+  // scene to a built-in background (`drift`), earns a bonus, and varies by tier,
+  // then a Lunatic-only card gated with `difficulties: ['lunatic']`. Each phase
+  // declares `hpSeconds`; the injector computes `hp = phaseHp(hpSeconds)` and
+  // defaults the absent `timeLimit` to `phaseClock(hp)`. On Normal the boss fights
+  // the first two cards; only Lunatic reaches the third.
   bosses: {
     pyre: {
       sprite: 'ring',
@@ -764,9 +790,36 @@ const CONTENT: PackContent = {
           bonus: 300000,
           background: 'drift',
           motion: { r: 0 },
+          // The signature card, tier-varied: its ring thins on Easy and thickens
+          // on Lunatic, the same per-pattern `difficulty` block the enemies carry.
           patterns: [
-            { pattern: 'ring', options: { spec: PYRE_PETAL, count: 18, period: 42, rotation: 9 } },
+            {
+              pattern: 'ring',
+              options: { spec: PYRE_PETAL, count: 18, period: 42, rotation: 9 },
+              difficulty: {
+                easy: { count: 12 },
+                hard: { count: 24, period: 36 },
+                lunatic: { count: 30, period: 30 },
+              },
+            },
             { pattern: 'aimed-fan', options: { spec: PYRE_SHOT, count: 3, spread: 18, period: 96 }, startAt: 60 },
+          ],
+        },
+        // A Lunatic-only card — the genre's extra spell, gated with
+        // `difficulties: ['lunatic']`. It exists only on Lunatic; on every other
+        // tier the boss fights the two cards above, so the injector's
+        // "every tier keeps a phase" rule holds (Smoulder and Ashfall are ungated).
+        {
+          name: 'Lunatic "Total Eclipse"',
+          hpSeconds: 13,
+          isSpell: true,
+          difficulties: ['lunatic'],
+          bonus: 500000,
+          background: 'drift',
+          motion: { r: 0 },
+          patterns: [
+            { pattern: 'ring', options: { spec: PYRE_PETAL, count: 34, period: 26, rotation: 13 } },
+            { pattern: 'aimed-fan', options: { spec: PYRE_SHOT, count: 5, spread: 22, period: 72 }, startAt: 40 },
           ],
         },
       ],
@@ -906,12 +959,14 @@ JSON has no comments, so this table is where the annotation lives.
 | \`content\` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
 The fields this engine still does not implement — the top-level
-\`difficulty\`/\`dialog\`/\`backgrounds\`, the reserved \`hud\` names
+\`dialog\`/\`backgrounds\`, the reserved \`hud\` names
 \`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated rejection naming each as a
 future section rather than a generic "unknown field" error; see
-\`docs/packs.md\` §Future. (\`content.difficulty\`/\`content.dialog\`/
-\`content.backgrounds\` are refused the same way inside \`content\`. \`music\` is no
-longer among them — it is a real top-level section now, documented above.)
+\`docs/packs.md\` §Future. (\`content.dialog\`/\`content.backgrounds\` are refused the
+same way inside \`content\`. \`music\` and \`difficulty\` are no longer among them —
+\`music\` is a real top-level section now, and \`difficulty\` is not a section at all
+but a per-pattern override that lives inside the content shapes; both are
+documented above and below.)
 
 ## Content: one of everything
 
@@ -952,6 +1007,32 @@ constant no test can measure drifts from the thing it describes — so the spec
 does not let you type raw \`hp\`. A spell card's \`background\` still names a built-in
 scene (\`pyre\`'s second phase overrides the field to \`drift\`); a background is a
 shader, engine code, so a pack *selects* one and never ships one.
+
+**Difficulty is authored per pattern, never scaled globally.** A tier here is not
+"bullets ×1.5" — a global multiplier would destroy the negative space a curtain is
+designed around. Instead a pattern slot's \`options\` is the **Normal** truth, and
+an optional \`difficulty\` block names only the fields that change on the tiers that
+differ:
+
+\`\`\`json
+{ "pattern": "ring",
+  "options": { "count": 18, "period": 42 },
+  "difficulty": {
+    "easy":    { "count": 12 },
+    "hard":    { "count": 24, "period": 36 },
+    "lunatic": { "count": 30, "period": 30 } } }
+\`\`\`
+
+The engine shallow-merges the tier over \`options\` at the moment the pattern fires
+— **one level deep**, so a nested object (a whole \`spec\`) is replaced whole, never
+patched into. A tier you do not list fires \`options\` unchanged. This pack's
+\`ember\` carries such a block on both its patterns (which is why a \`gauntlet\` run
+fires more bullets on Lunatic than on Normal), and \`pyre\`'s "Ashfall" card varies
+its ring the same way. A whole card can also be **tier-gated**: give a spell card
+\`"difficulties": ["lunatic"]\` and it exists only on Lunatic — the genre's extra
+card — as \`pyre\`'s "Total Eclipse" does. The one rule the injector enforces is
+that every tier keeps at least one phase, so a boss can never be gated into dying
+unfought; \`pyre\`'s first two cards are ungated, so every tier has a fight.
 
 **A character equips its weapons by name, not by table.** A built-in
 \`CharacterSpec\` carries its shot ladder inline; a pack \`character\` instead names

@@ -61,8 +61,10 @@ A pack **can also**, with a `content` section (§9), add game data:
   `ItemSpec` a drop scatters.
 
 A pack **cannot** change the *code* that data drives: no new patterns, no new
-motion behaviours, no new backgrounds, no difficulty curves, no
-dialogue, and no new item *kind* (a kind is a game rule). Those are engine code,
+motion behaviours, no new backgrounds, no dialogue, and no new item *kind* (a
+kind is a game rule). It *can* author difficulty — the tier axis is per-pattern
+data (§9.2), not a curve the engine scales — so that is not on this list. Those
+are engine code,
 reserved or registered under a string name — see §9 for what content reaches and
 §10 for what stays reserved. The dividing line is simple and permanent:
 
@@ -389,7 +391,7 @@ browser with the real duration in the error (like the sheet pixel checks).
 
 | Condition | Message |
 |---|---|
-| Reserved future section (`difficulty`, `dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
+| Reserved future section (`dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content`) |
 
 `content` is no longer refused here — it is an implemented top-level section
@@ -589,7 +591,7 @@ that does not implement a capability refuses on `requires` **before it ever pars
 
 A capability without its section, or a section without its capability, is an
 error (§9.4). A `requires` entry naming anything else — `netplay`,
-`content.difficulty` — is refused, because those capabilities are not implemented
+`content.dialog` — is refused, because those capabilities are not implemented
 (§6.2, §10).
 
 ### 9.2 The shapes
@@ -634,6 +636,23 @@ only what the pack form adds on top, per kind.
 carries, written as JSON arrays. A pattern slot's `spec` is a `BulletSpec` inline
 — its `sprite` is an atlas cell name, its numbers are the same pixels-per-tick the
 rest of the engine uses.
+
+A pattern slot may also carry a **`difficulty`** block — the tier axis as pack
+data, mirroring `EnemyPattern.difficulty` (see `docs/extending.md` §4). `options`
+is the Normal truth; each tier that differs names only the fields it changes, and
+the engine shallow-merges them one level deep at instantiation (`mergeOptions`), a
+nested value replaced whole rather than patched:
+
+```json
+{ "pattern": "spiral",
+  "options": { "spec": { "…": "a BulletSpec" }, "arms": 2, "step": 13, "period": 8 },
+  "difficulty": { "easy": { "arms": 1 }, "lunatic": { "arms": 4 } } }
+```
+
+A tier absent from the block fires `options` unchanged — Normal never needs a
+block. Each key must be a tier of the closed union (`easy`/`normal`/`hard`/
+`lunatic`) or it is refused by name with a did-you-mean (§9.4). The merge is
+`sim`-side and shipped code; a pack only supplies the data.
 
 **A stage** — an entry and a terminal, from the example:
 
@@ -722,6 +741,21 @@ engine's own bosses use. The reason content states seconds, not ticks:
 > `balance.test.ts`) computes the health, and a pack boss re-derives automatically
 > when it moves. `hpSeconds` is capped at 180 — beyond that is almost always a
 > ticks-for-seconds units error (§9.4).
+
+A phase's pattern slots take the same **`difficulty`** block an enemy's do (above),
+and a card itself may be **tier-gated** with **`difficulties`** — an array of tiers
+the card exists on, mirroring `SpellCard.difficulties` (see `docs/extending.md`
+§5). Absent, the card exists on every tier; `["lunatic"]` is the genre's
+Lunatic-only card, and a boss then fights a different phase sequence per tier. The
+injector enforces the engine's floor — **every tier must keep at least one phase**
+— so a card gated off every tier but one cannot leave a boss unfought elsewhere
+(§9.4).
+
+```json
+{ "name": "Total Eclipse", "hpSeconds": 13, "isSpell": true,
+  "difficulties": ["lunatic"],
+  "patterns": [ { "pattern": "ring", "options": { "…": "…" } } ] }
+```
 
 A pack boss reaches the field by being named by a pack stage — as a boss wave
 (midboss) or the stage's end `boss` — resolving pack-first (§9.3). A boss no pack
@@ -900,7 +934,7 @@ The covering invariant and `content` container:
 | A declared capability has no section | `requires lists "content.stages" but there is no content.stages section — add the section or drop the capability` |
 | A section has no declared capability | `content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content` |
 | `content` not an object | `content must be a JSON object` |
-| A reserved `content.*` section | `content.difficulty is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
+| A reserved `content.*` section | `content.dialog is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
 | Unknown key directly under `content` | `content: unknown field "<key>" — did you mean "<nearest>"?` (or `content: unknown field "<key>" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items`) |
 
 **Enemies and stages** (representative — the full field lists are in
@@ -914,6 +948,9 @@ The covering invariant and `content` container:
 | Unknown field on an enemy | `content.enemies."ember": unknown field "spirte" — did you mean "sprite"?` |
 | Pattern slot missing `pattern` | `content.enemies."ember".patterns[0] is missing required field "pattern" — a registered pattern name` |
 | Unknown field on a pattern slot | `content.enemies."ember".patterns[0]: unknown field "strtAt" — did you mean "startAt"?` |
+| Pattern-slot `difficulty` not an object | `content.enemies."ember".patterns[0].difficulty must be a JSON object` |
+| Unknown tier in a `difficulty` block | `content.enemies."ember".patterns[0].difficulty: "lunatci" is not a difficulty tier — did you mean "lunatic"?` (or `… valid tiers: easy, normal, hard, lunatic`) |
+| A tier override not an object | `content.enemies."ember".patterns[0].difficulty.easy must be a JSON object of option overrides` |
 | A `spoils` entry is not a pair | `content.enemies."ember".spoils[0] must be a [name, count] pair — a string and a number` |
 | `content.stages` not an object | `content.stages must be a JSON object` |
 | Stage missing `waves` | `content.stages."gauntlet" is missing required field "waves" — an array of waves` |
@@ -940,6 +977,9 @@ the same validator):
 | Phase missing `hpSeconds` | `content.bosses."pyre".phases[0] is missing required field "hpSeconds" — seconds of health a competent player needs` |
 | Phase missing `patterns` | `content.bosses."pyre".phases[0] is missing required field "patterns" — an array of pattern slots` |
 | Unknown field on a phase | `content.bosses."pyre".phases[0]: unknown field "hpSecnds" — did you mean "hpSeconds"?` |
+| Card `difficulties` not an array | `content.bosses."pyre".phases[0].difficulties must be an array of difficulty tiers` |
+| A tier in `difficulties` not a string | `content.bosses."pyre".phases[0].difficulties[0] must be a string` |
+| Unknown tier in `difficulties` | `content.bosses."pyre".phases[0].difficulties[0] "lunatci" is not a difficulty tier — did you mean "lunatic"?` |
 | A `spoils` entry is not a pair | `content.bosses."pyre".spoils[0] must be a [name, count] pair — a string and a number` |
 
 **Shots, options and bombs**:
@@ -990,6 +1030,7 @@ stand in for the caller's sorted lists):
 | Enemy: unknown spoils item | `enemy "ember" drops unknown item "powr" — no such item in this pack or built in` |
 | Boss: unknown sprite | `boss "pyre" uses unknown sprite "orb.huge" — known sprites: <known sprites>` |
 | Boss: no phases | `boss "pyre" declares no phases — a boss needs at least one phase` |
+| Boss: a tier gated to no phase | `boss "pyre" has no phase on difficulty "easy" — every tier must keep at least one` |
 | Boss: `hpSeconds` not positive | `boss "pyre" phase "Smoulder": hpSeconds must be positive, got 0` |
 | Boss: `hpSeconds` over ceiling | `boss "pyre" phase "Smoulder": hpSeconds 600 exceeds the ceiling of 180 — hpSeconds is SECONDS of intended drain, not ticks` |
 | Boss: `timeLimit` not whole | `boss "pyre" phase "Smoulder": timeLimit must be a whole tick count, got 12.5` |
@@ -1102,8 +1143,11 @@ A reskin cannot change the simulation, so a skin mismatch on replay **warns**
 (§11 below, `RunConfig.packs`). **Content can** — different enemies fire different
 bullets — so a replay recorded under a content pack records `RunConfig.packsData`
 (`name@hash` of the pack whose content the run entered) and **refuses** to play
-back under different content, exactly as it refuses a mismatched character, stage
-or boss.
+back under different content, exactly as it refuses a mismatched character, stage,
+boss or **difficulty tier**. That last is not a pack key — the tier rides its own
+strict meta field (`RunConfig.difficulty`) recorded for *every* run, pack or
+built-in — but the reasoning is identical: a tier changes which bullets are in the
+air (§9.2), so a replay across tiers is a different run.
 
 `packsData` is armed by **two** paths, because content reaches a run two ways:
 
@@ -1137,10 +1181,13 @@ never reference cannot affect it.
 The nine `content.*` sections of §9 are **not** in this list — they are
 implemented, and §9 is their reference. Nor is `music`: it left this section when
 the top-level `music` section became real (§6.5a — background tracks are
-presentation, a file, not code). What remains reserved is everything a pack still
-cannot ship, and each such section needs an engine *feature* it does not yet have:
-difficulty is a runtime system, dialog is a scripting layer, backgrounds are
-shader code. Each reserved name and the exact rejection the
+presentation, a file, not code). Nor is `difficulty`: it left too, when the tier
+axis became per-pattern content data (§9.2 — `ContentDifficultyOverrides` and a
+card's `difficulties` gate) rather than a section of its own, so `difficulty` and
+`content.difficulty` now read as plain unknown fields, not reserved ones. What
+remains reserved is everything a pack still cannot ship, and each such section
+needs an engine *feature* it does not yet have: dialog is a scripting layer,
+backgrounds are shader code. Each reserved name and the exact rejection the
 engine emits **now** (the interpolated implemented-list is abbreviated `<the nine>`
 = `content.enemies, content.stages, content.bosses, content.shots,
 content.characters, content.options, content.bombs, content.effects,
@@ -1148,10 +1195,9 @@ content.items`):
 
 | Reserved name | What a future format might do with it | Rejection today |
 |---|---|---|
-| `difficulty` (top-level) | tuning curves as data | `difficulty is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| `dialog` (top-level) | cutscene/portrait scripts | `dialog is a pack-format-2 section …` |
+| `dialog` (top-level) | cutscene/portrait scripts | `dialog is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `backgrounds` (top-level) | scene selection | `backgrounds is a pack-format-2 section …` |
-| `content.difficulty`, `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.difficulty is a pack-format-2 section this engine does not implement — it implements <the nine> only; see docs/packs.md §Future` |
+| `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.dialog is a pack-format-2 section this engine does not implement — it implements <the nine> only; see docs/packs.md §Future` |
 | `hud.digits`, `hud.font` | number/font glyph sheets | `hud.digits is a pack-format-2 resource and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `hud.bossBar`, `hud.frame` | boss-bar skin, screen frame | `hud.bossBar is a pack-format-2 resource …` |
 
@@ -1194,8 +1240,8 @@ keys with two policies:
   whose content this run entered — its campaign, or its character flown off any row
   (§9.6) — and `''` for a wholly built-in run, even with content packs loaded.
   Because content changes what the game *does*, a mismatch here **refuses**, exactly
-  as a mismatched character, stage or boss does. This is the strict path the v1
-  spec reserved and format 2 made real.
+  as a mismatched character, stage, boss or difficulty tier does. This is the strict
+  path the v1 spec reserved and format 2 made real.
 
 The hash is a SHA-256 over the manifest bytes followed by each loaded file's
 bytes, in a fixed canonical order, so it is stable regardless of how an author

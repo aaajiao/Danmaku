@@ -31,12 +31,14 @@ JSON has no comments, so this table is where the annotation lives.
 | `content` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
 The fields this engine still does not implement — the top-level
-`difficulty`/`dialog`/`backgrounds`, the reserved `hud` names
+`dialog`/`backgrounds`, the reserved `hud` names
 `digits`/`font`/`bossBar`/`frame` — get a dedicated rejection naming each as a
 future section rather than a generic "unknown field" error; see
-`docs/packs.md` §Future. (`content.difficulty`/`content.dialog`/
-`content.backgrounds` are refused the same way inside `content`. `music` is no
-longer among them — it is a real top-level section now, documented above.)
+`docs/packs.md` §Future. (`content.dialog`/`content.backgrounds` are refused the
+same way inside `content`. `music` and `difficulty` are no longer among them —
+`music` is a real top-level section now, and `difficulty` is not a section at all
+but a per-pattern override that lives inside the content shapes; both are
+documented above and below.)
 
 ## Content: one of everything
 
@@ -77,6 +79,32 @@ constant no test can measure drifts from the thing it describes — so the spec
 does not let you type raw `hp`. A spell card's `background` still names a built-in
 scene (`pyre`'s second phase overrides the field to `drift`); a background is a
 shader, engine code, so a pack *selects* one and never ships one.
+
+**Difficulty is authored per pattern, never scaled globally.** A tier here is not
+"bullets ×1.5" — a global multiplier would destroy the negative space a curtain is
+designed around. Instead a pattern slot's `options` is the **Normal** truth, and
+an optional `difficulty` block names only the fields that change on the tiers that
+differ:
+
+```json
+{ "pattern": "ring",
+  "options": { "count": 18, "period": 42 },
+  "difficulty": {
+    "easy":    { "count": 12 },
+    "hard":    { "count": 24, "period": 36 },
+    "lunatic": { "count": 30, "period": 30 } } }
+```
+
+The engine shallow-merges the tier over `options` at the moment the pattern fires
+— **one level deep**, so a nested object (a whole `spec`) is replaced whole, never
+patched into. A tier you do not list fires `options` unchanged. This pack's
+`ember` carries such a block on both its patterns (which is why a `gauntlet` run
+fires more bullets on Lunatic than on Normal), and `pyre`'s "Ashfall" card varies
+its ring the same way. A whole card can also be **tier-gated**: give a spell card
+`"difficulties": ["lunatic"]` and it exists only on Lunatic — the genre's extra
+card — as `pyre`'s "Total Eclipse" does. The one rule the injector enforces is
+that every tier keeps at least one phase, so a boss can never be gated into dying
+unfought; `pyre`'s first two cards are ungated, so every tier has a fight.
 
 **A character equips its weapons by name, not by table.** A built-in
 `CharacterSpec` carries its shot ladder inline; a pack `character` instead names

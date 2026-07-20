@@ -764,6 +764,92 @@ describe('content.bosses — reachability (registration is not reachability)', (
   });
 });
 
+describe('difficulty — tier gates and per-pattern overrides pass through', () => {
+  test('a boss gated off a tier is rejected — every tier must keep at least one phase', () => {
+    const name = uniqueName();
+    // Every card gated to Lunatic leaves Easy/Normal/Hard with no phase — the boss
+    // would die unfought on those tiers. Pre-checked here so it is a pack-scoped
+    // problem, not the mid-injection throw `defineBoss` would otherwise raise.
+    expect(problemsOf(manifest(name, {
+      enemies: { ember: enemy() },
+      bosses: {
+        warlord: boss({
+          phases: [{ name: 'eclipse', hpSeconds: 10, difficulties: ['lunatic'], patterns: [{ pattern: 'ring' }] }],
+        }),
+      },
+      stages: {
+        gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+      },
+    }))).toContain(
+      `pack "${name}": boss "warlord" has no phase on difficulty "easy" — every tier must keep at least one`,
+    );
+  });
+
+  test('an ungated opener keeps a boss legal even when a later card is Lunatic-only', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(name, {
+        enemies: { ember: enemy() },
+        bosses: {
+          warlord: boss({
+            phases: [
+              { name: 'move', hpSeconds: 8, patterns: [{ pattern: 'ring' }] },
+              { name: 'eclipse', hpSeconds: 12, difficulties: ['lunatic'], patterns: [{ pattern: 'ring' }] },
+            ],
+          }),
+        },
+        stages: {
+          gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+        },
+      }),
+      CTX,
+    );
+    // The gate reaches the registered spec: only Lunatic reaches the second card.
+    const phases = getBossSpec(`${name}/warlord`).phases;
+    expect(phases[1]?.difficulties).toEqual(['lunatic']);
+  });
+
+  test('a pack enemy pattern difficulty block reaches the registered EnemySpec unchanged', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(name, {
+        enemies: {
+          ember: enemy({
+            patterns: [{ pattern: 'ring', options: { count: 12 }, difficulty: { easy: { count: 8 }, lunatic: { count: 20 } } }],
+          }),
+        },
+        stages: { gauntlet: stage() },
+      }),
+      CTX,
+    );
+    // The block rides the pattern slot through injection untouched — the engine's
+    // `mergeOptions` reads it at fire time; inject only passes the data through.
+    const spec = getEnemySpec(`${name}/ember`);
+    expect(spec.patterns?.[0]?.difficulty).toEqual({ easy: { count: 8 }, lunatic: { count: 20 } });
+  });
+
+  test('a per-tier phase pattern override reaches the registered BossSpec', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(name, {
+        enemies: { ember: enemy() },
+        bosses: {
+          warlord: boss({
+            phases: [
+              { name: 'move', hpSeconds: 8, patterns: [{ pattern: 'ring', options: { count: 10 }, difficulty: { hard: { count: 16 } } }] },
+            ],
+          }),
+        },
+        stages: {
+          gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+        },
+      }),
+      CTX,
+    );
+    expect(getBossSpec(`${name}/warlord`).phases[0]?.patterns[0]?.difficulty).toEqual({ hard: { count: 16 } });
+  });
+});
+
 /* ------------------------------------------------------------------ */
 /* The pure-data tier: shots, options, bombs, effects, items,          */
 /* characters                                                          */

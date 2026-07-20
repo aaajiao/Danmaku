@@ -52,7 +52,8 @@ import { backgroundNames } from '../render/background';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getStage } from '../content/stage';
 import { StateMachine } from '../game/state';
-import { characterNames, type Run, type RunEventType } from '../game/run';
+import { characterNames, Run, type RunEventType } from '../game/run';
+import type { Difficulty } from '../sim/difficulty';
 import {
   TitleState,
   type Campaign,
@@ -425,5 +426,64 @@ describe('a pack ship flown off the plain START row records the pack identity', 
     expect(playing.run.stageName).toBe('stage-1');
     expect(ctx.packsData).toBe(PACKS_DATA);
     expect(playing.run.finishRecording().meta?.packsData).toBe(PACKS_DATA);
+  });
+});
+
+/**
+ * Difficulty is real on pack content, not just built-ins: the same seed over the
+ * pack's own entry stage fires a different curtain per tier, and a replay of a
+ * pack campaign is refused across tiers exactly as a mismatched stage or
+ * character is. Driven at the `Run` level (not through the menus) so the claim is
+ * the simulation's, isolated from the difficulty-select screen the other tests
+ * already exercise.
+ */
+describe('difficulty is real on pack content', () => {
+  // Ensure `example/gauntlet` is registered (idempotent per pack name).
+  injectExample();
+
+  /** Enemy-faction bullets summed over a fixed window of a `gauntlet` run at `tier`. */
+  function gauntletEnemyExposure(tier: Difficulty, ticks = 700): number {
+    const run = new Run({ seed: 0x9a12, character: 'scout', stage: 'example/gauntlet', difficulty: tier });
+    let total = 0;
+    for (let t = 0; t < ticks && !run.finished; t++) {
+      // Immortal and firing nothing (input 0): the only bullets in the air are the
+      // enemies' own, so the count is a clean read of what the tier put up.
+      run.player.lives = 9;
+      run.player.alive = true;
+      run.player.invuln = 999;
+      run.tick(0);
+      for (const b of run.bullets.bullets) {
+        if (b.alive && b.faction === 'enemy') total++;
+      }
+    }
+    return total;
+  }
+
+  test('a gauntlet run at Lunatic fires a denser curtain than Normal, and Easy thinner', () => {
+    // `ember`'s patterns carry `difficulty` blocks (aimed-fan count 2/3/·/6,
+    // spiral arms 1/2/·/4), so the same seed puts more bullets up as the tier
+    // rises. This is the honesty guard for the pack surface: if a refactor drops
+    // the blocks, `mergeOptions` returns the base on every tier and this collapses.
+    const easy = gauntletEnemyExposure('easy');
+    const normal = gauntletEnemyExposure('normal');
+    const lunatic = gauntletEnemyExposure('lunatic');
+    expect(normal).toBeGreaterThan(easy);
+    expect(lunatic).toBeGreaterThan(normal);
+  });
+
+  test('a replay of a pack campaign is refused across tiers, accepted on the same one', () => {
+    const seed = 0x4242;
+    const live = new Run({ seed, character: 'scout', stage: 'example/gauntlet', difficulty: 'normal' });
+    for (let t = 0; t < 200; t++) live.tick(0);
+    const replay = live.finishRecording();
+    // Same tier, same pack stage: accepted.
+    expect(
+      () => new Run({ seed, character: 'scout', stage: 'example/gauntlet', difficulty: 'normal', replay }),
+    ).not.toThrow();
+    // A different tier is a different run — the tier changed what bullets are in
+    // the air — so it is refused, strict like a mismatched stage or character.
+    expect(
+      () => new Run({ seed, character: 'scout', stage: 'example/gauntlet', difficulty: 'lunatic', replay }),
+    ).toThrow(/difficulty/);
   });
 });

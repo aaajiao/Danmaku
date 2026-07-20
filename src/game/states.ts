@@ -20,6 +20,7 @@
 
 import { Button } from '../core/input';
 import { getStage } from '../content/stage';
+import { DEFAULT_DIFFICULTY, DIFFICULTIES, type Difficulty } from '../sim/difficulty';
 import type { Replay } from '../sim/replay';
 import { Edges, type GameState, type StateMachine, type StateView } from './state';
 import { characterNames, getCharacter, Run, type PlayerCarry } from './run';
@@ -114,6 +115,13 @@ export interface GameContext {
    * strict `packsData` when a pack character is flown off the plain START row.
    */
   characterPacks?: readonly CharacterPack[];
+  /**
+   * The difficulty tier chosen on the DIFFICULTY screen, forwarded into
+   * `RunConfig.difficulty`. Unset means the run defaults to Normal — the value
+   * `DifficultySelectState` lands here by default, and the value a shell that
+   * skips the screen entirely (a test, a debug launch) leaves it at.
+   */
+  difficulty?: Difficulty;
   /** Handed the recording when a run ends. */
   onReplay?(replay: Replay): void;
 }
@@ -221,7 +229,10 @@ export class TitleState extends MenuState {
       this.ctx.stage = campaign.stage;
       this.ctx.packsData = campaign.packsData;
     }
-    this.ctx.machine.replace(new CharacterSelectState(this.ctx));
+    // The tier screen sits between here and character select — the genre's
+    // order — and applies to campaign rows as much as to START, since it steers
+    // only `ctx.difficulty` and leaves the stage the campaign just armed alone.
+    this.ctx.machine.replace(new DifficultySelectState(this.ctx));
   }
 
   view(): StateView {
@@ -229,6 +240,79 @@ export class TitleState extends MenuState {
       kind: 'title',
       title: 'DANMAKU',
       lines: ['press start'],
+      menu: this.entries,
+      selected: this.selected,
+    };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Difficulty select                                                   */
+/* ------------------------------------------------------------------ */
+
+/** Short forms shown on the menu, in the tier order `DIFFICULTIES` declares. */
+const DIFFICULTY_LABELS: Readonly<Record<Difficulty, string>> = {
+  easy: 'EASY',
+  normal: 'NORMAL',
+  hard: 'HARD',
+  lunatic: 'LUNATIC',
+};
+
+/** One-line descriptions, the genre's traditional register kept brief. */
+const DIFFICULTY_BLURBS: Readonly<Record<Difficulty, string>> = {
+  easy: 'fewer bullets, wider gaps — room to learn',
+  normal: 'the fight as it is authored',
+  hard: 'denser fire, tighter gaps',
+  lunatic: 'the densest curtain, and cards only it will show',
+};
+
+/**
+ * The tier screen, between title and character select.
+ *
+ * Mirrors `CharacterSelectState`'s construction exactly — a menu read from data,
+ * a blurb line for the cursor, `confirm` resolving an index to a value it lands
+ * on the context, then `replace` onward. The one deliberate difference is the
+ * cursor: it opens on NORMAL rather than the first row, so the tier is chosen
+ * without moving the cursor.
+ *
+ * This screen adds one confirm to the default path — title → difficulty →
+ * character → play is three presses, where it was two before the tier axis
+ * existed. Each screen advances on a press *edge* (`edges.pressed(CONFIRM)`, and
+ * `enter` calls `edges.reset()`), so a held button does not auto-advance across
+ * screens: the player releases and presses once per screen. Opening on NORMAL
+ * keeps that added press a single tap of the same button with no cursor movement.
+ */
+export class DifficultySelectState extends MenuState {
+  readonly name = 'difficulty-select';
+
+  constructor(ctx: GameContext) {
+    super(ctx);
+    // Default onto NORMAL. `DIFFICULTIES` lists the tiers ascending, so this is
+    // index 1, and confirming without moving keeps `ctx.difficulty` at Normal.
+    this.selected = DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY);
+  }
+
+  protected get entries(): readonly string[] {
+    return DIFFICULTIES.map((tier) => DIFFICULTY_LABELS[tier]);
+  }
+
+  protected confirm(index: number): void {
+    const tier = DIFFICULTIES[index];
+    if (tier === undefined) return;
+    this.ctx.difficulty = tier;
+    this.ctx.machine.replace(new CharacterSelectState(this.ctx));
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.replace(new TitleState(this.ctx));
+  }
+
+  view(): StateView {
+    const tier = DIFFICULTIES[this.selected];
+    return {
+      kind: 'difficulty-select',
+      title: 'DIFFICULTY',
+      lines: tier === undefined ? [] : [DIFFICULTY_BLURBS[tier]],
       menu: this.entries,
       selected: this.selected,
     };
@@ -329,6 +413,9 @@ export class PlayingState implements GameState {
       // Same channel as `packs`, but a strict one: a data pack's content moved
       // the simulation, so a replay under a different one is refused, not warned.
       ...(ctx.packsData === undefined ? {} : { packsData: ctx.packsData }),
+      // Strict like `packsData`: the tier changes what bullets are in the air, so
+      // it is recorded and checked on playback. Unset defaults to Normal in `Run`.
+      ...(ctx.difficulty === undefined ? {} : { difficulty: ctx.difficulty }),
     });
   }
 

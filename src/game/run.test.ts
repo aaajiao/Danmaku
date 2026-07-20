@@ -377,6 +377,35 @@ describe('record then replay', () => {
     const replay = live.finishRecording();
     expect(() => new Run(config({ packsData: 'example@abcdef012345', replay }))).not.toThrow();
   });
+
+  test('a run records the tier it was flown on, defaulting to normal', () => {
+    const normal = new Run(config());
+    play(normal, 120);
+    expect(normal.finishRecording().meta?.['difficulty']).toBe('normal');
+
+    const hard = new Run(config({ difficulty: 'hard' }));
+    play(hard, 120);
+    expect(hard.finishRecording().meta?.['difficulty']).toBe('hard');
+  });
+
+  test('a replay flown on the same tier is accepted', () => {
+    const live = new Run(config({ difficulty: 'hard' }));
+    play(live, 120);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ difficulty: 'hard', replay }))).not.toThrow();
+  });
+
+  test('a replay flown on a different tier is refused', () => {
+    // Strict, like the character/seed/boss/packsData refusals above: a tier
+    // changes what bullets are in the air, so a replay recorded on `hard` and
+    // replayed on `normal` is a different run, not a mis-tag.
+    const live = new Run(config({ difficulty: 'hard' }));
+    play(live, 300);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ difficulty: 'normal', replay }))).toThrow(/difficulty/);
+    // A config that names no tier is Normal, so it too mismatches a hard recording.
+    expect(() => new Run(config({ replay }))).toThrow(/difficulty/);
+  });
 });
 
 /* ------------------------------------------------------------------ */

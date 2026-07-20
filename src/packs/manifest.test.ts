@@ -210,13 +210,22 @@ describe('unknown and reserved top-level fields', () => {
     );
   });
 
-  for (const reserved of ['difficulty', 'dialog', 'backgrounds']) {
+  for (const reserved of ['dialog', 'backgrounds']) {
     test(`reserved section "${reserved}" gets a dedicated rejection`, () => {
       expect(errorsOf({ ...valid(), [reserved]: {} })).toContain(
         `pack "candy": pack.json: ${reserved} is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future`,
       );
     });
   }
+
+  test('difficulty is no longer a reserved top-level section — it is a per-pattern override', () => {
+    // Difficulty retired from the reserved list the same way music did: it is not
+    // a section at all but an override inside pattern slots and spell cards, so a
+    // stray top-level `difficulty` reads as an ordinary unknown field.
+    expect(errorsOf({ ...valid(), difficulty: {} })).toContain(
+      'pack "candy": pack.json: unknown field "difficulty" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content',
+    );
+  });
 });
 
 describe('music', () => {
@@ -462,9 +471,20 @@ describe('content — format-2 sections', () => {
   });
 
   test('a still-reserved content section is refused by name', () => {
-    const raw = { ...valid(), requires: ['content.difficulty'], content: { difficulty: {} } };
+    const raw = { ...valid(), requires: ['content.dialog'], content: { dialog: {} } };
     expect(errorsOf(raw)).toContain(
-      'pack "candy": pack.json: content.difficulty is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
+      'pack "candy": pack.json: content.dialog is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
+    );
+  });
+
+  test('content.difficulty is no longer reserved — difficulty lives inside the content shapes, not as a section', () => {
+    // Difficulty left the reserved content list: it is not a `content` section at
+    // all but a per-pattern override (`difficulty` on a pattern slot) and a card
+    // gate (`difficulties` on a spell card). A stray `content.difficulty`
+    // therefore reads as an ordinary unknown field, pointing at the real sections.
+    const raw = { ...valid(), content: { difficulty: {} } };
+    expect(errorsOf(raw)).toContain(
+      'pack "candy": pack.json: content: unknown field "difficulty" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items',
     );
   });
 
@@ -542,6 +562,54 @@ describe('content — format-2 sections', () => {
         errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, spoils: [['power']] })),
       ).toContain(
         'pack "candy": pack.json: content.enemies."ember".spoils[0] must be a [name, count] pair — a string and a number',
+      );
+    });
+
+    test('a valid per-tier difficulty block on a pattern round-trips', () => {
+      const raw = enemy({
+        sprite: 'ship',
+        hp: 1,
+        radius: 1,
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { count: 12 },
+            difficulty: { easy: { count: 8 }, lunatic: { count: 20, period: 6 } },
+          },
+        ],
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('a pattern difficulty that is not an object', () => {
+      expect(
+        errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ pattern: 'ring', difficulty: [] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".patterns[0].difficulty must be a JSON object',
+      );
+    });
+
+    test('a pattern difficulty naming an unknown tier suggests the near tier', () => {
+      expect(
+        errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ pattern: 'ring', difficulty: { lunatik: { count: 3 } } }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".patterns[0].difficulty: "lunatik" is not a difficulty tier — did you mean "lunatic"?',
+      );
+    });
+
+    test('an unrecognisable tier lists the valid tiers', () => {
+      expect(
+        errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ pattern: 'ring', difficulty: { brutal: { count: 3 } } }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".patterns[0].difficulty: "brutal" is not a difficulty tier — valid tiers: easy, normal, hard, lunatic',
+      );
+    });
+
+    test('a tier override that is not an object', () => {
+      expect(
+        errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ pattern: 'ring', difficulty: { hard: 5 } }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".patterns[0].difficulty.hard must be a JSON object of option overrides',
       );
     });
   });
@@ -738,6 +806,46 @@ describe('content — format-2 sections', () => {
     test('a malformed boss spoils pair', () => {
       expect(errorsOf(boss({ ...base(), spoils: [['power']] }))).toContain(
         'pack "candy": pack.json: content.bosses."warlord".spoils[0] must be a [name, count] pair — a string and a number',
+      );
+    });
+
+    test('a tier-gated card and a per-tier phase pattern round-trip', () => {
+      const raw = boss({
+        ...base(),
+        phases: [
+          { name: 'move', hpSeconds: 8, patterns: [{ pattern: 'ring' }] },
+          {
+            name: 'eclipse',
+            hpSeconds: 12,
+            difficulties: ['lunatic'],
+            patterns: [{ pattern: 'ring', options: { count: 18 }, difficulty: { hard: { count: 24 } } }],
+          },
+        ],
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('a difficulties gate that is not an array', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'opening', hpSeconds: 10, difficulties: 'lunatic', patterns: [{ pattern: 'ring' }] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0].difficulties must be an array of difficulty tiers',
+      );
+    });
+
+    test('a difficulties gate naming an unknown tier suggests the near tier', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'opening', hpSeconds: 10, difficulties: ['lunatik'], patterns: [{ pattern: 'ring' }] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0].difficulties[0] "lunatik" is not a difficulty tier — did you mean "lunatic"?',
+      );
+    });
+
+    test('a phase pattern difficulty block validates like an enemy pattern\'s', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'opening', hpSeconds: 10, patterns: [{ pattern: 'ring', difficulty: { nromal: {} } }] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0].patterns[0].difficulty: "nromal" is not a difficulty tier — did you mean "normal"?',
       );
     });
   });

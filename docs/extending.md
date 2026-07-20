@@ -307,6 +307,13 @@ definePattern({
 Per-tick state (`volley`) lives in the closure, so two emitters running the same
 pattern never share it.
 
+**A pattern never reads the difficulty tier.** `create(options)` is handed the
+options **already merged** for the run's tier — the sim does the merge when it
+builds the emitter, one level up — so a pattern is written once against a single
+`options` shape and is oblivious to which tier it runs on. Authoring a tier's
+variation is the firing *slot's* job, on the enemy (§4) or boss (§5) that names
+the pattern, never the factory's.
+
 **Type the parameter; do not cast it.** `PatternDefinition.create` declares
 `options?: Readonly<Record<string, unknown>>` (`src/content/patterns.ts:40`)
 because the registry cannot know your shape — but `create` is written as a
@@ -623,6 +630,53 @@ A slot that stops is retired, never restarted (`src/sim/enemy.ts:196-201`). A
 finite pattern reports completion by returning `false`, and without the retire
 flag the next tick would build a fresh emitter and run it again from age zero.
 
+### Difficulty: per-tier option overrides
+
+A pattern slot may carry a `difficulty` block, and it is the whole of how the
+tier axis reaches the field. `options` is the **Normal** truth; each tier that
+differs names only the fields it changes, and the sim shallow-merges them over
+`options` when it builds the emitter (`EnemyPattern.difficulty`,
+`src/sim/enemy.ts:41`; the merge is `mergeOptions`, `src/sim/difficulty.ts`).
+
+```ts
+{
+  pattern: 'ring',
+  options: { spec: EMBER_SHOT, count: 12, period: 90 },   // Normal
+  difficulty: {
+    easy:    { count: 8 },
+    hard:    { count: 16, period: 75 },
+    lunatic: { count: 24, period: 60 },
+  },
+}
+```
+
+- **One level deep, and a deep value is replaced whole.** A tier field overwrites
+  the base field entirely — it is not merged into it. A tier that wants a
+  different bullet writes the whole `spec`; a nested object or array is replaced
+  whole, never patched key-by-key or concatenated index-by-index. This is the
+  documented, tested rule (`src/sim/difficulty.test.ts`).
+- **A tier absent from the block fires `options` unchanged.** Normal is always the
+  base, so a pattern that plays the same on every tier carries no block, and
+  Normal itself never needs one. The no-override path returns the base object by
+  identity, so an untiered pattern draws the exact same RNG it did before
+  difficulty existed.
+- **Density is the axis, not a multiplier.** A global "bullets ×1.5" is
+  deliberately not how this works: the negative space between bullets is authored,
+  not scaled, so every tier is hand-written. `docs/assets.md`'s readability budget
+  still binds — a Lunatic curtain must keep negative space a player can thread, and
+  that gap is the craft, not a by-product of a scale factor.
+- **RNG order differs across tiers, and that is correct.** A larger `count` fires
+  more bullets and pulls more draws from the `sim` stream, so two tiers from one
+  seed are two different runs — which is why the run's tier is recorded in replay
+  meta and checked strictly on playback (`RunConfig.difficulty`, `src/game/run.ts`,
+  a strict `expectMeta` beside `packsData`). Rule 2 forbids reordering the draws
+  *of one run*, not two runs from the same seed diverging because they are not the
+  same run.
+
+A boss phase's pattern slot takes the identical block (`PhasePattern.difficulty`,
+`src/sim/boss.ts:66`); §5 adds the one thing a boss has beyond it — a card that
+exists only on some tiers.
+
 **Leaving the field is not a death.** The cull is silent: no score, no drop, no
 death effect (`src/sim/enemy.ts:290-296`). Only `damage` records one, and it
 guards on `alive` first, because two player bullets can land on the same enemy in
@@ -666,9 +720,10 @@ A boss is an enemy with a script: a sequence of `SpellCard` phases, each with it
 own health, clock, movement and fire.
 
 `BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
-`tint`, `entry`, `onDeath`, `music` and `spoils` (`src/sim/boss.ts:84-123`). A
+`tint`, `entry`, `onDeath`, `music` and `spoils` (`src/sim/boss.ts:114-153`). A
 `SpellCard` requires `name`, `hp`, `timeLimit` and `patterns`, and takes optional
-`motion`, `timeline`, `bonus`, `isSpell` and `background` (`src/sim/boss.ts:57-82`).
+`difficulties`, `motion`, `timeline`, `bonus`, `isSpell` and `background`
+(`src/sim/boss.ts:71-112`).
 
 `music` names the theme this fight is scored to, by registered track name, and is
 **boss-level — not per-card**: a fight holds one theme across its cards, where
@@ -756,6 +811,21 @@ whether it throws would move that stream before the run that actually uses the
 pattern. The cost is that a boss naming a pattern from another module must import
 that module first, which is an explicit dependency and the right shape for one
 anyway.
+
+**Cards can be tier-gated.** A `SpellCard.difficulties` list names the tiers a
+card exists on; absent, it exists on all of them. `['lunatic']` is how the genre
+ships a Lunatic-only card, and a boss then fights a different phase sequence per
+tier (`src/sim/boss.ts:95`, resolved by `activePhaseIndices` in
+`src/sim/difficulty.ts`). `defineBoss` enforces the floor this opens up: **every
+tier must keep at least one phase**, or a boss whose every card is gated off a
+tier would spawn and be instantly defeated there — the phaseless-boss bug one
+level down. A tier left with no phase throws at definition:
+`boss "<name>" has no phase on difficulty "<tier>" — every tier must keep at least one`
+(`src/sim/boss.ts:167-173`). The gate and the per-slot `difficulty` block (§4) do
+different jobs: the gate decides *whether* a card runs on a tier, the block decides
+*how dense* it is when it does. Neither `hp` nor `timeLimit` varies by tier in v1
+— player damage is constant, so density is the axis, not health, and a future
+tier-scaled `hp` is noted but not built (`src/sim/boss.ts:73-88`).
 
 **Entry is not phase 0.** The boss flies in invulnerable and phase 0 begins only
 once it settles. Folding the two together gives you either a health bar draining

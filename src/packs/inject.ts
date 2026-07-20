@@ -68,6 +68,7 @@ import { defineStage, stageNames, type BossWave, type EnemyWave, type StageSpec,
 import { defineCharacter, type CharacterSpec } from '../game/run';
 import { bombNames, defineBomb, type BombSpec } from '../sim/bomb';
 import { bossNames, defineBoss, phaseClock, phaseHp, type BossSpec, type PhasePattern, type SpellCard } from '../sim/boss';
+import { activePhaseIndices, DIFFICULTIES } from '../sim/difficulty';
 import { defineEffect, effectNames, type ParticleSpec } from '../sim/effects';
 import { defineEnemy, enemyNames, type EnemySpec } from '../sim/enemy';
 import { defineItem, itemNames, type ItemSpec } from '../sim/item';
@@ -474,6 +475,18 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
       problems.push(
         `pack "${pack}": ${where} declares no phases — a boss needs at least one phase`,
       );
+    } else {
+      // The engine's `defineBoss` would throw if a tier's `difficulties` gates
+      // left it with no phase — a boss dead unfought there. Pre-check it per
+      // tier so it is a collected pack-scoped problem rather than a mid-injection
+      // throw, and word it exactly as the engine does past the pack prefix.
+      for (const tier of DIFFICULTIES) {
+        if (activePhaseIndices(b.phases, tier).length === 0) {
+          problems.push(
+            `pack "${pack}": ${where} has no phase on difficulty "${tier}" — every tier must keep at least one`,
+          );
+        }
+      }
     }
 
     b.phases.forEach((card) => {
@@ -1031,6 +1044,7 @@ function toSpellCard(c: ContentSpellCard): SpellCard {
     timeLimit: c.timeLimit ?? phaseClock(hp),
     patterns: c.patterns.map(toPhasePattern),
   };
+  if (c.difficulties !== undefined) card.difficulties = c.difficulties;
   if (c.motion !== undefined) card.motion = c.motion as unknown as SpellCard['motion'];
   if (c.timeline !== undefined) card.timeline = c.timeline as unknown as SpellCard['timeline'];
   if (c.bonus !== undefined) card.bonus = c.bonus;
@@ -1042,6 +1056,7 @@ function toSpellCard(c: ContentSpellCard): SpellCard {
 function toPhasePattern(p: ContentPhasePattern): PhasePattern {
   const slot: PhasePattern = { pattern: p.pattern };
   if (p.options !== undefined) slot.options = p.options;
+  if (p.difficulty !== undefined) slot.difficulty = p.difficulty;
   if (p.startAt !== undefined) slot.startAt = p.startAt;
   if (p.stopAt !== undefined) slot.stopAt = p.stopAt;
   return slot;

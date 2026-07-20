@@ -216,6 +216,13 @@ defineEnemy('drifter', {
       pattern: 'aimed-fan',
       options: { spec: SPARK, count: 3, spread: 26, period: 52 },
       startAt: 30,
+      // Stage-2's chaff carries its trash-phase density the way grunt does
+      // stage-1's: Easy thins the fan, Lunatic widens and quickens it.
+      difficulty: {
+        easy: { count: 2, period: 64 },
+        hard: { count: 4, spread: 32, period: 44 },
+        lunatic: { count: 5, spread: 38, period: 38 },
+      },
     },
   ],
   spoils: [['power', 1]],
@@ -250,6 +257,13 @@ defineEnemy('lash', {
       options: { spec: LANCE, count: 2, spread: 26, period: 96 },
       startAt: 40,
       stopAt: 190,
+      // Beams are lethal lines, so the tier moves their count in ones, not the
+      // fistfuls a plain-shot fan can take.
+      difficulty: {
+        easy: { count: 1 },
+        hard: { count: 3, spread: 32 },
+        lunatic: { count: 3, spread: 38, period: 84 },
+      },
     },
   ],
   // It stands still well inside the field and then climbs back out the top,
@@ -285,6 +299,11 @@ defineEnemy('hunter', {
       options: { spec: SEEKER, count: 2, spread: 34, period: 44 },
       startAt: 34,
       stopAt: 156,
+      difficulty: {
+        easy: { count: 1 },
+        hard: { count: 3, spread: 40 },
+        lunatic: { count: 4, spread: 46, period: 38 },
+      },
     },
   ],
   despawnMargin: 80,
@@ -315,6 +334,13 @@ defineEnemy('censer', {
       pattern: 'ring',
       options: { spec: EMBER, count: 10, period: 84, rotation: 13 },
       startAt: 24,
+      // The mill is one of stage-2's densest trash patterns: Easy leaves the
+      // gathered ring threadable, Lunatic packs it.
+      difficulty: {
+        easy: { count: 7 },
+        hard: { count: 14, period: 74 },
+        lunatic: { count: 18, period: 68 },
+      },
     },
   ],
   despawnMargin: 96,
@@ -343,11 +369,23 @@ defineEnemy('bastion', {
       pattern: 'ring',
       options: { spec: SHELL, count: 14, period: 84, rotation: 12 },
       startAt: 30,
+      // The wall, stage-2's densest trash pattern — the counterpart to stage-1's
+      // turret. Easy opens the hanging ring, Lunatic closes it.
+      difficulty: {
+        easy: { count: 10 },
+        hard: { count: 18, period: 74 },
+        lunatic: { count: 22, period: 68 },
+      },
     },
     {
       pattern: 'spray',
       options: { spec: SPARK, count: 2, period: 34, spread: 64 },
       startAt: 150,
+      difficulty: {
+        easy: { count: 1, period: 44 },
+        hard: { count: 3, period: 26 },
+        lunatic: { count: 4, period: 22 },
+      },
     },
   ],
   despawnMargin: 110,
@@ -412,8 +450,25 @@ defineBoss('warden', {
         { count: 160, jump: 0 },
       ],
       patterns: [
-        { pattern: 'aimed-fan', options: { spec: SPARK, count: 5, spread: 32, period: 46 } },
-        { pattern: 'spray', options: { spec: SPARK, count: 2, period: 32, spread: 72 }, startAt: 70 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SPARK, count: 5, spread: 32, period: 46 },
+          difficulty: {
+            easy: { count: 3, period: 58 },
+            hard: { count: 7, spread: 38, period: 40 },
+            lunatic: { count: 9, spread: 44, period: 34 },
+          },
+        },
+        {
+          pattern: 'spray',
+          options: { spec: SPARK, count: 2, period: 32, spread: 72 },
+          startAt: 70,
+          difficulty: {
+            easy: { count: 1, period: 42 },
+            hard: { count: 3, period: 26 },
+            lunatic: { count: 4, period: 22 },
+          },
+        },
       ],
     },
     {
@@ -428,10 +483,28 @@ defineBoss('warden', {
       motion: { r: 0 },
       patterns: [
         // Four beams at 90°, rotating 21° a volley, so the safe wedges walk
-        // around the boss instead of standing still.
-        { pattern: 'ring', options: { spec: COLUMN, count: 4, period: 120, rotation: 21 } },
+        // around the boss instead of standing still. Beams are lethal lines, so
+        // the tier moves their count in ones, not the fistfuls a ring can take.
+        {
+          pattern: 'ring',
+          options: { spec: COLUMN, count: 4, period: 120, rotation: 21 },
+          difficulty: {
+            easy: { count: 3 },
+            hard: { count: 5 },
+            lunatic: { count: 6, rotation: 26 },
+          },
+        },
         // Seekers between beams: standing in a wedge must not be free.
-        { pattern: 'aimed-fan', options: { spec: SEEKER, count: 3, spread: 28, period: 84 }, startAt: 60 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SEEKER, count: 3, spread: 28, period: 84 },
+          startAt: 60,
+          difficulty: {
+            easy: { count: 1 },
+            hard: { count: 5, spread: 34 },
+            lunatic: { count: 7, spread: 40, period: 72 },
+          },
+        },
       ],
     },
     {
@@ -447,10 +520,27 @@ defineBoss('warden', {
         { count: 170, jump: 0 },
       ],
       patterns: [
-        { pattern: 'ring', options: { spec: EMBER, count: 12, period: 66, rotation: 17 } },
+        {
+          pattern: 'ring',
+          options: { spec: EMBER, count: 12, period: 66, rotation: 17 },
+          difficulty: {
+            easy: { count: 8 },
+            hard: { count: 16, period: 58 },
+            lunatic: { count: 20, period: 52 },
+          },
+        },
         // The shells arrive late and hang while the ring is still gathering,
         // so the release and the snap land close together.
-        { pattern: 'ring', options: { spec: SHELL, count: 10, period: 96, rotation: -14 }, startAt: 120 },
+        {
+          pattern: 'ring',
+          options: { spec: SHELL, count: 10, period: 96, rotation: -14 },
+          startAt: 120,
+          difficulty: {
+            easy: { count: 7 },
+            hard: { count: 13, period: 84 },
+            lunatic: { count: 16, period: 78 },
+          },
+        },
       ],
     },
   ],
@@ -508,12 +598,38 @@ defineBoss('magistrate', {
         { count: 140, jump: 0 },
       ],
       patterns: [
-        { pattern: 'aimed-fan', options: { spec: SPARK, count: 5, spread: 36, period: 44 } },
-        { pattern: 'spiral', options: { spec: SPARK, arms: 3, step: 14, period: 6 }, startAt: 90 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SPARK, count: 5, spread: 36, period: 44 },
+          difficulty: {
+            easy: { count: 3, period: 56 },
+            hard: { count: 7, spread: 42, period: 38 },
+            lunatic: { count: 9, spread: 48, period: 32 },
+          },
+        },
+        {
+          pattern: 'spiral',
+          options: { spec: SPARK, arms: 3, step: 14, period: 6 },
+          startAt: 90,
+          difficulty: {
+            easy: { arms: 2, period: 8 },
+            hard: { arms: 4, period: 5 },
+            lunatic: { arms: 5, period: 4 },
+          },
+        },
         // The stage's only other scatter. A non-spell phase is where
         // randomness belongs: the cards below are shapes to be read, and a
         // card that differed run to run could not be learned.
-        { pattern: 'spray', options: { spec: SPARK, count: 2, period: 30, spread: 70 }, startAt: 40 },
+        {
+          pattern: 'spray',
+          options: { spec: SPARK, count: 2, period: 30, spread: 70 },
+          startAt: 40,
+          difficulty: {
+            easy: { count: 1, period: 40 },
+            hard: { count: 3, period: 24 },
+            lunatic: { count: 4, period: 20 },
+          },
+        },
       ],
     },
     {
@@ -528,9 +644,26 @@ defineBoss('magistrate', {
         // A ring of seekers: every bullet flies straight for 18 ticks and then
         // all of them turn inward together. The dodge is a commitment made
         // before the turn, not a reaction to it.
-        { pattern: 'ring', options: { spec: SEEKER, count: 14, period: 78, rotation: 13 } },
+        {
+          pattern: 'ring',
+          options: { spec: SEEKER, count: 14, period: 78, rotation: 13 },
+          difficulty: {
+            easy: { count: 9 },
+            hard: { count: 18, period: 68 },
+            lunatic: { count: 22, period: 62 },
+          },
+        },
         // Wavering chaff so the gaps between seeker volleys are not empty.
-        { pattern: 'aimed-fan', options: { spec: SPARK, count: 3, spread: 22, period: 54 }, startAt: 40 },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SPARK, count: 3, spread: 22, period: 54 },
+          startAt: 40,
+          difficulty: {
+            easy: { count: 1 },
+            hard: { count: 5, spread: 28 },
+            lunatic: { count: 7, spread: 32, period: 46 },
+          },
+        },
       ],
     },
     {
@@ -545,11 +678,28 @@ defineBoss('magistrate', {
       patterns: [
         // Six columns, 17° a volley. `COLUMN.life` is 108 and the period is
         // 132, so exactly one set is live at a time and the room genuinely
-        // reconfigures rather than filling in.
-        { pattern: 'ring', options: { spec: COLUMN, count: 6, period: 132, rotation: 17 } },
+        // reconfigures rather than filling in. Beams move by ones across tiers.
+        {
+          pattern: 'ring',
+          options: { spec: COLUMN, count: 6, period: 132, rotation: 17 },
+          difficulty: {
+            easy: { count: 4 },
+            hard: { count: 7 },
+            lunatic: { count: 8, rotation: 21 },
+          },
+        },
         // Shells during the gap between colonnades: the hang covers the beams'
         // dead time, so there is no tick worth standing still on.
-        { pattern: 'ring', options: { spec: SHELL, count: 12, period: 132, rotation: 9 }, startAt: 66 },
+        {
+          pattern: 'ring',
+          options: { spec: SHELL, count: 12, period: 132, rotation: 9 },
+          startAt: 66,
+          difficulty: {
+            easy: { count: 8 },
+            hard: { count: 16, period: 120 },
+            lunatic: { count: 20, period: 112 },
+          },
+        },
       ],
     },
     {
@@ -567,12 +717,47 @@ defineBoss('magistrate', {
         { count: 150, jump: 0 },
       ],
       patterns: [
-        { pattern: 'spiral', options: { spec: SPARK, arms: 4, step: 12, period: 5 } },
-        { pattern: 'ring', options: { spec: EMBER, count: 10, period: 90, rotation: 19 }, startAt: 30 },
+        {
+          pattern: 'spiral',
+          options: { spec: SPARK, arms: 4, step: 12, period: 5 },
+          difficulty: {
+            easy: { arms: 2, period: 7 },
+            hard: { arms: 5, period: 4 },
+            lunatic: { arms: 6, period: 4 },
+          },
+        },
+        {
+          pattern: 'ring',
+          options: { spec: EMBER, count: 10, period: 90, rotation: 19 },
+          startAt: 30,
+          difficulty: {
+            easy: { count: 7 },
+            hard: { count: 14, period: 80 },
+            lunatic: { count: 18, period: 74 },
+          },
+        },
         // Four columns rather than six: the field already has a spiral and a
         // mill in it, and the beams are the thing that must stay readable.
-        { pattern: 'ring', options: { spec: COLUMN, count: 4, period: 150, rotation: 26 }, startAt: 120 },
-        { pattern: 'aimed-fan', options: { spec: SEEKER, count: 3, spread: 30, period: 96 }, startAt: 240 },
+        {
+          pattern: 'ring',
+          options: { spec: COLUMN, count: 4, period: 150, rotation: 26 },
+          startAt: 120,
+          difficulty: {
+            easy: { count: 3 },
+            hard: { count: 5 },
+            lunatic: { count: 6 },
+          },
+        },
+        {
+          pattern: 'aimed-fan',
+          options: { spec: SEEKER, count: 3, spread: 30, period: 96 },
+          startAt: 240,
+          difficulty: {
+            easy: { count: 1 },
+            hard: { count: 5, spread: 36 },
+            lunatic: { count: 7, spread: 42, period: 84 },
+          },
+        },
       ],
     },
   ],

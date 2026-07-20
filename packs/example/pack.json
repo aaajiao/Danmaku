@@ -97,6 +97,22 @@
               "spread": 28,
               "period": 55
             },
+            "difficulty": {
+              "easy": {
+                "count": 2,
+                "spread": 24
+              },
+              "hard": {
+                "count": 4,
+                "spread": 34,
+                "period": 48
+              },
+              "lunatic": {
+                "count": 6,
+                "spread": 42,
+                "period": 42
+              }
+            },
             "startAt": 20
           },
           {
@@ -118,6 +134,20 @@
               "arms": 2,
               "step": 13,
               "period": 8
+            },
+            "difficulty": {
+              "easy": {
+                "arms": 1
+              },
+              "hard": {
+                "arms": 3,
+                "step": 11
+              },
+              "lunatic": {
+                "arms": 4,
+                "step": 9,
+                "period": 6
+              }
             },
             "startAt": 30,
             "stopAt": 110
@@ -547,6 +577,19 @@
                   "count": 18,
                   "period": 42,
                   "rotation": 9
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 12
+                  },
+                  "hard": {
+                    "count": 24,
+                    "period": 36
+                  },
+                  "lunatic": {
+                    "count": 30,
+                    "period": 30
+                  }
                 }
               },
               {
@@ -571,6 +614,69 @@
                   "period": 96
                 },
                 "startAt": 60
+              }
+            ]
+          },
+          {
+            "name": "Lunatic \"Total Eclipse\"",
+            "hpSeconds": 13,
+            "isSpell": true,
+            "difficulties": [
+              "lunatic"
+            ],
+            "bonus": 500000,
+            "background": "drift",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.5,
+                      "b": 0.7
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 4,
+                      "theta": 90,
+                      "ra": -0.06,
+                      "rrange": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "count": 34,
+                  "period": 26,
+                  "rotation": 13
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 1,
+                      "g": 0.6,
+                      "b": 0.3,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 5,
+                  "spread": 22,
+                  "period": 72
+                },
+                "startAt": 40
               }
             ]
           }
