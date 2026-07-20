@@ -649,6 +649,14 @@ all. It is a content bug, and only the pool ceiling bounds it.
 until there is a `content/enemies.ts` to hold them. Nothing in the system above
 knows they exist.
 
+**Or ship it in a pack.** An enemy is also expressible as pack data: a
+`content.enemies.<name>` in a pack's `pack.json` is this same `EnemySpec` written
+as JSON, injected under a namespaced name with no engine edit. The pack path adds
+a check this code path lacks — every name inside (sprite, pattern, behaviour,
+spoils item) is resolved against the registries at inject time, and an enemy no
+wave spawns is rejected — so it is the safer way to ship an enemy that a stage
+you also author will fire. See [`docs/packs.md`](./packs.md) §9.
+
 ---
 
 ## 5. Adding a boss
@@ -899,6 +907,14 @@ script (`src/content/stage.ts:398-411`).
 
 `background` names a registered scene as a **string** — see §12 and §15 for why
 it cannot be an import.
+
+**Or ship it in a pack.** A stage is also pack data: a `content.stages.<name>`
+in a `pack.json` is this same `StageSpec` as JSON (minus `name`, which the key
+supplies) plus `entry: true` to make it a selectable campaign and a nullable
+`next`. Its waves may name the pack's own enemies or built-in ones, and it ends
+on a built-in boss named by string — the injector resolves all of it and the
+title menu grows a row per entry, so a pack stage is reachable without touching
+`states.ts`. See [`docs/packs.md`](./packs.md) §9.
 
 ---
 

@@ -29,6 +29,7 @@
  * happened to be written.
  */
 
+import { backgroundNames } from '../render/background';
 import {
   BULLET_CELLS,
   BULLET_COLUMNS,
@@ -36,6 +37,7 @@ import {
   BULLET_ROWS,
   MAX_CELL_EXTENT,
 } from '../render/procedural';
+import { injectPack, PackInjectError, type InjectContext } from './inject';
 import {
   hashPack,
   packsMetaString,
@@ -66,6 +68,29 @@ export interface LoadedPacks {
   hudIcons: { life?: HTMLImageElement; bomb?: HTMLImageElement };
   /** `name@hash` of every loaded pack, comma-joined, '' when none. Replay meta. */
   packsMeta: string;
+  /**
+   * One row per content pack's `entry: true` stage, in index order. The title
+   * menu offers these under START. `packsData` is the entering pack's own
+   * `name@hash`, carried on the row rather than on the context so the plain
+   * START row records `''` — `main.ts` assigns this whole list to
+   * `GameContext.campaigns` as plain data and never learns what a pack is.
+   */
+  campaigns: LoadedCampaign[];
+}
+
+/**
+ * A campaign a content pack contributes. Structurally the `Campaign` the game
+ * reads off `GameContext` (`src/game/states.ts`), but declared here as plain
+ * data: `src/packs` may not import `src/game`, and this crosses the boundary as
+ * a flat record the shell assigns across.
+ */
+export interface LoadedCampaign {
+  /** Menu label — the qualified stage name, e.g. `example/gauntlet`. */
+  label: string;
+  /** Qualified entry stage (`<pack>/<entry>`) a run starts on. */
+  stage: string;
+  /** Entering pack's identity (`name@hash`), strict replay meta. */
+  packsData: string;
 }
 
 const NONE: LoadedPacks = {
@@ -73,6 +98,7 @@ const NONE: LoadedPacks = {
   soundUrls: {},
   hudIcons: {},
   packsMeta: '',
+  campaigns: [],
 };
 
 const INDEX_URL = '/packs/index.json';
@@ -169,22 +195,40 @@ export async function loadPacks(): Promise<LoadedPacks> {
     return NONE;
   }
 
+  // The name sets injection resolves against, computed once for every pack.
+  // `inject.ts` may not import `render` (a sprite is an atlas cell, a scene is a
+  // shader — both behind that boundary), so the loader — which may — hands them
+  // in. Enemies draw from the bullet atlas, so its cells are the sprite set;
+  // scenes are the registered backgrounds, which are already imported by the
+  // time this runs (see `main.ts`'s boot-order comment).
+  const injectContext: InjectContext = {
+    sprites: [...BULLET_CELLS],
+    scenes: backgroundNames(),
+  };
+
   const winners = new Map<string, Winner>();
   const overrides: string[] = [];
-  const loaded: { name: string; hash: string }[] = [];
+  const loaded: LoadedRecord[] = [];
   const failures: { name: string; reasons: string[] }[] = [];
+  const campaigns: LoadedCampaign[] = [];
 
+  // Index order, which is deterministic (the server sorts directory names) —
+  // both the last-wins override precedence and the campaign row order below it.
   for (const name of names) {
     try {
-      const pack = await loadOnePack(name);
+      const pack = await loadOnePack(name, injectContext);
       for (const [slot, resource] of pack.slots) {
         const prior = winners.get(slot);
         if (prior) overrides.push(`${slot} ← "${name}" (overrode "${prior.source}")`);
         winners.set(slot, { source: name, ...resource });
       }
-      loaded.push({ name, hash: pack.hash });
+      loaded.push({ name, hash: pack.hash, content: pack.content });
+      campaigns.push(...pack.campaigns);
     } catch (error) {
-      // Skipped whole, named — a partly-applied pack is worse than no pack.
+      // Skipped whole, named — a partly-applied pack is worse than no pack. An
+      // injection failure lands here like any other, so a broken data pack
+      // simply has no campaign row to enter (decisions-f2: never silently fall
+      // back under a failed data pack).
       failures.push({ name, reasons: reasonsOf(error) });
     }
   }
@@ -207,6 +251,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
       bomb: winners.get('hud.bomb')?.image,
     },
     packsMeta: packsMetaString(loaded),
+    campaigns,
   };
 }
 
@@ -258,18 +303,42 @@ interface Winner extends Resource {
   source: string;
 }
 
+/** One content pack's registered content, for the boot report only. */
+interface ContentSummary {
+  /** How many enemies the pack registered. */
+  enemies: number;
+  /** Each entry stage's `next` chain, bare names joined by ` → `. */
+  stageChains: string[];
+}
+
+/** A loaded pack as the report and replay-meta read it. */
+interface LoadedRecord {
+  name: string;
+  hash: string;
+  content?: ContentSummary;
+}
+
 interface OnePack {
   slots: Map<string, Resource>;
   hash: string;
+  /** Campaigns this pack contributes — empty for a presentation-only pack. */
+  campaigns: LoadedCampaign[];
+  /** Content registered, for the report — absent when the pack has none. */
+  content?: ContentSummary;
 }
 
 /**
- * Validate one pack and fetch every resource it declares, all-or-nothing.
+ * Validate one pack, register its content, and fetch every resource it
+ * declares, all-or-nothing.
  *
- * Every reason is collected before the first is thrown, because a hand-editing
- * author wants the whole list, and the pack is rejected as a unit either way.
+ * Every asset reason is collected before the first is thrown, because a
+ * hand-editing author wants the whole list, and the pack is rejected as a unit
+ * either way. Content is injected only **after** the assets are clean, so a pack
+ * that fails a machine check registers nothing — injection is atomic per pack
+ * (`inject.ts`), and this keeps the pack atomic across both halves: a failed
+ * pack leaves neither a resource winner nor a registered enemy behind.
  */
-async function loadOnePack(name: string): Promise<OnePack> {
+async function loadOnePack(name: string, injectContext: InjectContext): Promise<OnePack> {
   const manifestBytes = await fetchBytes(`/packs/${name}/pack.json`).catch(() => {
     throw new PackError([`pack "${name}": pack.json: could not be fetched`]);
   });
@@ -298,7 +367,59 @@ async function loadOnePack(name: string): Promise<OnePack> {
   if (reasons.length > 0) throw new PackError(reasons);
 
   const hash = await hashPack(manifestBytes, orderedBytes);
-  return { slots, hash };
+
+  // The pack's own identity, which every campaign it contributes records into
+  // strict replay meta. A run only carries a pack's identity when it entered
+  // that pack's campaign — so the identity rides the row, not the context.
+  const packsData = packsMetaString([{ name, hash }]);
+
+  // Register the content and take the campaigns it exposes. A semantic failure
+  // (an unresolved name, a dead stage) is a `PackInjectError`; re-throw it as a
+  // `PackError` so it reports like every other rejection. Idempotent per pack
+  // name, so a second boot-time load of the same directory is a no-op.
+  let campaigns: LoadedCampaign[] = [];
+  try {
+    const injected = injectPack(manifest, injectContext);
+    campaigns = injected.campaigns.map((c) => ({ ...c, packsData }));
+  } catch (error) {
+    if (error instanceof PackInjectError) throw new PackError([...error.problems]);
+    throw error;
+  }
+
+  return { slots, hash, campaigns, content: contentSummary(manifest) };
+}
+
+/**
+ * A content pack's registered content, described for the boot report. Read off
+ * the manifest (the shape `manifest.ts` already accepted); `undefined` for a
+ * presentation-only pack, which contributes no content lines.
+ */
+function contentSummary(manifest: PackManifest): ContentSummary | undefined {
+  const content = manifest.content;
+  if (content === undefined) return undefined;
+
+  const enemies = content.enemies === undefined ? 0 : Object.keys(content.enemies).length;
+  const stages = content.stages ?? {};
+
+  const chains: string[] = [];
+  for (const key of Object.keys(stages)) {
+    if (stages[key]?.entry !== true) continue;
+    // Follow `next` within the pack, bare names for readability. `seen` guards
+    // against a cyclic chain looping forever — the report never hangs boot.
+    const parts: string[] = [];
+    const seen = new Set<string>();
+    let cursor: string | undefined = key;
+    while (cursor !== undefined && !seen.has(cursor)) {
+      seen.add(cursor);
+      parts.push(cursor);
+      const next: string | null | undefined = stages[cursor]?.next;
+      cursor = typeof next === 'string' && stages[next] !== undefined ? next : undefined;
+    }
+    chains.push(parts.join(' → '));
+  }
+
+  if (enemies === 0 && chains.length === 0) return undefined;
+  return { enemies, stageChains: chains };
 }
 
 async function gatherAssets(
@@ -564,7 +685,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function report(state: {
   winners: Map<string, Winner>;
   overrides: string[];
-  loaded: { name: string; hash: string }[];
+  loaded: LoadedRecord[];
   failures: { name: string; reasons: string[] }[];
   only: string | null;
 }): void {
@@ -585,6 +706,19 @@ function report(state: {
   }
 
   for (const line of overrides) lines.push(`  override: ${line}`);
+
+  // Content a pack registered, one line per section, so a developer can see the
+  // data — not just the reskin — took effect. Not golden: informational, like
+  // the slot lines above.
+  for (const pack of loaded) {
+    if (pack.content === undefined) continue;
+    if (pack.content.enemies > 0) {
+      lines.push(`  content.enemies: ${pack.name} (${pack.content.enemies} registered)`);
+    }
+    for (const chain of pack.content.stageChains) {
+      lines.push(`  content.stages: ${pack.name} (${chain})`);
+    }
+  }
 
   for (const failure of failures) {
     lines.push(`  FAILED ${failure.name}:`);

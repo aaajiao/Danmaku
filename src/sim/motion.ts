@@ -127,6 +127,11 @@ export function getBehaviour(name: string): MotionBehaviour | undefined {
   return behaviours.get(name);
 }
 
+/** Non-throwing existence check, for a validator resolving a name before use. */
+export function hasBehaviour(name: string): boolean {
+  return behaviours.has(name);
+}
+
 function clamp(value: number, range: Range | undefined): number {
   if (range === undefined) return value;
   if (range.max !== undefined && value > range.max) return range.max;

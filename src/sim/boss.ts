@@ -154,6 +154,11 @@ export function bossNames(): readonly string[] {
   return [...registry.keys()];
 }
 
+/** Non-throwing existence check, for a validator resolving a name before use. */
+export function hasBoss(name: string): boolean {
+  return registry.has(name);
+}
+
 /** Placeholder for a boss that has never been spawned. */
 const UNSPAWNED: BossSpec = {
   sprite: 'orb.large',

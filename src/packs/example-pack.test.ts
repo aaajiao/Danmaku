@@ -19,7 +19,15 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { validateManifest } from './manifest';
+import '../content'; // built-in patterns, behaviours, enemies, bosses, stages
+import '../sim/item'; // built-in items (power, score, …); content imports it type-only
+import '../render/backgrounds'; // registers the scenes the injector resolves against
+import { backgroundNames } from '../render/background';
+import { BULLET_CELLS } from '../render/procedural';
+import { hasEnemy } from '../sim/enemy';
+import { hasStage } from '../content/stage';
+import { validateManifest, type PackManifest } from './manifest';
+import { injectPack } from './inject';
 import { parsePng } from '../../tools/png';
 
 const DIR = join(import.meta.dir, '..', '..', 'packs', 'example');
@@ -27,6 +35,24 @@ const FOLDER_NAME = 'example';
 
 function readManifest(): unknown {
   return JSON.parse(readFileSync(join(DIR, 'pack.json'), 'utf8'));
+}
+
+/**
+ * The real name sets the browser loader would hand the injector: every atlas
+ * cell the sheet defines, plus the ship region, and every registered scene.
+ * Imported the way any pack-tree module may (this tree is browser-side and its
+ * boundary permits `render`), so the injection this test proves is the one that
+ * runs for real rather than a hand-kept copy of the valid names.
+ */
+const CTX = { sprites: [...BULLET_CELLS, 'ship'], scenes: backgroundNames() };
+
+/** Validate the committed manifest and hand back the accepted `PackManifest`. */
+function acceptedManifest(): PackManifest {
+  const result = validateManifest(readManifest(), FOLDER_NAME);
+  if ('errors' in result) {
+    throw new Error(`packs/example/pack.json failed validation:\n${result.errors.join('\n')}`);
+  }
+  return result.manifest;
 }
 
 describe('packs/example — the reference pack', () => {
@@ -96,5 +122,39 @@ describe('packs/example — the reference pack', () => {
       expect(png.width).toBeLessThanOrEqual(16);
       expect(png.height).toBeLessThanOrEqual(16);
     });
+  });
+});
+
+/**
+ * The format-2 half: the committed manifest carries a real `content` section,
+ * and it survives the *second* validation layer too — `manifest.ts` checked its
+ * shape above; here `inject.ts` resolves every name it writes against the real
+ * registries and registers it. Shape passing does not imply the names resolve,
+ * so this is a distinct claim, and it is the one that would catch a typo'd
+ * built-in reference (`snetinel`, `expanase`) that shape validation cannot see.
+ *
+ * Injection is idempotent per pack name, so this and `example-play.test.ts` both
+ * injecting `example` in one `bun test` process is a no-op the second time, not
+ * a duplicate-definition throw — which is why neither needs `resetInjectedForTest`.
+ */
+describe('packs/example — format-2 content', () => {
+  test('the manifest carries requires + content, both validated as shape', () => {
+    const manifest = acceptedManifest();
+    expect(manifest.requires).toEqual(['content.enemies', 'content.stages']);
+    expect(Object.keys(manifest.content?.enemies ?? {}).sort()).toEqual(['drone', 'ember']);
+    expect(Object.keys(manifest.content?.stages ?? {}).sort()).toEqual(['ashfall', 'gauntlet']);
+  });
+
+  test('inject resolves every name and registers under qualified names', () => {
+    const result = injectPack(acceptedManifest(), CTX);
+
+    // Only the entry stage becomes a campaign row, labelled by its qualified name.
+    expect(result.campaigns).toEqual([{ label: 'example/gauntlet', stage: 'example/gauntlet' }]);
+
+    // Every pack entry lands namespaced; the built-ins it references are untouched.
+    expect(hasEnemy('example/ember')).toBe(true);
+    expect(hasEnemy('example/drone')).toBe(true);
+    expect(hasStage('example/gauntlet')).toBe(true);
+    expect(hasStage('example/ashfall')).toBe(true);
   });
 });

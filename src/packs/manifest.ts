@@ -53,6 +53,84 @@ export interface PackHud {
   bomb?: string;
 }
 
+/**
+ * One pattern slot on a pack enemy. Mirrors `EnemyPattern` (`src/sim/enemy.ts`).
+ */
+export interface ContentEnemyPattern {
+  pattern: string;
+  options?: Record<string, unknown>;
+  startAt?: number;
+  stopAt?: number;
+}
+
+/**
+ * A pack-format-2 enemy: the JSON that becomes an `EnemySpec` (`src/sim/enemy.ts`)
+ * with no translation — the injector qualifies its name and hands the object to
+ * `defineEnemy`. The shape is redeclared here rather than imported because this
+ * module stays pure: a value **or type** import from `sim` would breach the
+ * boundary `manifest.test.ts` proves by reading this file's own source. The two
+ * shapes are kept in step by `inject.ts`, the single place that imports both and
+ * assigns one to the other — a scalar-field drift there is a compile error.
+ *
+ * `motion`/`timeline` are typed loosely on purpose: their deep shape belongs to
+ * the motion DSL, and validating it here would duplicate that model. Shape
+ * validation checks the fields it owns; the injector resolves the names inside
+ * (behaviours, patterns, item names) against the real registries.
+ */
+export interface ContentEnemy {
+  sprite: string;
+  hp: number;
+  radius: number;
+  width?: number;
+  height?: number;
+  motion?: Record<string, unknown>;
+  timeline?: readonly Record<string, unknown>[];
+  tint?: { r?: number; g?: number; b?: number };
+  patterns?: readonly ContentEnemyPattern[];
+  spoils?: readonly (readonly [name: string, count: number])[];
+  scoreValue?: number;
+  onHit?: string;
+  onDeath?: string;
+  despawnMargin?: number;
+}
+
+/**
+ * A pack-format-2 wave. Mirrors `EnemyWave | BossWave` (`src/content/stage.ts`):
+ * the two are distinguished structurally, a `boss` field making it a boss wave.
+ */
+export interface ContentStageWave {
+  at: number;
+  enemy?: string;
+  boss?: string;
+  x?: number;
+  y?: number;
+  count?: number;
+  interval?: number;
+  stepX?: number;
+  stepY?: number;
+}
+
+/**
+ * A pack-format-2 stage. Mirrors `StageSpec` (`src/content/stage.ts`) minus
+ * `name` — the section key is the name — plus `entry`, which marks a campaign
+ * start. `next: null` states "this is the last stage" explicitly, where a spec
+ * uses `undefined`; the injector maps one to the other.
+ */
+export interface ContentStage {
+  entry?: boolean;
+  seed?: number;
+  waves: readonly ContentStageWave[];
+  outro?: number;
+  boss?: string;
+  next?: string | null;
+  background?: string;
+}
+
+export interface PackContent {
+  enemies?: Record<string, ContentEnemy>;
+  stages?: Record<string, ContentStage>;
+}
+
 export interface PackManifest {
   format: number;
   /** Must equal the pack's directory name and match `[a-z0-9-]{1,32}`. */
@@ -65,15 +143,38 @@ export interface PackManifest {
   assets?: PackAssets;
   sounds?: PackSounds;
   hud?: PackHud;
-  /** Declared engine capabilities. Format 1 implements none; any entry refuses. */
+  /**
+   * Declared engine capabilities. A capability the engine implements
+   * (`IMPLEMENTED_CAPABILITIES`) is honoured; anything else is refused. Every
+   * `content.*` section present must be covered by a matching capability here,
+   * and vice versa — the covering invariant, which is what lets an engine that
+   * lacks a capability refuse on `requires` before it ever parses `content`.
+   */
   requires?: string[];
+  /**
+   * Format-2 game content — enemies and stages. Present only alongside the
+   * matching `requires` entries. The injector (`inject.ts`) resolves the names
+   * inside against the real registries and registers it; this module validates
+   * shape only.
+   */
+  content?: PackContent;
 }
 
 export type ValidationResult =
   | { manifest: PackManifest }
   | { errors: string[] };
 
-/** Top-level fields format 1 understands, in the order the "valid fields" list prints. */
+/**
+ * Engine capabilities a `requires` entry may name. Each maps to one
+ * `content.<section>`. This is the set that turned on when format-2 content
+ * landed; a `requires` naming anything outside it is refused by name.
+ */
+export const IMPLEMENTED_CAPABILITIES = [
+  'content.enemies',
+  'content.stages',
+] as const;
+
+/** Top-level fields understood here, in the order the "valid fields" list prints. */
 const TOP_FIELDS = [
   'format',
   'name',
@@ -85,15 +186,17 @@ const TOP_FIELDS = [
   'sounds',
   'hud',
   'requires',
+  'content',
 ] as const;
 
 /**
  * Sections that belong to a later format. They are refused by name so an author
- * who read a format-2 draft learns precisely what is fiction, rather than seeing
- * a generic "unknown field".
+ * who read a later draft learns precisely what is fiction, rather than seeing a
+ * generic "unknown field". `content` left this list when its enemies and stages
+ * sections became real; the sections still reserved *inside* `content` are
+ * `CONTENT_RESERVED`.
  */
 const RESERVED_TOP = [
-  'content',
   'music',
   'difficulty',
   'dialog',
@@ -104,6 +207,57 @@ const ASSET_FIELDS = ['bullets', 'ship', 'filter'] as const;
 const HUD_FIELDS = ['life', 'bomb'] as const;
 /** Hud resources a later format will carry; refused by name today. */
 const HUD_RESERVED = ['digits', 'font', 'bossBar', 'frame'] as const;
+
+/** `content.*` sections this engine implements. */
+const CONTENT_FIELDS = ['enemies', 'stages'] as const;
+/** `content.*` sections a later format will carry; refused by name today. */
+const CONTENT_RESERVED = [
+  'bosses',
+  'characters',
+  'items',
+  'music',
+  'difficulty',
+  'dialog',
+  'backgrounds',
+] as const;
+
+const ENEMY_FIELDS = [
+  'sprite',
+  'hp',
+  'radius',
+  'width',
+  'height',
+  'motion',
+  'timeline',
+  'tint',
+  'patterns',
+  'spoils',
+  'scoreValue',
+  'onHit',
+  'onDeath',
+  'despawnMargin',
+] as const;
+const ENEMY_PATTERN_FIELDS = ['pattern', 'options', 'startAt', 'stopAt'] as const;
+const STAGE_FIELDS = [
+  'entry',
+  'seed',
+  'waves',
+  'outro',
+  'boss',
+  'next',
+  'background',
+] as const;
+const WAVE_FIELDS = [
+  'at',
+  'enemy',
+  'boss',
+  'x',
+  'y',
+  'count',
+  'interval',
+  'stepX',
+  'stepY',
+] as const;
 
 const NAME_PATTERN = /^[a-z0-9-]{1,32}$/;
 
@@ -224,10 +378,15 @@ export function validateManifest(
     const req = raw.requires;
     if (!Array.isArray(req) || req.some((r) => typeof r !== 'string')) {
       errors.push(`${prefix}requires must be an array of strings`);
-    } else if (req.length > 0) {
-      errors.push(
-        `${prefix}requires lists capabilities format 1 does not implement: ${req.join(', ')} — format 1 implements none; see docs/packs.md §Future`,
+    } else {
+      const unimplemented = req.filter(
+        (r) => !(IMPLEMENTED_CAPABILITIES as readonly string[]).includes(r),
       );
+      if (unimplemented.length > 0) {
+        errors.push(
+          `${prefix}requires lists capabilities this engine does not implement: ${unimplemented.join(', ')} — implemented: ${IMPLEMENTED_CAPABILITIES.join(', ')}; see docs/packs.md §Future`,
+        );
+      }
     }
   }
 
@@ -239,6 +398,9 @@ export function validateManifest(
 
   // --- hud (optional object) --------------------------------------------
   if ('hud' in raw) validateHud(raw.hud, prefix, errors);
+
+  // --- content (format-2 sections) + the requires↔content covering invariant
+  validateContent(raw, prefix, errors);
 
   // --- unknown / reserved top-level fields ------------------------------
   for (const key of Object.keys(raw)) {
@@ -339,6 +501,291 @@ function validateHud(hud: unknown, prefix: string, errors: string[]): void {
       continue;
     }
     errors.push(unknownField(prefix, key, HUD_FIELDS));
+  }
+}
+
+/**
+ * Validate the `content` section and enforce the covering invariant.
+ *
+ * Two claims are checked together because they are one contract: every
+ * `content.<section>` present must be declared in `requires`, and every
+ * implemented capability declared in `requires` must have its section. That
+ * exact agreement is what protects an older engine — it refuses on `requires`
+ * before it ever parses `content`, so a section it cannot load can never appear
+ * without a capability it will reject first.
+ */
+function validateContent(
+  raw: Record<string, unknown>,
+  prefix: string,
+  errors: string[],
+): void {
+  const content = raw.content;
+  const contentObj = isRecord(content) ? content : undefined;
+  const req = Array.isArray(raw.requires)
+    ? raw.requires.filter((r): r is string => typeof r === 'string')
+    : [];
+
+  for (const cap of IMPLEMENTED_CAPABILITIES) {
+    const section = cap.slice('content.'.length);
+    const declared = req.includes(cap);
+    const present =
+      contentObj !== undefined &&
+      section in contentObj &&
+      contentObj[section] !== undefined;
+    if (declared && !present) {
+      errors.push(
+        `${prefix}requires lists "${cap}" but there is no content.${section} section — add the section or drop the capability`,
+      );
+    }
+    if (present && !declared) {
+      errors.push(
+        `${prefix}content.${section} is present but "${cap}" is not in requires — an engine that lacks the capability must refuse on requires before parsing content`,
+      );
+    }
+  }
+
+  if (!('content' in raw)) return;
+  if (!isRecord(content)) {
+    errors.push(`${prefix}content must be a JSON object`);
+    return;
+  }
+
+  for (const key of Object.keys(content)) {
+    if ((CONTENT_FIELDS as readonly string[]).includes(key)) continue;
+    if ((CONTENT_RESERVED as readonly string[]).includes(key)) {
+      errors.push(
+        `${prefix}content.${key} is a pack-format-2 section this engine does not implement — it implements ${IMPLEMENTED_CAPABILITIES.join(', ')} only; see docs/packs.md §Future`,
+      );
+      continue;
+    }
+    errors.push(unknownField(`${prefix}content: `, key, CONTENT_FIELDS));
+  }
+
+  if ('enemies' in content && content.enemies !== undefined) {
+    validateEnemies(content.enemies, prefix, errors);
+  }
+  if ('stages' in content && content.stages !== undefined) {
+    validateStages(content.stages, prefix, errors);
+  }
+}
+
+function validateEnemies(enemies: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(enemies)) {
+    errors.push(`${prefix}content.enemies must be a JSON object`);
+    return;
+  }
+  for (const [name, enemy] of Object.entries(enemies)) {
+    validateEnemy(enemy, `content.enemies."${name}"`, prefix, errors);
+  }
+}
+
+function validateEnemy(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'sprite', 'string', where, prefix, errors, 'an atlas cell name');
+  requireField(raw, 'hp', 'number', where, prefix, errors, 'a number');
+  requireField(raw, 'radius', 'number', where, prefix, errors, 'a number');
+  optField(raw, 'width', 'number', where, prefix, errors);
+  optField(raw, 'height', 'number', where, prefix, errors);
+  optField(raw, 'scoreValue', 'number', where, prefix, errors);
+  optField(raw, 'despawnMargin', 'number', where, prefix, errors);
+  optField(raw, 'onHit', 'string', where, prefix, errors);
+  optField(raw, 'onDeath', 'string', where, prefix, errors);
+  optField(raw, 'motion', 'object', where, prefix, errors);
+  optField(raw, 'tint', 'object', where, prefix, errors);
+  optField(raw, 'timeline', 'array', where, prefix, errors);
+
+  if ('patterns' in raw) {
+    if (!Array.isArray(raw.patterns)) {
+      errors.push(`${prefix}${where}.patterns must be an array`);
+    } else {
+      raw.patterns.forEach((slot, i) =>
+        validateEnemyPattern(slot, `${where}.patterns[${i}]`, prefix, errors),
+      );
+    }
+  }
+
+  if ('spoils' in raw) {
+    if (!Array.isArray(raw.spoils)) {
+      errors.push(`${prefix}${where}.spoils must be an array`);
+    } else {
+      raw.spoils.forEach((entry, i) => {
+        if (
+          !Array.isArray(entry) ||
+          entry.length !== 2 ||
+          typeof entry[0] !== 'string' ||
+          typeof entry[1] !== 'number'
+        ) {
+          errors.push(
+            `${prefix}${where}.spoils[${i}] must be a [name, count] pair — a string and a number`,
+          );
+        }
+      });
+    }
+  }
+
+  for (const key of Object.keys(raw)) {
+    if ((ENEMY_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, ENEMY_FIELDS));
+  }
+}
+
+function validateEnemyPattern(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'pattern', 'string', where, prefix, errors, 'a registered pattern name');
+  optField(raw, 'options', 'object', where, prefix, errors);
+  optField(raw, 'startAt', 'number', where, prefix, errors);
+  optField(raw, 'stopAt', 'number', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((ENEMY_PATTERN_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, ENEMY_PATTERN_FIELDS));
+  }
+}
+
+function validateStages(stages: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(stages)) {
+    errors.push(`${prefix}content.stages must be a JSON object`);
+    return;
+  }
+  for (const [name, stage] of Object.entries(stages)) {
+    validateStage(stage, `content.stages."${name}"`, prefix, errors);
+  }
+}
+
+function validateStage(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  optField(raw, 'entry', 'boolean', where, prefix, errors);
+  optField(raw, 'seed', 'number', where, prefix, errors);
+  optField(raw, 'outro', 'number', where, prefix, errors);
+  optField(raw, 'boss', 'string', where, prefix, errors);
+  optField(raw, 'background', 'string', where, prefix, errors);
+  if ('next' in raw && typeof raw.next !== 'string' && raw.next !== null) {
+    errors.push(`${prefix}${where}.next must be a string or null`);
+  }
+
+  if (!('waves' in raw)) {
+    errors.push(`${prefix}${where} is missing required field "waves" — an array of waves`);
+  } else if (!Array.isArray(raw.waves)) {
+    errors.push(`${prefix}${where}.waves must be an array`);
+  } else {
+    raw.waves.forEach((wave, i) =>
+      validateWave(wave, `${where}.waves[${i}]`, prefix, errors),
+    );
+  }
+
+  for (const key of Object.keys(raw)) {
+    if ((STAGE_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, STAGE_FIELDS));
+  }
+}
+
+function validateWave(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  requireField(raw, 'at', 'number', where, prefix, errors, 'a whole tick count');
+
+  const hasEnemy = 'enemy' in raw && raw.enemy !== undefined;
+  const hasBoss = 'boss' in raw && raw.boss !== undefined;
+  if (hasEnemy && hasBoss) {
+    errors.push(
+      `${prefix}${where} names both "enemy" and "boss" — a wave is one or the other`,
+    );
+  } else if (!hasEnemy && !hasBoss) {
+    errors.push(`${prefix}${where} must name an "enemy" or a "boss"`);
+  }
+  optField(raw, 'enemy', 'string', where, prefix, errors);
+  optField(raw, 'boss', 'string', where, prefix, errors);
+  optField(raw, 'x', 'number', where, prefix, errors);
+  optField(raw, 'y', 'number', where, prefix, errors);
+  optField(raw, 'count', 'number', where, prefix, errors);
+  optField(raw, 'interval', 'number', where, prefix, errors);
+  optField(raw, 'stepX', 'number', where, prefix, errors);
+  optField(raw, 'stepY', 'number', where, prefix, errors);
+
+  for (const key of Object.keys(raw)) {
+    if ((WAVE_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, WAVE_FIELDS));
+  }
+}
+
+type FieldKind = 'string' | 'number' | 'boolean' | 'object' | 'array';
+
+function typeMatches(value: unknown, kind: FieldKind): boolean {
+  switch (kind) {
+    case 'string':
+      return typeof value === 'string';
+    case 'number':
+      return typeof value === 'number';
+    case 'boolean':
+      return typeof value === 'boolean';
+    case 'array':
+      return Array.isArray(value);
+    case 'object':
+      return isRecord(value);
+  }
+}
+
+/** "must be a JSON object" reads better than "must be an object" for the record kind. */
+function kindPhrase(kind: FieldKind): string {
+  return kind === 'object' ? 'a JSON object' : kind === 'array' ? 'an array' : `a ${kind}`;
+}
+
+function requireField(
+  raw: Record<string, unknown>,
+  field: string,
+  kind: FieldKind,
+  where: string,
+  prefix: string,
+  errors: string[],
+  hint: string,
+): void {
+  if (!(field in raw) || raw[field] === undefined) {
+    errors.push(`${prefix}${where} is missing required field "${field}" — ${hint}`);
+  } else if (!typeMatches(raw[field], kind)) {
+    errors.push(`${prefix}${where}.${field} must be ${kindPhrase(kind)}`);
+  }
+}
+
+function optField(
+  raw: Record<string, unknown>,
+  field: string,
+  kind: FieldKind,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (field in raw && raw[field] !== undefined && !typeMatches(raw[field], kind)) {
+    errors.push(`${prefix}${where}.${field} must be ${kindPhrase(kind)}`);
   }
 }
 

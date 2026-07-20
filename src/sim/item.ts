@@ -114,6 +114,11 @@ export function itemNames(): readonly string[] {
   return [...registry.keys()];
 }
 
+/** Non-throwing existence check, for a validator resolving a name before use. */
+export function hasItem(name: string): boolean {
+  return registry.has(name);
+}
+
 /** Placeholder for a pooled item that has never been spawned. */
 const UNSPAWNED: ItemSpec = { sprite: 'star', radius: 12, value: 0, kind: 'score' };
 

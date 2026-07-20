@@ -20,7 +20,7 @@ src/render/backgrounds/   the authored scenes, one fragment shader per file
 src/content/       danmaku patterns, shot types, motion behaviours, stages
 src/game/          run rules, state machine, screens — all game logic, no three.js
 src/audio/         sound registry and runtime synthesis
-src/packs/         drop-in asset packs: pure manifest validation + browser loader
+src/packs/         drop-in packs: pure shape validation, content injector, loader
 src/main.ts        the browser shell: input in, pixels out, nothing else
 docs/              asset specification, extension guide, pack format
 packs/             asset packs on disk (packs/example is the reference)
@@ -264,17 +264,26 @@ engine. Every extension point is a registry:
 | Sounds | `defineSound` | `src/audio/index.ts` |
 | Sprite regions | `Atlas.define` / `defineGrid` | `src/render/atlas.ts` |
 | Render layers | `Layer` constants | `src/render/stage.ts` |
-| Asset packs (reskins) | drop a folder in `packs/` | `docs/packs.md` |
+| Asset packs (reskins + content) | drop a folder in `packs/` | `docs/packs.md` |
 
 Content references registry entries **by name**, never by index, so re-packing an
 atlas or reordering a table cannot silently repoint at the wrong thing.
 
-The last row is the one that is not code: an **asset pack** is a folder of art and
-sound dropped into `packs/`, and it reskins the game without touching a registry
-or the engine at all. It is presentation only — it replaces the sprite *skins*
-that patterns, effects and the HUD draw with, never the patterns, effects or
-behaviours themselves, which stay code joined to a pack only by name. The format,
-its validation and its boundary are [`docs/packs.md`](./docs/packs.md).
+The last row is the one that is not code: an **asset pack** is a folder dropped
+into `packs/`, and it extends the game without touching a registry or the engine
+at all. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
+that patterns, effects and the HUD draw with — bullet sheet, ship, HUD icons,
+sounds. **Content** (format 2, gated by a `requires` capability) adds **stages
+and enemies** as JSON data: an enemy is an `EnemySpec`, a stage is waves chained
+into a selectable campaign that ends on a built-in boss. What a pack never
+carries is *code* — the patterns an enemy fires, the behaviours that steer a
+bullet, the bosses a stage sends and the shader scenes it is set in all stay
+engine code, joined to a pack only by name. A pack paints and arranges; it never
+scripts. The replay contract splits on that line: a reskin cannot change the
+simulation so a skin mismatch **warns**, while content changes what the game does
+so a content mismatch **refuses**, exactly like a mismatched character or stage.
+The format, both validation layers and the boundary are
+[`docs/packs.md`](./docs/packs.md).
 
 **A registry only has what something imported.** A module nobody imports never
 runs, so its `define*` calls never happen and the name resolves to nothing at the

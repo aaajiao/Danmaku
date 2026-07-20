@@ -102,7 +102,14 @@ const isFixture = (name: string): boolean =>
   name.startsWith('test') ||
   name.startsWith('probe.') ||
   name.startsWith('balance.') ||
-  name.includes('.test.');
+  name.includes('.test.') ||
+  // Pack content registers under a qualified `<pack>/<entry>` name and is
+  // reachable only through its own campaign row, never a built-in playthrough
+  // (decisions-f2). Exempting it here is what lets the example-pack acceptance
+  // test inject a pack into this shared process without its namespaced entries
+  // failing these built-in scans — that test is the proof they are reachable,
+  // the same division of labour the format-1 packs already follow.
+  name.includes('/');
 
 const content = (names: readonly string[]): string[] => names.filter((n) => !isFixture(n));
 
@@ -556,5 +563,10 @@ describe('the probe itself is honest', () => {
       .toHaveLength(4);
     expect(['sentinel', 'magistrate', 'stage-1', 'stage-2'].filter(isFixture))
       .toHaveLength(0);
+    // The '/'-branch is surgical: a qualified pack name is a fixture here, and
+    // no built-in name — none of which contains '/' — is caught by it.
+    expect(['example/gauntlet', 'example/ember'].filter(isFixture)).toHaveLength(2);
+    expect(['sentinel', 'magistrate', 'stage-1', 'stage-2', 'scout', 'lance'].some((n) => n.includes('/')))
+      .toBe(false);
   });
 });

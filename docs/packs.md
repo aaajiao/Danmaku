@@ -1,16 +1,31 @@
-# Asset packs — the drop-in reskin format
+# Asset packs — the drop-in format
 
-A **pack** is a folder of art and sound that replaces the game's generated
-placeholders without editing a line of engine code. Drop `packs/my-pack/` next
-to the others, refresh, and the bullets, ship, HUD icons and sounds it declares
-take over. Nothing else changes: the same patterns fire, the same bosses appear,
-the same replay plays back — a pack is **presentation only**.
+A **pack** is a folder of art, sound and — with a `content` section — game data
+that extends the game without editing a line of engine code. Drop `packs/my-pack/`
+next to the others, refresh, and the bullets, ship, HUD icons and sounds it
+declares take over, and any enemies and stages it carries become a campaign you
+can select from the title screen.
+
+A pack has two halves that behave differently, and the difference is the spine of
+this document:
+
+- A **reskin** replaces presentation only — bullet sheet, ship, HUD icons,
+  sounds. The same patterns fire, the same bosses appear, the same replay plays
+  back; a replay recorded under one skin plays under any other, so a skin
+  mismatch **warns**, never refuses.
+- **Content** (`content.enemies`, `content.stages`, gated by `requires`) adds
+  enemies and stages as data. That changes what the game *does* — different
+  bullets in the air — so a replay recorded under a content pack **refuses** to
+  play under different content. Patterns, behaviours, bosses, characters, items,
+  backgrounds and effects stay engine code the content joins by name; a pack
+  carries the *data* that arranges them, never the code.
 
 This document is written for a pack author who has never read the engine. It
 covers the folder layout, how a pack activates, every manifest field, every
-error the loader can hand back (the messages are exact and tested — they will
-not be reworded under you), the pixel rules a sheet has to obey, how multiple
-packs layer, and what belongs to a future format that does not exist yet.
+error the two validators can hand back (the messages are exact and tested — they
+will not be reworded under you), the pixel rules a sheet has to obey, the content
+shapes and their name-resolution rules, how multiple packs layer, and what
+belongs to a future format that does not exist yet.
 
 If you have read [`docs/assets.md`](./assets.md) and [`docs/audio.md`](./audio.md),
 a pack is the packaged, drop-in version of the same swap those documents describe
@@ -21,7 +36,7 @@ want to understand *why* a bullet must be white or a sound must fade to zero.
 
 ## 1. What a pack is, and is not
 
-A pack **can** replace:
+A pack **can** replace, as a reskin:
 
 - the **bullet sheet** — all sixteen 32×32 cells the whole game draws from
   (bullets, enemies, the boss, items and particle effects all wear these cells;
@@ -30,24 +45,38 @@ A pack **can** replace:
 - any of the six **sounds** the game plays;
 - the **♥ life** and **★ bomb** HUD icons.
 
-A pack **cannot** (in format 1) change anything that would alter what the game
-*does*: no patterns, no enemy behaviour, no difficulty, no backgrounds, no music,
-no dialogue. Those are engine code, not pack data — see §9. The dividing line is
-simple and permanent:
+A pack **can also**, with a `content` section (§9), add game data:
 
-> **Sprite skins are pack data. Everything that generates motion or effect is
-> engine code, joined to a pack only by name.** A bullet's *picture* comes from
-> a pack; the *pattern* that fires it, the three.js/shader *effect* that flares
-> when it dies, and the *behaviour* that steers it are all code, registered in
-> the engine by a string name (the same arrangement as `definePattern` /
-> `defineBehaviour` / `defineBackground`). A pack paints; it never scripts.
+- **enemies** — a full `EnemySpec` as JSON: hitbox, motion, timeline, the
+  patterns it fires, what it drops;
+- **stages** — waves of those enemies (and built-in ones), chained into a
+  selectable campaign, ending on a built-in boss.
 
-Because a pack is presentation only, the game is **never blocked on it**. The
-procedural placeholders (`src/render/procedural.ts`, `src/audio/`) are the
-permanent floor. A missing pack, a broken pack, a pack whose sheet is the wrong
-size — each degrades to "that one resource stays procedural" and the run
-continues. This is CLAUDE.md rule 9 in operation: everything shipped is original
-by construction, and nothing you drop in can leave the game unable to draw.
+A pack **cannot** change the *code* that data drives: no new patterns, no new
+motion behaviours, no new bosses, no new characters, no new items, no new
+backgrounds, no difficulty curves, no music, no dialogue. Those are engine code,
+reserved or registered under a string name — see §9 for what content reaches and
+§10 for what stays reserved. The dividing line is simple and permanent:
+
+> **Skins and arrangements are pack data. Everything that generates motion or
+> effect is engine code, joined to a pack only by name.** A bullet's *picture*
+> comes from a pack, and so does the *arrangement* of an enemy — which pattern it
+> fires, where a wave puts it — but the *pattern* itself, the three.js/shader
+> *effect* that flares when a bullet dies, the *behaviour* that steers it and the
+> *boss* a stage sends are all code, registered in the engine by a string name
+> (the same arrangement as `definePattern` / `defineBehaviour` / `defineBoss` /
+> `defineBackground`). A pack paints and it arranges; it never scripts.
+
+Because presentation is optional and always degrades to a placeholder, the game
+is **never blocked on it**. The procedural placeholders
+(`src/render/procedural.ts`, `src/audio/`) are the permanent floor. A missing
+pack, a broken pack, a pack whose sheet is the wrong size — each degrades to
+"that one resource stays procedural" and the run continues. A pack whose
+*content* fails validation is rejected whole and simply contributes no campaign
+row (§9), so a failed content pack cannot leave a half-registered enemy in the
+game either. This is CLAUDE.md rule 9 in operation: everything shipped is
+original by construction, and nothing you drop in can leave the game unable to
+draw.
 
 ---
 
@@ -173,7 +202,8 @@ The types below are exactly what `src/packs/manifest.ts` validates.
 | `assets` | no | object | `bullets?`, `ship?`, `filter?` — see §5.1–5.2. |
 | `sounds` | no | object | One entry per replaced sound, keyed by the sound's registered name — see §5.3. |
 | `hud` | no | object | `life?`, `bomb?` icon PNGs — see §5.4. |
-| `requires` | no | string[] | Engine capabilities the pack needs. Format 1 implements **none**, so any non-empty `requires` is refused, naming the capability. Omit it (do not write `[]` to make a point). |
+| `requires` | no | string[] | Engine capabilities the pack needs. This engine implements `content.enemies` and `content.stages`; anything else is refused, naming what it does not implement and what it does. A `content` section and its covering `requires` entry are one contract — see §9. Omit it entirely for a reskin-only pack (do not write `[]`). |
+| `content` | no | object | Format-2 game data: `enemies?`, `stages?`. Present only alongside the matching `requires` entries — see §9. |
 
 **Unknown fields are errors, not warnings.** A misspelled `assets.bulets` or a
 stray top-level key is rejected with a "did you mean" suggestion. This is
@@ -288,7 +318,12 @@ and the placeholders carry on.
 | Condition | Message |
 |---|---|
 | Not an array of strings | `requires must be an array of strings` |
-| Non-empty (any entry) | `requires lists capabilities format 1 does not implement: <a, b> — format 1 implements none; see docs/packs.md §Future` |
+| Any entry the engine does not implement | `requires lists capabilities this engine does not implement: <a, b> — implemented: content.enemies, content.stages; see docs/packs.md §Future` |
+
+The two implemented capabilities, `content.enemies` and `content.stages`, are
+**accepted** — and each demands its matching `content` section (§9). Everything
+else in `requires` is refused, naming both the offending capabilities and the
+implemented set.
 
 ### 6.3 `assets`
 
@@ -322,8 +357,12 @@ and the placeholders carry on.
 
 | Condition | Message |
 |---|---|
-| Reserved future section (`content`, `music`, `difficulty`, `dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires`) |
+| Reserved future section (`music`, `difficulty`, `dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
+| Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires, content`) |
+
+`content` is no longer refused here — it is an implemented top-level section
+(§9), and its own errors are in §9.4. The valid-fields list now ends in
+`content`.
 
 ### 6.7 Asset-loading errors (in the browser loader)
 
@@ -441,11 +480,17 @@ packs: boot report
   sounds.pickup: example  (/packs/example/pickup.wav)
   hud.life: example  (/packs/example/life.png)
   hud.bomb: example  (/packs/example/bomb.png)
+  content.enemies: example (2 registered)
+  content.stages: example (gauntlet → ashfall)
   meta: example@2e42786213c2
 ```
 
-When no pack supplies anything, the body reads `(no pack resources active —
-running on placeholders)`. An override adds a line like
+The two `content.*` lines are printed for a content pack (§9) so a developer can
+see the *data* registered, not just the reskin: one `content.enemies` line with
+the count, and one `content.stages` line per entry campaign showing its `next`
+chain in bare names. They are informational, not golden. A reskin-only pack
+prints neither. When no pack supplies anything, the body reads `(no pack
+resources active — running on placeholders)`. An override adds a line like
 `override: assets.bullets ← "crimson" (overrode "example")`. A failed pack is
 skipped whole and named:
 
@@ -463,7 +508,284 @@ console keeps the full text.
 
 ---
 
-## 9. Future formats — nothing here exists yet
+## 9. Content packs — enemies and stages as data
+
+A pack that declares `requires` and carries a `content` object adds **enemies**
+and **stages** to the game as data. The format number stays `1`; the capability
+gate is what turns content on, so a pack manifest is forward-compatible by
+construction (§9.1). Content is validated in **two layers** — shape, then
+semantics — and either can reject the pack whole (§9.4). A pack that clears both
+registers its enemies and stages under namespaced names and contributes one
+**campaign row** to the title menu per entry stage (§9.5), and its identity is
+pinned into any replay it records with a strict check (§9.6).
+
+`packs/example/` is the reference: two enemies (`ember`, exercising motion,
+timeline, patterns, spoils and tint; `drone`, the minimal three-field form) and a
+two-stage campaign (`gauntlet` chaining into `ashfall`, which sends the built-in
+`sentinel` boss). Copy it. Everything below is drawn from it.
+
+### 9.1 The gate: `requires` and the covering invariant
+
+Content is opt-in through `requires`. This engine implements two capabilities —
+`content.enemies` and `content.stages` — and a pack must **declare the capability
+for every content section it ships, and ship the section for every capability it
+declares.** That agreement is the *covering invariant*, and it is exact on
+purpose: an older engine that does not implement these capabilities refuses on
+`requires` **before it ever parses `content`**, so a section it could not load can
+never reach it unannounced.
+
+```json
+"requires": ["content.enemies", "content.stages"],
+"content": {
+  "enemies": { "…": "…" },
+  "stages":  { "…": "…" }
+}
+```
+
+A capability without its section, or a section without its capability, is an
+error (§9.4). A `requires` entry naming anything else — `netplay`,
+`content.bosses` — is refused, because those capabilities are not implemented
+(§6.2, §10).
+
+### 9.2 The shapes
+
+The content JSON **is** the engine's own spec object — there is no translation
+layer. A `content.enemies.<name>` is an `EnemySpec`
+(`src/sim/enemy.ts`, and §4 of [`docs/extending.md`](./extending.md)) written as
+JSON; a `content.stages.<name>` is a `StageSpec` (`src/content/stage.ts`, and §6
+there) minus its `name` (the key is the name) plus two fields the JSON form adds:
+`entry` and a nullable `next`. So the authoring guide for enemies and stages is
+`docs/extending.md`; this section covers only what the pack form adds on top.
+
+**An enemy** — the full form and the minimal one, both from the example:
+
+```json
+"enemies": {
+  "ember": {
+    "sprite": "star",
+    "hp": 30,
+    "radius": 12,
+    "tint": { "r": 1, "g": 0.7, "b": 0.3 },
+    "motion": { "r": 2.6, "theta": 90 },
+    "timeline": [
+      { "count": 0,   "motion": { "r": 2.6, "theta": 90 } },
+      { "count": 50,  "motion": { "r": 1.6, "theta": 0, "w": 2 } },
+      { "count": 110, "motion": { "r": 3, "theta": 270 } }
+    ],
+    "patterns": [
+      { "pattern": "aimed-fan", "options": { "spec": { "…": "a BulletSpec" }, "count": 3, "spread": 28, "period": 55 }, "startAt": 20 },
+      { "pattern": "spiral",    "options": { "spec": { "…": "a BulletSpec" }, "arms": 2, "step": 13, "period": 8 }, "startAt": 30, "stopAt": 110 }
+    ],
+    "spoils": [ ["power", 2], ["score", 1] ],
+    "scoreValue": 300,
+    "onHit": "hit",
+    "onDeath": "explosion"
+  },
+  "drone": { "sprite": "shard", "hp": 8, "radius": 8, "motion": { "r": 1.5, "theta": 90 } }
+}
+```
+
+`sprite`, `hp` and `radius` are required; everything else is optional and matches
+`EnemySpec` field-for-field. `spoils` is the `[name, count]` list `EnemySpec`
+carries, written as JSON arrays. A pattern slot's `spec` is a `BulletSpec` inline
+— its `sprite` is an atlas cell name, its numbers are the same pixels-per-tick the
+rest of the engine uses.
+
+**A stage** — an entry and a terminal, from the example:
+
+```json
+"stages": {
+  "gauntlet": {
+    "entry": true,
+    "seed": 7,
+    "background": "expanse",
+    "outro": 120,
+    "next": "ashfall",
+    "waves": [
+      { "at": 0,   "enemy": "drone", "x": 120, "y": -20, "count": 4, "interval": 25 },
+      { "at": 200, "enemy": "grunt", "x": 240, "y": -20, "count": 3, "interval": 30 },
+      { "at": 360, "enemy": "ember", "x": 160, "y": -30 }
+    ]
+  },
+  "ashfall": {
+    "seed": 11,
+    "background": "undertow",
+    "outro": 120,
+    "next": null,
+    "waves": [
+      { "at": 0,   "enemy": "drone", "x": 90, "y": -20, "count": 6, "interval": 18, "stepX": 60 },
+      { "at": 240, "boss": "sentinel" }
+    ]
+  }
+}
+```
+
+A wave is **one of two shapes**, told apart structurally: an **enemy wave** names
+`enemy` (with `x`, `y`, and optional `count`, `interval`, `stepX`, `stepY`), a
+**boss wave** names `boss` (with optional `x`, `y`). Naming both, or neither, is
+an error (§9.4). A boss wave is how a **midboss** arrives mid-stage — reaching one
+holds the schedule until the fight ends, exactly as a built-in `BossWave` does
+(§6 of `docs/extending.md`). Two fields are specific to the pack form:
+
+- **`entry: true`** marks a campaign start — the stage becomes a row on the title
+  menu. At least one stage must be an entry, and a stage that is neither an entry
+  nor reachable by some pack stage's `next` is dead content (§9.3).
+- **`next`** chains stages. A string names the next stage; `null` states "this is
+  the last stage" explicitly, where a built-in `StageSpec` leaves the field
+  `undefined`.
+
+### 9.3 Name resolution: pack-first, then built-in
+
+Every name a pack writes resolves **pack-first, then built-in**:
+
+- A pack's **own** enemies and stages are written **bare** in its JSON. The
+  injector qualifies them to `<packname>/<entry>` at registration —
+  `example/ember`, `example/gauntlet` — so a pack may reuse a built-in name
+  without collision, and a bare reference inside the pack resolves to the pack's
+  entry first.
+- **Built-ins** are referenced bare: a built-in enemy in a wave (`grunt`), a
+  built-in boss (`sentinel`), a built-in background (`expanse`), a registered
+  pattern (`aimed-fan`), a motion behaviour, an item name in `spoils`. These
+  resolve straight to the engine registries.
+- **Bosses and backgrounds are built-in only.** `content.bosses` is reserved
+  (§10) and a background is a fragment shader (engine code), so a pack stage may
+  *select* a registered boss or scene by name but never ship one.
+- **Cross-pack references are not supported.** A name that is neither the pack's
+  own nor a built-in is an error; one pack cannot reach into another's content.
+
+Two **reachability** rules — the project's "registration is not reachability" law
+(CLAUDE.md), applied to pack data so dead content fails the pack rather than
+shipping unreachable:
+
+- A pack stage must be an **entry** or the `next` of some **pack** stage. (A
+  built-in `next` leaves the pack; it does not reach back in.) A stage that is
+  neither is rejected.
+- A pack enemy must be **spawned by some wave** of some pack stage. An enemy
+  nothing fires is rejected — which also closes a gap the built-in path leaves
+  open, where a `defineEnemy` with a typo'd pattern name that no wave ever spawns
+  can register silently (§4 of `docs/extending.md`); here every pack enemy is
+  both name-checked and reached.
+
+### 9.4 The two validators, and their golden strings
+
+Content passes through two validators, split along the line `bun test` can reach.
+Both emit **golden** strings — asserted verbatim (`manifest.test.ts`,
+`inject.test.ts`), so rewording one is a breaking change.
+
+**Layer 1 — shape (`src/packs/manifest.ts`, pure, headless).** Fields, types,
+did-you-mean on unknown keys, and the covering invariant. It imports no registry,
+so it cannot know whether a *name* resolves — only that the shape is right. Every
+message carries the `pack "<folder>": pack.json: ` prefix.
+
+| Condition | Message (after the prefix) |
+|---|---|
+| A declared capability has no section | `requires lists "content.stages" but there is no content.stages section — add the section or drop the capability` |
+| A section has no declared capability | `content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content` |
+| `content` not an object | `content must be a JSON object` |
+| A reserved `content.*` section | `content.bosses is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future` |
+| Unknown key directly under `content` | `content: unknown field "<key>" — did you mean "<nearest>"?` (or `content: unknown field "<key>" — valid fields here: enemies, stages`) |
+| `content.enemies` not an object | `content.enemies must be a JSON object` |
+| Enemy missing `sprite` | `content.enemies."ember" is missing required field "sprite" — an atlas cell name` |
+| Enemy `hp` mistyped | `content.enemies."ember".hp must be a number` |
+| Unknown field on an enemy | `content.enemies."ember": unknown field "spirte" — did you mean "sprite"?` |
+| Pattern slot missing `pattern` | `content.enemies."ember".patterns[0] is missing required field "pattern" — a registered pattern name` |
+| Unknown field on a pattern slot | `content.enemies."ember".patterns[0]: unknown field "strtAt" — did you mean "startAt"?` |
+| A `spoils` entry is not a pair | `content.enemies."ember".spoils[0] must be a [name, count] pair — a string and a number` |
+| `content.stages` not an object | `content.stages must be a JSON object` |
+| Stage missing `waves` | `content.stages."gauntlet" is missing required field "waves" — an array of waves` |
+| Stage `entry` mistyped | `content.stages."gauntlet".entry must be a boolean` |
+| Stage `next` not string/null | `content.stages."gauntlet".next must be a string or null` |
+| Unknown field on a stage | `content.stages."gauntlet": unknown field "entyr" — did you mean "entry"?` |
+| Wave missing `at` | `content.stages."gauntlet".waves[0] is missing required field "at" — a whole tick count` |
+| Wave names neither | `content.stages."gauntlet".waves[0] must name an "enemy" or a "boss"` |
+| Wave names both | `content.stages."gauntlet".waves[0] names both "enemy" and "boss" — a wave is one or the other` |
+| Unknown field on a wave | `content.stages."gauntlet".waves[0]: unknown field "zzz" — valid fields here: at, enemy, boss, x, y, count, interval, stepX, stepY` |
+
+**Layer 2 — semantics (`src/packs/inject.ts`).** It imports `sim` and `content`
+(that direction is legal; the forbidden one is `sim`/`content`/`game` → `packs`),
+resolves every name against the real registries, enforces the reachability rules,
+and only then registers. It must **not** import `render`, so the sets of valid
+sprite and background names are **passed in** by the caller (the loader hands it
+`BULLET_CELLS` and `backgroundNames()`; a test hands the same). Every message
+carries the `pack "<name>": ` prefix.
+
+| Condition | Message (after the prefix) |
+|---|---|
+| Unknown sprite | `enemy "ember" uses unknown sprite "orb.huge" — known sprites: halo, orb.large, ring, shard, ship` |
+| Unknown pattern | `enemy "ember" uses unknown pattern "sprial" — no such pattern is registered` |
+| Unknown motion behaviour | `enemy "ember" uses unknown motion behaviour "homng" — no such behaviour is registered` |
+| Unknown spoils item | `enemy "ember" drops unknown item "powr" — no such item is registered` |
+| Wave enemy unresolved | `stage "gauntlet" wave 1 references unknown enemy "gremlin" — no such enemy in this pack or built in` |
+| Wave boss unresolved | `stage "gauntlet" wave 1 references unknown boss "sentinl" — pack stages may name a built-in boss only; no built-in boss "sentinl" exists` |
+| Stage `boss` unresolved | `stage "gauntlet" names unknown boss "overlord" — pack stages may name a built-in boss only; no built-in boss "overlord" exists` |
+| Stage `background` unresolved | `stage "gauntlet" is set in unknown background "nebula" — known backgrounds: expanse, undertow` |
+| Stage `next` unresolved | `stage "gauntlet" chains next into unknown stage "stage-99" — no such stage in this pack or built in` |
+| Wave `at` not whole | `stage "gauntlet" wave 0: "at" must be a whole tick count, got 12.5` |
+| Wave `count` not positive whole | `stage "gauntlet" wave 0: "count" must be a positive whole number, got 0` |
+| Wave `interval` not whole | `stage "gauntlet" wave 0: "interval" must be a whole tick count, got -1` |
+| Stage `outro` not whole | `stage "gauntlet": outro must be a whole tick count, got 1.5` |
+| Stages present, no entry | `has content.stages but no entry stage — mark a campaign start with "entry": true` |
+| Unreachable stage | `stage "orphan" is neither an entry nor any stage's next — dead content (registration is not reachability)` |
+| Unspawned enemy | `enemy "ghost" is spawned by no wave of any pack stage — dead content (registration is not reachability)` |
+
+Note **which messages list the known set and which do not.** Sprite and
+background names come from the caller, so those two messages *list* the known
+values (`known sprites: …`, `known backgrounds: …`). Pattern, behaviour, item,
+boss, enemy and stage names come from process-global registries that other test
+files register fixtures into — so listing their contents would not be a stable
+golden. Those messages name the bad value and say it did not resolve, and stop.
+
+Semantic validation is **atomic**: every problem is collected first, and if there
+is one the pack registers **nothing** and the injector throws with the whole
+list. That is what makes "a failed content pack has no campaign row" structural
+rather than a convention — nothing half-registers.
+
+### 9.5 What makes it reachable
+
+Registration alone does not put a stage in front of a player; a wire does, and it
+is the same shape as everything else in the game reaching content by name:
+
+- **Boot order.** `main.ts` imports `./content` (built-ins register on module
+  eval), then `await loadPacks()` (which injects each content pack into the same
+  registries), then constructs the state machine. Module-eval-before-top-level-
+  await guarantees every built-in a pack might reference already exists when the
+  pack is injected.
+- **Campaign rows.** The loader returns one campaign per `entry: true` stage,
+  labelled with the qualified stage name. `main.ts` puts them on `GameContext` as
+  **plain data** — `src/game` imports nothing from `src/packs`, the same boundary
+  §12 describes — and the title menu grows one row per campaign under `START`.
+  Selecting a row arms the run to start on that qualified stage; `START` is
+  today's built-in game, unchanged. Zero content packs means the title menu is
+  byte-for-byte what it was.
+- **The boot report** prints a `content.enemies: <pack> (<n> registered)` line
+  and a `content.stages: <pack> (<chain>)` line per entry campaign (§8), so a
+  developer sees the data took effect, not just the reskin.
+- **A test proves it, it is not a claim.** `src/packs/example-play.test.ts`
+  injects the real example pack and drives the **real** `StateMachine` through
+  title → the campaign row → character select → playing, asserting the pack stage
+  runs, its enemies spawn under qualified names, the `next` chain reaches
+  `ashfall`, and the built-in `sentinel` arrives. This is the format-2 acceptance
+  test, in the spirit of `reachability.test.ts` — which itself exempts namespaced
+  names (any containing `/`) from its built-in scan, because pack content is
+  reachable only through its own campaign.
+
+### 9.6 Replay: content is strict
+
+A reskin cannot change the simulation, so a skin mismatch on replay **warns**
+(§11 below, `RunConfig.packs`). **Content can** — different enemies fire different
+bullets — so a replay recorded under a content pack records `RunConfig.packsData`
+(`name@hash` of the pack whose campaign it entered) and **refuses** to play back
+under different content, exactly as it refuses a mismatched character, stage or
+boss. A built-in run records `''` even with content packs loaded, because injected
+enemies a built-in stage never references cannot affect it.
+
+> The one-sentence why: **pack content changes what the game does, so a replay
+> under different content is a different run and must be rejected, not warned** —
+> the same reason presentation, which changes only how it looks, is only warned.
+
+---
+
+## 10. Future formats — nothing here exists yet
 
 > Nothing in this section exists. It is written down so v1 manifests cannot paint
 > us into a corner: every name below is **reserved and refused today**, with a
@@ -471,78 +793,99 @@ console keeps the full text.
 > instead of getting a generic "unknown field", and a future format 2 can claim
 > these names without colliding with anything a v1 pack was allowed to use.
 
-Each reserved name and the exact rejection the engine emits **now**:
+`content.enemies` and `content.stages` are **not** in this list — they are
+implemented, and §9 is their reference. What remains reserved is everything a
+pack still cannot ship. Each reserved name and the exact rejection the engine
+emits **now**:
 
 | Reserved name | What a future format might do with it | Rejection today |
 |---|---|---|
-| `content` (top-level) | ship patterns, enemies, bosses as data | `content is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| `music` (top-level) | background music tracks | `music is a pack-format-2 section …` |
+| `music` (top-level) | background music tracks | `music is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `difficulty` (top-level) | tuning curves as data | `difficulty is a pack-format-2 section …` |
 | `dialog` (top-level) | cutscene/portrait scripts | `dialog is a pack-format-2 section …` |
 | `backgrounds` (top-level) | scene selection | `backgrounds is a pack-format-2 section …` |
+| `content.bosses`, `content.characters`, `content.items` | bosses, ships, pickups as data | `content.bosses is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future` |
+| `content.music`, `content.difficulty`, `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.music is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future` |
 | `hud.digits`, `hud.font` | number/font glyph sheets | `hud.digits is a pack-format-2 resource and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `hud.bossBar`, `hud.frame` | boss-bar skin, screen frame | `hud.bossBar is a pack-format-2 resource …` |
 
-Two of these deserve a word on *why* they are code and not data, because it is
-the same reason and it is load-bearing:
+Two reserved names deserve a word on *why* they stay code and not data, because
+it is the same reason and it is load-bearing:
 
 - **`backgrounds` stay shaders.** A background is a fragment shader in
   `src/render/backgrounds/`, registered by name with `defineBackground`, and a
   stage names it as a string (`StageSpec.background`). There is no background
   image and no plan for one — see `docs/assets.md` §3.4 and CLAUDE.md's
   "Backgrounds are scenes". A pack could at most *select* a registered scene; it
-  can never *ship* one.
-- **`content` — patterns, behaviours, effects — is code joined by name.** This is
-  the dual-track line from §1: a danmaku visual *effect* is three.js/shader code
-  registered by name, exactly as a *pattern* or a *behaviour* is; a pack supplies
-  the sprite *skin* those effects and patterns draw with, never the effect or
-  pattern itself. Definitions are code; invocations are data. A format 2 that
-  adds `content` will still register the code and let a pack name it — it will not
-  let a pack *be* it.
+  can never *ship* one — which is exactly what a pack stage's `background: "expanse"`
+  does today (§9.3).
+- **`content.bosses` and the rest stay code joined by name.** This is the
+  dual-track line from §1, and it is what §9 already lives by: a pack *arranges*
+  registered code — it names the `sentinel` boss a stage sends, the `aimed-fan`
+  pattern an enemy fires, the `homing` behaviour that steers a bullet — but it
+  never *ships* the boss, the pattern, the behaviour or the effect. Definitions
+  are code; invocations are data. `content.enemies` and `content.stages` are data
+  because an enemy and a stage are arrangements of code that already exists; a
+  boss's spell-card script or a new pattern is that code, and stays reserved.
 
 ---
 
-## 10. Replay compatibility
+## 11. Replay compatibility
 
-A replay records the identity of the packs loaded when it was captured:
-`RunConfig.packs` (`src/game/run.ts`) is a comma-joined string of
-`name@sha256[0..12]` for each loaded pack (`''` when none), recorded into replay
-meta by `finishRecording`. The hash is a SHA-256 over the manifest bytes followed
-by each loaded file's bytes, in a fixed canonical order, so it is stable
-regardless of how an author ordered their JSON keys.
+A replay records the identity of the packs loaded when it was captured, on two
+keys with two policies:
 
-Because v1 packs are **presentation only**, a mismatch on playback **warns** — in
-the boot report and the console — it never **refuses**. A replay captured with
-one bullet skin plays back identically with another or with none, because the
-skin never touched the simulation. (The strict-refusal path is reserved for a
-future `packsData` key, if data packs ever exist: those would change what the
-game does, and presentation cannot.) The warning exists so a viewer knows the
-run *looked* different from how it was recorded — nothing more.
+- **`RunConfig.packs`** (`src/game/run.ts`) — the **presentation** identity: a
+  comma-joined string of `name@sha256[0..12]` for every loaded pack (`''` when
+  none). Because a reskin never touches the simulation, a mismatch on playback
+  **warns** — in the boot report and the console — it never **refuses**. A replay
+  captured with one bullet skin plays back identically with another or with none.
+  The warning exists so a viewer knows the run *looked* different from how it was
+  recorded — nothing more.
+- **`RunConfig.packsData`** — the **content** identity: `name@hash` of the pack
+  whose campaign this run entered (`''` for a built-in campaign, even with content
+  packs loaded). Because content changes what the game *does*, a mismatch here
+  **refuses**, exactly as a mismatched character, stage or boss does (§9.6). This
+  is the strict path the v1 spec reserved and format 2 made real.
+
+The hash is a SHA-256 over the manifest bytes followed by each loaded file's
+bytes, in a fixed canonical order, so it is stable regardless of how an author
+ordered their JSON keys.
 
 ---
 
-## 11. Where the code lives
+## 12. Where the code lives
 
-Two modules, split along the line `bun test` can reach:
+Three modules, split along the line `bun test` can reach:
 
-- **`src/packs/manifest.ts`** — pure: validation, index parsing, hashing. Imports
-  nothing from `render`, `sim`, `content` or `game`; pack identity crosses those
-  boundaries as a plain string. Every golden error string lives here and is
-  proved headlessly in `manifest.test.ts`.
+- **`src/packs/manifest.ts`** — pure: shape validation, the covering invariant,
+  index parsing, hashing. Imports nothing from `render`, `sim`, `content` or
+  `game`; pack identity crosses those boundaries as a plain string. Every golden
+  *shape* error string lives here and is proved headlessly in `manifest.test.ts`.
+- **`src/packs/inject.ts`** — semantics: it takes a manifest whose shape
+  `manifest.ts` accepted, resolves every content name against the real
+  registries, enforces the reachability rules, and registers the enemies and
+  stages under qualified names. It imports `sim` and `content` (the legal
+  direction) but **not** `render` — the sprite and scene name sets are passed in,
+  which keeps it provable in `bun test` with no GL context. Every golden
+  *semantic* error string lives here and is proved in `inject.test.ts`.
 - **`src/packs/loader.ts`** — browser-side: fetch, decode, measure pixels, build
-  the URL set. The one pack module allowed to import `render` (it reads the sheet
-  geometry the checks measure against). Runs at boot in `main.ts` **before** atlas
-  construction and before the audio graph unlocks, so its results are in place
-  before anything reads them. Total by construction — it cannot throw into boot.
+  the URL set, and call `inject.ts` for each content pack. The one pack module
+  allowed to import `render` (it reads the sheet geometry the checks measure
+  against, and hands `inject` the render name sets). Runs at boot in `main.ts`
+  **before** atlas construction and before the audio graph unlocks, so its
+  results are in place before anything reads them. Total by construction — it
+  cannot throw into boot.
 
 `src/sim`, `src/content` and `src/game` **must not import `src/packs` at all** —
 values *or* types — and `src/architecture.test.ts` enforces it with a self-test
-proving it can fail. Pack identity reaches the run as a plain string
-(`RunConfig.packs`) and nothing in the simulation learns what a pack is.
+proving it can fail. Pack identity reaches the run as plain strings
+(`RunConfig.packs`, `RunConfig.packsData`) and nothing in the simulation learns
+what a pack is.
 
 ---
 
-## 12. Verify
+## 13. Verify
 
 A pack is data, not code, so the source-tree gates (`bun run typecheck`,
 `bun test`) prove the *engine* still holds — they do not open your PNG. What
@@ -557,6 +900,17 @@ pack declares should name your pack, the `meta:` line should show its hash, and
 the field should draw your art — bullets in your shapes, your ship, your HUD
 icons — not the placeholders. Any rejected resource is named there with the
 measured value that failed it (§6.7).
+
+If your pack carries **content** (§9), the report also prints its
+`content.enemies` and `content.stages` lines, and the **title menu grows a row**
+per entry campaign under `START`: select it and the run should start on your
+stage, spawn your enemies, and chain through `next` to your boss. A content pack
+that fails semantic validation is named in the report's `FAILED` block with the
+`inject.ts` problem list (§9.4) and contributes no row. Unlike the pixel checks,
+content is fully covered headlessly — `bun test` runs the shape validator, the
+injector against the real registries, and the acceptance playthrough
+(`src/packs/example-play.test.ts`), so a content bug fails the source gate, not
+only the browser.
 
 ```
 bun run build          # confirm dist/packs/<name>/ is staged and index.json lists it

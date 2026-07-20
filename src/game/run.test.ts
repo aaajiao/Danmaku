@@ -343,6 +343,40 @@ describe('record then replay', () => {
     expect(replay.meta?.['boss']).toBe('sentinel');
     expect(replay.seed).toBe(SEED);
   });
+
+  test('the recording carries the data-pack identity it entered under', () => {
+    const live = new Run(config({ packsData: 'example@abcdef012345' }));
+    play(live, 240);
+    expect(live.finishRecording().meta?.['packsData']).toBe('example@abcdef012345');
+  });
+
+  test('a built-in run records an empty pack identity', () => {
+    // '' rather than absent: a built-in run is a positive claim that no data
+    // pack shaped it, even in a build where data packs were loaded.
+    const live = new Run(config());
+    play(live, 120);
+    expect(live.finishRecording().meta?.['packsData']).toBe('');
+  });
+
+  test('a replay recorded under different pack content is refused, not warned', () => {
+    // The strict counterpart to the presentation `packs` warning: a data pack's
+    // stages and enemies fire different bullets, so a replay under different
+    // content is a different run and must be rejected. Mirrors the character,
+    // seed and boss refusals above.
+    const live = new Run(config({ packsData: 'example@abcdef012345' }));
+    play(live, 300);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ packsData: 'crimson@012345abcdef', replay }))).toThrow(
+      /packsData/,
+    );
+  });
+
+  test('a replay replayed under the same pack content is accepted', () => {
+    const live = new Run(config({ packsData: 'example@abcdef012345' }));
+    play(live, 120);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ packsData: 'example@abcdef012345', replay }))).not.toThrow();
+  });
 });
 
 /* ------------------------------------------------------------------ */

@@ -49,7 +49,7 @@ import { join } from 'node:path';
 import { sinDeg } from '../src/core/trig';
 import { BULLET_GRID, BULLET_COLUMNS, BULLET_ROWS, BULLET_CELLS, MAX_CELL_EXTENT } from '../src/render/procedural';
 import { ColourType, encodePng, parsePng, pixelOf, type PngHeader } from './png';
-import { validateManifest, type PackManifest } from '../src/packs/manifest';
+import { validateManifest, type PackContent, type PackManifest } from '../src/packs/manifest';
 
 const OUT = join(import.meta.dir, '..', 'packs', 'example');
 
@@ -264,8 +264,8 @@ const NOTCH = [CENTRE, CENTRE + 8] as const;
  * a genuine readability feature, not a debug affordance — is the placeholder
  * ship's own convention (`createShipAtlas`, `src/render/procedural.ts`).
  *
- * Colour cannot separate marker from body — rule 1.1 keeps everything on this
- * sheet white — so the contrast has to be alpha: the body paints at 205/255,
+ * Colour cannot separate marker from body — docs/packs.md §7.1 keeps everything
+ * on this sheet white — so the contrast has to be alpha: the body paints at 205/255,
  * the marker at the full 255, the same technique `createShipAtlas` uses
  * (0.95 vs 1.0) with the gap widened so it reads as a genuine difference
  * rather than a rounding artefact. `verifyShip` checks the two are actually
@@ -424,7 +424,106 @@ function buildPickup(): Uint8Array {
 }
 
 /* ------------------------------------------------------------------ */
-/* pack.json — every v1 field, round-tripped through the real validator */
+/* content — format-2 enemies and stages, as data                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every field in `content` mirrors an engine spec verbatim — a pack enemy IS an
+ * `EnemySpec`, a pack stage IS a `StageSpec` (minus its name, which is the
+ * section key) — so there is no translation layer to keep in step, and the
+ * numbers below are chosen in the same range as the built-in cast in
+ * `src/sim/enemy.ts` and `src/content/stage.ts` so a copy-paste author starts
+ * from something balanced rather than from a placeholder that plays wrong.
+ *
+ * Name resolution is pack-first, then built-in. `ember` and `drone` are this
+ * pack's own enemies, written bare and qualified to `example/ember` /
+ * `example/drone` at injection; `grunt` is a built-in named bare; `sentinel` is
+ * a built-in boss (packs may name built-in bosses only — `content.bosses` is
+ * reserved); `expanse`/`undertow` are built-in backgrounds; `power`/`score` are
+ * built-in item names; `aimed-fan`/`spiral` are built-in patterns. A pack
+ * defines enemies and stages; it references everything else by name.
+ */
+
+/** A bullet the pack's patterns fire — an ordinary `BulletSpec`, white cell, engine-tinted. */
+const EMBER_SHOT = {
+  style: { sprite: 'orb.small', r: 1, g: 0.6, b: 0.2 },
+  radius: 3,
+  motion: { r: 2.2, theta: 90 },
+};
+
+const CONTENT: PackContent = {
+  enemies: {
+    // Full-featured: a base motion, a timeline that re-inits it (dive, sweep,
+    // leave — the `weaver` shape), two patterns with real options, spoils, a
+    // tint, and a score value. Everything an `EnemySpec` can carry.
+    ember: {
+      sprite: 'star',
+      hp: 30,
+      radius: 12,
+      tint: { r: 1, g: 0.7, b: 0.3 },
+      motion: { r: 2.6, theta: 90 },
+      timeline: [
+        { count: 0, motion: { r: 2.6, theta: 90 } },
+        { count: 50, motion: { r: 1.6, theta: 0, w: 2 } },
+        { count: 110, motion: { r: 3, theta: 270 } },
+      ],
+      patterns: [
+        { pattern: 'aimed-fan', options: { spec: EMBER_SHOT, count: 3, spread: 28, period: 55 }, startAt: 20 },
+        { pattern: 'spiral', options: { spec: EMBER_SHOT, arms: 2, step: 13, period: 8 }, startAt: 30, stopAt: 110 },
+      ],
+      spoils: [['power', 2], ['score', 1]] as [string, number][],
+      scoreValue: 300,
+      onHit: 'hit',
+      onDeath: 'explosion',
+    },
+    // Minimal: the floor an enemy can be — a hitbox with a heading. No patterns,
+    // no spoils, no tint. It descends and can be shot; nothing more.
+    drone: {
+      sprite: 'shard',
+      hp: 8,
+      radius: 8,
+      motion: { r: 1.5, theta: 90 },
+    },
+  },
+  stages: {
+    // The entry — the row that appears under START. Uses both pack enemies and
+    // a built-in one, and chains into the second stage by name.
+    gauntlet: {
+      entry: true,
+      seed: 7,
+      background: 'expanse',
+      outro: 120,
+      next: 'ashfall',
+      waves: [
+        { at: 0, enemy: 'drone', x: 120, y: -20, count: 4, interval: 25 },
+        { at: 30, enemy: 'drone', x: 360, y: -20, count: 4, interval: 25 },
+        { at: 200, enemy: 'grunt', x: 240, y: -20, count: 3, interval: 30 },
+        { at: 360, enemy: 'ember', x: 160, y: -30 },
+        { at: 400, enemy: 'ember', x: 320, y: -30 },
+        { at: 520, enemy: 'ember', x: 240, y: -30, count: 2, interval: 60, stepX: -80 },
+      ],
+    },
+    // The second stage, reached only via `gauntlet`'s `next`. Its climax is a
+    // boss wave naming a built-in boss — the schedule holds there until the boss
+    // is gone, then the tail wave falls due. `next: null` states, explicitly,
+    // that this is the last stage.
+    ashfall: {
+      seed: 11,
+      background: 'undertow',
+      outro: 120,
+      next: null,
+      waves: [
+        { at: 0, enemy: 'drone', x: 90, y: -20, count: 6, interval: 18, stepX: 60 },
+        { at: 120, enemy: 'grunt', x: 240, y: -20, count: 2, interval: 40 },
+        { at: 240, boss: 'sentinel' },
+        { at: 260, enemy: 'ember', x: 200, y: -30 },
+      ],
+    },
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* pack.json — every field, round-tripped through the real validator   */
 /* ------------------------------------------------------------------ */
 
 const MANIFEST: PackManifest = {
@@ -434,7 +533,7 @@ const MANIFEST: PackManifest = {
   author: 'Danmaku project',
   license: 'CC0-1.0',
   description:
-    'The reference pack: every v1 field, and art that follows every rule the loader checks. Copy this directory, rename it, and swap the files.',
+    'The reference pack: every manifest field, art that follows every rule the loader checks, and a two-stage campaign of format-2 content. Copy this directory, rename it, and swap the files.',
   assets: {
     bullets: 'bullets.png',
     ship: 'ship.png',
@@ -448,6 +547,11 @@ const MANIFEST: PackManifest = {
     life: 'life.png',
     bomb: 'bomb.png',
   },
+  // The covering invariant: every content.<section> present must be named here,
+  // and vice versa. It is what lets a v1 engine refuse on `requires` before it
+  // ever parses `content`.
+  requires: ['content.enemies', 'content.stages'],
+  content: CONTENT,
 };
 
 /* ------------------------------------------------------------------ */
@@ -482,13 +586,66 @@ JSON has no comments, so this table is where the annotation lives.
 | \`assets.filter\` | \`"nearest"\` | Texture sampling for both sheets: \`"nearest"\` or \`"linear"\`. This pack's art is hard-edged, so \`"nearest"\` keeps every boundary crisp; smooth, gradient-shaded art should ask for \`"linear"\` instead. Default is \`"nearest"\` either way. |
 | \`sounds.shot\`, \`sounds.pickup\` | two \`.wav\` files | One entry per sound this pack replaces — the full list of names the engine plays is in \`docs/audio.md\` §2; an unknown name is rejected and lists them. This pack only replaces two of the six, which is legal: everything else keeps playing its synthesised placeholder. |
 | \`hud.life\`, \`hud.bomb\` | two \`.png\` files | Replace the ♥/★ glyphs. See "HUD icons are shapes, not compositions" below. |
-| \`requires\` | *(not set)* | Declares engine capabilities a pack needs. Format 1 implements none, so any non-empty \`requires\` is refused by name — this pack needs nothing, so the field is simply absent rather than an empty array making a point of it. |
+| \`requires\` | \`["content.enemies", "content.stages"]\` | The capabilities this pack's \`content\` needs. The engine honours exactly the two named here; anything else is refused by name. Every \`content.<section>\` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on \`requires\` before it parses a \`content\` section it could not load. |
+| \`content\` | two enemies, two stages | Format-2 game content: the enemies and stages this pack adds. See "Content: enemies and stages" below. |
 
-Every field above that is not in this pack — \`content\`, \`music\`, \`difficulty\`,
-\`dialog\`, \`backgrounds\`, and the reserved \`hud\` names \`digits\`/\`font\`/
-\`bossBar\`/\`frame\` — belongs to a format this engine does not implement yet.
-Writing one in gets a dedicated rejection naming it as a future section, not a
-generic "unknown field" error; see \`docs/packs.md\` §Future.
+The fields this engine still does not implement — the reserved \`content\`
+sections \`bosses\`/\`characters\`/\`items\`/\`music\`/\`difficulty\`/\`dialog\`/
+\`backgrounds\`, the top-level \`music\`/\`difficulty\`/\`dialog\`/\`backgrounds\`, and
+the reserved \`hud\` names \`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated
+rejection naming each as a future section rather than a generic "unknown field"
+error; see \`docs/packs.md\` §Future.
+
+## Content: enemies and stages
+
+\`content\` is where a pack stops reskinning the game and starts adding to it. This
+pack ships two enemies and a two-stage campaign; the row it adds under START on
+the title screen (\`example/gauntlet\`) is the campaign's entry stage.
+
+**A pack enemy IS an \`EnemySpec\`; a pack stage IS a \`StageSpec\`.** There is no
+translation — the JSON below is handed straight to \`defineEnemy\`/\`defineStage\`
+after its names are checked. So the authoring reference is the engine's own:
+\`src/sim/enemy.ts\` for an enemy's fields (\`sprite\`, \`hp\`, \`radius\`, \`motion\`,
+\`timeline\`, \`patterns\`, \`spoils\`, \`tint\`, …) and \`src/content/stage.ts\` for a
+stage's (\`waves\`, \`seed\`, \`outro\`, \`boss\`, \`background\`, plus \`entry\`/\`next\`).
+
+**Names resolve pack-first, then built-in.** Your own enemies and stages are
+written **bare** inside your JSON and registered under a \`<packname>/\` prefix, so
+this pack's \`ember\` becomes \`example/ember\`. A bare name that is not one of your
+own resolves to a built-in: \`grunt\` in a wave is the built-in grunt, \`sentinel\`
+is the built-in boss, \`expanse\` and \`undertow\` are built-in backgrounds,
+\`power\`/\`score\` in \`spoils\` are built-in items, \`aimed-fan\`/\`spiral\` are built-in
+patterns. **A pack defines enemies and stages and references everything else by
+name.** Cross-pack references are not supported: a name is either yours or a
+built-in's.
+
+**Bosses and backgrounds are built-ins you reference, never author.**
+\`content.bosses\` is a reserved future section, and a background is a fragment
+shader — engine code. A pack stage names one of each by string; it cannot ship
+one. Name a boss or background that does not exist and injection refuses the pack
+whole, listing (for backgrounds) the ones that do.
+
+**Registration is not reachability, and the injector enforces it.** Two rules,
+both errors that reject the pack:
+
+- At least one stage must be an \`entry\`, and every stage must be reachable — an
+  \`entry\`, or the \`next\` of some stage in the pack. A stage that is neither is
+  dead content. \`gauntlet\` is the entry; \`ashfall\` is reached by its \`next\`.
+- Every enemy the pack defines must be spawned by some wave of some pack stage.
+  An enemy nothing places is dead content. \`ember\` and \`drone\` are both flown by
+  \`gauntlet\`.
+
+Use \`next: null\` to say a stage is the last one explicitly (an omitted \`next\`
+means the same, but \`null\` reads as a decision rather than a gap). \`ashfall\` ends
+the campaign that way, after a boss wave that summons \`sentinel\`.
+
+**A campaign's content is part of the run, so replays of it are strict.** A
+built-in run records an empty pack identity; a run entered through this pack's
+campaign records \`example@<hash>\`, and a replay whose recorded identity does not
+match the pack loaded at playback is **refused**, not warned. That is the
+difference from the presentation-only \`packs\` meta (bullets and sounds), which
+only warns: format-2 content changes what the simulation does, so a replay under
+different content is a different run.
 
 ## Why the bullets look like this
 
@@ -537,8 +694,8 @@ than the sprite — a few pixels against a ship many times that size — and
 showing where it actually is is a real readability feature for the player, not
 a debug leftover.
 
-Colour cannot separate the marker from the body; rule 1.1 keeps this whole
-sheet white. So the contrast is **alpha**: the body paints at 205 of 255, the
+Colour cannot separate the marker from the body; docs/packs.md §7.1 keeps this
+whole sheet white. So the contrast is **alpha**: the body paints at 205 of 255, the
 marker at a full 255. It is a small gap, deliberately — the marker should read
 as "slightly brighter", not as a hole in the ship.
 

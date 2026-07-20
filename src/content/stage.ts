@@ -163,6 +163,11 @@ export function stageNames(): readonly string[] {
   return [...registry.keys()];
 }
 
+/** Non-throwing existence check, for a validator resolving a name before use. */
+export function hasStage(name: string): boolean {
+  return registry.has(name);
+}
+
 /**
  * `Array.prototype.sort` is stable per spec, which is load-bearing here rather
  * than incidental: two waves sharing an `at` spawn in the order they were

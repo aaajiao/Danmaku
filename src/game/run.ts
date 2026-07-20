@@ -171,6 +171,21 @@ export interface RunConfig {
    * is. The shell computes it; this only carries it.
    */
   packs?: string;
+  /**
+   * Identity of the data pack whose campaign this run entered: `name@hash`,
+   * `''` for a built-in campaign even with data packs loaded. Recorded into
+   * replay meta, and on playback a mismatch REFUSES rather than warns.
+   *
+   * This is the strict counterpart to `packs`, and the split is the point: a
+   * presentation pack changes how a run *looked* and can be swapped under a
+   * replay freely, but a data pack's stages and enemies fire different bullets
+   * — they change what the simulation *did*, so a replay under different
+   * content is a different run and must be rejected, not flagged.
+   *
+   * A plain **string** by the same contract as `packs`; the shell computes it,
+   * this only carries it.
+   */
+  packsData?: string;
 }
 
 /**
@@ -396,10 +411,15 @@ export class Run {
       expectMeta(replay, 'stage', this.stageName);
       expectMeta(replay, 'boss', this.bossName ?? '');
       expectMeta(replay, 'carry', encodeCarry(config.carry));
+      // Strict, and deliberately routed through `expectMeta` (throws) while
+      // `packs` below is routed through `warnMeta`: a data pack's content moved
+      // the simulation, so a replay recorded under different content is a
+      // different run and is refused. Presentation cannot change what the run
+      // did; content can — which is the whole reason the two are split.
+      expectMeta(replay, 'packsData', config.packsData ?? '');
       // Packs are presentation-only: a different pack changes how the run looked,
       // never what it did, so a mismatch WARNS and never refuses. Deliberately
-      // not routed through `expectMeta`, which throws — the strict-refusal path
-      // is reserved for a future data-pack meta key.
+      // not routed through `expectMeta`, which throws.
       warnMeta(replay, 'packs', config.packs);
       this.#playback = new ReplayPlayback(replay);
     }
@@ -1111,6 +1131,9 @@ export class Run {
       stage: this.stageName,
       boss: this.bossName ?? '',
       carry: encodeCarry(this.config.carry),
+      // Strict on playback: content changed the simulation, so a mismatch gates
+      // the run rather than warning. '' for a built-in campaign.
+      packsData: this.config.packsData ?? '',
       // Presentation-only: a mismatch on playback warns, so this is recorded to
       // be reported, not to gate the run. '' when no pack was loaded.
       packs: this.config.packs ?? '',

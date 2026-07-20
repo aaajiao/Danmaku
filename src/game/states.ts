@@ -32,6 +32,29 @@ import { characterNames, getCharacter, Run, type PlayerCarry } from './run';
  * be. `main.ts` can hand it a clock; a test hands it a constant and gets the
  * same run every time without the states knowing which is which.
  */
+/**
+ * One selectable campaign, all plain data.
+ *
+ * `stage` is the qualified entry-stage name (`<pack>/<entry>`) the run starts
+ * on; `packsData` is the entering pack's `name@hash`, recorded strictly into
+ * replay meta (see `RunConfig.packsData`). The identity travels on the campaign,
+ * not on the context, because that is what lets the plain START row record `''`:
+ * a run only carries a pack's identity when it entered that pack's campaign.
+ *
+ * Declared here rather than imported from `src/packs`, because `src/game` must
+ * not import that tree at all (`architecture.test.ts` enforces it). A campaign
+ * crosses the boundary as this flat record; the shell fills it, the game reads
+ * it, and neither side learns what a pack is.
+ */
+export interface Campaign {
+  /** Menu row label. */
+  readonly label: string;
+  /** Qualified entry stage (`<pack>/<entry>`) the run plays. */
+  readonly stage: string;
+  /** Entering pack's identity (`name@hash`), for `RunConfig.packsData`. */
+  readonly packsData: string;
+}
+
 export interface GameContext {
   readonly machine: StateMachine;
   /** Seed for the next run. */
@@ -48,6 +71,20 @@ export interface GameContext {
    * what a pack is (see `RunConfig.packs`).
    */
   packs?: string;
+  /**
+   * Identity of the data pack whose campaign this run entered (`name@hash`),
+   * armed by `TitleState` when a campaign row is chosen and forwarded into
+   * `RunConfig.packsData`. Unset for a built-in run, so it records `''` — a
+   * data pack changes the simulation, and that mismatch REFUSES a replay where
+   * `packs` only warns (see `RunConfig.packsData`).
+   */
+  packsData?: string;
+  /**
+   * Campaigns offered under START on the title screen — one per pack entry
+   * stage, empty or unset for a built-in-only build. `main.ts` fills it from
+   * the loader as plain data. Empty means today's menu, exactly.
+   */
+  campaigns?: readonly Campaign[];
   /** Handed the recording when a run ends. */
   onReplay?(replay: Replay): void;
 }
@@ -138,10 +175,23 @@ export class TitleState extends MenuState {
   }
 
   protected get entries(): readonly string[] {
-    return ['START'];
+    // START, then one row per campaign. An empty (or unset) list spreads to
+    // nothing, so a built-in-only build renders `['START']` byte-identically.
+    return ['START', ...(this.ctx.campaigns ?? []).map((c) => c.label)];
   }
 
-  protected confirm(): void {
+  protected confirm(index: number): void {
+    // Row 0 is START: it steers nothing, so `ctx.stage`/`ctx.packsData` are
+    // left exactly as they were and a built-in run records `packsData: ''`.
+    // Every later row is a campaign (index - 1 into the list); selecting one
+    // arms both the qualified stage and the entering pack's identity before the
+    // normal character-select flow, the same way a boss override is left on the
+    // context to steer the run that starts later.
+    const campaign = (this.ctx.campaigns ?? [])[index - 1];
+    if (campaign !== undefined) {
+      this.ctx.stage = campaign.stage;
+      this.ctx.packsData = campaign.packsData;
+    }
     this.ctx.machine.replace(new CharacterSelectState(this.ctx));
   }
 
@@ -239,6 +289,9 @@ export class PlayingState implements GameState {
       // Recorded into replay meta, not consumed by the run — the pack identity
       // travels on the context the same way the boss override does.
       ...(ctx.packs === undefined ? {} : { packs: ctx.packs }),
+      // Same channel as `packs`, but a strict one: a data pack's content moved
+      // the simulation, so a replay under a different one is refused, not warned.
+      ...(ctx.packsData === undefined ? {} : { packsData: ctx.packsData }),
     });
   }
 

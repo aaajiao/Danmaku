@@ -171,9 +171,21 @@ describe('description and requires', () => {
     );
   });
 
-  test('non-empty requires is refused, naming the capability', () => {
+  test('an unimplemented capability is refused, naming what IS implemented', () => {
     expect(errorsOf({ ...valid(), requires: ['netplay'] })).toContain(
-      'pack "candy": pack.json: requires lists capabilities format 1 does not implement: netplay — format 1 implements none; see docs/packs.md §Future',
+      'pack "candy": pack.json: requires lists capabilities this engine does not implement: netplay — implemented: content.enemies, content.stages; see docs/packs.md §Future',
+    );
+  });
+
+  test('only the unimplemented entries are named, not the implemented ones', () => {
+    // content.enemies is implemented and paired with a section below; netplay is not.
+    const raw = {
+      ...valid(),
+      requires: ['content.enemies', 'netplay'],
+      content: { enemies: { ember: { sprite: 'ship', hp: 10, radius: 6 } } },
+    };
+    expect(errorsOf(raw)).toContain(
+      'pack "candy": pack.json: requires lists capabilities this engine does not implement: netplay — implemented: content.enemies, content.stages; see docs/packs.md §Future',
     );
   });
 
@@ -192,11 +204,11 @@ describe('unknown and reserved top-level fields', () => {
 
   test('an unrecognisable key lists the valid fields', () => {
     expect(errorsOf({ ...valid(), wibble: 1 })).toContain(
-      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires',
+      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires, content',
     );
   });
 
-  for (const reserved of ['content', 'music', 'difficulty', 'dialog', 'backgrounds']) {
+  for (const reserved of ['music', 'difficulty', 'dialog', 'backgrounds']) {
     test(`reserved section "${reserved}" gets a dedicated rejection`, () => {
       expect(errorsOf({ ...valid(), [reserved]: {} })).toContain(
         `pack "candy": pack.json: ${reserved} is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future`,
@@ -296,6 +308,228 @@ describe('hud', () => {
   });
 });
 
+describe('content — format-2 sections', () => {
+  /** A manifest whose content round-trips: requires covers both sections, shapes valid. */
+  function withContent(): Record<string, unknown> {
+    return {
+      ...valid(),
+      requires: ['content.enemies', 'content.stages'],
+      content: {
+        enemies: {
+          ember: {
+            sprite: 'ship',
+            hp: 10,
+            radius: 6,
+            motion: { r: 2 },
+            timeline: [{ count: 0 }],
+            patterns: [{ pattern: 'ring', options: {}, startAt: 0 }],
+            spoils: [['power', 2]],
+            scoreValue: 100,
+            onHit: 'hit',
+            onDeath: 'explosion',
+          },
+        },
+        stages: {
+          gauntlet: {
+            entry: true,
+            seed: 7,
+            background: 'expanse',
+            boss: 'sentinel',
+            next: null,
+            waves: [
+              { at: 0, enemy: 'ember', x: 100, y: -20, count: 3, interval: 20 },
+              { at: 200, boss: 'warden' },
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  test('a full content manifest round-trips (shape only — names are the injector\'s)', () => {
+    const raw = withContent();
+    const result = validateManifest(raw, 'candy');
+    expect(result).toEqual({ manifest: raw as unknown as PackManifest });
+  });
+
+  describe('the covering invariant', () => {
+    test('a section present but not declared in requires', () => {
+      const raw = withContent();
+      (raw as { requires: string[] }).requires = ['content.stages'];
+      expect(errorsOf(raw)).toContain(
+        'pack "candy": pack.json: content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content',
+      );
+    });
+
+    test('a capability declared with no matching section', () => {
+      const raw = {
+        ...valid(),
+        requires: ['content.enemies', 'content.stages'],
+        content: { enemies: { ember: { sprite: 'ship', hp: 1, radius: 1 } } },
+      };
+      expect(errorsOf(raw)).toContain(
+        'pack "candy": pack.json: requires lists "content.stages" but there is no content.stages section — add the section or drop the capability',
+      );
+    });
+
+    test('content with no requires at all is refused per present section', () => {
+      const raw = {
+        ...valid(),
+        content: { enemies: { ember: { sprite: 'ship', hp: 1, radius: 1 } } },
+      };
+      expect(errorsOf(raw)).toContain(
+        'pack "candy": pack.json: content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content',
+      );
+    });
+  });
+
+  test('content is not an object', () => {
+    expect(errorsOf({ ...valid(), content: [] })).toContain(
+      'pack "candy": pack.json: content must be a JSON object',
+    );
+  });
+
+  test('a still-reserved content section is refused by name', () => {
+    const raw = { ...valid(), requires: ['content.bosses'], content: { bosses: {} } };
+    expect(errorsOf(raw)).toContain(
+      'pack "candy": pack.json: content.bosses is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages only; see docs/packs.md §Future',
+    );
+  });
+
+  test('an unknown content section suggests the near key', () => {
+    const raw = { ...valid(), content: { enemys: {} } };
+    expect(errorsOf(raw)).toContain(
+      'pack "candy": pack.json: content: unknown field "enemys" — did you mean "enemies"?',
+    );
+  });
+
+  describe('enemies', () => {
+    function enemy(spec: Record<string, unknown>): Record<string, unknown> {
+      return {
+        ...valid(),
+        requires: ['content.enemies'],
+        content: { enemies: { ember: spec } },
+      };
+    }
+
+    test('content.enemies must be an object', () => {
+      const raw = { ...valid(), requires: ['content.enemies'], content: { enemies: [] } };
+      expect(errorsOf(raw)).toContain(
+        'pack "candy": pack.json: content.enemies must be a JSON object',
+      );
+    });
+
+    test('a missing required field names it and the expected shape', () => {
+      expect(errorsOf(enemy({ hp: 1, radius: 1 }))).toContain(
+        'pack "candy": pack.json: content.enemies."ember" is missing required field "sprite" — an atlas cell name',
+      );
+    });
+
+    test('a wrong-typed required field', () => {
+      expect(errorsOf(enemy({ sprite: 'ship', hp: '10', radius: 1 }))).toContain(
+        'pack "candy": pack.json: content.enemies."ember".hp must be a number',
+      );
+    });
+
+    test('an unknown enemy field suggests the near key', () => {
+      expect(errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, spirte: 'x' }))).toContain(
+        'pack "candy": pack.json: content.enemies."ember": unknown field "spirte" — did you mean "sprite"?',
+      );
+    });
+
+    test('a pattern slot missing its name', () => {
+      expect(
+        errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ startAt: 0 }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".patterns[0] is missing required field "pattern" — a registered pattern name',
+      );
+    });
+
+    test('a pattern slot with an unknown field', () => {
+      expect(
+        errorsOf(
+          enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ pattern: 'ring', strtAt: 0 }] }),
+        ),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".patterns[0]: unknown field "strtAt" — did you mean "startAt"?',
+      );
+    });
+
+    test('a malformed spoils pair', () => {
+      expect(
+        errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, spoils: [['power']] })),
+      ).toContain(
+        'pack "candy": pack.json: content.enemies."ember".spoils[0] must be a [name, count] pair — a string and a number',
+      );
+    });
+  });
+
+  describe('stages', () => {
+    function stage(spec: Record<string, unknown>): Record<string, unknown> {
+      return {
+        ...valid(),
+        requires: ['content.stages'],
+        content: { stages: { gauntlet: spec } },
+      };
+    }
+
+    test('content.stages must be an object', () => {
+      const raw = { ...valid(), requires: ['content.stages'], content: { stages: 7 } };
+      expect(errorsOf(raw)).toContain(
+        'pack "candy": pack.json: content.stages must be a JSON object',
+      );
+    });
+
+    test('a stage missing waves', () => {
+      expect(errorsOf(stage({ entry: true }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet" is missing required field "waves" — an array of waves',
+      );
+    });
+
+    test('entry must be a boolean', () => {
+      expect(errorsOf(stage({ entry: 'yes', waves: [] }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet".entry must be a boolean',
+      );
+    });
+
+    test('next must be a string or null', () => {
+      expect(errorsOf(stage({ waves: [], next: 3 }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet".next must be a string or null',
+      );
+    });
+
+    test('an unknown stage field suggests the near key', () => {
+      expect(errorsOf(stage({ waves: [], entyr: true }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet": unknown field "entyr" — did you mean "entry"?',
+      );
+    });
+
+    test('a wave missing "at"', () => {
+      expect(errorsOf(stage({ waves: [{ enemy: 'ember' }] }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet".waves[0] is missing required field "at" — a whole tick count',
+      );
+    });
+
+    test('a wave naming neither enemy nor boss', () => {
+      expect(errorsOf(stage({ waves: [{ at: 0 }] }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet".waves[0] must name an "enemy" or a "boss"',
+      );
+    });
+
+    test('a wave naming both enemy and boss', () => {
+      expect(errorsOf(stage({ waves: [{ at: 0, enemy: 'ember', boss: 'sentinel' }] }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet".waves[0] names both "enemy" and "boss" — a wave is one or the other',
+      );
+    });
+
+    test('a wave with an unknown field lists the valid fields', () => {
+      expect(errorsOf(stage({ waves: [{ at: 0, enemy: 'ember', zzz: 1 }] }))).toContain(
+        'pack "candy": pack.json: content.stages."gauntlet".waves[0]: unknown field "zzz" — valid fields here: at, enemy, boss, x, y, count, interval, stepX, stepY',
+      );
+    });
+  });
+});
+
 describe('the manifest root', () => {
   test('a non-object is refused outright', () => {
     expect(validateManifest(null, 'candy')).toEqual({
@@ -322,7 +556,7 @@ describe('errors are collected, not reported first-only', () => {
       'pack "candy": pack.json: missing required field "name" — it must equal the directory name "candy" and match [a-z0-9-]{1,32}',
     );
     expect(errors).toContain(
-      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires',
+      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires, content',
     );
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });

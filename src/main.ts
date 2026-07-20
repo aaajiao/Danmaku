@@ -213,10 +213,21 @@ window.addEventListener('keydown', (e) => {
 // The loaded pack identity travels on the context so `PlayingState` can forward
 // it into `RunConfig.packs`, which records it into replay meta — read there the
 // same way `ctx.boss` is.
+//
+// `campaigns` are the content packs' entry stages, one title-menu row each. They
+// reach the game as plain data: `src/game` may not import `src/packs`, so the
+// loader hands over flat `{ label, stage, packsData }` records and `TitleState`
+// arms `ctx.stage`/`ctx.packsData` from the chosen row. The list is only
+// populated because module-eval order guarantees the wire: `import './content'`
+// (built-ins register) runs before this file's top-level `await loadPacks()`
+// (which injects each pack's content into those same registries), which runs
+// before the state machine below is constructed — so every campaign a row can
+// select names a stage that already exists by the time a player reaches it.
 const context: GameContext = {
   machine,
   nextSeed: () => Date.now() & 0xffffffff,
   packs: packs.packsMeta || undefined,
+  campaigns: packs.campaigns,
   onReplay(replay) {
     // Kept only in memory, and exposed so a finished run can be inspected or
     // saved from the console. Persisting these is the natural next step; the

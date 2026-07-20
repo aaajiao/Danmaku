@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "Danmaku project",
   "license": "CC0-1.0",
-  "description": "The reference pack: every v1 field, and art that follows every rule the loader checks. Copy this directory, rename it, and swap the files.",
+  "description": "The reference pack: every manifest field, art that follows every rule the loader checks, and a two-stage campaign of format-2 content. Copy this directory, rename it, and swap the files.",
   "assets": {
     "bullets": "bullets.png",
     "ship": "ship.png",
@@ -17,5 +17,211 @@
   "hud": {
     "life": "life.png",
     "bomb": "bomb.png"
+  },
+  "requires": [
+    "content.enemies",
+    "content.stages"
+  ],
+  "content": {
+    "enemies": {
+      "ember": {
+        "sprite": "star",
+        "hp": 30,
+        "radius": 12,
+        "tint": {
+          "r": 1,
+          "g": 0.7,
+          "b": 0.3
+        },
+        "motion": {
+          "r": 2.6,
+          "theta": 90
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 2.6,
+              "theta": 90
+            }
+          },
+          {
+            "count": 50,
+            "motion": {
+              "r": 1.6,
+              "theta": 0,
+              "w": 2
+            }
+          },
+          {
+            "count": 110,
+            "motion": {
+              "r": 3,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.6,
+                  "b": 0.2
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.2,
+                  "theta": 90
+                }
+              },
+              "count": 3,
+              "spread": 28,
+              "period": 55
+            },
+            "startAt": 20
+          },
+          {
+            "pattern": "spiral",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.6,
+                  "b": 0.2
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.2,
+                  "theta": 90
+                }
+              },
+              "arms": 2,
+              "step": 13,
+              "period": 8
+            },
+            "startAt": 30,
+            "stopAt": 110
+          }
+        ],
+        "spoils": [
+          [
+            "power",
+            2
+          ],
+          [
+            "score",
+            1
+          ]
+        ],
+        "scoreValue": 300,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "drone": {
+        "sprite": "shard",
+        "hp": 8,
+        "radius": 8,
+        "motion": {
+          "r": 1.5,
+          "theta": 90
+        }
+      }
+    },
+    "stages": {
+      "gauntlet": {
+        "entry": true,
+        "seed": 7,
+        "background": "expanse",
+        "outro": 120,
+        "next": "ashfall",
+        "waves": [
+          {
+            "at": 0,
+            "enemy": "drone",
+            "x": 120,
+            "y": -20,
+            "count": 4,
+            "interval": 25
+          },
+          {
+            "at": 30,
+            "enemy": "drone",
+            "x": 360,
+            "y": -20,
+            "count": 4,
+            "interval": 25
+          },
+          {
+            "at": 200,
+            "enemy": "grunt",
+            "x": 240,
+            "y": -20,
+            "count": 3,
+            "interval": 30
+          },
+          {
+            "at": 360,
+            "enemy": "ember",
+            "x": 160,
+            "y": -30
+          },
+          {
+            "at": 400,
+            "enemy": "ember",
+            "x": 320,
+            "y": -30
+          },
+          {
+            "at": 520,
+            "enemy": "ember",
+            "x": 240,
+            "y": -30,
+            "count": 2,
+            "interval": 60,
+            "stepX": -80
+          }
+        ]
+      },
+      "ashfall": {
+        "seed": 11,
+        "background": "undertow",
+        "outro": 120,
+        "next": null,
+        "waves": [
+          {
+            "at": 0,
+            "enemy": "drone",
+            "x": 90,
+            "y": -20,
+            "count": 6,
+            "interval": 18,
+            "stepX": 60
+          },
+          {
+            "at": 120,
+            "enemy": "grunt",
+            "x": 240,
+            "y": -20,
+            "count": 2,
+            "interval": 40
+          },
+          {
+            "at": 240,
+            "boss": "sentinel"
+          },
+          {
+            "at": 260,
+            "enemy": "ember",
+            "x": 200,
+            "y": -30
+          }
+        ]
+      }
+    }
   }
 }

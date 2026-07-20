@@ -357,6 +357,55 @@ describe('screens', () => {
     expect(ctx.machine.current?.name).toBe('character-select');
   });
 
+  test('with no campaigns the title menu is exactly START and steers nothing', () => {
+    const ctx = context();
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    // Byte-identical to the single-row menu that shipped before campaigns.
+    expect(title.view().menu).toEqual(['START']);
+
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current?.name).toBe('character-select');
+    // START touches neither, so a built-in run defaults its stage and records
+    // an empty pack identity.
+    expect(ctx.stage).toBeUndefined();
+    expect(ctx.packsData).toBeUndefined();
+  });
+
+  test('a campaign adds a row under START and steers the run when chosen', () => {
+    const campaigns = [
+      { label: 'example/gauntlet', stage: 'example/gauntlet', packsData: 'example@abcdef012345' },
+    ];
+    const ctx = context({ campaigns });
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    expect(title.view().menu).toEqual(['START', 'example/gauntlet']);
+
+    // Down to the campaign row, then confirm.
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+
+    expect(ctx.machine.current?.name).toBe('character-select');
+    // The chosen campaign armed both the qualified stage and the strict pack
+    // identity that will gate this run's replay.
+    expect(ctx.stage).toBe('example/gauntlet');
+    expect(ctx.packsData).toBe('example@abcdef012345');
+  });
+
+  test('choosing START leaves stage and packsData untouched even with campaigns present', () => {
+    const campaigns = [
+      { label: 'example/gauntlet', stage: 'example/gauntlet', packsData: 'example@abcdef012345' },
+    ];
+    const ctx = context({ campaigns });
+    open(ctx.machine, new TitleState(ctx));
+    // Row 0 without moving the cursor.
+    press(ctx.machine, Button.Shot);
+
+    expect(ctx.machine.current?.name).toBe('character-select');
+    expect(ctx.stage).toBeUndefined();
+    expect(ctx.packsData).toBeUndefined();
+  });
+
   test('character select offers every registered character', () => {
     const ctx = context();
     const select = new CharacterSelectState(ctx);

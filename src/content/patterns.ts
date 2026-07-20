@@ -62,6 +62,11 @@ export function patternNames(): readonly string[] {
   return [...registry.keys()];
 }
 
+/** Non-throwing existence check, for a validator resolving a name before use. */
+export function hasPattern(name: string): boolean {
+  return registry.has(name);
+}
+
 export function patternDefinitions(): readonly PatternDefinition[] {
   return [...registry.values()];
 }
