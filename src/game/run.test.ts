@@ -667,6 +667,73 @@ describe('scene', () => {
   });
 });
 
+/* ------------------------------------------------------------------ */
+/* Music                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `Run.music` is `Run.scene`'s twin — declared state the shell reconciles, not a
+ * drained event — with one deliberate difference: it is boss-level, so a boss
+ * theme is a property of the fight, not of a spell card. Tested here for the
+ * same reason `scene` is: the boss override only happens thousands of ticks into
+ * a stage, which is exactly the half a browser cannot check by eye.
+ */
+describe('music', () => {
+  const MUSIC_BOSS = 'test-music-boss';
+  const SILENT_BOSS = 'test-silent-boss';
+
+  const phase = () => ({ name: 'test card', hp: 50, timeLimit: 600, patterns: [] });
+
+  // Declares its own theme.
+  defineBoss(MUSIC_BOSS, {
+    sprite: 'orb.large',
+    radius: 12,
+    music: 'test-boss-theme',
+    phases: [phase(), phase()],
+  });
+
+  // Declares none, to prove the fall-back to the stage's track.
+  defineBoss(SILENT_BOSS, {
+    sprite: 'orb.large',
+    radius: 12,
+    phases: [phase()],
+  });
+
+  test('a run reports the track its stage declares', () => {
+    // stage-1 names `vigil` (see `content/stage.ts`). Only stage-1 is registered
+    // in this process, for the reason the scene block above spells out.
+    expect(new Run(config()).music).toBe('vigil');
+  });
+
+  test('an active boss with its own theme overrides the stage track', () => {
+    const run = new Run(config());
+    run.boss.spawn(MUSIC_BOSS, 240, 120, sim);
+
+    expect(run.music).toBe('test-boss-theme');
+  });
+
+  test('a boss declaring no theme leaves the stage track playing', () => {
+    // The failure this catches is a boss silently killing the level's music,
+    // which sounds like an audio bug and is a data one.
+    const run = new Run(config());
+    run.boss.spawn(SILENT_BOSS, 240, 120, sim);
+
+    expect(run.music).toBe('vigil');
+  });
+
+  test('music is boss-level: the phase index does not change the track', () => {
+    // Unlike `scene`, which indexes `phases`, `music` reads `boss.spec.music`, so
+    // advancing the card cannot change or throw the track.
+    const run = new Run(config());
+    const boss = run.boss.spawn(MUSIC_BOSS, 240, 120, sim);
+    expect(run.music).toBe('test-boss-theme');
+
+    boss!.phaseIndex = 99;
+    expect(() => run.music).not.toThrow();
+    expect(run.music).toBe('test-boss-theme');
+  });
+});
+
 /**
  * What a boss encounter is worth.
  *

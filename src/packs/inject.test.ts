@@ -35,6 +35,7 @@ import type {
   ContentStage,
   PackContent,
   PackManifest,
+  PackMusic,
 } from './manifest';
 
 const CTX = {
@@ -49,7 +50,7 @@ function uniqueName(): string {
   return `p.test.${counter++}`;
 }
 
-function manifest(name: string, content: PackContent): PackManifest {
+function manifest(name: string, content: PackContent, music?: PackMusic): PackManifest {
   const requires: string[] = [];
   if (content.enemies) requires.push('content.enemies');
   if (content.stages) requires.push('content.stages');
@@ -60,7 +61,9 @@ function manifest(name: string, content: PackContent): PackManifest {
   if (content.bombs) requires.push('content.bombs');
   if (content.effects) requires.push('content.effects');
   if (content.items) requires.push('content.items');
-  return { format: 1, name, version: '1.0.0', author: 'x', license: 'CC0-1.0', requires, content };
+  const m: PackManifest = { format: 1, name, version: '1.0.0', author: 'x', license: 'CC0-1.0', requires, content };
+  if (music) m.music = music;
+  return m;
 }
 
 /** Ship stats for a pack character — the shape a `ContentPlayer` expects. */
@@ -552,6 +555,93 @@ describe('content.bosses — a pack boss registers and is reached by a pack stag
     expect(hasBoss(`${name}/sentinel`)).toBe(true);
     expect(hasBoss('sentinel')).toBe(true); // the built-in is untouched
     expect(getStage(`${name}/gauntlet`).boss).toBe(`${name}/sentinel`);
+  });
+});
+
+describe('music resolves pack-first — like a background, but a pack may add its own', () => {
+  test('a stage naming a built-in track keeps it bare', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(name, { enemies: { ember: enemy() }, stages: { gauntlet: stage({ music: 'vigil' }) } }),
+      CTX,
+    );
+    expect(getStage(`${name}/gauntlet`).music).toBe('vigil');
+  });
+
+  test("a stage naming the pack's own new track qualifies it", () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(
+        name,
+        { enemies: { ember: enemy() }, stages: { gauntlet: stage({ music: 'ashen' }) } },
+        { ashen: { file: 'ashen.wav' } },
+      ),
+      CTX,
+    );
+    expect(getStage(`${name}/gauntlet`).music).toBe(`${name}/ashen`);
+  });
+
+  test('a boss holds a pack track, qualified — boss-level, not per-phase', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(
+        name,
+        {
+          enemies: { ember: enemy() },
+          bosses: { warlord: boss({ music: 'ashen' }) },
+          stages: {
+            gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+          },
+        },
+        { ashen: { file: 'ashen.wav' } },
+      ),
+      CTX,
+    );
+    expect(getBossSpec(`${name}/warlord`).music).toBe(`${name}/ashen`);
+  });
+
+  test('a pack music key matching a built-in name is a replacement — the reference stays bare', () => {
+    const name = uniqueName();
+    // A pack track called `vigil` (a built-in name) is a replacement the loader
+    // registers bare, so a stage naming `vigil` resolves to the bare built-in name,
+    // never a qualified pack name — the one exception to pack-first.
+    injectPack(
+      manifest(
+        name,
+        { enemies: { ember: enemy() }, stages: { gauntlet: stage({ music: 'vigil' }) } },
+        { vigil: { file: 'vigil.wav' } },
+      ),
+      CTX,
+    );
+    expect(getStage(`${name}/gauntlet`).music).toBe('vigil');
+  });
+
+  test('an unknown stage track is a golden error', () => {
+    const name = uniqueName();
+    expect(
+      problemsOf(
+        manifest(name, { enemies: { ember: enemy() }, stages: { gauntlet: stage({ music: 'nope' }) } }),
+      ),
+    ).toContain(
+      `pack "${name}": stage "gauntlet" names unknown music "nope" — no such music in this pack or built in`,
+    );
+  });
+
+  test('an unknown boss track is a golden error', () => {
+    const name = uniqueName();
+    expect(
+      problemsOf(
+        manifest(name, {
+          enemies: { ember: enemy() },
+          bosses: { warlord: boss({ music: 'nope' }) },
+          stages: {
+            gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+          },
+        }),
+      ),
+    ).toContain(
+      `pack "${name}": boss "warlord" names unknown music "nope" — no such music in this pack or built in`,
+    );
   });
 });
 

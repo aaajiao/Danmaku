@@ -99,6 +99,20 @@ export interface BossSpec {
   /** Effect name emitted when the last phase ends. Resolved by the effect system. */
   onDeath?: string;
   /**
+   * The theme this fight is scored to, by registered track name.
+   *
+   * Boss-level, unlike `background`, which is per spell card: a fight announces
+   * itself with one theme on entry and holds it across its cards, so the music
+   * belongs to the boss and not to a phase. (Per-spell-card music is a plausible
+   * future — it would move onto `SpellCard` beside `background` and `Run.music`
+   * would read the live card first — but nothing wants it yet, so it is not
+   * built.) A **string**, resolved by the audio layer, never validated here: the
+   * music registry is audio-side and importing it would break the boundary; an
+   * unknown name is caught at the point of use, exactly as `background` is. Unset
+   * leaves the stage's own track playing.
+   */
+  music?: string;
+  /**
    * Items showered when the boss dies, by registry name and count. See
    * `Spoils`. Unset means the game layer's default shower — a boss that wants
    * to reward differently declares its own. It used to be a single hardcoded
@@ -762,6 +776,7 @@ defineBoss('sentinel', {
   tint: { r: 0.8, g: 0.9, b: 1 },
   // Drops in from above the field to the usual upper-third station.
   entry: { x: 240, y: 140, ticks: 90 },
+  music: 'nemesis',
   onDeath: 'death.big',
   phases: [
     {

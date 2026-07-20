@@ -61,7 +61,7 @@ A pack **can also**, with a `content` section (§9), add game data:
   `ItemSpec` a drop scatters.
 
 A pack **cannot** change the *code* that data drives: no new patterns, no new
-motion behaviours, no new backgrounds, no difficulty curves, no music, no
+motion behaviours, no new backgrounds, no difficulty curves, no
 dialogue, and no new item *kind* (a kind is a game rule). Those are engine code,
 reserved or registered under a string name — see §9 for what content reaches and
 §10 for what stays reserved. The dividing line is simple and permanent:
@@ -362,12 +362,35 @@ refused, naming both the offending capabilities and the implemented set.
 | Reserved hud name (`digits`, `font`, `bossBar`, `frame`) | `hud.<key> is a pack-format-2 resource and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | Any other unknown key under `hud` | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: life, bomb`) |
 
+### 6.5a `music`
+
+A top-level presentation section — a sibling of `sounds`, not a `content`
+section. Each track is `{ file, loopStart?, loopEnd?, volume? }`; a track whose
+name matches a built-in track (`menu`, and one per built-in stage/boss) *replaces*
+it, and a new name registers as `<pack>/<name>` for this pack's own stages/bosses
+to name by their `music` field (§9.3). `manifest.ts` checks the shape below; the one bound it cannot —
+`loopEnd ≤ the decoded track's duration` — is the loader's, measured in the
+browser with the real duration in the error (like the sheet pixel checks).
+
+| Condition | Message |
+|---|---|
+| `music` not an object | `music must be a JSON object` |
+| A track not an object | `music."<key>" must be a JSON object` |
+| A track missing `file` | `music."<key>" is missing required field "file" — a path to an audio file` |
+| `file` not a string | `music."<key>".file must be a string (a path to an audio file)` |
+| `loopStart`/`loopEnd` not a number | `music."<key>".loopStart must be a number (seconds)` |
+| A negative loop point | `music."<key>".loopEnd must not be negative, got <n>` |
+| `loopStart` ≥ `loopEnd` | `music."<key>": loopStart <a> must be less than loopEnd <b>` |
+| `volume` not a number | `music."<key>".volume must be a number` |
+| Unknown track key | `music."<key>": unknown field "<field>" — did you mean "<nearest>"?` (or `… valid fields here: file, loopStart, loopEnd, volume`) |
+| `loopEnd` past the track (loader, browser) | `<file>: loopEnd <n>s is past the track's <d>s — the loop would run off the end` |
+
 ### 6.6 Unknown and reserved top-level fields
 
 | Condition | Message |
 |---|---|
-| Reserved future section (`music`, `difficulty`, `dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires, content`) |
+| Reserved future section (`difficulty`, `dialog`, `backgrounds`) | `<key> is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
+| Any other unknown top-level key | `unknown field "<key>" — did you mean "<nearest>"?` (or `… valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content`) |
 
 `content` is no longer refused here — it is an implemented top-level section
 (§9), and its own errors are in §9.4. The valid-fields list now ends in
@@ -566,7 +589,7 @@ that does not implement a capability refuses on `requires` **before it ever pars
 
 A capability without its section, or a section without its capability, is an
 error (§9.4). A `requires` entry naming anything else — `netplay`,
-`content.music` — is refused, because those capabilities are not implemented
+`content.difficulty` — is refused, because those capabilities are not implemented
 (§6.2, §10).
 
 ### 9.2 The shapes
@@ -620,6 +643,7 @@ rest of the engine uses.
     "entry": true,
     "seed": 7,
     "background": "expanse",
+    "music": "ashen",
     "outro": 120,
     "next": "ashfall",
     "waves": [
@@ -654,6 +678,12 @@ holds the schedule until the fight ends, exactly as a built-in `BossWave` does
 - **`next`** chains stages. A string names the next stage; `null` states "this is
   the last stage" explicitly, where a built-in `StageSpec` leaves the field
   `undefined`.
+- **`background`** and **`music`** name the scene and track the stage is set to,
+  resolved like every other reference (§9.3): a background is always a built-in
+  (shaders are engine code), but a track may be one this pack's own `music`
+  section (§6.5a) added — `gauntlet` names `ashen`, which qualifies to
+  `example/ashen`. A boss may likewise carry `music` (boss-level, not per-phase —
+  a fight holds one theme), while a spell card's `background` overrides the scene.
 
 **A boss** — a `BossSpec` whose one substitution is the phase clock. From the
 example (`pyre`, abbreviated):
@@ -821,6 +851,14 @@ Every name a pack writes resolves **pack-first, then built-in**:
   code named by a string (§10). A pack may *select* a registered one by name but
   never ship one, which is why a stage's `background`, an enemy's `pattern` and a
   motion `behaviour` resolve only against the engine registries.
+- **Music resolves pack-first too, but a pack may add its own.** A track is a
+  file, not code (§6.5a), so unlike a background a pack's `music` section can
+  contribute new tracks: a stage's or boss's `music` naming one the pack declared
+  resolves to `<packname>/<track>`, and a name matching a built-in track stays
+  bare (it is a replacement the loader registers bare, last-wins). A track no
+  stage or boss names is *not* dead content the way a pack enemy is — music is
+  presentation, so a `music` section may also just reskin built-in tracks a
+  built-in stage already reaches.
 - **Cross-pack references are not supported.** A name that is neither the pack's
   own nor a built-in is an error; one pack cannot reach into another's content.
 
@@ -862,7 +900,7 @@ The covering invariant and `content` container:
 | A declared capability has no section | `requires lists "content.stages" but there is no content.stages section — add the section or drop the capability` |
 | A section has no declared capability | `content.enemies is present but "content.enemies" is not in requires — an engine that lacks the capability must refuse on requires before parsing content` |
 | `content` not an object | `content must be a JSON object` |
-| A reserved `content.*` section | `content.music is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
+| A reserved `content.*` section | `content.difficulty is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future` |
 | Unknown key directly under `content` | `content: unknown field "<key>" — did you mean "<nearest>"?` (or `content: unknown field "<key>" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items`) |
 
 **Enemies and stages** (representative — the full field lists are in
@@ -959,6 +997,7 @@ stand in for the caller's sorted lists):
 | Boss: unknown phase behaviour | `boss "pyre" phase "Smoulder" uses unknown motion behaviour "homng" — no such behaviour is registered` |
 | Boss: unknown card background | `boss "pyre" phase "Ashfall" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
 | Boss: unknown `onDeath` effect | `boss "pyre" onDeath names unknown effect "cindr" — no such effect in this pack or built in` |
+| Boss: unknown `music` | `boss "pyre" names unknown music "nokturn" — no such music in this pack or built in` |
 | Boss: unknown spoils item | `boss "pyre" drops unknown item "relik" — no such item in this pack or built in` |
 | Shot: unknown bullet sprite | `shot "emberbolt" level 0 uses unknown sprite "kunia" — known sprites: <known sprites>` |
 | Shot: unknown bullet behaviour | `shot "emberbolt" level 0 uses unknown motion behaviour "homng" — no such behaviour is registered` |
@@ -977,6 +1016,7 @@ stand in for the caller's sorted lists):
 | Stage `boss` unresolved | `stage "gauntlet" names unknown boss "overlord" — no such boss in this pack or built in` |
 | Stage `background` unresolved | `stage "gauntlet" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
 | Stage `next` unresolved | `stage "gauntlet" chains next into unknown stage "stage-99" — no such stage in this pack or built in` |
+| Stage `music` unresolved | `stage "gauntlet" names unknown music "nokturn" — no such music in this pack or built in` |
 | Wave `at` not whole | `stage "gauntlet" wave 0: "at" must be a whole tick count, got 12.5` |
 | Wave `count` not positive whole | `stage "gauntlet" wave 0: "count" must be a positive whole number, got 0` |
 | Wave `interval` not whole | `stage "gauntlet" wave 0: "interval" must be a whole tick count, got -1` |
@@ -1095,10 +1135,12 @@ never reference cannot affect it.
 > these names without colliding with anything a v1 pack was allowed to use.
 
 The nine `content.*` sections of §9 are **not** in this list — they are
-implemented, and §9 is their reference. What remains reserved is everything a
-pack still cannot ship, and each such section needs an engine *feature* it does
-not yet have: music and difficulty are runtime systems, dialog is a scripting
-layer, backgrounds are shader code. Each reserved name and the exact rejection the
+implemented, and §9 is their reference. Nor is `music`: it left this section when
+the top-level `music` section became real (§6.5a — background tracks are
+presentation, a file, not code). What remains reserved is everything a pack still
+cannot ship, and each such section needs an engine *feature* it does not yet have:
+difficulty is a runtime system, dialog is a scripting layer, backgrounds are
+shader code. Each reserved name and the exact rejection the
 engine emits **now** (the interpolated implemented-list is abbreviated `<the nine>`
 = `content.enemies, content.stages, content.bosses, content.shots,
 content.characters, content.options, content.bombs, content.effects,
@@ -1106,11 +1148,10 @@ content.items`):
 
 | Reserved name | What a future format might do with it | Rejection today |
 |---|---|---|
-| `music` (top-level) | background music tracks | `music is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
-| `difficulty` (top-level) | tuning curves as data | `difficulty is a pack-format-2 section …` |
+| `difficulty` (top-level) | tuning curves as data | `difficulty is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `dialog` (top-level) | cutscene/portrait scripts | `dialog is a pack-format-2 section …` |
 | `backgrounds` (top-level) | scene selection | `backgrounds is a pack-format-2 section …` |
-| `content.music`, `content.difficulty`, `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.music is a pack-format-2 section this engine does not implement — it implements <the nine> only; see docs/packs.md §Future` |
+| `content.difficulty`, `content.dialog`, `content.backgrounds` | the top-level names, nested under content | `content.difficulty is a pack-format-2 section this engine does not implement — it implements <the nine> only; see docs/packs.md §Future` |
 | `hud.digits`, `hud.font` | number/font glyph sheets | `hud.digits is a pack-format-2 resource and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future` |
 | `hud.bossBar`, `hud.frame` | boss-bar skin, screen frame | `hud.bossBar is a pack-format-2 resource …` |
 
@@ -1230,6 +1271,6 @@ host with no dev wrapper.
 
 There is no automated oracle for whether a sheet is *readable* under a full
 curtain, or whether a sound is *right* — those are the judgement calls
-`docs/assets.md` §5.4 and `docs/audio.md` §4 describe, made by eye and by ear on
+`docs/assets.md` §5.4 and `docs/audio.md` §5 describe, made by eye and by ear on
 the running game. The machine checks catch the wrong size, the coloured cell, the
 bleeding margin and the oversized icon; they do not catch ugly.

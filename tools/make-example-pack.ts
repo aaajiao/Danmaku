@@ -424,6 +424,72 @@ function buildPickup(): Uint8Array {
 }
 
 /* ------------------------------------------------------------------ */
+/* ashen.wav — a background track with a real intro and a seamless loop */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The track's shape, in seconds. Playback runs 0 → `LOOP_END` once (so the
+ * `[0, LOOP_START]` intro is heard exactly once), then loops `[LOOP_START,
+ * LOOP_END]` forever. A short tail past `LOOP_END` exists only so the manifest
+ * demonstrates `loopEnd < duration` — the loader's browser-side check has a real
+ * relationship to measure — and is never actually reached under `loop = true`.
+ *
+ * The loop body must wrap without a click, so the frequencies below are chosen so
+ * every partial completes a WHOLE number of cycles across `LOOP_END − LOOP_START`
+ * (3.6s): 55, 82.5 and 110 Hz all give an integer over 3.6s, so the waveform value
+ * at `LOOP_END` equals the one at `LOOP_START` sample-for-sample. This is the same
+ * "whole cycles over the loop" trick the engine's synthesised drone uses
+ * (`src/audio/music.ts`), done here in the file rather than at runtime.
+ */
+const ASHEN_TOTAL = 4.6;
+const ASHEN_LOOP_START = 0.6;
+const ASHEN_LOOP_END = 4.2;
+const ASHEN_VOLUME = 0.5;
+
+/** Low partials (Hz, amplitude): a bass root, a fifth, an octave. Bass so it never masks a bullet's cue. */
+const ASHEN_PARTIALS: readonly (readonly [hz: number, amp: number])[] = [
+  [55, 0.6],
+  [82.5, 0.32],
+  [110, 0.18],
+];
+
+function buildAshen(): Float64Array {
+  const count = Math.round(ASHEN_TOTAL * SAMPLE_RATE);
+  const out = new Float64Array(count);
+  const norm = 1 / ASHEN_PARTIALS.reduce((s, [, a]) => s + a, 0);
+  const peak = 0.5; // well under full scale, and quiet against the SFX
+  for (let i = 0; i < count; i++) {
+    const t = i / SAMPLE_RATE;
+    let tone = 0;
+    for (const [hz, amp] of ASHEN_PARTIALS) tone += amp * sinDeg((hz * t * 360) % 360);
+    tone *= norm;
+    // A slow tremolo for a little life. Amplitude only, so a hair of drift at the
+    // seam is inaudible — the waveform itself is what has to wrap, and does.
+    const sway = 0.78 + 0.22 * sinDeg((0.3 * t * 360) % 360);
+    // The intro swells up over its first stretch; the loop body plays at full.
+    const env = t < ASHEN_LOOP_START ? t / ASHEN_LOOP_START : 1;
+    out[i] = tone * sway * env * peak;
+  }
+  return out;
+}
+
+/**
+ * Re-derive the duration from the sample count and confirm the loop points sit
+ * inside it — the same "measure, do not trust the parameter" discipline the PNG
+ * verifiers use, for the one relationship the loader will re-check in the browser.
+ */
+function verifyAshen(samples: Float64Array): string {
+  const duration = samples.length / SAMPLE_RATE;
+  if (!(ASHEN_LOOP_START < ASHEN_LOOP_END)) {
+    throw new Error(`ashen.wav: loopStart ${ASHEN_LOOP_START} must be < loopEnd ${ASHEN_LOOP_END}`);
+  }
+  if (ASHEN_LOOP_END > duration) {
+    throw new Error(`ashen.wav: loopEnd ${ASHEN_LOOP_END}s is past the ${duration.toFixed(3)}s track`);
+  }
+  return `  loop [${ASHEN_LOOP_START}s, ${ASHEN_LOOP_END}s) inside a ${duration.toFixed(3)}s track — intro plays once`;
+}
+
+/* ------------------------------------------------------------------ */
 /* content — format-2 enemies and stages, as data                      */
 /* ------------------------------------------------------------------ */
 
@@ -445,9 +511,10 @@ function buildPickup(): Uint8Array {
  * Name resolution is pack-first, then built-in, for every reference below. This
  * pack's own entries — `ember`/`drone` (enemies), `pyre` (boss), `emberbolt`
  * (shot), `emberwing` (options), `firestorm` (bomb), `cinder` (effect), `relic`
- * (item), `raider` (character) — are written bare and qualified to
- * `example/<name>` at injection, so a character equips `emberbolt`/`emberwing`/
- * `firestorm` by their bare names and the injector resolves them to the pack's.
+ * (item), `raider` (character), and the top-level `ashen` (music) — are written
+ * bare and qualified to `example/<name>` at injection, so a character equips
+ * `emberbolt`/`emberwing`/`firestorm` and `gauntlet` names `ashen`, all resolved
+ * to the pack's own.
  * Everything else is a built-in referenced bare: `grunt` (enemy), `sentinel`
  * (boss), `expanse`/`undertow`/`drift` (backgrounds), `power`/`score` (items),
  * `hit`/`death.big` (effects), `aimed-fan`/`spiral`/`ring` (patterns). A pack
@@ -712,6 +779,9 @@ const CONTENT: PackContent = {
       entry: true,
       seed: 7,
       background: 'expanse',
+      // The pack's own new track, resolved pack-first to `example/ashen`. `ashfall`
+      // names none, so the run leaves whatever is playing — a stage need not.
+      music: 'ashen',
       outro: 120,
       next: 'ashfall',
       waves: [
@@ -764,6 +834,18 @@ const MANIFEST: PackManifest = {
   sounds: {
     shot: 'shot.wav',
     pickup: 'pickup.wav',
+  },
+  // One background track, a NEW name (no built-in track is called `ashen`), so it
+  // registers as `example/ashen` and `content.stages.gauntlet` names it. It has a
+  // real intro — `loopStart` > 0 — so the swell is heard once and the body loops.
+  // `volume` trims it within the music bus, which already sits under the SFX.
+  music: {
+    ashen: {
+      file: 'ashen.wav',
+      loopStart: ASHEN_LOOP_START,
+      loopEnd: ASHEN_LOOP_END,
+      volume: ASHEN_VOLUME,
+    },
   },
   hud: {
     life: 'life.png',
@@ -819,15 +901,17 @@ JSON has no comments, so this table is where the annotation lives.
 | \`assets.filter\` | \`"nearest"\` | Texture sampling for both sheets: \`"nearest"\` or \`"linear"\`. This pack's art is hard-edged, so \`"nearest"\` keeps every boundary crisp; smooth, gradient-shaded art should ask for \`"linear"\` instead. Default is \`"nearest"\` either way. |
 | \`sounds.shot\`, \`sounds.pickup\` | two \`.wav\` files | One entry per sound this pack replaces — the full list of names the engine plays is in \`docs/audio.md\` §2; an unknown name is rejected and lists them. This pack only replaces two of the six, which is legal: everything else keeps playing its synthesised placeholder. |
 | \`hud.life\`, \`hud.bomb\` | two \`.png\` files | Replace the ♥/★ glyphs. See "HUD icons are shapes, not compositions" below. |
+| \`music.ashen\` | one \`.wav\` with loop points | A background track — a top-level section, sibling to \`sounds\`. See "Music: an intro and a loop" below. |
 | \`requires\` | all nine \`content.*\` capabilities | The capabilities this pack's \`content\` needs. The engine honours exactly the implemented set; anything else is refused by name. Every \`content.<section>\` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on \`requires\` before it parses a \`content\` section it could not load. |
 | \`content\` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
-The fields this engine still does not implement — the reserved \`content\`
-sections \`music\`/\`difficulty\`/\`dialog\`/\`backgrounds\`, the top-level
-\`music\`/\`difficulty\`/\`dialog\`/\`backgrounds\`, and the reserved \`hud\` names
+The fields this engine still does not implement — the top-level
+\`difficulty\`/\`dialog\`/\`backgrounds\`, the reserved \`hud\` names
 \`digits\`/\`font\`/\`bossBar\`/\`frame\` — get a dedicated rejection naming each as a
 future section rather than a generic "unknown field" error; see
-\`docs/packs.md\` §Future.
+\`docs/packs.md\` §Future. (\`content.difficulty\`/\`content.dialog\`/
+\`content.backgrounds\` are refused the same way inside \`content\`. \`music\` is no
+longer among them — it is a real top-level section now, documented above.)
 
 ## Content: one of everything
 
@@ -983,6 +1067,49 @@ so a swap is heard, not just seen in a boot report. The other four sounds this
 game plays (\`hit\`, \`explosion\`, \`graze\`, \`death\` — the full list is
 \`docs/audio.md\` §2) are left unset, and keep playing their placeholders; a
 pack need not replace every sound to be valid.
+
+## Music: an intro and a loop
+
+\`music\` is a top-level section, a sibling of \`sounds\`, not part of \`content\` —
+a track is a file, and a stage or boss only *names* one. This pack adds one
+track, \`ashen\`, and \`content.stages.gauntlet\` is scored to it:
+
+\`\`\`json
+"music": { "ashen": { "file": "ashen.wav", "loopStart": 0.6, "loopEnd": 4.2, "volume": 0.5 } }
+\`\`\`
+
+**A track has an intro and a loop, in seconds.** Playback runs from 0 to
+\`loopEnd\` once — so everything before \`loopStart\` is the intro, heard exactly
+once — then repeats \`[loopStart, loopEnd)\` forever. Omit both and the whole file
+loops; give \`loopStart\` alone and the loop runs to the file's end.
+
+**How to find the loop points.** Open the track in any audio editor and read the
+time, in seconds, at two places: where the intro ends and the repeating body
+begins (\`loopStart\`), and where that body should jump back (\`loopEnd\`). For a
+seamless wrap the body's length should hold a whole number of cycles of its
+lowest tone, so the waveform value at \`loopEnd\` matches the one at \`loopStart\` —
+\`ashen\` is generated that way (see \`buildAshen\` in the generator, which picks
+55/82.5/110 Hz precisely so 3.6 s of body wraps clean). The engine also clamps a
+loop region that runs past the decoded track back to the whole file, so a wrong
+\`loopEnd\` degrades to "loops the whole thing", never a crash — but the loader
+still *rejects* the pack and prints the measured duration, so fix it rather than
+lean on the clamp.
+
+**Music sits under the sound effects — the readability rule has an audio face.**
+The whole point of the negative-space doctrine is that a single bullet stays
+findable; the same holds for its *sound* cue. Music runs on its own bus, already
+set well under the SFX, and \`volume\` only trims a track within that — never a
+reason to push a theme up until it competes with a shot or a graze. Keep it low
+and dark: \`ashen\` is three bass partials and a slow tremolo, nothing in the band
+where a bullet's cue lives. A track loud or busy enough to mask that cue is a
+readability bug you can hear, exactly like a background bright enough to hide a
+bullet is one you can see.
+
+The built-in tracks (\`menu\`, and one per built-in stage and boss — see
+\`docs/audio.md\` §Music) are synthesised drones until a pack gives them a file.
+Naming one of *those* in your \`music\` section replaces it, last-wins, the same
+as a \`sounds\` reskin; a new name like \`ashen\` adds a track your own stages and
+bosses can name.
 `;
 
 /* ------------------------------------------------------------------ */
@@ -997,6 +1124,8 @@ const lifePng = buildHudIcon(diamond(6));
 const bombPng = buildHudIcon((dx, dy) => plus(6, 1)(dx, dy) || xMark(5, 1)(dx, dy));
 const shotWav = buildShot();
 const pickupWav = buildPickup();
+const ashenSamples = buildAshen();
+const ashenWav = encodeWavMono(ashenSamples);
 
 files['bullets.png'] = bulletsPng;
 files['ship.png'] = shipPng;
@@ -1004,6 +1133,7 @@ files['life.png'] = lifePng;
 files['bomb.png'] = bombPng;
 files['shot.wav'] = shotWav;
 files['pickup.wav'] = pickupWav;
+files['ashen.wav'] = ashenWav;
 files['pack.json'] = JSON.stringify(MANIFEST, null, 2) + '\n';
 files['README.md'] = README;
 
@@ -1024,6 +1154,9 @@ for (const [name, bytes] of hudIcons) {
   const png: PngHeader = parsePng(bytes);
   report.push(`${name}: ${png.width}x${png.height} (limit ${HUD_SIZE}x${HUD_SIZE})`);
 }
+
+report.push('ashen.wav — music loop:');
+report.push(verifyAshen(ashenSamples));
 
 // The manifest this script is about to write, checked against the real
 // validator it will be loaded by — not a second, hand-maintained idea of what

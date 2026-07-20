@@ -35,9 +35,12 @@
  * neither the pack's nor built in is an error. Enemies, stages, bosses, shots,
  * options, bombs, effects and items all resolve pack-first — so a character may
  * fire a pack shot, a bomb may throw a pack effect, an enemy may drop a pack
- * item, and the qualified name is what lands in the built spec. Backgrounds are
- * **built-in only** (shaders are engine code), and so are patterns and motion
- * behaviours (the motion DSL is engine code named by a string).
+ * item, and the qualified name is what lands in the built spec. Music tracks
+ * resolve pack-first too — a stage or boss may name one the pack's own top-level
+ * `music` section adds — with one caveat: a pack music key that matches a built-in
+ * track name is a *replacement* registered bare, so a reference to it stays bare.
+ * Backgrounds are **built-in only** (shaders are engine code), and so are patterns
+ * and motion behaviours (the motion DSL is engine code named by a string).
  *
  * ## Injection order is a dependency order
  *
@@ -58,6 +61,7 @@
  * (registries are process-global) cannot double-register and throw a duplicate.
  */
 
+import { musicNames } from '../audio/music';
 import { patternNames } from '../content/patterns';
 import { defineShot, getShot, shotNames, type ShotType } from '../content/shots';
 import { defineStage, stageNames, type BossWave, type EnemyWave, type StageSpec, type WaveEntry } from '../content/stage';
@@ -338,6 +342,20 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
   // just names the bad value and says it did not resolve.
   const patterns = new Set(patternNames());
   const behaviours = new Set(behaviourNames());
+  // Music tracks resolve like backgrounds — a stage or boss names one — but
+  // unlike a scene a pack MAY define new ones (its top-level `music` section, a
+  // presentation sibling of `sounds`). So the known set is the built-in tracks
+  // read live from the audio registry (audio-side, not render, so importable
+  // here) UNION this pack's own new track names. A pack music key that matches a
+  // built-in name is a *replacement* the loader registers bare, so it is NOT a
+  // new name and references to it stay bare — hence `refMusic` qualifies only a
+  // key that is the pack's AND not built in.
+  const builtinMusic = new Set(musicNames());
+  const packMusic = manifest.music ?? {};
+  const packMusicNames = new Set(Object.keys(packMusic));
+  const musicKnown = (name: string): boolean => packMusicNames.has(name) || builtinMusic.has(name);
+  const refMusic = (name: string): string =>
+    packMusicNames.has(name) && !builtinMusic.has(name) ? q(name) : name;
   const builtinItems = new Set(itemNames());
   const builtinEffects = new Set(effectNames());
   const builtinShots = new Set(shotNames());
@@ -507,6 +525,12 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
     if (b.onDeath !== undefined && !effectKnown(b.onDeath)) {
       problems.push(
         `pack "${pack}": ${where} onDeath names unknown effect "${b.onDeath}" — no such effect in this pack or built in`,
+      );
+    }
+
+    if (b.music !== undefined && !musicKnown(b.music)) {
+      problems.push(
+        `pack "${pack}": ${where} names unknown music "${b.music}" — no such music in this pack or built in`,
       );
     }
 
@@ -684,6 +708,11 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
     if (s.background !== undefined && !scenes.has(s.background)) {
       problems.push(
         `pack "${pack}": ${where} is set in unknown background "${s.background}" — known backgrounds: ${list(scenes)}`,
+      );
+    }
+    if (s.music !== undefined && !musicKnown(s.music)) {
+      problems.push(
+        `pack "${pack}": ${where} names unknown music "${s.music}" — no such music in this pack or built in`,
       );
     }
     if (typeof s.next === 'string' && !packStages.has(s.next) && !builtinStages.has(s.next)) {
@@ -877,11 +906,11 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
   }));
   const builtBosses: BuiltBoss[] = bossKeys.map((name) => ({
     name: q(name),
-    spec: toBossSpec(packBosses[name] as ContentBoss, refEffect, refItem),
+    spec: toBossSpec(packBosses[name] as ContentBoss, refEffect, refItem, refMusic),
   }));
   const builtStages: BuiltStage[] = stageKeys.map((name) => ({
     name: q(name),
-    spec: toStageSpec(q(name), stages[name] as ContentStage, packEnemies, packBossNames, packStages, q),
+    spec: toStageSpec(q(name), stages[name] as ContentStage, packEnemies, packBossNames, packStages, q, refMusic),
   }));
   const campaigns: Campaign[] = stageKeys
     .filter((k) => (stages[k] as ContentStage).entry === true)
@@ -905,8 +934,8 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
  * Turn a `ContentStage` into a `StageSpec`: qualify the name, qualify each
  * wave's own-pack enemy and boss, resolve `next` (pack-first, `null` → the
  * spec's `undefined` "no next"), and drop `entry`, which is menu data the spec
- * has no field for. A boss and a `next` chain resolve pack-first; backgrounds
- * pass through bare — they are built-in.
+ * has no field for. A boss, a `next` chain and the `music` track resolve
+ * pack-first; backgrounds pass through bare — they are built-in.
  */
 function toStageSpec(
   name: string,
@@ -915,6 +944,7 @@ function toStageSpec(
   packBosses: ReadonlySet<string>,
   packStages: ReadonlySet<string>,
   q: (entry: string) => string,
+  refMusic: (name: string) => string,
 ): StageSpec {
   const waves: WaveEntry[] = s.waves.map((w) => toWave(w, packEnemies, packBosses, q));
 
@@ -923,6 +953,7 @@ function toStageSpec(
   if (s.outro !== undefined) spec.outro = s.outro;
   if (s.boss !== undefined) spec.boss = packBosses.has(s.boss) ? q(s.boss) : s.boss;
   if (s.background !== undefined) spec.background = s.background;
+  if (s.music !== undefined) spec.music = refMusic(s.music);
   if (typeof s.next === 'string') {
     spec.next = packStages.has(s.next) ? q(s.next) : s.next;
   }
@@ -960,12 +991,13 @@ function toWave(
  * assignment — which is the compile-time drift guard: rename a field on either
  * shape and this stops compiling. `phases` is translated (a pack spell card
  * declares `hpSeconds` where the engine's `SpellCard` wants `hp`), and the
- * `onDeath` effect and `spoils` item names are qualified pack-first.
+ * `onDeath` effect, `music` track and `spoils` item names are qualified pack-first.
  */
 function toBossSpec(
   b: ContentBoss,
   refEffect: (name: string) => string,
   refItem: (name: string) => string,
+  refMusic: (name: string) => string,
 ): BossSpec {
   const spec: BossSpec = {
     sprite: b.sprite,
@@ -977,6 +1009,7 @@ function toBossSpec(
   if (b.tint !== undefined) spec.tint = b.tint;
   if (b.entry !== undefined) spec.entry = b.entry;
   if (b.onDeath !== undefined) spec.onDeath = refEffect(b.onDeath);
+  if (b.music !== undefined) spec.music = refMusic(b.music);
   if (b.spoils !== undefined) {
     spec.spoils = b.spoils.map(([name, count]): readonly [string, number] => [refItem(name), count]);
   }

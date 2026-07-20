@@ -14,6 +14,14 @@
     "shot": "shot.wav",
     "pickup": "pickup.wav"
   },
+  "music": {
+    "ashen": {
+      "file": "ashen.wav",
+      "loopStart": 0.6,
+      "loopEnd": 4.2,
+      "volume": 0.5
+    }
+  },
   "hud": {
     "life": "life.png",
     "bomb": "bomb.png"
@@ -574,6 +582,7 @@
         "entry": true,
         "seed": 7,
         "background": "expanse",
+        "music": "ashen",
         "outro": 120,
         "next": "ashfall",
         "waves": [

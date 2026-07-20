@@ -26,15 +26,17 @@ JSON has no comments, so this table is where the annotation lives.
 | `assets.filter` | `"nearest"` | Texture sampling for both sheets: `"nearest"` or `"linear"`. This pack's art is hard-edged, so `"nearest"` keeps every boundary crisp; smooth, gradient-shaded art should ask for `"linear"` instead. Default is `"nearest"` either way. |
 | `sounds.shot`, `sounds.pickup` | two `.wav` files | One entry per sound this pack replaces — the full list of names the engine plays is in `docs/audio.md` §2; an unknown name is rejected and lists them. This pack only replaces two of the six, which is legal: everything else keeps playing its synthesised placeholder. |
 | `hud.life`, `hud.bomb` | two `.png` files | Replace the ♥/★ glyphs. See "HUD icons are shapes, not compositions" below. |
+| `music.ashen` | one `.wav` with loop points | A background track — a top-level section, sibling to `sounds`. See "Music: an intro and a loop" below. |
 | `requires` | all nine `content.*` capabilities | The capabilities this pack's `content` needs. The engine honours exactly the implemented set; anything else is refused by name. Every `content.<section>` present must be declared here and vice versa — the covering invariant, which is what lets an older engine refuse on `requires` before it parses a `content` section it could not load. |
 | `content` | one of every implemented section | Format-2 game content: enemies, stages, a boss, a shot, a character, options, a bomb, an effect and an item. See "Content: one of everything" below. |
 
-The fields this engine still does not implement — the reserved `content`
-sections `music`/`difficulty`/`dialog`/`backgrounds`, the top-level
-`music`/`difficulty`/`dialog`/`backgrounds`, and the reserved `hud` names
+The fields this engine still does not implement — the top-level
+`difficulty`/`dialog`/`backgrounds`, the reserved `hud` names
 `digits`/`font`/`bossBar`/`frame` — get a dedicated rejection naming each as a
 future section rather than a generic "unknown field" error; see
-`docs/packs.md` §Future.
+`docs/packs.md` §Future. (`content.difficulty`/`content.dialog`/
+`content.backgrounds` are refused the same way inside `content`. `music` is no
+longer among them — it is a real top-level section now, documented above.)
 
 ## Content: one of everything
 
@@ -190,3 +192,46 @@ so a swap is heard, not just seen in a boot report. The other four sounds this
 game plays (`hit`, `explosion`, `graze`, `death` — the full list is
 `docs/audio.md` §2) are left unset, and keep playing their placeholders; a
 pack need not replace every sound to be valid.
+
+## Music: an intro and a loop
+
+`music` is a top-level section, a sibling of `sounds`, not part of `content` —
+a track is a file, and a stage or boss only *names* one. This pack adds one
+track, `ashen`, and `content.stages.gauntlet` is scored to it:
+
+```json
+"music": { "ashen": { "file": "ashen.wav", "loopStart": 0.6, "loopEnd": 4.2, "volume": 0.5 } }
+```
+
+**A track has an intro and a loop, in seconds.** Playback runs from 0 to
+`loopEnd` once — so everything before `loopStart` is the intro, heard exactly
+once — then repeats `[loopStart, loopEnd)` forever. Omit both and the whole file
+loops; give `loopStart` alone and the loop runs to the file's end.
+
+**How to find the loop points.** Open the track in any audio editor and read the
+time, in seconds, at two places: where the intro ends and the repeating body
+begins (`loopStart`), and where that body should jump back (`loopEnd`). For a
+seamless wrap the body's length should hold a whole number of cycles of its
+lowest tone, so the waveform value at `loopEnd` matches the one at `loopStart` —
+`ashen` is generated that way (see `buildAshen` in the generator, which picks
+55/82.5/110 Hz precisely so 3.6 s of body wraps clean). The engine also clamps a
+loop region that runs past the decoded track back to the whole file, so a wrong
+`loopEnd` degrades to "loops the whole thing", never a crash — but the loader
+still *rejects* the pack and prints the measured duration, so fix it rather than
+lean on the clamp.
+
+**Music sits under the sound effects — the readability rule has an audio face.**
+The whole point of the negative-space doctrine is that a single bullet stays
+findable; the same holds for its *sound* cue. Music runs on its own bus, already
+set well under the SFX, and `volume` only trims a track within that — never a
+reason to push a theme up until it competes with a shot or a graze. Keep it low
+and dark: `ashen` is three bass partials and a slow tremolo, nothing in the band
+where a bullet's cue lives. A track loud or busy enough to mask that cue is a
+readability bug you can hear, exactly like a background bright enough to hide a
+bullet is one you can see.
+
+The built-in tracks (`menu`, and one per built-in stage and boss — see
+`docs/audio.md` §Music) are synthesised drones until a pack gives them a file.
+Naming one of *those* in your `music` section replaces it, last-wins, the same
+as a `sounds` reskin; a new name like `ashen` adds a track your own stages and
+bosses can name.

@@ -29,6 +29,7 @@
  * happened to be written.
  */
 
+import { defineMusic, musicNames, type MusicSpec } from '../audio/music';
 import { backgroundNames } from '../render/background';
 import {
   BULLET_CELLS,
@@ -185,9 +186,10 @@ const HUD_ICON_MAX = 16;
 /**
  * The two sheet slots, which lead the boot-report ordering. The full canonical
  * order files are fetched and hashed in — bullets, ship, sounds in
- * `SOUND_NAMES` order, then hud — is fixed by the call order of the `gather*`
- * functions, not by JSON key order, so the recorded hash is stable regardless
- * of how an author wrote their manifest.
+ * `SOUND_NAMES` order, then hud, then music in manifest-declared order — is
+ * fixed by the call order of the `gather*` functions, so the recorded hash is
+ * stable. Music track names are dynamic (a pack invents them), so they cannot
+ * live in this fixed list; the report appends them separately, sorted.
  */
 const RESOURCE_ORDER = ['assets.bullets', 'assets.ship'] as const;
 
@@ -419,10 +421,12 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
   const slots = new Map<string, Resource>();
   const orderedBytes: Uint8Array[] = [];
   const reasons: string[] = [];
+  const musicRegs: MusicRegistration[] = [];
 
   await gatherAssets(name, manifest, slots, orderedBytes, reasons);
   await gatherSounds(name, manifest, slots, orderedBytes, reasons);
   await gatherHud(name, manifest, slots, orderedBytes, reasons);
+  await gatherMusic(name, manifest, slots, orderedBytes, reasons, musicRegs);
 
   if (reasons.length > 0) throw new PackError(reasons);
 
@@ -451,6 +455,14 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
     if (error instanceof PackInjectError) throw new PackError([...error.problems]);
     throw error;
   }
+
+  // Register the pack's music LAST — only past both a clean asset gather and a
+  // clean injection, so a pack rejected for any reason has registered no track,
+  // the same all-or-nothing the content half holds. A built-in name replaces its
+  // placeholder (bare, last-wins in the registry as in the slot map); a new name
+  // registers namespaced, matching the qualified name `inject.ts` put in the
+  // stage/boss spec. `defineMusic` overwrites by name, so re-loading is a no-op.
+  for (const reg of musicRegs) defineMusic(reg.name, reg.spec);
 
   return { slots, hash, campaigns, characterPacks, content: contentSummary(manifest) };
 }
@@ -581,6 +593,109 @@ async function gatherHud(
       reasons.push(`pack "${name}": ${path}: ${(error as Error).message}`);
     }
   }
+}
+
+/** A track to register via `defineMusic` once the whole pack is proven clean. */
+interface MusicRegistration {
+  /** The name it registers under: bare for a built-in replacement, else `<pack>/<name>`. */
+  name: string;
+  spec: MusicSpec;
+}
+
+/**
+ * Fetch and register the pack's `music` tracks.
+ *
+ * A track is presentation — a file, like a `sounds` entry — so its bytes join the
+ * pack hash (in manifest-declared order, after the hud icons, keeping the hash
+ * stable) and it lands in the slot map for the boot report. A NEW name (one no
+ * built-in track carries) registers namespaced `<pack>/<name>`, so `inject.ts`'s
+ * pack-first reference resolves to it; a name matching a built-in track REPLACES
+ * that track's placeholder, bare and last-wins, exactly as a `sounds` reskin does.
+ *
+ * The `loopEnd ≤ duration` bound is the one check `manifest.ts` could not make —
+ * it needs the decoded track — so it happens here, with the measured duration in
+ * the error. Measuring is soft: no `OfflineAudioContext`, or a file that will not
+ * decode, means the bound goes unchecked rather than rejecting the pack, because
+ * the runtime (`Music.play`) clamps an out-of-range loop region to the whole track
+ * anyway — the check is an authoring courtesy, not a safety gate.
+ *
+ * Nothing is registered here; the payloads are collected and `loadOnePack` calls
+ * `defineMusic` only once the whole pack is clean, so a rejected pack mutates no
+ * registry.
+ */
+async function gatherMusic(
+  name: string,
+  manifest: PackManifest,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+  registrations: MusicRegistration[],
+): Promise<void> {
+  const music = manifest.music;
+  if (music === undefined) return;
+
+  const builtin = new Set(musicNames());
+
+  // Manifest-declared order, so the hash is stable for a given manifest.
+  for (const track of Object.keys(music)) {
+    const entry = music[track];
+    if (entry === undefined) continue;
+    const url = fileUrl(name, entry.file);
+    let bytes: Uint8Array;
+    try {
+      bytes = await fetchBytes(url);
+    } catch (error) {
+      reasons.push(`pack "${name}": ${entry.file}: ${(error as Error).message}`);
+      continue;
+    }
+    orderedBytes.push(bytes);
+
+    // The one check that needs the decoded track. Soft — see the header.
+    if (entry.loopEnd !== undefined) {
+      const duration = await measureDuration(bytes);
+      if (duration !== undefined && entry.loopEnd > duration) {
+        reasons.push(
+          `pack "${name}": ${entry.file}: loopEnd ${entry.loopEnd}s is past the track's ` +
+            `${duration.toFixed(3)}s — the loop would run off the end`,
+        );
+        continue;
+      }
+    }
+
+    const registered = builtin.has(track) ? track : `${name}/${track}`;
+    const spec: MusicSpec = { url };
+    if (entry.loopStart !== undefined) spec.loopStart = entry.loopStart;
+    if (entry.loopEnd !== undefined) spec.loopEnd = entry.loopEnd;
+    if (entry.volume !== undefined) spec.volume = entry.volume;
+    registrations.push({ name: registered, spec });
+    slots.set(`music.${registered}`, { url });
+  }
+}
+
+/** Decode `bytes` just far enough to read its duration, or `undefined` if it cannot. */
+async function measureDuration(bytes: Uint8Array): Promise<number | undefined> {
+  const Ctor = offlineAudioContextCtor();
+  if (!Ctor) return undefined;
+  try {
+    const ctx = new Ctor(1, 1, 44100);
+    // `decodeAudioData` detaches the buffer it is given, so hand it a copy — the
+    // original bytes are still needed for the pack hash.
+    const buffer = await ctx.decodeAudioData(bytes.slice().buffer);
+    return buffer.duration;
+  } catch {
+    return undefined;
+  }
+}
+
+type OfflineCtor = new (channels: number, length: number, sampleRate: number) => BaseAudioContext;
+
+/** Looked up, never referenced directly — `bun test` has no `OfflineAudioContext`. */
+function offlineAudioContextCtor(): OfflineCtor | undefined {
+  const scope = globalThis as unknown as {
+    OfflineAudioContext?: OfflineCtor;
+    webkitOfflineAudioContext?: OfflineCtor;
+  };
+  return scope.OfflineAudioContext ?? scope.webkitOfflineAudioContext;
 }
 
 /* ------------------------------------------------------------------ */
@@ -765,7 +880,10 @@ function report(state: {
   const lines: string[] = ['packs: boot report'];
 
   const order = slotOrder();
-  const active = order.filter((slot) => winners.has(slot));
+  // Music slots are dynamic (their names come from the pack), so they are not in
+  // the fixed `slotOrder`; append them sorted, after the fixed resource slots.
+  const musicSlots = [...winners.keys()].filter((slot) => slot.startsWith('music.')).sort();
+  const active = [...order, ...musicSlots].filter((slot) => winners.has(slot));
   if (active.length === 0) {
     lines.push('  (no pack resources active — running on placeholders)');
   } else {

@@ -69,6 +69,7 @@ import { Button } from '../core/input';
 import { bossNames, getBossSpec } from '../sim/boss';
 import { effectNames, getEffectSpec } from '../sim/effects';
 import { soundNames } from '../audio';
+import { MENU_MUSIC, musicNames } from '../audio/music';
 import { bombNames } from '../sim/bomb';
 import { enemyNames } from '../sim/enemy';
 import { itemNames } from '../sim/item';
@@ -125,6 +126,8 @@ interface Coverage {
   effects: Set<string>;
   events: Set<RunEventType>;
   scenes: Set<string>;
+  /** Music tracks a real run actually asked for, via `run.music`. */
+  music: Set<string>;
   /** Characters actually flown, by registry name. */
   characters: Set<string>;
   /** Option formations a flown ship deployed, by registry name. */
@@ -183,6 +186,7 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
     effects: new Set(),
     events: new Set(),
     scenes: new Set(),
+    music: new Set(),
     characters: new Set(),
     optionSets: new Set(),
     bombsFired: new Set(),
@@ -289,6 +293,9 @@ function playThroughGame(characterIndex = 0, limit = 400_000): Coverage {
       const scene = run.scene;
       if (scene !== undefined) cover.scenes.add(scene);
 
+      const track = run.music;
+      if (track !== undefined) cover.music.add(track);
+
       playerX = run.player.x;
       playerY = run.player.y;
       const boss = run.boss.boss;
@@ -347,6 +354,7 @@ const COVER: Coverage = {
   effects: union(RUNS, (c) => c.effects),
   events: union(RUNS, (c) => c.events),
   scenes: union(RUNS, (c) => c.scenes),
+  music: union(RUNS, (c) => c.music),
   characters: union(RUNS, (c) => c.characters),
   optionSets: union(RUNS, (c) => c.optionSets),
   bombsFired: union(RUNS, (c) => c.bombsFired),
@@ -415,6 +423,42 @@ describe('a real playthrough reaches', () => {
 
     expect(declared.size).toBeGreaterThan(0);
     expect([...COVER.scenes].sort()).toEqual([...declared].sort());
+  });
+
+  test('every registered track a stage, a boss, or the menu declares', () => {
+    // Music is wired like scenes (declared per stage and boss), not like sounds
+    // (cued per event), so this mirrors the scene test above — with two seams.
+    //
+    // First, the menu. `run.music` never yields the menu theme (a run is a stage
+    // or a boss, never the title), so the shell supplies `MENU_MUSIC` as the
+    // fallback and the menu is what "reaches" it — hence it joins `declared`
+    // here but is excluded from the entered-check below.
+    //
+    // Second, boss-level not per-phase: unlike a scene, which a spell card can
+    // override, a track is `BossSpec.music` and holds across a fight's cards, so
+    // this reads `getBossSpec(boss).music` with no phase loop. Both are the same
+    // string-across-a-boundary the scene test relies on — `musicNames` is
+    // audio-side, reachable from `src/game` (this test already imports
+    // `soundNames`), while the sim never learns a track exists.
+    const declared = new Set<string>([MENU_MUSIC]);
+    for (const stage of content(stageNames())) {
+      const track = getStage(stage).music;
+      if (track !== undefined) declared.add(track);
+    }
+    for (const boss of content(bossNames())) {
+      const track = getBossSpec(boss).music;
+      if (track !== undefined) declared.add(track);
+    }
+
+    // No dead track: every registered track is named by a stage, a boss, or the
+    // menu, and every name a stage or boss declares is registered.
+    expect(content(musicNames()).sort()).toEqual([...declared].sort());
+
+    // And every track a stage or boss declares is actually entered by the real
+    // playthrough — the menu excepted, since no run ever reports it.
+    for (const track of [...declared].filter((n) => n !== MENU_MUSIC)) {
+      expect(`${track} entered: ${COVER.music.has(track)}`).toBe(`${track} entered: true`);
+    }
   });
 
   test('every registered item kind', () => {

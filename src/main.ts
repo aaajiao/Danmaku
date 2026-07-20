@@ -17,6 +17,7 @@ import './render/backgrounds';
 
 import * as THREE from 'three';
 import { Audio, defineSound } from './audio';
+import { Music, MENU_MUSIC } from './audio/music';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
@@ -68,6 +69,31 @@ fitStage();
  * it belongs on the `BackgroundSpec` of the scene being entered, not here.
  */
 const SCENE_FADE_TICKS = 60;
+
+/**
+ * Seconds a music change crossfades over. About a second, the same feel as
+ * `SCENE_FADE_TICKS`: long enough that a boss theme arrives as the room turning
+ * rather than a cut, short enough to have resolved before the fight is dense.
+ *
+ * In **seconds**, not ticks, and that is the point — music runs on the audio
+ * clock, never `uTick` (see `audio/music.ts`'s header on why the two clocks are
+ * deliberately different). One constant covers every kind of change — menu to
+ * stage, stage to stage, stage to boss — because nothing has wanted them to
+ * differ; if one does, it belongs on the track being entered, not here.
+ */
+const MUSIC_FADE_SECONDS = 1.0;
+
+/**
+ * The music bus ceiling, and the ducked ceiling while the game is paused.
+ *
+ * `MUSIC_LEVEL` sits well under the SFX table (shots at ~0.3 after their own
+ * gains) so the theme never competes with a bullet's cue — the readability rule
+ * with an audio face. Pausing ducks the theme rather than cutting it: the room
+ * is still there, just quieter. The duck is an instant set on the music bus and
+ * touches no SFX voice, which is the whole reason music owns a separate context.
+ */
+const MUSIC_LEVEL = 0.5;
+const MUSIC_PAUSE_LEVEL = 0.2;
 
 /**
  * `drift` is the shell's own scene, not any stage's: it is what the title
@@ -179,6 +205,10 @@ const post = new PostProcessing(stage, { enabled: true });
 /* ------------------------------------------------------------------ */
 
 const audio = new Audio();
+// Music owns its own context (see `audio/music.ts`) so the shell can duck the
+// theme on pause without touching a single SFX voice. It unlocks off the same
+// user gesture as `audio`, below.
+const music = new Music({ masterVolume: MUSIC_LEVEL });
 const input = new Input();
 input.attach();
 
@@ -253,12 +283,14 @@ const loop = new Loop({
     if (!unlocked && buttons !== 0) {
       unlocked = true;
       void audio.unlock();
+      void music.unlock();
     }
 
     machine.tick(buttons);
     background.step();
 
     let scene: string | undefined;
+    let track: string | undefined;
 
     for (const state of machine.stack) {
       const run = (state as { run?: Run }).run;
@@ -267,6 +299,7 @@ const loop = new Loop({
       // Bottom-up, so the topmost run wins — the same precedence the render
       // callback uses to pick whose HUD to draw.
       scene = run.scene ?? scene;
+      track = run.music ?? track;
 
       for (const event of run.drainEvents()) {
         const sound = EVENT_SOUNDS[event.type];
@@ -282,6 +315,22 @@ const loop = new Loop({
     if (scene !== undefined && scene !== background.name) {
       background.transitionTo(scene, SCENE_FADE_TICKS);
     }
+
+    // The same reconcile for music. A title screen (no run) wants the menu
+    // theme, so the fallback is `MENU_MUSIC` rather than "leave it": `Music.play`
+    // is idempotent and no-ops when it already matches `music.current`, so this
+    // only ever switches on a real change. Before unlock `current` stays
+    // undefined, which is exactly what makes the theme start on the first tick
+    // after the gesture with no special case.
+    const wanted = track ?? MENU_MUSIC;
+    if (wanted !== music.current) music.play(wanted, MUSIC_FADE_SECONDS);
+
+    // Duck the theme while paused rather than cutting it — the room stays, just
+    // quieter. Pause is a non-transparent state on top of a run (`states.ts`);
+    // the shell reads it off the stack the same way it folds `run.music` above,
+    // since no `Run` exposes "am I paused" (the pause lives one level up).
+    const paused = machine.stack[machine.stack.length - 1]?.name === 'pause';
+    music.masterVolume = paused ? MUSIC_PAUSE_LEVEL : MUSIC_LEVEL;
   },
 
   render() {

@@ -124,6 +124,20 @@ export interface StageSpec {
    * Unset means the shell keeps whatever is already on screen.
    */
   background?: string;
+  /**
+   * The music this stage is scored to, by registered track name.
+   *
+   * A **string**, for the identical reason `background` is one: registering a
+   * track means importing the audio engine, and `src/content` stays runnable
+   * with no audio (and no GL) context, so a stage names its theme the same way
+   * it names a scene or a pattern — by string, resolved by whoever is playing
+   * sound. It is never validated here against the music registry, because that
+   * registry is audio-side and importing it would break the boundary; an unknown
+   * name is caught at the point of use, exactly as `background` is.
+   *
+   * Unset means the shell leaves whatever track is already playing.
+   */
+  music?: string;
 }
 
 const registry = new Map<string, StageSpec>();
@@ -471,6 +485,7 @@ defineStage('stage-1', {
   seed: 0x5747a1,
   outro: 180,
   background: 'expanse',
+  music: 'vigil',
   boss: 'sentinel',
   next: 'stage-2',
   waves: [

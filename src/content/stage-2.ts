@@ -396,6 +396,7 @@ defineBoss('warden', {
   height: 52,
   tint: { r: 1, g: 0.6, b: 0.72 },
   entry: { x: 240, y: 120, ticks: 70 },
+  music: 'nemesis',
   onDeath: 'death.big',
   phases: [
     {
@@ -493,6 +494,7 @@ defineBoss('magistrate', {
   height: 60,
   tint: { r: 0.72, g: 0.68, b: 1 },
   entry: { x: 240, y: 150, ticks: 90 },
+  music: 'nemesis',
   onDeath: 'death.big',
   phases: [
     {
@@ -646,6 +648,7 @@ defineStage('stage-2', {
   seed: 0x2b0f91,
   outro: 90,
   background: 'undertow',
+  music: 'descent',
   boss: STAGE_2_BOSS,
   waves: [
     /* Opening. Two offset columns, then a diagonal — the same grammar stage 1

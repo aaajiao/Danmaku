@@ -20,6 +20,7 @@ preferences, and §16 of this document lists the ones you can break silently.
 | A pickup | `defineItem` | `src/sim/item.ts` |
 | A particle effect | `defineEffect` | `src/sim/effects.ts` |
 | A sound | `defineSound` | `src/audio/index.ts` |
+| A music track | `defineMusic` | `src/audio/music.ts` |
 | A background scene | `defineBackground` | `src/render/background.ts` |
 | A sprite region | `Atlas.define` / `Atlas.defineGrid` | `src/render/atlas.ts` |
 | A render layer | a `Layer` constant | `src/render/stage.ts` |
@@ -665,9 +666,17 @@ A boss is an enemy with a script: a sequence of `SpellCard` phases, each with it
 own health, clock, movement and fire.
 
 `BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
-`tint`, `entry`, `onDeath` and `spoils` (`src/sim/boss.ts:84-109`). A `SpellCard`
-requires `name`, `hp`, `timeLimit` and `patterns`, and takes optional `motion`,
-`timeline`, `bonus`, `isSpell` and `background` (`src/sim/boss.ts:56-81`).
+`tint`, `entry`, `onDeath`, `music` and `spoils` (`src/sim/boss.ts:84-123`). A
+`SpellCard` requires `name`, `hp`, `timeLimit` and `patterns`, and takes optional
+`motion`, `timeline`, `bonus`, `isSpell` and `background` (`src/sim/boss.ts:57-82`).
+
+`music` names the theme this fight is scored to, by registered track name, and is
+**boss-level — not per-card**: a fight holds one theme across its cards, where
+`background` is per-`SpellCard`. It is a string resolved by the audio layer and
+never validated here (the music registry is audio-side; importing it would cross
+the same import boundary that keeps `background` a string, §15), and `Run.music`
+reports it whenever this boss is alive and declares one, else the stage's. The
+per-card override is a plausible future noted beside `Run.music`, not built.
 
 `spoils` is the item shower dropped on death — the same `[name, count]` list an
 enemy carries (§4), over the item registry. Omit it and the boss drops the game
@@ -814,8 +823,8 @@ Everything else belongs to the `EnemySpec`. That split is the point: a stage is 
 score, not a script, so retuning an enemy retunes it everywhere without touching
 a stage file.
 
-`StageSpec` is `name` and `waves`, plus optional `seed`, `outro`, `boss`, `next`
-and `background` (`src/content/stage.ts:78-127`). An `EnemyWave` is `at`, `enemy`,
+`StageSpec` is `name` and `waves`, plus optional `seed`, `outro`, `boss`, `next`,
+`background` and `music` (`src/content/stage.ts:78-141`). An `EnemyWave` is `at`, `enemy`,
 `x`, `y` with optional `count`, `interval`, `stepX`, `stepY`
 (`src/content/stage.ts:28-40`); a `BossWave` is `at` and `boss`, with optional
 `x` and `y` (`src/content/stage.ts:55-61`).
@@ -906,7 +915,13 @@ player still has enemies to clear is a question about the field, not about the
 script (`src/content/stage.ts:398-411`).
 
 `background` names a registered scene as a **string** — see §12 and §15 for why
-it cannot be an import.
+it cannot be an import. `music` names the stage's theme the same way — a
+registered track name resolved by the audio layer, never imported, so
+`src/content` stays runnable with no audio context (the identical boundary
+argument, §15). `Run.music` mirrors `Run.scene`: the live boss's theme if one is
+alive and declares one, else this stage's, else undefined (leave what plays).
+The theme is authored for a pack the same way a scene is — see
+[`docs/audio.md`](./audio.md) §4 and [`docs/packs.md`](./packs.md) §6.5a.
 
 **Or ship it in a pack.** A stage is also pack data: a `content.stages.<name>`
 in a `pack.json` is this same `StageSpec` as JSON (minus `name`, which the key

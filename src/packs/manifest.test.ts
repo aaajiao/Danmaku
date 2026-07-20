@@ -59,6 +59,7 @@ describe('a valid manifest round-trips', () => {
       description: 'a bright candy skin',
       assets: { bullets: 'bullets.png', ship: 'ship.png', filter: 'linear' },
       sounds: { shot: 'shot.wav', death: 'death.wav' },
+      music: { theme: { file: 'theme.wav', loopStart: 1.5, loopEnd: 12, volume: 0.5 } },
       hud: { life: 'life.png', bomb: 'bomb.png' },
       requires: [],
     };
@@ -205,17 +206,87 @@ describe('unknown and reserved top-level fields', () => {
 
   test('an unrecognisable key lists the valid fields', () => {
     expect(errorsOf({ ...valid(), wibble: 1 })).toContain(
-      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires, content',
+      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content',
     );
   });
 
-  for (const reserved of ['music', 'difficulty', 'dialog', 'backgrounds']) {
+  for (const reserved of ['difficulty', 'dialog', 'backgrounds']) {
     test(`reserved section "${reserved}" gets a dedicated rejection`, () => {
       expect(errorsOf({ ...valid(), [reserved]: {} })).toContain(
         `pack "candy": pack.json: ${reserved} is a pack-format-2 section and this engine implements format 1 — nothing in it would load; see docs/packs.md §Future`,
       );
     });
   }
+});
+
+describe('music', () => {
+  test('not an object', () => {
+    expect(errorsOf({ ...valid(), music: [] })).toContain(
+      'pack "candy": pack.json: music must be a JSON object',
+    );
+  });
+
+  test('a track that is not an object', () => {
+    expect(errorsOf({ ...valid(), music: { theme: 'theme.wav' } })).toContain(
+      'pack "candy": pack.json: music."theme" must be a JSON object',
+    );
+  });
+
+  test('a track missing its file', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { loopStart: 1 } } })).toContain(
+      'pack "candy": pack.json: music."theme" is missing required field "file" — a path to an audio file',
+    );
+  });
+
+  test('file wrong type', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 3 } } })).toContain(
+      'pack "candy": pack.json: music."theme".file must be a string (a path to an audio file)',
+    );
+  });
+
+  test('loopStart wrong type', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 'a.wav', loopStart: '1' } } })).toContain(
+      'pack "candy": pack.json: music."theme".loopStart must be a number (seconds)',
+    );
+  });
+
+  test('a negative loop point', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 'a.wav', loopEnd: -2 } } })).toContain(
+      'pack "candy": pack.json: music."theme".loopEnd must not be negative, got -2',
+    );
+  });
+
+  test('loopStart must be less than loopEnd', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 'a.wav', loopStart: 8, loopEnd: 4 } } })).toContain(
+      'pack "candy": pack.json: music."theme": loopStart 8 must be less than loopEnd 4',
+    );
+  });
+
+  test('equal loop points are also rejected (an empty loop)', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 'a.wav', loopStart: 4, loopEnd: 4 } } })).toContain(
+      'pack "candy": pack.json: music."theme": loopStart 4 must be less than loopEnd 4',
+    );
+  });
+
+  test('volume wrong type', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 'a.wav', volume: 'loud' } } })).toContain(
+      'pack "candy": pack.json: music."theme".volume must be a number',
+    );
+  });
+
+  test('an unknown track field suggests the near key', () => {
+    expect(errorsOf({ ...valid(), music: { theme: { file: 'a.wav', loopStrt: 1 } } })).toContain(
+      'pack "candy": pack.json: music."theme": unknown field "loopStrt" — did you mean "loopStart"?',
+    );
+  });
+
+  test('a valid music section round-trips', () => {
+    const result = validateManifest(
+      { ...valid(), music: { ashen: { file: 'ashen.wav', loopStart: 0.6, loopEnd: 4.2 } } },
+      'candy',
+    );
+    expect('manifest' in result).toBe(true);
+  });
 });
 
 describe('assets', () => {
@@ -391,9 +462,19 @@ describe('content — format-2 sections', () => {
   });
 
   test('a still-reserved content section is refused by name', () => {
-    const raw = { ...valid(), requires: ['content.music'], content: { music: {} } };
+    const raw = { ...valid(), requires: ['content.difficulty'], content: { difficulty: {} } };
     expect(errorsOf(raw)).toContain(
-      'pack "candy": pack.json: content.music is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
+      'pack "candy": pack.json: content.difficulty is a pack-format-2 section this engine does not implement — it implements content.enemies, content.stages, content.bosses, content.shots, content.characters, content.options, content.bombs, content.effects, content.items only; see docs/packs.md §Future',
+    );
+  });
+
+  test('content.music is no longer reserved — music is a top-level section, so it is a plain unknown field', () => {
+    // Music left the reserved content list: it is not a `content` section at all.
+    // A misplaced `content.music` therefore reads as an ordinary unknown field,
+    // pointing the author at the real (top-level) home rather than at §Future.
+    const raw = { ...valid(), content: { music: {} } };
+    expect(errorsOf(raw)).toContain(
+      'pack "candy": pack.json: content: unknown field "music" — valid fields here: enemies, stages, bosses, shots, characters, options, bombs, effects, items',
     );
   });
 
@@ -896,7 +977,7 @@ describe('errors are collected, not reported first-only', () => {
       'pack "candy": pack.json: missing required field "name" — it must equal the directory name "candy" and match [a-z0-9-]{1,32}',
     );
     expect(errors).toContain(
-      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, requires, content',
+      'pack "candy": pack.json: unknown field "wibble" — valid fields here: format, name, version, author, license, description, assets, sounds, hud, music, requires, content',
     );
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });

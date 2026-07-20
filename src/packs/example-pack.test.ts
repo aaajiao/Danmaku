@@ -25,7 +25,7 @@ import '../render/backgrounds'; // registers the scenes the injector resolves ag
 import { backgroundNames } from '../render/background';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { hasEnemy } from '../sim/enemy';
-import { hasStage } from '../content/stage';
+import { getStage, hasStage } from '../content/stage';
 import { hasBoss } from '../sim/boss';
 import { hasItem } from '../sim/item';
 import { shotNames } from '../content/shots';
@@ -86,6 +86,7 @@ describe('packs/example — the reference pack', () => {
     const manifest = readManifest() as {
       assets?: { bullets?: string; ship?: string };
       sounds?: Record<string, string>;
+      music?: Record<string, { file?: string }>;
       hud?: { life?: string; bomb?: string };
     };
 
@@ -95,6 +96,7 @@ describe('packs/example — the reference pack', () => {
       manifest.hud?.life,
       manifest.hud?.bomb,
       ...Object.values(manifest.sounds ?? {}),
+      ...Object.values(manifest.music ?? {}).map((t) => t.file),
     ].filter((p): p is string => typeof p === 'string');
 
     // The manifest is meant to exercise every v1 resource field — a pack this
@@ -170,6 +172,22 @@ describe('packs/example — format-2 content', () => {
     expect(Object.keys(content.bombs ?? {})).toEqual(['firestorm']);
     expect(Object.keys(content.effects ?? {})).toEqual(['cinder']);
     expect(Object.keys(content.items ?? {})).toEqual(['relic']);
+  });
+
+  test('the manifest declares the ashen track and gauntlet is scored to it', () => {
+    const manifest = acceptedManifest();
+    // Music is a top-level presentation section, not content — a track is a file,
+    // and a stage only names one.
+    expect(manifest.music?.ashen?.file).toBe('ashen.wav');
+    expect(manifest.music?.ashen?.loopStart).toBeGreaterThan(0); // a real intro
+    expect(manifest.content?.stages?.gauntlet?.music).toBe('ashen');
+  });
+
+  test('inject qualifies the pack track onto the stage spec', () => {
+    injectPack(acceptedManifest(), CTX);
+    // `ashen` is a NEW name (no built-in track is called that), so it qualifies to
+    // `example/ashen` — the string `Run.music` reports inside gauntlet.
+    expect(getStage('example/gauntlet').music).toBe('example/ashen');
   });
 
   test('inject resolves every name and registers the whole tier under qualified names', () => {

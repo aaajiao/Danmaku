@@ -109,6 +109,8 @@ interface Coverage {
   enemies: Set<string>;
   bosses: Set<string>;
   scenes: Set<string>;
+  /** Tracks `Run.music` reported — a pack track is observed by its qualified name. */
+  music: Set<string>;
   /** Sprites of live particles — a pack effect is observed by the cell it emits. */
   effectSprites: Set<string>;
   /** Names of items on the field — a pack item is observed by its qualified name. */
@@ -144,6 +146,7 @@ function playCampaign(
     enemies: new Set(),
     bosses: new Set(),
     scenes: new Set(),
+    music: new Set(),
     effectSprites: new Set(),
     items: new Set(),
     events: new Set(),
@@ -236,6 +239,8 @@ function playCampaign(
       cover.characters.add(run.characterName);
       const scene = run.scene;
       if (scene !== undefined) cover.scenes.add(scene);
+      const music = run.music;
+      if (music !== undefined) cover.music.add(music);
       const boss = run.boss.boss;
       if (boss?.alive) cover.bosses.add(boss.name);
       fightingBoss = boss?.alive === true;
@@ -332,6 +337,14 @@ describe('the example pack is reachable and its content runs', () => {
     // else in this campaign names, so seeing it proves the card's override was
     // reported by `Run.scene`.
     expect(cover.scenes.has('drift')).toBe(true);
+  });
+
+  test('the pack track scored gauntlet — Run.music reported it, qualified', () => {
+    // `gauntlet.music: "ashen"` qualifies to `example/ashen`; the getter reports
+    // it live for the life of that stage, exactly as `Run.scene` reports the
+    // stage's background. This is the headless half of the music feature — the
+    // reconcile-and-crossfade that turns the string into sound is browser-judged.
+    expect(cover.music.has('example/ashen')).toBe(true);
   });
 
   test("every replay carries the campaign's strict packsData identity", () => {

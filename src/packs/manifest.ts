@@ -54,6 +54,35 @@ export interface PackHud {
 }
 
 /**
+ * One track in the top-level `music` section. A pack music track is presentation,
+ * exactly like a `sounds` entry: a file the loader fetches and registers through
+ * `defineMusic` (`src/audio/music.ts`). Unlike a sound, a track may name a **new**
+ * name — one no built-in track carries — which registers namespaced (`<pack>/<name>`)
+ * and can then be named by this pack's own `content.stages`/`content.bosses`
+ * `music` field; a name that matches a built-in track (`menu`, and one per
+ * built-in stage/boss) *replaces* that track's synthesised placeholder, last-wins.
+ *
+ * `loopStart`/`loopEnd` are the intro/loop split in seconds: playback runs from 0
+ * so any intro plays once, then `[loopStart, loopEnd)` repeats forever. This module
+ * checks only the shape it can without decoding — `loopStart < loopEnd`, both
+ * non-negative. The `loopEnd ≤ duration` bound needs the decoded track, so the
+ * loader measures it at load with the real duration in the error (the same split
+ * as the sheet pixel checks: shape here, measured pixels/samples in the browser).
+ */
+export interface PackMusicTrack {
+  /** Path to an audio file the browser can decode (a WAV, e.g.). */
+  file: string;
+  /** Loop region start, seconds. Default 0 (whole-track loop). Non-negative. */
+  loopStart?: number;
+  /** Loop region end, seconds. Default the track's end. Must exceed `loopStart`. */
+  loopEnd?: number;
+  /** Track gain, 0..1. The music bus already sits under the SFX; this trims within it. */
+  volume?: number;
+}
+
+export type PackMusic = Record<string, PackMusicTrack>;
+
+/**
  * One pattern slot on a pack enemy. Mirrors `EnemyPattern` (`src/sim/enemy.ts`).
  */
 export interface ContentEnemyPattern {
@@ -124,6 +153,12 @@ export interface ContentStage {
   boss?: string;
   next?: string | null;
   background?: string;
+  /**
+   * The track this stage is scored to (`StageSpec.music`), resolved pack-first
+   * then built-in — the same legality as `background`. A bare string; the
+   * injector resolves it against the pack's own music names ∪ the built-in ones.
+   */
+  music?: string;
 }
 
 /**
@@ -184,6 +219,15 @@ export interface ContentBoss {
   phases: readonly ContentSpellCard[];
   onDeath?: string;
   spoils?: readonly (readonly [name: string, count: number])[];
+  /**
+   * The theme this boss holds across its cards (`BossSpec.music`), resolved
+   * pack-first then built-in. Deliberately **boss-level, not per-phase**, unlike
+   * `background`, which lives on each `ContentSpellCard`: a fight announces itself
+   * with one theme on entry and keeps it, so the music belongs to the boss and not
+   * to a card. (Per-spell-card music is a plausible future — it would move onto
+   * `ContentSpellCard` beside `background`, mirroring `BossSpec.music`'s note.)
+   */
+  music?: string;
 }
 
 /**
@@ -348,6 +392,13 @@ export interface PackManifest {
   sounds?: PackSounds;
   hud?: PackHud;
   /**
+   * Background music tracks. A top-level presentation section, sibling to
+   * `sounds` — a track is a file, not game data, so it lives here and not under
+   * `content`; a stage or boss references one only by NAME (`content.stages`/
+   * `content.bosses` `music`). The loader registers these through `defineMusic`.
+   */
+  music?: PackMusic;
+  /**
    * Declared engine capabilities. A capability the engine implements
    * (`IMPLEMENTED_CAPABILITIES`) is honoured; anything else is refused. Every
    * `content.*` section present must be covered by a matching capability here,
@@ -397,6 +448,7 @@ const TOP_FIELDS = [
   'assets',
   'sounds',
   'hud',
+  'music',
   'requires',
   'content',
 ] as const;
@@ -405,17 +457,18 @@ const TOP_FIELDS = [
  * Sections that belong to a later format. They are refused by name so an author
  * who read a later draft learns precisely what is fiction, rather than seeing a
  * generic "unknown field". `content` left this list when its enemies and stages
- * sections became real; the sections still reserved *inside* `content` are
- * `CONTENT_RESERVED`.
+ * sections became real; `music` left it when the top-level `music` section did
+ * (background music is now implemented — see `PackMusic`). The sections still
+ * reserved *inside* `content` are `CONTENT_RESERVED`.
  */
 const RESERVED_TOP = [
-  'music',
   'difficulty',
   'dialog',
   'backgrounds',
 ] as const;
 
 const ASSET_FIELDS = ['bullets', 'ship', 'filter'] as const;
+const MUSIC_TRACK_FIELDS = ['file', 'loopStart', 'loopEnd', 'volume'] as const;
 const HUD_FIELDS = ['life', 'bomb'] as const;
 /** Hud resources a later format will carry; refused by name today. */
 const HUD_RESERVED = ['digits', 'font', 'bossBar', 'frame'] as const;
@@ -434,11 +487,13 @@ const CONTENT_FIELDS = [
 ] as const;
 /**
  * `content.*` sections a later format will carry; refused by name today. Each of
- * these needs an engine feature it does not yet have — music and difficulty are
- * runtime systems, dialog is a scripting layer, backgrounds are shader code —
- * so unlike the sections above they are not pure data a pack can simply carry.
+ * these needs an engine feature it does not yet have — difficulty is a runtime
+ * system, dialog is a scripting layer, backgrounds are shader code — so unlike
+ * the sections above they are not pure data a pack can simply carry. (Music is
+ * not here: it is not a `content` section at all but a top-level presentation one,
+ * so `content.music` is a plain unknown field, not a reserved one.)
  */
-const CONTENT_RESERVED = ['music', 'difficulty', 'dialog', 'backgrounds'] as const;
+const CONTENT_RESERVED = ['difficulty', 'dialog', 'backgrounds'] as const;
 
 const ENEMY_FIELDS = [
   'sprite',
@@ -466,6 +521,7 @@ const STAGE_FIELDS = [
   'boss',
   'next',
   'background',
+  'music',
 ] as const;
 const WAVE_FIELDS = [
   'at',
@@ -488,6 +544,7 @@ const BOSS_FIELDS = [
   'phases',
   'onDeath',
   'spoils',
+  'music',
 ] as const;
 const BOSS_ENTRY_FIELDS = ['x', 'y', 'ticks'] as const;
 const SPELLCARD_FIELDS = [
@@ -691,6 +748,9 @@ export function validateManifest(
   // --- sounds (optional object) -----------------------------------------
   if ('sounds' in raw) validateSounds(raw.sounds, prefix, errors);
 
+  // --- music (optional object) ------------------------------------------
+  if ('music' in raw) validateMusic(raw.music, prefix, errors);
+
   // --- hud (optional object) --------------------------------------------
   if ('hud' in raw) validateHud(raw.hud, prefix, errors);
 
@@ -773,6 +833,69 @@ function validateSounds(sounds: unknown, prefix: string, errors: string[]): void
     if (typeof sounds[key] !== 'string') {
       errors.push(`${prefix}sounds.${key} must be a string (a path to a WAV)`);
     }
+  }
+}
+
+/**
+ * The top-level `music` section: a map of track name → `{file, loopStart?,
+ * loopEnd?, volume?}`. Shape only — the `loopEnd ≤ duration` bound needs the
+ * decoded track, so it is the loader's, measured with the real duration. Here:
+ * `file` required, the loop points non-negative numbers, and `loopStart < loopEnd`
+ * when both are given (a reversed or empty region is an author error, caught
+ * before a byte is fetched).
+ */
+function validateMusic(music: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(music)) {
+    errors.push(`${prefix}music must be a JSON object`);
+    return;
+  }
+  for (const [key, track] of Object.entries(music)) {
+    const where = `music."${key}"`;
+    if (!isRecord(track)) {
+      errors.push(`${prefix}${where} must be a JSON object`);
+      continue;
+    }
+    if (!('file' in track) || track.file === undefined) {
+      errors.push(`${prefix}${where} is missing required field "file" — a path to an audio file`);
+    } else if (typeof track.file !== 'string') {
+      errors.push(`${prefix}${where}.file must be a string (a path to an audio file)`);
+    }
+    validateLoopPoint(track, 'loopStart', where, prefix, errors);
+    validateLoopPoint(track, 'loopEnd', where, prefix, errors);
+    if ('volume' in track && typeof track.volume !== 'number') {
+      errors.push(`${prefix}${where}.volume must be a number`);
+    }
+    const { loopStart, loopEnd } = track;
+    if (
+      typeof loopStart === 'number' &&
+      typeof loopEnd === 'number' &&
+      !(loopStart < loopEnd)
+    ) {
+      errors.push(
+        `${prefix}${where}: loopStart ${loopStart} must be less than loopEnd ${loopEnd}`,
+      );
+    }
+    for (const field of Object.keys(track)) {
+      if ((MUSIC_TRACK_FIELDS as readonly string[]).includes(field)) continue;
+      errors.push(unknownField(`${prefix}${where}: `, field, MUSIC_TRACK_FIELDS));
+    }
+  }
+}
+
+/** A loop point: an optional non-negative number of seconds. */
+function validateLoopPoint(
+  track: Record<string, unknown>,
+  field: 'loopStart' | 'loopEnd',
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!(field in track) || track[field] === undefined) return;
+  const value = track[field];
+  if (typeof value !== 'number') {
+    errors.push(`${prefix}${where}.${field} must be a number (seconds)`);
+  } else if (value < 0) {
+    errors.push(`${prefix}${where}.${field} must not be negative, got ${value}`);
   }
 }
 
@@ -1030,6 +1153,7 @@ function validateStage(
   optField(raw, 'outro', 'number', where, prefix, errors);
   optField(raw, 'boss', 'string', where, prefix, errors);
   optField(raw, 'background', 'string', where, prefix, errors);
+  optField(raw, 'music', 'string', where, prefix, errors);
   if ('next' in raw && typeof raw.next !== 'string' && raw.next !== null) {
     errors.push(`${prefix}${where}.next must be a string or null`);
   }
@@ -1112,6 +1236,7 @@ function validateBoss(
   optField(raw, 'height', 'number', where, prefix, errors);
   optField(raw, 'tint', 'object', where, prefix, errors);
   optField(raw, 'onDeath', 'string', where, prefix, errors);
+  optField(raw, 'music', 'string', where, prefix, errors);
 
   if ('entry' in raw && raw.entry !== undefined) {
     validateBossEntry(raw.entry, `${where}.entry`, prefix, errors);

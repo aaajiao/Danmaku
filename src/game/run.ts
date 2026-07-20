@@ -347,6 +347,9 @@ export class Run {
   /** The stage's own scene name. Fixed for the life of the run, so cached. */
   readonly #stageScene: string | undefined;
 
+  /** The stage's own music track. Fixed for the life of the run, so cached. */
+  readonly #stageMusic: string | undefined;
+
   readonly config: RunConfig;
   readonly character: CharacterSpec;
   readonly characterName: string;
@@ -454,6 +457,7 @@ export class Run {
     });
     this.stage = new StageRunner(stageSpec, this.enemies);
     this.#stageScene = stageSpec.background;
+    this.#stageMusic = stageSpec.music;
 
     // Every name this run will ever resolve, resolved now.
     //
@@ -1116,6 +1120,33 @@ export class Run {
       if (card?.background !== undefined) return card.background;
     }
     return this.#stageScene;
+  }
+
+  /**
+   * The music this run wants playing: a registered track name, or `undefined` to
+   * leave alone whatever is already sounding.
+   *
+   * The twin of `scene`, and declared for the same reason — which place we are
+   * in is a *condition*, not an event, so the shell reconciles it every tick
+   * against what is actually playing rather than reacting to a queue that could
+   * drop a message and strand the wrong theme. Reading it is idempotent, so a
+   * paused, replayed, or restarted run needs no resynchronisation.
+   *
+   * The precedence mirrors `scene` with one deliberate difference: a scene can
+   * be overridden per spell card, but music is **boss-level**. A fight declares
+   * one theme on entry and holds it across its cards, so this reads
+   * `boss.spec.music`, not the live card's. If per-card music is ever wanted it
+   * belongs on `SpellCard` beside `background`, and this getter would read the
+   * card first exactly as `scene` does — see the note on `BossSpec.music`.
+   *
+   * `boss?.alive` is the same guard as `scene`, and for the same reason: the
+   * theme announces the *live* fight, and once the boss is gone the run falls
+   * back to the stage's own track.
+   */
+  get music(): string | undefined {
+    const boss = this.boss.boss;
+    if (boss?.alive && boss.spec.music !== undefined) return boss.spec.music;
+    return this.#stageMusic;
   }
 
   /**

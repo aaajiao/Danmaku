@@ -166,7 +166,59 @@ invalidates, so a `defineSound` at module load is fine — the cache is empty un
 the first input — but re-registering at runtime does nothing audible until a
 reload.
 
-## 4. Verify
+## 4. Music
+
+Music is the sibling of the sound engine, in `src/audio/music.ts`, and shares its
+whole doctrine — render-side, total (nothing throws into the loop), synth-first
+(a placeholder drone is the permanent floor), silent until a user gesture unlocks
+it. What it does **not** share is the sound engine's clock. Read the module header
+before touching it; the one-paragraph version:
+
+- **A stage or boss names a track, exactly as it names a scene.** `StageSpec.music`
+  and `BossSpec.music` are strings (`Run.music` is a getter mirroring `Run.scene`
+  line for line: boss's theme if one is alive and it declares one, else the
+  stage's, else undefined). The shell reconciles `run.music` against what is
+  playing each tick and cross-fades on a change, the same idempotent
+  reconcile-not-react as backgrounds. Music is **boss-level, not per-spell-card** —
+  a fight holds one theme; the per-card override is a plausible future noted beside
+  the getter.
+- **It runs on the audio clock, not `uTick` — deliberately, the opposite of a
+  background.** A background must advance on `uTick` because a wall-clock scene
+  desyncs *visually* from a replay while every test stays green. Music carries no
+  such claim: a track restarting when a stage begins is the genre's own behaviour,
+  and nothing about what plays or when it loops feeds back into the simulation.
+  Someone will want to "fix" it onto `uTick` to match backgrounds; that is the
+  wrong fix, and the header says so at length.
+- **It sits under the SFX.** Its own `AudioContext`, separate from the sound
+  engine's, is what lets the shell duck it on pause without touching a voice, and
+  its master ceiling is set well below the sound table so the theme never competes
+  with the readability of play — the audio face of the negative-space rule.
+
+### Registration and loop points
+
+`defineMusic(name, spec)` registers a track; like `defineSound` a duplicate name
+**overwrites** (the replacement seam). `MusicSpec` is `{ url?, loopStart?,
+loopEnd?, volume?, synth? }`: with no `url` the track is a synthesised dark drone
+seeded from a hash of its name (reproducible, so it can be taste-tuned — audio is
+`fx`-side but never `Math.random`); with a `url` the file loads instead. Playback
+runs from 0 so any intro plays once, then `[loopStart, loopEnd)` repeats forever
+(`loopStart` defaults to 0, `loopEnd` to the track's end). The loop points are
+clamped to the decoded duration at play time, so an out-of-range pair loops the
+whole track rather than throwing.
+
+The launch set is small — `menu`, and one theme per built-in stage and boss
+(`vigil`, `descent`, `nemesis`) — each a placeholder drone until a content file or
+a pack gives it a `url`. A **pack** adds or replaces tracks through its top-level
+`music` section (`docs/packs.md` §6.5a): a new name registers namespaced for the
+pack's own stages/bosses to name, a built-in name replaces that placeholder.
+
+### The preferred route to a real track is a pack
+
+As with sounds, the placeholder floor exists so nothing blocks on assets, and the
+preferred way to ship a real track is a pack — no code edit. See `docs/packs.md`
+§6.5a for the manifest shape, the loop-point walkthrough, and the volume doctrine.
+
+## 5. Verify
 
 ```
 bun run typecheck

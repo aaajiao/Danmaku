@@ -262,6 +262,7 @@ engine. Every extension point is a registry:
 | Stages and waves | `defineStage` | `src/content/stage.ts` |
 | Background scenes | `defineBackground` | `src/render/background.ts` |
 | Sounds | `defineSound` | `src/audio/index.ts` |
+| Music tracks | `defineMusic` | `src/audio/music.ts` |
 | Sprite regions | `Atlas.define` / `defineGrid` | `src/render/atlas.ts` |
 | Render layers | `Layer` constants | `src/render/stage.ts` |
 | Asset packs (reskins + content) | drop a folder in `packs/` | `docs/packs.md` |
@@ -273,7 +274,10 @@ The last row is the one that is not code: an **asset pack** is a folder dropped
 into `packs/`, and it extends the game without touching a registry or the engine
 at all. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
 that patterns, effects and the HUD draw with — bullet sheet, ship, HUD icons,
-sounds. **Content** (format 2, gated by a `requires` capability) adds JSON data
+sounds, and music tracks (a stage or boss names a track by string, exactly as it
+names a scene; the file is presentation and stays under the warn-only skin
+identity, while the track name it carries in the spec is content). **Content**
+(format 2, gated by a `requires` capability) adds JSON data
 across nine sections — enemies, stages, bosses, shots, characters, options, bombs,
 effects and items: an enemy is an `EnemySpec`, a stage is waves chained into a
 selectable campaign, a boss is spell-card phases sized in seconds, a character
