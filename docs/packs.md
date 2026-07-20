@@ -1317,15 +1317,18 @@ more (`decisions-basepack.md`):
 
 The prose that used to live in those engine files — wave-teaching notes, phase
 reasoning — did not die in JSON: it moved into `tools/make-base-pack.ts`, which is
-the **authoring source**. The generator emits `base-pack.json` (checked in), and a
+the **authoring source**. (Prose that documents a surviving engine *mechanism*
+rather than the moved content — the `REFERENCE_DPS` calibration story, for one —
+stayed with its mechanism in `src/sim/boss.ts`.) The generator emits `base-pack.json` (checked in), and a
 drift test (`tools/make-base-pack.test.ts`) regenerates and diffs it, so generator
 output that disagrees with the committed JSON fails the build. This is the
 established make-example-pack idiom (§9): authoring-time code may generate data;
-data never carries code. Alongside it, a registry-snapshot gate
-(`src/base-content.golden.test.ts`) asserts that injecting `base-pack.json`
-reproduces every ported registration byte-for-byte, and four committed replay
-traces assert zero simulation divergence — the two mechanisms that make "the port
-was invisible to gameplay" a test rather than a claim.
+data never carries code. Alongside it, four committed replay traces
+(`src/base-content.golden.test.ts`) assert zero simulation divergence — the
+permanent behavioural guard. (The port itself was additionally gated on a
+registry snapshot proving every ported registration reproduced byte-for-byte;
+it did its job when the port landed and was retired, as decisions recorded it
+would be — structural drift is the drift test's problem now.)
 
 **Extending the base campaign** — a new stage, enemy or boss for the built-in game
 — is therefore a generator edit (`docs/extending.md` §4–§6), not an inline

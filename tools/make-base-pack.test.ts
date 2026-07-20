@@ -8,8 +8,8 @@
  * describing the shipped pack. This regenerates in memory and byte-diffs.
  *
  * A failure means exactly one action: run `bun tools/make-base-pack.ts` and
- * commit the result (having first confirmed the change was intended — the golden
- * gate in `src/base-content.golden.test.ts` proves whether it moves gameplay).
+ * commit the result (having first confirmed the change was intended — the replay
+ * traces in `src/base-content.golden.test.ts` prove whether it moves gameplay).
  */
 
 import { readFileSync } from 'node:fs';

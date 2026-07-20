@@ -381,7 +381,7 @@ When a real sheet arrives:
 | Orientation | facing down (toward the player) |
 
 Nothing in the engine reads that table yet. `EnemySpec` carries a `sprite` name
-and no frame count at all (`src/sim/enemy.ts:40-44`), so the animation row is a
+and no frame count at all (`src/sim/enemy.ts:46-48`), so the animation row is a
 proposal, not a contract — it needs code in `src/sim/enemy.ts` before art can
 use it. Upstream's `enemy.png` was 512×512 and used **three of its 256 cells**.
 Do not reserve space speculatively; add rows as enemy types are actually

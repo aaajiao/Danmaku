@@ -25,8 +25,8 @@
  * defaults `timeLimit` to `phaseClock(hp)`. The engine's own bosses were sized
  * with exactly those functions (`phaseHp(6)`, `phaseClock(phaseHp(6))`…), so
  * writing the same seconds here and omitting `timeLimit` reproduces the former
- * numbers to the ULP — which is what the byte-identity port gate
- * (`src/base-content.golden.test.ts`) checks.
+ * numbers to the ULP — proved when the port landed, and held behaviourally ever
+ * since by the replay traces in `src/base-content.golden.test.ts`.
  *
  * ## What a pack can never carry
  *

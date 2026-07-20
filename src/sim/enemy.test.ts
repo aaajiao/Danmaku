@@ -199,8 +199,8 @@ describe('registry', () => {
   test('enemyNames lists every registered enemy', () => {
     // The shipped cast — grunt, weaver, turret and stage-2's — is no longer
     // defined in this module; it moved into the bundled base pack, where the
-    // registry snapshot gate (`src/base-content.golden.test.ts`) pins its specs
-    // and `src/reachability.test.ts` proves each one spawns and fires. This
+    // drift test (`tools/make-base-pack.test.ts`) pins its specs and
+    // `src/reachability.test.ts` proves each one spawns and fires. This
     // module owns the registry, so it is verified here against its own fixtures.
     const names = enemyNames();
     expect(names).toContain('test.sitter');
