@@ -12,8 +12,9 @@
  * death, a death changes how many draws the `sim` stream makes, and after one
  * extra draw the two runs are unrelated — not "slightly off", unrelated.
  *
- * Determinism is the product (CLAUDE.md, rule 2). So the sim cannot call the
- * platform's transcendentals at all.
+ * Determinism is the product (CLAUDE.md, rules 2 and 3). So the sim cannot call
+ * the platform's transcendentals at all — which is rule 3, and this file is
+ * what it is asking for.
  *
  * IEEE-754 `+ - * /` and `sqrt` *are* exactly specified, and ECMAScript
  * inherits that: correctly rounded, one representable answer, identical on

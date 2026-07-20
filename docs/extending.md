@@ -4,7 +4,7 @@ How to add content without editing the engine. Every extension point is a
 registry: you write a file, register a named thing, and import it.
 
 Read [`CLAUDE.md`](../CLAUDE.md) first — the hard rules there are not style
-preferences, and §7 of this document lists the ones you can break silently.
+preferences, and §16 of this document lists the ones you can break silently.
 
 | You want to add | Call | In |
 |---|---|---|
@@ -12,31 +12,42 @@ preferences, and §7 of this document lists the ones you can break silently.
 | A danmaku pattern | `definePattern` | `src/content/patterns.ts` |
 | Motion the polar model cannot express | `defineBehaviour` | `src/sim/motion.ts` |
 | An enemy | `defineEnemy` | `src/sim/enemy.ts` |
+| A boss | `defineBoss` | `src/sim/boss.ts` |
+| A stage | `defineStage` | `src/content/stage.ts` |
+| A player weapon | `defineShot` | `src/content/shots.ts` |
+| An option loadout | `defineOptions` | `src/sim/option.ts` |
+| A bomb | `defineBomb` | `src/sim/bomb.ts` |
+| A pickup | `defineItem` | `src/sim/item.ts` |
 | A particle effect | `defineEffect` | `src/sim/effects.ts` |
+| A sound | `defineSound` | `src/audio/index.ts` |
+| A background scene | `defineBackground` | `src/render/background.ts` |
 | A sprite region | `Atlas.define` / `Atlas.defineGrid` | `src/render/atlas.ts` |
 | A render layer | a `Layer` constant | `src/render/stage.ts` |
 
 Two facts about registries that will bite you before anything else does:
 
 - **They throw on duplicate names.** `definePattern({ name: 'ring' })` twice is
-  an error at import time, not a silent overwrite. Tests that register their own
-  entries must namespace them — see the `NS` constant in
-  `src/content/patterns.test.ts`.
+  an error at import time, not a silent overwrite. A silent overwrite would mean
+  the entry a spec resolves to depends on module load order, which is the
+  load-order dependence `patterns.ts` was written to avoid, and it would rebind
+  content nobody touched. Tests that register their own entries must namespace
+  them — see the `NS` constant in `src/content/patterns.test.ts`. `defineSound`
+  is the deliberate exception, and §10 says why.
 - **Registration happens on import.** A `BulletSpec` naming
   `behaviour: 'homing'` throws at *spawn* time if nothing imported the module
-  that registered it. Import content modules for their side effects from wherever
-  you assemble a stage.
+  that registered it. `src/content/shots.ts:24-28` carries that import with a
+  comment explaining that it is load-bearing rather than tidiness. Import content
+  modules for their side effects from wherever you assemble a stage.
 
 Content is referenced **by name, never by index**, so repacking an atlas or
 reordering a table cannot repoint at the wrong thing.
 
 ### Where files go
 
-`src/sim/` and `src/content/` must not import from `src/render/`. The one
-allowed exception is a **type-only** import — `src/sim/effects.ts` does
-`import type { BulletCell } from '../render/procedural'` so a renamed cell fails
-the build, while keeping zero runtime dependency on the renderer. Anything
-`import type` is erased; anything else is a layering violation.
+`src/sim/` and `src/content/` must not import a *value* from `src/render/`;
+`import type` is exempt because it erases. `src/architecture.test.ts` enforces
+this, and §15 covers what it checks and how to get a renderer thing across the
+line when you need one.
 
 ---
 
@@ -55,7 +66,7 @@ export const iceOrb: BulletSpec = {
 };
 ```
 
-`style.sprite` is an atlas cell name (§4). `r/g/b/a` are a per-instance tint in
+`style.sprite` is an atlas cell name (§11). `r/g/b/a` are a per-instance tint in
 0..1, multiplied with the texel — the sheet is white, so this is where colour
 comes from.
 
@@ -97,7 +108,7 @@ export const emberNeedle: BulletSpec = {
 ```
 
 `orientToHeading` rotates the sprite to match `vector.theta`, and heading 0° is
-**+x**, so the art must point right (CLAUDE.md rule 6). `spin` adds a constant
+**+x**, so the art must point right (CLAUDE.md rule 7). `spin` adds a constant
 rotation in radians/tick instead. They are mutually exclusive — `BulletSystem.step`
 takes `orientToHeading` first and ignores `spin` when both are set.
 
@@ -105,7 +116,7 @@ takes `orientToHeading` first and ignores `spin` when both are set.
 property, so it is decided by *which batch* the bullet is drawn into. The
 current render loop in `src/main.ts` routes on `faction` and never reads
 `style.additive`. A bullet that must glow needs an additive batch and a renderer
-that sends it there — see §5.
+that sends it there — see §13.
 
 ### Lifetime
 
@@ -122,6 +133,61 @@ export const ricochet: BulletSpec = {
   maxBounces: 3,
 };
 ```
+
+### Beams: a bullet that is a line
+
+`laser` makes a bullet a segment rather than a point. Its `x`/`y` is the
+**muzzle**, not the centre, and the body reaches `length` px from there along
+`vector.theta`.
+
+```ts
+export const lance: BulletSpec = {
+  style: {
+    sprite: 'needle',
+    r: 1, g: 0.45, b: 0.6,
+    width: 7,
+    additive: true,
+    orientToHeading: true,
+  },
+  radius: 4,
+  motion: { r: 0, theta: 90 },
+  laser: { length: 40, growth: 22, maxLength: 600, warmup: 28 },
+  life: 64,
+};
+```
+
+`LaserSpec` is four numbers (`src/sim/bullet.ts:54-62`): `length` at spawn, plus
+optional `growth` per tick, `maxLength`, and `warmup`. `r: 0` is the usual
+choice — the muzzle stays where it was fired and the entire motion of the thing
+is its own extension.
+
+Anchoring the hitbox at the muzzle is what lets the origin stay put while the
+beam extends, which is the whole shape of the effect. A renderer drawing a
+centred quad has to offset it by half the length itself.
+
+**`warmup` is the telegraph, and it gates the hit test, not the tint.**
+`Bullet.lethal` stays false until `age >= warmup`, and `bulletOverlaps` returns
+false for a bullet that is not lethal (`src/sim/bullet.ts:464`). A laser that is
+lethal on the tick it appears is not a pattern, it is a coin flip — there is no
+information in the field before it kills. The gate lives inside the hit test
+rather than at the call sites so that every present and future collision path
+inherits it, which is the argument rule 8 makes about `alive`.
+
+Collision switches to a capsule: the closest point between the segment and the
+target circle, widened by `radius`. So on a beam `radius` is a half-width, not a
+blob around the muzzle. Tested against a circle at its stored position instead, a
+300px beam reads as 300px away from the thing that is killing you.
+
+**The offscreen cull widens with the beam.** A point bullet is culled at
+`bounds.margin`; a laser is culled at `margin + length`
+(`src/sim/bullet.ts:300`), because the muzzle does not bound it. Without that,
+an emitter parked above the field firing down has its beam deleted on the tick it
+spawns while most of the body — and all of the hitbox — is on screen.
+
+Growth and warmup want tuning together. `LANCE` in `src/content/stage-2.ts:108`
+is 40px plus 28 ticks at 22px/tick, which is 656 against a 600 cap, so the beam
+finishes drawing itself out at almost exactly the tick it becomes lethal: the
+player watches a line reach across the field, and then it is live.
 
 ### Timelines
 
@@ -160,6 +226,7 @@ returns a closure called once per tick. Return `false` to retire the emitter;
 anything else keeps it alive.
 
 ```ts
+// src/content/lattice.ts
 import { definePattern, fan, aimAngle } from './patterns';
 import type { BulletSpec } from '../sim/bullet';
 
@@ -175,13 +242,20 @@ interface LatticeOptions {
 definePattern({
   name: 'lattice',
   description: 'Aimed fan with a jittered centre and a spread that widens each volley.',
-  create(options) {
-    const o = options as unknown as LatticeOptions;
-    const count = o.count ?? 7;
-    const period = o.period ?? 40;
-    const jitter = o.jitter ?? 6;
-    const growth = o.growth ?? 6;
-    const duration = o.duration ?? 0;
+  create(options?: Readonly<Partial<LatticeOptions>>) {
+    // `spec` is the one option with no sensible default — there is no bullet
+    // shape a pattern could safely assume in its place — so it fails loudly and
+    // by name rather than defaulting like every other field.
+    const spec = options?.spec;
+    if (spec === undefined) {
+      throw new Error('pattern "lattice" requires a "spec" option');
+    }
+
+    const count = options?.count ?? 7;
+    const period = options?.period ?? 40;
+    const jitter = options?.jitter ?? 6;
+    const growth = options?.growth ?? 6;
+    const duration = options?.duration ?? 0;
     let volley = 0;
 
     return (context) => {
@@ -189,7 +263,7 @@ definePattern({
       if (context.age % period !== 0) return true;
 
       const centre = aimAngle(context) + context.rng.range(-jitter, jitter);
-      fan(context, o.spec, count, centre, 20 + volley * growth);
+      fan(context, spec, count, centre, 20 + volley * growth);
       volley++;
       return true;
     };
@@ -198,9 +272,23 @@ definePattern({
 ```
 
 Per-tick state (`volley`) lives in the closure, so two emitters running the same
-pattern never share it. The `options as unknown as T` cast is the house pattern:
-options arrive as `Readonly<Record<string, unknown>>` because the registry cannot
-know your shape.
+pattern never share it.
+
+**Type the parameter; do not cast it.** `PatternDefinition.create` declares
+`options?: Readonly<Record<string, unknown>>` (`src/content/patterns.ts:40`)
+because the registry cannot know your shape — but `create` is written as a
+method, and TypeScript compares method parameters bivariantly, so narrowing it to
+your own `Readonly<Partial<T>>` is accepted. That is what all four built-ins do
+(`src/content/patterns.ts:165, 196, 235, 264`), and nothing outside the tests
+casts through `unknown`. A cast buys the same field access and gives up every
+check on the way to it.
+
+`Partial`, not the bare interface: an options object is authored in stage data,
+where any field may be missing, and pretending otherwise only moves the
+`undefined` somewhere the compiler has stopped looking. The built-ins funnel the
+one field that cannot be defaulted through `requireSpec`
+(`src/content/patterns.ts:143-151`). That helper is module-private, so a pattern
+defined in another file writes the two lines above by hand.
 
 ### The EmitContext
 
@@ -225,16 +313,17 @@ When you need per-bullet control, spawn directly and set the vector:
 definePattern({
   name: 'whip',
   description: 'A single lash of bullets whose speed ramps along the arc.',
-  create(options) {
-    const o = options as unknown as { spec: BulletSpec; length?: number; arc?: number };
-    const length = o.length ?? 24;
-    const arc = o.arc ?? 90;
+  create(options?: Readonly<Partial<{ spec: BulletSpec; length: number; arc: number }>>) {
+    const spec = options?.spec;
+    if (spec === undefined) throw new Error('pattern "whip" requires a "spec" option');
+    const length = options?.length ?? 24;
+    const arc = options?.arc ?? 90;
 
     return (context) => {
       if (context.age >= length) return false;
 
       const bullet = context.bullets.spawn(
-        context.x, context.y, o.spec, context.faction, context.rng,
+        context.x, context.y, spec, context.faction, context.rng,
       );
       if (!bullet) return true;   // pool at its ceiling — never assume a spawn
 
@@ -277,6 +366,8 @@ import { test, expect } from 'bun:test';
 import { Random } from '../core/random';
 import { BulletSystem } from '../sim/bullet';
 import { Emitter } from './patterns';
+import { iceOrb } from './bullets';
+import './lattice';   // load-bearing: nothing else registers the pattern
 
 function run(seed: number): string {
   const rng = new Random(seed);
@@ -300,6 +391,11 @@ test('lattice is reproducible from its seed', () => {
 });
 ```
 
+That side-effect import is the trap the preamble describes, and this test is where
+it is easiest to drop: `Emitter` resolves the name through `createPattern`, which
+throws `unknown pattern "lattice"` (`src/content/patterns.ts:57`) — a failure about
+the import graph, reported from a test about determinism.
+
 ---
 
 ## 3. Adding a motion behaviour
@@ -309,29 +405,52 @@ reflection. When a motion cannot be written that way — homing, splines, noise
 fields — register a behaviour. It runs at the end of every `MoveVector.step`,
 after the derivatives and clamps have been applied.
 
+**Pick a name nobody has taken.** `defineBehaviour` throws
+`motion behaviour "x" is already defined` (`src/sim/motion.ts:107-111`), at
+import time, and the four already registered are `homing`, `waver`,
+`accelerate-to` and `orbit` (`src/content/behaviours.ts:81, 114, 146, 190`).
+`behaviourNames()` lists them at runtime. The registry refuses rather than
+overwrites for the reason every registry here does: an overwrite would make the
+behaviour a spec resolves to a function of module load order, and it would
+silently rebind bullets in content nobody edited.
+
 ```ts
+import { atan2Deg, deltaDeg } from '../core/trig';
 import { defineBehaviour } from '../sim/motion';
 
-const DEG = 180 / Math.PI;
-
-defineBehaviour('homing', (vector, context) => {
-  const rate = vector.options['rate'] ?? 2.5;
+defineBehaviour('intercept', (vector, context) => {
+  const turnRate = vector.options['turnRate'] ?? 2.5;
   const delay = vector.options['delay'] ?? 20;
-  const window = vector.options['window'] ?? 90;
+  const duration = vector.options['duration'] ?? 90;
 
-  // A bullet that homes forever is unavoidable, not hard. Give the player a
-  // window to dodge into.
-  if (context.age < delay || context.age >= delay + window) return;
+  // A bullet that steers forever is unavoidable, not hard. The window is the
+  // dodge. `vector.age`, not `context.age` — see below.
+  const age = vector.age;
+  if (age < delay || age >= delay + duration) return;
 
-  const desired =
-    Math.atan2(context.targetY - context.y, context.targetX - context.x) * DEG;
+  const dx = context.targetX - context.x;
+  const dy = context.targetY - context.y;
+  // Sitting exactly on the target has no heading to seek. `atan2Deg` answers 0
+  // there, which would snap the bullet east for no reason the player can read.
+  if (dx === 0 && dy === 0) return;
 
   // Shortest signed turn, wrapped into (-180, 180]. `theta` accumulates without
   // bound when `w` is set, so a naive difference can be thousands of degrees.
-  const delta = ((((desired - vector.theta) % 360) + 540) % 360) - 180;
-  vector.theta += Math.max(-rate, Math.min(rate, delta));
+  const delta = deltaDeg(vector.theta, atan2Deg(dy, dx));
+  const step = Math.min(Math.abs(delta), Math.abs(turnRate));
+  vector.theta += delta < 0 ? -step : step;
 });
 ```
+
+**`atan2Deg` and `deltaDeg`, never `Math.atan2` and never `* 180 / Math.PI`.**
+A behaviour lives in `src/sim` or `src/content`, both of which
+`src/determinism.test.ts` scans, so an approximated `Math` call here does not
+merely risk a divergence — it fails the suite. The reason it is banned is in
+`src/sim/motion.ts:12-29`: this value is integrated into position, a 1-ULP
+disagreement between engines drifts a bullet across a hitbox edge, the flipped
+hit changes how many draws come off the `sim` stream, and from the next draw
+onward the two runs are unrelated rather than close. `Math.abs`, `min`, `max` and
+`sqrt` are exactly specified and are fine.
 
 Used from a spec:
 
@@ -341,8 +460,8 @@ export const seeker: BulletSpec = {
   radius: 3,
   motion: {
     r: 2.2,
-    behaviour: 'homing',
-    options: { rate: 2, delay: 24, window: 120 },
+    behaviour: 'intercept',
+    options: { turnRate: 2, delay: 24, duration: 120 },
   },
   life: 420,
 };
@@ -350,25 +469,42 @@ export const seeker: BulletSpec = {
 
 Notes that are easy to get wrong:
 
-- **`options` is `Record<string, number>` and reads come back
-  `number | undefined`** under `noUncheckedIndexedAccess`. The `?? default` is
-  not optional politeness; it is how the code compiles.
-- **`context.age` is ticks since the current *segment* began**, not since the
-  bullet spawned. A timeline segment re-inits the vector and resets it.
+- **`options` is `Readonly<Record<string, number>>`** (`src/sim/motion.ts:76` on
+  the spec, `:227` on the vector), and reads come back `number | undefined` under
+  `noUncheckedIndexedAccess`. The `?? default` is not optional politeness; it is
+  how the code compiles. `Readonly` is the other half: a behaviour cannot stash a
+  value back into `options` between ticks, which is deliberate, because the
+  object is shared by every bullet spawned from that spec.
+- **Unknown option names are ignored in silence.** The bag is numbers keyed by
+  string, checked against nothing, so a spec that writes `rate` where the
+  behaviour reads `turnRate` does not fail — it runs entirely on defaults and
+  looks like a behaviour that does not work. Read the option names off the
+  behaviour, not off memory.
+- **`context.age` is the *bullet's* age; `vector.age` is the *segment's*.**
+  `BulletSystem.step` assigns `context.age = b.age`
+  (`src/sim/bullet.ts:274`), which no timeline segment resets, while
+  `MoveVector.init` zeroes `vector.age` (`src/sim/motion.ts:186`) every time a
+  segment falls due. A window gated on `context.age` is therefore already expired
+  if a `MotionTimeline` hands the vector a steering segment at tick 200. Every
+  shipped behaviour gates on `vector.age` (`src/content/behaviours.ts:85, 118,
+  150, 194`) and the module states the distinction at `:21-29`. Behaviours run
+  before `step()` increments it, so a segment's first invocation sees age 0.
 - **`context.targetX/targetY` are whatever the caller passed to
   `BulletSystem.step`** — usually the player. A behaviour does not get to look
   anything up.
-- **Behaviours are looked up at `init`, by name, and throw if unknown.** Import
-  the module that registers them before spawning.
-- **`rate` is degrees per tick**, like everything else. Never per second.
+- **Behaviours are looked up at `init`, by name, and throw if unknown**
+  (`src/sim/motion.ts:196-199`). That is on the tick the first bullet spawns, not
+  at definition, so import the module that registers them from wherever you
+  assemble the content that names them.
+- **`turnRate` is degrees per tick**, like everything else. Never per second.
 
 The third argument is the generator, for behaviours that need randomness:
 
 ```ts
-defineBehaviour('waver', (vector, context, rng) => {
+defineBehaviour('jitter', (vector, context, rng) => {
   const amount = vector.options['amount'] ?? 1.5;
-  const period = vector.options['period'] ?? 8;
-  if (context.age % period !== 0) return;
+  const period = Math.max(1, vector.options['period'] ?? 8);
+  if (vector.age % period !== 0) return;
   vector.theta += rng.range(-amount, amount);
 });
 ```
@@ -377,9 +513,592 @@ This is the sim stream. Every draw shifts the sequence for everything after it,
 so a behaviour that draws every tick on every bullet is a determinism hazard
 even though it is perfectly reproducible — gate it on a period, as above.
 
+The four shipped behaviours draw nothing at all, and
+`src/content/behaviours.ts:31-40` says so on purpose: it is a property content
+depends on. Because they perturb no stream, *attaching* one to an existing
+pattern cannot move any other bullet in the run, which is what makes them safe to
+add to a pattern that already has fixtures. A behaviour that draws is understood
+as changing every fixture that runs alongside it.
+
 ---
 
-## 4. Adding art
+## 4. Adding an enemy
+
+An enemy is a hitbox that moves along the motion DSL and owns a set of running
+patterns. Everything specific to one lives in its `EnemySpec`, so a stage adds
+new opposition by writing a file.
+
+`sprite`, `hp` and `radius` are required; `width`, `height`, `motion`,
+`timeline`, `tint`, `patterns`, `drops`, `scoreValue`, `onHit`, `onDeath` and
+`despawnMargin` are not (`src/sim/enemy.ts:38-63`).
+
+```ts
+import { defineEnemy } from '../sim/enemy';
+
+const DART_SHOT = {
+  style: { sprite: 'orb.small', r: 1, g: 0.6, b: 0.4 },
+  radius: 3,
+  motion: { r: 2.8, theta: 90 },
+};
+
+defineEnemy('skirmisher', {
+  sprite: 'orb.large',
+  hp: 18,
+  radius: 11,
+  tint: { r: 1, g: 0.85, b: 0.7 },
+  timeline: [
+    { count: 0, motion: { r: 2.6, theta: 90 } },
+    { count: 50, motion: { r: 1.4, theta: 20 } },
+  ],
+  patterns: [
+    {
+      pattern: 'aimed-fan',
+      options: { spec: DART_SHOT, count: 3, spread: 26, period: 45 },
+      startAt: 30,
+      stopAt: 300,
+    },
+  ],
+  drops: { power: 1, score: 150 },
+  scoreValue: 150,
+  onHit: 'hit',
+  onDeath: 'explosion',
+});
+```
+
+`startAt` and `stopAt` are **ticks since this enemy spawned**, not since the
+stage began (`src/sim/enemy.ts:26-36`). An enemy's script must not depend on when
+the stage happened to release it, or moving one wave retimes another.
+
+A slot that stops is retired, never restarted (`src/sim/enemy.ts:196-201`). A
+finite pattern reports completion by returning `false`, and without the retire
+flag the next tick would build a fresh emitter and run it again from age zero.
+
+**Leaving the field is not a death.** The cull is silent: no score, no drop, no
+death effect (`src/sim/enemy.ts:290-296`). Only `damage` records one, and it
+guards on `alive` first, because two player bullets can land on the same enemy in
+one collision sweep and the second would otherwise pay its score twice
+(`src/sim/enemy.ts:304-307`).
+
+**Nothing in this file spends what it records.** `drops`, `scoreValue`, `onHit`
+and `onDeath` are names and numbers handed to the game layer through
+`drainDeaths`; what a `power: 1` is worth is not a question `sim/enemy.ts` can
+answer. Deaths are recorded rather than dispatched for the reason given at
+`src/sim/enemy.ts:12-17` — `damage` runs inside a caller's collision sweep, and a
+callback firing there would run arbitrary game code while the live list is being
+rewritten.
+
+`despawnMargin` defaults to the field's own margin. Raise it for something that
+dives off the edge and is meant to come back: `turret` carries 96
+(`src/sim/enemy.ts:486`) because it crawls in from well above the field. The cull
+also refuses to fire until the enemy has been inside the field once
+(`Enemy.entered`, `src/sim/enemy.ts:105-113`), or every authored entrance would
+be deleted on the tick it was created. The cost of that is real and worth
+knowing: an enemy that spawns outside and travels further out is never culled at
+all. It is a content bug, and only the pool ceiling bounds it.
+
+`grunt`, `weaver` and `turret` live at the bottom of `src/sim/enemy.ts` — there
+until there is a `content/enemies.ts` to hold them. Nothing in the system above
+knows they exist.
+
+---
+
+## 5. Adding a boss
+
+A boss is an enemy with a script: a sequence of `SpellCard` phases, each with its
+own health, clock, movement and fire.
+
+`BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
+`tint`, `entry` and `onDeath` (`src/sim/boss.ts:83-100`). A `SpellCard` requires
+`name`, `hp`, `timeLimit` and `patterns`, and takes optional `motion`,
+`timeline`, `bonus`, `isSpell` and `background` (`src/sim/boss.ts:56-81`).
+
+```ts
+import { defineBoss } from '../sim/boss';
+import type { BulletSpec } from '../sim/bullet';
+
+const SHARD: BulletSpec = {
+  style: { sprite: 'scale', r: 0.6, g: 0.85, b: 1, orientToHeading: true },
+  radius: 4,
+  motion: { r: 2.2, theta: 90 },
+};
+
+const PETAL: BulletSpec = {
+  style: { sprite: 'petal', r: 1, g: 0.55, b: 0.8 },
+  radius: 4,
+  motion: { r: 4, theta: 90, ra: -0.06, rrange: { min: 0.5 } },
+};
+
+defineBoss('herald', {
+  sprite: 'halo',
+  radius: 20,
+  width: 56,
+  height: 56,
+  tint: { r: 1, g: 0.85, b: 0.9 },
+  entry: { x: 240, y: 140, ticks: 90 },
+  onDeath: 'death.big',
+  phases: [
+    {
+      name: 'Advance',
+      hp: 650,
+      timeLimit: 60 * 30,
+      isSpell: false,
+      timeline: [
+        { count: 0, motion: { r: 0.9, theta: 0 } },
+        { count: 90, motion: { r: 0.9, theta: 180 } },
+        { count: 180, jump: 0 },
+      ],
+      patterns: [
+        { pattern: 'aimed-fan', options: { spec: SHARD, count: 5, spread: 34, period: 48 } },
+      ],
+    },
+    {
+      name: 'Sign "Lantern Tide"',
+      hp: 880,
+      timeLimit: 60 * 45,
+      isSpell: true,
+      bonus: 200000,
+      background: 'surge',
+      motion: { r: 0 },
+      patterns: [
+        { pattern: 'ring', options: { spec: PETAL, count: 18, period: 42, rotation: 9 } },
+        { pattern: 'ring', options: { spec: PETAL, count: 18, period: 42, rotation: -14 }, startAt: 21 },
+      ],
+    },
+  ],
+});
+```
+
+`startAt` and `stopAt` here are ticks since the **phase** began, not since the
+boss spawned, so a card's script reads the same whether it is the first or the
+fifth (`src/sim/boss.ts:44-48`).
+
+**`defineBoss` validates as the file loads.** A phaseless boss throws — it would
+otherwise spawn, enter, and be instantly defeated, which looks like a working
+fight until someone plays it (`src/sim/boss.ts:108-112`). Every pattern name in
+every phase is then checked against `patternNames()`
+(`src/sim/boss.ts:114-133`), because a pattern name is otherwise resolved on the
+tick its `startAt` falls due — for a late slot in a late phase, minutes into a
+fight the player had to earn. The check is **membership, not construction**:
+`create` is content code and may draw from a stream, so calling it here to see
+whether it throws would move that stream before the run that actually uses the
+pattern. The cost is that a boss naming a pattern from another module must import
+that module first, which is an explicit dependency and the right shape for one
+anyway.
+
+**Entry is not phase 0.** The boss flies in invulnerable and phase 0 begins only
+once it settles. Folding the two together gives you either a health bar draining
+before the card is announced, or a card whose first seconds cannot be damaged —
+both are the entry animation leaking into the fight (`src/sim/boss.ts:19-24`).
+
+**A phase has exactly one exit.** Drained or expired, it leaves through
+`#endPhase`. Two exits with two bodies is how a boss ends up stuck in a phase
+that neither drains, because the timer path forgot to advance, nor expires,
+because the damage path forgot to re-arm the clock — and a stuck boss is
+unwinnable (`src/sim/boss.ts:10-17`). `timeLimit <= 0` means no limit at all, and
+timing a phase out is a *clear*: the fight continues and only what the game pays
+for it differs. Overkill is discarded rather than carried into the next phase,
+or one well-timed bomb would delete a card the player never saw
+(`src/sim/boss.ts:505-508`).
+
+Transitions are announced, not enacted. Clearing the field between cards is a
+game decision — erase the fire, convert it to score, leave it — so this system
+emits the event and reaches into nothing.
+
+### Tuning phase hp, which has been got wrong here before
+
+The numbers on `sentinel` are measured, not guessed (`src/sim/boss.ts:643-662`).
+An immortal probe at full power, tracking its target and holding Shot, lands
+**0.56 damage per tick** on a boss; a real player lands roughly **0.4**, because
+they dodge, lose power and die. Phase hp is set so a strong player drains at
+about **65% of the time limit**, which leaves a weaker one timing out. Both are
+clears; the gap between them is the difficulty curve, and it is the entire reason
+a phase carries both a health pool and a timer.
+
+Those phases were previously 900/1400/1800 hp, needing 1607/2500/3214 ticks
+against limits of 1800/2400/2700 — so two of the three could not be drained by
+*any* player, and the fight's length was independent of how well it was fought.
+Change player damage and these must change with it, or the relationship inverts
+again in silence.
+
+---
+
+## 6. Adding a stage
+
+A stage is a list of waves, and a wave is "at this tick, put this enemy here".
+Everything else belongs to the `EnemySpec`. That split is the point: a stage is a
+score, not a script, so retuning an enemy retunes it everywhere without touching
+a stage file.
+
+`StageSpec` is `name` and `waves`, plus optional `seed`, `outro` and
+`background` (`src/content/stage.ts:78-105`). An `EnemyWave` is `at`, `enemy`,
+`x`, `y` with optional `count`, `interval`, `stepX`, `stepY`
+(`src/content/stage.ts:28-40`); a `BossWave` is `at` and `boss`, with optional
+`x` and `y` (`src/content/stage.ts:55-61`).
+
+```ts
+import { defineStage } from './stage';
+
+defineStage('stage-3', {
+  name: 'stage-3',
+  seed: 0x5747a1,
+  outro: 180,
+  background: 'expanse',
+  waves: [
+    { at: 0, enemy: 'grunt', x: 120, y: -24, count: 5, interval: 20 },
+    // `interval: 0` puts all five on one tick; `stepX`/`stepY` stagger them in
+    // space instead of in time, so they arrive as a diagonal wall.
+    { at: 200, enemy: 'grunt', x: 150, y: -24, count: 5, interval: 0, stepX: 45, stepY: -18 },
+    { at: 360, enemy: 'weaver', x: 140, y: -30 },
+    { at: 760, boss: 'sentinel', x: 240, y: -60 },
+    { at: 900, enemy: 'turret', x: 240, y: -60 },
+  ],
+});
+```
+
+The registry key and `spec.name` must match, or `defineStage` throws
+(`src/content/stage.ts:117-124`). Tooling shows one and lookups use the other, so
+a half-finished rename would surface far from its cause.
+
+Waves are sorted by `at` at definition and **copied**, so they may be authored in
+whatever order reads best — grouped by role, by lane — and an author mutating
+their own array afterwards cannot change a registered stage
+(`src/content/stage.ts:126-131`). The sort is stable, which is load-bearing:
+two waves sharing an `at` spawn in the order they were written, and spawn order
+is draw order in `EnemySystem`.
+
+`validate` rejects only whole-tick arithmetic, not taste
+(`src/content/stage.ts:153-192`). `at: 12.5` is never reached by a counter that
+moves in whole steps, and a fractional `interval` puts a wave's repeats on ticks
+that are neither evenly spaced nor the ones written down. Both produce a stage
+that looks authored and plays wrong.
+
+Repeat `k` of a wave lands at `at + k * interval`, offset by `k` steps — so
+`count: 1` is the wave and nothing more, and `interval: 0` puts the whole group
+on one tick, which is how a formation is written
+(`src/content/stage.ts:205-241`).
+
+**A boss wave holds the schedule.** Reaching one stops the runner advancing
+entirely — the tick counter included — until `resume()` is called, so the waves
+authored after it do not pour in during the fight
+(`src/content/stage.ts:42-54`, `:321-347`). That is why every `at` is a *script*
+tick rather than a wall-clock one, and why a midboss can be moved without
+retiming everything after it. The runner reports the cue through
+`drainBossCues()` rather than a callback, since a callback would run the caller's
+boss-spawning code inside this loop.
+
+`StageRunner`'s constructor resolves every enemy name, every boss name, and every
+pattern name those enemy specs reference (`src/content/stage.ts:268-311`).
+`EnemySystem.spawn` would throw on a typo anyway — forty seconds in, from a wave
+the player was about to meet — and a *pattern* typo is worse, because it is not
+read until the slot's `startAt` falls due and detonates from inside
+`EnemySystem.step` an arbitrary number of ticks after the enemy appeared. This is
+deliberately not done in `defineStage`: a content file defining its own enemies
+would then have to be imported in the right order, which is the load-order trap
+`patterns.ts` was written to avoid.
+
+`seed` is data, not an action. The runner does not apply it — reseeding `sim`
+mid-run would stomp a stream the replay system owns — so whoever starts the run
+calls `seedRun(spec.seed)` once, from `core/random`
+(`src/content/stage.ts:80-87`).
+
+`outro` counts ticks after the tick that spawned the last wave, so `outro: 0`
+finishes the moment that spawn happens. Survivors are not consulted: whether the
+player still has enemies to clear is a question about the field, not about the
+script (`src/content/stage.ts:376-389`).
+
+`background` names a registered scene as a **string** — see §12 and §15 for why
+it cannot be an import.
+
+---
+
+## 7. Adding a weapon, an option loadout, or a bomb
+
+Three registries the player's side is assembled from. None of them owns any of
+the player's counters; each hands data to the game layer and stops.
+
+### `defineShot` — a weapon, by power tier
+
+A `ShotType` is `name`, `levels`, and an optional `description`
+(`src/content/shots.ts:30-35`), where each level is a `ShotSpec` of `spec`,
+`offsets` and `period` (`src/sim/player.ts:21-27`). As with `defineStage`, the
+key and the `name` field must agree or it throws
+(`src/content/shots.ts:44-49`) — content is referenced by name everywhere, and a
+type whose own name disagreed with its key would report the wrong weapon in every
+diagnostic that read it back.
+
+```ts
+import { defineShot } from './shots';
+
+/** Straight up. The whole cast fires toward the top of the screen. */
+const FORWARD = 270;
+
+const BOLT = {
+  style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 },
+  radius: 4,
+  motion: { r: 9, theta: FORWARD },
+  damage: 1,
+};
+
+defineShot('lance', {
+  name: 'lance',
+  description: 'one heavy column; no spread at any tier',
+  levels: [
+    { spec: BOLT, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 6 },
+    { spec: BOLT, offsets: [{ x: -5, y: -12, angle: FORWARD }, { x: 5, y: -12, angle: FORWARD }], period: 6 },
+  ],
+});
+```
+
+`levels[n]` is the weapon at power tier `n`, indexed exactly as
+`OptionSpec.levels` is, and `Player.#shot` clamps the index — so a table shorter
+than the power ceiling keeps its strongest entry rather than disarming the ship.
+Tier 0 is never empty, unlike options, because a ship that cannot shoot until its
+first pickup has no way to earn one (`src/content/shots.ts:11-16`).
+
+The shipped `spread` weapon buys **coverage, not damage**: every tier fires the
+same bullet and the upgrade is more of them across a wider arc. A tier that
+raised `damage` instead would make the same fight easier without changing how it
+is played (`src/content/shots.ts:71-83`).
+
+**`homing` is registered and must not be put on a character yet.**
+`BulletSystem.step` is handed one aim target for the whole field — the player's
+position, since that is what enemy fire aims at — and the `homing` behaviour
+reads it off `MotionContext` without knowing its own faction. A player bullet
+carrying it therefore steers back toward the ship that fired it. Measured, those
+shots curve around and return, landing **12 damage on a stationary target in 400
+ticks where `spread` lands 306**. The fix is giving `MotionContext` a
+faction-appropriate target, which is an engine change, not a content one
+(`src/content/shots.ts:126-137`).
+
+### `defineOptions` — the satellites
+
+`OptionSpec` is `sprite`, `shot`, `period` and `levels`, plus optional
+`followSpeed` and `tint` (`src/sim/option.ts:44-54`). Each `OptionSlot` carries
+`x`, `y`, `focusX`, `focusY` and an optional `angle`
+(`src/sim/option.ts:30-42`).
+
+```ts
+import { defineOptions } from '../sim/option';
+
+defineOptions('wide', {
+  sprite: 'orb.medium',
+  shot: { style: { sprite: 'glow.small', r: 1, g: 0.9, b: 0.7 }, radius: 3, motion: { r: 8, theta: 270 } },
+  period: 5,
+  followSpeed: 1.6,
+  levels: [
+    [],
+    [
+      { x: -26, y: 6, focusX: -11, focusY: -10, angle: 270 },
+      { x: 26, y: 6, focusX: 11, focusY: -10, angle: 270 },
+    ],
+  ],
+});
+```
+
+`levels[0]` is empty in both shipped loadouts: there are no options until the
+first power tier buys one. Omitting `angle` means "aim at the nearest enemy",
+which arrives as a parameter rather than being looked up — this file must not
+know `EnemySystem` exists.
+
+**The lag is the mechanic.** An option has a target offset from the ship and a
+speed at which it chases; the unfocused layout is wide, the focused one a tight
+column, and the transition between them is not an animation but the same chase
+running against a different target. Snap them to their slots and the ship stops
+feeling like it is dragging anything (`src/sim/option.ts:1-12`). `followSpeed`
+defaults to 1.4 px/tick, roughly a third of a ship.
+
+`Option.angle` is **degrees** in [0, 360), matching the motion DSL — not the
+radians `Bullet.angle` carries, which is a render value converted at the edge
+(`src/sim/option.ts:85-89`).
+
+### `defineBomb` — the panic button
+
+`BombSpec` is `duration`, `invulnTicks` and `damagePerTick`, plus optional
+`radius`, `convertBullets` and `effect` (`src/sim/bomb.ts:31-48`).
+
+```ts
+import { defineBomb } from '../sim/bomb';
+
+defineBomb('cascade', {
+  duration: 120,
+  invulnTicks: 180,
+  damagePerTick: 1.5,
+  convertBullets: true,
+  effect: 'death.big',
+});
+```
+
+Damage is **per tick, not a lump**, which is what makes bomb timing against a
+boss a skill rather than a button: a bomb fired into the last two seconds of a
+phase is worth less than the same bomb fired earlier, and the player can feel the
+difference (`src/sim/bomb.ts:6-11`).
+
+Three things the system deliberately does not do. It does not decrement the
+player's stock — `fire` reports whether a bomb started and the game decrements,
+because a system that decremented would have to know about lives, extends and
+continues to know when *not* to. It does not administer `invulnTicks`; that is
+data on the spec for the game to read, and the player owns its own timer. And it
+does not decide what a cleared bullet becomes: it reports the positions it
+cleared and stops, because deleting bullets is a get-out-of-jail card while
+converting them into score is a decision, and the answer changes as the scoring
+does (`src/sim/bomb.ts:1-23`).
+
+`fire` refuses while one is burning; it never queues. A queued bomb spends a
+resource the player cannot see being spent and lands at a moment they did not
+choose (`src/sim/bomb.ts:102-109`). `duration` is floored at one tick, since a
+zero-duration bomb would consume a stock and do nothing, which reads as a dropped
+input.
+
+---
+
+## 8. Adding a pickup
+
+An item is a hitbox that cannot hurt anything: no faction, no damage, no bounce.
+`ItemSpec` requires `sprite`, `radius`, `value` and `kind`
+(`'power' | 'score' | 'life' | 'bomb'`), and takes optional `motion`, `tint` and
+`magnetSpeed` (`src/sim/item.ts:39-56`).
+
+```ts
+import { defineItem } from '../sim/item';
+
+defineItem('fragment', {
+  sprite: 'shard',
+  radius: 13,
+  value: 0.05,
+  kind: 'power',
+  tint: { r: 1, g: 0.3, b: 0.35 },
+});
+```
+
+**The radius is generous on purpose**, and it is the one place in this engine
+where that is true. Shipped items sit at 13–18px against a bullet's 3–4
+(`src/sim/item.ts:406-451`): a drop the player earned but grazed past feels like
+the game cheating, where a bullet whose hitbox matched its sprite would only be
+unfair.
+
+`motion` defaults to `{ r: 1.7, theta: 270, ra: -0.09, rrange: { min: -2.3 } }`
+(`src/sim/item.ts:58-72`), which is the genre's drop arc written as one polar
+segment. `theta: 270` is up, and `r` decays through zero into negative, which
+reverses travel along the same heading — so the item rises, stalls and falls back
+without a second segment or a gravity vector, and `rrange.min` is a terminal
+velocity for free that a cartesian gravity term could not give without an
+accumulator clamp `MoveVector` does not have.
+
+**Magnetism latches and is never cleared while the item lives.** An item that
+re-entered its own motion every time the player stepped a pixel away would
+oscillate at the edge of the radius, and that reads as the game fighting you
+(`src/sim/item.ts:16-22`).
+
+Nothing here writes to the player. `value` and `kind` are read by the game layer
+through `drainCollected`, on the same contract as `EnemySystem.drainDeaths` and
+for the same reason: `step` rewrites the live list in place, and a collection
+callback firing mid-sweep would run arbitrary game code — awarding power,
+spawning an effect, possibly spawning more items — against a half-rewritten list,
+skipping the entity in the slot being written (`src/sim/item.ts:24-31`).
+
+---
+
+## 9. Adding a particle effect
+
+Effects are pure decoration: they never collide, never score, never feed back
+into the simulation.
+
+`ParticleSpec` requires `sprite`, `count`, `speed` and `life`; `spread`,
+`direction`, `drag`, `gravity`, `scale`, `alpha`, `spin`, `tint` and `additive`
+are optional (`src/sim/effects.ts:29-56`). `count`, `speed` and `life` each take
+a number or a `{ min, max }` drawn per particle.
+
+```ts
+import { defineEffect } from '../sim/effects';
+
+defineEffect('shatter', {
+  sprite: 'shard',
+  count: { min: 8, max: 14 },
+  speed: { min: 1.2, max: 3.4 },
+  life: { min: 14, max: 24 },
+  drag: 0.9,
+  scale: { from: 0.9, to: 0.15 },
+  alpha: { from: 1, to: 0 },
+  spin: 0.08,
+  tint: { r: 0.7, g: 0.9, b: 1 },
+  additive: true,
+});
+```
+
+**This module draws from `fx` and structurally cannot draw from `sim`.**
+`EffectSystem` takes no generator argument anywhere in its API, so there is no
+parameter through which a caller could hand it the simulation stream — the only
+reachable source of randomness in the file is the module-level `fx` import. That
+defence is structural rather than disciplinary because upstream made the opposite
+choice: it scattered damage particles from its single global generator, so adding
+one particle shifted every subsequent bullet and desynced every replay
+(`src/sim/effects.ts:1-20`, CLAUDE.md rule 2).
+
+Interpolating `scale` and `alpha` on `age / life` is fine *here* in a way it
+would not be in the sim, for exactly one reason: nothing downstream reads these
+values back.
+
+`direction` is degrees on the motion DSL's convention — 0 right, 90 down. The
+built-in `muzzle` effect uses `-90` because the player's gun points up the screen
+(`src/sim/effects.ts:300-311`). `emit` takes an override, for directional bursts
+like graze sparks.
+
+`life` is floored at one tick: a range that rounds to zero would emit a particle
+that dies before it is ever drawn, and divide `t` by zero. Particles refused at
+the pool ceiling are counted in `droppedParticles` and that is all — losing
+decoration costs nothing the player can lose a run to, so it is telemetry, not an
+error path.
+
+The starter set is registered through a private `defineSprite` helper that types
+`sprite` against `BulletCell`, so a renamed or repacked atlas cell fails the
+build instead of silently drawing the wrong shape
+(`src/sim/effects.ts:237-249`). The import that makes that possible is
+`import type` — effects must stay testable without a canvas. See §15.
+
+---
+
+## 10. Adding a sound
+
+`SoundSpec` is four optional fields: `url`, `volume`, `polyphony`, `throttleMs`
+(`src/audio/index.ts:30-38`). Omit `url` and the engine synthesises a
+placeholder.
+
+```ts
+import { defineSound } from '../audio';
+
+defineSound('shield', { volume: 0.4, polyphony: 2, throttleMs: 80 });
+defineSound('boss.roar', { url: '/audio/roar.ogg', volume: 0.9, polyphony: 1 });
+```
+
+**This is the one registry that does not throw on a duplicate name**
+(`src/audio/index.ts:62-79`). The built-in placeholders exist to be replaced, and
+swapping one for a real asset has to be possible from a content file — requiring
+an edit to `src/audio/index.ts` would make the engine own the content. So
+`defineSound` overwrites, deliberately, and it is the exception that the rest of
+this document's "registries throw" rule is stated against.
+
+Audio is a render-side concern and nothing else: it reads no simulation state and
+can write none. Every entry point is total — `play` on an unknown name is a
+no-op, and nothing in the module may throw into the game loop. A missing asset, a
+refused `AudioContext`, or a runtime with no WebAudio at all degrades to silence
+rather than taking the run down with it.
+
+A registered name with no synth of its own gets an audible default rather than
+silence (`src/audio/index.ts:392-397`), so a sound nobody has authored is noticed
+instead of quietly missing.
+
+`volume` is clamped to 0..1 and `polyphony` floored at 1 — a sound registered
+with zero voices can never play, which is a typo rather than an intent, and not
+registering it says that better. `throttleMs` is **milliseconds**, and it is the
+one clock in this project that is wall time on purpose: audio has no tick
+(`src/audio/index.ts:185-188`). Synthesis noise comes from `fx`, never `sim`.
+
+`Audio.unlock()` must be called from a user gesture; browsers refuse to run a
+graph outside one. Calling it where WebAudio does not exist is harmless.
+
+---
+
+## 11. Adding art
 
 [`docs/assets.md`](./assets.md) is the full specification. The parts that matter
 when you are writing code:
@@ -432,7 +1151,7 @@ export const PROP_GRID: GridSpec = { cellW: 48, cellH: 48, gapX: 2, gapY: 2 };
 export function definePropAtlas(texture: THREE.Texture): Atlas {
   const atlas = new Atlas(texture, 256, 128, PROP_GRID);
   atlas.defineGrid(['turret.idle', 'turret.fire', 'pod.idle', 'pod.fire']);
-  atlas.define('banner', { x: 0, y: 96, w: 200, h: 24, pivotX: 0, pivotY: 0.5 });
+  atlas.define('banner', { x: 0, y: 96, w: 200, h: 24 });
   return atlas;
 }
 ```
@@ -455,14 +1174,130 @@ atlas.defineGrid([...BULLET_CELLS]);
 atlas overrides to `LINEAR` because generated gradients are smooth. `LINEAR` is
 what makes the 2px cell padding non-negotiable.
 
-**`pivotX` / `pivotY` are carried on `Region` but `SpriteBatch` does not apply
-them yet** — every sprite draws centred on its position. Offset the draw call
-yourself, or implement the pivot in `SpriteBatch.draw`; do not assume the field
-is read.
+**There is no pivot field.** A `Region` is `x`, `y`, `w`, `h` and nothing else
+(`src/render/atlas.ts:16-22`), so writing `pivotX` into one is a TS2353 excess
+property error rather than a setting that quietly does nothing.
+
+A pivot did live there once and was deleted unread. `SpriteBatch` always centres
+the quad and the vertex shader rotates about that centre, which made the field a
+promise nothing kept — and a field that looks like configuration but is inert is
+worse than its absence, because it will be believed. The note left at
+`src/render/atlas.ts:24-28` records what putting one back would actually cost:
+widening an instance attribute to carry the offset, and applying it before
+rotation. Worth doing when a sprite genuinely needs an off-centre origin, and not
+before. Until then, offset the draw call.
 
 ---
 
-## 5. Adding a render layer
+## 12. Adding a background scene
+
+A background is a full-screen fragment shader. `src/render/background.ts` owns
+only the shared part — a quad at `Layer.Background`, a fixed set of uniforms, and
+a cross-fade — and knows the name of no scene at all. The scenes live one per
+file in `src/render/backgrounds/`.
+
+`BackgroundSpec` is `fragment`, plus optional `uniforms` and `scrollSpeed`
+(`src/render/background.ts:138-145`). The shader body must define the entry
+point `vec3 background(vec2 uv)`, where `uv` is 0..1 across the field with **y
+increasing downward**, matching the space content is authored in. Return linear
+colour; the wrapper applies `uIntensity` and the cross-fade alpha.
+
+```ts
+// src/render/backgrounds/ashfall.ts
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+
+defineBackground('ashfall', {
+  scrollSpeed: 0.5,
+  fragment: /* glsl */ `
+${BACKGROUND_NOISE_GLSL}
+
+    vec3 background(vec2 uv) {
+      float drift = bgFbm(vec2(uv.x * 3.0, uv.y * 3.0 - uScroll * 0.02));
+      float depth = smoothstep(0.0, 1.0, uv.y);
+      return vec3(0.03, 0.035, 0.05) * (0.4 + drift)
+           + vec3(0.01, 0.012, 0.02) * depth;
+    }
+  `,
+});
+```
+
+Then add `import './ashfall';` to `src/render/backgrounds/index.ts`.
+`index.test.ts` reads the directory and fails when a file is missing from that
+list — because a background module nothing imports never calls
+`defineBackground`, so the scene does not exist at runtime and
+`getBackgroundSpec` throws the first time a stage names it. That failure has
+already happened once in this repository, to content rather than to backgrounds.
+
+Every scene is compiled against `uTick`, `uScroll`, `uRes` and `uIntensity`
+whether it reads them or not; a spec's own uniforms are merged over that set, per
+instance, so two `Background` objects never share a uniform object.
+`BACKGROUND_NOISE_GLSL` supplies the value-noise helpers the shipped scenes use —
+three octaves, not four, because the fourth lands at a spatial frequency close to
+a bullet's.
+
+### How a scene reaches the screen
+
+A stage names its scene as a string on `StageSpec.background`, and a spell card
+may override it for the length of that card with `SpellCard.background`. A string
+because `src/content` may not import `src/render` at all (§15) — the shader
+cannot live next to the stage that uses it, and the name is resolved by whoever
+is drawing.
+
+`Run.scene` reports what the run currently wants, preferring the live card's
+background over the stage's (`src/game/run.ts:704-710`), and `src/main.ts`
+reconciles it against the live quad each tick, cross-fading when it and
+`background.name` disagree (`src/main.ts:193-194`).
+
+**That is declared state, not an event, and the distinction is load-bearing.**
+Everything else the presentation layer reacts to arrives through `drainEvents`,
+which is the right shape for something that happened once — a hit, a pickup, a
+card starting. Which place we are in is not an occurrence, it is a condition, and
+pushing conditions through an event queue is how presentation drifts out of sync
+with the run: miss one event, or drain it in a state that is not drawing, and the
+screen stays wrong until something unrelated corrects it. Reconciliation is
+idempotent, so a run that is paused, replayed or restarted needs no separate
+resynchronisation path (`src/game/run.ts:669-703`).
+
+### Three constraints, and the one that is not obvious
+
+**`uTick` only.** It advances in `step()` and nowhere else, and there is no
+`performance.now` in `background.ts` — there must never be one. A background
+driven by a wall clock drifts with frame rate, which means a replay played back
+on a 144Hz display does not look like the recording, and "a replay looks the same
+twice" is the whole product (rule 1). The interpolated view layer may smooth
+sprite positions; a background does not get that licence, because it has no
+previous state to interpolate from. Call `background.step()` from the fixed-tick
+callback, never from render.
+
+GLSL `sin` and `cos` are used freely here, and that does not contradict rule 3.
+The rule bans the approximated `Math` functions from `sim`, `content`, `core` and
+`game` because their results integrate into positions and eventually flip a hit test.
+These values reach the framebuffer and stop.
+
+**Dark and smooth.** The play field has to stay readable on top, which in
+practice means peak luminance around 0.1 and no detail fine enough to be confused
+with a bullet. `expanse` peaks near 0.09 and `undertow` near 0.07. If you find
+yourself losing a bullet against a background, the shader is too bright or too
+detailed — the sprite is not the problem.
+
+**Perspective scenes alias into fake bullets.** This is the one that catches
+people. A projection that runs to infinity — `depth = SCALE / (uv.y - HORIZON)`
+in `expanse`, `SCALE / r` in `undertow` — makes adjacent pixels land arbitrarily
+far apart in world space as they approach the vanishing line. Noise sampled there
+aliases into exactly the fine speckle that reads as sparse bullets, in the top of
+the screen, which is where enemies enter and where the densest patterns form. So
+both shipped perspective scenes decay their *structured* terms much faster than
+their brightness: what survives near the horizon is a smooth gradient with
+nothing left to alias.
+
+Read `src/render/backgrounds/expanse.ts` and `undertow.ts` before writing one.
+They carry the reasoning at length — including why `undertow` has exactly six
+flutes, which is a genuine seam problem with a non-obvious fix — and it is not
+worth repeating here.
+
+---
+
+## 13. Adding a render layer
 
 Depth testing is off for sprites, because the play field is coplanar. Draw order
 is therefore explicit, and lives in `src/render/stage.ts`:
@@ -535,7 +1370,7 @@ order.
 
 ---
 
-## 6. Adding 3D content
+## 14. Adding 3D content
 
 This is where the project is going, and it is the reason the renderer is
 three.js rather than the raw WebGL it came from. `Stage` already carries a
@@ -565,7 +1400,7 @@ Consequences worth internalising:
 - **The y-flip reverses triangle winding.** Every custom material must set
   `side: THREE.DoubleSide` or its front faces are culled. This presented once as
   a completely black field with no console error, and it will again
-  (CLAUDE.md rule 5).
+  (CLAUDE.md rule 6).
 
 ### Keeping 3D and sprites apart
 
@@ -589,7 +1424,7 @@ export function addGroundPlane(stage: Stage): THREE.Mesh {
   const material = new THREE.MeshBasicMaterial({
     color: 0x1b2a4a,
     wireframe: true,
-    side: THREE.DoubleSide,   // y-down reverses winding — rule 5
+    side: THREE.DoubleSide,   // y-down reverses winding — rule 6
     depthTest: true,
     depthWrite: true,
   });
@@ -682,7 +1517,55 @@ rules change. It must then run in `tick()`, draw from `sim`, and take no `alpha`
 
 ---
 
-## 7. Invariants you can break without noticing
+## 15. The import boundary
+
+`src/sim/` and `src/content/` must not import a **value** from `src/render/`.
+`src/architecture.test.ts` enforces it; until that file existed the rule was
+written down, obeyed by hand for the life of the project, and one careless import
+away from being false with every test still green — because the thing it protects
+is not correctness. It is the ability to run the simulation at all without a GL
+context, and that only fails once someone tries.
+
+**`import type` is exempt, and the distinction is the whole point.** A type-only
+import erases completely: no runtime edge, no three.js dragged into a headless
+run, no `WebGLRenderingContext` pulled into a test process. `src/sim/effects.ts`
+uses one to borrow `BulletCell` — a string union naming atlas cells — and
+borrowing that name beats duplicating it, because two copies of a list of sprite
+names drift apart in silence.
+
+What the scanner counts as a runtime edge:
+
+- `import { Layer } from '../render/stage'` — an offence.
+- `import type { BulletCell } from '../render/procedural'` — fine.
+- `import { type BulletCell } from '../render/procedural'` — fine; every
+  specifier is marked.
+- `import { type BulletCell, Atlas } from '../render/atlas'` — an offence, not
+  pro-rated. Half of it survives erasure, so it emits a real require.
+- `import './x'` — the most runtime-y import there is; it exists purely for its
+  side effects.
+
+**Test files are scanned too, deliberately.** Exempting them is tempting, since a
+test importing the renderer cannot break a production build. But the only value
+import that ever survived in this repository was in a test —
+`content/index.test.ts` pulled in `backgroundNames` — and it survived precisely
+because it looked harmless. `bun test` *is* the headless run, so a test that
+drags three.js in has already spent the thing the rule was buying.
+
+**The escape hatch, when you need a value.** Name it as a string in the content
+layer and resolve it in the shell. `StageSpec.background` is exactly that
+pattern: the stage says `'expanse'`, `src/main.ts` imports
+`./render/backgrounds` for its side effects, and the two halves meet in the one
+module that is allowed to know both. If that shape does not fit what you are
+doing, the design is wrong rather than the rule — which is what the repository
+layout section means when it says so.
+
+The scanner covers `sim`, `content` and `game` (`src/architecture.test.ts:45`).
+`src/game/` was a convention there for a while and is now enforced with the other
+two — it passes with no renderer import of any kind, type-only included.
+
+---
+
+## 16. Invariants you can break without noticing
 
 None of these produce an error. Each produces a game that is subtly, silently
 wrong, usually on someone else's machine.
@@ -728,7 +1611,7 @@ black screen with a clean console.
 
 ---
 
-## 8. Before you call it done
+## 17. Before you call it done
 
 ```
 bun run typecheck     # tsc --noEmit
@@ -741,9 +1624,9 @@ Green means you ran it and saw it. Additionally:
 - **Touched the sim, motion DSL, RNG, input or content data?** Run the replay
   regression. A change that alters replay output is either a bug or a deliberate
   divergence — say which in the commit message.
-- **Touched rendering?** `bun run dev` and confirm the field actually draws.
-  Both rendering bugs found so far — reversed winding, and a spatial-hash
-  collision — passed the type checker and logged nothing.
+- **Touched rendering?** `bun run dev` and confirm the field actually draws. All
+  three rendering bugs found so far — reversed winding, an inert `renderOrder`,
+  and a spatial-hash collision — passed the type checker and logged nothing.
 - **Added bullet art?** Look at 500 of them on screen at once. Art that reads
   beautifully in isolation turns into soup at real density, and that is the only
   test that catches it.

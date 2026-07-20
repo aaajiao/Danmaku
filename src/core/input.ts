@@ -5,7 +5,7 @@
  * exactly once per tick. This is what makes input recordable and replayable:
  * a replay is a frame-indexed log of this mask and nothing else.
  *
- * Two hazards this module exists to contain — see CLAUDE.md, rule 2:
+ * Two hazards this module exists to contain — see CLAUDE.md, rule 4:
  *
  *  - Gamepads are *polled*, not evented. Polling must happen on the tick, not
  *    on the render frame, or the sampled value depends on frame rate.

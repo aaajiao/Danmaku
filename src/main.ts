@@ -10,6 +10,10 @@
 // Side-effect import: content registers itself when its module is evaluated, so
 // a stage nothing imports simply does not exist at runtime. See content/index.ts.
 import './content';
+// Same reason, for the scenes. A stage names its background as a string, so a
+// background module nobody imports fails at the moment the stage is entered —
+// far from the file that is actually missing. See render/backgrounds/index.ts.
+import './render/backgrounds';
 
 import { Audio } from './audio';
 import { Input } from './core/input';
@@ -32,6 +36,23 @@ const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
 
 const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
+
+/**
+ * Ticks a scene change takes. One second: long enough that entering a spell
+ * card reads as the room changing rather than as a cut, short enough that it
+ * has resolved before the card's opening pattern is dense enough to matter.
+ *
+ * A single constant covers both kinds of change — stage to stage, and stage to
+ * spell card — because so far nothing has wanted them to differ. If one does,
+ * it belongs on the `BackgroundSpec` of the scene being entered, not here.
+ */
+const SCENE_FADE_TICKS = 60;
+
+/**
+ * `drift` is the shell's own scene, not any stage's: it is what the title
+ * screen sits on, and what a run with no declared background leaves in place.
+ * Stages name their own (`expanse`, `undertow`) and the tick loop reconciles.
+ */
 const background = new Background(stage, 'drift');
 
 const bulletAtlas = createBulletAtlas();
@@ -101,9 +122,12 @@ window.addEventListener('keydown', (e) => {
   post.enabled = !post.enabled;
 });
 
-// Exposed for the by-eye checks documented in `render/post.ts` — the tuning
-// sweeps are driven from the console because there is no GL context in tests.
+// Exposed for the by-eye checks documented in `render/post.ts` and in
+// `render/background.ts` — those headers tell you to build, step and cross-fade
+// these from the console, which is impossible if nothing holds a reference. The
+// tuning sweeps live there because there is no GL context in tests.
 (globalThis as { __post?: PostProcessing }).__post = post;
+(globalThis as { __background?: Background }).__background = background;
 
 /**
  * Seeds come from the wall clock, which is fine: a seed is chosen once, before
@@ -148,13 +172,29 @@ const loop = new Loop({
     machine.tick(buttons);
     background.step();
 
+    let scene: string | undefined;
+
     for (const state of machine.stack) {
       const run = (state as { run?: Run }).run;
       if (!run) continue;
+
+      // Bottom-up, so the topmost run wins — the same precedence the render
+      // callback uses to pick whose HUD to draw.
+      scene = run.scene ?? scene;
+
       for (const event of run.drainEvents()) {
         const sound = EVENT_SOUNDS[event.type];
         if (sound) audio.play(sound);
       }
+    }
+
+    // Reconcile rather than react: `run.scene` is a declaration of where we are,
+    // checked every tick against what is actually up. Comparing against
+    // `background.name` is what makes this cheap — the name flips to the
+    // incoming scene at the *start* of a fade, so an in-flight transition no
+    // longer matches and cannot be restarted by the next tick's check.
+    if (scene !== undefined && scene !== background.name) {
+      background.transitionTo(scene, SCENE_FADE_TICKS);
     }
   },
 

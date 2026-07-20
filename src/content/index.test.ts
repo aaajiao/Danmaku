@@ -12,7 +12,6 @@ import { describe, expect, test } from 'bun:test';
 
 import './index';
 
-import { backgroundNames } from '../render/background';
 import { patternNames } from './patterns';
 import { shotNames } from './shots';
 import { stageNames } from './stage';
@@ -73,11 +72,22 @@ describe('the index is complete', () => {
   });
 });
 
-describe('backgrounds', () => {
-  // Registered by src/render/background.ts rather than by a content file, so
-  // this only checks the game has some. Listed here because a background is
-  // content in every sense that matters to whoever authors one.
-  test('at least two are registered', () => {
-    expect(backgroundNames().length).toBeGreaterThanOrEqual(2);
-  });
-});
+// Backgrounds are deliberately NOT covered here, and this file deliberately no
+// longer imports `../render/background`.
+//
+// A scene is a fragment shader, so registering one means importing
+// `render/background`, and `src/content` may not import `src/render`. That ban
+// is what lets the whole simulation run with no GL context. This file used to
+// break it — for a value import, in a test, which is the least alarming way to
+// break a layering rule and therefore the way it survives longest.
+//
+// The two halves of the arrangement are checked where each belongs:
+//
+//   render/backgrounds/index.test.ts  every scene name the content writes down
+//                                     actually resolves
+//   architecture.test.ts              sim and content still import no renderer
+//                                     value, test files included
+//
+// Asserting here that importing content registers *no* background was tried and
+// cannot work: the registry is module-global and Bun shares module state across
+// test files, so whichever file ran first decided the result.

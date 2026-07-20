@@ -198,6 +198,9 @@ export class Run {
   readonly player: Player;
   readonly stage: StageRunner;
 
+  /** The stage's own scene name. Fixed for the life of the run, so cached. */
+  readonly #stageScene: string | undefined;
+
   readonly config: RunConfig;
   readonly character: CharacterSpec;
   readonly characterName: string;
@@ -269,7 +272,9 @@ export class Run {
       ...this.character.player,
       bounds: { width: bounds.width, height: bounds.height },
     });
-    this.stage = new StageRunner(getStage(this.stageName), this.enemies);
+    const stageSpec = getStage(this.stageName);
+    this.stage = new StageRunner(stageSpec, this.enemies);
+    this.#stageScene = stageSpec.background;
 
     // Every name this run will ever resolve, resolved now.
     //
@@ -658,6 +663,51 @@ export class Run {
 
   get field(): { width: number; height: number; margin: number } {
     return this.#field;
+  }
+
+  /**
+   * The scene this run wants on screen: a registered background name, or
+   * `undefined` to leave alone whatever is already there.
+   *
+   * ## Declared state, not an event
+   *
+   * Every other thing the presentation layer reacts to arrives through
+   * `drainEvents`, and this deliberately does not. An event is the right shape
+   * for something that *happened once* — a hit, a pickup, a card starting.
+   * Which place we are in is not an occurrence, it is a condition, and pushing
+   * conditions through an event queue is how presentation drifts out of sync
+   * with the run that owns it: miss one event, or drain it in a state that is
+   * not drawing, and the screen stays wrong until something unrelated corrects
+   * it.
+   *
+   * So the run *declares* and the shell *reconciles*. The shell compares this
+   * against what is currently on the quad and starts a cross-fade when they
+   * disagree. That is idempotent — reading it twice, or not reading it for
+   * fifty ticks, cannot leave the wrong scene up — and it means a run that is
+   * paused, replayed, or restarted needs no separate resynchronisation path.
+   *
+   * ## Reading the live phase is correct here, unlike in `#resolveBossEvents`
+   *
+   * That method indexes off `event.phaseIndex` precisely because it must not
+   * read `boss.phase`: events are drained after the transition that raised
+   * them, so by then the boss has already armed the *next* card and naming the
+   * live one would name the wrong thing. This wants the opposite. It is asking
+   * what is being fought at this instant, and the live phase is the only
+   * honest answer to that question.
+   *
+   * `spec.phases[...]` is indexed directly rather than through the `phase`
+   * getter, which throws once `phaseIndex` runs past the last card — a state
+   * that exists for the ticks between the final phase ending and the boss
+   * finishing its death. Asking what the screen should look like must never be
+   * the thing that throws.
+   */
+  get scene(): string | undefined {
+    const boss = this.boss.boss;
+    if (boss?.alive) {
+      const card = boss.spec.phases[boss.phaseIndex];
+      if (card?.background !== undefined) return card.background;
+    }
+    return this.#stageScene;
   }
 
   /**

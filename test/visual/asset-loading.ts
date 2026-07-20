@@ -40,7 +40,6 @@
  *   `cell()`. That is asserted below as the behaviour it is, not wished away.
  */
 
-import * as THREE from 'three';
 import { Atlas, loadAtlas, loadTexture } from '../../src/render/atlas';
 import { SpriteBatch } from '../../src/render/sprite-batch';
 import { Stage } from '../../src/render/stage';
@@ -152,11 +151,13 @@ function pass(batch: SpriteBatch, draw: (b: SpriteBatch) => void): void {
 /* ------------------------------------------------------------------ */
 
 /**
- * `loadTexture` tags its textures `SRGBColorSpace`, which makes the GPU decode
- * each texel to linear on sample. `SpriteBatch` writes `gl_FragColor` from a
- * hand-written shader with no three.js output-encoding chunk, so whether the
- * value that lands in the framebuffer is re-encoded is a property of the
- * renderer's colour pipeline, not of anything this page controls.
+ * `loadTexture` tags its textures `NoColorSpace` (`src/render/atlas.ts:166`), so
+ * nothing decodes on sample and nothing re-encodes on output — the byte in the
+ * PNG should be the byte in the framebuffer. Should: `SpriteBatch` writes
+ * `gl_FragColor` from a hand-written shader with no three.js output-encoding
+ * chunk, so what the renderer's colour pipeline does around it is not something
+ * this page controls, and a future retag would move the measurement without
+ * touching this file.
  *
  * Hard-coding a guess about that would make the page fail for a reason that has
  * nothing to do with asset loading. Instead both candidate transfers are

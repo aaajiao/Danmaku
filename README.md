@@ -16,23 +16,48 @@ bun install
 bun run dev        # http://localhost:3000
 ```
 
-Arrows or a gamepad to move, `Z` to shoot, `Shift` for focused movement.
+| | |
+|---|---|
+| Arrows / gamepad stick | move |
+| `Z` | shoot |
+| `X` | bomb |
+| `Shift` | focus — slower, tighter, and it widens item pickup |
+| `Space` | start / confirm |
+| `B` | toggle bloom (a display setting; deliberately outside the replay log) |
 
 ```bash
-bun test           # simulation and engine tests
+bun test           # simulation and engine tests — no GL context needed
 bun run typecheck
 bun run build      # → dist/
+```
+
+Three checks need a real framebuffer and so are pages you open by hand:
+
+```bash
+bun run test:visual    # layer ordering, by pixel readback
+bun run test:assets    # atlas loading and sprite orientation
+bun run test:density   # is a single bullet still findable in a full curtain
 ```
 
 ## Layout
 
 ```
-src/core/       loop, input, seeded RNG, object pool
-src/sim/        motion DSL, collision, bullets — engine-agnostic simulation
-src/render/     three.js: instanced sprite batching, atlases, layered stage
-src/content/    danmaku patterns
+src/core/       loop, input, seeded RNG, object pool, exact trigonometry
+src/sim/        motion DSL, collision, bullets, enemies, bosses, items,
+                bombs, options, effects, replay — engine-agnostic
+src/game/       run rules, state machine, screens — game logic, no three.js
+src/render/     three.js: instanced sprite batching, atlases, layered stage,
+                post-processing, background engine
+src/render/backgrounds/    one fragment shader per scene
+src/content/    patterns, shot types, motion behaviours, stages
+src/audio/      sound registry and runtime synthesis
+src/main.ts     the browser shell
 docs/           asset spec and extension guide
 ```
+
+Nothing under `src/sim/`, `src/content/` or `src/game/` imports a renderer value,
+which is what lets the whole simulation — and every determinism check — run with
+no GL context. `src/architecture.test.ts` enforces it.
 
 ## Documentation
 

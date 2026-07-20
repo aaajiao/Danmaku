@@ -93,7 +93,7 @@ export class Player {
   #buttons: Buttons = 0;
   /**
    * The player is handed a mask, never an `Input`, because a replay is a log
-   * of masks and nothing else (CLAUDE.md, rule 3). Press edges are therefore
+   * of masks and nothing else (CLAUDE.md, rule 4). Press edges are therefore
    * derived here rather than read from `Input.pressed`.
    */
   #previous: Buttons = 0;

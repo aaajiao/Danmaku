@@ -11,18 +11,53 @@ along with a list of its mistakes, recorded below so they are not repeated.
 ## Repository layout
 
 ```
-src/core/       loop, input, seeded RNG, object pool
-src/sim/        motion DSL, collision, bullets, enemies, player, effects, replay
-src/render/     three.js: sprite batching, atlases, layered stage, post-processing
-src/content/    danmaku patterns, stage definitions
-src/audio/      sound registry
-docs/           asset specification, extension guide
+src/core/          loop, input, seeded RNG, object pool, exact trigonometry
+src/sim/           motion DSL, collision, bullets, enemies, bosses, player,
+                   options, bombs, items, effects, replay
+src/render/        three.js: sprite batching, atlases, layered stage,
+                   post-processing, background engine
+src/render/backgrounds/   the authored scenes, one fragment shader per file
+src/content/       danmaku patterns, shot types, motion behaviours, stages
+src/game/          run rules, state machine, screens — all game logic, no three.js
+src/audio/         sound registry and runtime synthesis
+src/main.ts        the browser shell: input in, pixels out, nothing else
+docs/              asset specification, extension guide
+test/visual/       checks that need a real GL context and cannot run in `bun test`
+tools/             fixture generation
 ```
 
-`src/sim/` and `src/content/` must not import from `src/render/`. The simulation
-is engine-agnostic by construction, which is what makes it testable headlessly and
-reproducible. If you find yourself wanting a renderer type in a sim module, the
-design is wrong, not the rule.
+Two tests scan whole trees rather than testing one module, and both exist because
+the thing they check fails silently:
+
+```
+src/determinism.test.ts    approximated `Math` in sim, content, core, game (rule 3)
+src/architecture.test.ts   renderer imports in sim, content, game (the rule below)
+```
+
+### The import boundary
+
+`src/sim/`, `src/content/` and `src/game/` must not import **values** from
+`src/render/`. All three are enforced.
+
+The simulation is engine-agnostic by construction, which is what makes it
+testable headlessly and reproducible. `bun test` *is* that headless run: it has
+no GL context, and everything the determinism contract rests on is proved there.
+
+**`import type` is exempt, and the distinction is the whole point.** A type-only
+import erases completely — no runtime edge, nothing dragged into a headless
+process. `src/sim/effects.ts` borrows `BulletCell` that way, and borrowing the
+name beats duplicating a list of sprite names that would then drift.
+
+A **value** import is the violation, test files included. That is not pedantry:
+the only one that ever survived here was in a test, and it survived precisely
+because a test importing the renderer looks harmless. It is not — it spends the
+exact property the rule buys. `src/architecture.test.ts` now enforces this; until
+it was written the rule had been convention-only for the life of the project.
+
+If you need a value from the renderer, the design is wrong, not the rule. Invert
+the dependency: have content name the thing as a **string** and let the shell
+resolve it. `StageSpec.background` is that pattern — a stage says which scene it
+is set in, and never learns that fragment shaders exist.
 
 Upstream is **not in this repository** — not in the tree, not in the history.
 See NOTICE for why. What it taught is recorded below under "What upstream is good
@@ -50,9 +85,22 @@ These are not style preferences. Breaking any of them breaks the game in ways th
 are hard to detect and hard to undo.
 
 Source comments cite these by number. **Inserting a rule renumbers the ones below
-it and silently invalidates every citation** — `grep -rn "rule [0-9]" src docs` and
-fix them in the same change. A comment pointing at the wrong rule is worse than no
-citation, because it will be believed.
+it and silently invalidates every citation** — run
+
+```
+grep -rn "rule [0-9]" src docs test tools *.md
+```
+
+and fix them in the same change. A comment pointing at the wrong rule is worse
+than no citation, because it will be believed.
+
+That is not hypothetical. An audit of this repository found **seven** citations
+pointing at the wrong rule, including three that named rule 2 or 3 for something
+rule 4 says. No renumbering caused them; they were simply written from memory.
+So check the number against the heading rather than against your recollection of
+it, and note that the grep above covers four trees — an earlier version of this
+paragraph scanned only `src` and `docs`, which is how the ones in `test/` and
+`tools/` went unexamined.
 
 ### 1. Never let delta-time reach the simulation
 
@@ -96,8 +144,8 @@ unrelated rather than close.
 `src/core/trig.ts` is built only from IEEE-754-exact operations. Use `sinDeg`,
 `cosDeg`, `atan2Deg`. It is not a tax — `atan2Deg` is faster than `Math.atan2`.
 
-`src/determinism.test.ts` scans `sim`, `content` and `core` and fails on any
-approximated `Math` call. **That guard exists because this was fixed once and
+`src/determinism.test.ts` scans `sim`, `content`, `core` and `game`, and fails on
+any approximated `Math` call. **That guard exists because this was fixed once and
 the fix was incomplete**: `motion.ts` was converted, `patterns.ts` was not, and
 the whole suite stayed green — the divergence was silent, with an identical RNG
 draw count and only the coordinates drifting. Exceptions belong in that test's
@@ -189,15 +237,35 @@ engine. Every extension point is a registry:
 |---|---|---|
 | Danmaku patterns | `definePattern` | `src/content/patterns.ts` |
 | Motion the polar model cannot express | `defineBehaviour` | `src/sim/motion.ts` |
+| Player shot types | `defineShot` | `src/content/shots.ts` |
 | Enemy types | `defineEnemy` | `src/sim/enemy.ts` |
+| Bosses and their spell cards | `defineBoss` | `src/sim/boss.ts` |
+| Playable characters | `defineCharacter` | `src/game/run.ts` |
+| Option (sub-ship) formations | `defineOptions` | `src/sim/option.ts` |
+| Bombs | `defineBomb` | `src/sim/bomb.ts` |
+| Pickups | `defineItem` | `src/sim/item.ts` |
 | Particle effects | `defineEffect` | `src/sim/effects.ts` |
 | Stages and waves | `defineStage` | `src/content/stage.ts` |
-| Sounds | `defineSound` | `src/audio/` |
+| Background scenes | `defineBackground` | `src/render/background.ts` |
+| Sounds | `defineSound` | `src/audio/index.ts` |
 | Sprite regions | `Atlas.define` / `defineGrid` | `src/render/atlas.ts` |
 | Render layers | `Layer` constants | `src/render/stage.ts` |
 
 Content references registry entries **by name**, never by index, so re-packing an
 atlas or reordering a table cannot silently repoint at the wrong thing.
+
+**A registry only has what something imported.** A module nobody imports never
+runs, so its `define*` calls never happen and the name resolves to nothing at the
+moment a player reaches it. Two index files exist to prevent that, each with a
+test that reads its own directory and fails when a sibling is missing from it:
+
+```
+src/content/index.ts               every content module
+src/render/backgrounds/index.ts    every scene
+```
+
+This has already gone wrong once: `behaviours`, `shots` and `stage-2` were
+written, tested, green — and absent from the bundle.
 
 See [`docs/extending.md`](./docs/extending.md).
 
@@ -217,6 +285,42 @@ Upstream was already well batched (~17 draw calls a frame regardless of bullet
 count), so draw-call count was never the performance argument. Its real costs were
 full `bufferData` re-uploads per drawer per frame and per-vertex trigonometry in
 JS. Instancing addresses both.
+
+### Backgrounds are scenes, and a stage names one
+
+`src/render/background.ts` is an engine and names no scene: a full-screen quad at
+`Layer.Background`, a fixed uniform set, and a cross-fade. Every scene is a
+fragment shader in its own file under `src/render/backgrounds/`.
+
+A stage declares where it is set with `StageSpec.background`, and a spell card
+may override it with `SpellCard.background`. Both are **strings**, because
+`src/content` and `src/sim` may not import the renderer. The names resolve in the
+shell, which is the only place that knows both halves.
+
+The shell **reconciles rather than reacts**. `Run.scene` is a getter reporting
+which scene the run wants right now; `main.ts` compares it against what is on
+the quad each tick and starts a cross-fade when they differ. Scene is a
+*condition*, not an occurrence, and conditions pushed through the event queue
+drift — miss one event and the screen stays wrong until something unrelated
+fixes it. Reconciling is idempotent, so a paused, replayed, or restarted run
+needs no resynchronisation path.
+
+Two constraints bind every scene, and both are in `background.ts`'s header:
+
+- **`uTick` advances in `step()` and nowhere else.** No `performance.now`, ever.
+  A background on a wall clock desynchronises from a replay visually while every
+  test stays green, because the simulation is untouched and nothing can notice.
+  `backgrounds/index.test.ts` scans for wall-clock sources.
+- **Keep it dark and smooth** — peak luminance near 0.1, and no detail at a
+  bullet's spatial frequency. A perspective scene has a second reason: a
+  projection running to infinity samples noise faster than the pixel grid can
+  carry, and what that aliases into looks exactly like sparse bullets. `expanse`
+  and `undertow` therefore decay their structured terms much faster than their
+  brightness, so nothing is left to alias by the time the sampling rate breaks.
+
+GLSL `sin`/`cos` are used freely. Rule 3 binds `sim`, `content`, `core` and
+`game` because their results integrate into positions; these values reach the
+framebuffer and stop.
 
 ---
 
@@ -300,14 +404,30 @@ field actually draws. The rendering bugs found so far — reversed winding, an i
 `renderOrder`, a spatial-hash collision — were all invisible to the type checker
 and silent in the console.
 
-For layer ordering specifically there is a pixel-readback check, because only the
-framebuffer can answer it:
+Three checks need a real framebuffer and so cannot live in `bun test`. Each is a
+page you open by hand:
 
 ```
-bun run test:visual     # → http://localhost:3006
+bun run test:visual     # → http://localhost:3006   layer ordering
+bun run test:assets     # → http://localhost:3007   atlas loading and orientation
+bun run test:density    # → http://localhost:3008   readability under bullet load
 ```
 
-It draws two overlapping quads on known layers, reads the pixel where they cross,
-and then repeats the measurement with `sortObjects` forced off to prove it can
-fail. `bun test` cannot do this — it has no GL context — so this one is run by
-hand after any change to `Stage`, `SpriteBatch`, or the `Layer` constants.
+`test:visual` draws two overlapping quads on known layers, reads the pixel where
+they cross, and then repeats the measurement with `sortObjects` forced off to
+prove it can fail. Run it after any change to `Stage`, `SpriteBatch`, or the
+`Layer` constants.
+
+`test:density` is the one to run after touching a tint or bloom. It is a
+judgement call rather than an assertion — whether a single bullet stays findable
+in a full curtain — and no automated check can answer it.
+
+**It renders on black and composites no scene**, so it cannot currently answer
+the same question for a background; judge that in `bun run dev`. Compositing a
+scene into it would be the better tool and is not a small change: the page's
+automated half measures frame time, and a full-screen shader alters fill cost,
+so the scene would have to go into a readability-only panel rather than into the
+timed levels. Until then, a background is measured rather than judged — peak
+luminance near 0.1, and structure an order of magnitude coarser than a bullet.
+`expanse` measures 0.085 against a bullet's 1.0, with a band period near 100px
+against a 16–30px sprite.

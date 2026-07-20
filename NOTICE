@@ -3,9 +3,15 @@ Danmaku — licensing scope
 
 The MIT licence in LICENSE covers **our own work only**:
 
-    src/            all source
+    src/            all source, including the procedural art and audio generators
+    test/           tests, including the by-hand visual checks
+    tools/          fixture generation
     docs/           documentation
-    index.html, package.json, tsconfig.json, README.md, CLAUDE.md
+    index.html, package.json, tsconfig.json, bun.lock
+    README.md, CLAUDE.md, AGENTS.md, NOTICE
+
+In short: everything in the repository. Nothing that is not ours is in it — see
+below — so the list is complete rather than selective.
 
 It does **not** cover the third-party work described below.
 

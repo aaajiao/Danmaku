@@ -58,7 +58,14 @@
  *
  * Keep it dark and keep it smooth. The play field has to stay readable on top,
  * which in practice means peak luminance around 0.1 and no detail fine enough to
- * be confused with a bullet. Both shipped backgrounds sit well under that.
+ * be confused with a bullet. Every shipped background sits under that, and the
+ * two perspective ones (`expanse`, `undertow`) additionally decay their
+ * structured terms faster than their brightness, because a projection that runs
+ * to infinity samples noise faster than the pixel grid can carry — and what that
+ * aliases into looks exactly like sparse bullets.
+ *
+ * Written scenes live in `./backgrounds/`, one per file, imported by that
+ * directory's index. Nothing in *this* file names a scene.
  *
  * ## Cross-fading without coupling
  *
@@ -448,76 +455,6 @@ export class Background {
   }
 }
 
-/**
- * Normal play: a slow field of cloud drifting toward the player.
- *
- * The vertical gradient is deliberate and not decorative. The top of the screen
- * is where enemies enter and where the densest patterns form, so it is kept
- * darkest; the brighter end sits below the player, where nothing needs reading.
- */
-defineBackground('drift', {
-  scrollSpeed: 0.6,
-  fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
-
-    vec3 background(vec2 uv) {
-      float aspect = uRes.x / uRes.y;
-
-      // Subtracting scroll moves features down-screen, since uv.y is y-down.
-      vec2 p = vec2(uv.x * aspect, uv.y - uScroll / uRes.y);
-
-      // Two layers at different rates read as depth without any parallax
-      // machinery — the far one is slower because it is sampled at a coarser
-      // scale against the same scroll.
-      float far = bgFbm(p * 1.6);
-      float near = bgFbm(p * 3.1 + vec2(0.0, -uScroll / uRes.y));
-
-      float cloud = far * 0.65 + near * 0.35;
-      float depth = 0.30 + 0.70 * uv.y;
-
-      vec3 deep = vec3(0.015, 0.022, 0.050);
-      vec3 lift = vec3(0.045, 0.075, 0.130);
-
-      return deep + lift * (0.40 + 0.60 * cloud) * depth;
-    }
-  `,
-});
-
-/**
- * Spell cards: the same restraint, aimed outward from the boss.
- *
- * "More aggressive" has to mean more *motion*, not more contrast — a spell card
- * is the moment the screen is fullest, so this is the background that most has
- * to disappear underneath the bullets. The rings are low amplitude and fade out
- * well before the edges, which is where the player's own hitbox spends its time.
- */
-defineBackground('surge', {
-  scrollSpeed: 1.4,
-  fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
-
-    vec3 background(vec2 uv) {
-      float aspect = uRes.x / uRes.y;
-
-      // Centred a little above the middle, roughly where a boss holds station.
-      vec2 c = (uv - vec2(0.5, 0.40)) * vec2(aspect, 1.0);
-      float d = length(c);
-      float angle = atan(c.y, c.x);
-
-      // Driven by uScroll, so the pulse rate is a property of the spec rather
-      // than of how fast the machine happens to be drawing.
-      float rings = sin(d * 13.0 - uScroll * 0.09);
-
-      // Slow rotational churn. Sampling fbm in (angle, radius) keeps the
-      // structure radial without a second noise field.
-      float churn = bgFbm(vec2(angle * 0.9, d * 2.6 - uScroll / uRes.y));
-
-      float falloff = smoothstep(0.95, 0.05, d);
-
-      vec3 base = vec3(0.030, 0.010, 0.028);
-      vec3 glow = vec3(0.130, 0.028, 0.075);
-
-      return base + glow * falloff * (0.45 + 0.20 * rings + 0.35 * churn);
-    }
-  `,
-});
+// The backgrounds themselves live in `./backgrounds/`, one scene per file, and
+// reach the game through that directory's index. This file is the engine and
+// deliberately knows the name of no scene at all — see `backgrounds/index.ts`.

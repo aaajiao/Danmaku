@@ -13,5 +13,16 @@ argument that both names should keep resolving.
 See also:
 
 - [`docs/extending.md`](./docs/extending.md) — adding bullets, patterns, motion
-  behaviours, enemies, bosses, stages, art and 3D content.
+  behaviours, enemies, bosses, stages, background scenes, art and 3D content.
 - [`docs/assets.md`](./docs/assets.md) — the image asset specification.
+- [`README.md`](./README.md) — controls, commands and layout.
+
+Two things to know before touching anything:
+
+- **Run the checks and show the output.** `bun run typecheck`, `bun test`,
+  `bun run build`. Rendering changes additionally need a browser — every
+  rendering bug found in this project so far was silent in the console and
+  invisible to the type checker.
+- **Rule citations are load-bearing.** Source comments cite CLAUDE.md's hard
+  rules by number. Check the number against the heading, not against memory: an
+  audit found seven that pointed at the wrong rule.

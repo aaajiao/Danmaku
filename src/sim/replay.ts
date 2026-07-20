@@ -8,7 +8,7 @@
  * This works only because of the hard rules in CLAUDE.md: the tick is fixed at
  * 60Hz and no delta-time reaches the sim (rule 1), simulation randomness comes
  * from one seeded stream whose call *order* is part of the contract (rule 2),
- * and input is sampled once per tick as digital bits (rule 3). Given those,
+ * and input is sampled once per tick as digital bits (rule 4). Given those,
  * same seed + same masks + same integer stepping ⇒ identical outcome.
  *
  * Which is why this module is the strongest regression oracle the project has.

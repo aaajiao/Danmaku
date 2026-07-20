@@ -11,7 +11,6 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
-  BACKGROUND_NOISE_GLSL,
   backgroundNames,
   composeFragmentShader,
   defineBackground,
@@ -19,10 +18,10 @@ import {
 } from './background';
 
 describe('registry', () => {
-  test('ships the two backgrounds the game uses', () => {
-    expect(backgroundNames()).toContain('drift');
-    expect(backgroundNames()).toContain('surge');
-  });
+  // Nothing here names a shipped scene. This file imports the engine and only
+  // the engine, so it stays green if every background in the game is deleted —
+  // which is the point of them living in `./backgrounds/` rather than in here.
+  // The scenes are covered by `backgrounds/index.test.ts`.
 
   test('a background is added by writing a spec, not by editing the module', () => {
     defineBackground('test-registry', { fragment: 'vec3 background(vec2 uv) { return vec3(0.0); }' });
@@ -69,18 +68,6 @@ describe('shader assembly', () => {
   test('is pure: the same spec assembles byte-identical source twice', () => {
     const body = 'vec3 background(vec2 uv) { return vec3(0.5); }';
     expect(composeFragmentShader(body)).toBe(composeFragmentShader(body));
-  });
-});
-
-describe('shipped backgrounds', () => {
-  test.each(['drift', 'surge'])('%s defines the entry point and a scroll rate', (name) => {
-    const spec = getBackgroundSpec(name);
-    expect(spec.fragment).toContain('vec3 background(vec2 uv)');
-    expect(spec.scrollSpeed).toBeGreaterThan(0);
-  });
-
-  test.each(['drift', 'surge'])('%s reuses the shared noise helpers', (name) => {
-    expect(getBackgroundSpec(name).fragment).toContain(BACKGROUND_NOISE_GLSL);
   });
 });
 

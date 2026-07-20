@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 import { Button } from '../core/input';
 import { sim } from '../core/random';
+import { defineBoss } from '../sim/boss';
 import { deserialize, serialize, type Replay } from '../sim/replay';
 import {
   characterNames,
@@ -491,9 +492,14 @@ describe('source', () => {
   });
 
   test('src/game calls no approximated Math function', () => {
-    // `src/determinism.test.ts` scans sim, content and core — not this
-    // directory. The same rule 3 hazard applies to anything that can move the
-    // simulation, and `Run` moves all of it, so the scan is repeated here.
+    // `src/determinism.test.ts` scans this directory too — `game` is in its
+    // `SIMULATION_TREES`. It was not when this test was written, which is why
+    // this exists; it is kept because a scan living next to the code it guards
+    // fails in the file whose author caused it, and because narrowing that list
+    // must break something local rather than silently reduce coverage.
+    //
+    // The hazard is rule 3's: anything that can move the simulation must not
+    // call an approximated `Math`, and `Run` moves all of it.
     const banned = /Math\.(sin|cos|tan|asin|acos|atan|atan2|hypot|exp|log|log2|log10|pow|cbrt)\b/;
     for (const { name, source } of files) {
       expect(`${name}: ${banned.test(source)}`).toBe(`${name}: false`);
@@ -514,5 +520,79 @@ describe('source', () => {
     for (const { name, source } of files) {
       expect(`${name}: ${/Math\.random/.test(source)}`).toBe(`${name}: false`);
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Scene                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `Run.scene` is the one thing the presentation layer reads as *state* rather
+ * than draining as an event, so it is the one thing that can be wrong without
+ * any event going missing. The browser cannot check the interesting half: the
+ * boss override only happens some three thousand ticks into a stage, which is
+ * why it is tested here instead of by eye.
+ */
+describe('scene', () => {
+  const SCENE_BOSS = 'test-scene-boss';
+  const PLAIN_BOSS = 'test-plain-boss';
+
+  const card = (background?: string) => ({
+    name: 'test card',
+    hp: 50,
+    timeLimit: 600,
+    patterns: [],
+    ...(background === undefined ? {} : { background }),
+  });
+
+  defineBoss(SCENE_BOSS, {
+    sprite: 'orb.large',
+    radius: 12,
+    phases: [card('test-scene-card'), card()],
+  });
+
+  defineBoss(PLAIN_BOSS, {
+    sprite: 'orb.large',
+    radius: 12,
+    phases: [card()],
+  });
+
+  test('a run reports the scene its stage declares', () => {
+    // Only stage-1 here: this file reaches `content/stage.ts` transitively
+    // through `sim/enemy` and never imports the content index, so stage-2 is
+    // genuinely unregistered in this process. Asserting both mappings is
+    // `render/backgrounds/index.test.ts`'s job — it imports both halves, which
+    // is the whole reason it exists.
+    expect(new Run(config()).scene).toBe('expanse');
+  });
+
+  test('an active boss phase overrides the stage scene', () => {
+    const run = new Run(config());
+    run.boss.spawn(SCENE_BOSS, 240, 120, sim);
+
+    expect(run.scene).toBe('test-scene-card');
+  });
+
+  test('a phase declaring no scene falls back to the stage, rather than to nothing', () => {
+    // The failure this catches is a boss whose second card silently blacks out
+    // the level, which looks like a rendering bug and is a data one.
+    const run = new Run(config());
+    run.boss.spawn(PLAIN_BOSS, 240, 120, sim);
+
+    expect(run.scene).toBe('expanse');
+  });
+
+  test('the override ends with the boss, not with the phase index', () => {
+    const run = new Run(config());
+    const boss = run.boss.spawn(SCENE_BOSS, 240, 120, sim);
+    expect(run.scene).toBe('test-scene-card');
+
+    // Past the last card. The `phase` getter throws here, which is exactly why
+    // `scene` indexes `spec.phases` directly — asking what to draw must never
+    // be the thing that throws.
+    boss!.phaseIndex = 99;
+    expect(() => run.scene).not.toThrow();
+    expect(run.scene).toBe('expanse');
   });
 });

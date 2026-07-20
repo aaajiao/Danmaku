@@ -88,6 +88,20 @@ export interface StageSpec {
   waves: readonly WaveEntry[];
   /** Ticks after the last wave before the stage is considered complete. */
   outro?: number;
+  /**
+   * The scene this stage is set in, by registered background name.
+   *
+   * A **name**, resolved by whoever is drawing, and never an import. Registering
+   * a background means importing `render/background`, and `src/content` may not
+   * import from `src/render` — that rule is what keeps the whole simulation
+   * runnable with no GL context, and it is worth more than the convenience of
+   * putting the shader next to the stage that uses it. So the shaders live in
+   * `render/backgrounds/` and a stage refers to one the same way it refers to a
+   * pattern or an enemy: by string, checked at the point of use.
+   *
+   * Unset means the shell keeps whatever is already on screen.
+   */
+  background?: string;
 }
 
 const registry = new Map<string, StageSpec>();
@@ -429,6 +443,7 @@ defineStage('stage-1', {
   name: 'stage-1',
   seed: 0x5747a1,
   outro: 180,
+  background: 'expanse',
   waves: [
     /* Opening: two columns, offset, so the player is taught to move sideways
        rather than to sit still and shoot. */
