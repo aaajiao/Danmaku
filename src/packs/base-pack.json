@@ -1,0 +1,2504 @@
+{
+  "format": 1,
+  "name": "base",
+  "version": "1.0.0",
+  "author": "Danmaku",
+  "license": "CC0-1.0",
+  "description": "The built-in campaign: stage-1 and stage-2, their cast and bosses.",
+  "requires": [
+    "content.enemies",
+    "content.stages",
+    "content.bosses"
+  ],
+  "content": {
+    "enemies": {
+      "grunt": {
+        "sprite": "orb.large",
+        "hp": 12,
+        "radius": 11,
+        "tint": {
+          "r": 1,
+          "g": 0.8,
+          "b": 0.85
+        },
+        "motion": {
+          "r": 1.6,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.45,
+                  "b": 0.75
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.4,
+                  "theta": 90
+                }
+              },
+              "count": 3,
+              "spread": 24,
+              "period": 50
+            },
+            "startAt": 30,
+            "difficulty": {
+              "easy": {
+                "count": 2,
+                "period": 62
+              },
+              "hard": {
+                "count": 4,
+                "spread": 30,
+                "period": 42
+              },
+              "lunatic": {
+                "count": 5,
+                "spread": 36,
+                "period": 36
+              }
+            }
+          }
+        ],
+        "spoils": [
+          [
+            "power",
+            1
+          ]
+        ],
+        "scoreValue": 100,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "weaver": {
+        "sprite": "ring",
+        "hp": 24,
+        "radius": 14,
+        "tint": {
+          "r": 0.7,
+          "g": 1,
+          "b": 0.85
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 3,
+              "theta": 90
+            }
+          },
+          {
+            "count": 40,
+            "motion": {
+              "r": 2,
+              "theta": 0,
+              "w": 3
+            }
+          },
+          {
+            "count": 90,
+            "motion": {
+              "r": 3.5,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "spiral",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.45,
+                  "b": 0.75
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.4,
+                  "theta": 90
+                }
+              },
+              "arms": 2,
+              "step": 17,
+              "period": 5
+            },
+            "startAt": 40,
+            "stopAt": 90,
+            "difficulty": {
+              "easy": {
+                "arms": 1,
+                "period": 7
+              },
+              "hard": {
+                "arms": 3,
+                "period": 4
+              },
+              "lunatic": {
+                "arms": 4,
+                "period": 4
+              }
+            }
+          }
+        ],
+        "spoils": [
+          [
+            "power",
+            2
+          ]
+        ],
+        "scoreValue": 300,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "turret": {
+        "sprite": "halo",
+        "hp": 60,
+        "radius": 18,
+        "width": 40,
+        "height": 40,
+        "tint": {
+          "r": 0.85,
+          "g": 0.9,
+          "b": 1
+        },
+        "motion": {
+          "r": 0.4,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "ring",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "scale",
+                  "r": 0.55,
+                  "g": 0.85,
+                  "b": 1,
+                  "orientToHeading": true
+                },
+                "radius": 4,
+                "motion": {
+                  "r": 1.8,
+                  "theta": 90
+                }
+              },
+              "count": 12,
+              "period": 70,
+              "rotation": 9
+            },
+            "startAt": 20,
+            "difficulty": {
+              "easy": {
+                "count": 8
+              },
+              "hard": {
+                "count": 16,
+                "period": 60
+              },
+              "lunatic": {
+                "count": 20,
+                "period": 54
+              }
+            }
+          },
+          {
+            "pattern": "spray",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.45,
+                  "b": 0.75
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.4,
+                  "theta": 90
+                }
+              },
+              "count": 2,
+              "period": 24,
+              "spread": 50
+            },
+            "startAt": 120,
+            "difficulty": {
+              "easy": {
+                "count": 1,
+                "period": 32
+              },
+              "hard": {
+                "count": 3,
+                "period": 20
+              },
+              "lunatic": {
+                "count": 4,
+                "period": 18
+              }
+            }
+          }
+        ],
+        "despawnMargin": 96,
+        "spoils": [
+          [
+            "power",
+            3
+          ]
+        ],
+        "scoreValue": 1000,
+        "onHit": "hit",
+        "onDeath": "death.big"
+      },
+      "drifter": {
+        "sprite": "orb.medium",
+        "hp": 14,
+        "radius": 10,
+        "tint": {
+          "r": 1,
+          "g": 0.86,
+          "b": 0.62
+        },
+        "motion": {
+          "r": 1.7,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.72,
+                  "b": 0.42
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.3,
+                  "theta": 90,
+                  "behaviour": "waver",
+                  "options": {
+                    "amplitude": 12,
+                    "period": 64,
+                    "duration": 640
+                  }
+                }
+              },
+              "count": 3,
+              "spread": 26,
+              "period": 52
+            },
+            "startAt": 30,
+            "difficulty": {
+              "easy": {
+                "count": 2,
+                "period": 64
+              },
+              "hard": {
+                "count": 4,
+                "spread": 32,
+                "period": 44
+              },
+              "lunatic": {
+                "count": 5,
+                "spread": 38,
+                "period": 38
+              }
+            }
+          }
+        ],
+        "spoils": [
+          [
+            "power",
+            1
+          ]
+        ],
+        "scoreValue": 100,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "lash": {
+        "sprite": "ring",
+        "hp": 30,
+        "radius": 12,
+        "tint": {
+          "r": 1,
+          "g": 0.58,
+          "b": 0.7
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 3.2,
+              "theta": 90
+            }
+          },
+          {
+            "count": 34,
+            "motion": {
+              "r": 0
+            }
+          },
+          {
+            "count": 200,
+            "motion": {
+              "r": 3.4,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "needle",
+                  "r": 1,
+                  "g": 0.45,
+                  "b": 0.6,
+                  "width": 7,
+                  "height": 7,
+                  "additive": true,
+                  "orientToHeading": true
+                },
+                "radius": 4,
+                "motion": {
+                  "r": 0,
+                  "theta": 90
+                },
+                "laser": {
+                  "length": 40,
+                  "growth": 22,
+                  "maxLength": 600,
+                  "warmup": 28
+                },
+                "life": 64
+              },
+              "count": 2,
+              "spread": 26,
+              "period": 96
+            },
+            "startAt": 40,
+            "stopAt": 190,
+            "difficulty": {
+              "easy": {
+                "count": 1
+              },
+              "hard": {
+                "count": 3,
+                "spread": 32
+              },
+              "lunatic": {
+                "count": 3,
+                "spread": 38,
+                "period": 84
+              }
+            }
+          }
+        ],
+        "despawnMargin": 80,
+        "spoils": [
+          [
+            "power",
+            2
+          ]
+        ],
+        "scoreValue": 400,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "hunter": {
+        "sprite": "star",
+        "hp": 22,
+        "radius": 11,
+        "tint": {
+          "r": 0.62,
+          "g": 1,
+          "b": 0.86
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 3.4,
+              "theta": 90
+            }
+          },
+          {
+            "count": 30,
+            "motion": {
+              "r": 1.2,
+              "theta": 0,
+              "w": 2.4
+            }
+          },
+          {
+            "count": 156,
+            "motion": {
+              "r": 3.4,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "kunai",
+                  "r": 0.55,
+                  "g": 1,
+                  "b": 0.82,
+                  "orientToHeading": true
+                },
+                "radius": 3,
+                "blade": {
+                  "length": 26
+                },
+                "motion": {
+                  "r": 2,
+                  "theta": 90,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 2.2,
+                    "delay": 18,
+                    "duration": 64
+                  }
+                }
+              },
+              "count": 2,
+              "spread": 34,
+              "period": 44
+            },
+            "startAt": 34,
+            "stopAt": 156,
+            "difficulty": {
+              "easy": {
+                "count": 1
+              },
+              "hard": {
+                "count": 3,
+                "spread": 40
+              },
+              "lunatic": {
+                "count": 4,
+                "spread": 46,
+                "period": 38
+              }
+            }
+          }
+        ],
+        "despawnMargin": 80,
+        "spoils": [
+          [
+            "power",
+            2
+          ]
+        ],
+        "scoreValue": 400,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "censer": {
+        "sprite": "halo",
+        "hp": 45,
+        "radius": 16,
+        "width": 36,
+        "height": 36,
+        "tint": {
+          "r": 1,
+          "g": 0.8,
+          "b": 0.55
+        },
+        "motion": {
+          "r": 0.5,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "ring",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "petal",
+                  "r": 1,
+                  "g": 0.85,
+                  "b": 0.5
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 1.6,
+                  "theta": 90,
+                  "behaviour": "orbit",
+                  "options": {
+                    "centerX": 240,
+                    "centerY": 190,
+                    "radius": 66,
+                    "angularSpeed": 4,
+                    "duration": 150
+                  }
+                }
+              },
+              "count": 10,
+              "period": 84,
+              "rotation": 13
+            },
+            "startAt": 24,
+            "difficulty": {
+              "easy": {
+                "count": 7
+              },
+              "hard": {
+                "count": 14,
+                "period": 74
+              },
+              "lunatic": {
+                "count": 18,
+                "period": 68
+              }
+            }
+          }
+        ],
+        "despawnMargin": 96,
+        "spoils": [
+          [
+            "power",
+            3
+          ]
+        ],
+        "scoreValue": 1000,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "bastion": {
+        "sprite": "shard",
+        "hp": 70,
+        "radius": 18,
+        "width": 44,
+        "height": 44,
+        "tint": {
+          "r": 0.78,
+          "g": 0.86,
+          "b": 1
+        },
+        "motion": {
+          "r": 0.32,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "ring",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "scale",
+                  "r": 0.7,
+                  "g": 0.82,
+                  "b": 1,
+                  "orientToHeading": true
+                },
+                "radius": 4,
+                "motion": {
+                  "r": 0.4,
+                  "theta": 90,
+                  "behaviour": "accelerate-to",
+                  "options": {
+                    "speed": 4.2,
+                    "delay": 40,
+                    "duration": 24
+                  }
+                }
+              },
+              "count": 14,
+              "period": 84,
+              "rotation": 12
+            },
+            "startAt": 30,
+            "difficulty": {
+              "easy": {
+                "count": 10
+              },
+              "hard": {
+                "count": 18,
+                "period": 74
+              },
+              "lunatic": {
+                "count": 22,
+                "period": 68
+              }
+            }
+          },
+          {
+            "pattern": "spray",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 1,
+                  "g": 0.72,
+                  "b": 0.42
+                },
+                "radius": 3,
+                "motion": {
+                  "r": 2.3,
+                  "theta": 90,
+                  "behaviour": "waver",
+                  "options": {
+                    "amplitude": 12,
+                    "period": 64,
+                    "duration": 640
+                  }
+                }
+              },
+              "count": 2,
+              "period": 34,
+              "spread": 64
+            },
+            "startAt": 150,
+            "difficulty": {
+              "easy": {
+                "count": 1,
+                "period": 44
+              },
+              "hard": {
+                "count": 3,
+                "period": 26
+              },
+              "lunatic": {
+                "count": 4,
+                "period": 22
+              }
+            }
+          }
+        ],
+        "despawnMargin": 110,
+        "spoils": [
+          [
+            "power",
+            3
+          ]
+        ],
+        "scoreValue": 1500,
+        "onHit": "hit",
+        "onDeath": "death.big"
+      }
+    },
+    "bosses": {
+      "sentinel": {
+        "sprite": "halo",
+        "radius": 20,
+        "width": 56,
+        "height": 56,
+        "tint": {
+          "r": 0.8,
+          "g": 0.9,
+          "b": 1
+        },
+        "entry": {
+          "x": 240,
+          "y": 140,
+          "ticks": 90
+        },
+        "music": "nemesis",
+        "onDeath": "death.big",
+        "dialogue": [
+          {
+            "speaker": "sentinel",
+            "text": "Far enough."
+          },
+          {
+            "speaker": "player",
+            "text": "The gate is behind you."
+          },
+          {
+            "speaker": "sentinel",
+            "text": "The gate is me."
+          }
+        ],
+        "phases": [
+          {
+            "name": "Approach",
+            "hpSeconds": 6,
+            "isSpell": false,
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 0.9,
+                  "theta": 0
+                }
+              },
+              {
+                "count": 90,
+                "motion": {
+                  "r": 0.9,
+                  "theta": 180
+                }
+              },
+              {
+                "count": 180,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 0.6,
+                      "g": 0.85,
+                      "b": 1,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 5,
+                  "spread": 34,
+                  "period": 48
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 3,
+                    "period": 60
+                  },
+                  "hard": {
+                    "count": 7,
+                    "spread": 40,
+                    "period": 40
+                  },
+                  "lunatic": {
+                    "count": 9,
+                    "spread": 46,
+                    "period": 36
+                  }
+                }
+              },
+              {
+                "pattern": "spray",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 0.6,
+                      "g": 0.85,
+                      "b": 1,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 2,
+                  "period": 30,
+                  "spread": 70
+                },
+                "startAt": 120,
+                "difficulty": {
+                  "easy": {
+                    "count": 1,
+                    "period": 40
+                  },
+                  "hard": {
+                    "count": 3,
+                    "period": 24
+                  },
+                  "lunatic": {
+                    "count": 4,
+                    "period": 20
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Sign \"Tidal Corolla\"",
+            "hpSeconds": 10,
+            "isSpell": true,
+            "bonus": 200000,
+            "background": "surge",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.55,
+                      "b": 0.8
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 4,
+                      "theta": 90,
+                      "ra": -0.06,
+                      "rrange": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "count": 18,
+                  "period": 42,
+                  "rotation": 9
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 12
+                  },
+                  "hard": {
+                    "count": 22,
+                    "period": 36
+                  },
+                  "lunatic": {
+                    "count": 26,
+                    "period": 33
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.55,
+                      "b": 0.8
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 4,
+                      "theta": 90,
+                      "ra": -0.06,
+                      "rrange": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "count": 18,
+                  "period": 42,
+                  "rotation": -14
+                },
+                "startAt": 21,
+                "difficulty": {
+                  "easy": {
+                    "count": 12
+                  },
+                  "hard": {
+                    "count": 22,
+                    "period": 36
+                  },
+                  "lunatic": {
+                    "count": 26,
+                    "period": 33
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "needle",
+                      "r": 1,
+                      "g": 0.9,
+                      "b": 0.5,
+                      "orientToHeading": true,
+                      "additive": true
+                    },
+                    "radius": 2,
+                    "motion": {
+                      "r": 3.4,
+                      "theta": 90
+                    },
+                    "blade": {
+                      "length": 26
+                    }
+                  },
+                  "count": 3,
+                  "spread": 18,
+                  "period": 96
+                },
+                "startAt": 60,
+                "difficulty": {
+                  "easy": {
+                    "count": 1
+                  },
+                  "hard": {
+                    "count": 5,
+                    "spread": 24
+                  },
+                  "lunatic": {
+                    "count": 7,
+                    "spread": 30,
+                    "period": 84
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Last Sign \"Vigil Unbroken\"",
+            "hpSeconds": 12,
+            "isSpell": true,
+            "bonus": 500000,
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 1.4,
+                  "theta": 0,
+                  "w": 2.2
+                }
+              },
+              {
+                "count": 160,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "spiral",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "needle",
+                      "r": 1,
+                      "g": 0.9,
+                      "b": 0.5,
+                      "orientToHeading": true,
+                      "additive": true
+                    },
+                    "radius": 2,
+                    "motion": {
+                      "r": 3.4,
+                      "theta": 90
+                    },
+                    "blade": {
+                      "length": 26
+                    }
+                  },
+                  "arms": 4,
+                  "step": 13,
+                  "period": 4
+                },
+                "difficulty": {
+                  "easy": {
+                    "arms": 2,
+                    "period": 6
+                  },
+                  "hard": {
+                    "arms": 5,
+                    "period": 3
+                  },
+                  "lunatic": {
+                    "arms": 6,
+                    "period": 3
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.55,
+                      "b": 0.8
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 4,
+                      "theta": 90,
+                      "ra": -0.06,
+                      "rrange": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "count": 20,
+                  "period": 90,
+                  "rotation": 11
+                },
+                "startAt": 240,
+                "difficulty": {
+                  "easy": {
+                    "count": 14
+                  },
+                  "hard": {
+                    "count": 26,
+                    "period": 78
+                  },
+                  "lunatic": {
+                    "count": 30,
+                    "period": 72
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 0.6,
+                      "g": 0.85,
+                      "b": 1,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 7,
+                  "spread": 50,
+                  "period": 75
+                },
+                "startAt": 420,
+                "difficulty": {
+                  "easy": {
+                    "count": 4
+                  },
+                  "hard": {
+                    "count": 9,
+                    "spread": 56
+                  },
+                  "lunatic": {
+                    "count": 11,
+                    "spread": 60,
+                    "period": 66
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Lunatic \"Total Eclipse\"",
+            "hpSeconds": 13,
+            "isSpell": true,
+            "difficulties": [
+              "lunatic"
+            ],
+            "bonus": 800000,
+            "background": "surge",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "spiral",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "needle",
+                      "r": 1,
+                      "g": 0.9,
+                      "b": 0.5,
+                      "orientToHeading": true,
+                      "additive": true
+                    },
+                    "radius": 2,
+                    "motion": {
+                      "r": 3.4,
+                      "theta": 90
+                    },
+                    "blade": {
+                      "length": 26
+                    }
+                  },
+                  "arms": 6,
+                  "step": 11,
+                  "period": 3
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.55,
+                      "b": 0.8
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 4,
+                      "theta": 90,
+                      "ra": -0.06,
+                      "rrange": {
+                        "min": 0.5
+                      }
+                    }
+                  },
+                  "count": 24,
+                  "period": 66,
+                  "rotation": 15
+                },
+                "startAt": 40
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 0.6,
+                      "g": 0.85,
+                      "b": 1,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 7,
+                  "spread": 44,
+                  "period": 60
+                },
+                "startAt": 90
+              }
+            ]
+          }
+        ]
+      },
+      "warden": {
+        "sprite": "ring",
+        "radius": 18,
+        "width": 52,
+        "height": 52,
+        "tint": {
+          "r": 1,
+          "g": 0.6,
+          "b": 0.72
+        },
+        "entry": {
+          "x": 240,
+          "y": 120,
+          "ticks": 70
+        },
+        "music": "nemesis",
+        "onDeath": "death.big",
+        "dialogue": [
+          {
+            "speaker": "warden",
+            "text": "This corridor is closed."
+          },
+          {
+            "speaker": "player",
+            "text": "Open it."
+          },
+          {
+            "speaker": "warden",
+            "text": "I open nothing. I only hold."
+          }
+        ],
+        "phases": [
+          {
+            "name": "Patrol",
+            "hpSeconds": 4,
+            "isSpell": false,
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 1.1,
+                  "theta": 0
+                }
+              },
+              {
+                "count": 80,
+                "motion": {
+                  "r": 1.1,
+                  "theta": 180
+                }
+              },
+              {
+                "count": 160,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "count": 5,
+                  "spread": 32,
+                  "period": 46
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 3,
+                    "period": 58
+                  },
+                  "hard": {
+                    "count": 7,
+                    "spread": 38,
+                    "period": 40
+                  },
+                  "lunatic": {
+                    "count": 9,
+                    "spread": 44,
+                    "period": 34
+                  }
+                }
+              },
+              {
+                "pattern": "spray",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "count": 2,
+                  "period": 32,
+                  "spread": 72
+                },
+                "startAt": 70,
+                "difficulty": {
+                  "easy": {
+                    "count": 1,
+                    "period": 42
+                  },
+                  "hard": {
+                    "count": 3,
+                    "period": 26
+                  },
+                  "lunatic": {
+                    "count": 4,
+                    "period": 22
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Beam Sign \"Picket Line\"",
+            "hpSeconds": 5,
+            "isSpell": true,
+            "bonus": 120000,
+            "background": "surge",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "needle",
+                      "r": 0.7,
+                      "g": 0.6,
+                      "b": 1,
+                      "width": 9,
+                      "height": 9,
+                      "additive": true,
+                      "orientToHeading": true
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 0,
+                      "theta": 90
+                    },
+                    "laser": {
+                      "length": 24,
+                      "growth": 14,
+                      "maxLength": 620,
+                      "warmup": 44
+                    },
+                    "life": 108
+                  },
+                  "count": 4,
+                  "period": 120,
+                  "rotation": 21
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 3
+                  },
+                  "hard": {
+                    "count": 5
+                  },
+                  "lunatic": {
+                    "count": 6,
+                    "rotation": 26
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "kunai",
+                      "r": 0.55,
+                      "g": 1,
+                      "b": 0.82,
+                      "orientToHeading": true
+                    },
+                    "radius": 3,
+                    "blade": {
+                      "length": 26
+                    },
+                    "motion": {
+                      "r": 2,
+                      "theta": 90,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 2.2,
+                        "delay": 18,
+                        "duration": 64
+                      }
+                    }
+                  },
+                  "count": 3,
+                  "spread": 28,
+                  "period": 84
+                },
+                "startAt": 60,
+                "difficulty": {
+                  "easy": {
+                    "count": 1
+                  },
+                  "hard": {
+                    "count": 5,
+                    "spread": 34
+                  },
+                  "lunatic": {
+                    "count": 7,
+                    "spread": 40,
+                    "period": 72
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Gather Sign \"Censer Mill\"",
+            "hpSeconds": 5,
+            "isSpell": true,
+            "bonus": 200000,
+            "background": "surge",
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 0.8,
+                  "theta": 0,
+                  "w": 2.6
+                }
+              },
+              {
+                "count": 170,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.85,
+                      "b": 0.5
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 1.6,
+                      "theta": 90,
+                      "behaviour": "orbit",
+                      "options": {
+                        "centerX": 240,
+                        "centerY": 190,
+                        "radius": 66,
+                        "angularSpeed": 4,
+                        "duration": 150
+                      }
+                    }
+                  },
+                  "count": 12,
+                  "period": 66,
+                  "rotation": 17
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 8
+                  },
+                  "hard": {
+                    "count": 16,
+                    "period": 58
+                  },
+                  "lunatic": {
+                    "count": 20,
+                    "period": 52
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 0.7,
+                      "g": 0.82,
+                      "b": 1,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 0.4,
+                      "theta": 90,
+                      "behaviour": "accelerate-to",
+                      "options": {
+                        "speed": 4.2,
+                        "delay": 40,
+                        "duration": 24
+                      }
+                    }
+                  },
+                  "count": 10,
+                  "period": 96,
+                  "rotation": -14
+                },
+                "startAt": 120,
+                "difficulty": {
+                  "easy": {
+                    "count": 7
+                  },
+                  "hard": {
+                    "count": 13,
+                    "period": 84
+                  },
+                  "lunatic": {
+                    "count": 16,
+                    "period": 78
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "magistrate": {
+        "sprite": "halo",
+        "radius": 21,
+        "width": 60,
+        "height": 60,
+        "tint": {
+          "r": 0.72,
+          "g": 0.68,
+          "b": 1
+        },
+        "entry": {
+          "x": 240,
+          "y": 150,
+          "ticks": 90
+        },
+        "music": "nemesis",
+        "onDeath": "death.big",
+        "dialogue": [
+          {
+            "speaker": "magistrate",
+            "text": "You have come a long way to be sentenced."
+          },
+          {
+            "speaker": "player",
+            "text": "Read the charge, then."
+          },
+          {
+            "speaker": "magistrate",
+            "text": "Trespass. Persistence. The verdict is the same."
+          },
+          {
+            "speaker": "player",
+            "text": "Then I appeal."
+          }
+        ],
+        "phases": [
+          {
+            "name": "Arraignment",
+            "hpSeconds": 7,
+            "isSpell": false,
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 1.3,
+                  "theta": 0
+                }
+              },
+              {
+                "count": 70,
+                "motion": {
+                  "r": 1.3,
+                  "theta": 180
+                }
+              },
+              {
+                "count": 140,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "count": 5,
+                  "spread": 36,
+                  "period": 44
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 3,
+                    "period": 56
+                  },
+                  "hard": {
+                    "count": 7,
+                    "spread": 42,
+                    "period": 38
+                  },
+                  "lunatic": {
+                    "count": 9,
+                    "spread": 48,
+                    "period": 32
+                  }
+                }
+              },
+              {
+                "pattern": "spiral",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "arms": 3,
+                  "step": 14,
+                  "period": 6
+                },
+                "startAt": 90,
+                "difficulty": {
+                  "easy": {
+                    "arms": 2,
+                    "period": 8
+                  },
+                  "hard": {
+                    "arms": 4,
+                    "period": 5
+                  },
+                  "lunatic": {
+                    "arms": 5,
+                    "period": 4
+                  }
+                }
+              },
+              {
+                "pattern": "spray",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "count": 2,
+                  "period": 30,
+                  "spread": 70
+                },
+                "startAt": 40,
+                "difficulty": {
+                  "easy": {
+                    "count": 1,
+                    "period": 40
+                  },
+                  "hard": {
+                    "count": 3,
+                    "period": 24
+                  },
+                  "lunatic": {
+                    "count": 4,
+                    "period": 20
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Seeker Sign \"Writ of Pursuit\"",
+            "hpSeconds": 12,
+            "isSpell": true,
+            "bonus": 150000,
+            "background": "surge",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "kunai",
+                      "r": 0.55,
+                      "g": 1,
+                      "b": 0.82,
+                      "orientToHeading": true
+                    },
+                    "radius": 3,
+                    "blade": {
+                      "length": 26
+                    },
+                    "motion": {
+                      "r": 2,
+                      "theta": 90,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 2.2,
+                        "delay": 18,
+                        "duration": 64
+                      }
+                    }
+                  },
+                  "count": 14,
+                  "period": 78,
+                  "rotation": 13
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 9
+                  },
+                  "hard": {
+                    "count": 18,
+                    "period": 68
+                  },
+                  "lunatic": {
+                    "count": 22,
+                    "period": 62
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "count": 3,
+                  "spread": 22,
+                  "period": 54
+                },
+                "startAt": 40,
+                "difficulty": {
+                  "easy": {
+                    "count": 1
+                  },
+                  "hard": {
+                    "count": 5,
+                    "spread": 28
+                  },
+                  "lunatic": {
+                    "count": 7,
+                    "spread": 32,
+                    "period": 46
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Beam Sign \"Colonnade\"",
+            "hpSeconds": 14,
+            "isSpell": true,
+            "bonus": 250000,
+            "background": "surge",
+            "motion": {
+              "r": 0
+            },
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "needle",
+                      "r": 0.7,
+                      "g": 0.6,
+                      "b": 1,
+                      "width": 9,
+                      "height": 9,
+                      "additive": true,
+                      "orientToHeading": true
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 0,
+                      "theta": 90
+                    },
+                    "laser": {
+                      "length": 24,
+                      "growth": 14,
+                      "maxLength": 620,
+                      "warmup": 44
+                    },
+                    "life": 108
+                  },
+                  "count": 6,
+                  "period": 132,
+                  "rotation": 17
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 4
+                  },
+                  "hard": {
+                    "count": 7
+                  },
+                  "lunatic": {
+                    "count": 8,
+                    "rotation": 21
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "scale",
+                      "r": 0.7,
+                      "g": 0.82,
+                      "b": 1,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 0.4,
+                      "theta": 90,
+                      "behaviour": "accelerate-to",
+                      "options": {
+                        "speed": 4.2,
+                        "delay": 40,
+                        "duration": 24
+                      }
+                    }
+                  },
+                  "count": 12,
+                  "period": 132,
+                  "rotation": 9
+                },
+                "startAt": 66,
+                "difficulty": {
+                  "easy": {
+                    "count": 8
+                  },
+                  "hard": {
+                    "count": 16,
+                    "period": 120
+                  },
+                  "lunatic": {
+                    "count": 20,
+                    "period": 112
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Last Word \"Assize\"",
+            "hpSeconds": 17,
+            "isSpell": true,
+            "bonus": 600000,
+            "background": "surge",
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 0.9,
+                  "theta": 0,
+                  "w": 2.4
+                }
+              },
+              {
+                "count": 150,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "spiral",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.42
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90,
+                      "behaviour": "waver",
+                      "options": {
+                        "amplitude": 12,
+                        "period": 64,
+                        "duration": 640
+                      }
+                    }
+                  },
+                  "arms": 4,
+                  "step": 12,
+                  "period": 5
+                },
+                "difficulty": {
+                  "easy": {
+                    "arms": 2,
+                    "period": 7
+                  },
+                  "hard": {
+                    "arms": 5,
+                    "period": 4
+                  },
+                  "lunatic": {
+                    "arms": 6,
+                    "period": 4
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "petal",
+                      "r": 1,
+                      "g": 0.85,
+                      "b": 0.5
+                    },
+                    "radius": 3,
+                    "motion": {
+                      "r": 1.6,
+                      "theta": 90,
+                      "behaviour": "orbit",
+                      "options": {
+                        "centerX": 240,
+                        "centerY": 190,
+                        "radius": 66,
+                        "angularSpeed": 4,
+                        "duration": 150
+                      }
+                    }
+                  },
+                  "count": 10,
+                  "period": 90,
+                  "rotation": 19
+                },
+                "startAt": 30,
+                "difficulty": {
+                  "easy": {
+                    "count": 7
+                  },
+                  "hard": {
+                    "count": 14,
+                    "period": 80
+                  },
+                  "lunatic": {
+                    "count": 18,
+                    "period": 74
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "needle",
+                      "r": 0.7,
+                      "g": 0.6,
+                      "b": 1,
+                      "width": 9,
+                      "height": 9,
+                      "additive": true,
+                      "orientToHeading": true
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 0,
+                      "theta": 90
+                    },
+                    "laser": {
+                      "length": 24,
+                      "growth": 14,
+                      "maxLength": 620,
+                      "warmup": 44
+                    },
+                    "life": 108
+                  },
+                  "count": 4,
+                  "period": 150,
+                  "rotation": 26
+                },
+                "startAt": 120,
+                "difficulty": {
+                  "easy": {
+                    "count": 3
+                  },
+                  "hard": {
+                    "count": 5
+                  },
+                  "lunatic": {
+                    "count": 6
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "kunai",
+                      "r": 0.55,
+                      "g": 1,
+                      "b": 0.82,
+                      "orientToHeading": true
+                    },
+                    "radius": 3,
+                    "blade": {
+                      "length": 26
+                    },
+                    "motion": {
+                      "r": 2,
+                      "theta": 90,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 2.2,
+                        "delay": 18,
+                        "duration": 64
+                      }
+                    }
+                  },
+                  "count": 3,
+                  "spread": 30,
+                  "period": 96
+                },
+                "startAt": 240,
+                "difficulty": {
+                  "easy": {
+                    "count": 1
+                  },
+                  "hard": {
+                    "count": 5,
+                    "spread": 36
+                  },
+                  "lunatic": {
+                    "count": 7,
+                    "spread": 42,
+                    "period": 84
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stages": {
+      "stage-1": {
+        "entry": true,
+        "seed": 5719969,
+        "outro": 180,
+        "background": "expanse",
+        "music": "vigil",
+        "boss": "sentinel",
+        "next": "stage-2",
+        "waves": [
+          {
+            "at": 0,
+            "enemy": "grunt",
+            "x": 120,
+            "y": -24,
+            "count": 5,
+            "interval": 20
+          },
+          {
+            "at": 30,
+            "enemy": "grunt",
+            "x": 360,
+            "y": -24,
+            "count": 5,
+            "interval": 20
+          },
+          {
+            "at": 200,
+            "enemy": "grunt",
+            "x": 150,
+            "y": -24,
+            "count": 5,
+            "interval": 0,
+            "stepX": 45,
+            "stepY": -18
+          },
+          {
+            "at": 360,
+            "enemy": "weaver",
+            "x": 140,
+            "y": -30
+          },
+          {
+            "at": 380,
+            "enemy": "weaver",
+            "x": 300,
+            "y": -30
+          },
+          {
+            "at": 440,
+            "enemy": "grunt",
+            "x": 240,
+            "y": -24,
+            "count": 4,
+            "interval": 24
+          },
+          {
+            "at": 560,
+            "enemy": "weaver",
+            "x": 100,
+            "y": -30,
+            "count": 3,
+            "interval": 30,
+            "stepX": 70
+          },
+          {
+            "at": 760,
+            "enemy": "turret",
+            "x": 240,
+            "y": -60
+          },
+          {
+            "at": 820,
+            "enemy": "grunt",
+            "x": 60,
+            "y": -24,
+            "count": 4,
+            "interval": 40
+          },
+          {
+            "at": 840,
+            "enemy": "grunt",
+            "x": 420,
+            "y": -24,
+            "count": 4,
+            "interval": 40
+          },
+          {
+            "at": 1000,
+            "enemy": "weaver",
+            "x": 180,
+            "y": -30
+          },
+          {
+            "at": 1160,
+            "enemy": "grunt",
+            "x": 90,
+            "y": -24,
+            "count": 6,
+            "interval": 0,
+            "stepX": 60,
+            "stepY": -20
+          },
+          {
+            "at": 1240,
+            "enemy": "weaver",
+            "x": 120,
+            "y": -30,
+            "count": 2,
+            "interval": 40,
+            "stepX": 200
+          },
+          {
+            "at": 1320,
+            "enemy": "grunt",
+            "x": 300,
+            "y": -24,
+            "count": 8,
+            "interval": 14,
+            "stepX": -18
+          },
+          {
+            "at": 1500,
+            "enemy": "turret",
+            "x": 140,
+            "y": -60
+          },
+          {
+            "at": 1500,
+            "enemy": "turret",
+            "x": 340,
+            "y": -60
+          },
+          {
+            "at": 1560,
+            "enemy": "weaver",
+            "x": 240,
+            "y": -30,
+            "count": 2,
+            "interval": 50
+          },
+          {
+            "at": 1620,
+            "enemy": "grunt",
+            "x": 60,
+            "y": -24,
+            "count": 6,
+            "interval": 18,
+            "stepX": 72
+          }
+        ]
+      },
+      "stage-2": {
+        "entry": false,
+        "seed": 2822033,
+        "outro": 90,
+        "background": "undertow",
+        "music": "descent",
+        "boss": "magistrate",
+        "next": null,
+        "waves": [
+          {
+            "at": 0,
+            "enemy": "drifter",
+            "x": 130,
+            "y": -24,
+            "count": 5,
+            "interval": 22
+          },
+          {
+            "at": 40,
+            "enemy": "drifter",
+            "x": 350,
+            "y": -24,
+            "count": 5,
+            "interval": 22
+          },
+          {
+            "at": 190,
+            "enemy": "drifter",
+            "x": 140,
+            "y": -24,
+            "count": 5,
+            "interval": 0,
+            "stepX": 50,
+            "stepY": -18
+          },
+          {
+            "at": 300,
+            "enemy": "lash",
+            "x": 240,
+            "y": -24
+          },
+          {
+            "at": 480,
+            "enemy": "lash",
+            "x": 170,
+            "y": -24
+          },
+          {
+            "at": 500,
+            "enemy": "drifter",
+            "x": 360,
+            "y": -24,
+            "count": 4,
+            "interval": 26
+          },
+          {
+            "at": 620,
+            "enemy": "lash",
+            "x": 330,
+            "y": -24
+          },
+          {
+            "at": 700,
+            "enemy": "hunter",
+            "x": 120,
+            "y": -30
+          },
+          {
+            "at": 790,
+            "enemy": "drifter",
+            "x": 240,
+            "y": -24,
+            "count": 4,
+            "interval": 24
+          },
+          {
+            "at": 860,
+            "enemy": "hunter",
+            "x": 100,
+            "y": -30,
+            "count": 2,
+            "interval": 46,
+            "stepX": 90
+          },
+          {
+            "at": 900,
+            "enemy": "drifter",
+            "x": 300,
+            "y": -24,
+            "count": 6,
+            "interval": 16,
+            "stepX": -14
+          },
+          {
+            "at": 1000,
+            "enemy": "censer",
+            "x": 240,
+            "y": -60
+          },
+          {
+            "at": 1060,
+            "enemy": "drifter",
+            "x": 70,
+            "y": -24,
+            "count": 3,
+            "interval": 30
+          },
+          {
+            "at": 1140,
+            "boss": "warden",
+            "x": 240,
+            "y": -60
+          },
+          {
+            "at": 1200,
+            "enemy": "censer",
+            "x": 160,
+            "y": -60
+          },
+          {
+            "at": 1200,
+            "enemy": "censer",
+            "x": 320,
+            "y": -60
+          },
+          {
+            "at": 1250,
+            "enemy": "hunter",
+            "x": 110,
+            "y": -30
+          },
+          {
+            "at": 1320,
+            "enemy": "bastion",
+            "x": 240,
+            "y": -60
+          },
+          {
+            "at": 1380,
+            "enemy": "drifter",
+            "x": 60,
+            "y": -24,
+            "count": 4,
+            "interval": 34
+          },
+          {
+            "at": 1420,
+            "enemy": "lash",
+            "x": 120,
+            "y": -24
+          },
+          {
+            "at": 1420,
+            "enemy": "lash",
+            "x": 360,
+            "y": -24
+          },
+          {
+            "at": 1500,
+            "enemy": "hunter",
+            "x": 150,
+            "y": -30
+          },
+          {
+            "at": 1600,
+            "enemy": "censer",
+            "x": 200,
+            "y": -60
+          },
+          {
+            "at": 1640,
+            "enemy": "hunter",
+            "x": 90,
+            "y": -30,
+            "count": 2,
+            "interval": 44,
+            "stepX": 120
+          },
+          {
+            "at": 1690,
+            "enemy": "drifter",
+            "x": 380,
+            "y": -24,
+            "count": 8,
+            "interval": 14,
+            "stepX": -22
+          },
+          {
+            "at": 1720,
+            "enemy": "bastion",
+            "x": 150,
+            "y": -60
+          },
+          {
+            "at": 1720,
+            "enemy": "bastion",
+            "x": 330,
+            "y": -60
+          },
+          {
+            "at": 1780,
+            "enemy": "lash",
+            "x": 240,
+            "y": -24
+          },
+          {
+            "at": 1800,
+            "enemy": "drifter",
+            "x": 60,
+            "y": -24,
+            "count": 6,
+            "interval": 8,
+            "stepX": 72
+          }
+        ]
+      }
+    }
+  }
+}

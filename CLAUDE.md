@@ -20,13 +20,23 @@ src/render/backgrounds/   the authored scenes, one fragment shader per file
 src/content/       danmaku patterns, shot types, motion behaviours, stages
 src/game/          run rules, state machine, screens — all game logic, no three.js
 src/audio/         sound registry and runtime synthesis
-src/packs/         drop-in packs: pure shape validation, content injector, loader
+src/packs/         drop-in packs: pure shape validation, content injector,
+                   loader, and the bundled base campaign (base-pack.json +
+                   bundled.ts — the built-in game, injected as pack data)
 src/main.ts        the browser shell: input in, pixels out, nothing else
 docs/              asset specification, extension guide, pack format
-packs/             asset packs on disk (packs/example is the reference)
+packs/             fetched asset packs on disk (packs/example is the reference)
 test/visual/       checks that need a real GL context and cannot run in `bun test`
-tools/             fixture and example-pack generation, dev server, build copy
+tools/             fixture, example-pack and base-pack generation, dev server,
+                   build copy
 ```
+
+The built-in campaign — stage-1, stage-2, their eight trash enemies and three
+bosses — is no longer engine TypeScript. It is `src/packs/base-pack.json`,
+authored by `tools/make-base-pack.ts` and injected through the same
+validate+inject pipeline as any fetched pack (`src/packs/bundled.ts`), the
+format eating the game's own content. The four ways a bundled pack differs from
+a fetched one are under "How this is extended".
 
 Four tests scan whole trees rather than testing one module, and all four exist
 because the thing they check fails silently:
@@ -34,9 +44,16 @@ because the thing they check fails silently:
 ```
 src/determinism.test.ts       approximated `Math` in sim, content, core, game (rule 3)
 src/architecture.test.ts      renderer imports in sim, content, game (the rule below)
-src/game/reachability.test.ts registered content a real playthrough never touches
-src/game/balance.test.ts      the damage model, re-derived from the real `Run`
+src/reachability.test.ts      registered content a real playthrough never touches
+src/balance.test.ts           the damage model, re-derived from the real `Run`
 ```
+
+The last two live at the `src/` root, beside `main.ts`, not under `src/game/`.
+They drive the *composed* game — which now needs the bundled base pack injected
+— and composition is the shell's layer, where importing game + packs + render is
+what the tests do. `src/difficulty-honesty.test.ts` moved to the root for the
+same reason. The scan-scope tests (`determinism`, `architecture`) are unchanged:
+they scan `sim`/`content`/`game`/`core`, and the root is not one of those trees.
 
 The last two are newer than the rest of this document and are described under
 "Registration is not reachability" and "The damage model is measured, not typed"
@@ -271,6 +288,16 @@ engine. Every extension point is a registry:
 Content references registry entries **by name**, never by index, so re-packing an
 atlas or reordering a table cannot silently repoint at the wrong thing.
 
+The **Defined in** column is where a registry's *mechanism* lives, not where the
+built-in campaign's data does. `defineEnemy`, `defineBoss` and `defineStage` are
+the registration surface — but the enemies, bosses and stages of the base game
+are no longer written inline beneath them. They are pack data now, authored in
+`tools/make-base-pack.ts`, emitted to `src/packs/base-pack.json`, and registered
+through the injector at boot. So a new enemy, boss or stage *for the base
+campaign* is written in the generator (`docs/extending.md` §6); the `define*`
+calls still take a hand-written spec when you register content from engine code,
+which is how a guest pack's names still reach these registries.
+
 The last row is the one that is not code: an **asset pack** is a folder dropped
 into `packs/`, and it extends the game without touching a registry or the engine
 at all. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
@@ -298,6 +325,20 @@ stage — and a pack character flown on any campaign is a content run for that r
 The format, both validation layers and the boundary are
 [`docs/packs.md`](./docs/packs.md).
 
+The **base game is now this format's largest consumer**: the built-in campaign is
+a bundled pack (`src/packs/bundled.ts` injects `base-pack.json` at boot). It runs
+the *same* pipeline — same validator, same shapes, same injection — differing from
+a fetched pack in exactly four ways: it is **statically imported**, not fetched
+(the bundler inlines the JSON, so there is zero network and no `packs/` directory
+— the never-blocked floor holds); its names register **unqualified** (`grunt`,
+`sentinel`, `stage-1`), because it *is* the base game, not a guest layering over
+it; it contributes **no campaign row and no replay meta** — its entry stage takes
+the plain START row and it joins neither `packs` nor `packsData`, exactly as
+engine-defined content did, which is why the port declares no replay divergence;
+and a validation failure **throws at boot** rather than warning, because a broken
+base pack is a build defect, not a user-file problem. `docs/packs.md` §Bundled
+pack is the reference.
+
 **A registry only has what something imported.** A module nobody imports never
 runs, so its `define*` calls never happen and the name resolves to nothing at the
 moment a player reaches it. Two index files exist to prevent that, each with a
@@ -317,7 +358,10 @@ Importing a module proves the name *resolves*. It does not prove a running game
 ever asks for it, and those are different claims. The shipped build had
 `stage-2`, `warden` and `magistrate` fully written, imported, unit-tested and
 green — and unreachable, because `stage-1` never named a boss to send or a stage
-to follow. Every registry was correct. Nothing joined them up.
+to follow. Every registry was correct. Nothing joined them up. (Those names are
+now base-pack content, injected at boot; the wire is a wave and a `next` in
+`base-pack.json`, and the pack injector's own reachability pass — `docs/packs.md`
+§9.3 — rejects a stage no `next` reaches before this test ever runs.)
 
 That is the shape of nearly every defect the audit found: not a broken
 subsystem, but a missing wire between two working ones — an argument not passed,
@@ -325,7 +369,7 @@ a ceiling read from the wrong table, a registry with no consumer. Unit tests
 cannot see it, because a unit test supplies the missing wire itself, as a
 fixture.
 
-`src/game/reachability.test.ts` closes it. It drives the real `StateMachine`
+`src/reachability.test.ts` closes it. It drives the real `StateMachine`
 through the real `GameContext`, the way `main.ts` does, with a scripted pilot,
 and asserts that a genuine playthrough touches every stage, boss, boss phase,
 declared scene, item kind, particle effect, state screen, the top power tier,
@@ -347,11 +391,12 @@ in the units a designer actually thinks in.
 It used to be a literal — `0.56`, typed once into a test file and repeated in
 three prose comments. It was unverifiable and it was wrong, and each consumer
 was wrong differently: `boss.ts` sized above it and produced phases no loadout
-could drain inside their own clocks; `stage-2.ts` inferred it was far too
-generous and sized an order of magnitude *below* it, giving a midboss less
-health than two trash enemies.
+could drain inside their own clocks; the since-retired `stage-2.ts` (its content
+now lives in `base-pack.json`) inferred it was far too generous and sized an
+order of magnitude *below* it, giving a midboss less health than two trash
+enemies.
 
-`src/game/balance.test.ts` re-derives the number by driving the real `Run`
+`src/balance.test.ts` re-derives the number by driving the real `Run`
 across every character × power tier × focus state. If player damage changes for
 any reason — a weapon tier, an option layout, a hitbox shape — it fails, and the
 boss content has to be revisited. That coupling is the point: **a tuning

@@ -23,4 +23,3 @@ import './behaviours';
 import './patterns';
 import './shots';
 import './stage';
-import './stage-2';

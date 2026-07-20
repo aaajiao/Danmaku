@@ -183,6 +183,23 @@ export class PackInjectError extends Error {
   }
 }
 
+/**
+ * How a pack's names register and whether it contributes menu campaigns.
+ *
+ * A **bundled** pack IS the base game (decisions-basepack.md), not a guest
+ * layering over it, so it differs from a fetched pack in exactly two ways the
+ * injector controls: its entries register UNQUALIFIED (`grunt`, `sentinel`,
+ * `stage-1`, not `<pack>/grunt`), so the built-in campaign resolves by the bare
+ * names the shell and every test already use; and it contributes NO campaign row
+ * — its entry stage takes the plain START row instead. Everything else — the same
+ * validation, the same reachability rules, the same `define*` calls — is
+ * identical, which is the whole point: no forked pipeline. A fetched pack passes
+ * `undefined` and gets the default, qualified-and-with-campaigns behaviour.
+ */
+export interface InjectOptions {
+  bundled?: boolean;
+}
+
 /** Idempotency ledger — pack name → the campaigns its first injection produced. */
 const injected = new Map<string, InjectResult>();
 
@@ -191,15 +208,19 @@ const injected = new Map<string, InjectResult>();
  *
  * `manifest` must already have passed `validateManifest`; this reads only
  * `name` and `content`. Returns the campaigns the pack contributes (empty for a
- * presentation-only pack with no `content`). Throws `PackInjectError`, having
- * registered nothing, if any name fails to resolve or any reachability rule is
- * broken.
+ * presentation-only pack with no `content`, and empty for a bundled pack — see
+ * `InjectOptions`). Throws `PackInjectError`, having registered nothing, if any
+ * name fails to resolve or any reachability rule is broken.
  */
-export function injectPack(manifest: PackManifest, context: InjectContext): InjectResult {
+export function injectPack(
+  manifest: PackManifest,
+  context: InjectContext,
+  options: InjectOptions = {},
+): InjectResult {
   const cached = injected.get(manifest.name);
   if (cached) return cached;
 
-  const built = validateAndBuild(manifest, context);
+  const built = validateAndBuild(manifest, context, options.bundled === true);
 
   // Reached only when zero problems were collected, so no `define*` below can
   // throw: every condition those guards reject was pre-checked with an
@@ -315,7 +336,7 @@ function motionBehaviour(motion: unknown): string | undefined {
   return undefined;
 }
 
-function validateAndBuild(manifest: PackManifest, context: InjectContext): Built {
+function validateAndBuild(manifest: PackManifest, context: InjectContext, bundled: boolean): Built {
   const pack = manifest.name;
   const content = manifest.content;
   const enemies = content?.enemies ?? {};
@@ -338,7 +359,11 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
   const characterKeys = Object.keys(packCharacters);
 
   const problems: string[] = [];
-  const q = (entry: string): string => `${pack}/${entry}`;
+  // A bundled pack registers bare — it is the base game, not a guest — so `q` is
+  // the identity there; a fetched pack qualifies every entry to `<pack>/<entry>`.
+  // This is the one seam the `bundled` flag turns: pack-first resolution, the
+  // reachability rules and the `define*` calls are all unchanged.
+  const q = bundled ? (entry: string): string => entry : (entry: string): string => `${pack}/${entry}`;
 
   // Resolution sets. Built-ins are read live from the registries; sprites and
   // scenes come in from the caller.
@@ -442,6 +467,25 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
           `pack "${pack}": ${where} uses unknown pattern "${slot.pattern}" — no such pattern is registered`,
         );
       }
+      // A pattern fires the bullet spec at `options.spec` (the `requireSpec`
+      // convention), whose own sprite and behaviours need the same two checks
+      // shots and options run on their embedded spec. Unchecked, a typo'd bullet
+      // sprite or behaviour passed injection and threw only when this slot's
+      // `startAt` fell due mid-run.
+      const spec = slot.options?.spec;
+      const sprite = bulletSprite(spec);
+      if (sprite !== undefined && !sprites.has(sprite)) {
+        problems.push(
+          `pack "${pack}": ${where} pattern "${slot.pattern}" fires unknown sprite "${sprite}" — known sprites: ${list(sprites)}`,
+        );
+      }
+      for (const behaviour of bulletBehaviours(spec)) {
+        if (behaviour !== undefined && !behaviours.has(behaviour)) {
+          problems.push(
+            `pack "${pack}": ${where} pattern "${slot.pattern}" fires unknown motion behaviour "${behaviour}" — no such behaviour is registered`,
+          );
+        }
+      }
     }
 
     const behaviourRefs = [e.motion, ...(e.timeline ?? []).map((seg) => (isRecord(seg) ? seg.motion : undefined))];
@@ -529,12 +573,29 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
       }
 
       // Patterns are engine code — the motion DSL is named by a string, never
-      // carried as pack data — so a pattern name must be built in.
+      // carried as pack data — so a pattern name must be built in. The bullet
+      // spec at `options.spec` carries its own sprite and behaviours; check them
+      // here as the enemy loop and the shot/option loops do, or a typo'd bullet
+      // name throws only when this card's `startAt` falls due mid-fight.
       for (const slot of card.patterns) {
         if (!patterns.has(slot.pattern)) {
           problems.push(
             `pack "${pack}": ${cw} uses unknown pattern "${slot.pattern}" — patterns are engine code, not pack data; no such pattern is registered`,
           );
+        }
+        const spec = slot.options?.spec;
+        const sprite = bulletSprite(spec);
+        if (sprite !== undefined && !sprites.has(sprite)) {
+          problems.push(
+            `pack "${pack}": ${cw} pattern "${slot.pattern}" fires unknown sprite "${sprite}" — known sprites: ${list(sprites)}`,
+          );
+        }
+        for (const behaviour of bulletBehaviours(spec)) {
+          if (behaviour !== undefined && !behaviours.has(behaviour)) {
+            problems.push(
+              `pack "${pack}": ${cw} pattern "${slot.pattern}" fires unknown motion behaviour "${behaviour}" — no such behaviour is registered`,
+            );
+          }
         }
       }
 
@@ -958,9 +1019,15 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext): Built
     name: q(name),
     spec: toStageSpec(q(name), stages[name] as ContentStage, packEnemies, packBossNames, packStages, q, refMusic),
   }));
-  const campaigns: Campaign[] = stageKeys
-    .filter((k) => (stages[k] as ContentStage).entry === true)
-    .map((k) => ({ label: q(k), stage: q(k) }));
+  // A bundled pack contributes no campaign row: its entry stage takes the plain
+  // START row (the shell keeps resolving 'stage-1'), and it joins neither `packs`
+  // meta nor `packsData` — its identity is the build itself. A fetched pack offers
+  // one row per `entry: true` stage under START.
+  const campaigns: Campaign[] = bundled
+    ? []
+    : stageKeys
+        .filter((k) => (stages[k] as ContentStage).entry === true)
+        .map((k) => ({ label: q(k), stage: q(k) }));
 
   return {
     campaigns,

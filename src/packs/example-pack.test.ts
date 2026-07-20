@@ -19,7 +19,7 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import '../content'; // built-in patterns, behaviours, enemies, bosses, stages
+import '../packs/bundled'; // built-in patterns/behaviours (via content) + the base campaign (grunt, sentinel, stage-1) the example pack references bare
 import '../sim/item'; // built-in items (power, score, …); content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { backgroundNames } from '../render/background';

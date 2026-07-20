@@ -16,7 +16,12 @@
 import { describe, expect, test } from 'bun:test';
 
 import './index';
-import '../../content';
+// The base campaign is a bundled pack now, so the stages and bosses whose scene
+// names this file resolves come from injecting it, not from importing content.
+// A render-side test may import packs (the ban is on sim/content/game, enforced
+// by architecture.test.ts) — the same direction `loader.ts` already crosses —
+// and this is the honest way to get the real stage/boss set the scene check reads.
+import '../../packs/bundled';
 
 import { BACKGROUND_NOISE_GLSL, backgroundNames, getBackgroundSpec } from '../background';
 import { getStage, stageNames } from '../../content/stage';

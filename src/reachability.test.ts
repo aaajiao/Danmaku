@@ -62,30 +62,44 @@
  * objective answer. Difficulty belongs in `balance.test.ts`.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 
-import '../content';
-import { Button } from '../core/input';
+import './packs/bundled';
+import { Button } from './core/input';
+import { fx, sim } from './core/random';
 import {
   activePhaseIndices,
   DEFAULT_DIFFICULTY,
   DIFFICULTIES,
   type Difficulty,
-} from '../sim/difficulty';
-import { bossNames, getBossSpec } from '../sim/boss';
-import { effectNames, getEffectSpec } from '../sim/effects';
-import { soundNames } from '../audio';
-import { MENU_MUSIC, musicNames } from '../audio/music';
-import { bombNames } from '../sim/bomb';
-import { enemyNames } from '../sim/enemy';
-import { itemNames } from '../sim/item';
-import { getOptionSpec, optionNames } from '../sim/option';
-import { getStage, stageNames } from '../content/stage';
-import { getShot, shotNames } from '../content/shots';
-import { EVENT_SOUNDS } from './cues';
-import { StateMachine } from './state';
-import { TitleState, type GameContext } from './states';
-import { characterNames, type Run, type RunEventType } from './run';
+} from './sim/difficulty';
+import { bossNames, getBossSpec } from './sim/boss';
+import { effectNames, getEffectSpec } from './sim/effects';
+import { soundNames } from './audio';
+import { MENU_MUSIC, musicNames } from './audio/music';
+import { bombNames } from './sim/bomb';
+import { enemyNames } from './sim/enemy';
+import { itemNames } from './sim/item';
+import { getOptionSpec, optionNames } from './sim/option';
+import { getStage, stageNames } from './content/stage';
+import { getShot, shotNames } from './content/shots';
+import { EVENT_SOUNDS } from './game/cues';
+import { StateMachine } from './game/state';
+import { TitleState, type GameContext } from './game/states';
+import { characterNames, type Run, type RunEventType } from './game/run';
+
+// This file drives whole playthroughs at module load (the `RUNS` union below)
+// and in its tests, which advances the global sim/fx streams. bun loads-and-runs
+// test files one at a time, so core/random.test.ts — which asserts both streams
+// are pristine at its own import — would see this file's leftovers when it loads
+// next. Capture before any driving and restore on the way out, the good-citizen
+// pattern base-content.golden.test.ts uses.
+const SIM_ENTRY_STATE = sim.getState();
+const FX_ENTRY_STATE = fx.getState();
+afterAll(() => {
+  sim.setState(SIM_ENTRY_STATE);
+  fx.setState(FX_ENTRY_STATE);
+});
 
 /**
  * Ticks at the start of each run during which the pilot can be killed.

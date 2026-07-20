@@ -34,13 +34,13 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import '../content';
-import { BulletSystem } from '../sim/bullet';
-import { BossSystem } from '../sim/boss';
-import { DIFFICULTIES, type Difficulty } from '../sim/difficulty';
-import { EnemySystem } from '../sim/enemy';
-import { Random } from '../core/random';
-import { getStage, StageRunner } from '../content/stage';
+import './packs/bundled';
+import { BulletSystem } from './sim/bullet';
+import { BossSystem } from './sim/boss';
+import { DIFFICULTIES, type Difficulty } from './sim/difficulty';
+import { EnemySystem } from './sim/enemy';
+import { Random } from './core/random';
+import { getStage, StageRunner } from './content/stage';
 
 const BOUNDS = { width: 480, height: 640, margin: 64 };
 const TARGET = { x: 240, y: 520 };

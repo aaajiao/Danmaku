@@ -568,8 +568,13 @@ describe('determinism', () => {
     expect(trace('test.random', 12345, 200)).not.toEqual(trace('test.random', 999, 200));
   });
 
-  test('the reference boss reproduces exactly', () => {
-    expect(trace('sentinel', 7, 400)).toEqual(trace('sentinel', 7, 400));
+  test('a full multi-phase fight reproduces exactly', () => {
+    // `test.three` is a three-phase boss whose phases transition under the
+    // trickle of damage `trace` applies, so this exercises the transition path
+    // as well as steady fire. The shipped bosses (sentinel/warden/magistrate)
+    // moved into the bundled base pack; their determinism is proved by the
+    // committed replay fixtures in `src/base-content.golden.test.ts`.
+    expect(trace('test.three', 7, 400)).toEqual(trace('test.three', 7, 400));
   });
 
   test('a phase transition draws from the stream the fight is running on', () => {
@@ -620,57 +625,11 @@ describe('determinism', () => {
   });
 });
 
-/* ------------------------------------------------------------------ */
-/* The reference boss                                                  */
-/* ------------------------------------------------------------------ */
-
-describe('sentinel', () => {
-  test('it flies in, fights through every phase, and dies', () => {
-    const { system, bullets } = makeSystem();
-    const r = rng(3);
-    system.spawn('sentinel', 240, -60, r);
-
-    stepTimes(system, 90, r);
-    expect(system.boss?.entering).toBe(false);
-    expect(system.boss?.x).toBe(240);
-
-    stepTimes(system, 120, r);
-    expect(bullets.bullets.length).toBeGreaterThan(0);
-
-    const seen: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      system.drainEvents();
-      system.damage(getBossSpec('sentinel').phases[i]?.hp ?? 0);
-      seen.push(...types(system.drainEvents()));
-    }
-
-    expect(seen).toEqual([
-      'phase-cleared',
-      'phase-start',
-      'phase-cleared',
-      'phase-start',
-      'phase-cleared',
-      'defeated',
-    ]);
-    expect(system.active).toBe(false);
-  });
-
-  test('every phase fires something', () => {
-    for (const phase of getBossSpec('sentinel').phases) {
-      expect(phase.patterns.length).toBeGreaterThan(0);
-      expect(phase.timeLimit).toBeGreaterThan(0);
-    }
-  });
-
-  test('it survives its own time limits without help', () => {
-    // No damage at all: the clock alone must carry the fight to its end.
-    const { system, bullets } = makeSystem();
-    const r = rng(5);
-    system.spawn('sentinel', 240, -60, r);
-    for (let i = 0; i < 60 * 130; i++) {
-      system.step(240, 460, r);
-      bullets.step(240, 460, r);
-    }
-    expect(system.active).toBe(false);
-  });
-});
+// The reference boss `sentinel` and stage-2's warden/magistrate used to be
+// verified here — fly-in, phase transitions, timeout survival, every card fires.
+// They moved into the bundled base pack (`src/packs/base-pack.json`), which this
+// sim-side unit test may not import. The mechanism those cases exercised is
+// covered above against the local `test.*` fixtures; the real bosses are covered
+// at the composition root — `src/base-content.golden.test.ts` replays each to a
+// natural end (fly-in, every phase, defeat or timeout), and
+// `src/reachability.test.ts` proves every phase of every boss is reached.

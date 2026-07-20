@@ -1120,6 +1120,8 @@ stand in for the caller's sorted lists):
 | Enemy: unknown sprite | `enemy "ember" uses unknown sprite "orb.huge" — known sprites: <known sprites>` |
 | Enemy: unknown pattern | `enemy "ember" uses unknown pattern "sprial" — no such pattern is registered` |
 | Enemy: unknown behaviour | `enemy "ember" uses unknown motion behaviour "homng" — no such behaviour is registered` |
+| Enemy: pattern's bullet sprite unknown | `enemy "ember" pattern "ring" fires unknown sprite "orb.huge" — known sprites: <known sprites>` |
+| Enemy: pattern's bullet behaviour unknown | `enemy "ember" pattern "ring" fires unknown motion behaviour "homng" — no such behaviour is registered` |
 | Enemy: unknown `onHit`/`onDeath` effect | `enemy "ember" onHit names unknown effect "cindr" — no such effect in this pack or built in` |
 | Enemy: unknown spoils item | `enemy "ember" drops unknown item "powr" — no such item in this pack or built in` |
 | Boss: unknown sprite | `boss "pyre" uses unknown sprite "orb.huge" — known sprites: <known sprites>` |
@@ -1130,6 +1132,8 @@ stand in for the caller's sorted lists):
 | Boss: `timeLimit` not whole | `boss "pyre" phase "Smoulder": timeLimit must be a whole tick count, got 12.5` |
 | Boss: unknown phase pattern | `boss "pyre" phase "Smoulder" uses unknown pattern "spiro" — patterns are engine code, not pack data; no such pattern is registered` |
 | Boss: unknown phase behaviour | `boss "pyre" phase "Smoulder" uses unknown motion behaviour "homng" — no such behaviour is registered` |
+| Boss: phase pattern's bullet sprite unknown | `boss "pyre" phase "Smoulder" pattern "ring" fires unknown sprite "orb.huge" — known sprites: <known sprites>` |
+| Boss: phase pattern's bullet behaviour unknown | `boss "pyre" phase "Smoulder" pattern "ring" fires unknown motion behaviour "homng" — no such behaviour is registered` |
 | Boss: unknown card background | `boss "pyre" phase "Ashfall" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
 | Boss: unknown `onDeath` effect | `boss "pyre" onDeath names unknown effect "cindr" — no such effect in this pack or built in` |
 | Boss: unknown `music` | `boss "pyre" names unknown music "nokturn" — no such music in this pack or built in` |
@@ -1270,6 +1274,63 @@ what the simulation does, the picture is only how it looks.
 > The one-sentence why: **pack content changes what the game does, so a replay
 > under different content is a different run and must be rejected, not warned** —
 > the same reason presentation, which changes only how it looks, is only warned.
+
+### 9.7 The bundled base pack — the format eating the game's own content
+
+Everything above describes a *fetched* pack. The **base game is now this format's
+largest consumer**: stage-1, stage-2, their eight trash enemies (`grunt`,
+`weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion`) and three
+bosses (`sentinel`, `warden`, `magistrate`) are no longer engine TypeScript.
+They are `src/packs/base-pack.json`, authored in `tools/make-base-pack.ts`, and
+injected through this exact pipeline — the same `validateManifest`, the same
+`ContentEnemy`/`ContentBoss`/`ContentStage` shapes (§9.2), the same `injectPack`,
+the same reachability rules (§9.3) and the same golden validation strings (§9.4).
+There is **no forked validator and no special-cased shape**. If a typo'd bullet
+sprite or motion behaviour buried in a base-pack pattern slot could ever ship,
+the §9.4 rows *"enemy/boss pattern fires unknown sprite/behaviour"* are what
+reject it — at boot, loudly — exactly as they would for a guest pack.
+
+A **bundled** pack differs from a fetched one in exactly **four** ways, and no
+more (`decisions-basepack.md`):
+
+1. **Import-time, not fetched.** `src/packs/bundled.ts` statically imports the
+   JSON — the bundler inlines it — and injects at boot before `loadPacks`. Zero
+   network, no `packs/` directory needed: it does not live under `packs/` on
+   disk and is never served or hashed by the loader. The never-blocked floor
+   (§1) holds without any file present.
+2. **Unqualified names.** Its entries register **bare** — `sentinel`, `stage-1`,
+   not `base/sentinel` — because it *is* the base game, not a guest layering over
+   it. This is the one seam the injector's `bundled` flag turns: the qualifier
+   `q` becomes the identity function (`InjectOptions`, `src/packs/inject.ts`), so
+   the built-in campaign resolves by the bare names the shell and every test
+   already use. A guest pack naming `sentinel` still qualifies to `<pack>/sentinel`
+   exactly as §9.3 describes — the replacement seam is unchanged.
+3. **No campaign row, no replay meta.** Its entry stage takes the plain START row
+   (`TitleState` keeps resolving `'stage-1'`), so the title menu is byte-for-byte
+   what it was. It joins neither `packs` (§11) nor `packsData` (§9.6): its
+   identity is the build itself, exactly as engine-defined content was — which is
+   why moving the campaign into a pack declares **no replay divergence** at all.
+4. **Invalid = throw.** A bundled pack that fails validation is a *build* defect,
+   not a user-file problem, so `bundled.ts` throws at import rather than routing a
+   warning through the boot report. A broken base pack can never reach a running
+   game, and a test importing the module fails loudly.
+
+The prose that used to live in those engine files — wave-teaching notes, phase
+reasoning — did not die in JSON: it moved into `tools/make-base-pack.ts`, which is
+the **authoring source**. The generator emits `base-pack.json` (checked in), and a
+drift test (`tools/make-base-pack.test.ts`) regenerates and diffs it, so generator
+output that disagrees with the committed JSON fails the build. This is the
+established make-example-pack idiom (§9): authoring-time code may generate data;
+data never carries code. Alongside it, a registry-snapshot gate
+(`src/base-content.golden.test.ts`) asserts that injecting `base-pack.json`
+reproduces every ported registration byte-for-byte, and four committed replay
+traces assert zero simulation divergence — the two mechanisms that make "the port
+was invisible to gameplay" a test rather than a claim.
+
+**Extending the base campaign** — a new stage, enemy or boss for the built-in game
+— is therefore a generator edit (`docs/extending.md` §4–§6), not an inline
+`define*` call. Guest-pack authoring is entirely unchanged: drop a folder in
+`packs/`, everything in §1–§9.6 applies.
 
 ---
 

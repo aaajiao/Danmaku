@@ -14,30 +14,18 @@ import './index';
 
 import { patternNames } from './patterns';
 import { shotNames } from './shots';
-import { stageNames } from './stage';
 import { behaviourNames } from '../sim/motion';
-import { bossNames } from '../sim/boss';
-import { enemyNames } from '../sim/enemy';
 
-describe('importing the content index registers everything', () => {
-  test('stages', () => {
-    expect(stageNames()).toContain('stage-1');
-    expect(stageNames()).toContain('stage-2');
-  });
+// Stages, bosses and enemies are no longer registered by importing this index:
+// the campaign — stage-1/stage-2, their cast and bosses — moved into the bundled
+// base pack (`src/packs/base-pack.json`) and registers through the injector at boot.
+// That those names still resolve to byte-identical specs is the port gate's job
+// (`src/base-content.golden.test.ts`), and that a real playthrough reaches every
+// one of them is `src/reachability.test.ts`'s. What this index still registers,
+// and what this file therefore still guards, is the engine content joined to a
+// pack only by name: patterns, motion behaviours and shot types.
 
-  test('bosses, including both of stage 2', () => {
-    expect(bossNames()).toContain('warden');
-    expect(bossNames()).toContain('magistrate');
-  });
-
-  test('enemies from both stages', () => {
-    const names = enemyNames();
-    // Stage 1's cast is defined in sim/enemy.ts, stage 2's in its own file —
-    // so this also proves a content file can register enemies of its own.
-    expect(names).toContain('grunt');
-    expect(names).toContain('drifter');
-  });
-
+describe('importing the content index registers the engine content packs name', () => {
   test('shot types', () => {
     expect(shotNames().length).toBeGreaterThan(1);
   });

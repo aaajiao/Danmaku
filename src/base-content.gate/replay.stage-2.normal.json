@@ -1,0 +1,6791 @@
+{
+  "golden": {
+    "finalFingerprint": "10881|cleared|307.2267534919038|169.0979228266233|27180|778|334|4|0.4|0|66|0|14|0|0|224.8592211237564|-43.5345448052293|player|270|9|236.8592211237564|-43.5345448052293|player|270|9|237.58714318511431|-11.262466866587204|player|270|9|249.58714318511431|-11.262466866587204|player|270|9|250.31506524647222|21.009611072054895|player|270|9|262.3150652464722|21.009611072054895|player|270|9|263.0429873078301|53.281689010696994|player|270|9|275.0429873078301|53.281689010696994|player|270|9|275.770909369188|85.55376694933909|player|270|9|287.770909369188|85.55376694933909|player|270|9|288.4988314305459|117.82584488798119|player|270|9|300.4988314305459|117.82584488798119|player|270|9|301.2267534919038|150.0979228266233|player|270|9|313.2267534919038|150.0979228266233|player|270|9|37.992857325063646|379.06974079973315|270|0|89.99285732506365|379.06974079973315|270|0|133.0393122122013|346.9086194310624|270|0|169.0393122122013|346.90861943106233|270|0|180.72566526960154|268.3482996554557|270|0|259.54359794308283|263.18983461472493|270|0",
+    "finalGraze": 778,
+    "finalScore": 27180,
+    "outcome": "cleared",
+    "sampleCount": 363,
+    "sampleInterval": 30,
+    "tickCount": 10881,
+    "traceSha256": "0585c50933cf69a2025d7bf5169e4a2ea91cca68e3f4c404dc0bc7509fc03bcb"
+  },
+  "portGate": "THE PORT GATE (decisions-basepack §The gate): replaying these masks against the ported base-pack content must reproduce this golden trace exactly.",
+  "replay": {
+    "inputs": [
+      {
+        "buttons": 21,
+        "tick": 0
+      },
+      {
+        "buttons": 20,
+        "tick": 42
+      },
+      {
+        "buttons": 22,
+        "tick": 114
+      },
+      {
+        "buttons": 18,
+        "tick": 168
+      },
+      {
+        "buttons": 16,
+        "tick": 189
+      },
+      {
+        "buttons": 24,
+        "tick": 240
+      },
+      {
+        "buttons": 16,
+        "tick": 326
+      },
+      {
+        "buttons": 17,
+        "tick": 459
+      },
+      {
+        "buttons": 18,
+        "tick": 463
+      },
+      {
+        "buttons": 16,
+        "tick": 467
+      },
+      {
+        "buttons": 17,
+        "tick": 481
+      },
+      {
+        "buttons": 18,
+        "tick": 485
+      },
+      {
+        "buttons": 16,
+        "tick": 489
+      },
+      {
+        "buttons": 17,
+        "tick": 503
+      },
+      {
+        "buttons": 18,
+        "tick": 507
+      },
+      {
+        "buttons": 16,
+        "tick": 511
+      },
+      {
+        "buttons": 17,
+        "tick": 525
+      },
+      {
+        "buttons": 16,
+        "tick": 582
+      },
+      {
+        "buttons": 18,
+        "tick": 609
+      },
+      {
+        "buttons": 17,
+        "tick": 641
+      },
+      {
+        "buttons": 16,
+        "tick": 664
+      },
+      {
+        "buttons": 20,
+        "tick": 720
+      },
+      {
+        "buttons": 22,
+        "tick": 729
+      },
+      {
+        "buttons": 20,
+        "tick": 801
+      },
+      {
+        "buttons": 16,
+        "tick": 827
+      },
+      {
+        "buttons": 24,
+        "tick": 960
+      },
+      {
+        "buttons": 25,
+        "tick": 997
+      },
+      {
+        "buttons": 24,
+        "tick": 1042
+      },
+      {
+        "buttons": 16,
+        "tick": 1060
+      },
+      {
+        "buttons": 0,
+        "tick": 1141
+      },
+      {
+        "buttons": 16,
+        "tick": 1142
+      },
+      {
+        "buttons": 0,
+        "tick": 1143
+      },
+      {
+        "buttons": 16,
+        "tick": 1144
+      },
+      {
+        "buttons": 0,
+        "tick": 1145
+      },
+      {
+        "buttons": 16,
+        "tick": 1146
+      },
+      {
+        "buttons": 18,
+        "tick": 1223
+      },
+      {
+        "buttons": 16,
+        "tick": 1224
+      },
+      {
+        "buttons": 18,
+        "tick": 1226
+      },
+      {
+        "buttons": 16,
+        "tick": 1227
+      },
+      {
+        "buttons": 18,
+        "tick": 1230
+      },
+      {
+        "buttons": 16,
+        "tick": 1231
+      },
+      {
+        "buttons": 18,
+        "tick": 1233
+      },
+      {
+        "buttons": 16,
+        "tick": 1234
+      },
+      {
+        "buttons": 18,
+        "tick": 1236
+      },
+      {
+        "buttons": 16,
+        "tick": 1237
+      },
+      {
+        "buttons": 18,
+        "tick": 1239
+      },
+      {
+        "buttons": 16,
+        "tick": 1240
+      },
+      {
+        "buttons": 18,
+        "tick": 1243
+      },
+      {
+        "buttons": 16,
+        "tick": 1244
+      },
+      {
+        "buttons": 18,
+        "tick": 1246
+      },
+      {
+        "buttons": 16,
+        "tick": 1247
+      },
+      {
+        "buttons": 18,
+        "tick": 1249
+      },
+      {
+        "buttons": 16,
+        "tick": 1250
+      },
+      {
+        "buttons": 18,
+        "tick": 1252
+      },
+      {
+        "buttons": 16,
+        "tick": 1253
+      },
+      {
+        "buttons": 18,
+        "tick": 1256
+      },
+      {
+        "buttons": 16,
+        "tick": 1257
+      },
+      {
+        "buttons": 18,
+        "tick": 1259
+      },
+      {
+        "buttons": 16,
+        "tick": 1260
+      },
+      {
+        "buttons": 18,
+        "tick": 1262
+      },
+      {
+        "buttons": 16,
+        "tick": 1263
+      },
+      {
+        "buttons": 18,
+        "tick": 1266
+      },
+      {
+        "buttons": 16,
+        "tick": 1267
+      },
+      {
+        "buttons": 18,
+        "tick": 1269
+      },
+      {
+        "buttons": 16,
+        "tick": 1270
+      },
+      {
+        "buttons": 18,
+        "tick": 1272
+      },
+      {
+        "buttons": 16,
+        "tick": 1273
+      },
+      {
+        "buttons": 18,
+        "tick": 1275
+      },
+      {
+        "buttons": 16,
+        "tick": 1276
+      },
+      {
+        "buttons": 18,
+        "tick": 1279
+      },
+      {
+        "buttons": 16,
+        "tick": 1280
+      },
+      {
+        "buttons": 18,
+        "tick": 1282
+      },
+      {
+        "buttons": 16,
+        "tick": 1283
+      },
+      {
+        "buttons": 18,
+        "tick": 1285
+      },
+      {
+        "buttons": 16,
+        "tick": 1286
+      },
+      {
+        "buttons": 18,
+        "tick": 1288
+      },
+      {
+        "buttons": 16,
+        "tick": 1289
+      },
+      {
+        "buttons": 18,
+        "tick": 1292
+      },
+      {
+        "buttons": 16,
+        "tick": 1293
+      },
+      {
+        "buttons": 18,
+        "tick": 1295
+      },
+      {
+        "buttons": 16,
+        "tick": 1296
+      },
+      {
+        "buttons": 17,
+        "tick": 1304
+      },
+      {
+        "buttons": 16,
+        "tick": 1305
+      },
+      {
+        "buttons": 17,
+        "tick": 1307
+      },
+      {
+        "buttons": 16,
+        "tick": 1308
+      },
+      {
+        "buttons": 17,
+        "tick": 1311
+      },
+      {
+        "buttons": 16,
+        "tick": 1312
+      },
+      {
+        "buttons": 17,
+        "tick": 1314
+      },
+      {
+        "buttons": 16,
+        "tick": 1315
+      },
+      {
+        "buttons": 17,
+        "tick": 1317
+      },
+      {
+        "buttons": 16,
+        "tick": 1318
+      },
+      {
+        "buttons": 17,
+        "tick": 1320
+      },
+      {
+        "buttons": 16,
+        "tick": 1321
+      },
+      {
+        "buttons": 17,
+        "tick": 1324
+      },
+      {
+        "buttons": 16,
+        "tick": 1325
+      },
+      {
+        "buttons": 17,
+        "tick": 1327
+      },
+      {
+        "buttons": 16,
+        "tick": 1328
+      },
+      {
+        "buttons": 17,
+        "tick": 1330
+      },
+      {
+        "buttons": 16,
+        "tick": 1331
+      },
+      {
+        "buttons": 17,
+        "tick": 1333
+      },
+      {
+        "buttons": 16,
+        "tick": 1334
+      },
+      {
+        "buttons": 17,
+        "tick": 1337
+      },
+      {
+        "buttons": 16,
+        "tick": 1338
+      },
+      {
+        "buttons": 17,
+        "tick": 1340
+      },
+      {
+        "buttons": 16,
+        "tick": 1341
+      },
+      {
+        "buttons": 17,
+        "tick": 1343
+      },
+      {
+        "buttons": 16,
+        "tick": 1344
+      },
+      {
+        "buttons": 17,
+        "tick": 1347
+      },
+      {
+        "buttons": 16,
+        "tick": 1348
+      },
+      {
+        "buttons": 17,
+        "tick": 1350
+      },
+      {
+        "buttons": 16,
+        "tick": 1351
+      },
+      {
+        "buttons": 17,
+        "tick": 1353
+      },
+      {
+        "buttons": 16,
+        "tick": 1354
+      },
+      {
+        "buttons": 17,
+        "tick": 1356
+      },
+      {
+        "buttons": 16,
+        "tick": 1357
+      },
+      {
+        "buttons": 17,
+        "tick": 1360
+      },
+      {
+        "buttons": 16,
+        "tick": 1361
+      },
+      {
+        "buttons": 17,
+        "tick": 1363
+      },
+      {
+        "buttons": 16,
+        "tick": 1364
+      },
+      {
+        "buttons": 17,
+        "tick": 1366
+      },
+      {
+        "buttons": 16,
+        "tick": 1367
+      },
+      {
+        "buttons": 17,
+        "tick": 1369
+      },
+      {
+        "buttons": 16,
+        "tick": 1370
+      },
+      {
+        "buttons": 17,
+        "tick": 1373
+      },
+      {
+        "buttons": 16,
+        "tick": 1374
+      },
+      {
+        "buttons": 17,
+        "tick": 1376
+      },
+      {
+        "buttons": 16,
+        "tick": 1377
+      },
+      {
+        "buttons": 18,
+        "tick": 1383
+      },
+      {
+        "buttons": 16,
+        "tick": 1384
+      },
+      {
+        "buttons": 18,
+        "tick": 1386
+      },
+      {
+        "buttons": 16,
+        "tick": 1387
+      },
+      {
+        "buttons": 18,
+        "tick": 1390
+      },
+      {
+        "buttons": 16,
+        "tick": 1391
+      },
+      {
+        "buttons": 18,
+        "tick": 1393
+      },
+      {
+        "buttons": 16,
+        "tick": 1394
+      },
+      {
+        "buttons": 18,
+        "tick": 1396
+      },
+      {
+        "buttons": 16,
+        "tick": 1397
+      },
+      {
+        "buttons": 18,
+        "tick": 1399
+      },
+      {
+        "buttons": 16,
+        "tick": 1400
+      },
+      {
+        "buttons": 18,
+        "tick": 1403
+      },
+      {
+        "buttons": 16,
+        "tick": 1404
+      },
+      {
+        "buttons": 18,
+        "tick": 1406
+      },
+      {
+        "buttons": 16,
+        "tick": 1407
+      },
+      {
+        "buttons": 18,
+        "tick": 1409
+      },
+      {
+        "buttons": 16,
+        "tick": 1410
+      },
+      {
+        "buttons": 18,
+        "tick": 1412
+      },
+      {
+        "buttons": 16,
+        "tick": 1413
+      },
+      {
+        "buttons": 18,
+        "tick": 1416
+      },
+      {
+        "buttons": 16,
+        "tick": 1417
+      },
+      {
+        "buttons": 18,
+        "tick": 1419
+      },
+      {
+        "buttons": 16,
+        "tick": 1420
+      },
+      {
+        "buttons": 18,
+        "tick": 1422
+      },
+      {
+        "buttons": 16,
+        "tick": 1423
+      },
+      {
+        "buttons": 18,
+        "tick": 1426
+      },
+      {
+        "buttons": 16,
+        "tick": 1427
+      },
+      {
+        "buttons": 18,
+        "tick": 1429
+      },
+      {
+        "buttons": 16,
+        "tick": 1430
+      },
+      {
+        "buttons": 18,
+        "tick": 1432
+      },
+      {
+        "buttons": 16,
+        "tick": 1433
+      },
+      {
+        "buttons": 18,
+        "tick": 1435
+      },
+      {
+        "buttons": 16,
+        "tick": 1436
+      },
+      {
+        "buttons": 18,
+        "tick": 1439
+      },
+      {
+        "buttons": 16,
+        "tick": 1440
+      },
+      {
+        "buttons": 18,
+        "tick": 1442
+      },
+      {
+        "buttons": 16,
+        "tick": 1443
+      },
+      {
+        "buttons": 18,
+        "tick": 1445
+      },
+      {
+        "buttons": 16,
+        "tick": 1446
+      },
+      {
+        "buttons": 18,
+        "tick": 1448
+      },
+      {
+        "buttons": 16,
+        "tick": 1449
+      },
+      {
+        "buttons": 18,
+        "tick": 1452
+      },
+      {
+        "buttons": 16,
+        "tick": 1453
+      },
+      {
+        "buttons": 18,
+        "tick": 1455
+      },
+      {
+        "buttons": 16,
+        "tick": 1456
+      },
+      {
+        "buttons": 17,
+        "tick": 1464
+      },
+      {
+        "buttons": 16,
+        "tick": 1465
+      },
+      {
+        "buttons": 17,
+        "tick": 1467
+      },
+      {
+        "buttons": 16,
+        "tick": 1468
+      },
+      {
+        "buttons": 17,
+        "tick": 1471
+      },
+      {
+        "buttons": 16,
+        "tick": 1472
+      },
+      {
+        "buttons": 17,
+        "tick": 1474
+      },
+      {
+        "buttons": 16,
+        "tick": 1475
+      },
+      {
+        "buttons": 17,
+        "tick": 1477
+      },
+      {
+        "buttons": 16,
+        "tick": 1478
+      },
+      {
+        "buttons": 17,
+        "tick": 1480
+      },
+      {
+        "buttons": 16,
+        "tick": 1481
+      },
+      {
+        "buttons": 17,
+        "tick": 1484
+      },
+      {
+        "buttons": 16,
+        "tick": 1485
+      },
+      {
+        "buttons": 17,
+        "tick": 1487
+      },
+      {
+        "buttons": 16,
+        "tick": 1488
+      },
+      {
+        "buttons": 17,
+        "tick": 1490
+      },
+      {
+        "buttons": 16,
+        "tick": 1491
+      },
+      {
+        "buttons": 17,
+        "tick": 1493
+      },
+      {
+        "buttons": 16,
+        "tick": 1494
+      },
+      {
+        "buttons": 17,
+        "tick": 1497
+      },
+      {
+        "buttons": 16,
+        "tick": 1498
+      },
+      {
+        "buttons": 17,
+        "tick": 1500
+      },
+      {
+        "buttons": 16,
+        "tick": 1501
+      },
+      {
+        "buttons": 17,
+        "tick": 1503
+      },
+      {
+        "buttons": 16,
+        "tick": 1504
+      },
+      {
+        "buttons": 17,
+        "tick": 1507
+      },
+      {
+        "buttons": 16,
+        "tick": 1508
+      },
+      {
+        "buttons": 17,
+        "tick": 1510
+      },
+      {
+        "buttons": 16,
+        "tick": 1511
+      },
+      {
+        "buttons": 17,
+        "tick": 1513
+      },
+      {
+        "buttons": 16,
+        "tick": 1514
+      },
+      {
+        "buttons": 17,
+        "tick": 1516
+      },
+      {
+        "buttons": 16,
+        "tick": 1517
+      },
+      {
+        "buttons": 17,
+        "tick": 1520
+      },
+      {
+        "buttons": 16,
+        "tick": 1521
+      },
+      {
+        "buttons": 17,
+        "tick": 1523
+      },
+      {
+        "buttons": 16,
+        "tick": 1524
+      },
+      {
+        "buttons": 17,
+        "tick": 1526
+      },
+      {
+        "buttons": 16,
+        "tick": 1527
+      },
+      {
+        "buttons": 17,
+        "tick": 1529
+      },
+      {
+        "buttons": 16,
+        "tick": 1530
+      },
+      {
+        "buttons": 17,
+        "tick": 1533
+      },
+      {
+        "buttons": 16,
+        "tick": 1534
+      },
+      {
+        "buttons": 17,
+        "tick": 1536
+      },
+      {
+        "buttons": 16,
+        "tick": 1537
+      },
+      {
+        "buttons": 18,
+        "tick": 1543
+      },
+      {
+        "buttons": 16,
+        "tick": 1544
+      },
+      {
+        "buttons": 18,
+        "tick": 1546
+      },
+      {
+        "buttons": 16,
+        "tick": 1547
+      },
+      {
+        "buttons": 18,
+        "tick": 1550
+      },
+      {
+        "buttons": 16,
+        "tick": 1551
+      },
+      {
+        "buttons": 18,
+        "tick": 1553
+      },
+      {
+        "buttons": 16,
+        "tick": 1554
+      },
+      {
+        "buttons": 18,
+        "tick": 1556
+      },
+      {
+        "buttons": 16,
+        "tick": 1557
+      },
+      {
+        "buttons": 18,
+        "tick": 1559
+      },
+      {
+        "buttons": 16,
+        "tick": 1560
+      },
+      {
+        "buttons": 18,
+        "tick": 1563
+      },
+      {
+        "buttons": 16,
+        "tick": 1564
+      },
+      {
+        "buttons": 18,
+        "tick": 1566
+      },
+      {
+        "buttons": 16,
+        "tick": 1567
+      },
+      {
+        "buttons": 18,
+        "tick": 1569
+      },
+      {
+        "buttons": 16,
+        "tick": 1570
+      },
+      {
+        "buttons": 18,
+        "tick": 1572
+      },
+      {
+        "buttons": 16,
+        "tick": 1573
+      },
+      {
+        "buttons": 18,
+        "tick": 1576
+      },
+      {
+        "buttons": 16,
+        "tick": 1577
+      },
+      {
+        "buttons": 18,
+        "tick": 1579
+      },
+      {
+        "buttons": 16,
+        "tick": 1580
+      },
+      {
+        "buttons": 18,
+        "tick": 1582
+      },
+      {
+        "buttons": 16,
+        "tick": 1583
+      },
+      {
+        "buttons": 18,
+        "tick": 1586
+      },
+      {
+        "buttons": 16,
+        "tick": 1587
+      },
+      {
+        "buttons": 18,
+        "tick": 1589
+      },
+      {
+        "buttons": 16,
+        "tick": 1590
+      },
+      {
+        "buttons": 18,
+        "tick": 1592
+      },
+      {
+        "buttons": 16,
+        "tick": 1593
+      },
+      {
+        "buttons": 18,
+        "tick": 1595
+      },
+      {
+        "buttons": 16,
+        "tick": 1596
+      },
+      {
+        "buttons": 18,
+        "tick": 1599
+      },
+      {
+        "buttons": 16,
+        "tick": 1600
+      },
+      {
+        "buttons": 18,
+        "tick": 1602
+      },
+      {
+        "buttons": 16,
+        "tick": 1603
+      },
+      {
+        "buttons": 18,
+        "tick": 1605
+      },
+      {
+        "buttons": 16,
+        "tick": 1606
+      },
+      {
+        "buttons": 18,
+        "tick": 1608
+      },
+      {
+        "buttons": 16,
+        "tick": 1609
+      },
+      {
+        "buttons": 18,
+        "tick": 1612
+      },
+      {
+        "buttons": 16,
+        "tick": 1613
+      },
+      {
+        "buttons": 18,
+        "tick": 1615
+      },
+      {
+        "buttons": 16,
+        "tick": 1616
+      },
+      {
+        "buttons": 17,
+        "tick": 1624
+      },
+      {
+        "buttons": 16,
+        "tick": 1625
+      },
+      {
+        "buttons": 17,
+        "tick": 1627
+      },
+      {
+        "buttons": 16,
+        "tick": 1628
+      },
+      {
+        "buttons": 17,
+        "tick": 1631
+      },
+      {
+        "buttons": 16,
+        "tick": 1632
+      },
+      {
+        "buttons": 17,
+        "tick": 1634
+      },
+      {
+        "buttons": 16,
+        "tick": 1635
+      },
+      {
+        "buttons": 17,
+        "tick": 1637
+      },
+      {
+        "buttons": 16,
+        "tick": 1638
+      },
+      {
+        "buttons": 17,
+        "tick": 1640
+      },
+      {
+        "buttons": 16,
+        "tick": 1641
+      },
+      {
+        "buttons": 17,
+        "tick": 1644
+      },
+      {
+        "buttons": 16,
+        "tick": 1645
+      },
+      {
+        "buttons": 17,
+        "tick": 1647
+      },
+      {
+        "buttons": 16,
+        "tick": 1648
+      },
+      {
+        "buttons": 17,
+        "tick": 1650
+      },
+      {
+        "buttons": 16,
+        "tick": 1651
+      },
+      {
+        "buttons": 17,
+        "tick": 1653
+      },
+      {
+        "buttons": 16,
+        "tick": 1654
+      },
+      {
+        "buttons": 17,
+        "tick": 1657
+      },
+      {
+        "buttons": 16,
+        "tick": 1658
+      },
+      {
+        "buttons": 17,
+        "tick": 1660
+      },
+      {
+        "buttons": 16,
+        "tick": 1661
+      },
+      {
+        "buttons": 17,
+        "tick": 1663
+      },
+      {
+        "buttons": 16,
+        "tick": 1664
+      },
+      {
+        "buttons": 17,
+        "tick": 1667
+      },
+      {
+        "buttons": 16,
+        "tick": 1668
+      },
+      {
+        "buttons": 17,
+        "tick": 1670
+      },
+      {
+        "buttons": 16,
+        "tick": 1671
+      },
+      {
+        "buttons": 17,
+        "tick": 1673
+      },
+      {
+        "buttons": 16,
+        "tick": 1674
+      },
+      {
+        "buttons": 17,
+        "tick": 1676
+      },
+      {
+        "buttons": 16,
+        "tick": 1677
+      },
+      {
+        "buttons": 17,
+        "tick": 1680
+      },
+      {
+        "buttons": 16,
+        "tick": 1681
+      },
+      {
+        "buttons": 17,
+        "tick": 1683
+      },
+      {
+        "buttons": 16,
+        "tick": 1684
+      },
+      {
+        "buttons": 17,
+        "tick": 1686
+      },
+      {
+        "buttons": 16,
+        "tick": 1687
+      },
+      {
+        "buttons": 17,
+        "tick": 1689
+      },
+      {
+        "buttons": 16,
+        "tick": 1690
+      },
+      {
+        "buttons": 17,
+        "tick": 1693
+      },
+      {
+        "buttons": 16,
+        "tick": 1694
+      },
+      {
+        "buttons": 17,
+        "tick": 1696
+      },
+      {
+        "buttons": 16,
+        "tick": 1697
+      },
+      {
+        "buttons": 18,
+        "tick": 2315
+      },
+      {
+        "buttons": 16,
+        "tick": 2316
+      },
+      {
+        "buttons": 18,
+        "tick": 2320
+      },
+      {
+        "buttons": 16,
+        "tick": 2321
+      },
+      {
+        "buttons": 18,
+        "tick": 2327
+      },
+      {
+        "buttons": 16,
+        "tick": 2328
+      },
+      {
+        "buttons": 18,
+        "tick": 2337
+      },
+      {
+        "buttons": 16,
+        "tick": 2338
+      },
+      {
+        "buttons": 17,
+        "tick": 2358
+      },
+      {
+        "buttons": 16,
+        "tick": 2359
+      },
+      {
+        "buttons": 17,
+        "tick": 2364
+      },
+      {
+        "buttons": 16,
+        "tick": 2365
+      },
+      {
+        "buttons": 17,
+        "tick": 2369
+      },
+      {
+        "buttons": 16,
+        "tick": 2370
+      },
+      {
+        "buttons": 17,
+        "tick": 2374
+      },
+      {
+        "buttons": 16,
+        "tick": 2375
+      },
+      {
+        "buttons": 17,
+        "tick": 2378
+      },
+      {
+        "buttons": 16,
+        "tick": 2379
+      },
+      {
+        "buttons": 17,
+        "tick": 2383
+      },
+      {
+        "buttons": 16,
+        "tick": 2384
+      },
+      {
+        "buttons": 17,
+        "tick": 2388
+      },
+      {
+        "buttons": 16,
+        "tick": 2389
+      },
+      {
+        "buttons": 17,
+        "tick": 2393
+      },
+      {
+        "buttons": 16,
+        "tick": 2394
+      },
+      {
+        "buttons": 17,
+        "tick": 2401
+      },
+      {
+        "buttons": 16,
+        "tick": 2402
+      },
+      {
+        "buttons": 18,
+        "tick": 2430
+      },
+      {
+        "buttons": 16,
+        "tick": 2431
+      },
+      {
+        "buttons": 18,
+        "tick": 2435
+      },
+      {
+        "buttons": 16,
+        "tick": 2436
+      },
+      {
+        "buttons": 18,
+        "tick": 2440
+      },
+      {
+        "buttons": 16,
+        "tick": 2441
+      },
+      {
+        "buttons": 18,
+        "tick": 2445
+      },
+      {
+        "buttons": 16,
+        "tick": 2446
+      },
+      {
+        "buttons": 18,
+        "tick": 2449
+      },
+      {
+        "buttons": 16,
+        "tick": 2450
+      },
+      {
+        "buttons": 18,
+        "tick": 2454
+      },
+      {
+        "buttons": 16,
+        "tick": 2455
+      },
+      {
+        "buttons": 18,
+        "tick": 2459
+      },
+      {
+        "buttons": 16,
+        "tick": 2460
+      },
+      {
+        "buttons": 18,
+        "tick": 2465
+      },
+      {
+        "buttons": 16,
+        "tick": 2466
+      },
+      {
+        "buttons": 18,
+        "tick": 2476
+      },
+      {
+        "buttons": 16,
+        "tick": 2477
+      },
+      {
+        "buttons": 18,
+        "tick": 2482
+      },
+      {
+        "buttons": 16,
+        "tick": 2483
+      },
+      {
+        "buttons": 18,
+        "tick": 2486
+      },
+      {
+        "buttons": 16,
+        "tick": 2487
+      },
+      {
+        "buttons": 18,
+        "tick": 2492
+      },
+      {
+        "buttons": 16,
+        "tick": 2493
+      },
+      {
+        "buttons": 18,
+        "tick": 2498
+      },
+      {
+        "buttons": 16,
+        "tick": 2499
+      },
+      {
+        "buttons": 17,
+        "tick": 2533
+      },
+      {
+        "buttons": 16,
+        "tick": 2534
+      },
+      {
+        "buttons": 17,
+        "tick": 2538
+      },
+      {
+        "buttons": 16,
+        "tick": 2539
+      },
+      {
+        "buttons": 17,
+        "tick": 2543
+      },
+      {
+        "buttons": 16,
+        "tick": 2544
+      },
+      {
+        "buttons": 17,
+        "tick": 2547
+      },
+      {
+        "buttons": 16,
+        "tick": 2548
+      },
+      {
+        "buttons": 17,
+        "tick": 2552
+      },
+      {
+        "buttons": 16,
+        "tick": 2553
+      },
+      {
+        "buttons": 17,
+        "tick": 2556
+      },
+      {
+        "buttons": 16,
+        "tick": 2557
+      },
+      {
+        "buttons": 17,
+        "tick": 2562
+      },
+      {
+        "buttons": 16,
+        "tick": 2563
+      },
+      {
+        "buttons": 17,
+        "tick": 2569
+      },
+      {
+        "buttons": 16,
+        "tick": 2570
+      },
+      {
+        "buttons": 18,
+        "tick": 2601
+      },
+      {
+        "buttons": 16,
+        "tick": 2602
+      },
+      {
+        "buttons": 18,
+        "tick": 2606
+      },
+      {
+        "buttons": 16,
+        "tick": 2607
+      },
+      {
+        "buttons": 18,
+        "tick": 2611
+      },
+      {
+        "buttons": 16,
+        "tick": 2612
+      },
+      {
+        "buttons": 18,
+        "tick": 2616
+      },
+      {
+        "buttons": 16,
+        "tick": 2617
+      },
+      {
+        "buttons": 18,
+        "tick": 2620
+      },
+      {
+        "buttons": 16,
+        "tick": 2621
+      },
+      {
+        "buttons": 18,
+        "tick": 2625
+      },
+      {
+        "buttons": 16,
+        "tick": 2626
+      },
+      {
+        "buttons": 18,
+        "tick": 2630
+      },
+      {
+        "buttons": 16,
+        "tick": 2631
+      },
+      {
+        "buttons": 18,
+        "tick": 2637
+      },
+      {
+        "buttons": 16,
+        "tick": 2638
+      },
+      {
+        "buttons": 18,
+        "tick": 2648
+      },
+      {
+        "buttons": 16,
+        "tick": 2649
+      },
+      {
+        "buttons": 18,
+        "tick": 2653
+      },
+      {
+        "buttons": 16,
+        "tick": 2654
+      },
+      {
+        "buttons": 18,
+        "tick": 2658
+      },
+      {
+        "buttons": 16,
+        "tick": 2659
+      },
+      {
+        "buttons": 18,
+        "tick": 2663
+      },
+      {
+        "buttons": 16,
+        "tick": 2664
+      },
+      {
+        "buttons": 18,
+        "tick": 2671
+      },
+      {
+        "buttons": 16,
+        "tick": 2672
+      },
+      {
+        "buttons": 17,
+        "tick": 2701
+      },
+      {
+        "buttons": 16,
+        "tick": 2702
+      },
+      {
+        "buttons": 17,
+        "tick": 2707
+      },
+      {
+        "buttons": 16,
+        "tick": 2708
+      },
+      {
+        "buttons": 17,
+        "tick": 2711
+      },
+      {
+        "buttons": 16,
+        "tick": 2712
+      },
+      {
+        "buttons": 17,
+        "tick": 2716
+      },
+      {
+        "buttons": 16,
+        "tick": 2717
+      },
+      {
+        "buttons": 17,
+        "tick": 2720
+      },
+      {
+        "buttons": 16,
+        "tick": 2721
+      },
+      {
+        "buttons": 17,
+        "tick": 2725
+      },
+      {
+        "buttons": 16,
+        "tick": 2726
+      },
+      {
+        "buttons": 17,
+        "tick": 2730
+      },
+      {
+        "buttons": 16,
+        "tick": 2731
+      },
+      {
+        "buttons": 17,
+        "tick": 2737
+      },
+      {
+        "buttons": 16,
+        "tick": 2738
+      },
+      {
+        "buttons": 18,
+        "tick": 2773
+      },
+      {
+        "buttons": 16,
+        "tick": 2774
+      },
+      {
+        "buttons": 18,
+        "tick": 2778
+      },
+      {
+        "buttons": 16,
+        "tick": 2779
+      },
+      {
+        "buttons": 18,
+        "tick": 2782
+      },
+      {
+        "buttons": 16,
+        "tick": 2783
+      },
+      {
+        "buttons": 18,
+        "tick": 2787
+      },
+      {
+        "buttons": 16,
+        "tick": 2788
+      },
+      {
+        "buttons": 18,
+        "tick": 2791
+      },
+      {
+        "buttons": 16,
+        "tick": 2792
+      },
+      {
+        "buttons": 18,
+        "tick": 2796
+      },
+      {
+        "buttons": 16,
+        "tick": 2797
+      },
+      {
+        "buttons": 18,
+        "tick": 2802
+      },
+      {
+        "buttons": 16,
+        "tick": 2803
+      },
+      {
+        "buttons": 18,
+        "tick": 2809
+      },
+      {
+        "buttons": 16,
+        "tick": 2810
+      },
+      {
+        "buttons": 18,
+        "tick": 2819
+      },
+      {
+        "buttons": 16,
+        "tick": 2820
+      },
+      {
+        "buttons": 18,
+        "tick": 2824
+      },
+      {
+        "buttons": 16,
+        "tick": 2825
+      },
+      {
+        "buttons": 18,
+        "tick": 2829
+      },
+      {
+        "buttons": 16,
+        "tick": 2830
+      },
+      {
+        "buttons": 18,
+        "tick": 2835
+      },
+      {
+        "buttons": 16,
+        "tick": 2836
+      },
+      {
+        "buttons": 18,
+        "tick": 2843
+      },
+      {
+        "buttons": 16,
+        "tick": 2844
+      },
+      {
+        "buttons": 17,
+        "tick": 2870
+      },
+      {
+        "buttons": 16,
+        "tick": 2871
+      },
+      {
+        "buttons": 17,
+        "tick": 2875
+      },
+      {
+        "buttons": 16,
+        "tick": 2876
+      },
+      {
+        "buttons": 17,
+        "tick": 2880
+      },
+      {
+        "buttons": 16,
+        "tick": 2881
+      },
+      {
+        "buttons": 17,
+        "tick": 2885
+      },
+      {
+        "buttons": 16,
+        "tick": 2886
+      },
+      {
+        "buttons": 17,
+        "tick": 2889
+      },
+      {
+        "buttons": 16,
+        "tick": 2890
+      },
+      {
+        "buttons": 17,
+        "tick": 2894
+      },
+      {
+        "buttons": 16,
+        "tick": 2895
+      },
+      {
+        "buttons": 17,
+        "tick": 2899
+      },
+      {
+        "buttons": 16,
+        "tick": 2900
+      },
+      {
+        "buttons": 17,
+        "tick": 2905
+      },
+      {
+        "buttons": 16,
+        "tick": 2906
+      },
+      {
+        "buttons": 17,
+        "tick": 2914
+      },
+      {
+        "buttons": 16,
+        "tick": 2915
+      },
+      {
+        "buttons": 22,
+        "tick": 2917
+      },
+      {
+        "buttons": 21,
+        "tick": 2940
+      },
+      {
+        "buttons": 20,
+        "tick": 3007
+      },
+      {
+        "buttons": 16,
+        "tick": 3030
+      },
+      {
+        "buttons": 18,
+        "tick": 3075
+      },
+      {
+        "buttons": 16,
+        "tick": 3118
+      },
+      {
+        "buttons": 24,
+        "tick": 3120
+      },
+      {
+        "buttons": 25,
+        "tick": 3171
+      },
+      {
+        "buttons": 17,
+        "tick": 3221
+      },
+      {
+        "buttons": 16,
+        "tick": 3256
+      },
+      {
+        "buttons": 18,
+        "tick": 3308
+      },
+      {
+        "buttons": 16,
+        "tick": 3323
+      },
+      {
+        "buttons": 18,
+        "tick": 3343
+      },
+      {
+        "buttons": 16,
+        "tick": 3410
+      },
+      {
+        "buttons": 17,
+        "tick": 3447
+      },
+      {
+        "buttons": 16,
+        "tick": 3529
+      },
+      {
+        "buttons": 20,
+        "tick": 3600
+      },
+      {
+        "buttons": 22,
+        "tick": 3679
+      },
+      {
+        "buttons": 18,
+        "tick": 3690
+      },
+      {
+        "buttons": 16,
+        "tick": 3719
+      },
+      {
+        "buttons": 24,
+        "tick": 3840
+      },
+      {
+        "buttons": 26,
+        "tick": 3906
+      },
+      {
+        "buttons": 25,
+        "tick": 3915
+      },
+      {
+        "buttons": 17,
+        "tick": 3935
+      },
+      {
+        "buttons": 16,
+        "tick": 3939
+      },
+      {
+        "buttons": 18,
+        "tick": 4070
+      },
+      {
+        "buttons": 16,
+        "tick": 4118
+      },
+      {
+        "buttons": 18,
+        "tick": 4297
+      },
+      {
+        "buttons": 16,
+        "tick": 4298
+      },
+      {
+        "buttons": 0,
+        "tick": 4299
+      },
+      {
+        "buttons": 16,
+        "tick": 4300
+      },
+      {
+        "buttons": 0,
+        "tick": 4301
+      },
+      {
+        "buttons": 16,
+        "tick": 4302
+      },
+      {
+        "buttons": 0,
+        "tick": 4303
+      },
+      {
+        "buttons": 16,
+        "tick": 4304
+      },
+      {
+        "buttons": 0,
+        "tick": 4305
+      },
+      {
+        "buttons": 16,
+        "tick": 4306
+      },
+      {
+        "buttons": 18,
+        "tick": 4307
+      },
+      {
+        "buttons": 17,
+        "tick": 4340
+      },
+      {
+        "buttons": 16,
+        "tick": 4397
+      },
+      {
+        "buttons": 18,
+        "tick": 4404
+      },
+      {
+        "buttons": 16,
+        "tick": 4405
+      },
+      {
+        "buttons": 18,
+        "tick": 4406
+      },
+      {
+        "buttons": 16,
+        "tick": 4407
+      },
+      {
+        "buttons": 18,
+        "tick": 4409
+      },
+      {
+        "buttons": 16,
+        "tick": 4410
+      },
+      {
+        "buttons": 18,
+        "tick": 4412
+      },
+      {
+        "buttons": 16,
+        "tick": 4413
+      },
+      {
+        "buttons": 18,
+        "tick": 4415
+      },
+      {
+        "buttons": 16,
+        "tick": 4416
+      },
+      {
+        "buttons": 18,
+        "tick": 4417
+      },
+      {
+        "buttons": 16,
+        "tick": 4418
+      },
+      {
+        "buttons": 18,
+        "tick": 4420
+      },
+      {
+        "buttons": 16,
+        "tick": 4421
+      },
+      {
+        "buttons": 18,
+        "tick": 4423
+      },
+      {
+        "buttons": 16,
+        "tick": 4424
+      },
+      {
+        "buttons": 18,
+        "tick": 4426
+      },
+      {
+        "buttons": 16,
+        "tick": 4427
+      },
+      {
+        "buttons": 18,
+        "tick": 4429
+      },
+      {
+        "buttons": 16,
+        "tick": 4430
+      },
+      {
+        "buttons": 18,
+        "tick": 4431
+      },
+      {
+        "buttons": 16,
+        "tick": 4432
+      },
+      {
+        "buttons": 18,
+        "tick": 4434
+      },
+      {
+        "buttons": 16,
+        "tick": 4435
+      },
+      {
+        "buttons": 18,
+        "tick": 4437
+      },
+      {
+        "buttons": 16,
+        "tick": 4438
+      },
+      {
+        "buttons": 18,
+        "tick": 4440
+      },
+      {
+        "buttons": 16,
+        "tick": 4441
+      },
+      {
+        "buttons": 18,
+        "tick": 4442
+      },
+      {
+        "buttons": 16,
+        "tick": 4443
+      },
+      {
+        "buttons": 18,
+        "tick": 4445
+      },
+      {
+        "buttons": 16,
+        "tick": 4446
+      },
+      {
+        "buttons": 18,
+        "tick": 4448
+      },
+      {
+        "buttons": 16,
+        "tick": 4449
+      },
+      {
+        "buttons": 18,
+        "tick": 4451
+      },
+      {
+        "buttons": 16,
+        "tick": 4452
+      },
+      {
+        "buttons": 18,
+        "tick": 4453
+      },
+      {
+        "buttons": 16,
+        "tick": 4454
+      },
+      {
+        "buttons": 18,
+        "tick": 4456
+      },
+      {
+        "buttons": 16,
+        "tick": 4457
+      },
+      {
+        "buttons": 18,
+        "tick": 4459
+      },
+      {
+        "buttons": 16,
+        "tick": 4460
+      },
+      {
+        "buttons": 18,
+        "tick": 4462
+      },
+      {
+        "buttons": 16,
+        "tick": 4463
+      },
+      {
+        "buttons": 18,
+        "tick": 4465
+      },
+      {
+        "buttons": 16,
+        "tick": 4466
+      },
+      {
+        "buttons": 18,
+        "tick": 4467
+      },
+      {
+        "buttons": 16,
+        "tick": 4468
+      },
+      {
+        "buttons": 17,
+        "tick": 4471
+      },
+      {
+        "buttons": 16,
+        "tick": 4472
+      },
+      {
+        "buttons": 17,
+        "tick": 4474
+      },
+      {
+        "buttons": 16,
+        "tick": 4475
+      },
+      {
+        "buttons": 17,
+        "tick": 4477
+      },
+      {
+        "buttons": 16,
+        "tick": 4478
+      },
+      {
+        "buttons": 17,
+        "tick": 4479
+      },
+      {
+        "buttons": 16,
+        "tick": 4480
+      },
+      {
+        "buttons": 17,
+        "tick": 4482
+      },
+      {
+        "buttons": 16,
+        "tick": 4483
+      },
+      {
+        "buttons": 17,
+        "tick": 4485
+      },
+      {
+        "buttons": 16,
+        "tick": 4486
+      },
+      {
+        "buttons": 17,
+        "tick": 4488
+      },
+      {
+        "buttons": 16,
+        "tick": 4489
+      },
+      {
+        "buttons": 17,
+        "tick": 4490
+      },
+      {
+        "buttons": 16,
+        "tick": 4491
+      },
+      {
+        "buttons": 17,
+        "tick": 4493
+      },
+      {
+        "buttons": 16,
+        "tick": 4494
+      },
+      {
+        "buttons": 17,
+        "tick": 4496
+      },
+      {
+        "buttons": 16,
+        "tick": 4497
+      },
+      {
+        "buttons": 17,
+        "tick": 4499
+      },
+      {
+        "buttons": 16,
+        "tick": 4500
+      },
+      {
+        "buttons": 17,
+        "tick": 4502
+      },
+      {
+        "buttons": 16,
+        "tick": 4503
+      },
+      {
+        "buttons": 17,
+        "tick": 4504
+      },
+      {
+        "buttons": 16,
+        "tick": 4505
+      },
+      {
+        "buttons": 17,
+        "tick": 4507
+      },
+      {
+        "buttons": 16,
+        "tick": 4508
+      },
+      {
+        "buttons": 17,
+        "tick": 4510
+      },
+      {
+        "buttons": 16,
+        "tick": 4511
+      },
+      {
+        "buttons": 17,
+        "tick": 4513
+      },
+      {
+        "buttons": 16,
+        "tick": 4514
+      },
+      {
+        "buttons": 17,
+        "tick": 4515
+      },
+      {
+        "buttons": 16,
+        "tick": 4516
+      },
+      {
+        "buttons": 17,
+        "tick": 4518
+      },
+      {
+        "buttons": 16,
+        "tick": 4519
+      },
+      {
+        "buttons": 17,
+        "tick": 4521
+      },
+      {
+        "buttons": 16,
+        "tick": 4522
+      },
+      {
+        "buttons": 17,
+        "tick": 4524
+      },
+      {
+        "buttons": 16,
+        "tick": 4525
+      },
+      {
+        "buttons": 17,
+        "tick": 4526
+      },
+      {
+        "buttons": 16,
+        "tick": 4527
+      },
+      {
+        "buttons": 17,
+        "tick": 4529
+      },
+      {
+        "buttons": 16,
+        "tick": 4530
+      },
+      {
+        "buttons": 17,
+        "tick": 4532
+      },
+      {
+        "buttons": 16,
+        "tick": 4533
+      },
+      {
+        "buttons": 17,
+        "tick": 4535
+      },
+      {
+        "buttons": 16,
+        "tick": 4536
+      },
+      {
+        "buttons": 18,
+        "tick": 4544
+      },
+      {
+        "buttons": 16,
+        "tick": 4545
+      },
+      {
+        "buttons": 18,
+        "tick": 4546
+      },
+      {
+        "buttons": 16,
+        "tick": 4547
+      },
+      {
+        "buttons": 18,
+        "tick": 4549
+      },
+      {
+        "buttons": 16,
+        "tick": 4550
+      },
+      {
+        "buttons": 18,
+        "tick": 4552
+      },
+      {
+        "buttons": 16,
+        "tick": 4553
+      },
+      {
+        "buttons": 18,
+        "tick": 4555
+      },
+      {
+        "buttons": 16,
+        "tick": 4556
+      },
+      {
+        "buttons": 18,
+        "tick": 4557
+      },
+      {
+        "buttons": 16,
+        "tick": 4558
+      },
+      {
+        "buttons": 18,
+        "tick": 4560
+      },
+      {
+        "buttons": 16,
+        "tick": 4561
+      },
+      {
+        "buttons": 18,
+        "tick": 4563
+      },
+      {
+        "buttons": 16,
+        "tick": 4564
+      },
+      {
+        "buttons": 18,
+        "tick": 4566
+      },
+      {
+        "buttons": 16,
+        "tick": 4567
+      },
+      {
+        "buttons": 18,
+        "tick": 4569
+      },
+      {
+        "buttons": 16,
+        "tick": 4570
+      },
+      {
+        "buttons": 18,
+        "tick": 4571
+      },
+      {
+        "buttons": 16,
+        "tick": 4572
+      },
+      {
+        "buttons": 18,
+        "tick": 4574
+      },
+      {
+        "buttons": 16,
+        "tick": 4575
+      },
+      {
+        "buttons": 18,
+        "tick": 4577
+      },
+      {
+        "buttons": 16,
+        "tick": 4578
+      },
+      {
+        "buttons": 18,
+        "tick": 4580
+      },
+      {
+        "buttons": 16,
+        "tick": 4581
+      },
+      {
+        "buttons": 18,
+        "tick": 4582
+      },
+      {
+        "buttons": 16,
+        "tick": 4583
+      },
+      {
+        "buttons": 18,
+        "tick": 4585
+      },
+      {
+        "buttons": 16,
+        "tick": 4586
+      },
+      {
+        "buttons": 18,
+        "tick": 4588
+      },
+      {
+        "buttons": 16,
+        "tick": 4589
+      },
+      {
+        "buttons": 18,
+        "tick": 4591
+      },
+      {
+        "buttons": 16,
+        "tick": 4592
+      },
+      {
+        "buttons": 18,
+        "tick": 4593
+      },
+      {
+        "buttons": 16,
+        "tick": 4594
+      },
+      {
+        "buttons": 18,
+        "tick": 4596
+      },
+      {
+        "buttons": 16,
+        "tick": 4597
+      },
+      {
+        "buttons": 18,
+        "tick": 4599
+      },
+      {
+        "buttons": 16,
+        "tick": 4600
+      },
+      {
+        "buttons": 18,
+        "tick": 4602
+      },
+      {
+        "buttons": 16,
+        "tick": 4603
+      },
+      {
+        "buttons": 18,
+        "tick": 4605
+      },
+      {
+        "buttons": 16,
+        "tick": 4606
+      },
+      {
+        "buttons": 18,
+        "tick": 4607
+      },
+      {
+        "buttons": 16,
+        "tick": 4608
+      },
+      {
+        "buttons": 17,
+        "tick": 4611
+      },
+      {
+        "buttons": 16,
+        "tick": 4612
+      },
+      {
+        "buttons": 17,
+        "tick": 4614
+      },
+      {
+        "buttons": 16,
+        "tick": 4615
+      },
+      {
+        "buttons": 17,
+        "tick": 4617
+      },
+      {
+        "buttons": 16,
+        "tick": 4618
+      },
+      {
+        "buttons": 17,
+        "tick": 4619
+      },
+      {
+        "buttons": 16,
+        "tick": 4620
+      },
+      {
+        "buttons": 17,
+        "tick": 4622
+      },
+      {
+        "buttons": 16,
+        "tick": 4623
+      },
+      {
+        "buttons": 17,
+        "tick": 4625
+      },
+      {
+        "buttons": 16,
+        "tick": 4626
+      },
+      {
+        "buttons": 17,
+        "tick": 4628
+      },
+      {
+        "buttons": 16,
+        "tick": 4629
+      },
+      {
+        "buttons": 17,
+        "tick": 4630
+      },
+      {
+        "buttons": 16,
+        "tick": 4631
+      },
+      {
+        "buttons": 17,
+        "tick": 4633
+      },
+      {
+        "buttons": 16,
+        "tick": 4634
+      },
+      {
+        "buttons": 17,
+        "tick": 4636
+      },
+      {
+        "buttons": 16,
+        "tick": 4637
+      },
+      {
+        "buttons": 17,
+        "tick": 4639
+      },
+      {
+        "buttons": 16,
+        "tick": 4640
+      },
+      {
+        "buttons": 17,
+        "tick": 4642
+      },
+      {
+        "buttons": 16,
+        "tick": 4643
+      },
+      {
+        "buttons": 17,
+        "tick": 4644
+      },
+      {
+        "buttons": 16,
+        "tick": 4645
+      },
+      {
+        "buttons": 17,
+        "tick": 4647
+      },
+      {
+        "buttons": 16,
+        "tick": 4648
+      },
+      {
+        "buttons": 17,
+        "tick": 4650
+      },
+      {
+        "buttons": 16,
+        "tick": 4651
+      },
+      {
+        "buttons": 17,
+        "tick": 4653
+      },
+      {
+        "buttons": 16,
+        "tick": 4654
+      },
+      {
+        "buttons": 17,
+        "tick": 4655
+      },
+      {
+        "buttons": 16,
+        "tick": 4656
+      },
+      {
+        "buttons": 17,
+        "tick": 4658
+      },
+      {
+        "buttons": 16,
+        "tick": 4659
+      },
+      {
+        "buttons": 17,
+        "tick": 4661
+      },
+      {
+        "buttons": 16,
+        "tick": 4662
+      },
+      {
+        "buttons": 17,
+        "tick": 4664
+      },
+      {
+        "buttons": 16,
+        "tick": 4665
+      },
+      {
+        "buttons": 17,
+        "tick": 4666
+      },
+      {
+        "buttons": 16,
+        "tick": 4667
+      },
+      {
+        "buttons": 17,
+        "tick": 4669
+      },
+      {
+        "buttons": 16,
+        "tick": 4670
+      },
+      {
+        "buttons": 17,
+        "tick": 4672
+      },
+      {
+        "buttons": 16,
+        "tick": 4673
+      },
+      {
+        "buttons": 17,
+        "tick": 4675
+      },
+      {
+        "buttons": 16,
+        "tick": 4676
+      },
+      {
+        "buttons": 18,
+        "tick": 4684
+      },
+      {
+        "buttons": 16,
+        "tick": 4685
+      },
+      {
+        "buttons": 18,
+        "tick": 4686
+      },
+      {
+        "buttons": 16,
+        "tick": 4687
+      },
+      {
+        "buttons": 18,
+        "tick": 4689
+      },
+      {
+        "buttons": 16,
+        "tick": 4690
+      },
+      {
+        "buttons": 18,
+        "tick": 4692
+      },
+      {
+        "buttons": 16,
+        "tick": 4693
+      },
+      {
+        "buttons": 18,
+        "tick": 4695
+      },
+      {
+        "buttons": 16,
+        "tick": 4696
+      },
+      {
+        "buttons": 18,
+        "tick": 4697
+      },
+      {
+        "buttons": 16,
+        "tick": 4698
+      },
+      {
+        "buttons": 18,
+        "tick": 4700
+      },
+      {
+        "buttons": 16,
+        "tick": 4701
+      },
+      {
+        "buttons": 18,
+        "tick": 4703
+      },
+      {
+        "buttons": 16,
+        "tick": 4704
+      },
+      {
+        "buttons": 18,
+        "tick": 4706
+      },
+      {
+        "buttons": 16,
+        "tick": 4707
+      },
+      {
+        "buttons": 18,
+        "tick": 4709
+      },
+      {
+        "buttons": 16,
+        "tick": 4710
+      },
+      {
+        "buttons": 18,
+        "tick": 4711
+      },
+      {
+        "buttons": 16,
+        "tick": 4712
+      },
+      {
+        "buttons": 18,
+        "tick": 4714
+      },
+      {
+        "buttons": 16,
+        "tick": 4715
+      },
+      {
+        "buttons": 18,
+        "tick": 4717
+      },
+      {
+        "buttons": 16,
+        "tick": 4718
+      },
+      {
+        "buttons": 18,
+        "tick": 4720
+      },
+      {
+        "buttons": 16,
+        "tick": 4721
+      },
+      {
+        "buttons": 18,
+        "tick": 4722
+      },
+      {
+        "buttons": 16,
+        "tick": 4723
+      },
+      {
+        "buttons": 18,
+        "tick": 4725
+      },
+      {
+        "buttons": 16,
+        "tick": 4726
+      },
+      {
+        "buttons": 18,
+        "tick": 4728
+      },
+      {
+        "buttons": 16,
+        "tick": 4729
+      },
+      {
+        "buttons": 18,
+        "tick": 4731
+      },
+      {
+        "buttons": 16,
+        "tick": 4732
+      },
+      {
+        "buttons": 18,
+        "tick": 4733
+      },
+      {
+        "buttons": 16,
+        "tick": 4734
+      },
+      {
+        "buttons": 18,
+        "tick": 4736
+      },
+      {
+        "buttons": 16,
+        "tick": 4737
+      },
+      {
+        "buttons": 18,
+        "tick": 4739
+      },
+      {
+        "buttons": 16,
+        "tick": 4740
+      },
+      {
+        "buttons": 18,
+        "tick": 4742
+      },
+      {
+        "buttons": 16,
+        "tick": 4743
+      },
+      {
+        "buttons": 18,
+        "tick": 4745
+      },
+      {
+        "buttons": 16,
+        "tick": 4746
+      },
+      {
+        "buttons": 18,
+        "tick": 4747
+      },
+      {
+        "buttons": 16,
+        "tick": 4748
+      },
+      {
+        "buttons": 17,
+        "tick": 4751
+      },
+      {
+        "buttons": 16,
+        "tick": 4752
+      },
+      {
+        "buttons": 17,
+        "tick": 4754
+      },
+      {
+        "buttons": 16,
+        "tick": 4755
+      },
+      {
+        "buttons": 17,
+        "tick": 4757
+      },
+      {
+        "buttons": 16,
+        "tick": 4758
+      },
+      {
+        "buttons": 17,
+        "tick": 4759
+      },
+      {
+        "buttons": 16,
+        "tick": 4760
+      },
+      {
+        "buttons": 17,
+        "tick": 4762
+      },
+      {
+        "buttons": 16,
+        "tick": 4763
+      },
+      {
+        "buttons": 17,
+        "tick": 4765
+      },
+      {
+        "buttons": 16,
+        "tick": 4766
+      },
+      {
+        "buttons": 17,
+        "tick": 4768
+      },
+      {
+        "buttons": 16,
+        "tick": 4769
+      },
+      {
+        "buttons": 17,
+        "tick": 4770
+      },
+      {
+        "buttons": 16,
+        "tick": 4771
+      },
+      {
+        "buttons": 17,
+        "tick": 4773
+      },
+      {
+        "buttons": 16,
+        "tick": 4774
+      },
+      {
+        "buttons": 17,
+        "tick": 4776
+      },
+      {
+        "buttons": 16,
+        "tick": 4777
+      },
+      {
+        "buttons": 17,
+        "tick": 4779
+      },
+      {
+        "buttons": 16,
+        "tick": 4780
+      },
+      {
+        "buttons": 17,
+        "tick": 4782
+      },
+      {
+        "buttons": 16,
+        "tick": 4783
+      },
+      {
+        "buttons": 17,
+        "tick": 4784
+      },
+      {
+        "buttons": 16,
+        "tick": 4785
+      },
+      {
+        "buttons": 17,
+        "tick": 4787
+      },
+      {
+        "buttons": 16,
+        "tick": 4788
+      },
+      {
+        "buttons": 17,
+        "tick": 4790
+      },
+      {
+        "buttons": 16,
+        "tick": 4791
+      },
+      {
+        "buttons": 17,
+        "tick": 4793
+      },
+      {
+        "buttons": 16,
+        "tick": 4794
+      },
+      {
+        "buttons": 17,
+        "tick": 4795
+      },
+      {
+        "buttons": 16,
+        "tick": 4796
+      },
+      {
+        "buttons": 17,
+        "tick": 4798
+      },
+      {
+        "buttons": 16,
+        "tick": 4799
+      },
+      {
+        "buttons": 17,
+        "tick": 4801
+      },
+      {
+        "buttons": 16,
+        "tick": 4802
+      },
+      {
+        "buttons": 17,
+        "tick": 4804
+      },
+      {
+        "buttons": 16,
+        "tick": 4805
+      },
+      {
+        "buttons": 17,
+        "tick": 4806
+      },
+      {
+        "buttons": 16,
+        "tick": 4807
+      },
+      {
+        "buttons": 17,
+        "tick": 4809
+      },
+      {
+        "buttons": 16,
+        "tick": 4810
+      },
+      {
+        "buttons": 17,
+        "tick": 4812
+      },
+      {
+        "buttons": 16,
+        "tick": 4813
+      },
+      {
+        "buttons": 17,
+        "tick": 4815
+      },
+      {
+        "buttons": 16,
+        "tick": 4816
+      },
+      {
+        "buttons": 18,
+        "tick": 4824
+      },
+      {
+        "buttons": 16,
+        "tick": 4825
+      },
+      {
+        "buttons": 18,
+        "tick": 4826
+      },
+      {
+        "buttons": 16,
+        "tick": 4827
+      },
+      {
+        "buttons": 18,
+        "tick": 4829
+      },
+      {
+        "buttons": 16,
+        "tick": 4830
+      },
+      {
+        "buttons": 18,
+        "tick": 4832
+      },
+      {
+        "buttons": 16,
+        "tick": 4833
+      },
+      {
+        "buttons": 18,
+        "tick": 4835
+      },
+      {
+        "buttons": 16,
+        "tick": 4836
+      },
+      {
+        "buttons": 18,
+        "tick": 4837
+      },
+      {
+        "buttons": 16,
+        "tick": 4838
+      },
+      {
+        "buttons": 18,
+        "tick": 4840
+      },
+      {
+        "buttons": 16,
+        "tick": 4841
+      },
+      {
+        "buttons": 18,
+        "tick": 4843
+      },
+      {
+        "buttons": 16,
+        "tick": 4844
+      },
+      {
+        "buttons": 18,
+        "tick": 4846
+      },
+      {
+        "buttons": 16,
+        "tick": 4847
+      },
+      {
+        "buttons": 18,
+        "tick": 4849
+      },
+      {
+        "buttons": 16,
+        "tick": 4850
+      },
+      {
+        "buttons": 18,
+        "tick": 4851
+      },
+      {
+        "buttons": 16,
+        "tick": 4852
+      },
+      {
+        "buttons": 18,
+        "tick": 4854
+      },
+      {
+        "buttons": 16,
+        "tick": 4855
+      },
+      {
+        "buttons": 18,
+        "tick": 4857
+      },
+      {
+        "buttons": 16,
+        "tick": 4858
+      },
+      {
+        "buttons": 18,
+        "tick": 4860
+      },
+      {
+        "buttons": 16,
+        "tick": 4861
+      },
+      {
+        "buttons": 18,
+        "tick": 4862
+      },
+      {
+        "buttons": 16,
+        "tick": 4863
+      },
+      {
+        "buttons": 18,
+        "tick": 4865
+      },
+      {
+        "buttons": 16,
+        "tick": 4866
+      },
+      {
+        "buttons": 18,
+        "tick": 4868
+      },
+      {
+        "buttons": 16,
+        "tick": 4869
+      },
+      {
+        "buttons": 18,
+        "tick": 4871
+      },
+      {
+        "buttons": 16,
+        "tick": 4872
+      },
+      {
+        "buttons": 18,
+        "tick": 4873
+      },
+      {
+        "buttons": 16,
+        "tick": 4874
+      },
+      {
+        "buttons": 18,
+        "tick": 4876
+      },
+      {
+        "buttons": 16,
+        "tick": 4877
+      },
+      {
+        "buttons": 18,
+        "tick": 4879
+      },
+      {
+        "buttons": 16,
+        "tick": 4880
+      },
+      {
+        "buttons": 18,
+        "tick": 4882
+      },
+      {
+        "buttons": 16,
+        "tick": 4883
+      },
+      {
+        "buttons": 18,
+        "tick": 4885
+      },
+      {
+        "buttons": 16,
+        "tick": 4886
+      },
+      {
+        "buttons": 18,
+        "tick": 4887
+      },
+      {
+        "buttons": 16,
+        "tick": 4888
+      },
+      {
+        "buttons": 17,
+        "tick": 4891
+      },
+      {
+        "buttons": 16,
+        "tick": 4892
+      },
+      {
+        "buttons": 17,
+        "tick": 4894
+      },
+      {
+        "buttons": 16,
+        "tick": 4895
+      },
+      {
+        "buttons": 17,
+        "tick": 4897
+      },
+      {
+        "buttons": 16,
+        "tick": 4898
+      },
+      {
+        "buttons": 17,
+        "tick": 4899
+      },
+      {
+        "buttons": 16,
+        "tick": 4900
+      },
+      {
+        "buttons": 17,
+        "tick": 4902
+      },
+      {
+        "buttons": 16,
+        "tick": 4903
+      },
+      {
+        "buttons": 17,
+        "tick": 4905
+      },
+      {
+        "buttons": 16,
+        "tick": 4906
+      },
+      {
+        "buttons": 17,
+        "tick": 4908
+      },
+      {
+        "buttons": 16,
+        "tick": 4909
+      },
+      {
+        "buttons": 17,
+        "tick": 4910
+      },
+      {
+        "buttons": 16,
+        "tick": 4911
+      },
+      {
+        "buttons": 17,
+        "tick": 4913
+      },
+      {
+        "buttons": 16,
+        "tick": 4914
+      },
+      {
+        "buttons": 17,
+        "tick": 4916
+      },
+      {
+        "buttons": 16,
+        "tick": 4917
+      },
+      {
+        "buttons": 17,
+        "tick": 4919
+      },
+      {
+        "buttons": 16,
+        "tick": 4920
+      },
+      {
+        "buttons": 17,
+        "tick": 4922
+      },
+      {
+        "buttons": 16,
+        "tick": 4923
+      },
+      {
+        "buttons": 17,
+        "tick": 4924
+      },
+      {
+        "buttons": 16,
+        "tick": 4925
+      },
+      {
+        "buttons": 17,
+        "tick": 4927
+      },
+      {
+        "buttons": 16,
+        "tick": 4928
+      },
+      {
+        "buttons": 17,
+        "tick": 4930
+      },
+      {
+        "buttons": 16,
+        "tick": 4931
+      },
+      {
+        "buttons": 17,
+        "tick": 4933
+      },
+      {
+        "buttons": 16,
+        "tick": 4934
+      },
+      {
+        "buttons": 17,
+        "tick": 4935
+      },
+      {
+        "buttons": 16,
+        "tick": 4936
+      },
+      {
+        "buttons": 17,
+        "tick": 4938
+      },
+      {
+        "buttons": 16,
+        "tick": 4939
+      },
+      {
+        "buttons": 17,
+        "tick": 4941
+      },
+      {
+        "buttons": 16,
+        "tick": 4942
+      },
+      {
+        "buttons": 17,
+        "tick": 4944
+      },
+      {
+        "buttons": 16,
+        "tick": 4945
+      },
+      {
+        "buttons": 17,
+        "tick": 4946
+      },
+      {
+        "buttons": 16,
+        "tick": 4947
+      },
+      {
+        "buttons": 17,
+        "tick": 4949
+      },
+      {
+        "buttons": 16,
+        "tick": 4950
+      },
+      {
+        "buttons": 17,
+        "tick": 4952
+      },
+      {
+        "buttons": 16,
+        "tick": 4953
+      },
+      {
+        "buttons": 17,
+        "tick": 4955
+      },
+      {
+        "buttons": 16,
+        "tick": 4956
+      },
+      {
+        "buttons": 18,
+        "tick": 4964
+      },
+      {
+        "buttons": 16,
+        "tick": 4965
+      },
+      {
+        "buttons": 18,
+        "tick": 4966
+      },
+      {
+        "buttons": 16,
+        "tick": 4967
+      },
+      {
+        "buttons": 18,
+        "tick": 4969
+      },
+      {
+        "buttons": 16,
+        "tick": 4970
+      },
+      {
+        "buttons": 18,
+        "tick": 4972
+      },
+      {
+        "buttons": 16,
+        "tick": 4973
+      },
+      {
+        "buttons": 18,
+        "tick": 4975
+      },
+      {
+        "buttons": 16,
+        "tick": 4976
+      },
+      {
+        "buttons": 18,
+        "tick": 4977
+      },
+      {
+        "buttons": 16,
+        "tick": 4978
+      },
+      {
+        "buttons": 18,
+        "tick": 4980
+      },
+      {
+        "buttons": 16,
+        "tick": 4981
+      },
+      {
+        "buttons": 18,
+        "tick": 4983
+      },
+      {
+        "buttons": 16,
+        "tick": 4984
+      },
+      {
+        "buttons": 18,
+        "tick": 4986
+      },
+      {
+        "buttons": 16,
+        "tick": 4987
+      },
+      {
+        "buttons": 18,
+        "tick": 4989
+      },
+      {
+        "buttons": 16,
+        "tick": 4990
+      },
+      {
+        "buttons": 18,
+        "tick": 4991
+      },
+      {
+        "buttons": 16,
+        "tick": 4992
+      },
+      {
+        "buttons": 18,
+        "tick": 4994
+      },
+      {
+        "buttons": 16,
+        "tick": 4995
+      },
+      {
+        "buttons": 18,
+        "tick": 4997
+      },
+      {
+        "buttons": 16,
+        "tick": 4998
+      },
+      {
+        "buttons": 18,
+        "tick": 5000
+      },
+      {
+        "buttons": 16,
+        "tick": 5001
+      },
+      {
+        "buttons": 18,
+        "tick": 5002
+      },
+      {
+        "buttons": 16,
+        "tick": 5003
+      },
+      {
+        "buttons": 18,
+        "tick": 5005
+      },
+      {
+        "buttons": 16,
+        "tick": 5006
+      },
+      {
+        "buttons": 18,
+        "tick": 5008
+      },
+      {
+        "buttons": 16,
+        "tick": 5009
+      },
+      {
+        "buttons": 18,
+        "tick": 5011
+      },
+      {
+        "buttons": 16,
+        "tick": 5012
+      },
+      {
+        "buttons": 18,
+        "tick": 5013
+      },
+      {
+        "buttons": 16,
+        "tick": 5014
+      },
+      {
+        "buttons": 18,
+        "tick": 5016
+      },
+      {
+        "buttons": 16,
+        "tick": 5017
+      },
+      {
+        "buttons": 18,
+        "tick": 5019
+      },
+      {
+        "buttons": 16,
+        "tick": 5020
+      },
+      {
+        "buttons": 18,
+        "tick": 5022
+      },
+      {
+        "buttons": 16,
+        "tick": 5023
+      },
+      {
+        "buttons": 18,
+        "tick": 5025
+      },
+      {
+        "buttons": 16,
+        "tick": 5026
+      },
+      {
+        "buttons": 18,
+        "tick": 5027
+      },
+      {
+        "buttons": 16,
+        "tick": 5028
+      },
+      {
+        "buttons": 17,
+        "tick": 5031
+      },
+      {
+        "buttons": 16,
+        "tick": 5032
+      },
+      {
+        "buttons": 17,
+        "tick": 5034
+      },
+      {
+        "buttons": 16,
+        "tick": 5035
+      },
+      {
+        "buttons": 17,
+        "tick": 5037
+      },
+      {
+        "buttons": 16,
+        "tick": 5038
+      },
+      {
+        "buttons": 17,
+        "tick": 5039
+      },
+      {
+        "buttons": 16,
+        "tick": 5040
+      },
+      {
+        "buttons": 17,
+        "tick": 5042
+      },
+      {
+        "buttons": 16,
+        "tick": 5043
+      },
+      {
+        "buttons": 17,
+        "tick": 5045
+      },
+      {
+        "buttons": 16,
+        "tick": 5046
+      },
+      {
+        "buttons": 17,
+        "tick": 5048
+      },
+      {
+        "buttons": 16,
+        "tick": 5049
+      },
+      {
+        "buttons": 17,
+        "tick": 5050
+      },
+      {
+        "buttons": 16,
+        "tick": 5051
+      },
+      {
+        "buttons": 17,
+        "tick": 5053
+      },
+      {
+        "buttons": 16,
+        "tick": 5054
+      },
+      {
+        "buttons": 17,
+        "tick": 5056
+      },
+      {
+        "buttons": 16,
+        "tick": 5057
+      },
+      {
+        "buttons": 17,
+        "tick": 5059
+      },
+      {
+        "buttons": 16,
+        "tick": 5060
+      },
+      {
+        "buttons": 17,
+        "tick": 5062
+      },
+      {
+        "buttons": 16,
+        "tick": 5063
+      },
+      {
+        "buttons": 17,
+        "tick": 5064
+      },
+      {
+        "buttons": 16,
+        "tick": 5065
+      },
+      {
+        "buttons": 17,
+        "tick": 5067
+      },
+      {
+        "buttons": 16,
+        "tick": 5068
+      },
+      {
+        "buttons": 17,
+        "tick": 5070
+      },
+      {
+        "buttons": 16,
+        "tick": 5071
+      },
+      {
+        "buttons": 17,
+        "tick": 5073
+      },
+      {
+        "buttons": 16,
+        "tick": 5074
+      },
+      {
+        "buttons": 17,
+        "tick": 5075
+      },
+      {
+        "buttons": 16,
+        "tick": 5076
+      },
+      {
+        "buttons": 17,
+        "tick": 5078
+      },
+      {
+        "buttons": 16,
+        "tick": 5079
+      },
+      {
+        "buttons": 17,
+        "tick": 5081
+      },
+      {
+        "buttons": 16,
+        "tick": 5082
+      },
+      {
+        "buttons": 17,
+        "tick": 5084
+      },
+      {
+        "buttons": 16,
+        "tick": 5085
+      },
+      {
+        "buttons": 17,
+        "tick": 5086
+      },
+      {
+        "buttons": 16,
+        "tick": 5087
+      },
+      {
+        "buttons": 17,
+        "tick": 5089
+      },
+      {
+        "buttons": 16,
+        "tick": 5090
+      },
+      {
+        "buttons": 17,
+        "tick": 5092
+      },
+      {
+        "buttons": 16,
+        "tick": 5093
+      },
+      {
+        "buttons": 17,
+        "tick": 5095
+      },
+      {
+        "buttons": 16,
+        "tick": 5096
+      },
+      {
+        "buttons": 18,
+        "tick": 5104
+      },
+      {
+        "buttons": 16,
+        "tick": 5105
+      },
+      {
+        "buttons": 18,
+        "tick": 5106
+      },
+      {
+        "buttons": 16,
+        "tick": 5107
+      },
+      {
+        "buttons": 18,
+        "tick": 5109
+      },
+      {
+        "buttons": 16,
+        "tick": 5110
+      },
+      {
+        "buttons": 18,
+        "tick": 5112
+      },
+      {
+        "buttons": 16,
+        "tick": 5113
+      },
+      {
+        "buttons": 18,
+        "tick": 5115
+      },
+      {
+        "buttons": 16,
+        "tick": 5116
+      },
+      {
+        "buttons": 18,
+        "tick": 5117
+      },
+      {
+        "buttons": 16,
+        "tick": 5118
+      },
+      {
+        "buttons": 18,
+        "tick": 5120
+      },
+      {
+        "buttons": 16,
+        "tick": 5121
+      },
+      {
+        "buttons": 18,
+        "tick": 5123
+      },
+      {
+        "buttons": 16,
+        "tick": 5124
+      },
+      {
+        "buttons": 18,
+        "tick": 5126
+      },
+      {
+        "buttons": 16,
+        "tick": 5127
+      },
+      {
+        "buttons": 18,
+        "tick": 5129
+      },
+      {
+        "buttons": 16,
+        "tick": 5130
+      },
+      {
+        "buttons": 18,
+        "tick": 5131
+      },
+      {
+        "buttons": 16,
+        "tick": 5132
+      },
+      {
+        "buttons": 18,
+        "tick": 5134
+      },
+      {
+        "buttons": 16,
+        "tick": 5135
+      },
+      {
+        "buttons": 18,
+        "tick": 5137
+      },
+      {
+        "buttons": 16,
+        "tick": 5138
+      },
+      {
+        "buttons": 18,
+        "tick": 5140
+      },
+      {
+        "buttons": 16,
+        "tick": 5141
+      },
+      {
+        "buttons": 18,
+        "tick": 5142
+      },
+      {
+        "buttons": 16,
+        "tick": 5143
+      },
+      {
+        "buttons": 18,
+        "tick": 5145
+      },
+      {
+        "buttons": 16,
+        "tick": 5146
+      },
+      {
+        "buttons": 18,
+        "tick": 5148
+      },
+      {
+        "buttons": 16,
+        "tick": 5149
+      },
+      {
+        "buttons": 18,
+        "tick": 5151
+      },
+      {
+        "buttons": 16,
+        "tick": 5152
+      },
+      {
+        "buttons": 18,
+        "tick": 5153
+      },
+      {
+        "buttons": 16,
+        "tick": 5154
+      },
+      {
+        "buttons": 18,
+        "tick": 5156
+      },
+      {
+        "buttons": 16,
+        "tick": 5157
+      },
+      {
+        "buttons": 18,
+        "tick": 5159
+      },
+      {
+        "buttons": 16,
+        "tick": 5160
+      },
+      {
+        "buttons": 18,
+        "tick": 5162
+      },
+      {
+        "buttons": 16,
+        "tick": 5163
+      },
+      {
+        "buttons": 18,
+        "tick": 5165
+      },
+      {
+        "buttons": 16,
+        "tick": 5166
+      },
+      {
+        "buttons": 18,
+        "tick": 5167
+      },
+      {
+        "buttons": 16,
+        "tick": 5168
+      },
+      {
+        "buttons": 17,
+        "tick": 5171
+      },
+      {
+        "buttons": 16,
+        "tick": 5172
+      },
+      {
+        "buttons": 17,
+        "tick": 5174
+      },
+      {
+        "buttons": 16,
+        "tick": 5175
+      },
+      {
+        "buttons": 17,
+        "tick": 5177
+      },
+      {
+        "buttons": 16,
+        "tick": 5178
+      },
+      {
+        "buttons": 17,
+        "tick": 5179
+      },
+      {
+        "buttons": 16,
+        "tick": 5180
+      },
+      {
+        "buttons": 17,
+        "tick": 5182
+      },
+      {
+        "buttons": 16,
+        "tick": 5183
+      },
+      {
+        "buttons": 17,
+        "tick": 5185
+      },
+      {
+        "buttons": 16,
+        "tick": 5186
+      },
+      {
+        "buttons": 17,
+        "tick": 5188
+      },
+      {
+        "buttons": 16,
+        "tick": 5189
+      },
+      {
+        "buttons": 17,
+        "tick": 5190
+      },
+      {
+        "buttons": 16,
+        "tick": 5191
+      },
+      {
+        "buttons": 17,
+        "tick": 5193
+      },
+      {
+        "buttons": 16,
+        "tick": 5194
+      },
+      {
+        "buttons": 17,
+        "tick": 5196
+      },
+      {
+        "buttons": 16,
+        "tick": 5197
+      },
+      {
+        "buttons": 17,
+        "tick": 5199
+      },
+      {
+        "buttons": 16,
+        "tick": 5200
+      },
+      {
+        "buttons": 17,
+        "tick": 5202
+      },
+      {
+        "buttons": 16,
+        "tick": 5203
+      },
+      {
+        "buttons": 17,
+        "tick": 5204
+      },
+      {
+        "buttons": 16,
+        "tick": 5205
+      },
+      {
+        "buttons": 17,
+        "tick": 5207
+      },
+      {
+        "buttons": 16,
+        "tick": 5208
+      },
+      {
+        "buttons": 17,
+        "tick": 5210
+      },
+      {
+        "buttons": 16,
+        "tick": 5211
+      },
+      {
+        "buttons": 17,
+        "tick": 5213
+      },
+      {
+        "buttons": 16,
+        "tick": 5214
+      },
+      {
+        "buttons": 17,
+        "tick": 5215
+      },
+      {
+        "buttons": 16,
+        "tick": 5216
+      },
+      {
+        "buttons": 17,
+        "tick": 5218
+      },
+      {
+        "buttons": 16,
+        "tick": 5219
+      },
+      {
+        "buttons": 17,
+        "tick": 5221
+      },
+      {
+        "buttons": 16,
+        "tick": 5222
+      },
+      {
+        "buttons": 17,
+        "tick": 5224
+      },
+      {
+        "buttons": 16,
+        "tick": 5225
+      },
+      {
+        "buttons": 17,
+        "tick": 5226
+      },
+      {
+        "buttons": 16,
+        "tick": 5227
+      },
+      {
+        "buttons": 17,
+        "tick": 5229
+      },
+      {
+        "buttons": 16,
+        "tick": 5230
+      },
+      {
+        "buttons": 17,
+        "tick": 5232
+      },
+      {
+        "buttons": 16,
+        "tick": 5233
+      },
+      {
+        "buttons": 17,
+        "tick": 5235
+      },
+      {
+        "buttons": 16,
+        "tick": 5236
+      },
+      {
+        "buttons": 18,
+        "tick": 8377
+      },
+      {
+        "buttons": 16,
+        "tick": 8378
+      },
+      {
+        "buttons": 18,
+        "tick": 8381
+      },
+      {
+        "buttons": 16,
+        "tick": 8382
+      },
+      {
+        "buttons": 18,
+        "tick": 8386
+      },
+      {
+        "buttons": 16,
+        "tick": 8387
+      },
+      {
+        "buttons": 18,
+        "tick": 8393
+      },
+      {
+        "buttons": 16,
+        "tick": 8394
+      },
+      {
+        "buttons": 17,
+        "tick": 8424
+      },
+      {
+        "buttons": 16,
+        "tick": 8425
+      },
+      {
+        "buttons": 17,
+        "tick": 8429
+      },
+      {
+        "buttons": 16,
+        "tick": 8430
+      },
+      {
+        "buttons": 17,
+        "tick": 8433
+      },
+      {
+        "buttons": 16,
+        "tick": 8434
+      },
+      {
+        "buttons": 17,
+        "tick": 8437
+      },
+      {
+        "buttons": 16,
+        "tick": 8438
+      },
+      {
+        "buttons": 17,
+        "tick": 8442
+      },
+      {
+        "buttons": 16,
+        "tick": 8443
+      },
+      {
+        "buttons": 17,
+        "tick": 8446
+      },
+      {
+        "buttons": 16,
+        "tick": 8447
+      },
+      {
+        "buttons": 17,
+        "tick": 8450
+      },
+      {
+        "buttons": 16,
+        "tick": 8451
+      },
+      {
+        "buttons": 17,
+        "tick": 8454
+      },
+      {
+        "buttons": 16,
+        "tick": 8455
+      },
+      {
+        "buttons": 17,
+        "tick": 8459
+      },
+      {
+        "buttons": 16,
+        "tick": 8460
+      },
+      {
+        "buttons": 17,
+        "tick": 8465
+      },
+      {
+        "buttons": 16,
+        "tick": 8466
+      },
+      {
+        "buttons": 17,
+        "tick": 8475
+      },
+      {
+        "buttons": 16,
+        "tick": 8476
+      },
+      {
+        "buttons": 18,
+        "tick": 8496
+      },
+      {
+        "buttons": 16,
+        "tick": 8497
+      },
+      {
+        "buttons": 18,
+        "tick": 8501
+      },
+      {
+        "buttons": 16,
+        "tick": 8502
+      },
+      {
+        "buttons": 18,
+        "tick": 8506
+      },
+      {
+        "buttons": 16,
+        "tick": 8507
+      },
+      {
+        "buttons": 18,
+        "tick": 8510
+      },
+      {
+        "buttons": 16,
+        "tick": 8511
+      },
+      {
+        "buttons": 18,
+        "tick": 8514
+      },
+      {
+        "buttons": 16,
+        "tick": 8515
+      },
+      {
+        "buttons": 18,
+        "tick": 8518
+      },
+      {
+        "buttons": 16,
+        "tick": 8519
+      },
+      {
+        "buttons": 18,
+        "tick": 8522
+      },
+      {
+        "buttons": 16,
+        "tick": 8523
+      },
+      {
+        "buttons": 18,
+        "tick": 8527
+      },
+      {
+        "buttons": 16,
+        "tick": 8528
+      },
+      {
+        "buttons": 18,
+        "tick": 8531
+      },
+      {
+        "buttons": 16,
+        "tick": 8532
+      },
+      {
+        "buttons": 18,
+        "tick": 8536
+      },
+      {
+        "buttons": 16,
+        "tick": 8537
+      },
+      {
+        "buttons": 18,
+        "tick": 8543
+      },
+      {
+        "buttons": 16,
+        "tick": 8544
+      },
+      {
+        "buttons": 17,
+        "tick": 8574
+      },
+      {
+        "buttons": 16,
+        "tick": 8575
+      },
+      {
+        "buttons": 17,
+        "tick": 8579
+      },
+      {
+        "buttons": 16,
+        "tick": 8580
+      },
+      {
+        "buttons": 17,
+        "tick": 8583
+      },
+      {
+        "buttons": 16,
+        "tick": 8584
+      },
+      {
+        "buttons": 17,
+        "tick": 8587
+      },
+      {
+        "buttons": 16,
+        "tick": 8588
+      },
+      {
+        "buttons": 17,
+        "tick": 8592
+      },
+      {
+        "buttons": 16,
+        "tick": 8593
+      },
+      {
+        "buttons": 17,
+        "tick": 8596
+      },
+      {
+        "buttons": 16,
+        "tick": 8597
+      },
+      {
+        "buttons": 17,
+        "tick": 8600
+      },
+      {
+        "buttons": 16,
+        "tick": 8601
+      },
+      {
+        "buttons": 17,
+        "tick": 8604
+      },
+      {
+        "buttons": 16,
+        "tick": 8605
+      },
+      {
+        "buttons": 17,
+        "tick": 8609
+      },
+      {
+        "buttons": 16,
+        "tick": 8610
+      },
+      {
+        "buttons": 17,
+        "tick": 8615
+      },
+      {
+        "buttons": 16,
+        "tick": 8616
+      },
+      {
+        "buttons": 17,
+        "tick": 8625
+      },
+      {
+        "buttons": 16,
+        "tick": 8626
+      },
+      {
+        "buttons": 18,
+        "tick": 8646
+      },
+      {
+        "buttons": 16,
+        "tick": 8647
+      },
+      {
+        "buttons": 18,
+        "tick": 8651
+      },
+      {
+        "buttons": 16,
+        "tick": 8652
+      },
+      {
+        "buttons": 18,
+        "tick": 8656
+      },
+      {
+        "buttons": 16,
+        "tick": 8657
+      },
+      {
+        "buttons": 18,
+        "tick": 8660
+      },
+      {
+        "buttons": 16,
+        "tick": 8661
+      },
+      {
+        "buttons": 18,
+        "tick": 8664
+      },
+      {
+        "buttons": 16,
+        "tick": 8665
+      },
+      {
+        "buttons": 18,
+        "tick": 8668
+      },
+      {
+        "buttons": 16,
+        "tick": 8669
+      },
+      {
+        "buttons": 18,
+        "tick": 8672
+      },
+      {
+        "buttons": 16,
+        "tick": 8673
+      },
+      {
+        "buttons": 18,
+        "tick": 8677
+      },
+      {
+        "buttons": 16,
+        "tick": 8678
+      },
+      {
+        "buttons": 18,
+        "tick": 8681
+      },
+      {
+        "buttons": 16,
+        "tick": 8682
+      },
+      {
+        "buttons": 18,
+        "tick": 8686
+      },
+      {
+        "buttons": 16,
+        "tick": 8687
+      },
+      {
+        "buttons": 18,
+        "tick": 8693
+      },
+      {
+        "buttons": 16,
+        "tick": 8694
+      },
+      {
+        "buttons": 17,
+        "tick": 8724
+      },
+      {
+        "buttons": 16,
+        "tick": 8725
+      },
+      {
+        "buttons": 17,
+        "tick": 8729
+      },
+      {
+        "buttons": 16,
+        "tick": 8730
+      },
+      {
+        "buttons": 17,
+        "tick": 8733
+      },
+      {
+        "buttons": 16,
+        "tick": 8734
+      },
+      {
+        "buttons": 17,
+        "tick": 8737
+      },
+      {
+        "buttons": 16,
+        "tick": 8738
+      },
+      {
+        "buttons": 17,
+        "tick": 8742
+      },
+      {
+        "buttons": 16,
+        "tick": 8743
+      },
+      {
+        "buttons": 17,
+        "tick": 8746
+      },
+      {
+        "buttons": 16,
+        "tick": 8747
+      },
+      {
+        "buttons": 17,
+        "tick": 8750
+      },
+      {
+        "buttons": 16,
+        "tick": 8751
+      },
+      {
+        "buttons": 17,
+        "tick": 8754
+      },
+      {
+        "buttons": 16,
+        "tick": 8755
+      },
+      {
+        "buttons": 17,
+        "tick": 8759
+      },
+      {
+        "buttons": 16,
+        "tick": 8760
+      },
+      {
+        "buttons": 17,
+        "tick": 8765
+      },
+      {
+        "buttons": 16,
+        "tick": 8766
+      },
+      {
+        "buttons": 17,
+        "tick": 8775
+      },
+      {
+        "buttons": 16,
+        "tick": 8776
+      },
+      {
+        "buttons": 18,
+        "tick": 8796
+      },
+      {
+        "buttons": 16,
+        "tick": 8797
+      },
+      {
+        "buttons": 18,
+        "tick": 8801
+      },
+      {
+        "buttons": 16,
+        "tick": 8802
+      },
+      {
+        "buttons": 18,
+        "tick": 8806
+      },
+      {
+        "buttons": 16,
+        "tick": 8807
+      },
+      {
+        "buttons": 18,
+        "tick": 8810
+      },
+      {
+        "buttons": 16,
+        "tick": 8811
+      },
+      {
+        "buttons": 18,
+        "tick": 8814
+      },
+      {
+        "buttons": 16,
+        "tick": 8815
+      },
+      {
+        "buttons": 18,
+        "tick": 8818
+      },
+      {
+        "buttons": 16,
+        "tick": 8819
+      },
+      {
+        "buttons": 18,
+        "tick": 8822
+      },
+      {
+        "buttons": 16,
+        "tick": 8823
+      },
+      {
+        "buttons": 18,
+        "tick": 8827
+      },
+      {
+        "buttons": 16,
+        "tick": 8828
+      },
+      {
+        "buttons": 18,
+        "tick": 8831
+      },
+      {
+        "buttons": 16,
+        "tick": 8832
+      },
+      {
+        "buttons": 18,
+        "tick": 8836
+      },
+      {
+        "buttons": 16,
+        "tick": 8837
+      },
+      {
+        "buttons": 18,
+        "tick": 8843
+      },
+      {
+        "buttons": 16,
+        "tick": 8844
+      },
+      {
+        "buttons": 17,
+        "tick": 8874
+      },
+      {
+        "buttons": 16,
+        "tick": 8875
+      },
+      {
+        "buttons": 17,
+        "tick": 8879
+      },
+      {
+        "buttons": 16,
+        "tick": 8880
+      },
+      {
+        "buttons": 17,
+        "tick": 8883
+      },
+      {
+        "buttons": 16,
+        "tick": 8884
+      },
+      {
+        "buttons": 17,
+        "tick": 8887
+      },
+      {
+        "buttons": 16,
+        "tick": 8888
+      },
+      {
+        "buttons": 17,
+        "tick": 8892
+      },
+      {
+        "buttons": 16,
+        "tick": 8893
+      },
+      {
+        "buttons": 17,
+        "tick": 8896
+      },
+      {
+        "buttons": 16,
+        "tick": 8897
+      },
+      {
+        "buttons": 17,
+        "tick": 8900
+      },
+      {
+        "buttons": 16,
+        "tick": 8901
+      },
+      {
+        "buttons": 17,
+        "tick": 8904
+      },
+      {
+        "buttons": 16,
+        "tick": 8905
+      },
+      {
+        "buttons": 17,
+        "tick": 8909
+      },
+      {
+        "buttons": 16,
+        "tick": 8910
+      },
+      {
+        "buttons": 17,
+        "tick": 8915
+      },
+      {
+        "buttons": 16,
+        "tick": 8916
+      },
+      {
+        "buttons": 17,
+        "tick": 8925
+      },
+      {
+        "buttons": 16,
+        "tick": 8926
+      },
+      {
+        "buttons": 18,
+        "tick": 8946
+      },
+      {
+        "buttons": 16,
+        "tick": 8947
+      },
+      {
+        "buttons": 18,
+        "tick": 8951
+      },
+      {
+        "buttons": 16,
+        "tick": 8952
+      },
+      {
+        "buttons": 18,
+        "tick": 8956
+      },
+      {
+        "buttons": 16,
+        "tick": 8957
+      },
+      {
+        "buttons": 18,
+        "tick": 8960
+      },
+      {
+        "buttons": 16,
+        "tick": 8961
+      },
+      {
+        "buttons": 18,
+        "tick": 8964
+      },
+      {
+        "buttons": 16,
+        "tick": 8965
+      },
+      {
+        "buttons": 18,
+        "tick": 8968
+      },
+      {
+        "buttons": 16,
+        "tick": 8969
+      },
+      {
+        "buttons": 18,
+        "tick": 8972
+      },
+      {
+        "buttons": 16,
+        "tick": 8973
+      },
+      {
+        "buttons": 18,
+        "tick": 8977
+      },
+      {
+        "buttons": 16,
+        "tick": 8978
+      },
+      {
+        "buttons": 18,
+        "tick": 8981
+      },
+      {
+        "buttons": 16,
+        "tick": 8982
+      },
+      {
+        "buttons": 18,
+        "tick": 8986
+      },
+      {
+        "buttons": 16,
+        "tick": 8987
+      },
+      {
+        "buttons": 18,
+        "tick": 8993
+      },
+      {
+        "buttons": 16,
+        "tick": 8994
+      },
+      {
+        "buttons": 17,
+        "tick": 9024
+      },
+      {
+        "buttons": 16,
+        "tick": 9025
+      },
+      {
+        "buttons": 17,
+        "tick": 9029
+      },
+      {
+        "buttons": 16,
+        "tick": 9030
+      },
+      {
+        "buttons": 17,
+        "tick": 9033
+      },
+      {
+        "buttons": 16,
+        "tick": 9034
+      },
+      {
+        "buttons": 17,
+        "tick": 9037
+      },
+      {
+        "buttons": 16,
+        "tick": 9038
+      },
+      {
+        "buttons": 17,
+        "tick": 9042
+      },
+      {
+        "buttons": 16,
+        "tick": 9043
+      },
+      {
+        "buttons": 17,
+        "tick": 9046
+      },
+      {
+        "buttons": 16,
+        "tick": 9047
+      },
+      {
+        "buttons": 17,
+        "tick": 9050
+      },
+      {
+        "buttons": 16,
+        "tick": 9051
+      },
+      {
+        "buttons": 17,
+        "tick": 9054
+      },
+      {
+        "buttons": 16,
+        "tick": 9055
+      },
+      {
+        "buttons": 17,
+        "tick": 9059
+      },
+      {
+        "buttons": 16,
+        "tick": 9060
+      },
+      {
+        "buttons": 17,
+        "tick": 9065
+      },
+      {
+        "buttons": 16,
+        "tick": 9066
+      },
+      {
+        "buttons": 17,
+        "tick": 9075
+      },
+      {
+        "buttons": 16,
+        "tick": 9076
+      },
+      {
+        "buttons": 18,
+        "tick": 9096
+      },
+      {
+        "buttons": 16,
+        "tick": 9097
+      },
+      {
+        "buttons": 18,
+        "tick": 9101
+      },
+      {
+        "buttons": 16,
+        "tick": 9102
+      },
+      {
+        "buttons": 18,
+        "tick": 9106
+      },
+      {
+        "buttons": 16,
+        "tick": 9107
+      },
+      {
+        "buttons": 18,
+        "tick": 9110
+      },
+      {
+        "buttons": 16,
+        "tick": 9111
+      },
+      {
+        "buttons": 18,
+        "tick": 9114
+      },
+      {
+        "buttons": 16,
+        "tick": 9115
+      },
+      {
+        "buttons": 18,
+        "tick": 9118
+      },
+      {
+        "buttons": 16,
+        "tick": 9119
+      },
+      {
+        "buttons": 18,
+        "tick": 9122
+      },
+      {
+        "buttons": 16,
+        "tick": 9123
+      },
+      {
+        "buttons": 18,
+        "tick": 9127
+      },
+      {
+        "buttons": 16,
+        "tick": 9128
+      },
+      {
+        "buttons": 18,
+        "tick": 9131
+      },
+      {
+        "buttons": 16,
+        "tick": 9132
+      },
+      {
+        "buttons": 18,
+        "tick": 9136
+      },
+      {
+        "buttons": 16,
+        "tick": 9137
+      },
+      {
+        "buttons": 18,
+        "tick": 9143
+      },
+      {
+        "buttons": 16,
+        "tick": 9144
+      },
+      {
+        "buttons": 17,
+        "tick": 9174
+      },
+      {
+        "buttons": 16,
+        "tick": 9175
+      },
+      {
+        "buttons": 17,
+        "tick": 9179
+      },
+      {
+        "buttons": 16,
+        "tick": 9180
+      },
+      {
+        "buttons": 17,
+        "tick": 9183
+      },
+      {
+        "buttons": 16,
+        "tick": 9184
+      },
+      {
+        "buttons": 17,
+        "tick": 9187
+      },
+      {
+        "buttons": 16,
+        "tick": 9188
+      },
+      {
+        "buttons": 17,
+        "tick": 9192
+      },
+      {
+        "buttons": 16,
+        "tick": 9193
+      },
+      {
+        "buttons": 17,
+        "tick": 9196
+      },
+      {
+        "buttons": 16,
+        "tick": 9197
+      },
+      {
+        "buttons": 17,
+        "tick": 9200
+      },
+      {
+        "buttons": 16,
+        "tick": 9201
+      },
+      {
+        "buttons": 17,
+        "tick": 9204
+      },
+      {
+        "buttons": 16,
+        "tick": 9205
+      },
+      {
+        "buttons": 17,
+        "tick": 9209
+      },
+      {
+        "buttons": 16,
+        "tick": 9210
+      },
+      {
+        "buttons": 17,
+        "tick": 9215
+      },
+      {
+        "buttons": 16,
+        "tick": 9216
+      },
+      {
+        "buttons": 17,
+        "tick": 9225
+      },
+      {
+        "buttons": 16,
+        "tick": 9226
+      },
+      {
+        "buttons": 18,
+        "tick": 9246
+      },
+      {
+        "buttons": 16,
+        "tick": 9247
+      },
+      {
+        "buttons": 18,
+        "tick": 9251
+      },
+      {
+        "buttons": 16,
+        "tick": 9252
+      },
+      {
+        "buttons": 18,
+        "tick": 9256
+      },
+      {
+        "buttons": 16,
+        "tick": 9257
+      },
+      {
+        "buttons": 18,
+        "tick": 9260
+      },
+      {
+        "buttons": 16,
+        "tick": 9261
+      },
+      {
+        "buttons": 18,
+        "tick": 9264
+      },
+      {
+        "buttons": 16,
+        "tick": 9265
+      },
+      {
+        "buttons": 18,
+        "tick": 9268
+      },
+      {
+        "buttons": 16,
+        "tick": 9269
+      },
+      {
+        "buttons": 18,
+        "tick": 9272
+      },
+      {
+        "buttons": 16,
+        "tick": 9273
+      },
+      {
+        "buttons": 18,
+        "tick": 9277
+      },
+      {
+        "buttons": 16,
+        "tick": 9278
+      },
+      {
+        "buttons": 18,
+        "tick": 9281
+      },
+      {
+        "buttons": 16,
+        "tick": 9282
+      },
+      {
+        "buttons": 18,
+        "tick": 9286
+      },
+      {
+        "buttons": 16,
+        "tick": 9287
+      },
+      {
+        "buttons": 18,
+        "tick": 9293
+      },
+      {
+        "buttons": 16,
+        "tick": 9294
+      },
+      {
+        "buttons": 17,
+        "tick": 9324
+      },
+      {
+        "buttons": 16,
+        "tick": 9325
+      },
+      {
+        "buttons": 17,
+        "tick": 9329
+      },
+      {
+        "buttons": 16,
+        "tick": 9330
+      },
+      {
+        "buttons": 17,
+        "tick": 9333
+      },
+      {
+        "buttons": 16,
+        "tick": 9334
+      },
+      {
+        "buttons": 17,
+        "tick": 9337
+      },
+      {
+        "buttons": 16,
+        "tick": 9338
+      },
+      {
+        "buttons": 17,
+        "tick": 9342
+      },
+      {
+        "buttons": 16,
+        "tick": 9343
+      },
+      {
+        "buttons": 17,
+        "tick": 9346
+      },
+      {
+        "buttons": 16,
+        "tick": 9347
+      },
+      {
+        "buttons": 17,
+        "tick": 9350
+      },
+      {
+        "buttons": 16,
+        "tick": 9351
+      },
+      {
+        "buttons": 17,
+        "tick": 9354
+      },
+      {
+        "buttons": 16,
+        "tick": 9355
+      },
+      {
+        "buttons": 17,
+        "tick": 9359
+      },
+      {
+        "buttons": 16,
+        "tick": 9360
+      },
+      {
+        "buttons": 17,
+        "tick": 9365
+      },
+      {
+        "buttons": 16,
+        "tick": 9366
+      },
+      {
+        "buttons": 17,
+        "tick": 9375
+      },
+      {
+        "buttons": 16,
+        "tick": 9376
+      },
+      {
+        "buttons": 18,
+        "tick": 9396
+      },
+      {
+        "buttons": 16,
+        "tick": 9397
+      },
+      {
+        "buttons": 18,
+        "tick": 9401
+      },
+      {
+        "buttons": 16,
+        "tick": 9402
+      },
+      {
+        "buttons": 18,
+        "tick": 9406
+      },
+      {
+        "buttons": 16,
+        "tick": 9407
+      },
+      {
+        "buttons": 18,
+        "tick": 9410
+      },
+      {
+        "buttons": 16,
+        "tick": 9411
+      },
+      {
+        "buttons": 18,
+        "tick": 9414
+      },
+      {
+        "buttons": 16,
+        "tick": 9415
+      },
+      {
+        "buttons": 18,
+        "tick": 9418
+      },
+      {
+        "buttons": 16,
+        "tick": 9419
+      },
+      {
+        "buttons": 18,
+        "tick": 9422
+      },
+      {
+        "buttons": 16,
+        "tick": 9423
+      },
+      {
+        "buttons": 18,
+        "tick": 9427
+      },
+      {
+        "buttons": 16,
+        "tick": 9428
+      },
+      {
+        "buttons": 18,
+        "tick": 9431
+      },
+      {
+        "buttons": 16,
+        "tick": 9432
+      },
+      {
+        "buttons": 18,
+        "tick": 9436
+      },
+      {
+        "buttons": 16,
+        "tick": 9437
+      },
+      {
+        "buttons": 18,
+        "tick": 9443
+      },
+      {
+        "buttons": 16,
+        "tick": 9444
+      },
+      {
+        "buttons": 17,
+        "tick": 9474
+      },
+      {
+        "buttons": 16,
+        "tick": 9475
+      },
+      {
+        "buttons": 17,
+        "tick": 9479
+      },
+      {
+        "buttons": 16,
+        "tick": 9480
+      },
+      {
+        "buttons": 17,
+        "tick": 9483
+      },
+      {
+        "buttons": 16,
+        "tick": 9484
+      },
+      {
+        "buttons": 17,
+        "tick": 9487
+      },
+      {
+        "buttons": 16,
+        "tick": 9488
+      },
+      {
+        "buttons": 17,
+        "tick": 9492
+      },
+      {
+        "buttons": 16,
+        "tick": 9493
+      },
+      {
+        "buttons": 17,
+        "tick": 9496
+      },
+      {
+        "buttons": 16,
+        "tick": 9497
+      },
+      {
+        "buttons": 17,
+        "tick": 9500
+      },
+      {
+        "buttons": 16,
+        "tick": 9501
+      },
+      {
+        "buttons": 17,
+        "tick": 9504
+      },
+      {
+        "buttons": 16,
+        "tick": 9505
+      },
+      {
+        "buttons": 17,
+        "tick": 9509
+      },
+      {
+        "buttons": 16,
+        "tick": 9510
+      },
+      {
+        "buttons": 17,
+        "tick": 9515
+      },
+      {
+        "buttons": 16,
+        "tick": 9516
+      },
+      {
+        "buttons": 17,
+        "tick": 9525
+      },
+      {
+        "buttons": 16,
+        "tick": 9526
+      },
+      {
+        "buttons": 18,
+        "tick": 9546
+      },
+      {
+        "buttons": 16,
+        "tick": 9547
+      },
+      {
+        "buttons": 18,
+        "tick": 9551
+      },
+      {
+        "buttons": 16,
+        "tick": 9552
+      },
+      {
+        "buttons": 18,
+        "tick": 9556
+      },
+      {
+        "buttons": 16,
+        "tick": 9557
+      },
+      {
+        "buttons": 18,
+        "tick": 9560
+      },
+      {
+        "buttons": 16,
+        "tick": 9561
+      },
+      {
+        "buttons": 18,
+        "tick": 9564
+      },
+      {
+        "buttons": 16,
+        "tick": 9565
+      },
+      {
+        "buttons": 18,
+        "tick": 9568
+      },
+      {
+        "buttons": 16,
+        "tick": 9569
+      },
+      {
+        "buttons": 18,
+        "tick": 9572
+      },
+      {
+        "buttons": 16,
+        "tick": 9573
+      },
+      {
+        "buttons": 18,
+        "tick": 9577
+      },
+      {
+        "buttons": 16,
+        "tick": 9578
+      },
+      {
+        "buttons": 18,
+        "tick": 9581
+      },
+      {
+        "buttons": 16,
+        "tick": 9582
+      },
+      {
+        "buttons": 18,
+        "tick": 9586
+      },
+      {
+        "buttons": 16,
+        "tick": 9587
+      },
+      {
+        "buttons": 18,
+        "tick": 9593
+      },
+      {
+        "buttons": 16,
+        "tick": 9594
+      },
+      {
+        "buttons": 17,
+        "tick": 9624
+      },
+      {
+        "buttons": 16,
+        "tick": 9625
+      },
+      {
+        "buttons": 17,
+        "tick": 9629
+      },
+      {
+        "buttons": 16,
+        "tick": 9630
+      },
+      {
+        "buttons": 17,
+        "tick": 9633
+      },
+      {
+        "buttons": 16,
+        "tick": 9634
+      },
+      {
+        "buttons": 17,
+        "tick": 9637
+      },
+      {
+        "buttons": 16,
+        "tick": 9638
+      },
+      {
+        "buttons": 17,
+        "tick": 9642
+      },
+      {
+        "buttons": 16,
+        "tick": 9643
+      },
+      {
+        "buttons": 17,
+        "tick": 9646
+      },
+      {
+        "buttons": 16,
+        "tick": 9647
+      },
+      {
+        "buttons": 17,
+        "tick": 9650
+      },
+      {
+        "buttons": 16,
+        "tick": 9651
+      },
+      {
+        "buttons": 17,
+        "tick": 9654
+      },
+      {
+        "buttons": 16,
+        "tick": 9655
+      },
+      {
+        "buttons": 17,
+        "tick": 9659
+      },
+      {
+        "buttons": 16,
+        "tick": 9660
+      },
+      {
+        "buttons": 17,
+        "tick": 9665
+      },
+      {
+        "buttons": 16,
+        "tick": 9666
+      },
+      {
+        "buttons": 17,
+        "tick": 9675
+      },
+      {
+        "buttons": 16,
+        "tick": 9676
+      },
+      {
+        "buttons": 18,
+        "tick": 9696
+      },
+      {
+        "buttons": 16,
+        "tick": 9697
+      },
+      {
+        "buttons": 18,
+        "tick": 9701
+      },
+      {
+        "buttons": 16,
+        "tick": 9702
+      },
+      {
+        "buttons": 18,
+        "tick": 9706
+      },
+      {
+        "buttons": 16,
+        "tick": 9707
+      },
+      {
+        "buttons": 18,
+        "tick": 9710
+      },
+      {
+        "buttons": 16,
+        "tick": 9711
+      },
+      {
+        "buttons": 18,
+        "tick": 9714
+      },
+      {
+        "buttons": 16,
+        "tick": 9715
+      },
+      {
+        "buttons": 18,
+        "tick": 9718
+      },
+      {
+        "buttons": 16,
+        "tick": 9719
+      },
+      {
+        "buttons": 18,
+        "tick": 9722
+      },
+      {
+        "buttons": 16,
+        "tick": 9723
+      },
+      {
+        "buttons": 18,
+        "tick": 9727
+      },
+      {
+        "buttons": 16,
+        "tick": 9728
+      },
+      {
+        "buttons": 18,
+        "tick": 9731
+      },
+      {
+        "buttons": 16,
+        "tick": 9732
+      },
+      {
+        "buttons": 18,
+        "tick": 9736
+      },
+      {
+        "buttons": 16,
+        "tick": 9737
+      },
+      {
+        "buttons": 18,
+        "tick": 9743
+      },
+      {
+        "buttons": 16,
+        "tick": 9744
+      },
+      {
+        "buttons": 17,
+        "tick": 9774
+      },
+      {
+        "buttons": 16,
+        "tick": 9775
+      },
+      {
+        "buttons": 17,
+        "tick": 9779
+      },
+      {
+        "buttons": 16,
+        "tick": 9780
+      },
+      {
+        "buttons": 17,
+        "tick": 9783
+      },
+      {
+        "buttons": 16,
+        "tick": 9784
+      },
+      {
+        "buttons": 17,
+        "tick": 9787
+      },
+      {
+        "buttons": 16,
+        "tick": 9788
+      },
+      {
+        "buttons": 17,
+        "tick": 9792
+      },
+      {
+        "buttons": 16,
+        "tick": 9793
+      },
+      {
+        "buttons": 17,
+        "tick": 9796
+      },
+      {
+        "buttons": 16,
+        "tick": 9797
+      },
+      {
+        "buttons": 17,
+        "tick": 9800
+      },
+      {
+        "buttons": 16,
+        "tick": 9801
+      },
+      {
+        "buttons": 17,
+        "tick": 9804
+      },
+      {
+        "buttons": 16,
+        "tick": 9805
+      },
+      {
+        "buttons": 17,
+        "tick": 9809
+      },
+      {
+        "buttons": 16,
+        "tick": 9810
+      },
+      {
+        "buttons": 17,
+        "tick": 9815
+      },
+      {
+        "buttons": 16,
+        "tick": 9816
+      },
+      {
+        "buttons": 17,
+        "tick": 9825
+      },
+      {
+        "buttons": 16,
+        "tick": 9826
+      },
+      {
+        "buttons": 18,
+        "tick": 9846
+      },
+      {
+        "buttons": 16,
+        "tick": 9847
+      },
+      {
+        "buttons": 18,
+        "tick": 9851
+      },
+      {
+        "buttons": 16,
+        "tick": 9852
+      },
+      {
+        "buttons": 18,
+        "tick": 9856
+      },
+      {
+        "buttons": 16,
+        "tick": 9857
+      },
+      {
+        "buttons": 18,
+        "tick": 9860
+      },
+      {
+        "buttons": 16,
+        "tick": 9861
+      },
+      {
+        "buttons": 18,
+        "tick": 9864
+      },
+      {
+        "buttons": 16,
+        "tick": 9865
+      },
+      {
+        "buttons": 18,
+        "tick": 9868
+      },
+      {
+        "buttons": 16,
+        "tick": 9869
+      },
+      {
+        "buttons": 18,
+        "tick": 9872
+      },
+      {
+        "buttons": 16,
+        "tick": 9873
+      },
+      {
+        "buttons": 18,
+        "tick": 9877
+      },
+      {
+        "buttons": 16,
+        "tick": 9878
+      },
+      {
+        "buttons": 18,
+        "tick": 9881
+      },
+      {
+        "buttons": 16,
+        "tick": 9882
+      },
+      {
+        "buttons": 18,
+        "tick": 9886
+      },
+      {
+        "buttons": 16,
+        "tick": 9887
+      },
+      {
+        "buttons": 18,
+        "tick": 9893
+      },
+      {
+        "buttons": 16,
+        "tick": 9894
+      },
+      {
+        "buttons": 17,
+        "tick": 9924
+      },
+      {
+        "buttons": 16,
+        "tick": 9925
+      },
+      {
+        "buttons": 17,
+        "tick": 9929
+      },
+      {
+        "buttons": 16,
+        "tick": 9930
+      },
+      {
+        "buttons": 17,
+        "tick": 9933
+      },
+      {
+        "buttons": 16,
+        "tick": 9934
+      },
+      {
+        "buttons": 17,
+        "tick": 9937
+      },
+      {
+        "buttons": 16,
+        "tick": 9938
+      },
+      {
+        "buttons": 17,
+        "tick": 9942
+      },
+      {
+        "buttons": 16,
+        "tick": 9943
+      },
+      {
+        "buttons": 17,
+        "tick": 9946
+      },
+      {
+        "buttons": 16,
+        "tick": 9947
+      },
+      {
+        "buttons": 17,
+        "tick": 9950
+      },
+      {
+        "buttons": 16,
+        "tick": 9951
+      },
+      {
+        "buttons": 17,
+        "tick": 9954
+      },
+      {
+        "buttons": 16,
+        "tick": 9955
+      },
+      {
+        "buttons": 17,
+        "tick": 9959
+      },
+      {
+        "buttons": 16,
+        "tick": 9960
+      },
+      {
+        "buttons": 17,
+        "tick": 9965
+      },
+      {
+        "buttons": 16,
+        "tick": 9966
+      },
+      {
+        "buttons": 17,
+        "tick": 9975
+      },
+      {
+        "buttons": 16,
+        "tick": 9976
+      },
+      {
+        "buttons": 18,
+        "tick": 9996
+      },
+      {
+        "buttons": 16,
+        "tick": 9997
+      },
+      {
+        "buttons": 18,
+        "tick": 10001
+      },
+      {
+        "buttons": 16,
+        "tick": 10002
+      },
+      {
+        "buttons": 18,
+        "tick": 10006
+      },
+      {
+        "buttons": 16,
+        "tick": 10007
+      },
+      {
+        "buttons": 18,
+        "tick": 10010
+      },
+      {
+        "buttons": 16,
+        "tick": 10011
+      },
+      {
+        "buttons": 18,
+        "tick": 10014
+      },
+      {
+        "buttons": 16,
+        "tick": 10015
+      },
+      {
+        "buttons": 18,
+        "tick": 10018
+      },
+      {
+        "buttons": 16,
+        "tick": 10019
+      },
+      {
+        "buttons": 18,
+        "tick": 10022
+      },
+      {
+        "buttons": 16,
+        "tick": 10023
+      },
+      {
+        "buttons": 18,
+        "tick": 10027
+      },
+      {
+        "buttons": 16,
+        "tick": 10028
+      },
+      {
+        "buttons": 18,
+        "tick": 10031
+      },
+      {
+        "buttons": 16,
+        "tick": 10032
+      },
+      {
+        "buttons": 18,
+        "tick": 10036
+      },
+      {
+        "buttons": 16,
+        "tick": 10037
+      },
+      {
+        "buttons": 18,
+        "tick": 10043
+      },
+      {
+        "buttons": 16,
+        "tick": 10044
+      },
+      {
+        "buttons": 17,
+        "tick": 10074
+      },
+      {
+        "buttons": 16,
+        "tick": 10075
+      },
+      {
+        "buttons": 17,
+        "tick": 10079
+      },
+      {
+        "buttons": 16,
+        "tick": 10080
+      },
+      {
+        "buttons": 17,
+        "tick": 10083
+      },
+      {
+        "buttons": 16,
+        "tick": 10084
+      },
+      {
+        "buttons": 17,
+        "tick": 10087
+      },
+      {
+        "buttons": 16,
+        "tick": 10088
+      },
+      {
+        "buttons": 17,
+        "tick": 10092
+      },
+      {
+        "buttons": 16,
+        "tick": 10093
+      },
+      {
+        "buttons": 17,
+        "tick": 10096
+      },
+      {
+        "buttons": 16,
+        "tick": 10097
+      },
+      {
+        "buttons": 17,
+        "tick": 10100
+      },
+      {
+        "buttons": 16,
+        "tick": 10101
+      },
+      {
+        "buttons": 17,
+        "tick": 10104
+      },
+      {
+        "buttons": 16,
+        "tick": 10105
+      },
+      {
+        "buttons": 17,
+        "tick": 10109
+      },
+      {
+        "buttons": 16,
+        "tick": 10110
+      },
+      {
+        "buttons": 17,
+        "tick": 10115
+      },
+      {
+        "buttons": 16,
+        "tick": 10116
+      },
+      {
+        "buttons": 17,
+        "tick": 10125
+      },
+      {
+        "buttons": 16,
+        "tick": 10126
+      },
+      {
+        "buttons": 18,
+        "tick": 10146
+      },
+      {
+        "buttons": 16,
+        "tick": 10147
+      },
+      {
+        "buttons": 18,
+        "tick": 10151
+      },
+      {
+        "buttons": 16,
+        "tick": 10152
+      },
+      {
+        "buttons": 18,
+        "tick": 10156
+      },
+      {
+        "buttons": 16,
+        "tick": 10157
+      },
+      {
+        "buttons": 18,
+        "tick": 10160
+      },
+      {
+        "buttons": 16,
+        "tick": 10161
+      },
+      {
+        "buttons": 18,
+        "tick": 10164
+      },
+      {
+        "buttons": 16,
+        "tick": 10165
+      },
+      {
+        "buttons": 18,
+        "tick": 10168
+      },
+      {
+        "buttons": 16,
+        "tick": 10169
+      },
+      {
+        "buttons": 18,
+        "tick": 10172
+      },
+      {
+        "buttons": 16,
+        "tick": 10173
+      },
+      {
+        "buttons": 18,
+        "tick": 10177
+      },
+      {
+        "buttons": 16,
+        "tick": 10178
+      },
+      {
+        "buttons": 18,
+        "tick": 10181
+      },
+      {
+        "buttons": 16,
+        "tick": 10182
+      },
+      {
+        "buttons": 18,
+        "tick": 10186
+      },
+      {
+        "buttons": 16,
+        "tick": 10187
+      },
+      {
+        "buttons": 18,
+        "tick": 10193
+      },
+      {
+        "buttons": 16,
+        "tick": 10194
+      },
+      {
+        "buttons": 17,
+        "tick": 10224
+      },
+      {
+        "buttons": 16,
+        "tick": 10225
+      },
+      {
+        "buttons": 17,
+        "tick": 10229
+      },
+      {
+        "buttons": 16,
+        "tick": 10230
+      },
+      {
+        "buttons": 17,
+        "tick": 10233
+      },
+      {
+        "buttons": 16,
+        "tick": 10234
+      },
+      {
+        "buttons": 17,
+        "tick": 10237
+      },
+      {
+        "buttons": 16,
+        "tick": 10238
+      },
+      {
+        "buttons": 17,
+        "tick": 10242
+      },
+      {
+        "buttons": 16,
+        "tick": 10243
+      },
+      {
+        "buttons": 17,
+        "tick": 10246
+      },
+      {
+        "buttons": 16,
+        "tick": 10247
+      },
+      {
+        "buttons": 17,
+        "tick": 10250
+      },
+      {
+        "buttons": 16,
+        "tick": 10251
+      },
+      {
+        "buttons": 17,
+        "tick": 10254
+      },
+      {
+        "buttons": 16,
+        "tick": 10255
+      },
+      {
+        "buttons": 17,
+        "tick": 10259
+      },
+      {
+        "buttons": 16,
+        "tick": 10260
+      },
+      {
+        "buttons": 17,
+        "tick": 10265
+      },
+      {
+        "buttons": 16,
+        "tick": 10266
+      },
+      {
+        "buttons": 17,
+        "tick": 10275
+      },
+      {
+        "buttons": 16,
+        "tick": 10276
+      },
+      {
+        "buttons": 18,
+        "tick": 10296
+      },
+      {
+        "buttons": 16,
+        "tick": 10297
+      },
+      {
+        "buttons": 18,
+        "tick": 10301
+      },
+      {
+        "buttons": 16,
+        "tick": 10302
+      },
+      {
+        "buttons": 18,
+        "tick": 10306
+      },
+      {
+        "buttons": 16,
+        "tick": 10307
+      },
+      {
+        "buttons": 18,
+        "tick": 10310
+      },
+      {
+        "buttons": 16,
+        "tick": 10311
+      },
+      {
+        "buttons": 18,
+        "tick": 10314
+      },
+      {
+        "buttons": 16,
+        "tick": 10315
+      },
+      {
+        "buttons": 18,
+        "tick": 10318
+      },
+      {
+        "buttons": 16,
+        "tick": 10319
+      },
+      {
+        "buttons": 18,
+        "tick": 10322
+      },
+      {
+        "buttons": 16,
+        "tick": 10323
+      },
+      {
+        "buttons": 18,
+        "tick": 10327
+      },
+      {
+        "buttons": 16,
+        "tick": 10328
+      },
+      {
+        "buttons": 18,
+        "tick": 10331
+      },
+      {
+        "buttons": 16,
+        "tick": 10332
+      },
+      {
+        "buttons": 18,
+        "tick": 10336
+      },
+      {
+        "buttons": 16,
+        "tick": 10337
+      },
+      {
+        "buttons": 18,
+        "tick": 10343
+      },
+      {
+        "buttons": 16,
+        "tick": 10344
+      },
+      {
+        "buttons": 17,
+        "tick": 10374
+      },
+      {
+        "buttons": 16,
+        "tick": 10375
+      },
+      {
+        "buttons": 17,
+        "tick": 10379
+      },
+      {
+        "buttons": 16,
+        "tick": 10380
+      },
+      {
+        "buttons": 17,
+        "tick": 10383
+      },
+      {
+        "buttons": 16,
+        "tick": 10384
+      },
+      {
+        "buttons": 17,
+        "tick": 10387
+      },
+      {
+        "buttons": 16,
+        "tick": 10388
+      },
+      {
+        "buttons": 17,
+        "tick": 10392
+      },
+      {
+        "buttons": 16,
+        "tick": 10393
+      },
+      {
+        "buttons": 17,
+        "tick": 10396
+      },
+      {
+        "buttons": 16,
+        "tick": 10397
+      },
+      {
+        "buttons": 17,
+        "tick": 10400
+      },
+      {
+        "buttons": 16,
+        "tick": 10401
+      },
+      {
+        "buttons": 17,
+        "tick": 10404
+      },
+      {
+        "buttons": 16,
+        "tick": 10405
+      },
+      {
+        "buttons": 17,
+        "tick": 10409
+      },
+      {
+        "buttons": 16,
+        "tick": 10410
+      },
+      {
+        "buttons": 17,
+        "tick": 10415
+      },
+      {
+        "buttons": 16,
+        "tick": 10416
+      },
+      {
+        "buttons": 17,
+        "tick": 10417
+      },
+      {
+        "buttons": 18,
+        "tick": 10430
+      },
+      {
+        "buttons": 17,
+        "tick": 10500
+      },
+      {
+        "buttons": 18,
+        "tick": 10570
+      },
+      {
+        "buttons": 17,
+        "tick": 10640
+      },
+      {
+        "buttons": 18,
+        "tick": 10710
+      },
+      {
+        "buttons": 17,
+        "tick": 10780
+      },
+      {
+        "buttons": 21,
+        "tick": 10800
+      },
+      {
+        "buttons": 22,
+        "tick": 10850
+      }
+    ],
+    "length": 10881,
+    "meta": {
+      "boss": "magistrate",
+      "carry": "",
+      "character": "test-base-gate-endurance",
+      "difficulty": "normal",
+      "outcome": "cleared",
+      "packs": "",
+      "packsData": "",
+      "score": 27180,
+      "stage": "stage-2"
+    },
+    "seed": 2822033,
+    "version": 1
+  }
+}

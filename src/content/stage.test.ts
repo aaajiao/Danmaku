@@ -37,6 +37,28 @@ defineEnemy(`${NS}other`, INERT);
 const MARK = `${NS}mark`;
 const OTHER = `${NS}other`;
 
+/**
+ * A multi-wave stage of inert enemies — repeats, spatial offsets and two
+ * same-tick spawns — for exercising the runner's schedule without any fire to
+ * vary. The shipped stages moved into the bundled base pack, so a content-side
+ * unit test cannot drive them; their full composition determinism (stage +
+ * enemies + bullets, byte-for-byte across a whole run) is proved at the root by
+ * `src/base-content.golden.test.ts`'s replay fixtures instead.
+ */
+const SCHEDULE_STAGE: StageSpec = {
+  name: `${NS}schedule`,
+  seed: 7,
+  outro: 180,
+  waves: [
+    { at: 0, enemy: MARK, x: 120, y: -24, count: 5, interval: 20 },
+    { at: 200, enemy: MARK, x: 150, y: -24, count: 5, interval: 0, stepX: 45, stepY: -18 },
+    { at: 400, enemy: OTHER, x: 300, y: -30, count: 3, interval: 30, stepX: 70 },
+    { at: 800, enemy: MARK, x: 90, y: -24, count: 6, interval: 14, stepX: 60 },
+    { at: 1200, enemy: OTHER, x: 140, y: -24 },
+    { at: 1200, enemy: MARK, x: 340, y: -24 },
+  ],
+};
+
 interface Spawned {
   tick: number;
   enemy: string;
@@ -413,11 +435,10 @@ describe('timing is exact', () => {
   test('the schedule does not depend on the seed', () => {
     // Spawn timing is authored data. Only what the enemies then *do* is
     // allowed to vary with the stream.
-    const spec = getStage('stage-1');
     sim.seed(1);
-    const a = spawnLog(spec, 1900, { stepEnemies: true });
+    const a = spawnLog(SCHEDULE_STAGE, 1900, { stepEnemies: true });
     sim.seed(999);
-    const b = spawnLog(spec, 1900, { stepEnemies: true });
+    const b = spawnLog(SCHEDULE_STAGE, 1900, { stepEnemies: true });
     expect(a).toEqual(b);
   });
 });
@@ -618,132 +639,12 @@ describe('the runner spawns and nothing else', () => {
   });
 });
 
-describe('stage-1 is a real stage', () => {
-  const spec = getStage('stage-1');
-
-  test('it is registered and every enemy it names exists', () => {
-    expect(stageNames()).toContain('stage-1');
-    const { enemies } = makeField();
-    expect(() => new StageRunner(spec, enemies)).not.toThrow();
-  });
-
-  test('it runs about thirty seconds and uses the whole cast', () => {
-    const log = spawnLog(spec, 2000);
-    const last = log[log.length - 1];
-
-    expect(last?.tick).toBe(1710);
-    expect(new Set(log.map((s) => s.enemy))).toEqual(
-      new Set(['grunt', 'weaver', 'turret']),
-    );
-    // Long enough to be a stage, dense enough to be a fight.
-    expect(log.length).toBeGreaterThan(50);
-  });
-
-  test('it finishes 180 ticks after its last spawn', () => {
-    const { enemies } = makeField();
-    const runner = new StageRunner(spec, enemies);
-
-    for (let i = 0; i <= 1710 + 179; i++) runner.step();
-    expect(runner.finished).toBe(false);
-    runner.step();
-    expect(runner.tick).toBe(1891);
-    expect(runner.finished).toBe(true);
-  });
-
-  test('nothing spawns inside the field — every wave flies in from above', () => {
-    for (const spawn of spawnLog(spec, 2000)) {
-      expect(spawn.y).toBeLessThan(0);
-      expect(spawn.x).toBeGreaterThan(-64);
-      expect(spawn.x).toBeLessThan(480 + 64);
-    }
-  });
-
-  test('two turrets arrive on the same tick, in the order written', () => {
-    const turrets = spawnLog(spec, 2000).filter((s) => s.enemy === 'turret');
-    expect(turrets.map((s) => [s.tick, s.x])).toEqual([
-      [760, 240],
-      [1500, 140],
-      [1500, 340],
-    ]);
-  });
-});
-
-/**
- * The composition proof: a full stage driven against real bullets and real
- * enemies, twice, from the same seed.
- */
-describe('a full stage reproduces exactly', () => {
-  const spec = getStage('stage-1');
-  const LENGTH = 1900;
-
-  interface RunResult {
-    spawns: Spawned[];
-    bullets: number[];
-    deaths: number;
-    simState: readonly number[];
-  }
-
-  function play(seed: number): RunResult {
-    sim.seed(seed);
-    const { bullets, enemies } = makeField();
-    const runner = new StageRunner(spec, enemies);
-
-    const spawns: Spawned[] = [];
-    const bulletCounts: number[] = [];
-    let deaths = 0;
-
-    for (let tick = 0; tick < LENGTH; tick++) {
-      // A deterministic stand-in for a player, weaving across the lower field
-      // so aimed fire actually has to track something.
-      const targetX = 240 + Math.sin(tick / 37) * 150;
-      const targetY = 380 + Math.cos(tick / 53) * 40;
-
-      const before = enemies.enemies.length;
-      runner.step();
-      for (let i = before; i < enemies.enemies.length; i++) {
-        const enemy = enemies.enemies[i];
-        if (enemy === undefined) continue;
-        spawns.push({ tick, enemy: enemy.name, x: enemy.x, y: enemy.y });
-      }
-
-      // Kill whatever strays into a narrow band, so deaths and pool reuse are
-      // part of what gets reproduced rather than a path the test never walks.
-      const hit = enemies.hitTest(targetX, 200, 40);
-      if (hit) {
-        if (enemies.damage(hit, 6)) deaths++;
-      }
-
-      enemies.step(targetX, targetY);
-      bullets.step(targetX, targetY);
-      bulletCounts.push(bullets.count);
-    }
-
-    return { spawns, bullets: bulletCounts, deaths, simState: [...sim.getState()] };
-  }
-
-  const a = play(0x5747a1);
-  const b = play(0x5747a1);
-  const other = play(0x5747a1 + 1);
-
-  test('the spawn log is identical', () => {
-    expect(a.spawns).toEqual(b.spawns);
-    expect(a.spawns.length).toBeGreaterThan(50);
-  });
-
-  test('so is everything the stage caused', () => {
-    expect(a.bullets).toEqual(b.bullets);
-    expect(a.deaths).toEqual(b.deaths);
-    expect(a.simState).toEqual(b.simState);
-  });
-
-  test('the run is not vacuous — it fires, kills, and draws from the stream', () => {
-    expect(Math.max(...a.bullets)).toBeGreaterThan(100);
-    expect(a.deaths).toBeGreaterThan(0);
-    expect(a.simState).not.toEqual([...new Random(0x5747a1).getState()]);
-  });
-
-  test('a different seed changes the fire but not one spawn', () => {
-    expect(other.bullets).not.toEqual(a.bullets);
-    expect(other.spawns).toEqual(a.spawns);
-  });
-});
+// The stage-1-specific cases that used to close this file — "stage-1 is a real
+// stage" and "a full stage reproduces exactly" — verified the shipped stage's
+// content and the whole stage+enemies+bullets composition against `stage-1`.
+// That campaign moved into the bundled base pack, which a content-side unit test
+// may not import. The runner machinery those cases leaned on is covered above
+// against local fixtures, and the real thing is covered at the composition root:
+// `src/base-content.golden.test.ts` replays stage-1 and stage-2 end to end,
+// byte-identically, at two tiers, and `src/reachability.test.ts` proves every
+// wave, enemy and boss a real playthrough reaches.

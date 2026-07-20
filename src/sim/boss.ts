@@ -38,7 +38,7 @@
 
 import { Emitter, patternNames } from '../content/patterns';
 import { sim, type Random } from '../core/random';
-import type { BulletSpec, BulletSystem, FieldBounds } from './bullet';
+import type { BulletSystem, FieldBounds } from './bullet';
 import {
   activePhaseIndices,
   DEFAULT_DIFFICULTY,
@@ -74,7 +74,7 @@ export interface SpellCard {
    * Health for this phase.
    *
    * Does **not** vary by tier in v1: player damage is constant across tiers
-   * (see `game/balance.test.ts`), so density is the difficulty axis, not health.
+   * (see `src/balance.test.ts`), so density is the difficulty axis, not health.
    * A future tier-scaled `hp` would move onto `difficulty`-shaped overrides here.
    */
   hp: number;
@@ -739,33 +739,22 @@ export class BossSystem {
 }
 
 /* ------------------------------------------------------------------ */
-/* Example content                                                     */
-/* ------------------------------------------------------------------ */
-
-/**
- * The reference boss. Every future boss is a copy of this shape, so it is
- * authored as data and nothing below is known to the system above.
- *
- * Its three phases are the three jobs a fight has to do:
- *
- *   0. a non-spell wave — aimed pressure, short, teaches the player to move;
- *   1. a spell card — a static pattern read rather than dodged, forgiving
- *      enough to survive by standing in the right place;
- *   2. a final spell — the two stacked, plus a clock tight enough that the
- *      player cannot simply outlive it.
- *
- * Everything here lives in this file only until there is a `content/bosses.ts`
- * to hold it.
- */
-
-/* ------------------------------------------------------------------ */
 /* The damage model every boss is tuned against                        */
 /* ------------------------------------------------------------------ */
+//
+// The bosses themselves — sentinel, and stage-2's warden/magistrate — are no
+// longer defined here. They moved into the bundled base pack
+// (`src/packs/base-pack.json`, authored by `tools/make-base-pack.ts`) and register
+// through the pack injector at boot, where a pack spell card declares `hpSeconds`
+// and the injector applies `phaseHp`/`phaseClock` below exactly as this file's
+// bosses used to. What stays here is the mechanism, the registry, and this damage
+// model — the numbers a pack's `hpSeconds` is turned into, kept measured by
+// `src/balance.test.ts` (decisions-basepack.md).
 
 /**
  * Damage per tick a competent player sustains on a boss.
  *
- * **Measured, and kept measured.** `src/game/balance.test.ts` drives the real
+ * **Measured, and kept measured.** `src/balance.test.ts` drives the real
  * `Run` with every shipped character at every reachable power tier and fails if
  * this constant stops describing them. That test is the whole point of the
  * constant existing: the number it replaces was a literal, typed once, and
@@ -823,240 +812,10 @@ export function phaseHp(seconds: number): number {
  * The property that actually matters — the one whose absence made every
  * non-spell opening phase a cutscene — is that the clock is comfortably longer
  * than the health takes to spend at a rate the player can reach. That is what
- * `game/balance.test.ts` asserts, and it is what a factor of two buys.
+ * `src/balance.test.ts` asserts, and it is what a factor of two buys.
  */
 export const CLOCK_MARGIN = 2;
 
 export function phaseClock(hp: number): number {
   return Math.ceil((hp / REFERENCE_DPS) * CLOCK_MARGIN / 10) * 10;
 }
-
-const SHARD: BulletSpec = {
-  style: { sprite: 'scale', r: 0.6, g: 0.85, b: 1, orientToHeading: true },
-  radius: 4,
-  motion: { r: 2.2, theta: 90 },
-};
-
-const PETAL: BulletSpec = {
-  style: { sprite: 'petal', r: 1, g: 0.55, b: 0.8 },
-  radius: 4,
-  // Thrown out fast and braked to a crawl, so the ring hangs in the air long
-  // enough to be read before the next one lands on top of it.
-  motion: { r: 4, theta: 90, ra: -0.06, rrange: { min: 0.5 } },
-};
-
-const NEEDLE: BulletSpec = {
-  style: { sprite: 'needle', r: 1, g: 0.9, b: 0.5, orientToHeading: true, additive: true },
-  // Half the painted thickness, with the length carried by `blade` — the shape
-  // the sprite has always drawn. See `BulletSpec.blade`.
-  radius: 2,
-  motion: { r: 3.4, theta: 90 },
-  blade: { length: 26 },
-};
-
-/**
- * The reference boss, and the reference for tuning one.
- *
- * See `REFERENCE_DPS` and `FLOOR_DPS` above for the damage model every number
- * here is derived from, and `src/game/balance.test.ts` for the measurement that
- * keeps them honest.
- *
- * Phase hp is `phaseHp(seconds)` — `REFERENCE_DPS × the seconds the phase
- * should last — and the clock is `phaseClock(hp)`, twice what the reference
- * drain needs. **Not `hp / FLOOR_DPS`**; that was the first attempt and
- * `CLOCK_MARGIN` above says at length why it was wrong — it sizes the timer so
- * the weakest loadout drains it exactly, which lets a good player time out a
- * third of the way in and makes never firing a 183-second exit. A factor of two
- * over the reference drain is the property `balance.test.ts` actually holds.
- *
- * A stage-1 boss, so it is the short one: about 28 seconds across three phases
- * on Normal, plus a fourth card sized inline below that only Lunatic fights.
- * It was 650/880/980 against a belief that the player landed 0.56 damage a
- * tick, which was itself measured at a power level nothing could reach. At the
- * rate a player actually sustains that fight ran 37 seconds while stage 2's
- * *final* boss ran 6 — the scaling was inverted end to end.
- */
-/** Six, ten and twelve seconds against a good player: ~28s of boss. */
-const SENTINEL_HP = [phaseHp(6), phaseHp(10), phaseHp(12)] as const;
-
-/**
- * The stage-1 boss carries the built-in tier authoring: every signature card
- * varies by tier, and one card exists only on Lunatic. `options` is the Normal
- * truth; each `difficulty` block is a sparse shallow merge over it (see
- * `mergeOptions`) — Easy thins the count, Lunatic raises it and tightens the
- * period, and neither is a global multiplier. The counts stay inside the
- * readability budget (`docs/assets.md`): a Lunatic curtain is markedly denser
- * but keeps negative space, which is why Lunatic tightens rather than saturates.
- * `hp`/`timeLimit` do not vary — player damage is constant across tiers, so
- * density is the only axis (`game/balance.test.ts`).
- */
-defineBoss('sentinel', {
-  sprite: 'halo',
-  radius: 20,
-  width: 56,
-  height: 56,
-  tint: { r: 0.8, g: 0.9, b: 1 },
-  // Drops in from above the field to the usual upper-third station.
-  entry: { x: 240, y: 140, ticks: 90 },
-  music: 'nemesis',
-  onDeath: 'death.big',
-  // Speakers are portrait names: the boss's own, and 'player' for the ship.
-  dialogue: [
-    { speaker: 'sentinel', text: 'Far enough.' },
-    { speaker: 'player', text: 'The gate is behind you.' },
-    { speaker: 'sentinel', text: 'The gate is me.' },
-  ],
-  phases: [
-    {
-      name: 'Approach',
-      // Six seconds: an opener, not a wall.
-      hp: SENTINEL_HP[0],
-      timeLimit: phaseClock(SENTINEL_HP[0]),
-      isSpell: false,
-      // A slow horizontal drift, reversed by the timeline so it paces rather
-      // than leaves. Aimed fire from a moving source is the whole lesson.
-      timeline: [
-        { count: 0, motion: { r: 0.9, theta: 0 } },
-        { count: 90, motion: { r: 0.9, theta: 180 } },
-        { count: 180, jump: 0 },
-      ],
-      patterns: [
-        {
-          pattern: 'aimed-fan',
-          options: { spec: SHARD, count: 5, spread: 34, period: 48 },
-          difficulty: {
-            easy: { count: 3, period: 60 },
-            hard: { count: 7, spread: 40, period: 40 },
-            lunatic: { count: 9, spread: 46, period: 36 },
-          },
-        },
-        {
-          pattern: 'spray',
-          options: { spec: SHARD, count: 2, period: 30, spread: 70 },
-          startAt: 120,
-          difficulty: {
-            easy: { count: 1, period: 40 },
-            hard: { count: 3, period: 24 },
-            lunatic: { count: 4, period: 20 },
-          },
-        },
-      ],
-    },
-    {
-      name: 'Sign "Tidal Corolla"',
-      hp: SENTINEL_HP[1],
-      timeLimit: phaseClock(SENTINEL_HP[1]),
-      isSpell: true,
-      bonus: 200000,
-      // 'surge' is the registered spell-card background. Nothing reads this
-      // field yet; naming a background that does not exist would hand the
-      // first reader a throw instead of a screen.
-      background: 'surge',
-      // Stationary: the card is a shape to be read, and a moving source would
-      // smear it into noise.
-      motion: { r: 0 },
-      patterns: [
-        // Two counter-rotating rings. Their offsets drift apart at different
-        // rates, so the safe gaps sweep instead of standing still.
-        {
-          pattern: 'ring',
-          options: { spec: PETAL, count: 18, period: 42, rotation: 9 },
-          difficulty: {
-            easy: { count: 12 },
-            hard: { count: 22, period: 36 },
-            lunatic: { count: 26, period: 33 },
-          },
-        },
-        {
-          pattern: 'ring',
-          options: { spec: PETAL, count: 18, period: 42, rotation: -14 },
-          startAt: 21,
-          difficulty: {
-            easy: { count: 12 },
-            hard: { count: 22, period: 36 },
-            lunatic: { count: 26, period: 33 },
-          },
-        },
-        // One aimed volley per cycle, so standing in a gap is not free.
-        {
-          pattern: 'aimed-fan',
-          options: { spec: NEEDLE, count: 3, spread: 18, period: 96 },
-          startAt: 60,
-          difficulty: {
-            easy: { count: 1 },
-            hard: { count: 5, spread: 24 },
-            lunatic: { count: 7, spread: 30, period: 84 },
-          },
-        },
-      ],
-    },
-    {
-      name: 'Last Sign "Vigil Unbroken"',
-      hp: SENTINEL_HP[2],
-      timeLimit: phaseClock(SENTINEL_HP[2]),
-      isSpell: true,
-      bonus: 500000,
-      // Sways through the top of the field, so the spiral's origin moves and
-      // its arms cannot be memorised as fixed lanes.
-      timeline: [
-        { count: 0, motion: { r: 1.4, theta: 0, w: 2.2 } },
-        { count: 160, jump: 0 },
-      ],
-      patterns: [
-        {
-          pattern: 'spiral',
-          options: { spec: NEEDLE, arms: 4, step: 13, period: 4 },
-          difficulty: {
-            easy: { arms: 2, period: 6 },
-            hard: { arms: 5, period: 3 },
-            lunatic: { arms: 6, period: 3 },
-          },
-        },
-        // Ring pressure arrives late, once the player has settled into reading
-        // the spiral, and is what actually makes the timer matter.
-        {
-          pattern: 'ring',
-          options: { spec: PETAL, count: 20, period: 90, rotation: 11 },
-          startAt: 240,
-          difficulty: {
-            easy: { count: 14 },
-            hard: { count: 26, period: 78 },
-            lunatic: { count: 30, period: 72 },
-          },
-        },
-        {
-          pattern: 'aimed-fan',
-          options: { spec: SHARD, count: 7, spread: 50, period: 75 },
-          startAt: 420,
-          difficulty: {
-            easy: { count: 4 },
-            hard: { count: 9, spread: 56 },
-            lunatic: { count: 11, spread: 60, period: 66 },
-          },
-        },
-      ],
-    },
-    {
-      // Lunatic-only, the genre's extra card. `difficulties: ['lunatic']` gates
-      // it off every other tier, so on Normal the fight ends after 'Vigil
-      // Unbroken' and `nextPhaseIndex` never reaches here; `defineBoss` still
-      // sees at least one phase on every tier, and reachability's normal
-      // playthrough never counts this index (it reads the active set per tier).
-      // Sized ~13s so sentinel's full clock stays under the stage-2 boss's
-      // (`game/balance.test.ts` escalation), and never fought at all on Normal.
-      name: 'Lunatic "Total Eclipse"',
-      hp: phaseHp(13),
-      timeLimit: phaseClock(phaseHp(13)),
-      isSpell: true,
-      difficulties: ['lunatic'],
-      bonus: 800000,
-      background: 'surge',
-      motion: { r: 0 },
-      patterns: [
-        { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
-        { pattern: 'ring', options: { spec: PETAL, count: 24, period: 66, rotation: 15 }, startAt: 40 },
-        { pattern: 'aimed-fan', options: { spec: SHARD, count: 7, spread: 44, period: 60 }, startAt: 90 },
-      ],
-    },
-  ],
-});

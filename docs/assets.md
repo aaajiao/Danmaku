@@ -171,7 +171,8 @@ A 32px bullet occupies 32 of the field's 480 pixels — about 6.7% of its width.
 Per-draw scaling is a different thing and it exists. `SpriteStyle.width` and
 `height` default to the region's own size (`src/render/sprite-batch.ts:31-32`,
 `:242-243`) and callers override them freely: the boss draws a 32px cell at 56px
-(`src/sim/boss.ts:746-747`), the turret at 40px (`src/sim/enemy.ts:469-470`), the
+(the base pack's `sentinel`, `tools/make-base-pack.ts:514-515`), the turret at
+40px (the base pack's `turret`, `tools/make-base-pack.ts:268-269`), the
 ship's 64px art at 40px (`src/main.ts:367-369`), and particles anywhere from
 1.6× to 0.05×. So "final display size" means the size to design *for*, not the
 only size a cell will ever be drawn at. The practical consequence is at the top
@@ -186,8 +187,9 @@ of section 3.5: detail that only reads at one size is wasted.
 The name is a historical accident and it will mislead you. **This sheet is not
 just bullets.** Every `SpriteBatch` in the game except the player's own is built
 on it (`src/main.ts:102-119`): enemies wear `orb.large`, `ring` and `halo`
-(`src/sim/enemy.ts:420`, `:441`, `:466`), the boss wears `halo`
-(`src/sim/boss.ts:744`), items wear `shard`, `star`, `mote`, `petal` and `ring`
+(the base pack's `grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), the boss
+wears `halo` (the base pack's `sentinel`, `tools/make-base-pack.ts:512`), items
+wear `shard`, `star`, `mote`, `petal` and `ring`
 (`src/sim/item.ts:407-451`), particles draw `glow.medium`, `spark`, `needle`,
 `star`, `glow.small` and `glow.large` (`src/sim/effects.ts:251-323`), and the
 player's shots draw `glow.small` and `scale` (`src/content/shots.ts:85`,
@@ -268,9 +270,10 @@ workhorse and `orb.large` still reads as a threat.
 
 The last column is stricter than it looks. It does not mean "something sets
 `orientToHeading` on this cell today" — `kunai`, `scale`, `needle` and
-`glow.small` are the only four with a caller that does
-(`src/content/stage-2.ts:95`, `src/sim/enemy.ts:423`, `src/sim/boss.ts:720`, and
-the BEAM shot at `src/content/shots.ts:308-316`). It means the shape is elongated
+`glow.small` are the only four with a caller that does (the base pack's enemy and
+boss cards in `tools/make-base-pack.ts`, `src/content/shots.ts:154`/`:222`,
+`src/sim/option.ts:276`, and the BEAM shot at `src/content/shots.ts:308-316`). It
+means the shape is elongated
 or asymmetric and so has a direction at all, and rule 7 says that direction is
 east. `shard` and `petal` have no rotating caller yet and must still be drawn
 pointing right, because the first content that rotates them will not think to
@@ -354,17 +357,17 @@ request.
 There is no `enemies.png` and no `createEnemyAtlas`. The status is not "not yet
 implemented" — enemies are drawn, right now, from the **bullet atlas**:
 `batches.enemies` is constructed on it (`src/main.ts:103`), `grunt` is a tinted
-`orb.large`, `weaver` a `ring`, `turret` a `halo` (`src/sim/enemy.ts:420`,
-`:441`, `:466`), and the boss `sentinel` is a `halo` drawn at 56×56 out of a
-32px cell (`src/sim/boss.ts:743-748`). `width` and `height` default to the cell
-size and are overridden per enemy — the turret is 40×40
-(`src/sim/enemy.ts:469-470`).
+`orb.large`, `weaver` a `ring`, `turret` a `halo` (the base pack's
+`grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), and the boss `sentinel` is
+a `halo` drawn at 56×56 out of a 32px cell (`tools/make-base-pack.ts:511-516`).
+`width` and `height` default to the cell size and are overridden per enemy — the
+turret is 40×40 (`tools/make-base-pack.ts:268-269`).
 
 Two consequences an artist should know before touching this. Enemies scale a
 32px cell up by as much as 1.75×, so the bullet sheet's cells are already being
 asked to hold up at boss size. And enemies inherit the tint discipline
 completely: every enemy on screen is white art multiplied by a `tint`
-(`src/sim/enemy.ts:423`, `:444`, `:471`), so the first enemy sheet is not
+(the base pack's per-enemy `tint`, `tools/make-base-pack.ts`), so the first enemy sheet is not
 competing against a blank screen but against silhouettes that already read at
 speed.
 

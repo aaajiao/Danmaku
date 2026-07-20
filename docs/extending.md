@@ -186,10 +186,11 @@ blob around the muzzle. Tested against a circle at its stored position instead, 
 an emitter parked above the field firing down has its beam deleted on the tick it
 spawns while most of the body — and all of the hitbox — is on screen.
 
-Growth and warmup want tuning together. `LANCE` in `src/content/stage-2.ts` is
-40px plus 28 ticks at 22px/tick, which is 656 against a 600 cap, so the beam
-finishes drawing itself out at almost exactly the tick it becomes lethal: the
-player watches a line reach across the field, and then it is live.
+Growth and warmup want tuning together. The base pack's stage-2 lance (`LANCE`,
+now JSON ammo in `base-pack.json`, authored in `tools/make-base-pack.ts`) is 40px
+plus 28 ticks at 22px/tick, which is 656 against a 600 cap, so the beam finishes
+drawing itself out at almost exactly the tick it becomes lethal: the player
+watches a line reach across the field, and then it is live.
 
 ### Blades: a bullet that is a line, but carried
 
@@ -693,17 +694,21 @@ callback firing there would run arbitrary game code while the live list is being
 rewritten.
 
 `despawnMargin` defaults to the field's own margin. Raise it for something that
-dives off the edge and is meant to come back: `turret` carries 96
-(`src/sim/enemy.ts:495`) because it crawls in from well above the field. The cull
-also refuses to fire until the enemy has been inside the field once
-(`Enemy.entered`, `src/sim/enemy.ts:105-113`), or every authored entrance would
-be deleted on the tick it was created. The cost of that is real and worth
-knowing: an enemy that spawns outside and travels further out is never culled at
-all. It is a content bug, and only the pool ceiling bounds it.
+dives off the edge and is meant to come back: the base-pack `turret` carries 96
+because it crawls in from well above the field. The cull also refuses to fire
+until the enemy has been inside the field once (`Enemy.entered`,
+`src/sim/enemy.ts:127-134`), or every authored entrance would be deleted on the
+tick it was created. The cost of that is real and worth knowing: an enemy that
+spawns outside and travels further out is never culled at all. It is a content
+bug, and only the pool ceiling bounds it.
 
-`grunt`, `weaver` and `turret` live at the bottom of `src/sim/enemy.ts` — there
-until there is a `content/enemies.ts` to hold them. Nothing in the system above
-knows they exist.
+`src/sim/enemy.ts` holds only the mechanism and its registry now — no cast. The
+base game's enemies (`grunt`, `weaver`, `turret` and stage-2's five) moved into
+the bundled base pack, authored as JSON in `tools/make-base-pack.ts` and
+registered through the injector at boot (`docs/packs.md` §9.7). Adding
+an enemy to the base campaign is a generator edit, not an inline `defineEnemy`;
+the `defineEnemy` surface remains for engine-registered content and for the tests
+that fixture their own. Nothing in the system above knows any enemy exists.
 
 **Or ship it in a pack.** An enemy is also expressible as pack data: a
 `content.enemies.<name>` in a pack's `pack.json` is this same `EnemySpec` written
@@ -915,7 +920,7 @@ them is the difficulty curve. Timing out pays a quarter of the card's bonus, so
 outlasting a phase is a worse clear rather than a free one.
 
 **Every number here is derived, and a test holds it there.**
-`src/game/balance.test.ts` re-measures `REFERENCE_DPS` from every character ×
+`src/balance.test.ts` re-measures `REFERENCE_DPS` from every character ×
 power tier × focus state and fails if player damage moves for any reason — a
 weapon tier, an option layout, a hitbox. When it fails, the boss content is what
 has to be revisited, because the constant it was sized from just changed. That
@@ -931,6 +936,14 @@ the timer so that loadout only just drains it lets a good player time out a
 third of the way in and makes never firing a 183-second exit. `phaseClock`
 exists precisely so this cannot be done by hand; `src/sim/boss.ts`'s
 `CLOCK_MARGIN` comment argues it in full.
+
+**Adding a boss to the base campaign is a generator edit.** `sentinel`, `warden`
+and `magistrate` are no longer engine `defineBoss` calls — they are JSON in
+`base-pack.json`, authored in `tools/make-base-pack.ts`, where a card states its
+health as `hpSeconds` (the same `phaseHp` seconds, reconverted by the injector)
+rather than calling `phaseHp` in TypeScript. The `defineBoss` surface documented
+above stays for engine-registered content and for a guest pack's injector path;
+the base game's bosses ride the pack pipeline (`docs/packs.md` §9.7).
 
 ---
 
@@ -1048,6 +1061,14 @@ supplies) plus `entry: true` to make it a selectable campaign and a nullable
 on a built-in boss named by string — the injector resolves all of it and the
 title menu grows a row per entry, so a pack stage is reachable without touching
 `states.ts`. See [`docs/packs.md`](./packs.md) §9.
+
+**The base game's own stages are that pack data.** `stage-1` and `stage-2` are no
+longer `defineStage` calls in `src/content/stage.ts` — that file keeps only the
+machinery. They are JSON in `base-pack.json`, authored in
+`tools/make-base-pack.ts`, and injected bare (no campaign row: the entry stage
+takes the plain START row). So extending the base campaign — a new stage, or a
+new wave in an existing one — is a generator edit; `docs/packs.md` §9.7
+covers how it round-trips byte-for-byte and the drift test that holds it.
 
 ---
 

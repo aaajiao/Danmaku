@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import '../content'; // registers built-in patterns, behaviours, enemies, bosses, stages
+import '../packs/bundled'; // built-in patterns/behaviours (via content) + the base campaign (grunt, sentinel, stage-1) the example pack references bare
 import '../sim/item'; // registers built-in items (power, score, …) — content imports it type-only
 import { getShot } from '../content/shots';
 import { getStage, hasStage } from '../content/stage';
@@ -270,6 +270,27 @@ describe('atomicity — one bad name rejects the whole pack, registries untouche
   });
 });
 
+describe('a bundled pack that fails validation throws, registering nothing (decisions-basepack §Invalid=throw)', () => {
+  test('a broken reference under bundled semantics throws PackInjectError and lands no bare name', () => {
+    const name = uniqueName();
+    // The negative twin of the happy-path `import '../packs/bundled'` every suite
+    // runs: that proves the VALID base pack does not throw; this proves an INVALID
+    // one DOES. decisions-basepack §"Invalid = throw" binds it — a bundled pack
+    // failing validation is a build defect that must fail loudly, never degrade —
+    // and `bundled.ts`'s throw at import is the runtime side of the same contract.
+    // Bundled semantics register BARE (`probe`, `arena`, not `<pack>/…`), so a leak
+    // would show under the unqualified names; the unknown sprite must reject the
+    // whole pack before any `define*` runs.
+    const m = manifest(name, {
+      enemies: { probe: enemy({ sprite: 'no-such-sprite' }) },
+      stages: { arena: { entry: true, waves: [{ at: 0, enemy: 'probe', x: 0, y: 0 }] } },
+    });
+    expect(() => injectPack(m, CTX, { bundled: true })).toThrow(PackInjectError);
+    expect(hasEnemy('probe')).toBe(false);
+    expect(hasStage('arena')).toBe(false);
+  });
+});
+
 describe('name resolution errors are golden', () => {
   test('unknown sprite', () => {
     const name = uniqueName();
@@ -308,6 +329,34 @@ describe('name resolution errors are golden', () => {
       stages: { gauntlet: stage() },
     }))).toContain(
       `pack "${name}": enemy "ember" drops unknown item "powr" — no such item in this pack or built in`,
+    );
+  });
+
+  test('a pattern firing an unknown bullet sprite', () => {
+    const name = uniqueName();
+    expect(problemsOf(manifest(name, {
+      enemies: {
+        ember: enemy({
+          patterns: [{ pattern: 'ring', options: { spec: { style: { sprite: 'orb.huge' } } } }],
+        }),
+      },
+      stages: { gauntlet: stage() },
+    }))).toContain(
+      `pack "${name}": enemy "ember" pattern "ring" fires unknown sprite "orb.huge" — known sprites: halo, orb.large, ring, shard`,
+    );
+  });
+
+  test('a pattern firing a bullet with an unknown behaviour', () => {
+    const name = uniqueName();
+    expect(problemsOf(manifest(name, {
+      enemies: {
+        ember: enemy({
+          patterns: [{ pattern: 'ring', options: { spec: { motion: { behaviour: 'homng' } } } }],
+        }),
+      },
+      stages: { gauntlet: stage() },
+    }))).toContain(
+      `pack "${name}": enemy "ember" pattern "ring" fires unknown motion behaviour "homng" — no such behaviour is registered`,
     );
   });
 
@@ -802,6 +851,32 @@ describe('content.bosses — name resolution errors are golden', () => {
       phases: [{ name: 'opening', hpSeconds: 10, patterns: [{ pattern: 'sprial' }] }],
     }))).toContain(
       `pack "${name}": boss "warlord" phase "opening" uses unknown pattern "sprial" — patterns are engine code, not pack data; no such pattern is registered`,
+    );
+  });
+
+  test('a phase pattern firing an unknown bullet sprite', () => {
+    const name = uniqueName();
+    expect(problemsOf(packWithBoss(name, {
+      phases: [{
+        name: 'opening',
+        hpSeconds: 10,
+        patterns: [{ pattern: 'ring', options: { spec: { style: { sprite: 'orb.huge' } } } }],
+      }],
+    }))).toContain(
+      `pack "${name}": boss "warlord" phase "opening" pattern "ring" fires unknown sprite "orb.huge" — known sprites: halo, orb.large, ring, shard`,
+    );
+  });
+
+  test('a phase pattern firing a bullet with an unknown behaviour', () => {
+    const name = uniqueName();
+    expect(problemsOf(packWithBoss(name, {
+      phases: [{
+        name: 'opening',
+        hpSeconds: 10,
+        patterns: [{ pattern: 'ring', options: { spec: { motion: { behaviour: 'homng' } } } }],
+      }],
+    }))).toContain(
+      `pack "${name}": boss "warlord" phase "opening" pattern "ring" fires unknown motion behaviour "homng" — no such behaviour is registered`,
     );
   });
 

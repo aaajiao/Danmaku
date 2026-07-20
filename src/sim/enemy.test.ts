@@ -196,23 +196,15 @@ describe('registry', () => {
     expect(() => getEnemySpec('test.nope')).toThrow(/unknown enemy/);
   });
 
-  test('enemyNames lists every registered enemy, including shipped content', () => {
+  test('enemyNames lists every registered enemy', () => {
+    // The shipped cast — grunt, weaver, turret and stage-2's — is no longer
+    // defined in this module; it moved into the bundled base pack, where the
+    // registry snapshot gate (`src/base-content.golden.test.ts`) pins its specs
+    // and `src/reachability.test.ts` proves each one spawns and fires. This
+    // module owns the registry, so it is verified here against its own fixtures.
     const names = enemyNames();
-
     expect(names).toContain('test.sitter');
-    expect(names).toContain('grunt');
-    expect(names).toContain('weaver');
-    expect(names).toContain('turret');
-  });
-
-  test('the shipped example enemies are spawnable and fire real patterns', () => {
-    for (const name of ['grunt', 'weaver', 'turret']) {
-      const { system, bullets } = makeSystem();
-      expect(system.spawn(name, 240, 60, rng())).toBeDefined();
-
-      stepTimes(system, 140);
-      expect(bullets.count).toBeGreaterThan(0);
-    }
+    expect(names).toContain('test.tough');
   });
 });
 

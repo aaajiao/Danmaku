@@ -5,6 +5,7 @@ import { Button } from '../core/input';
 import { sim } from '../core/random';
 import { defineBoss } from '../sim/boss';
 import { getBombSpec } from '../sim/bomb';
+import { defineEnemy } from '../sim/enemy';
 import { defineStage } from '../content/stage';
 import { deserialize, serialize, type Replay } from '../sim/replay';
 import {
@@ -64,6 +65,85 @@ defineBoss(OTHER_BOSS, {
  */
 const NO_BOSS_STAGE = 'test-no-boss-stage';
 defineStage(NO_BOSS_STAGE, { name: NO_BOSS_STAGE, outro: 0, waves: [] });
+
+/**
+ * A local stand-in for the built-in campaign, and why one is needed now.
+ *
+ * `config()` below used to default to `'stage-1'`, whose boss is `'sentinel'`,
+ * both of which this file got for free: importing `../content/stage` and
+ * `../sim/boss` registered them as a module side effect. That content moved into
+ * the bundled base pack (`src/packs/base-pack.json`), which a `src/game` unit test
+ * may not import — so this file registers its own faithful stand-in instead of
+ * depending on some other test file having injected the pack into the shared
+ * process (the exact cross-file coupling this file's `OTHER_BOSS` note condemns).
+ *
+ * `MAIN_STAGE` and `MAIN_BOSS` mirror the shape and dynamics of stage-1 and
+ * sentinel — firing enemies that drop power, a boss that flies in and fights
+ * timed phases — closely enough that every "a real run does X" assertion below
+ * (kills, graze, pickups, boss reached, entry invulnerability) holds against
+ * them. The real campaign's own behaviour is proved at the composition root by
+ * `src/base-content.golden.test.ts` and `src/reachability.test.ts`. The patterns
+ * these fire (`aimed-fan`, `ring`, `spray`) reach this file transitively through
+ * `content/stage` → `content/patterns`.
+ */
+const RUN_SHOT = { style: { sprite: 'orb.small', r: 1, g: 0.45, b: 0.75 }, radius: 3, motion: { r: 2.4, theta: 90 } };
+const RUN_HEAVY = { style: { sprite: 'scale', r: 0.55, g: 0.85, b: 1, orientToHeading: true }, radius: 4, motion: { r: 1.8, theta: 90 } };
+
+const MAIN_GRUNT = 'test-run-grunt';
+defineEnemy(MAIN_GRUNT, {
+  sprite: 'orb.large', hp: 12, radius: 11, motion: { r: 1.6, theta: 90 },
+  patterns: [{ pattern: 'aimed-fan', options: { spec: RUN_SHOT, count: 3, spread: 24, period: 50 }, startAt: 30 }],
+  spoils: [['power', 1]], scoreValue: 100, onHit: 'hit', onDeath: 'explosion',
+});
+
+const MAIN_TURRET = 'test-run-turret';
+defineEnemy(MAIN_TURRET, {
+  sprite: 'halo', hp: 60, radius: 18, width: 40, height: 40, motion: { r: 0.4, theta: 90 },
+  patterns: [{ pattern: 'ring', options: { spec: RUN_HEAVY, count: 12, period: 70, rotation: 9 }, startAt: 20 }],
+  despawnMargin: 96, spoils: [['power', 3]], scoreValue: 1000, onHit: 'hit', onDeath: 'death.big',
+});
+
+const MAIN_BOSS = 'test-run-boss';
+defineBoss(MAIN_BOSS, {
+  sprite: 'halo', radius: 20, width: 56, height: 56,
+  entry: { x: 240, y: 140, ticks: 90 },
+  onDeath: 'death.big',
+  phases: [
+    {
+      name: 'Approach', hp: 410, timeLimit: 730, isSpell: false,
+      patterns: [{ pattern: 'aimed-fan', options: { spec: RUN_HEAVY, count: 5, spread: 34, period: 48 } }],
+    },
+    {
+      name: 'Vigil', hp: 810, timeLimit: 1440, isSpell: true, motion: { r: 0 },
+      patterns: [{ pattern: 'ring', options: { spec: RUN_SHOT, count: 18, period: 42, rotation: 9 } }],
+    },
+  ],
+});
+
+const MAIN_STAGE = 'test-run-stage';
+const RY = -24;
+defineStage(MAIN_STAGE, {
+  name: MAIN_STAGE, seed: 0x5747a1, outro: 180, boss: MAIN_BOSS,
+  // The scene and track the run reports (the `scene`/`music` blocks below read
+  // these off `config()`'s default stage), the same two the built-in stage-1
+  // declared. They are plain strings the shell resolves — the sim never learns a
+  // shader or a track exists — so a game-side unit test names them freely.
+  background: 'expanse', music: 'vigil',
+  waves: [
+    { at: 0, enemy: MAIN_GRUNT, x: 120, y: RY, count: 5, interval: 20 },
+    { at: 30, enemy: MAIN_GRUNT, x: 360, y: RY, count: 5, interval: 20 },
+    { at: 200, enemy: MAIN_GRUNT, x: 150, y: RY, count: 5, interval: 0, stepX: 45, stepY: -18 },
+    { at: 440, enemy: MAIN_GRUNT, x: 240, y: RY, count: 4, interval: 24 },
+    { at: 760, enemy: MAIN_TURRET, x: 240, y: -60 },
+    { at: 820, enemy: MAIN_GRUNT, x: 60, y: RY, count: 4, interval: 40 },
+    { at: 840, enemy: MAIN_GRUNT, x: 420, y: RY, count: 4, interval: 40 },
+    { at: 1160, enemy: MAIN_GRUNT, x: 90, y: RY, count: 6, interval: 0, stepX: 60, stepY: -20 },
+    { at: 1320, enemy: MAIN_GRUNT, x: 300, y: RY, count: 8, interval: 14, stepX: -18 },
+    { at: 1500, enemy: MAIN_TURRET, x: 140, y: -60 },
+    { at: 1500, enemy: MAIN_TURRET, x: 340, y: -60 },
+    { at: 1620, enemy: MAIN_GRUNT, x: 60, y: RY, count: 6, interval: 18, stepX: 72 },
+  ],
+});
 
 /**
  * A scripted pilot: deterministic, busy, and not a straight line.
@@ -155,7 +235,7 @@ function trace(run: Run, ticks: number, sample = 15): string {
 }
 
 function config(overrides: Partial<RunConfig> = {}): RunConfig {
-  return { seed: SEED, character: ENDURANCE, ...overrides };
+  return { seed: SEED, character: ENDURANCE, stage: MAIN_STAGE, ...overrides };
 }
 
 /* ------------------------------------------------------------------ */
@@ -286,12 +366,12 @@ describe('record then replay', () => {
   test('replaying a full run to its natural end reproduces the outcome', () => {
     // Long enough to actually finish: the stage runs out, the boss arrives,
     // and the run ends on its own rather than on the loop bound.
-    const live = new Run(config({ boss: 'sentinel' }));
+    const live = new Run(config({ boss: MAIN_BOSS }));
     for (let t = 0; t < 12000 && !live.finished; t++) live.tick(script(t));
     expect(live.finished).toBe(true);
 
     const replay = live.finishRecording();
-    const playback = new Run(config({ boss: 'sentinel', replay }));
+    const playback = new Run(config({ boss: MAIN_BOSS, replay }));
     while (!playback.finished && playback.tickCount < replay.length) playback.tick(0);
 
     expect(playback.outcome).toBe(live.outcome);
@@ -320,7 +400,7 @@ describe('record then replay', () => {
     // for the life of the project is the bug in miniature — the value the
     // shipped shell actually passed was `undefined`, and every guard written
     // against it agreed the run had no boss to fight.
-    const live = new Run(config({ boss: 'sentinel' }));
+    const live = new Run(config({ boss: MAIN_BOSS }));
     play(live, 300);
     const replay = live.finishRecording();
     expect(() => new Run(config({ boss: OTHER_BOSS, replay }))).toThrow(/boss/);
@@ -334,7 +414,7 @@ describe('record then replay', () => {
     // and failed the moment this file ran alone — a registry dependency on
     // another test file, which is the flake `content/index.ts` exists to stop.
     // That mapping is `reachability.test.ts`'s to prove; it imports both halves.
-    expect(new Run(config()).bossName).toBe('sentinel');
+    expect(new Run(config()).bossName).toBe(MAIN_BOSS);
     expect(new Run(config({ boss: OTHER_BOSS })).bossName).toBe(OTHER_BOSS);
   });
 
@@ -348,12 +428,12 @@ describe('record then replay', () => {
   });
 
   test('the recording carries what it was flown with', () => {
-    const live = new Run(config({ character: 'lance', boss: 'sentinel' }));
+    const live = new Run(config({ character: 'lance', boss: MAIN_BOSS }));
     play(live, 240);
     const replay = live.finishRecording();
     expect(replay.meta?.['character']).toBe('lance');
-    expect(replay.meta?.['stage']).toBe('stage-1');
-    expect(replay.meta?.['boss']).toBe('sentinel');
+    expect(replay.meta?.['stage']).toBe(MAIN_STAGE);
+    expect(replay.meta?.['boss']).toBe(MAIN_BOSS);
     expect(replay.seed).toBe(SEED);
   });
 
@@ -483,7 +563,7 @@ describe('lifecycle', () => {
   });
 
   test('a boss run does not clear until the boss is gone', () => {
-    const run = new Run(config({ boss: 'sentinel' }));
+    const run = new Run(config({ boss: MAIN_BOSS }));
     let sawBoss = false;
     for (let t = 0; t < 40000 && !run.finished; t++) {
       run.tick(script(t));
@@ -574,7 +654,7 @@ describe('rules', () => {
   });
 
   test('a boss is invulnerable while it flies in', () => {
-    const run = new Run(config({ boss: 'sentinel' }));
+    const run = new Run(config({ boss: MAIN_BOSS }));
     for (let t = 0; t < 40000; t++) {
       run.tick(script(t));
       const boss = run.boss.boss;

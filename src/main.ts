@@ -14,6 +14,12 @@ import './content';
 // background module nobody imports fails at the moment the stage is entered —
 // far from the file that is actually missing. See render/backgrounds/index.ts.
 import './render/backgrounds';
+// The built-in campaign is a bundled pack now: stage-1/stage-2, their cast and
+// bosses register by injecting `base-pack.json` at import. It must run AFTER
+// content (the patterns it names) and the scenes/portraits above, and BEFORE
+// loadPacks below so a fetched pack naming a base name still qualifies away from
+// it. START keeps resolving 'stage-1'. See packs/bundled.ts.
+import './packs/bundled';
 
 import * as THREE from 'three';
 import { Audio, defineSound } from './audio';

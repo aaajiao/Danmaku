@@ -26,20 +26,33 @@
  * playable, not that it is reproducible. `determinism.test.ts` owns the latter.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 
-import '../content';
-import { Button } from '../core/input';
+import './packs/bundled';
+import { Button } from './core/input';
+import { fx, sim } from './core/random';
 import {
   bossNames,
   CLOCK_MARGIN,
   FLOOR_DPS,
   getBossSpec,
   REFERENCE_DPS,
-} from '../sim/boss';
-import { defineEnemy, enemyNames, getEnemySpec } from '../sim/enemy';
-import { defineStage } from '../content/stage';
-import { characterNames, Run } from './run';
+} from './sim/boss';
+import { defineEnemy, enemyNames, getEnemySpec } from './sim/enemy';
+import { defineStage } from './content/stage';
+import { characterNames, Run } from './game/run';
+
+// This file's tests drive whole runs, which advances the global sim/fx streams,
+// and bun loads-and-runs test files one at a time — so core/random.test.ts,
+// which asserts both streams are pristine at its own import, would otherwise see
+// this file's leftovers when it loads next. Restore what was found on the way
+// out, the same good-citizen pattern base-content.golden.test.ts uses.
+const SIM_ENTRY_STATE = sim.getState();
+const FX_ENTRY_STATE = fx.getState();
+afterAll(() => {
+  sim.setState(SIM_ENTRY_STATE);
+  fx.setState(FX_ENTRY_STATE);
+});
 
 /**
  * A target that cannot die, so pooling can never recycle it mid-measurement and
