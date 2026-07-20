@@ -85,6 +85,27 @@ export interface CharacterSpec {
   bomb: string;
   /** One line of flavour for the select screen. */
   blurb?: string;
+  /**
+   * The atlas region this ship is drawn from, by name.
+   *
+   * Every other on-screen thing in the game names its own sprite this way —
+   * `EnemySpec`, `BossSpec`, `ItemSpec`, `OptionSpec`, `BulletStyle` — and the
+   * player was the one that did not. The shell hard-coded `'ship'` at 40×40,
+   * so a roster of four ships with visibly different roles had exactly one
+   * silhouette between them and nowhere to put a second when real art arrives.
+   *
+   * `main.ts` already fixed this once for options, and its comment there says
+   * why: a shell that picks its own sprite makes the spec's field decorative.
+   * The player is the case that was not carried across.
+   *
+   * All four ships name `'ship'` today because that is the only region the
+   * placeholder generator paints. The field is what lets that stop being true
+   * without editing the shell — see `docs/assets.md` §3.2.
+   */
+  sprite: string;
+  /** Drawn size in px. Defaults to 40×40, the size the shell used to hard-code. */
+  width?: number;
+  height?: number;
 }
 
 const characters = new Map<string, CharacterSpec>();
@@ -1140,6 +1161,7 @@ const START_Y = FIELD.height - 72;
  */
 defineCharacter('scout', {
   label: 'SCOUT',
+  sprite: 'ship',
   blurb: 'even fire, wide bomb',
   options: 'standard',
   bomb: 'spread',
@@ -1160,6 +1182,7 @@ defineCharacter('scout', {
 
 defineCharacter('lance', {
   label: 'LANCE',
+  sprite: 'ship',
   blurb: 'homing options, focused bomb',
   options: 'seeker',
   bomb: 'lance',
@@ -1223,6 +1246,7 @@ defineCharacter('lance', {
  */
 defineCharacter('hound', {
   label: 'HOUND',
+  sprite: 'ship',
   blurb: 'self-aiming gun, hand-aimed options',
   options: 'picket',
   bomb: 'spread',
@@ -1284,6 +1308,7 @@ defineCharacter('hound', {
  */
 defineCharacter('spire', {
   label: 'SPIRE',
+  sprite: 'ship',
   blurb: 'planted beam, point-blank bomb',
   options: 'seeker',
   bomb: 'lance',

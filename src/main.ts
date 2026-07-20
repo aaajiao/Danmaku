@@ -20,10 +20,11 @@ import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
 import { StateMachine } from './game/state';
+import { EVENT_SOUNDS } from './game/cues';
 import type { Replay } from './sim/replay';
 import type { Run, RunEventType } from './game/run';
 import { Background } from './render/background';
-import { createBulletAtlas, createShipAtlas } from './render/procedural';
+import { bulletAtlas as makeBulletAtlas, createShipAtlas } from './render/procedural';
 import { PostProcessing } from './render/post';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
@@ -55,7 +56,28 @@ const SCENE_FADE_TICKS = 60;
  */
 const background = new Background(stage, 'drift');
 
-const bulletAtlas = createBulletAtlas();
+/**
+ * Where the bullet sheet comes from — **the one line real art changes.**
+ *
+ * `undefined` generates the placeholder set. To ship real art, import the PNG
+ * and put the URL here:
+ *
+ * ```ts
+ * import BULLETS_URL from './assets/bullets.png';
+ * const BULLET_SHEET: string | undefined = BULLETS_URL;
+ * ```
+ *
+ * A bundler-resolved `import`, not `new URL(..., import.meta.url)` — under this
+ * dev server that form keeps the source file's `file://` path in the client
+ * bundle and 404s. `makeBulletAtlas` checks the sheet's dimensions against the
+ * grid and throws naming both, because a wrong-sized sheet otherwise repoints
+ * every cell at a crop of the wrong shape and the game simply runs.
+ *
+ * See `docs/assets.md` §5.
+ */
+const BULLET_SHEET: string | undefined = undefined;
+
+const bulletAtlas = await makeBulletAtlas(BULLET_SHEET);
 const shipAtlas = createShipAtlas();
 
 /** One batch per layer and blend mode; each is a single instanced draw call. */
@@ -149,34 +171,6 @@ machine.push(new TitleState(context));
 
 let unlocked = false;
 
-/**
- * Sound is a reaction to events the run drains, never something it triggers.
- *
- * Typed as a `Partial<Record<RunEventType, …>>` rather than
- * `Record<string, string>`, and that is the fix, not decoration. The old type
- * accepted any key, so `'item-collected'` — a `RunEventType` that has never
- * existed; the run emits `'pickup'` — sat here silently for the life of the
- * project and every pickup in every run was mute. Under this annotation the
- * same typo is a compile error (verified: TS2353), which turns a whole class
- * of "wired to a name nobody checked" into something the build catches.
- */
-const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
-  shot: 'shot',
-  'shot-hit': 'hit',
-  'enemy-killed': 'explosion',
-  'boss-hit': 'hit',
-  'boss-entered': 'explosion',
-  'boss-phase': 'pickup',
-  'boss-cleared': 'explosion',
-  'boss-defeated': 'explosion',
-  'player-death': 'death',
-  pickup: 'pickup',
-  extend: 'pickup',
-  graze: 'graze',
-  bomb: 'explosion',
-  cleared: 'pickup',
-  failed: 'death',
-};
 
 const loop = new Loop({
   tick() {
@@ -347,9 +341,14 @@ function drawRun(run: Run): void {
   const player = run.player;
   if (player.alive) {
     const blink = player.invuln > 0 && Math.floor(player.invuln / 4) % 2 === 0;
-    batches.player.draw(player.x, player.y, 'ship', {
-      width: 40,
-      height: 40,
+    // Read from the spec, not hardcoded — the same rule the option draw below
+    // already follows. A shell that picks the player's sprite makes
+    // `CharacterSpec.sprite` decorative, and leaves a four-ship roster with
+    // one silhouette and nowhere to put the others when real art lands.
+    const ship = run.character;
+    batches.player.draw(player.x, player.y, ship.sprite, {
+      width: ship.width ?? 40,
+      height: ship.height ?? 40,
       a: blink ? 0.35 : 1,
       g: blink ? 0.5 : 1,
       b: blink ? 0.5 : 1,

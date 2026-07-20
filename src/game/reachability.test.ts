@@ -68,11 +68,13 @@ import '../content';
 import { Button } from '../core/input';
 import { bossNames, getBossSpec } from '../sim/boss';
 import { effectNames, getEffectSpec } from '../sim/effects';
+import { soundNames } from '../audio';
 import { bombNames } from '../sim/bomb';
 import { itemNames } from '../sim/item';
 import { getOptionSpec, optionNames } from '../sim/option';
 import { getStage, stageNames } from '../content/stage';
 import { getShot, shotNames } from '../content/shots';
+import { EVENT_SOUNDS } from './cues';
 import { StateMachine } from './state';
 import { TitleState, type GameContext } from './states';
 import { characterNames, type Run, type RunEventType } from './run';
@@ -448,6 +450,42 @@ describe('a real playthrough reaches', () => {
 
   test('every registered option formation', () => {
     expect([...COVER.optionSets].sort()).toEqual(content(optionNames()).sort());
+  });
+
+  test('every registered sound, via an event something raises', () => {
+    // Two claims, and the suite could previously make neither. The table lived
+    // in `main.ts`, which no test can import, so a registered sound that
+    // nothing pointed an event at was silent forever with everything green —
+    // the state four of the six were in.
+    //
+    // Left column: every cue names a sound that exists. Right column: every
+    // registered sound is named by some cue. Both are needed. A cue naming a
+    // sound nobody registered is a mute event; a sound no cue names is an
+    // asset someone will author and never hear.
+    const cued = new Set(Object.values(EVENT_SOUNDS));
+    for (const name of cued) {
+      expect(`${name} is registered: ${soundNames().includes(name)}`).toBe(
+        `${name} is registered: true`,
+      );
+    }
+    expect([...cued].sort()).toEqual(content(soundNames()).sort());
+
+    // And every registered sound is reachable through an event this probe
+    // actually raised. Not "every cue-event is raised": `failed` (game over)
+    // cues `death`, and this pilot is immortal by construction, so that row
+    // never fires — but `death` is still heard, because `player-death` cues it
+    // too. The claim that matters is that no sound is stranded behind only
+    // unreachable events, and it is asserted per sound rather than per cue.
+    const reachableSounds = new Set(
+      (Object.entries(EVENT_SOUNDS) as [RunEventType, string][])
+        .filter(([type]) => COVER.events.has(type))
+        .map(([, sound]) => sound),
+    );
+    for (const name of content(soundNames())) {
+      expect(`${name} reachable: ${reachableSounds.has(name)}`).toBe(
+        `${name} reachable: true`,
+      );
+    }
   });
 
   test('every registered bomb, actually detonated', () => {

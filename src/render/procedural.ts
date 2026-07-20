@@ -7,8 +7,17 @@
  *
  * This doubles as the executable specification for the real art set: the grid
  * geometry, cell count and pivot conventions defined here are exactly what
- * `docs/assets.md` asks an artist or an image model to match. Replacing this
- * with a loaded PNG must not require touching anything else.
+ * `docs/assets.md` asks an artist or an image model to match.
+ *
+ * **Real art replaces the pixels, not this module.** Call `bulletAtlas(url)`
+ * instead of `bulletAtlas()` and the sheet comes from a PNG; that is the entire
+ * swap, and the seam is documented on that function. The header used to claim
+ * "replacing this with a loaded PNG must not require touching anything else",
+ * which was an intention rather than a description — there was no such
+ * function, and doing it by hand meant reordering `main.ts`'s module top level.
+ * The contract also lives here and outlives any swap: `BULLET_GRID`,
+ * `BULLET_CELLS`, `MAX_CELL_EXTENT`, `CELL_ART`, and the `BulletCell` type that
+ * `sim/effects.ts` imports.
  *
  * Bullets are drawn **white** and tinted per-instance by the shader. One
  * greyscale shape therefore serves every colour in the game, which is why the
@@ -16,7 +25,7 @@
  */
 
 import * as THREE from 'three';
-import { Atlas, type GridSpec } from './atlas';
+import { Atlas, loadAtlas, type GridSpec } from './atlas';
 
 /** Every generated sheet uses this grid. The real art set must match it. */
 export const BULLET_GRID: GridSpec = { cellW: 32, cellH: 32 };
@@ -297,6 +306,55 @@ export function createBulletAtlas(): Atlas {
   texture.needsUpdate = true;
 
   const atlas = new Atlas(texture, width, height, BULLET_GRID);
+  atlas.defineGrid([...BULLET_CELLS]);
+  return atlas;
+}
+
+/**
+ * The bullet sheet, generated or loaded — **the seam real art arrives through**.
+ *
+ * This function is the whole integration point. Pass a URL and the sheet comes
+ * from a PNG; pass nothing and it is generated as before. Both branches end in
+ * the same two lines — `defineGrid([...BULLET_CELLS])` and the filter — so the
+ * cell names, their order and the grid are identical either way, and every
+ * consumer downstream is genuinely untouched.
+ *
+ * It exists because the header above promised it and the code did not deliver
+ * it: substituting a loaded sheet used to mean reordering `main.ts`'s module
+ * top level, re-deciding the texture filter, and remembering `defineGrid`
+ * yourself. Three chances to get it wrong, in a procedure documented in two
+ * places that disagreed.
+ *
+ * ## The dimension check is the point, not a courtesy
+ *
+ * A sheet of the wrong size does not fail. `Atlas` computes UVs from the
+ * dimensions it is handed, so a 512×128 sheet where a 256×64 one was expected
+ * silently repoints all sixteen cells at quarter-size crops of the wrong
+ * shapes, and the game runs. That is a bad afternoon with no error message, so
+ * a mismatch throws here instead — naming both figures, because "wrong size" is
+ * not actionable and "got 512×128, expected 256×64" is.
+ *
+ * ## `procedural.ts` survives the swap; only its texture source changes
+ *
+ * Worth stating plainly, because the file is named "placeholder art" and reads
+ * like something to delete. The *contract* lives here too — `BULLET_GRID`,
+ * `BULLET_CELLS`, `BULLET_COLUMNS`/`ROWS`, `MAX_CELL_EXTENT`, `CELL_ART` and
+ * the `BulletCell` type that `sim/effects.ts` imports — and `tools/` and the
+ * visual pages read it as well. Real art replaces the pixels, not the module.
+ */
+export async function bulletAtlas(url?: string): Promise<Atlas> {
+  if (url === undefined) return createBulletAtlas();
+
+  const atlas = await loadAtlas(url, BULLET_GRID);
+  const expectedW = BULLET_GRID.cellW * BULLET_COLUMNS;
+  const expectedH = BULLET_GRID.cellH * BULLET_ROWS;
+  if (atlas.width !== expectedW || atlas.height !== expectedH) {
+    throw new Error(
+      `bullet sheet "${url}" is ${atlas.width}×${atlas.height}, ` +
+        `expected ${expectedW}×${expectedH} ` +
+        `(${BULLET_COLUMNS}×${BULLET_ROWS} cells of ${BULLET_GRID.cellW}×${BULLET_GRID.cellH})`,
+    );
+  }
   atlas.defineGrid([...BULLET_CELLS]);
   return atlas;
 }

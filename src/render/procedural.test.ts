@@ -35,7 +35,14 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { BULLET_CELLS, BULLET_GRID, CELL_ART, MAX_CELL_EXTENT } from './procedural';
+import {
+  BULLET_CELLS,
+  BULLET_COLUMNS,
+  BULLET_GRID,
+  BULLET_ROWS,
+  CELL_ART,
+  MAX_CELL_EXTENT,
+} from './procedural';
 
 describe('cell padding', () => {
   test('every cell leaves at least 2px of margin', () => {
@@ -54,6 +61,17 @@ describe('cell padding', () => {
   test('every named cell has art, and every art is named', () => {
     // A cell with no painter draws nothing and reads as an invisible bullet.
     expect(Object.keys(CELL_ART).sort()).toEqual([...BULLET_CELLS].sort());
+  });
+
+  test('the cell list fits the grid it is packed into', () => {
+    // `createBulletAtlas` lays cells out row-major into a
+    // BULLET_COLUMNS × BULLET_ROWS grid. One name past that capacity does not
+    // fail — it wraps to `row = 2` and paints off the bottom of a sheet sized
+    // for two rows, so the last cells silently overlap earlier ones and the
+    // atlas hands back UVs for a region that was overwritten. Adding a
+    // sixteenth-plus bullet is exactly the kind of edit a real art drop makes,
+    // so the capacity is asserted rather than trusted.
+    expect(BULLET_CELLS.length).toBeLessThanOrEqual(BULLET_COLUMNS * BULLET_ROWS);
   });
 });
 
