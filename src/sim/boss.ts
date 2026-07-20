@@ -620,6 +620,79 @@ export class BossSystem {
  * to hold it.
  */
 
+/* ------------------------------------------------------------------ */
+/* The damage model every boss is tuned against                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Damage per tick a competent player sustains on a boss.
+ *
+ * **Measured, and kept measured.** `src/game/balance.test.ts` drives the real
+ * `Run` with every shipped character at every reachable power tier and fails if
+ * this constant stops describing them. That test is the whole point of the
+ * constant existing: the number it replaces was a literal, typed once, and
+ * everything downstream inherited it without anyone able to check it.
+ *
+ * What it replaced was wrong twice over. It read 0.56, taken from "an immortal
+ * probe at full power" — a power level `addPower` clamped to 0, so no player
+ * could reach it — and the rate actually reachable at the time was about 0.40.
+ * `sentinel` was then sized so its phases needed more ticks than their clocks
+ * allowed, and `stage-2.ts` read that, concluded the reference was far too
+ * generous, and sized its own bosses an order of magnitude *below* it. The
+ * midboss ended up with less health than two `bastion` trash enemies. One
+ * unverifiable literal, and every consumer of it went wrong in a different
+ * direction.
+ *
+ * The figure is the weakest ship at one power tier, unfocused — not the
+ * ceiling. Nobody holds the ceiling for a whole fight.
+ */
+export const REFERENCE_DPS = 1.125;
+
+/**
+ * The weakest rate a player who has collected *anything* is flying at.
+ *
+ * Explicitly **not** the absolute minimum. Bare tier 0 with no options measures
+ * 0.333, but arriving at a boss having picked up nothing at all is a failure
+ * state, and sizing every clock for it would make timing out impossible for
+ * anyone else — a spell card's timer is meant to be a real second exit, not
+ * decoration. This is one power tier in, unfocused, on the weaker ship for that
+ * loadout: measured 0.403.
+ *
+ * Time limits are derived from this rather than from `REFERENCE_DPS`, so that
+ * **every phase is drainable by every loadout a real player arrives with**. A
+ * phase whose clock expires before its health can be spent is not a difficulty
+ * setting, it is a cutscene: the fight lasts exactly as long either way and
+ * nothing the player does changes the outcome. Every non-spell opening phase in
+ * the game was one.
+ */
+export const FLOOR_DPS = 0.4;
+
+/** Phase health for a phase intended to last `seconds` against a good player. */
+export function phaseHp(seconds: number): number {
+  return Math.round((REFERENCE_DPS * seconds * 60) / 10) * 10;
+}
+
+/**
+ * How long a phase's timer runs: **twice** what a competent player needs.
+ *
+ * Not `hp / FLOOR_DPS`, which was the first attempt. Sizing the clock so the
+ * weakest arrival loadout drains it exactly means a good player uses a third of
+ * the timer, the timer stops being a real exit, and a player who never fires
+ * still gets to sit through 183 seconds of boss. Twice the reference drain is
+ * the genre's own answer: a good player finishes at half distance, a weak one
+ * times out, and timing out is a clear worth a quarter of the card.
+ *
+ * The property that actually matters — the one whose absence made every
+ * non-spell opening phase a cutscene — is that the clock is comfortably longer
+ * than the health takes to spend at a rate the player can reach. That is what
+ * `game/balance.test.ts` asserts, and it is what a factor of two buys.
+ */
+export const CLOCK_MARGIN = 2;
+
+export function phaseClock(hp: number): number {
+  return Math.ceil((hp / REFERENCE_DPS) * CLOCK_MARGIN / 10) * 10;
+}
+
 const SHARD: BulletSpec = {
   style: { sprite: 'scale', r: 0.6, g: 0.85, b: 1, orientToHeading: true },
   radius: 4,
@@ -646,23 +719,24 @@ const NEEDLE: BulletSpec = {
 /**
  * The reference boss, and the reference for tuning one.
  *
- * ## The damage model these numbers assume
+ * See `REFERENCE_DPS` and `FLOOR_DPS` above for the damage model every number
+ * here is derived from, and `src/game/balance.test.ts` for the measurement that
+ * keeps them honest.
  *
- * Measured, not guessed: an immortal probe at full power, tracking its target
- * and holding Shot, lands **0.56 damage per tick** on a boss. A real player
- * lands roughly 0.4 — they dodge, they lose power, they die.
+ * Phase hp is `REFERENCE_DPS x the seconds the phase should last`, and the
+ * clock is `hp / FLOOR_DPS` rounded up — so a competent player drains it in the
+ * intended time and the weakest reachable loadout can still drain it at all,
+ * rather than being told to sit through a timer it can never beat.
  *
- * Phase hp is set so a strong player drains at about **65% of the time limit**,
- * which leaves a weaker one timing out. Both are clears; only the bonus differs.
- * That gap is the difficulty curve, and it is the whole reason a phase has both
- * a health pool and a timer.
- *
- * These were previously 900/1400/1800, which needed 1607/2500/3214 ticks
- * against limits of 1800/2400/2700 — so two of the three phases could not be
- * drained by *any* player, and the fight's length was independent of how well
- * it was fought. If you change player damage, change these with it, or the
- * relationship silently inverts again.
+ * A stage-1 boss, so it is the short one: about 30 seconds across three phases.
+ * It was 650/880/980 against a belief that the player landed 0.56 damage a
+ * tick, which was itself measured at a power level nothing could reach. At the
+ * rate a player actually sustains that fight ran 37 seconds while stage 2's
+ * *final* boss ran 6 — the scaling was inverted end to end.
  */
+/** Six, ten and twelve seconds against a good player: ~28s of boss. */
+const SENTINEL_HP = [phaseHp(6), phaseHp(10), phaseHp(12)] as const;
+
 defineBoss('sentinel', {
   sprite: 'halo',
   radius: 20,
@@ -675,8 +749,9 @@ defineBoss('sentinel', {
   phases: [
     {
       name: 'Approach',
-      hp: 650,
-      timeLimit: 60 * 30,
+      // Six seconds: an opener, not a wall.
+      hp: SENTINEL_HP[0],
+      timeLimit: phaseClock(SENTINEL_HP[0]),
       isSpell: false,
       // A slow horizontal drift, reversed by the timeline so it paces rather
       // than leaves. Aimed fire from a moving source is the whole lesson.
@@ -692,8 +767,8 @@ defineBoss('sentinel', {
     },
     {
       name: 'Sign "Tidal Corolla"',
-      hp: 880,
-      timeLimit: 60 * 45,
+      hp: SENTINEL_HP[1],
+      timeLimit: phaseClock(SENTINEL_HP[1]),
       isSpell: true,
       bonus: 200000,
       // 'surge' is the registered spell-card background. Nothing reads this
@@ -714,8 +789,8 @@ defineBoss('sentinel', {
     },
     {
       name: 'Last Sign "Vigil Unbroken"',
-      hp: 980,
-      timeLimit: 60 * 50,
+      hp: SENTINEL_HP[2],
+      timeLimit: phaseClock(SENTINEL_HP[2]),
       isSpell: true,
       bonus: 500000,
       // Sways through the top of the field, so the spiral's origin moves and

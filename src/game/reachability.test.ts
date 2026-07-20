@@ -1,0 +1,384 @@
+/**
+ * Every registered name a real run actually reaches.
+ *
+ * The third whole-tree test, alongside `determinism.test.ts` (approximated
+ * `Math` in the headless trees) and `architecture.test.ts` (renderer imports in
+ * them). Each exists because the thing it checks fails silently, and this one
+ * covers the failure class that produced most of this project's audit:
+ *
+ *   **content that is written, registered, tested, and unreachable.**
+ *
+ * The distinction matters and it is exactly where the existing guards stop.
+ * `content/index.ts` and its test prove every content module is *imported*, so
+ * its `define*` calls run and its names resolve. That was itself written after
+ * `behaviours`, `shots` and `stage-2` shipped absent from the bundle. It fixed
+ * registration. It could not fix reachability, and the identical gap moved up
+ * one layer — from the bundler to the state machine — where nothing was looking:
+ *
+ *  - Three bosses, ten phases, seven spell cards: registered, and no boss fight
+ *    existed in the shipped game, because `GameContext` never named one.
+ *  - Stage 2 entire — five enemy types, a midboss, a four-phase boss, both
+ *    perspective backgrounds, all four motion behaviours: registered, and no
+ *    sequence of inputs could reach it, because clearing a stage offered only
+ *    RETRY and TITLE.
+ *  - Three weapons at four tiers each: registered, and `getShot` had no
+ *    production caller.
+ *  - Four of five item kinds, three of six particle effects, four of six
+ *    sounds: registered, emitted by nothing.
+ *
+ * Every one of those was green under 1289 passing tests, because a unit test
+ * supplies the missing wire itself. `player.test.ts` built its own three-entry
+ * shot table, so the clamp was tested against content that was not shipped;
+ * `option.test.ts` passed `powerLevel` explicitly, proving tiers the game could
+ * not reach. That is not a criticism of those tests — it is what a unit test
+ * *is*. Reachability has to be asserted against the real machine or not at all.
+ *
+ * So this file drives the real `StateMachine` through the real `GameContext`,
+ * the way `main.ts` does, and asserts that the registries are covered by what
+ * actually happens.
+ *
+ * ## It has been watched failing
+ *
+ * Deleting two lines from `stage-1` — its `boss` and its `next`, which is
+ * exactly the state the project shipped in — turns 24 passing assertions here
+ * into 10, with 14 failures naming the stage, the bosses, their phases, the
+ * scenes, four of five item kinds, the power ceiling, the ending screen and six
+ * event types. The rest of the suite stays green throughout. That is the
+ * measurement of what this file is worth, and it is why it exists rather than a
+ * longer list of unit tests.
+ *
+ * ## The pilot is a competent player, compressed
+ *
+ * It is mortal for the opening of each run and untouchable afterwards, and both
+ * halves are load-bearing. The deaths give `player-death` and the power-loss
+ * economy real coverage. The clean stretch is what lets it capture spell cards,
+ * and therefore what makes the score-gated `life` item reachable at all — a
+ * flailing pilot finishes the game on 52,000 points and a clean one on 547,000,
+ * so a probe that only flails would report the extend threshold as unreachable
+ * content rather than as its own lack of skill.
+ *
+ * Lives are refilled regardless. This measures **can a player reach this**, not
+ * **can a player survive this** — different questions, and only the first has an
+ * objective answer. Difficulty belongs in `balance.test.ts`.
+ */
+
+import { describe, expect, test } from 'bun:test';
+
+import '../content';
+import { Button } from '../core/input';
+import { bossNames, getBossSpec } from '../sim/boss';
+import { effectNames, getEffectSpec } from '../sim/effects';
+import { itemNames } from '../sim/item';
+import { getOptionSpec, optionNames } from '../sim/option';
+import { getStage, stageNames } from '../content/stage';
+import { getShot, shotNames } from '../content/shots';
+import { StateMachine } from './state';
+import { TitleState, type GameContext } from './states';
+import type { Run, RunEventType } from './run';
+
+/**
+ * Ticks at the start of each run during which the pilot can be killed.
+ * Comfortably before any boss arrives, so deaths land on the stage script and
+ * spell-card captures are unaffected.
+ */
+const MORTAL_TICKS = 1500;
+
+/** Registered under a `test`/`probe`/`balance` prefix: fixtures, not content. */
+const isFixture = (name: string): boolean =>
+  name.startsWith('test') || name.startsWith('probe.') || name.startsWith('balance.');
+
+const content = (names: readonly string[]): string[] => names.filter((n) => !isFixture(n));
+
+interface Coverage {
+  states: Set<string>;
+  stages: Set<string>;
+  bosses: Set<string>;
+  phases: Set<string>;
+  items: Set<string>;
+  effects: Set<string>;
+  events: Set<RunEventType>;
+  scenes: Set<string>;
+  maxPower: number;
+  maxOptions: number;
+  ticks: number;
+}
+
+/**
+ * Play the game from the title screen to the end, and report what was touched.
+ *
+ * Menus are driven by pulsing CONFIRM on alternate ticks, because `Edges` reads
+ * a press as an edge — holding the button would confirm once and then sit.
+ */
+function playThroughGame(limit = 400_000): Coverage {
+  const machine = new StateMachine();
+  let seed = 1;
+  const ctx: GameContext = { machine, nextSeed: () => 0x51ee + seed++ };
+  machine.push(new TitleState(ctx));
+
+  const cover: Coverage = {
+    states: new Set(),
+    stages: new Set(),
+    bosses: new Set(),
+    phases: new Set(),
+    items: new Set(),
+    effects: new Set(),
+    events: new Set(),
+    scenes: new Set(),
+    maxPower: 0,
+    maxOptions: 0,
+    ticks: 0,
+  };
+
+  let confirm = 0;
+  let seenRuns = 0;
+  let lastRun: Run | undefined;
+  /**
+   * Where the pilot is steering, observed at the end of the previous tick.
+   *
+   * A sweeping pilot that never lines up under a boss times every card out
+   * instead of damaging one — the first version of this probe cleared all ten
+   * cards and emitted `boss-hit` zero times, which would have reported a
+   * working damage path as broken content. Aiming is not optional in a probe
+   * whose job is to prove things are reachable.
+   */
+  let aimX: number | undefined;
+  let playerX = 240;
+  let playerY = 400;
+  let fightingBoss = false;
+
+  for (let tick = 0; tick < limit; tick++) {
+    cover.ticks = tick;
+    const top = machine.stack[machine.stack.length - 1];
+    const name = top?.name ?? '?';
+    cover.states.add(name);
+
+    let buttons = 0;
+    if (name === 'playing') {
+      // Sweep across the field while firing, and lift toward the auto-collect
+      // line periodically so drops are actually picked up rather than falling
+      // past. Nothing here is skilful; it only has to touch things.
+      buttons = Button.Shot;
+      if (aimX === undefined) {
+        // Nothing to track: sweep, so the stage script's spawns are covered.
+        buttons |= Math.floor(tick / 70) % 2 === 0 ? Button.Left : Button.Right;
+      } else if (aimX < playerX - 4) {
+        buttons |= Button.Left;
+      } else if (aimX > playerX + 4) {
+        buttons |= Button.Right;
+      }
+      // Hold a station, rather than only ever pressing Up. Shots travel up, so
+      // a pilot that drifts to the top of the field is *above* every boss and
+      // fires away from it — the first version of this probe pressed Up a third
+      // of the time, never pressed Down, sat at y=0 for every fight, timed out
+      // all ten cards and emitted `boss-hit` zero times. It would have reported
+      // a working damage path as unreachable content.
+      //
+      // The station rises periodically to cross the auto-collect line so drops
+      // are gathered, and stays low while a boss is up.
+      const stationY = !fightingBoss && Math.floor(tick / 240) % 3 === 0 ? 60 : 380;
+      if (playerY > stationY + 6) buttons |= Button.Up;
+      else if (playerY < stationY - 6) buttons |= Button.Down;
+      // Bombs only while there is no boss up: a bomb voids the card's `clean`
+      // flag, so bombing during one would cost the bonuses this pilot needs in
+      // order to reach the extend thresholds.
+      if (!fightingBoss && Math.floor(tick / 300) % 4 === 0) buttons |= Button.Bomb;
+    } else {
+      confirm ^= 1;
+      buttons = confirm ? Button.Shot : 0;
+    }
+
+    machine.tick(buttons);
+
+    for (const state of machine.stack) {
+      const run = (state as { run?: Run }).run;
+      if (run === undefined) continue;
+
+      if (run !== lastRun) {
+        lastRun = run;
+        seenRuns++;
+        cover.stages.add(run.stageName);
+      }
+
+      // See the header: mortal early, untouchable later, always restocked.
+      if (run.player.lives < 3) run.player.lives = 3;
+      run.player.alive = true;
+      if (run.tickCount > MORTAL_TICKS) run.player.invuln = 999;
+
+      const scene = run.scene;
+      if (scene !== undefined) cover.scenes.add(scene);
+
+      playerX = run.player.x;
+      playerY = run.player.y;
+      const boss = run.boss.boss;
+      if (boss?.alive) {
+        cover.bosses.add(boss.name);
+        cover.phases.add(`${boss.name}#${boss.phaseIndex}`);
+      }
+      // Track the boss when there is one, the nearest enemy otherwise.
+      fightingBoss = boss?.alive === true;
+      aimX = boss?.alive && !boss.entering ? boss.x : run.enemies.enemies[0]?.x;
+
+      for (const item of run.items.items) cover.items.add(item.name);
+      for (const particle of run.effects.particles) cover.effects.add(particle.spec.sprite);
+      for (const event of run.drainEvents()) cover.events.add(event.type);
+
+      if (run.player.power > cover.maxPower) cover.maxPower = run.player.power;
+      const active = run.options.options.filter((o) => o.active).length;
+      if (active > cover.maxOptions) cover.maxOptions = active;
+    }
+
+    // Stop only once the **last** stage has been cleared. Breaking on any
+    // `cleared` screen would stop at the end of stage 1, and every assertion
+    // about stage 2 would then be measuring a game that was never played — a
+    // probe that exits early reports a coverage gap as a content gap.
+    const finished =
+      lastRun !== undefined &&
+      getStage(lastRun.stageName).next === undefined &&
+      lastRun.outcome === 'cleared';
+    if (finished && machine.stack[machine.stack.length - 1]?.name === 'cleared') break;
+  }
+
+  return cover;
+}
+
+/**
+ * One playthrough, shared. It is a few hundred thousand ticks of real
+ * simulation — cheap enough to run in `bun test`, not cheap enough to run once
+ * per assertion.
+ */
+const COVER = playThroughGame();
+
+describe('a real playthrough reaches', () => {
+  test('every registered stage', () => {
+    // The failure: stage 2 was finished content behind a menu with no exit.
+    expect([...COVER.stages].sort()).toEqual(content(stageNames()).sort());
+  });
+
+  test('every registered boss', () => {
+    // The failure: `GameContext` never named a boss, so none of them existed.
+    expect([...COVER.bosses].sort()).toEqual(content(bossNames()).sort());
+  });
+
+  test('every phase of every boss', () => {
+    // A boss that spawns but whose later cards are never seen is the same bug
+    // one level down — `magistrate` reached only phase 0 while its health was
+    // sized against a damage figure no player could produce.
+    const expected: string[] = [];
+    for (const name of content(bossNames())) {
+      const phases = getBossSpec(name).phases;
+      for (let i = 0; i < phases.length; i++) expected.push(`${name}#${i}`);
+    }
+    expect([...COVER.phases].sort()).toEqual(expected.sort());
+  });
+
+  test('every scene a stage or a card declares', () => {
+    // **Not** compared against the background registry, and the reason is the
+    // import boundary: `backgroundNames` is a value in `src/render`, and this
+    // file is in `src/game`, which may not import one (CLAUDE.md). That is not
+    // an inconvenience being worked around — it is the rule doing its job. A
+    // scene is a *string* here precisely so the simulation never learns that
+    // fragment shaders exist.
+    //
+    // So this asserts the run side: every scene any reachable stage or spell
+    // card declares is actually entered. That those strings resolve to real
+    // shaders is `render/backgrounds/index.test.ts`'s job, and it imports both
+    // halves for exactly that purpose. Between the two files the round trip is
+    // covered, and neither has to break the boundary to do it.
+    const declared = new Set<string>();
+    for (const stage of content(stageNames())) {
+      const background = getStage(stage).background;
+      if (background !== undefined) declared.add(background);
+    }
+    for (const boss of content(bossNames())) {
+      for (const phase of getBossSpec(boss).phases) {
+        if (phase.background !== undefined) declared.add(phase.background);
+      }
+    }
+
+    expect(declared.size).toBeGreaterThan(0);
+    expect([...COVER.scenes].sort()).toEqual([...declared].sort());
+  });
+
+  test('every registered item kind', () => {
+    // The failure: four of five kinds spawned only from a boss defeat, which
+    // never happened, and `life` had no spawn site at all.
+    expect([...COVER.items].sort()).toEqual(content(itemNames()).sort());
+  });
+
+  test('every registered particle effect', () => {
+    // The failure: `graze`, `pickup` and `muzzle` were emitted by nothing.
+    // Compared by sprite, which is what a live particle carries.
+    const emitted = new Set(COVER.effects);
+    for (const name of content(effectNames())) {
+      const sprite = getEffectSpec(name).sprite;
+      expect(`${name} (${sprite}) emitted: ${emitted.has(sprite)}`)
+        .toBe(`${name} (${sprite}) emitted: true`);
+    }
+  });
+
+  test('the top power tier, and therefore every weapon and option tier', () => {
+    // The failure: `addPower` clamped to `shots.length - 1` = 0, so power never
+    // rose, no option ever deployed, and the whole `defineShot` registry was
+    // unreachable. Asserted through power rather than by instrumenting the
+    // tables, because power is the single number that indexes both.
+    const tiers = Math.max(
+      ...content(shotNames()).map((n) => getShot(n).levels.length),
+      ...content(optionNames()).map((n) => getOptionSpec(n).levels.length),
+    );
+    expect(COVER.maxPower).toBe(tiers - 1);
+    expect(COVER.maxOptions).toBeGreaterThan(0);
+  });
+
+  test('every state screen', () => {
+    expect([...COVER.states].sort()).toEqual(
+      ['character-select', 'cleared', 'playing', 'title'].sort(),
+    );
+  });
+});
+
+describe('a real playthrough emits', () => {
+  // Sounds and particles are chosen by event type in `main.ts`, so an event
+  // nothing raises is a cue nothing plays. `'item-collected'` sat in that table
+  // for the life of the project and matched no event that has ever existed.
+  const EXPECTED: readonly RunEventType[] = [
+    'shot',
+    'shot-hit',
+    'enemy-killed',
+    'boss-hit',
+    'graze',
+    'bomb',
+    'pickup',
+    'extend',
+    'player-death',
+    'boss-entered',
+    'boss-phase',
+    'boss-cleared',
+    'boss-defeated',
+    'cleared',
+  ];
+
+  for (const type of EXPECTED) {
+    test(`${type}`, () => {
+      expect(`${type}: ${COVER.events.has(type)}`).toBe(`${type}: true`);
+    });
+  }
+});
+
+describe('the probe itself is honest', () => {
+  test('it played a real game rather than falling out early', () => {
+    expect(COVER.ticks).toBeGreaterThan(10_000);
+    expect(COVER.states.has('cleared')).toBe(true);
+  });
+
+  test('the fixture filter matches fixtures and nothing else', () => {
+    // Registries are process-global, so running the whole suite in one process
+    // puts other files' fixtures in here alongside the real content. Asserted
+    // on synthetic names rather than on the live registry, because when this
+    // file runs *alone* there are no fixtures to find — and a check that
+    // silently passes on an empty set is the thing being guarded against.
+    expect(['test-other-boss', 'test.dupe', 'probe.sink', 'balance.empty'].filter(isFixture))
+      .toHaveLength(4);
+    expect(['sentinel', 'magistrate', 'stage-1', 'stage-2'].filter(isFixture))
+      .toHaveLength(0);
+  });
+});

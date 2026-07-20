@@ -35,17 +35,23 @@
  * instead of about the stage.
  *
  * Damage is therefore a **model**: a constant budget per tick, spent on the
- * boss if one is up and on the nearest enemy otherwise. The default rate,
- * 0.56/tick, is not invented — it is what a full-power `scout` measurably
- * lands on a boss while tracking it. The budget test sweeps the rate rather
- * than trusting one point of it.
+ * boss if one is up and on the nearest enemy otherwise. The rate is
+ * `REFERENCE_DPS`, imported from `sim/boss.ts` and re-derived from the real
+ * `Run` by `game/balance.test.ts` on every test run. The budget test sweeps a
+ * band around it rather than trusting one point.
+ *
+ * It used to say 0.56 and call that "measured". It was measured at a power
+ * level `addPower` clamped to zero, so it described no player who has ever
+ * existed, and both this file's boss health and `sentinel`'s were sized from it
+ * in opposite directions. A tuning constant that cannot be re-derived is worse
+ * than none.
  */
 
 import { describe, expect, test } from 'bun:test';
 
 import { Random } from '../core/random';
 import { sinDeg } from '../core/trig';
-import { BossSystem, getBossSpec, type SpellCard } from '../sim/boss';
+import { BossSystem, getBossSpec, REFERENCE_DPS, type SpellCard } from '../sim/boss';
 import { BulletSystem, type BulletSpec, type FieldBounds } from '../sim/bullet';
 import { EnemySystem, getEnemySpec, type EnemySpec } from '../sim/enemy';
 import { getItemSpec } from '../sim/item';
@@ -56,8 +62,15 @@ import { STAGE_2_BOSS, STAGE_2_MIDBOSS } from './stage-2';
 
 const BOUNDS: FieldBounds = { width: 480, height: 480, margin: 48 };
 
-/** The rate a full-power `scout` measurably lands on a boss. See the header. */
-const MEASURED_DPS = 0.56;
+/**
+ * The rate the game is tuned against, imported rather than restated.
+ *
+ * This was a local literal, `0.56`, and it was wrong: measured at a power level
+ * `addPower` clamped to 0, so no player could fly at it. `game/balance.test.ts`
+ * now re-derives `REFERENCE_DPS` from the real `Run` on every test run, which
+ * is what makes the numbers below re-checkable rather than inherited.
+ */
+const MEASURED_DPS = REFERENCE_DPS;
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */
@@ -479,10 +492,17 @@ describe('stage-2 has the shape it claims', () => {
       worst += spec.entry?.ticks ?? 0;
       for (const phase of spec.phases) worst += phase.timeLimit;
     }
-    // A player who cannot drain a single card still gets through both fights
-    // in under 45 seconds of boss time. Without this the stage's length would
-    // be unbounded from above, since a timeout is a valid clear.
-    expect(worst).toBeLessThan(60 * 45);
+    // A player who never fires still gets through both fights in a bounded
+    // time. Without this the stage's length would be unbounded from above,
+    // since a timeout is a valid clear.
+    //
+    // The bound is 140 seconds, not the 45 it was, and the change is the whole
+    // retune: these bosses used to hold 60 to 125 hp — less than a `bastion` —
+    // so their clocks were short because there was nothing behind them. A
+    // midboss and a final boss that are actually fights cost real time, and
+    // `CLOCK_MARGIN` fixes the ratio between the clock and the health so this
+    // number cannot drift on its own.
+    expect(worst).toBeLessThan(60 * 140);
   });
 });
 
@@ -565,8 +585,10 @@ describe('stage-2 plays', () => {
 
     expect(report.cleared).toBe(true);
     // Bounded well below the harness's 20000-tick ceiling, so "finished" means
-    // finished rather than "ran out of patience".
-    expect(report.ticks).toBeLessThan(6000);
+    // finished rather than "ran out of patience". Roughly two minutes: about a
+    // minute of script and a minute of boss, which is what a stage with a real
+    // midboss and a real final boss costs.
+    expect(report.ticks).toBeLessThan(8000);
 
     // `scriptTicks` (`stage.tick`) freezes only while `stage.waiting` is
     // true. It is not gated by `finished`, so it keeps counting through the
@@ -574,7 +596,10 @@ describe('stage-2 plays', () => {
     // the schedule for it. That makes this number depend on the damage model
     // now, where it did not before the midboss existed; it is exact for this
     // seed at the header's measured rate, same as everything else here.
-    expect(report.scriptTicks).toBe(3246);
+    // 3246 before the boss retune, and the comment above predicted exactly why
+    // it would move: the schedule keeps counting through the magistrate fight,
+    // so a boss that is now a real fight adds its length here.
+    expect(report.scriptTicks).toBe(5123);
     expect(report.enemiesSpawned).toBe(70);
 
     // Nothing was refused. A dropped spawn means the authored timing already
@@ -590,14 +615,15 @@ describe('stage-2 plays', () => {
   });
 
   test('the run lands in its budget across the plausible range of player damage', () => {
-    // One damage rate proves nothing: the measured 0.56 is what a tracking
-    // full-power scout lands on a *boss*, and a player clears chaff faster
-    // than that. So the budget is asserted over the band, not at a point.
-    for (const dps of [0.6, 0.8, 1.0]) {
+    // One damage rate proves nothing: `REFERENCE_DPS` is what a competent
+    // player lands on a *boss* while tracking it, and a real run is faster
+    // against chaff and slower while dodging. So the budget is asserted over a
+    // band around the reference, not at a point.
+    for (const dps of [REFERENCE_DPS * 0.8, REFERENCE_DPS, REFERENCE_DPS * 1.25]) {
       const report = play({ dps, sampleEvery: 100000 });
       expect(report.cleared).toBe(true);
-      expect(report.ticks).toBeGreaterThan(60 * 40);
-      expect(report.ticks).toBeLessThan(60 * 62);
+      expect(report.ticks).toBeGreaterThan(60 * 80);
+      expect(report.ticks).toBeLessThan(60 * 190);
     }
   });
 

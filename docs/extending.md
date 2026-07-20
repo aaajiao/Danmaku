@@ -729,8 +729,8 @@ Everything else belongs to the `EnemySpec`. That split is the point: a stage is 
 score, not a script, so retuning an enemy retunes it everywhere without touching
 a stage file.
 
-`StageSpec` is `name` and `waves`, plus optional `seed`, `outro` and
-`background` (`src/content/stage.ts:78-105`). An `EnemyWave` is `at`, `enemy`,
+`StageSpec` is `name` and `waves`, plus optional `seed`, `outro`, `boss`, `next`
+and `background` (`src/content/stage.ts:78-127`). An `EnemyWave` is `at`, `enemy`,
 `x`, `y` with optional `count`, `interval`, `stepX`, `stepY`
 (`src/content/stage.ts:28-40`); a `BossWave` is `at` and `boss`, with optional
 `x` and `y` (`src/content/stage.ts:55-61`).
@@ -756,18 +756,18 @@ defineStage('stage-3', {
 ```
 
 The registry key and `spec.name` must match, or `defineStage` throws
-(`src/content/stage.ts:117-124`). Tooling shows one and lookups use the other, so
+(`src/content/stage.ts:139-146`). Tooling shows one and lookups use the other, so
 a half-finished rename would surface far from its cause.
 
 Waves are sorted by `at` at definition and **copied**, so they may be authored in
 whatever order reads best — grouped by role, by lane — and an author mutating
 their own array afterwards cannot change a registered stage
-(`src/content/stage.ts:126-131`). The sort is stable, which is load-bearing:
+(`src/content/stage.ts:148-153`). The sort is stable, which is load-bearing:
 two waves sharing an `at` spawn in the order they were written, and spawn order
 is draw order in `EnemySystem`.
 
 `validate` rejects only whole-tick arithmetic, not taste
-(`src/content/stage.ts:153-192`). `at: 12.5` is never reached by a counter that
+(`src/content/stage.ts:175-214`). `at: 12.5` is never reached by a counter that
 moves in whole steps, and a fractional `interval` puts a wave's repeats on ticks
 that are neither evenly spaced nor the ones written down. Both produce a stage
 that looks authored and plays wrong.
@@ -775,7 +775,7 @@ that looks authored and plays wrong.
 Repeat `k` of a wave lands at `at + k * interval`, offset by `k` steps — so
 `count: 1` is the wave and nothing more, and `interval: 0` puts the whole group
 on one tick, which is how a formation is written
-(`src/content/stage.ts:205-241`).
+(`src/content/stage.ts:227-263`).
 
 **A boss wave holds the schedule.** Reaching one stops the runner advancing
 entirely — the tick counter included — until `resume()` is called, so the waves
@@ -787,7 +787,7 @@ retiming everything after it. The runner reports the cue through
 boss-spawning code inside this loop.
 
 `StageRunner`'s constructor resolves every enemy name, every boss name, and every
-pattern name those enemy specs reference (`src/content/stage.ts:268-311`).
+pattern name those enemy specs reference (`src/content/stage.ts:290-333`).
 `EnemySystem.spawn` would throw on a typo anyway — forty seconds in, from a wave
 the player was about to meet — and a *pattern* typo is worse, because it is not
 read until the slot's `startAt` falls due and detonates from inside
@@ -795,6 +795,20 @@ read until the slot's `startAt` falls due and detonates from inside
 deliberately not done in `defineStage`: a content file defining its own enemies
 would then have to be imported in the right order, which is the load-order trap
 `patterns.ts` was written to avoid.
+
+**`boss` and `next` are how a stage joins the game.** `boss` names the fight sent
+once the script is spent and the field is clear; `next` names the stage that
+follows, and leaving it unset is what declares this the last one. Both are
+**strings**, for the same reason `background` is — a stage naming its sibling by
+import would put the two files in a cycle, and `states.ts` is the right place to
+resolve it.
+
+Omitting them is not a small thing. `RunConfig.boss` used to be the only way a
+run learned it had a boss at all, and nothing in the shipped shell ever set it,
+so three bosses, ten phases and seven spell cards sat registered, imported and
+unit-tested in a game where no player could reach any of them. A stage without
+`next` likewise ends the game rather than continuing it. `reachability.test.ts`
+now fails the build on either — see the CLAUDE.md section of that name.
 
 `seed` is data, not an action. The runner does not apply it — reseeding `sim`
 mid-run would stomp a stream the replay system owns — so whoever starts the run
@@ -804,7 +818,7 @@ calls `seedRun(spec.seed)` once, from `core/random`
 `outro` counts ticks after the tick that spawned the last wave, so `outro: 0`
 finishes the moment that spawn happens. Survivors are not consulted: whether the
 player still has enemies to clear is a question about the field, not about the
-script (`src/content/stage.ts:376-389`).
+script (`src/content/stage.ts:398-411`).
 
 `background` names a registered scene as a **string** — see §12 and §15 for why
 it cannot be an import.

@@ -17,20 +17,28 @@
  * `sim/enemy`, but is named explicitly because this file resolves pattern
  * names and should not depend on someone else's import graph to do it.
  *
- * ## Tuning was measured, not guessed
+ * ## Tuning is derived, not typed
  *
- * Boss health here is sized against the damage a full-power `scout` actually
- * lands on a boss: **0.56 per tick**, measured by driving `Run` with a probe
- * that tracks its target's x and holds Shot (~34 damage a second). A phase of
- * 100 hp is therefore about three seconds of sustained fire.
+ * Boss health here comes from `phaseHp` and `phaseClock` in `sim/boss.ts`,
+ * which are functions of `REFERENCE_DPS` — a constant `game/balance.test.ts`
+ * measures against the real `Run` and fails if it drifts. Write a phase in
+ * *seconds* and let the arithmetic produce the numbers.
  *
- * That number is worth stating because `sentinel` in `sim/boss.ts` is tuned
- * far above it — 4100 hp across its three phases needs 7300 ticks at this
- * rate, so **every one of its phases times out rather than draining**, and the
- * fight runs its full 125 seconds regardless of how well it is played. The
- * numbers below are deliberately not copied from it. See the report in
- * `stage-2.test.ts`, which pins the budget so a retune cannot silently blow
- * past it.
+ * This paragraph used to say something else, and the story is worth keeping.
+ * It read that health was sized against "0.56 damage per tick, measured", and
+ * that `sentinel` was tuned far above it at "4100 hp across its three phases",
+ * so every one of its phases timed out and the numbers here were "deliberately
+ * not copied from it".
+ *
+ * Three things were wrong. The 0.56 was measured at full power, which
+ * `addPower` clamped to zero, so no player could reach it. `sentinel` had 2510
+ * hp, not 4100 — the figure was never checked against the file it described.
+ * And the conclusion drawn from both, to size well below the reference,
+ * produced a midboss with less health than two `bastion` trash enemies and a
+ * three-second final boss against a thirty-seven-second stage-1 one.
+ *
+ * A number nobody can re-derive is worse than no number, because everything
+ * downstream inherits it and each consumer goes wrong differently.
  *
  * ## The stage clock pauses for the midboss
  *
@@ -42,7 +50,7 @@
  * and nobody else's.
  */
 
-import { defineBoss } from '../sim/boss';
+import { defineBoss, phaseClock, phaseHp } from '../sim/boss';
 import type { BulletSpec } from '../sim/bullet';
 import { defineEnemy } from '../sim/enemy';
 import './behaviours';
@@ -371,6 +379,16 @@ defineEnemy('bastion', {
  * player who cannot drain a card still gets through it in a bounded time
  * rather than stalling — a timeout is a clear, per `sim/boss.ts`.
  */
+/**
+ * A midboss: short, and the shortest fight in the game. Four, five and five
+ * seconds against a good player.
+ *
+ * These were 60/70/75 — less health than two `bastion` trash enemies, and a
+ * three-second fight. See `REFERENCE_DPS` for how a wrong reference in one file
+ * produced content sized an order of magnitude below it in another.
+ */
+const WARDEN_HP = [phaseHp(4), phaseHp(5), phaseHp(5)] as const;
+
 defineBoss('warden', {
   sprite: 'ring',
   radius: 18,
@@ -382,8 +400,8 @@ defineBoss('warden', {
   phases: [
     {
       name: 'Patrol',
-      hp: 60,
-      timeLimit: 260,
+      hp: WARDEN_HP[0],
+      timeLimit: phaseClock(WARDEN_HP[0]),
       isSpell: false,
       // Paces left, then right, then loops. Aimed fire from a source that is
       // already moving is the entire content of the phase.
@@ -399,8 +417,8 @@ defineBoss('warden', {
     },
     {
       name: 'Beam Sign "Picket Line"',
-      hp: 70,
-      timeLimit: 300,
+      hp: WARDEN_HP[1],
+      timeLimit: phaseClock(WARDEN_HP[1]),
       isSpell: true,
       bonus: 120000,
       background: 'surge',
@@ -417,8 +435,8 @@ defineBoss('warden', {
     },
     {
       name: 'Gather Sign "Censer Mill"',
-      hp: 75,
-      timeLimit: 300,
+      hp: WARDEN_HP[2],
+      timeLimit: phaseClock(WARDEN_HP[2]),
       isSpell: true,
       bonus: 200000,
       background: 'surge',
@@ -459,6 +477,15 @@ defineBoss('warden', {
  * the tightest relative to its health, deliberately: the last card should be
  * survivable, but not by standing still and waiting it out.
  */
+/**
+ * The last fight in the game, and it should feel like it: about fifty seconds
+ * across four phases, escalating 7 / 12 / 14 / 17 seconds.
+ *
+ * It was 70/95/110/125 — six seconds in total, against a stage-1 boss that ran
+ * thirty-seven.
+ */
+const MAGISTRATE_HP = [phaseHp(7), phaseHp(12), phaseHp(14), phaseHp(17)] as const;
+
 defineBoss('magistrate', {
   sprite: 'halo',
   radius: 21,
@@ -470,8 +497,8 @@ defineBoss('magistrate', {
   phases: [
     {
       name: 'Arraignment',
-      hp: 70,
-      timeLimit: 260,
+      hp: MAGISTRATE_HP[0],
+      timeLimit: phaseClock(MAGISTRATE_HP[0]),
       isSpell: false,
       timeline: [
         { count: 0, motion: { r: 1.3, theta: 0 } },
@@ -489,8 +516,8 @@ defineBoss('magistrate', {
     },
     {
       name: 'Seeker Sign "Writ of Pursuit"',
-      hp: 95,
-      timeLimit: 360,
+      hp: MAGISTRATE_HP[1],
+      timeLimit: phaseClock(MAGISTRATE_HP[1]),
       isSpell: true,
       bonus: 150000,
       background: 'surge',
@@ -506,8 +533,8 @@ defineBoss('magistrate', {
     },
     {
       name: 'Beam Sign "Colonnade"',
-      hp: 110,
-      timeLimit: 360,
+      hp: MAGISTRATE_HP[2],
+      timeLimit: phaseClock(MAGISTRATE_HP[2]),
       isSpell: true,
       bonus: 250000,
       background: 'surge',
@@ -525,8 +552,8 @@ defineBoss('magistrate', {
     },
     {
       name: 'Last Word "Assize"',
-      hp: 125,
-      timeLimit: 420,
+      hp: MAGISTRATE_HP[3],
+      timeLimit: phaseClock(MAGISTRATE_HP[3]),
       isSpell: true,
       bonus: 600000,
       background: 'surge',

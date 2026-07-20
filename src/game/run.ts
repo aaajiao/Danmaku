@@ -252,11 +252,13 @@ const DEATH_POWER_ITEMS = 8;
  * what grazing and spell-card capture feed. Crossed once each, ascending, so a
  * run that jumps two thresholds in one pickup is owed both.
  *
- * These numbers are provisional and should be revisited once the HP retune
- * lands — a spell card currently pays 100k and up, so the first extend sits at
- * roughly "cleared one boss well".
+ * Measured against the whole game rather than picked: a pilot that is never hit
+ * across both stages, capturing all ten cards, finishes on about 547,000, and
+ * one that flails finishes on 52,000. So the first extend sits where a player
+ * who is capturing cards at all will reach it, the second where a good run will,
+ * and the third above a clean clear — something to play toward.
  */
-const EXTEND_SCORES: readonly number[] = [500_000, 1_500_000, 3_500_000];
+const EXTEND_SCORES: readonly number[] = [100_000, 300_000, 600_000];
 
 /** Items a defeated boss showers, by registry name and count. */
 const BOSS_SPOILS: readonly (readonly [string, number])[] = [

@@ -26,13 +26,20 @@ test/visual/       checks that need a real GL context and cannot run in `bun tes
 tools/             fixture generation
 ```
 
-Two tests scan whole trees rather than testing one module, and both exist because
-the thing they check fails silently:
+Four tests scan whole trees rather than testing one module, and all four exist
+because the thing they check fails silently:
 
 ```
-src/determinism.test.ts    approximated `Math` in sim, content, core, game (rule 3)
-src/architecture.test.ts   renderer imports in sim, content, game (the rule below)
+src/determinism.test.ts       approximated `Math` in sim, content, core, game (rule 3)
+src/architecture.test.ts      renderer imports in sim, content, game (the rule below)
+src/game/reachability.test.ts registered content a real playthrough never touches
+src/game/balance.test.ts      the damage model, re-derived from the real `Run`
 ```
+
+The last two are newer than the rest of this document and are described under
+"Registration is not reachability" and "The damage model is measured, not typed"
+below. Both were written after an audit found roughly twenty-five defects that
+the other 1289 tests were all green through.
 
 ### The import boundary
 
@@ -266,6 +273,53 @@ src/render/backgrounds/index.ts    every scene
 
 This has already gone wrong once: `behaviours`, `shots` and `stage-2` were
 written, tested, green — and absent from the bundle.
+
+### Registration is not reachability
+
+Importing a module proves the name *resolves*. It does not prove a running game
+ever asks for it, and those are different claims. The shipped build had
+`stage-2`, `warden` and `magistrate` fully written, imported, unit-tested and
+green — and unreachable, because `stage-1` never named a boss to send or a stage
+to follow. Every registry was correct. Nothing joined them up.
+
+That is the shape of nearly every defect the audit found: not a broken
+subsystem, but a missing wire between two working ones — an argument not passed,
+a ceiling read from the wrong table, a registry with no consumer. Unit tests
+cannot see it, because a unit test supplies the missing wire itself, as a
+fixture.
+
+`src/game/reachability.test.ts` closes it. It drives the real `StateMachine`
+through the real `GameContext`, the way `main.ts` does, with a scripted pilot,
+and asserts that a genuine playthrough touches every stage, boss, boss phase,
+declared scene, item kind, particle effect, state screen, the top power tier,
+and fourteen event types. **Content that nothing reaches fails the build.**
+
+It has been watched failing: deleting `stage-1`'s `boss` and `next` — exactly
+the state the project shipped in — turns its 24 assertions into 10 pass, 14
+fail, while the rest of the suite stays green.
+
+So: adding content means adding it to a registry, adding its module to the index
+*and* making something reach it. The third step is now the one with a test.
+
+### The damage model is measured, not typed
+
+`REFERENCE_DPS` in `src/sim/boss.ts` is the rate every boss in the game is sized
+from, and `phaseHp(seconds)` / `phaseClock(hp)` are how content asks for a phase
+in the units a designer actually thinks in.
+
+It used to be a literal — `0.56`, typed once into a test file and repeated in
+three prose comments. It was unverifiable and it was wrong, and each consumer
+was wrong differently: `boss.ts` sized above it and produced phases no loadout
+could drain inside their own clocks; `stage-2.ts` inferred it was far too
+generous and sized an order of magnitude *below* it, giving a midboss less
+health than two trash enemies.
+
+`src/game/balance.test.ts` re-derives the number by driving the real `Run`
+across every character × power tier × focus state. If player damage changes for
+any reason — a weapon tier, an option layout, a hitbox shape — it fails, and the
+boss content has to be revisited. That coupling is the point: **a tuning
+constant no test can measure will drift away from the thing it describes, and
+every reader of it will be confidently wrong in a different direction.**
 
 See [`docs/extending.md`](./docs/extending.md).
 
