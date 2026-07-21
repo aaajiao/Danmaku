@@ -295,6 +295,8 @@ describe('base campaign replay regression (the permanent behavioural guard)', ()
     { stage: 'stage-1', difficulty: 'lunatic' },
     { stage: 'stage-2', difficulty: 'normal' },
     { stage: 'stage-2', difficulty: 'lunatic' },
+    { stage: 'stage-3', difficulty: 'normal' },
+    { stage: 'stage-3', difficulty: 'lunatic' },
   ];
 
   for (const { stage, difficulty } of CASES) {

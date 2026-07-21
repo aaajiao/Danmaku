@@ -197,6 +197,98 @@ const SHELL = {
   },
 };
 
+/* ---- stage-3 ammunition ---- */
+
+/**
+ * The writ. Stage-3's plain aimed shot — fast, small, wan gold. Every aimed-fan
+ * and every scatter in the stage fires this one bullet, so the stage's whole
+ * "keep moving, it aims at you" pressure is a single readable colour.
+ */
+const WRIT = {
+  style: { sprite: 'orb.small', r: 0.95, g: 0.82, b: 0.6 },
+  radius: 5,
+  motion: { r: 2.6, theta: 90 },
+};
+
+/**
+ * The slab. Deliberately slow at 1.5px/tick: a rotating ring of these leaves each
+ * volley hanging in the air long enough that the next interlocks with it, and the
+ * accumulation reads as a *standing lattice* with one slowly-rotating lane. The
+ * slowness is the mechanism — a fast ring would be gone before the next arrived
+ * and there would be no lattice to thread.
+ */
+const SLAB = {
+  style: { sprite: 'orb.medium', r: 0.55, g: 0.78, b: 0.68 },
+  radius: 7,
+  motion: { r: 1.5, theta: 90 },
+};
+
+/**
+ * The subpoena — the needle that comes to find you. A short committed flight, then
+ * a little under a second of homing at 2°/tick, then straight again: like the
+ * stage-2 seeker, the dodge is *when* you move, not whether, but here the job is
+ * to curve into whatever resting lane a wall of slabs left open. It is what makes
+ * the wall unsittable. (Named apart from the stage-1/2 `NEEDLE` bullet above; this
+ * one homes and carries no blade.)
+ */
+const SUBPOENA = {
+  style: { sprite: 'needle', r: 0.95, g: 0.82, b: 0.5, orientToHeading: true, additive: true },
+  radius: 5,
+  motion: {
+    r: 3,
+    theta: 90,
+    behaviour: 'homing',
+    options: { turnRate: 2, delay: 6, duration: 40 },
+  },
+};
+
+/** The levy. Every spiral in the stage is built from these — additive spark, mid speed. */
+const LEVY = {
+  style: { sprite: 'spark', r: 0.85, g: 0.75, b: 0.7, additive: true },
+  radius: 5,
+  motion: { r: 2.3, theta: 90 },
+};
+
+/** The decree. The boss's ring bullet: a plain medium orb, a hair slower than a writ, so a dense ring reads as a wall rather than a blur. */
+const DECREE = {
+  style: { sprite: 'orb.medium', r: 0.95, g: 0.82, b: 0.5 },
+  radius: 6,
+  motion: { r: 2.2, theta: 90 },
+};
+
+/**
+ * The seal. Fired outward, then eased onto a fixed 70px circle and walked around
+ * it for a second and a half — the seal being pressed — before the window ends
+ * and every bullet releases tangentially at once. The safe pocket the whole
+ * "Wax and Witness" card is built around sits right at that rim: hug it through
+ * the stalled window and it racks graze.
+ *
+ * `centerX`/`centerY` name the boss's own station (240, 96): behaviour centres
+ * are literal numbers, and the design table omitted them, which would default the
+ * circle to (0,0) — the top-left corner, mostly off the field — and detach the
+ * seal from the fight. It is pressed where the fight is, exactly as the stage-2
+ * mill's EMBER names a fixed field landmark rather than its firing origin.
+ */
+const SEAL_CENTRE_X = 240;
+const SEAL_CENTRE_Y = 96;
+
+const SEAL = {
+  style: { sprite: 'halo', r: 0.95, g: 0.82, b: 0.5, additive: true },
+  radius: 8,
+  motion: {
+    r: 2,
+    theta: 90,
+    behaviour: 'orbit',
+    options: {
+      centerX: SEAL_CENTRE_X,
+      centerY: SEAL_CENTRE_Y,
+      radius: 70,
+      angularSpeed: 3,
+      duration: 90,
+    },
+  },
+};
+
 /* ================================================================== */
 /* Enemies                                                            */
 /* ================================================================== */
@@ -484,6 +576,143 @@ const enemies: PackContent['enemies'] = {
     scoreValue: 1500,
     onHit: 'hit',
     onDeath: 'death.big',
+  },
+
+  /* ---- stage-3 cast ---- */
+
+  /**
+   * The clerk — the aim-chaff, and so the stage's difficulty axis before any boss.
+   * Falls straight, fires a narrow aimed three-fan after half a second. It exists
+   * to re-state stage-3's first law, "this stage aims at you, so keep moving," and
+   * it is the enemy the headless opening assertion measures: Easy thins and slows
+   * the fan, Lunatic widens and quickens it.
+   */
+  clerk: {
+    sprite: 'orb.small',
+    hp: 10,
+    radius: 9,
+    tint: { r: 0.9, g: 0.82, b: 0.6 },
+    motion: { r: 1.8, theta: 90 },
+    patterns: [
+      {
+        pattern: 'aimed-fan',
+        options: { spec: WRIT, count: 3, spread: 34, period: 48 },
+        startAt: 30,
+        difficulty: {
+          easy: { count: 2, period: 60 },
+          hard: { count: 4, spread: 40, period: 40 },
+          lunatic: { count: 5, spread: 44, period: 34 },
+        },
+      },
+    ],
+    spoils: [['power', 1]],
+    scoreValue: 100,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
+  /**
+   * The stele — an upright inscribed slab, a standing record, the stage's wall.
+   * Dives, plants for about three seconds, then leaves upward. While planted it
+   * throws a slow rotating ring of slabs whose volleys interlock into a standing
+   * lattice with one rotating lane; threading that lane is proximity the player
+   * *chooses*, which is the wave's designed graze. Easy opens the lattice, Lunatic
+   * packs it — the lane tightens but never closes.
+   */
+  stele: {
+    sprite: 'scale',
+    hp: 34,
+    radius: 14,
+    tint: { r: 0.45, g: 0.7, b: 0.6 },
+    timeline: [
+      { count: 0, motion: { r: 3, theta: 90 } },
+      { count: 40, motion: { r: 0 } },
+      { count: 230, motion: { r: 3.2, theta: 270 } },
+    ],
+    patterns: [
+      {
+        pattern: 'ring',
+        options: { spec: SLAB, count: 18, period: 40, rotation: 5 },
+        startAt: 55,
+        stopAt: 220,
+        difficulty: {
+          easy: { count: 14, period: 52, rotation: 4 },
+          hard: { count: 22, period: 34, rotation: 6 },
+          lunatic: { count: 24, period: 30, rotation: 7 },
+        },
+      },
+    ],
+    despawnMargin: 80,
+    spoils: [['power', 2]],
+    scoreValue: 350,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
+  /**
+   * The summons — one comes to find you. Falls fast, throws a tight fan of homing
+   * subpoenas. Its entire job is to make the stele wall unsittable: the wall gives
+   * you a lane, the summons denies you the resting spot inside it, and wall +
+   * can't-camp is stage-3's core combination made flesh.
+   */
+  summons: {
+    sprite: 'needle',
+    hp: 12,
+    radius: 8,
+    tint: { r: 0.95, g: 0.82, b: 0.5 },
+    motion: { r: 2.2, theta: 90 },
+    patterns: [
+      {
+        pattern: 'aimed-fan',
+        options: { spec: SUBPOENA, count: 3, spread: 12, period: 30 },
+        startAt: 24,
+        difficulty: {
+          easy: { count: 2, spread: 10, period: 40 },
+          hard: { count: 3, spread: 16, period: 26 },
+          lunatic: { count: 4, spread: 18, period: 22 },
+        },
+      },
+    ],
+    spoils: [['power', 1]],
+    scoreValue: 200,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
+  /**
+   * The assessor — one who assesses and levies. A heavy that dives, plants, and
+   * pours an isotropic spiral that fills space in every direction and so punishes
+   * standing still: a preview of the boss's squeeze, dropped into the pre-boss
+   * pressure. Easy narrows the spiral, Lunatic adds an arm and quickens it.
+   */
+  assessor: {
+    sprite: 'halo',
+    hp: 40,
+    radius: 13,
+    tint: { r: 0.85, g: 0.75, b: 0.7 },
+    timeline: [
+      { count: 0, motion: { r: 2.6, theta: 90 } },
+      { count: 40, motion: { r: 0 } },
+      { count: 260, motion: { r: 2.8, theta: 270 } },
+    ],
+    patterns: [
+      {
+        pattern: 'spiral',
+        options: { spec: LEVY, arms: 3, step: 9, period: 3 },
+        startAt: 50,
+        stopAt: 250,
+        difficulty: {
+          easy: { arms: 2, step: 7 },
+          hard: { arms: 3, step: 11 },
+          lunatic: { arms: 4, step: 12, period: 2 },
+        },
+      },
+    ],
+    despawnMargin: 80,
+    spoils: [['power', 2], ['score', 1]],
+    scoreValue: 500,
+    onHit: 'hit',
+    onDeath: 'explosion',
   },
 };
 
@@ -999,6 +1228,212 @@ const bosses: PackContent['bosses'] = {
       },
     ],
   },
+
+  /**
+   * The stage-3 boss, and the mid-game peak — the chancellor who keeps the seal.
+   * The magistrate ended with the player's "Then I appeal"; this is where the
+   * appeal is heard, and filed. Five phases, escalating 7/12/13/14/17 seconds —
+   * heavier than the magistrate's four — and the law of every one of them is the
+   * stage's thesis: hold a *moving* lane. So the tiers change the rate you must
+   * move to keep the lane (aim speed, wall tightness, ring density), never whether
+   * the lane exists. A Lunatic curtain is denser and never solid.
+   *
+   * Two of the cards demonstrate composition-over-a-new-pattern, which is the
+   * "prefer composing the four before a fifth" resolution the round required:
+   * phase 2 lays `spiral` over `aimed-fan`, phase 3 lays `ring` over the `orbit`
+   * behaviour. No new pattern and no new behaviour is authored this round.
+   */
+  chancellor: {
+    sprite: 'halo',
+    radius: 22,
+    width: 64,
+    height: 64,
+    // Wan gold — gilt, seal-wax, age — against sentinel's ice, warden's rose and
+    // magistrate's violet. The portrait tint in render/portrait.ts mirrors it.
+    tint: { r: 0.95, g: 0.82, b: 0.5 },
+    entry: { x: 240, y: 96, ticks: 90 },
+    music: 'nemesis',
+    onDeath: 'death.big',
+    // A `life` row rewards clearing the mid-game peak — the one enemy in the game
+    // that hands back an extend directly rather than through the score threshold.
+    spoils: [['big-power', 4], ['life', 1], ['score', 16], ['bomb', 1]],
+    dialogue: [
+      { speaker: 'chancellor', text: 'Appeals are heard here.' },
+      { speaker: 'player', text: 'I did not come to be heard.' },
+      { speaker: 'chancellor', text: 'They are not granted.' },
+      { speaker: 'chancellor', text: 'No. You came to be filed.' },
+    ],
+    // The per-character variant, for the built-in `spire`: estoppel bars you from
+    // changing a stated position, and `spire` is the ship built to hold one — so
+    // the line is mechanically true of how that ship fights and names the phase-4
+    // card. `sentinel` already authors a spire variant, so this is precedent.
+    dialogueFor: {
+      spire: [
+        { speaker: 'chancellor', text: 'You already stand still.' },
+        { speaker: 'chancellor', text: 'You are half-filed. Estoppel does the rest.' },
+      ],
+    },
+    phases: [
+      {
+        name: 'Appeal',
+        // Seven seconds: the court hears you. An opener, not a wall.
+        hpSeconds: 7,
+        isSpell: false,
+        background: 'surge',
+        // A slow horizontal drift, reversed so it paces rather than leaves —
+        // aimed streams you weave against, from a moving source.
+        timeline: [
+          { count: 0, motion: { r: 0.8, theta: 0 } },
+          { count: 90, motion: { r: 0.8, theta: 180 } },
+          { count: 180, jump: 0 },
+        ],
+        patterns: [
+          {
+            pattern: 'aimed-fan',
+            options: { spec: WRIT, count: 5, spread: 38, period: 52 },
+            difficulty: {
+              easy: { count: 3, period: 64 },
+              hard: { count: 6, spread: 42, period: 44 },
+              lunatic: { count: 7, spread: 46, period: 40 },
+            },
+          },
+          {
+            pattern: 'ring',
+            options: { spec: DECREE, count: 12, period: 72, rotation: 6 },
+            difficulty: {
+              easy: { count: 10, period: 84 },
+              hard: { count: 14, period: 60 },
+              lunatic: { count: 16, period: 56 },
+            },
+          },
+        ],
+      },
+      {
+        // THE THESIS CARD: the escalation mandate as a single spell. `spiral`
+        // punishes standing still; `aimed-fan` punishes the direction you flee —
+        // so you weave against the rotation while the fan predicts the weave,
+        // which is "weaving under aim," the reason the whole stage exists. It is
+        // the card the headless honesty assertion targets. Composition #1.
+        name: 'Sign "Binding Precedent"',
+        hpSeconds: 12,
+        isSpell: true,
+        bonus: 250000,
+        background: 'surge',
+        timeline: [
+          { count: 0, motion: { r: 0.7, theta: 0 } },
+          { count: 100, motion: { r: 0.7, theta: 180 } },
+          { count: 200, jump: 0 },
+        ],
+        patterns: [
+          {
+            pattern: 'spiral',
+            options: { spec: LEVY, arms: 3, step: 9, period: 3 },
+            difficulty: {
+              easy: { arms: 2, step: 7 },
+              hard: { arms: 4, step: 10 },
+              lunatic: { arms: 4, step: 12, period: 2 },
+            },
+          },
+          {
+            pattern: 'aimed-fan',
+            options: { spec: WRIT, count: 5, spread: 40, period: 50 },
+            difficulty: {
+              easy: { count: 3, period: 62 },
+              hard: { count: 6, spread: 44, period: 44 },
+              lunatic: { count: 7, spread: 48, period: 40 },
+            },
+          },
+        ],
+      },
+      {
+        // THE GRAZE CARD. The seal is pressed: a ring flies out, holds on a fixed
+        // circle about the boss's station, and releases tangentially all at once.
+        // The safe pocket sits at the seal's rim — hug it through the stalled
+        // window and it racks graze; a light aimed-fan keeps you honest. Tiers
+        // change ring *count* only, so the rim lane tightens Easy->Lunatic but
+        // never closes. `ring` composed with the `orbit` behaviour — composition #2,
+        // and no fifth pattern.
+        name: 'Seal Sign "Wax and Witness"',
+        hpSeconds: 13,
+        isSpell: true,
+        bonus: 300000,
+        background: 'surge',
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { spec: SEAL, count: 16, period: 80, rotation: 0 },
+            difficulty: {
+              easy: { count: 12 },
+              hard: { count: 20 },
+              lunatic: { count: 24 },
+            },
+          },
+          {
+            pattern: 'aimed-fan',
+            options: { spec: WRIT, count: 3, spread: 20, period: 64 },
+            difficulty: {
+              easy: { count: 2, period: 80 },
+              hard: { count: 4, period: 54 },
+              lunatic: { count: 5, period: 48 },
+            },
+          },
+        ],
+      },
+      {
+        // Normal's final card. "You are barred from re-arguing." Dense
+        // multidirectional pressure that closes retreats, `spray` filling a pure
+        // ring's gaps — the tightest-feeling card relative to its health, still
+        // lane-carrying. Its name is the hinge the `spire` dialogue turns on.
+        name: 'Sign "Estoppel"',
+        hpSeconds: 14,
+        isSpell: true,
+        bonus: 500000,
+        background: 'surge',
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { spec: DECREE, count: 20, period: 46, rotation: 8 },
+            difficulty: {
+              easy: { count: 14, period: 58 },
+              hard: { count: 24, period: 40 },
+              lunatic: { count: 28, period: 36 },
+            },
+          },
+          {
+            pattern: 'spray',
+            options: { spec: WRIT, count: 4, spread: 360, period: 16 },
+            difficulty: {
+              easy: { count: 2, period: 22 },
+              hard: { count: 5, period: 13 },
+              lunatic: { count: 6, period: 11 },
+            },
+          },
+        ],
+      },
+      {
+        // TIER-GATED, Lunatic only — the genre's extra card, gated exactly as
+        // sentinel's "Total Eclipse" is, so on every other tier the fight ends on
+        // 'Estoppel'. The decree the appeal is denied by: the full combination at
+        // once — spiral, aimed-fan and a rotating ring — but the authored lane
+        // never closes (readable at the 2000-bullet budget, never the 5000 soup).
+        // It lifts to its own drier, closer track for its duration, staying
+        // visually on `surge`, exactly as 'Total Eclipse' uses `zenith`. Reached
+        // only on the shared Lunatic full run.
+        name: 'Fiat "Sealed"',
+        hpSeconds: 17,
+        isSpell: true,
+        difficulties: ['lunatic'],
+        bonus: 800000,
+        background: 'surge',
+        music: 'fiat',
+        patterns: [
+          { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
+          { pattern: 'aimed-fan', options: { spec: WRIT, count: 7, spread: 46, period: 44 } },
+          { pattern: 'ring', options: { spec: DECREE, count: 20, period: 60, rotation: 5 } },
+        ],
+      },
+    ],
+  },
 };
 
 /* ================================================================== */
@@ -1097,7 +1532,7 @@ const stages: PackContent['stages'] = {
     background: 'undertow',
     music: 'descent',
     boss: 'magistrate',
-    next: null,
+    next: 'stage-3',
     waves: [
       /* Opening. Two offset columns, then a diagonal — the grammar stage 1 opens
          on, so the only new thing is the waver on the shot. */
@@ -1162,6 +1597,79 @@ const stages: PackContent['stages'] = {
       { at: 1720, enemy: 'bastion', x: 330, y: HEAVY_ENTRY_Y },
       { at: 1780, enemy: 'lash', x: CENTRE, y: ENTRY_Y },
       { at: 1800, enemy: 'drifter', x: 60, y: ENTRY_Y, count: 6, interval: 8, stepX: 72 },
+    ],
+  },
+
+  /**
+   * Stage 3 — the mid-game peak, and the first stage authored natively rather than
+   * ported. Its waves are bars against `precedent`, the heaviest, slowest drone in
+   * the game: the rests between pressure phrases are load-bearing, and the boss
+   * enters on the downbeat after the longest of them. Two facts about the cast
+   * shape the placement, the same way the earlier stages' did: `stele` and
+   * `assessor` both plant and then leave *upward* under their own power, so they
+   * are walls only for the ~three seconds they hold; and `clerk`/`summons` fall
+   * straight and aim, so they are placed to pressure the lanes the walls leave.
+   *
+   * The stage's whole lesson is stage-1's sideways movement and stage-2's walls at
+   * once — WEAVING UNDER AIM. The graze wave in the middle states it in miniature
+   * (a slab lattice you thread close by choice, homing subpoenas denying the rest
+   * spot); the pre-boss squeeze states it at volume (assessor spirals that punish
+   * standing under clerk fans that punish fleeing).
+   */
+  'stage-3': {
+    entry: false,
+    seed: 0x3c1d05,
+    outro: 90,
+    background: 'stratum',
+    music: 'precedent',
+    boss: 'chancellor',
+    next: null,
+    waves: [
+      /* Bars 1-2 — state the aim pulse. Two offset clerk columns, the second on
+         the "and"; then a small crossing pair. Re-teaching "keep moving" with wide
+         lanes at every tier before anything walls the field. */
+      { at: 60, enemy: 'clerk', x: LEFT, y: ENTRY_Y, count: 3, interval: 44 },
+      { at: 104, enemy: 'clerk', x: RIGHT, y: ENTRY_Y, count: 3, interval: 44 },
+      { at: 300, enemy: 'clerk', x: CENTRE - 70, y: ENTRY_Y, count: 2, interval: 40, stepX: 60 },
+
+      /* Rest 1 (telegraph) — one stele slides to centre and plants against an
+         empty field; its ring is delayed (the enemy's own startAt) so the empty
+         beat teaches the coming downbeat, taught alone the way stage-2 taught its
+         first beam. A trickle of clerks keeps the beat from going dead. */
+      { at: 440, enemy: 'stele', x: CENTRE, y: ENTRY_Y },
+      { at: 560, enemy: 'clerk', x: 120, y: ENTRY_Y, count: 3, interval: 40 },
+
+      /* Middle — THE GRAZE WAVE (hardest stretch #1, the thesis in miniature). A
+         line of stele plant across the top; their slow rotating rings interlock
+         into a standing lattice with one rotating lane. Summons trickle in behind,
+         homing subpoenas into that lane — the wall you thread close by choice, the
+         homing that denies the resting spot. */
+      { at: 620, enemy: 'stele', x: 140, y: ENTRY_Y },
+      { at: 620, enemy: 'stele', x: 340, y: ENTRY_Y },
+      { at: 700, enemy: 'stele', x: CENTRE, y: ENTRY_Y },
+      { at: 760, enemy: 'summons', x: 90, y: -30, count: 2, interval: 70, stepX: 150 },
+      { at: 820, enemy: 'summons', x: 300, y: -30, count: 2, interval: 70, stepX: -80 },
+
+      /* Quiet beat (~900-1040) — rhythm is designed, not dead time: the breath
+         that makes the squeeze land. */
+
+      /* Bar 5 — syncopation. A clerk pair arrives on the off-beat, breaking the
+         meter right before the squeeze. */
+      { at: 1040, enemy: 'clerk', x: RIGHT, y: ENTRY_Y, count: 3, interval: 36 },
+
+      /* Pre-boss squeeze (hardest stretch #2) — assessor heavies drop spirals
+         while clerk pairs aim: spiral (punishes standing) + aimed-fan (punishes
+         fleeing) = the combination climax before the boss states it as a card. */
+      { at: 1180, enemy: 'assessor', x: 160, y: HEAVY_ENTRY_Y },
+      { at: 1180, enemy: 'assessor', x: 320, y: HEAVY_ENTRY_Y },
+      { at: 1260, enemy: 'clerk', x: LEFT, y: ENTRY_Y, count: 2, interval: 30 },
+      { at: 1280, enemy: 'clerk', x: RIGHT, y: ENTRY_Y, count: 2, interval: 30 },
+      { at: 1400, enemy: 'assessor', x: CENTRE, y: HEAVY_ENTRY_Y },
+      { at: 1460, enemy: 'stele', x: 200, y: ENTRY_Y },
+
+      /* Rest 3 — the big rest. Field clears, a bright stratum seam passes, the
+         breath before the final movement. The boss enters on the downbeat. */
+      { at: 1620, boss: 'chancellor', x: CENTRE, y: -60 },
     ],
   },
 };

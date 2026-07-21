@@ -171,8 +171,8 @@ A 32px bullet occupies 32 of the field's 480 pixels — about 6.7% of its width.
 Per-draw scaling is a different thing and it exists. `SpriteStyle.width` and
 `height` default to the region's own size (`src/render/sprite-batch.ts:31-32`,
 `:242-243`) and callers override them freely: the boss draws a 32px cell at 56px
-(the base pack's `sentinel`, `tools/make-base-pack.ts:514-515`), the turret at
-40px (the base pack's `turret`, `tools/make-base-pack.ts:268-269`), the
+(the base pack's `sentinel`, `tools/make-base-pack.ts:744-745`), the turret at
+40px (the base pack's `turret`, `tools/make-base-pack.ts:361-362`), the
 ship's 64px art at 40px (`src/main.ts:367-369`), and particles anywhere from
 1.6× to 0.05×. So "final display size" means the size to design *for*, not the
 only size a cell will ever be drawn at. The practical consequence is at the top
@@ -188,7 +188,7 @@ The name is a historical accident and it will mislead you. **This sheet is not
 just bullets.** Every `SpriteBatch` in the game except the player's own is built
 on it (`src/main.ts:102-119`): enemies wear `orb.large`, `ring` and `halo`
 (the base pack's `grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), the boss
-wears `halo` (the base pack's `sentinel`, `tools/make-base-pack.ts:512`), items
+wears `halo` (the base pack's `sentinel`, `tools/make-base-pack.ts:742`), items
 wear `shard`, `star`, `mote`, `petal` and `ring`
 (`src/sim/item.ts:407-451`), particles draw `glow.medium`, `spark`, `needle`,
 `star`, `glow.small` and `glow.large` (`src/sim/effects.ts:251-323`), and the
@@ -359,9 +359,9 @@ implemented" — enemies are drawn, right now, from the **bullet atlas**:
 `batches.enemies` is constructed on it (`src/main.ts:103`), `grunt` is a tinted
 `orb.large`, `weaver` a `ring`, `turret` a `halo` (the base pack's
 `grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), and the boss `sentinel` is
-a `halo` drawn at 56×56 out of a 32px cell (`tools/make-base-pack.ts:511-516`).
+a `halo` drawn at 56×56 out of a 32px cell (`tools/make-base-pack.ts:742-745`).
 `width` and `height` default to the cell size and are overridden per enemy — the
-turret is 40×40 (`tools/make-base-pack.ts:268-269`).
+turret is 40×40 (`tools/make-base-pack.ts:361-362`).
 
 Two consequences an artist should know before touching this. Enemies scale a
 32px cell up by as much as 1.75×, so the bullet sheet's cells are already being
@@ -394,7 +394,7 @@ and no plan for either. A background is a full-screen quad at `Layer.Background`
 running a shader registered with `defineBackground`
 (`src/render/background.ts:149`), one scene per file under
 `src/render/backgrounds/`, reaching the game only because that directory's index
-imports it. Four exist: `drift`, `expanse`, `surge`, `undertow`.
+imports it. Five exist: `drift`, `expanse`, `stratum`, `surge`, `undertow`.
 
 The reason is in the header of `src/render/background.ts`: upstream's background
 was a textured plane scrolled by a counter, which gives you exactly one
@@ -433,6 +433,7 @@ ones, so a proposal has something to sit next to:
 |---|---|---|
 | `drift` | deep → lift | `(0.015, 0.022, 0.050)` → `(0.045, 0.075, 0.130)` (`drift.ts:36-37`) |
 | `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.020, 0.030, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.055, 0.090, 0.155)` (`expanse.ts:82-86`) |
+| `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:96-98`) |
 | `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) |
 | `undertow` | haze / wall deep / wall lift | `(0.018, 0.010, 0.030)`, `(0.026, 0.014, 0.044)`, `(0.100, 0.048, 0.150)` (`undertow.ts:86-88`) |
 

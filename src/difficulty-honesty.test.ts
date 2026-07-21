@@ -49,6 +49,19 @@ const TARGET = { x: 240, y: 520 };
 const BOSS_TICKS = 500;
 /** Stage-1's opening movements, before any turret wall. */
 const OPENING_TICKS = 600;
+/**
+ * Stage-3's opening — the clerk columns and the lone telegraph stele — before the
+ * graze wave's summons arrive at 760. Long enough that every tier's clerk fan and
+ * the stele's slab ring both fire, so the rise is measured on authored content and
+ * not on an empty field.
+ */
+const STAGE3_OPENING_TICKS = 700;
+/**
+ * Chancellor's thesis card, `Sign "Binding Precedent"` — measured after draining
+ * the opening `Appeal` phase. Well inside that card's ~1440-tick clock, so the
+ * phase never times out mid-window and the count is the card's own emission.
+ */
+const CHANCELLOR_TICKS = 500;
 
 /**
  * Bullets `sentinel`'s first card emits over the window on `tier`.
@@ -79,6 +92,42 @@ function stageOpeningPopulation(tier: Difficulty, ticks: number): number {
   return bullets.count;
 }
 
+/** Bullets stage-3's opening emits over the window on `tier`. */
+function stage3OpeningPopulation(tier: Difficulty, ticks: number): number {
+  const bullets = new BulletSystem({ bounds: BOUNDS, initial: 4000 });
+  const enemies = new EnemySystem({ bounds: BOUNDS, bullets, difficulty: tier });
+  const runner = new StageRunner(getStage('stage-3'), enemies);
+  const rng = new Random(0x3c1d05);
+  for (let t = 0; t < ticks; t++) {
+    runner.step(rng);
+    enemies.step(TARGET.x, TARGET.y, rng);
+  }
+  return bullets.count;
+}
+
+/**
+ * Bullets `chancellor`'s thesis card emits over the window on `tier`.
+ *
+ * The card the honesty bar targets is the second phase, not the opener: `spiral`
+ * laid over `aimed-fan`, the "weaving under aim" thesis. Reaching it headlessly
+ * means draining the opening `Appeal` phase — one large hit, since overkill is
+ * discarded — after the fly-in settles. Emission is counted from the tick the
+ * thesis card is armed, so the opener's bullets are excluded.
+ */
+function chancellorCardPopulation(tier: Difficulty, ticks: number): number {
+  const bullets = new BulletSystem({ bounds: BOUNDS, initial: 4000 });
+  const boss = new BossSystem({ bounds: BOUNDS, bullets, difficulty: tier });
+  const rng = new Random(0x3c1d05);
+  boss.spawn('chancellor', 240, -40, rng);
+  // The fly-in fires nothing; step until the boss settles onto its first card.
+  while (boss.boss?.entering) boss.step(TARGET.x, TARGET.y, rng);
+  // Drain 'Appeal' to arm the thesis card 'Binding Precedent' (phase 1).
+  boss.damage(100000);
+  const before = bullets.count;
+  for (let t = 0; t < ticks; t++) boss.step(TARGET.x, TARGET.y, rng);
+  return bullets.count - before;
+}
+
 function byTier(measure: (tier: Difficulty) => number): Record<Difficulty, number> {
   const out = {} as Record<Difficulty, number>;
   for (const tier of DIFFICULTIES) out[tier] = measure(tier);
@@ -88,6 +137,8 @@ function byTier(measure: (tier: Difficulty) => number): Record<Difficulty, numbe
 describe('difficulty is real, not a menu that changes nothing', () => {
   const card = byTier((tier) => bossCardPopulation(tier, BOSS_TICKS));
   const opening = byTier((tier) => stageOpeningPopulation(tier, OPENING_TICKS));
+  const stage3Opening = byTier((tier) => stage3OpeningPopulation(tier, STAGE3_OPENING_TICKS));
+  const chancellorCard = byTier((tier) => chancellorCardPopulation(tier, CHANCELLOR_TICKS));
 
   // Surfaced in the gate output: the actual populations, so a reviewer sees the
   // numbers rather than a bare pass.
@@ -100,6 +151,16 @@ describe('difficulty is real, not a menu that changes nothing', () => {
   console.log(
     'stage-1 opening (trash):      ',
     DIFFICULTIES.map((t) => `${t}=${opening[t]}`).join('  '),
+  );
+  // eslint-disable-next-line no-console
+  console.log(
+    'stage-3 opening (trash):      ',
+    DIFFICULTIES.map((t) => `${t}=${stage3Opening[t]}`).join('  '),
+  );
+  // eslint-disable-next-line no-console
+  console.log(
+    'boss card (chancellor, thesis):',
+    DIFFICULTIES.map((t) => `${t}=${chancellorCard[t]}`).join('  '),
   );
 
   test('a boss card fires strictly more bullets as the tier rises', () => {
@@ -128,6 +189,36 @@ describe('difficulty is real, not a menu that changes nothing', () => {
     // The default START run varies from its opening wave, not only at the boss:
     // grunt and weaver carry tier blocks. Drop one and that tier collapses onto
     // the Normal base, breaking the rise.
+    expect(`${line} | easy<normal<hard<lunatic: ${rising}`).toBe(
+      `${line} | easy<normal<hard<lunatic: true`,
+    );
+  });
+
+  test("the stage-3 opening's trash fires strictly more bullets as the tier rises", () => {
+    // Stage-3 is the first natively-authored stage, and its opening carries tier
+    // blocks the same way stage-1's does: `clerk` fans (2/3/4/5) and the telegraph
+    // `stele`'s slab ring (14/18/22/24). Drop either and that tier collapses onto
+    // the Normal base and the strict rise breaks.
+    const line = DIFFICULTIES.map((t) => `${t}=${stage3Opening[t]}`).join(' ');
+    const rising =
+      stage3Opening.easy < stage3Opening.normal &&
+      stage3Opening.normal < stage3Opening.hard &&
+      stage3Opening.hard < stage3Opening.lunatic;
+    expect(`${line} | easy<normal<hard<lunatic: ${rising}`).toBe(
+      `${line} | easy<normal<hard<lunatic: true`,
+    );
+  });
+
+  test("chancellor's thesis card fires strictly more bullets as the tier rises", () => {
+    // 'Binding Precedent' is the escalation thesis as a card — `spiral` over
+    // `aimed-fan`, weaving under aim. Its tier blocks rise (fan 3/5/6/7; spiral
+    // arms 2/3/4/4 with lunatic's period 2 carrying the hard->lunatic step). The
+    // card is reached by draining the opener, so this measures the thesis itself.
+    const line = DIFFICULTIES.map((t) => `${t}=${chancellorCard[t]}`).join(' ');
+    const rising =
+      chancellorCard.easy < chancellorCard.normal &&
+      chancellorCard.normal < chancellorCard.hard &&
+      chancellorCard.hard < chancellorCard.lunatic;
     expect(`${line} | easy<normal<hard<lunatic: ${rising}`).toBe(
       `${line} | easy<normal<hard<lunatic: true`,
     );

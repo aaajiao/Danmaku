@@ -209,4 +209,5 @@ export function portraitImage(name: string): CanvasImageSource {
 definePortrait('sentinel', { tint: { r: 0.8, g: 0.9, b: 1 } });
 definePortrait('warden', { tint: { r: 1, g: 0.6, b: 0.72 } });
 definePortrait('magistrate', { tint: { r: 0.72, g: 0.68, b: 1 } });
+definePortrait('chancellor', { tint: { r: 0.95, g: 0.82, b: 0.5 } });
 definePortrait('player', { tint: { r: 0.62, g: 0.88, b: 0.72 } });

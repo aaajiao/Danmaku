@@ -737,6 +737,21 @@ describe('each difficulty tier is reachable and real', () => {
     expect(`normal has ${gated}: ${COVER.phases.has(gated)}`).toBe(`normal has ${gated}: false`);
     expect(`lunatic has ${gated}: ${LUNATIC.phases.has(gated)}`).toBe(`lunatic has ${gated}: true`);
   });
+
+  test("chancellor's Lunatic-only card, and its track, are reached only on Lunatic", () => {
+    // The stage-3 boss's fifth phase, `Fiat "Sealed"`, is `difficulties:
+    // ['lunatic']` and the second per-card track in the game (`music: 'fiat'`).
+    // Same proof as sentinel's above, one stage deeper: Normal must never touch
+    // the card, the real Lunatic playthrough must fight it, and only the Lunatic
+    // run can enter its track. Proved by fighting it, not asserted from the spec.
+    const spec = getBossSpec('chancellor');
+    const gatedIndex = activePhaseIndices(spec.phases, DEFAULT_DIFFICULTY).length;
+    const gated = `chancellor#${gatedIndex}`;
+    expect(`normal has ${gated}: ${COVER.phases.has(gated)}`).toBe(`normal has ${gated}: false`);
+    expect(`lunatic has ${gated}: ${LUNATIC.phases.has(gated)}`).toBe(`lunatic has ${gated}: true`);
+    expect(`normal entered fiat: ${COVER.music.has('fiat')}`).toBe('normal entered fiat: false');
+    expect(`lunatic entered fiat: ${LUNATIC.music.has('fiat')}`).toBe('lunatic entered fiat: true');
+  });
 });
 
 describe('the probe itself is honest', () => {

@@ -27,7 +27,7 @@ import { BACKGROUND_NOISE_GLSL, backgroundNames, getBackgroundSpec } from '../ba
 import { getStage, stageNames } from '../../content/stage';
 import { bossNames, getBossSpec } from '../../sim/boss';
 
-const SHIPPED = ['drift', 'surge', 'expanse', 'undertow'];
+const SHIPPED = ['drift', 'surge', 'expanse', 'undertow', 'stratum'];
 
 describe('the shipped scenes', () => {
   test.each(SHIPPED)('%s is registered', (name) => {

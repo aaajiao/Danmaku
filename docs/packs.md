@@ -1309,9 +1309,10 @@ what the simulation does, the picture is only how it looks.
 ### 9.7 The bundled base pack — the format eating the game's own content
 
 Everything above describes a *fetched* pack. The **base game is now this format's
-largest consumer**: stage-1, stage-2, their eight trash enemies (`grunt`,
-`weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion`), three
-bosses (`sentinel`, `warden`, `magistrate`) **and the whole player side** — the
+largest consumer**: stage-1, stage-2, stage-3, their twelve trash enemies (`grunt`,
+`weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion` + `clerk`,
+`stele`, `summons`, `assessor`), four
+bosses (`sentinel`, `warden`, `magistrate`, `chancellor`) **and the whole player side** — the
 four characters (`scout`, `lance`, `hound`, `spire`), their four shots, three
 option sets and two bombs — are no longer engine TypeScript.
 They are `src/packs/base-pack.json`, authored in `tools/make-base-pack.ts`, and

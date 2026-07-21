@@ -697,6 +697,312 @@
         "scoreValue": 1500,
         "onHit": "hit",
         "onDeath": "death.big"
+      },
+      "clerk": {
+        "sprite": "orb.small",
+        "hp": 10,
+        "radius": 9,
+        "tint": {
+          "r": 0.9,
+          "g": 0.82,
+          "b": 0.6
+        },
+        "motion": {
+          "r": 1.8,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.small",
+                  "r": 0.95,
+                  "g": 0.82,
+                  "b": 0.6
+                },
+                "radius": 5,
+                "motion": {
+                  "r": 2.6,
+                  "theta": 90
+                }
+              },
+              "count": 3,
+              "spread": 34,
+              "period": 48
+            },
+            "startAt": 30,
+            "difficulty": {
+              "easy": {
+                "count": 2,
+                "period": 60
+              },
+              "hard": {
+                "count": 4,
+                "spread": 40,
+                "period": 40
+              },
+              "lunatic": {
+                "count": 5,
+                "spread": 44,
+                "period": 34
+              }
+            }
+          }
+        ],
+        "spoils": [
+          [
+            "power",
+            1
+          ]
+        ],
+        "scoreValue": 100,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "stele": {
+        "sprite": "scale",
+        "hp": 34,
+        "radius": 14,
+        "tint": {
+          "r": 0.45,
+          "g": 0.7,
+          "b": 0.6
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 3,
+              "theta": 90
+            }
+          },
+          {
+            "count": 40,
+            "motion": {
+              "r": 0
+            }
+          },
+          {
+            "count": 230,
+            "motion": {
+              "r": 3.2,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "ring",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "orb.medium",
+                  "r": 0.55,
+                  "g": 0.78,
+                  "b": 0.68
+                },
+                "radius": 7,
+                "motion": {
+                  "r": 1.5,
+                  "theta": 90
+                }
+              },
+              "count": 18,
+              "period": 40,
+              "rotation": 5
+            },
+            "startAt": 55,
+            "stopAt": 220,
+            "difficulty": {
+              "easy": {
+                "count": 14,
+                "period": 52,
+                "rotation": 4
+              },
+              "hard": {
+                "count": 22,
+                "period": 34,
+                "rotation": 6
+              },
+              "lunatic": {
+                "count": 24,
+                "period": 30,
+                "rotation": 7
+              }
+            }
+          }
+        ],
+        "despawnMargin": 80,
+        "spoils": [
+          [
+            "power",
+            2
+          ]
+        ],
+        "scoreValue": 350,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "summons": {
+        "sprite": "needle",
+        "hp": 12,
+        "radius": 8,
+        "tint": {
+          "r": 0.95,
+          "g": 0.82,
+          "b": 0.5
+        },
+        "motion": {
+          "r": 2.2,
+          "theta": 90
+        },
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "needle",
+                  "r": 0.95,
+                  "g": 0.82,
+                  "b": 0.5,
+                  "orientToHeading": true,
+                  "additive": true
+                },
+                "radius": 5,
+                "motion": {
+                  "r": 3,
+                  "theta": 90,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 2,
+                    "delay": 6,
+                    "duration": 40
+                  }
+                }
+              },
+              "count": 3,
+              "spread": 12,
+              "period": 30
+            },
+            "startAt": 24,
+            "difficulty": {
+              "easy": {
+                "count": 2,
+                "spread": 10,
+                "period": 40
+              },
+              "hard": {
+                "count": 3,
+                "spread": 16,
+                "period": 26
+              },
+              "lunatic": {
+                "count": 4,
+                "spread": 18,
+                "period": 22
+              }
+            }
+          }
+        ],
+        "spoils": [
+          [
+            "power",
+            1
+          ]
+        ],
+        "scoreValue": 200,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "assessor": {
+        "sprite": "halo",
+        "hp": 40,
+        "radius": 13,
+        "tint": {
+          "r": 0.85,
+          "g": 0.75,
+          "b": 0.7
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 2.6,
+              "theta": 90
+            }
+          },
+          {
+            "count": 40,
+            "motion": {
+              "r": 0
+            }
+          },
+          {
+            "count": 260,
+            "motion": {
+              "r": 2.8,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "spiral",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "spark",
+                  "r": 0.85,
+                  "g": 0.75,
+                  "b": 0.7,
+                  "additive": true
+                },
+                "radius": 5,
+                "motion": {
+                  "r": 2.3,
+                  "theta": 90
+                }
+              },
+              "arms": 3,
+              "step": 9,
+              "period": 3
+            },
+            "startAt": 50,
+            "stopAt": 250,
+            "difficulty": {
+              "easy": {
+                "arms": 2,
+                "step": 7
+              },
+              "hard": {
+                "arms": 3,
+                "step": 11
+              },
+              "lunatic": {
+                "arms": 4,
+                "step": 12,
+                "period": 2
+              }
+            }
+          }
+        ],
+        "despawnMargin": 80,
+        "spoils": [
+          [
+            "power",
+            2
+          ],
+          [
+            "score",
+            1
+          ]
+        ],
+        "scoreValue": 500,
+        "onHit": "hit",
+        "onDeath": "explosion"
       }
     },
     "bosses": {
@@ -2146,6 +2452,518 @@
             ]
           }
         ]
+      },
+      "chancellor": {
+        "sprite": "halo",
+        "radius": 22,
+        "width": 64,
+        "height": 64,
+        "tint": {
+          "r": 0.95,
+          "g": 0.82,
+          "b": 0.5
+        },
+        "entry": {
+          "x": 240,
+          "y": 96,
+          "ticks": 90
+        },
+        "music": "nemesis",
+        "onDeath": "death.big",
+        "spoils": [
+          [
+            "big-power",
+            4
+          ],
+          [
+            "life",
+            1
+          ],
+          [
+            "score",
+            16
+          ],
+          [
+            "bomb",
+            1
+          ]
+        ],
+        "dialogue": [
+          {
+            "speaker": "chancellor",
+            "text": "Appeals are heard here."
+          },
+          {
+            "speaker": "player",
+            "text": "I did not come to be heard."
+          },
+          {
+            "speaker": "chancellor",
+            "text": "They are not granted."
+          },
+          {
+            "speaker": "chancellor",
+            "text": "No. You came to be filed."
+          }
+        ],
+        "dialogueFor": {
+          "spire": [
+            {
+              "speaker": "chancellor",
+              "text": "You already stand still."
+            },
+            {
+              "speaker": "chancellor",
+              "text": "You are half-filed. Estoppel does the rest."
+            }
+          ]
+        },
+        "phases": [
+          {
+            "name": "Appeal",
+            "hpSeconds": 7,
+            "isSpell": false,
+            "background": "surge",
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 0.8,
+                  "theta": 0
+                }
+              },
+              {
+                "count": 90,
+                "motion": {
+                  "r": 0.8,
+                  "theta": 180
+                }
+              },
+              {
+                "count": 180,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "count": 5,
+                  "spread": 38,
+                  "period": 52
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 3,
+                    "period": 64
+                  },
+                  "hard": {
+                    "count": 6,
+                    "spread": 42,
+                    "period": 44
+                  },
+                  "lunatic": {
+                    "count": 7,
+                    "spread": 46,
+                    "period": 40
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.medium",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.5
+                    },
+                    "radius": 6,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 12,
+                  "period": 72,
+                  "rotation": 6
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 10,
+                    "period": 84
+                  },
+                  "hard": {
+                    "count": 14,
+                    "period": 60
+                  },
+                  "lunatic": {
+                    "count": 16,
+                    "period": 56
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Sign \"Binding Precedent\"",
+            "hpSeconds": 12,
+            "isSpell": true,
+            "bonus": 250000,
+            "background": "surge",
+            "timeline": [
+              {
+                "count": 0,
+                "motion": {
+                  "r": 0.7,
+                  "theta": 0
+                }
+              },
+              {
+                "count": 100,
+                "motion": {
+                  "r": 0.7,
+                  "theta": 180
+                }
+              },
+              {
+                "count": 200,
+                "jump": 0
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "spiral",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "spark",
+                      "r": 0.85,
+                      "g": 0.75,
+                      "b": 0.7,
+                      "additive": true
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90
+                    }
+                  },
+                  "arms": 3,
+                  "step": 9,
+                  "period": 3
+                },
+                "difficulty": {
+                  "easy": {
+                    "arms": 2,
+                    "step": 7
+                  },
+                  "hard": {
+                    "arms": 4,
+                    "step": 10
+                  },
+                  "lunatic": {
+                    "arms": 4,
+                    "step": 12,
+                    "period": 2
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "count": 5,
+                  "spread": 40,
+                  "period": 50
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 3,
+                    "period": 62
+                  },
+                  "hard": {
+                    "count": 6,
+                    "spread": 44,
+                    "period": 44
+                  },
+                  "lunatic": {
+                    "count": 7,
+                    "spread": 48,
+                    "period": 40
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Seal Sign \"Wax and Witness\"",
+            "hpSeconds": 13,
+            "isSpell": true,
+            "bonus": 300000,
+            "background": "surge",
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "halo",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.5,
+                      "additive": true
+                    },
+                    "radius": 8,
+                    "motion": {
+                      "r": 2,
+                      "theta": 90,
+                      "behaviour": "orbit",
+                      "options": {
+                        "centerX": 240,
+                        "centerY": 96,
+                        "radius": 70,
+                        "angularSpeed": 3,
+                        "duration": 90
+                      }
+                    }
+                  },
+                  "count": 16,
+                  "period": 80,
+                  "rotation": 0
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 12
+                  },
+                  "hard": {
+                    "count": 20
+                  },
+                  "lunatic": {
+                    "count": 24
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "count": 3,
+                  "spread": 20,
+                  "period": 64
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 2,
+                    "period": 80
+                  },
+                  "hard": {
+                    "count": 4,
+                    "period": 54
+                  },
+                  "lunatic": {
+                    "count": 5,
+                    "period": 48
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Sign \"Estoppel\"",
+            "hpSeconds": 14,
+            "isSpell": true,
+            "bonus": 500000,
+            "background": "surge",
+            "patterns": [
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.medium",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.5
+                    },
+                    "radius": 6,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 20,
+                  "period": 46,
+                  "rotation": 8
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 14,
+                    "period": 58
+                  },
+                  "hard": {
+                    "count": 24,
+                    "period": 40
+                  },
+                  "lunatic": {
+                    "count": 28,
+                    "period": 36
+                  }
+                }
+              },
+              {
+                "pattern": "spray",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "count": 4,
+                  "spread": 360,
+                  "period": 16
+                },
+                "difficulty": {
+                  "easy": {
+                    "count": 2,
+                    "period": 22
+                  },
+                  "hard": {
+                    "count": 5,
+                    "period": 13
+                  },
+                  "lunatic": {
+                    "count": 6,
+                    "period": 11
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Fiat \"Sealed\"",
+            "hpSeconds": 17,
+            "isSpell": true,
+            "difficulties": [
+              "lunatic"
+            ],
+            "bonus": 800000,
+            "background": "surge",
+            "music": "fiat",
+            "patterns": [
+              {
+                "pattern": "spiral",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "spark",
+                      "r": 0.85,
+                      "g": 0.75,
+                      "b": 0.7,
+                      "additive": true
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.3,
+                      "theta": 90
+                    }
+                  },
+                  "arms": 4,
+                  "step": 12,
+                  "period": 2
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "count": 7,
+                  "spread": 46,
+                  "period": 44
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.medium",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.5
+                    },
+                    "radius": 6,
+                    "motion": {
+                      "r": 2.2,
+                      "theta": 90
+                    }
+                  },
+                  "count": 20,
+                  "period": 60,
+                  "rotation": 5
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     "stages": {
@@ -2307,7 +3125,7 @@
         "background": "undertow",
         "music": "descent",
         "boss": "magistrate",
-        "next": null,
+        "next": "stage-3",
         "waves": [
           {
             "at": 0,
@@ -2513,6 +3331,146 @@
             "count": 6,
             "interval": 8,
             "stepX": 72
+          }
+        ]
+      },
+      "stage-3": {
+        "entry": false,
+        "seed": 3939589,
+        "outro": 90,
+        "background": "stratum",
+        "music": "precedent",
+        "boss": "chancellor",
+        "next": null,
+        "waves": [
+          {
+            "at": 60,
+            "enemy": "clerk",
+            "x": 90,
+            "y": -24,
+            "count": 3,
+            "interval": 44
+          },
+          {
+            "at": 104,
+            "enemy": "clerk",
+            "x": 390,
+            "y": -24,
+            "count": 3,
+            "interval": 44
+          },
+          {
+            "at": 300,
+            "enemy": "clerk",
+            "x": 170,
+            "y": -24,
+            "count": 2,
+            "interval": 40,
+            "stepX": 60
+          },
+          {
+            "at": 440,
+            "enemy": "stele",
+            "x": 240,
+            "y": -24
+          },
+          {
+            "at": 560,
+            "enemy": "clerk",
+            "x": 120,
+            "y": -24,
+            "count": 3,
+            "interval": 40
+          },
+          {
+            "at": 620,
+            "enemy": "stele",
+            "x": 140,
+            "y": -24
+          },
+          {
+            "at": 620,
+            "enemy": "stele",
+            "x": 340,
+            "y": -24
+          },
+          {
+            "at": 700,
+            "enemy": "stele",
+            "x": 240,
+            "y": -24
+          },
+          {
+            "at": 760,
+            "enemy": "summons",
+            "x": 90,
+            "y": -30,
+            "count": 2,
+            "interval": 70,
+            "stepX": 150
+          },
+          {
+            "at": 820,
+            "enemy": "summons",
+            "x": 300,
+            "y": -30,
+            "count": 2,
+            "interval": 70,
+            "stepX": -80
+          },
+          {
+            "at": 1040,
+            "enemy": "clerk",
+            "x": 390,
+            "y": -24,
+            "count": 3,
+            "interval": 36
+          },
+          {
+            "at": 1180,
+            "enemy": "assessor",
+            "x": 160,
+            "y": -60
+          },
+          {
+            "at": 1180,
+            "enemy": "assessor",
+            "x": 320,
+            "y": -60
+          },
+          {
+            "at": 1260,
+            "enemy": "clerk",
+            "x": 90,
+            "y": -24,
+            "count": 2,
+            "interval": 30
+          },
+          {
+            "at": 1280,
+            "enemy": "clerk",
+            "x": 390,
+            "y": -24,
+            "count": 2,
+            "interval": 30
+          },
+          {
+            "at": 1400,
+            "enemy": "assessor",
+            "x": 240,
+            "y": -60
+          },
+          {
+            "at": 1460,
+            "enemy": "stele",
+            "x": 200,
+            "y": -24
+          },
+          {
+            "at": 1620,
+            "boss": "chancellor",
+            "x": 240,
+            "y": -60
           }
         ]
       }

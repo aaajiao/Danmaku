@@ -501,3 +501,16 @@ defineMusic('nemesis', {});
 // first `SpellCard.music` in the game), so it is reached only on Lunatic — which
 // is why `reachability.test.ts`'s music check unions the Lunatic run for it.
 defineMusic('zenith', {});
+// Stage 3's theme, named by `stages['stage-3'].music`. The heaviest, slowest
+// settling in the game: the root is pinned to the bottom of the drone band (44Hz,
+// the floor `hashName` can reach) so two close low tones beat against each other
+// as ballast — "what was decided before you arrived binds you," the metronome the
+// enemies play against. Pinned rather than name-derived so the weight is a
+// property of the track, not of how its letters happen to hash.
+defineMusic('precedent', { synth: { root: 44 } });
+// Stage 3's Lunatic-only final card (`Fiat "Sealed"`) names this via
+// `SpellCard.music`, the second per-card track after `zenith` and reached the
+// same way — only on the shared Lunatic run. Pitched a little higher than
+// `precedent` (55Hz, the top of the band) so it reads as drier and closer: the
+// moment the court stops hearing and simply decrees.
+defineMusic('fiat', { synth: { root: 55 } });

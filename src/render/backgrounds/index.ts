@@ -41,5 +41,6 @@
 
 import './drift';
 import './expanse';
+import './stratum';
 import './surge';
 import './undertow';

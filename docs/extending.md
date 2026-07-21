@@ -727,7 +727,8 @@ spawns outside and travels further out is never culled at all. It is a content
 bug, and only the pool ceiling bounds it.
 
 `src/sim/enemy.ts` holds only the mechanism and its registry now — no cast. The
-base game's enemies (`grunt`, `weaver`, `turret` and stage-2's five) moved into
+base game's enemies (`grunt`, `weaver`, `turret`, stage-2's five and stage-3's
+four) moved into
 the bundled base pack, authored as JSON in `tools/make-base-pack.ts` and
 registered through the injector at boot (`docs/packs.md` §9.7). Adding
 an enemy to the base campaign is a generator edit, not an inline `defineEnemy`;
@@ -974,9 +975,9 @@ third of the way in and makes never firing a 183-second exit. `phaseClock`
 exists precisely so this cannot be done by hand; `src/sim/boss.ts`'s
 `CLOCK_MARGIN` comment argues it in full.
 
-**Adding a boss to the base campaign is a generator edit.** `sentinel`, `warden`
-and `magistrate` are no longer engine `defineBoss` calls — they are JSON in
-`base-pack.json`, authored in `tools/make-base-pack.ts`, where a card states its
+**Adding a boss to the base campaign is a generator edit.** `sentinel`, `warden`,
+`magistrate` and `chancellor` are no longer engine `defineBoss` calls — they are
+JSON in `base-pack.json`, authored in `tools/make-base-pack.ts`, where a card states its
 health as `hpSeconds` (the same `phaseHp` seconds, reconverted by the injector)
 rather than calling `phaseHp` in TypeScript. The `defineBoss` surface documented
 above stays for engine-registered content and for a guest pack's injector path;
@@ -1000,8 +1001,8 @@ a stage file.
 ```ts
 import { defineStage } from './stage';
 
-defineStage('stage-3', {
-  name: 'stage-3',
+defineStage('stage-demo', {
+  name: 'stage-demo',
   seed: 0x5747a1,
   outro: 180,
   background: 'expanse',
@@ -1099,13 +1100,17 @@ on a built-in boss named by string — the injector resolves all of it and the
 title menu grows a row per entry, so a pack stage is reachable without touching
 `states.ts`. See [`docs/packs.md`](./packs.md) §9.
 
-**The base game's own stages are that pack data.** `stage-1` and `stage-2` are no
-longer `defineStage` calls in `src/content/stage.ts` — that file keeps only the
-machinery. They are JSON in `base-pack.json`, authored in
+**The base game's own stages are that pack data.** `stage-1`, `stage-2` and
+`stage-3` are no longer `defineStage` calls in `src/content/stage.ts` — that file
+keeps only the machinery. They are JSON in `base-pack.json`, authored in
 `tools/make-base-pack.ts`, and injected bare (no campaign row: the entry stage
 takes the plain START row). So extending the base campaign — a new stage, or a
 new wave in an existing one — is a generator edit; `docs/packs.md` §9.7
 covers how it round-trips byte-for-byte and the drift test that holds it.
+The worked example is **`stage-3` itself** (`tools/make-base-pack.ts:1619`): its
+wave arc, its `boss: 'chancellor'` handoff and its `next: null` closing the
+campaign are the same `StageSpec` fields above, authored in the generator's JSON
+rather than through `defineStage`.
 
 ---
 
@@ -1751,8 +1756,8 @@ as an unskinned bullet still draws. `PORTRAIT_SIZE` (96) is the one square a
 supplied image must be; a pack registers its portrait through the same `image`
 seam, dimension-checked at load (`docs/packs.md` §5.5).
 
-The four built-in bosses' speakers (`sentinel`, `warden`, `magistrate`) and
-`player` are pre-registered, tinted to read as that fight. The painted result
+The four built-in bosses' speakers (`sentinel`, `warden`, `magistrate`,
+`chancellor`) and `player` are pre-registered, tinted to read as that fight. The painted result
 needs a DOM, so `bun test` proves only the registry and the tint arithmetic; the
 drawn box is judged in `bun run dev`.
 
