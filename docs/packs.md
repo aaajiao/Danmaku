@@ -754,7 +754,12 @@ holds the schedule until the fight ends, exactly as a built-in `BossWave` does
   nor reachable by some pack stage's `next` is dead content (§9.3).
 - **`next`** chains stages. A string names the next stage; `null` states "this is
   the last stage" explicitly, where a built-in `StageSpec` leaves the field
-  `undefined`.
+  `undefined`. Clearing a stage whose `next` is `null`/`undefined` no longer
+  drops straight to the results screen: the shell raises the **ending** screen
+  first (`EndingScreenState`, `src/game/states.ts`), a short paged coda that
+  crossfades to its own music track before replacing itself with the results
+  screen on the final page. This is engine behaviour keyed off the absence of a
+  next stage — no pack field controls it.
 - **`background`** and **`music`** name the scene and track the stage is set to,
   resolved like every other reference (§9.3): a background is always a built-in
   (shaders are engine code), but a track may be one this pack's own `music`
@@ -1313,10 +1318,10 @@ what the simulation does, the picture is only how it looks.
 ### 9.7 The bundled base pack — the format eating the game's own content
 
 Everything above describes a *fetched* pack. The **base game is now this format's
-largest consumer**: stage-1, stage-2, stage-3, their twelve trash enemies (`grunt`,
+largest consumer**: stage-1, stage-2, stage-3, stage-4, their fifteen trash enemies (`grunt`,
 `weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion` + `clerk`,
-`stele`, `summons`, `assessor`), four
-bosses (`sentinel`, `warden`, `magistrate`, `chancellor`) **and the whole player side** — the
+`stele`, `summons`, `assessor` + `usher`, `marshal`, `notary`), five
+bosses (`sentinel`, `warden`, `magistrate`, `chancellor`, `regent`) **and the whole player side** — the
 four characters (`scout`, `lance`, `hound`, `spire`), their four shots, three
 option sets and two bombs — are no longer engine TypeScript.
 They are `src/packs/base-pack.json`, authored in `tools/make-base-pack.ts`, and

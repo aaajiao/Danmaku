@@ -336,6 +336,12 @@ function playThroughGame(
     machine.tick(buttons);
 
     for (const state of machine.stack) {
+      // A state may declare a music track with no `Run` behind it — the ending
+      // screen sounds `adjourn` this way, read off the stack in `main.ts`. Capture
+      // it here so the entered-track check below sees it, mirroring that shell.
+      const stateMusic = (state as { music?: string }).music;
+      if (stateMusic !== undefined) cover.music.add(stateMusic);
+
       const run = (state as { run?: Run }).run;
       if (run === undefined) continue;
 
@@ -532,7 +538,12 @@ describe('a real playthrough reaches', () => {
     // loops the phases too, the way the scene test does. All are the same
     // string-across-a-boundary — `musicNames` is audio-side, reachable from
     // `src/game`, while the sim never learns a track exists.
-    const declared = new Set<string>([MENU_MUSIC]);
+    // `adjourn` is the ending track, declared at the shell level exactly as
+    // `MENU_MUSIC` is: no stage, boss or card names it — `EndingScreenState`
+    // sounds it (read off the stack in `main.ts`), and the ending is what reaches
+    // it. Unlike `MENU_MUSIC` it *is* entered by a real run (the probe clears the
+    // final stage and pages the ending), so it is not excepted from the check below.
+    const declared = new Set<string>([MENU_MUSIC, 'adjourn']);
     for (const stage of content(stageNames())) {
       const track = getStage(stage).music;
       if (track !== undefined) declared.add(track);
@@ -590,8 +601,12 @@ describe('a real playthrough reaches', () => {
   });
 
   test('every state screen', () => {
+    // `ending` joins the set: clearing a stage that declares no `next` raises
+    // `EndingScreenState` before the ALL CLEAR results card. `cleared` stays —
+    // non-final stage clears reach it directly, and the ending replaces itself
+    // with it on the last page, so both are touched by a full playthrough.
     expect([...COVER.states].sort()).toEqual(
-      ['character-select', 'cleared', 'difficulty-select', 'playing', 'title'].sort(),
+      ['character-select', 'cleared', 'difficulty-select', 'ending', 'playing', 'title'].sort(),
     );
   });
 
@@ -756,6 +771,20 @@ describe('each difficulty tier is reachable and real', () => {
     expect(`lunatic has ${gated}: ${LUNATIC.phases.has(gated)}`).toBe(`lunatic has ${gated}: true`);
     expect(`normal entered fiat: ${COVER.music.has('fiat')}`).toBe('normal entered fiat: false');
     expect(`lunatic entered fiat: ${LUNATIC.music.has('fiat')}`).toBe('lunatic entered fiat: true');
+  });
+
+  test("regent's Lunatic-only card is reached only on Lunatic", () => {
+    // The stage-4 boss's sixth phase, `Last Fiat "Sine Die"`, is `difficulties:
+    // ['lunatic']` — the campaign's terminal card. Same proof as sentinel's and
+    // chancellor's, at the source: Normal must never touch it, the real Lunatic
+    // playthrough must fight it. It reuses `fiat` (proved entered above via the
+    // chancellor) and drains to `vault` (the stage's own scene), so it declares no
+    // new track or scene — only this phase needs proving reached, and only on tier.
+    const spec = getBossSpec('regent');
+    const gatedIndex = activePhaseIndices(spec.phases, DEFAULT_DIFFICULTY).length;
+    const gated = `regent#${gatedIndex}`;
+    expect(`normal has ${gated}: ${COVER.phases.has(gated)}`).toBe(`normal has ${gated}: false`);
+    expect(`lunatic has ${gated}: ${LUNATIC.phases.has(gated)}`).toBe(`lunatic has ${gated}: true`);
   });
 });
 

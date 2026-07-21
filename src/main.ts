@@ -305,6 +305,14 @@ const loop = new Loop({
     let track: string | undefined;
 
     for (const state of machine.stack) {
+      // A state may declare a music track directly, with no `Run` behind it — the
+      // ending screen does, because once the boss is dead `run.music` has fallen
+      // back to the stage theme and can no longer name the ending track. Read
+      // bottom-up so the topmost declaration wins, the same precedence `run.music`
+      // uses, and so the ending screen on top overrides the finished run beneath.
+      const override = (state as { music?: string }).music;
+      if (override !== undefined) track = override;
+
       const run = (state as { run?: Run }).run;
       if (!run) continue;
 

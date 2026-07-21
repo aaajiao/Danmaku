@@ -4,6 +4,7 @@ import { Button } from '../core/input';
 import { defineBomb } from '../sim/bomb';
 import { defineOptions } from '../sim/option';
 import type { Replay } from '../sim/replay';
+import { defineStage } from '../content/stage';
 import { Edges, type GameState, StateMachine, type StateView } from './state';
 import { characterNames, defineCharacter, getCharacter, type Run } from './run';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES } from '../sim/difficulty';
@@ -11,6 +12,8 @@ import {
   CharacterSelectState,
   ClearedState,
   DifficultySelectState,
+  endingCoda,
+  EndingScreenState,
   GameOverState,
   type GameContext,
   PauseState,
@@ -74,6 +77,20 @@ defineCharacter(PACK_CHARACTER, {
     grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90, shots: PILOT_SHOTS,
   },
 });
+
+/**
+ * Two synthetic stages for the ending fork, `test-`-prefixed so the reachability
+ * and background scans skip them. Both are empty — no waves, no boss — so a run on
+ * either clears within a tick or two without a pilot needing to survive anything,
+ * which is what makes the ending branch testable deterministically rather than by
+ * driving a whole real stage to its end. `FINAL_STAGE` declares no `next` (the last
+ * stage of a campaign, `null` on the real one); `PENULTIMATE_STAGE` declares one, so
+ * clearing it is a stage clear rather than the game's end.
+ */
+const FINAL_STAGE = 'test-ending-final';
+defineStage(FINAL_STAGE, { name: FINAL_STAGE, waves: [] });
+const PENULTIMATE_STAGE = 'test-ending-penultimate';
+defineStage(PENULTIMATE_STAGE, { name: PENULTIMATE_STAGE, waves: [], next: FINAL_STAGE });
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */
@@ -934,6 +951,119 @@ describe('endings', () => {
     const plainCtx = context();
     const plain = new PlayingState(plainCtx, PILOT);
     expect(new ClearedState(plainCtx, plain).view().lines).not.toContain('assist — infinite lives');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* The ending                                                          */
+/* ------------------------------------------------------------------ */
+
+describe('the ending', () => {
+  /**
+   * Drive an empty stage to its clear through the machine, then give the pushed
+   * ending/clear card one idle tick so its `Edges` first-update suppression is
+   * spent — the same settling tick the real loop provides, and what lets the taps
+   * that follow register as edges rather than vanishing into the suppressed update.
+   */
+  function clearRun(ctx: GameContext, playing: PlayingState): void {
+    for (let t = 0; t < 4000 && !playing.run.finished; t++) ctx.machine.tick(Button.Shot);
+    ctx.machine.tick(0);
+  }
+
+  test('clearing a stage with a next raises the clear card, unchanged', () => {
+    const ctx = context();
+    const playing = new PlayingState(ctx, PILOT, { stage: PENULTIMATE_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    expect(playing.run.outcome).toBe('cleared');
+    expect(ctx.machine.current?.name).toBe('cleared');
+    expect((ctx.machine.current as ClearedState).view().title).toBe('STAGE CLEAR');
+  });
+
+  test('clearing a stage with no next raises the ending screen instead', () => {
+    const ctx = context();
+    const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    expect(playing.run.outcome).toBe('cleared');
+    expect(ctx.machine.current?.name).toBe('ending');
+    // Drawn over the field it ended on: both are on the stack, bottom-up.
+    expect(ctx.machine.views().map((v) => v.kind)).toEqual(['playing', 'ending']);
+  });
+
+  test('CONFIRM pages through the ending and then shows the ALL CLEAR results', () => {
+    const ctx = context();
+    const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    const ending = ctx.machine.current as EndingScreenState;
+    expect(ending.name).toBe('ending');
+
+    // Page 0: the opening. Page 1: the coda. Page 2: the closing. Three CONFIRM
+    // edges page through them; the third exits to the results screen.
+    const page0 = ending.view().lines ?? [];
+    expect(page0[0]).toBe('You have reached the bottom of the descent.');
+
+    tap(ctx.machine, Button.Shot);
+    expect((ctx.machine.current as EndingScreenState).view().lines).toEqual([
+      endingCoda(PILOT),
+    ]);
+
+    tap(ctx.machine, Button.Shot);
+    expect((ctx.machine.current as EndingScreenState).view().lines?.at(-1)).toBe(
+      'Adjourned, sine die.',
+    );
+
+    // The last page's CONFIRM replaces the ending with the results card — still a
+    // `cleared` screen, ALL CLEAR because this stage had no next, with the run's
+    // score intact and the field still beneath it.
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.machine.current?.name).toBe('cleared');
+    const cleared = ctx.machine.current as ClearedState;
+    expect(cleared.view().title).toBe('ALL CLEAR');
+    expect(cleared.view().lines?.[0]).toBe(`score ${playing.run.player.score}`);
+    expect(ctx.machine.views().map((v) => v.kind)).toEqual(['playing', 'cleared']);
+  });
+
+  test('an assist run carries its marker onto the ALL CLEAR results after the ending', () => {
+    const ctx = context({ infiniteLives: true });
+    const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    // Page through all three pages to the results card.
+    tap(ctx.machine, Button.Shot, 3);
+    expect(ctx.machine.current?.name).toBe('cleared');
+    expect((ctx.machine.current as ClearedState).view().lines).toContain(
+      'assist — infinite lives',
+    );
+  });
+
+  test('the ending sounds the adjourn track for the shell to reconcile', () => {
+    const ctx = context();
+    const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    // The state-level field `main.ts` reads off the stack, exactly as it reads the
+    // menu fallback — the one seam a finished `Run` cannot express.
+    expect((ctx.machine.current as { music?: string }).music).toBe('adjourn');
+  });
+
+  test('each character selects its own coda, and an unknown ship a neutral one', () => {
+    // The four base ships live in the bundled pack, which this `src/game` test may
+    // not import, so the selection is proved against the literal names rather than
+    // by flying a registered ship.
+    expect(endingCoda('scout')).toBe('You were only ever passing through.');
+    expect(endingCoda('lance')).toBe('Nothing down here yields. You leave it standing.');
+    expect(endingCoda('hound')).toBe('You found the source. There was nothing to hold it.');
+    expect(endingCoda('spire')).toBe('The seat is empty. You climbed anyway.');
+    // A guest ship, or this file's test pilot, still gets a middle page.
+    expect(endingCoda('demo/raider')).toBe('You reached the centre, and no one answered.');
+    expect(endingCoda(PILOT)).toBe('You reached the centre, and no one answered.');
   });
 });
 

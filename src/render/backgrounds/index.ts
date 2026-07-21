@@ -44,3 +44,4 @@ import './expanse';
 import './stratum';
 import './surge';
 import './undertow';
+import './vault';

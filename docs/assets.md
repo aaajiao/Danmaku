@@ -396,7 +396,7 @@ and no plan for either. A background is a full-screen quad at `Layer.Background`
 running a shader registered with `defineBackground`
 (`src/render/background.ts:149`), one scene per file under
 `src/render/backgrounds/`, reaching the game only because that directory's index
-imports it. Five exist: `drift`, `expanse`, `stratum`, `surge`, `undertow`.
+imports it. Six exist: `drift`, `expanse`, `stratum`, `surge`, `undertow`, `vault`.
 
 The reason is in the header of `src/render/background.ts`: upstream's background
 was a textured plane scrolled by a counter, which gives you exactly one
@@ -438,6 +438,7 @@ ones, so a proposal has something to sit next to:
 | `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:103-105`) |
 | `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) |
 | `undertow` | haze / wall deep / wall lift | `(0.018, 0.010, 0.030)`, `(0.026, 0.014, 0.044)`, `(0.100, 0.048, 0.150)` (`undertow.ts:86-88`) |
+| `vault` | haze / deep / lift | `(0.010, 0.007, 0.002)`, `(0.022, 0.016, 0.005)`, `(0.085, 0.060, 0.018)` (`vault.ts:130-132`) — analytic peak ≈0.079, still pending the live `test:visual`/`dev` measurement the other rows already carry |
 
 Read the magnitudes before proposing anything. The brightest constant in the
 game is `0.155`, and it is a *lift* term multiplied by a fraction before it is

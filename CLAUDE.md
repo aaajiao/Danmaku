@@ -31,8 +31,8 @@ tools/             fixture, example-pack and base-pack generation, dev server,
                    build copy
 ```
 
-The built-in campaign — stage-1, stage-2, stage-3, their twelve trash enemies and
-four bosses — is no longer engine TypeScript, and neither is the player side: the four
+The built-in campaign — stage-1 through stage-4, their fifteen trash enemies and
+five bosses — is no longer engine TypeScript, and neither is the player side: the four
 characters (scout, lance, hound, spire), their four shots, three option sets and
 two bombs are pack data too. All of it is `src/packs/base-pack.json`, authored by
 `tools/make-base-pack.ts` and injected through the same validate+inject pipeline

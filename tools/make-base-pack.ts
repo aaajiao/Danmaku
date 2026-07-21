@@ -289,6 +289,137 @@ const SEAL = {
   },
 };
 
+/* ---- stage-4 ammunition ---- */
+
+/*
+ * Stage 4 is the recapitulation — every card and every trash type quotes a prior
+ * stage, and the ammunition follows suit. The regent's generic curtains REUSE the
+ * chancellor's bullets (`WRIT` aimed/spray, `DECREE` ring, `LEVY` spiral): "the
+ * decree returning at the source, harder" is the fiction, and reusing the exact
+ * gold bullets is that fiction made literal — no new colour is introduced where
+ * an old one already carries the meaning. The specs below exist only where a
+ * behaviour the earlier bullets do not have is needed: the counter-rotating
+ * orbit, the regent's seeker, and the slow wall bars the new trash lay.
+ */
+
+/**
+ * The picket — the usher's aimed needle. Fast, thin, wan gold: a herder's shot
+ * meant to close one lane at a time so a BANK of ushers sweeps the player off a
+ * line, stage-1's sideways lesson restated in the gold. `blade` makes the lethal
+ * shape the short capsule the needle art draws.
+ */
+const PICKET = {
+  style: { sprite: 'needle', r: 1, g: 0.86, b: 0.5, orientToHeading: true, additive: true },
+  radius: 3,
+  motion: { r: 3.2, theta: 90 },
+  blade: { length: 22 },
+};
+
+/**
+ * The bulwark — the marshal's ring-wall bar. Deliberately slow at 1.4px/tick so a
+ * rotating ring hangs in the air and successive volleys interlock into a standing
+ * wall with one slowly-turning lane — stage-2's wall lesson, the same mechanism
+ * stage-3's `SLAB` used a hair faster. A fast bar would be gone before the next
+ * arrived and there would be no wall to thread.
+ */
+const BULWARK = {
+  style: { sprite: 'orb.medium', r: 0.9, g: 0.78, b: 0.5 },
+  radius: 6,
+  motion: { r: 1.4, theta: 90 },
+};
+
+/**
+ * The signet — the seal the notary presses. A halo, additive gold, fired in the
+ * ring the notary stamps late in its plant. There is no death-trigger for enemy
+ * bullets in the engine, so the "seal on death" of the fiction is authored as a
+ * heavy ring laid on a late `startAt`: kill the notary first and you skip the
+ * stamp, the reward for focusing it, exactly as stele/assessor's rings stop when
+ * killed.
+ */
+const SIGNET = {
+  style: { sprite: 'halo', r: 0.95, g: 0.82, b: 0.5, additive: true },
+  radius: 7,
+  motion: { r: 2, theta: 90 },
+};
+
+/**
+ * The crown — the regent's orbiting seal, and the whole of "Corolla Regnant".
+ * `orbit` walks each fired ring onto a fixed circle about the regent's station;
+ * two specs with OPPOSITE-sign `angularSpeed` and different radii give the two
+ * counter-rotating rings the card is built on. The sentinel had ONE orbiting
+ * seal (stage-1); here there are two, turning against each other — the lateral
+ * dodge doubled. The centre is the regent's own station (behaviour centres are
+ * literal numbers; omitting them defaults the circle to (0,0), off the field, as
+ * the stage-3 SEAL comment records).
+ */
+const CROWN_CENTRE_X = 240;
+const CROWN_CENTRE_Y = 96;
+
+const CROWN_CW = {
+  style: { sprite: 'halo', r: 0.98, g: 0.85, b: 0.55, additive: true },
+  radius: 7,
+  motion: {
+    r: 2,
+    theta: 90,
+    behaviour: 'orbit',
+    options: {
+      centerX: CROWN_CENTRE_X,
+      centerY: CROWN_CENTRE_Y,
+      radius: 58,
+      angularSpeed: 4,
+      duration: 150,
+    },
+  },
+};
+
+const CROWN_CCW = {
+  style: { sprite: 'halo', r: 0.98, g: 0.72, b: 0.42, additive: true },
+  radius: 7,
+  motion: {
+    r: 2,
+    theta: 90,
+    behaviour: 'orbit',
+    options: {
+      centerX: CROWN_CENTRE_X,
+      centerY: CROWN_CENTRE_Y,
+      radius: 94,
+      angularSpeed: -4,
+      duration: 150,
+    },
+  },
+};
+
+/**
+ * The warrant — the regent's seeker, fired in a ring on "Attainder". Like the
+ * stage-2 hunter and the stage-3 subpoena it commits to a lane before it
+ * corrects, so the dodge is WHEN you move, not whether; laid over a static
+ * aimed-fan colonnade that punishes standing still, it is the game's hardest
+ * single read (magistrate's seekers and beam-walls at once).
+ */
+const WARRANT = {
+  style: { sprite: 'needle', r: 0.98, g: 0.82, b: 0.5, orientToHeading: true, additive: true },
+  radius: 4,
+  blade: { length: 24 },
+  motion: {
+    r: 2.2,
+    theta: 90,
+    behaviour: 'homing',
+    options: { turnRate: 2, delay: 12, duration: 60 },
+  },
+};
+
+/**
+ * The lattice bar — "Portcullis"'s wall. Slow like the bulwark but the regent's:
+ * two rings of these at slightly different rotation form a lattice whose safe
+ * lane slides, the stage-1 sideways read forced UNDER a stage-2 wall (warden's
+ * picket, recapped as the graze card).
+ */
+const LATTICE = {
+  style: { sprite: 'orb.medium', r: 0.95, g: 0.82, b: 0.5 },
+  radius: 6,
+  motion: { r: 1.6, theta: 90 },
+};
+
 /* ================================================================== */
 /* Enemies                                                            */
 /* ================================================================== */
@@ -724,6 +855,139 @@ const enemies: PackContent['enemies'] = {
     // 1400), giving the final stage its 3 mid-stage bombs on every tier. It keeps
     // its score row; the bomb rides alongside.
     spoils: [['power', 2], ['score', 1], ['bomb', 1]],
+    scoreValue: 500,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
+  /* ---- stage-4 cast ---- */
+
+  /*
+   * Stage 4 fields three new trash types, each re-teaching one earlier stage's
+   * lesson, plus reprises of one enemy per prior stage (`grunt`, `lash`,
+   * `assessor`) — the final exam of trash. Names do not collide with the roster.
+   */
+
+  /**
+   * The usher — the herder, and the stage's difficulty axis before the boss. Falls
+   * fast and fires a tight aimed-fan of pickets that push the player off a line;
+   * it is placed in BANKS from both flanks (the wave's own doing, so no mirrored
+   * twin is needed — the sideways motion is the formation, not the enemy). Low hp,
+   * cheap. It is the enemy the headless opening assertion measures: Easy thins and
+   * slows the fan, Lunatic widens and quickens it, so the opening rises strictly.
+   */
+  usher: {
+    sprite: 'needle',
+    hp: 8,
+    radius: 8,
+    tint: { r: 0.98, g: 0.86, b: 0.5 },
+    motion: { r: 2.6, theta: 90 },
+    patterns: [
+      {
+        pattern: 'aimed-fan',
+        options: { spec: PICKET, count: 3, spread: 26, period: 40 },
+        startAt: 20,
+        difficulty: {
+          easy: { count: 2, spread: 20, period: 52 },
+          hard: { count: 4, spread: 32, period: 34 },
+          lunatic: { count: 5, spread: 38, period: 30 },
+        },
+      },
+    ],
+    spoils: [['power', 1]],
+    scoreValue: 100,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
+  /**
+   * The marshal — the stationary anchor the ushers sweep past. Slow and durable:
+   * dives, plants for about three seconds, and lays a rotating ring-wall of slow
+   * bulwark bars whose volleys interlock into a standing wall with one turning
+   * lane, the stage-2 wall. Ring count rises per tier and Lunatic tightens the
+   * gap — the lane narrows Easy->Lunatic but never closes.
+   */
+  marshal: {
+    sprite: 'scale',
+    hp: 40,
+    radius: 15,
+    tint: { r: 0.6, g: 0.55, b: 0.42 },
+    timeline: [
+      { count: 0, motion: { r: 3, theta: 90 } },
+      { count: 44, motion: { r: 0 } },
+      { count: 250, motion: { r: 3.2, theta: 270 } },
+    ],
+    patterns: [
+      {
+        pattern: 'ring',
+        options: { spec: BULWARK, count: 20, period: 44, rotation: 6 },
+        startAt: 60,
+        stopAt: 240,
+        difficulty: {
+          easy: { count: 16, period: 56, rotation: 4 },
+          hard: { count: 24, period: 38, rotation: 8 },
+          lunatic: { count: 28, period: 34, rotation: 9 },
+        },
+      },
+    ],
+    despawnMargin: 80,
+    spoils: [['power', 2]],
+    scoreValue: 350,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
+  /**
+   * The notary — the mid-stage bomb carrier, and stage-3's "both at once" made
+   * flesh. A tanky official that dives on a timeline (like `assessor`), plants,
+   * and pours a spiral (a rotating stream) while a late ring-stamp lays a
+   * turning-gap wall over it — the sideways read under a rotating stream at once.
+   * Lunatic adds an arm to the spiral and turns the stamp's gap harder.
+   *
+   * Its spoils include a bomb: it is the carrier the economy test now requires per
+   * stage (`tools/make-base-pack.test.ts`), and the assessor reprise below is a
+   * second, so the stage hands back bombs before the boss door on every tier.
+   */
+  notary: {
+    sprite: 'halo',
+    hp: 44,
+    radius: 13,
+    tint: { r: 0.95, g: 0.82, b: 0.5 },
+    timeline: [
+      { count: 0, motion: { r: 2.6, theta: 90 } },
+      { count: 44, motion: { r: 0 } },
+      { count: 260, motion: { r: 2.8, theta: 270 } },
+    ],
+    patterns: [
+      {
+        pattern: 'spiral',
+        options: { spec: LEVY, arms: 3, step: 10, period: 3 },
+        startAt: 50,
+        stopAt: 210,
+        difficulty: {
+          easy: { arms: 2, step: 8 },
+          hard: { arms: 3, step: 12 },
+          lunatic: { arms: 4, step: 13, period: 2 },
+        },
+      },
+      {
+        // The seal it presses. A short late stamp — two or three interlocking
+        // signet rings before the notary leaves, whose gap turns by `rotation`
+        // between volleys. Lunatic turns it faster. (There is no death-trigger, so
+        // this is a late `startAt`, not literally on death — see SIGNET.)
+        pattern: 'ring',
+        options: { spec: SIGNET, count: 18, period: 46, rotation: 5 },
+        startAt: 170,
+        stopAt: 250,
+        difficulty: {
+          easy: { count: 14, rotation: 3 },
+          hard: { count: 22, rotation: 6 },
+          lunatic: { count: 26, rotation: 8 },
+        },
+      },
+    ],
+    despawnMargin: 80,
+    spoils: [['power', 2], ['bomb', 1], ['score', 2]],
     scoreValue: 500,
     onHit: 'hit',
     onDeath: 'explosion',
@@ -1462,6 +1726,249 @@ const bosses: PackContent['bosses'] = {
       },
     ],
   },
+
+  /**
+   * The regent — the final authority, and the office's absent centre. Not another
+   * officer in the sentinel -> warden -> magistrate -> chancellor line but the
+   * vacancy they all enforced downward from: authority with no content but its own
+   * seal. Its SIX cards are the recapitulation — each quotes and escalates one
+   * prior boss, so the fight is a final exam of everything the campaign taught. No
+   * new danmaku primitive: a boss whose whole design is to quote its predecessors
+   * would be contradicted by a new verb, so every card composes existing patterns
+   * (the one allowed new-pattern slot is spent nowhere).
+   *
+   * Wan gold — the chancellor's amber, a shade darker in the vault. Cards cross-
+   * fade to `surge` (the fight changing gear) EXCEPT the terminal Sine Die, which
+   * drains the red and returns the gold of the empty seat. Sizing is `hpSeconds`
+   * against REFERENCE_DPS; the lunatic total (80s) is the longest fight in the
+   * game, +17s over the chancellor, without bloat.
+   */
+  regent: {
+    sprite: 'halo',
+    radius: 22,
+    width: 64,
+    height: 64,
+    tint: { r: 0.95, g: 0.82, b: 0.5 },
+    entry: { x: 240, y: 96, ticks: 90 },
+    music: 'nemesis',
+    onDeath: 'death.big',
+    // Final-boss generous, and it includes the bomb: the whole shower lands before
+    // the ending screen. A `life` row, like the chancellor's — the second enemy in
+    // the game to hand back an extend directly.
+    spoils: [['big-power', 6], ['life', 1], ['score', 24], ['bomb', 1]],
+    // Cold, flat, the reveal delivered without weight. The last line answers the
+    // sentinel's opening "The gate is me."
+    dialogue: [
+      { speaker: 'regent', text: 'Nothing is filed here. Everything already is.' },
+      { speaker: 'player', text: 'Then who decided it.' },
+      { speaker: 'regent', text: 'No one. That is what makes it binding.' },
+      { speaker: 'player', text: 'Show me the one who signs.' },
+      { speaker: 'regent', text: 'You are looking at the signature.' },
+    ],
+    // The per-character variant, for the built-in `spire` — the ship whose arc the
+    // sentinel opened ("You climb without a summit") and the chancellor continued.
+    // The regent is that absent summit made literal, so the payoff belongs to it.
+    dialogueFor: {
+      spire: [
+        { speaker: 'regent', text: 'You climbed for a seat. Look at it.' },
+        { speaker: 'player', text: 'It is empty.' },
+        { speaker: 'regent', text: 'It has always been empty. The climbing is what fills it.' },
+      ],
+    },
+    phases: [
+      {
+        // Baseline rhythm, and the difficulty-honesty opener: the aimed-fan and
+        // the spray both carry strict easy<normal<hard<lunatic blocks.
+        name: 'Session',
+        hpSeconds: 8,
+        isSpell: false,
+        background: 'surge',
+        // A slow horizontal pace, reversed so it stations rather than leaves —
+        // aimed streams from a moving source, the chancellor's opener recalled.
+        timeline: [
+          { count: 0, motion: { r: 0.8, theta: 0 } },
+          { count: 90, motion: { r: 0.8, theta: 180 } },
+          { count: 180, jump: 0 },
+        ],
+        patterns: [
+          {
+            pattern: 'aimed-fan',
+            options: { spec: WRIT, count: 5, spread: 38, period: 50 },
+            difficulty: {
+              easy: { count: 3, period: 64 },
+              hard: { count: 6, spread: 42, period: 42 },
+              lunatic: { count: 7, spread: 46, period: 38 },
+            },
+          },
+          {
+            pattern: 'spray',
+            options: { spec: WRIT, count: 3, spread: 360, period: 18 },
+            difficulty: {
+              easy: { count: 2, period: 24 },
+              hard: { count: 4, period: 15 },
+              lunatic: { count: 5, period: 13 },
+            },
+          },
+        ],
+      },
+      {
+        // SENTINEL recalled: two orbiting seals where the sentinel had one, turning
+        // against each other — the stage-1 lateral dodge, doubled. `ring` composed
+        // with the `orbit` behaviour, two specs of opposite `angularSpeed`.
+        name: 'Seal Sign "Corolla Regnant"',
+        hpSeconds: 12,
+        isSpell: true,
+        bonus: 300000,
+        background: 'surge',
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { spec: CROWN_CW, count: 12, period: 90, rotation: 4 },
+            difficulty: {
+              easy: { count: 9 },
+              hard: { count: 15 },
+              lunatic: { count: 18 },
+            },
+          },
+          {
+            pattern: 'ring',
+            options: { spec: CROWN_CCW, count: 12, period: 90, rotation: -4 },
+            difficulty: {
+              easy: { count: 9 },
+              hard: { count: 15 },
+              lunatic: { count: 18 },
+            },
+          },
+        ],
+      },
+      {
+        // WARDEN recalled, and the graze card: two rings of slow lattice bars at
+        // slightly different rotation form a wall whose safe lane SLIDES. The safe
+        // read passes deliberately close to the lattice edges — the designed
+        // reward. Tiers change ring count/period only, so the lane tightens
+        // Easy->Lunatic but never closes.
+        name: 'Beam Sign "Portcullis"',
+        hpSeconds: 13,
+        isSpell: true,
+        bonus: 400000,
+        background: 'surge',
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { spec: LATTICE, count: 16, period: 54, rotation: 3 },
+            difficulty: {
+              easy: { count: 12, period: 66 },
+              hard: { count: 20, period: 46 },
+              lunatic: { count: 22, period: 42 },
+            },
+          },
+          {
+            pattern: 'ring',
+            options: { spec: LATTICE, count: 16, period: 54, rotation: -2 },
+            difficulty: {
+              easy: { count: 12, period: 66 },
+              hard: { count: 20, period: 46 },
+              lunatic: { count: 22, period: 42 },
+            },
+          },
+        ],
+      },
+      {
+        // MAGISTRATE recalled, and the game's hardest single read: a ring of homing
+        // warrants (seekers) laid over a static aimed-fan colonnade. You cannot
+        // stand still (the seekers find you) AND cannot run free (the colonnade
+        // predicts the flee) — seekers and beam-walls at once, with a moving lane.
+        name: 'Writ Sign "Attainder"',
+        hpSeconds: 14,
+        isSpell: true,
+        bonus: 500000,
+        background: 'surge',
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { spec: WARRANT, count: 8, period: 64, rotation: 5 },
+            difficulty: {
+              easy: { count: 6, period: 80 },
+              hard: { count: 10, period: 54 },
+              lunatic: { count: 12, period: 48 },
+            },
+          },
+          {
+            pattern: 'aimed-fan',
+            options: { spec: WRIT, count: 4, spread: 30, period: 58 },
+            difficulty: {
+              easy: { count: 3, period: 72 },
+              hard: { count: 5, spread: 34, period: 50 },
+              lunatic: { count: 6, spread: 38, period: 46 },
+            },
+          },
+        ],
+      },
+      {
+        // CHANCELLOR recalled: all three primitive curtains on the field at once —
+        // ring, spray and spiral, the full composition. Normal's final card;
+        // counts are capped so the peak stays a curtain-with-a-lane at the ~2000
+        // readable budget, never the soup.
+        name: 'Sign "Statute"',
+        hpSeconds: 15,
+        isSpell: true,
+        bonus: 600000,
+        background: 'surge',
+        patterns: [
+          {
+            pattern: 'ring',
+            options: { spec: DECREE, count: 18, period: 52, rotation: 6 },
+            difficulty: {
+              easy: { count: 12, period: 64 },
+              hard: { count: 22, period: 46 },
+              lunatic: { count: 24, period: 42 },
+            },
+          },
+          {
+            pattern: 'spray',
+            options: { spec: WRIT, count: 3, spread: 360, period: 18 },
+            difficulty: {
+              easy: { count: 2, period: 24 },
+              hard: { count: 4, period: 15 },
+              lunatic: { count: 5, period: 13 },
+            },
+          },
+          {
+            pattern: 'spiral',
+            options: { spec: LEVY, arms: 3, step: 10, period: 3 },
+            difficulty: {
+              easy: { arms: 2, step: 8 },
+              hard: { arms: 4, step: 11 },
+              lunatic: { arms: 4, step: 12, period: 2 },
+            },
+          },
+        ],
+      },
+      {
+        // LUNATIC-ONLY finale — the decree that never reconvenes. The composed
+        // maximum: spiral, aimed-fan and a rotating ring at once, with a designed
+        // lane. Gated exactly as the chancellor's 'Fiat "Sealed"' is, so on every
+        // other tier the fight ends on 'Statute'. It is the terminal beat: it
+        // alone DRAINS the red — `background: 'vault'`, not surge — and lifts to
+        // `fiat` (the chancellor's decree returning at the source). Both overrides
+        // are already reachable (`vault` via the stage, `fiat` via the chancellor),
+        // so the card adds no new reachability requirement — it is proved reached
+        // on the shared Lunatic run, the way `zenith`/`fiat` are.
+        name: 'Last Fiat "Sine Die"',
+        hpSeconds: 18,
+        isSpell: true,
+        difficulties: ['lunatic'],
+        bonus: 1000000,
+        background: 'vault',
+        music: 'fiat',
+        patterns: [
+          { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
+          { pattern: 'aimed-fan', options: { spec: WRIT, count: 7, spread: 46, period: 44 } },
+          { pattern: 'ring', options: { spec: DECREE, count: 22, period: 58, rotation: 5 } },
+        ],
+      },
+    ],
+  },
 };
 
 /* ================================================================== */
@@ -1651,7 +2158,7 @@ const stages: PackContent['stages'] = {
     background: 'stratum',
     music: 'precedent',
     boss: 'chancellor',
-    next: null,
+    next: 'stage-4',
     waves: [
       /* Bars 1-2 — state the aim pulse. Two offset clerk columns, the second on
          the "and"; then a small crossing pair. Re-teaching "keep moving" with wide
@@ -1698,6 +2205,78 @@ const stages: PackContent['stages'] = {
       /* Rest 3 — the big rest. Field clears, a bright stratum seam passes, the
          breath before the final movement. The boss enters on the downbeat. */
       { at: 1620, boss: 'chancellor', x: CENTRE, y: -60 },
+    ],
+  },
+
+  /**
+   * Stage 4 — the bottom of the descent, and the game's last stage. It is a final
+   * exam of trash: each new type re-teaches one earlier stage's lesson and one
+   * enemy per prior stage returns as reprise (`grunt`, `lash`, `assessor`). Two
+   * facts about the cast shape the placement, as in every prior stage: `marshal`
+   * and `notary` plant and then leave upward under their own power, so they are
+   * walls only for the ~three seconds they hold; and `usher` falls fast and aims,
+   * so its banks are placed to pressure the lanes the walls leave.
+   *
+   * The regent is the top-level `boss`, sent once the schedule and its 90-tick
+   * outro are spent and the field is clear — the STAGE-2 wiring (magistrate), NOT
+   * stage-3's, which lists its boss as a wave too. There is no midboss here, so no
+   * boss wave belongs in the list. `next: null` makes this the last stage: clearing
+   * it raises the ENDING screen (`EndingScreenState`, on `next === undefined`)
+   * before the ALL CLEAR results, and the shell crossfades to `adjourn`.
+   */
+  'stage-4': {
+    entry: false,
+    seed: 0x4e2a17,
+    outro: 90,
+    background: 'vault',
+    music: 'ordinance',
+    boss: 'regent',
+    next: null,
+    waves: [
+      /* Opening — the first law restated in the gold: usher banks from both
+         flanks push you off a line (stage-1 sideways), a marshal plants a rotating
+         wall behind them (stage-2). Both carry tier blocks, so the opening rises
+         strictly easy<normal<hard<lunatic — the difficulty-honesty riser the
+         headless assertion measures. */
+      { at: 40, enemy: 'usher', x: LEFT, y: ENTRY_Y, count: 3, interval: 40 },
+      { at: 80, enemy: 'usher', x: RIGHT, y: ENTRY_Y, count: 3, interval: 40 },
+      { at: 220, enemy: 'marshal', x: CENTRE, y: HEAVY_ENTRY_Y },
+      { at: 300, enemy: 'usher', x: CENTRE - 70, y: ENTRY_Y, count: 2, interval: 36, stepX: 60 },
+
+      /* Reprise 1 — stage-1's grunt column, the game's oldest chaff returning at
+         the source, keeping the beat under the marshal's wall. */
+      { at: 420, enemy: 'grunt', x: 120, y: ENTRY_Y, count: 4, interval: 30 },
+
+      /* The notary — the bomb carrier. Dives centrally, pours a spiral and stamps
+         its seal: stage-3's rotating-stream-under-a-wall made flesh, and the
+         mid-stage bomb the economy test requires. */
+      { at: 560, enemy: 'notary', x: 180, y: HEAVY_ENTRY_Y },
+
+      /* Reprise 2 — stage-2's beam from a flank while the notary presses. */
+      { at: 640, enemy: 'lash', x: RIGHT, y: ENTRY_Y },
+
+      /* Two marshals wall the top; usher banks sweep the lane between them — the
+         moving gap under the herd, stated at volume. */
+      { at: 760, enemy: 'marshal', x: 150, y: HEAVY_ENTRY_Y },
+      { at: 760, enemy: 'marshal', x: 330, y: HEAVY_ENTRY_Y },
+      { at: 840, enemy: 'usher', x: 90, y: ENTRY_Y, count: 3, interval: 30, stepX: 150 },
+
+      /* Reprise 3 — stage-3's assessor, the isotropic spiral that punishes
+         standing, a second bomb carrier before the boss states the squeeze. */
+      { at: 980, enemy: 'assessor', x: CENTRE, y: HEAVY_ENTRY_Y },
+      { at: 1040, enemy: 'usher', x: RIGHT, y: ENTRY_Y, count: 3, interval: 28 },
+
+      /* Pre-boss squeeze — a notary carrier plants beside a marshal wall while
+         ushers herd from both flanks: spiral + wall + aimed herd at once, the
+         recapitulation at volume before the regent states it as a set of cards. */
+      { at: 1180, enemy: 'notary', x: 320, y: HEAVY_ENTRY_Y },
+      { at: 1180, enemy: 'marshal', x: 150, y: HEAVY_ENTRY_Y },
+      { at: 1260, enemy: 'usher', x: LEFT, y: ENTRY_Y, count: 3, interval: 26 },
+      { at: 1280, enemy: 'usher', x: RIGHT, y: ENTRY_Y, count: 3, interval: 26 },
+
+      /* The big rest. Field clears, the gold oculus steadies, the regent enters
+         on the downbeat after the outro — the last boss of the game. */
+      { at: 1440, enemy: 'grunt', x: CENTRE, y: ENTRY_Y, count: 2, interval: 40 },
     ],
   },
 };

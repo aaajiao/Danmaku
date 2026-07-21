@@ -514,3 +514,23 @@ defineMusic('precedent', { synth: { root: 44 } });
 // `precedent` (55Hz, the top of the band) so it reads as drier and closer: the
 // moment the court stops hearing and simply decrees.
 defineMusic('fiat', { synth: { root: 55 } });
+
+// Stage 4's theme, named by `stages['stage-4'].music`. The terminal register:
+// pinned a hair below `precedent`'s 44 — the single lowest STAGE tone in the
+// game, stage 4 felt beneath stage 3 more than heard. The descending progression
+// 44 (precedent) → 41 (ordinance) → 38 (adjourn) is the whole band settling. Pinned
+// rather than name-derived so the weight is a property of the track. Registered
+// live now that its declarer exists (`stages['stage-4'].music: 'ordinance'` in
+// `base-pack.json`): `reachability.test.ts`'s music-honesty check binds the two
+// in both directions — a track no stage names is dead content, a stage naming a
+// track no one registers is an equally loud red — so they cannot drift apart.
+defineMusic('ordinance', { synth: { root: 41 } });
+
+// The ending track: the shell's ENDING screen crossfades to it on every clear
+// (`states.ts`'s `EndingScreenState`, read off the stack in `main.ts` the same way
+// `MENU_MUSIC` is). Pinned to 38 — BELOW the entire authority band (44–55) and
+// below even the stage floor: you have gone beneath everything. When the Regent
+// falls the music must audibly change — the apparatus going quiet is the reveal,
+// and carrying the fight or menu track through it would undercut that. A single
+// hollow low tone.
+defineMusic('adjourn', { synth: { root: 38 } });

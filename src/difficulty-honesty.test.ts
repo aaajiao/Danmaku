@@ -57,6 +57,13 @@ const OPENING_TICKS = 600;
  */
 const STAGE3_OPENING_TICKS = 700;
 /**
+ * Stage-4's opening — the usher banks from both flanks and the first marshal
+ * ring-wall — measured before the notary carrier arrives at 560. Long enough that
+ * every tier's usher fan (2/3/4/5) and the marshal's slab ring (16/20/24/28) both
+ * fire, so the rise is measured on authored content, not on an empty field.
+ */
+const STAGE4_OPENING_TICKS = 560;
+/**
  * Chancellor's thesis card, `Sign "Binding Precedent"` — measured after draining
  * the opening `Appeal` phase. Well inside that card's ~1440-tick clock, so the
  * phase never times out mid-window and the count is the card's own emission.
@@ -105,6 +112,19 @@ function stage3OpeningPopulation(tier: Difficulty, ticks: number): number {
   return bullets.count;
 }
 
+/** Bullets stage-4's opening emits over the window on `tier`. */
+function stage4OpeningPopulation(tier: Difficulty, ticks: number): number {
+  const bullets = new BulletSystem({ bounds: BOUNDS, initial: 4000 });
+  const enemies = new EnemySystem({ bounds: BOUNDS, bullets, difficulty: tier });
+  const runner = new StageRunner(getStage('stage-4'), enemies);
+  const rng = new Random(0x4e2a17);
+  for (let t = 0; t < ticks; t++) {
+    runner.step(rng);
+    enemies.step(TARGET.x, TARGET.y, rng);
+  }
+  return bullets.count;
+}
+
 /**
  * Bullets `chancellor`'s thesis card emits over the window on `tier`.
  *
@@ -138,6 +158,7 @@ describe('difficulty is real, not a menu that changes nothing', () => {
   const card = byTier((tier) => bossCardPopulation(tier, BOSS_TICKS));
   const opening = byTier((tier) => stageOpeningPopulation(tier, OPENING_TICKS));
   const stage3Opening = byTier((tier) => stage3OpeningPopulation(tier, STAGE3_OPENING_TICKS));
+  const stage4Opening = byTier((tier) => stage4OpeningPopulation(tier, STAGE4_OPENING_TICKS));
   const chancellorCard = byTier((tier) => chancellorCardPopulation(tier, CHANCELLOR_TICKS));
 
   // Surfaced in the gate output: the actual populations, so a reviewer sees the
@@ -156,6 +177,11 @@ describe('difficulty is real, not a menu that changes nothing', () => {
   console.log(
     'stage-3 opening (trash):      ',
     DIFFICULTIES.map((t) => `${t}=${stage3Opening[t]}`).join('  '),
+  );
+  // eslint-disable-next-line no-console
+  console.log(
+    'stage-4 opening (trash):      ',
+    DIFFICULTIES.map((t) => `${t}=${stage4Opening[t]}`).join('  '),
   );
   // eslint-disable-next-line no-console
   console.log(
@@ -204,6 +230,21 @@ describe('difficulty is real, not a menu that changes nothing', () => {
       stage3Opening.easy < stage3Opening.normal &&
       stage3Opening.normal < stage3Opening.hard &&
       stage3Opening.hard < stage3Opening.lunatic;
+    expect(`${line} | easy<normal<hard<lunatic: ${rising}`).toBe(
+      `${line} | easy<normal<hard<lunatic: true`,
+    );
+  });
+
+  test("the stage-4 opening's trash fires strictly more bullets as the tier rises", () => {
+    // Stage-4 is the last stage, and its opening carries tier blocks the same way
+    // stage-1's and stage-3's do: `usher` aimed-fans (2/3/4/5) and the `marshal`'s
+    // bulwark ring (16/20/24/28). Drop either and that tier collapses onto the
+    // Normal base and the strict rise breaks.
+    const line = DIFFICULTIES.map((t) => `${t}=${stage4Opening[t]}`).join(' ');
+    const rising =
+      stage4Opening.easy < stage4Opening.normal &&
+      stage4Opening.normal < stage4Opening.hard &&
+      stage4Opening.hard < stage4Opening.lunatic;
     expect(`${line} | easy<normal<hard<lunatic: ${rising}`).toBe(
       `${line} | easy<normal<hard<lunatic: true`,
     );
