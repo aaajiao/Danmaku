@@ -680,7 +680,7 @@ only what the pack form adds on top, per kind.
       { "pattern": "aimed-fan", "options": { "spec": { "…": "a BulletSpec" }, "count": 3, "spread": 28, "period": 55 }, "startAt": 20 },
       { "pattern": "spiral",    "options": { "spec": { "…": "a BulletSpec" }, "arms": 2, "step": 13, "period": 8 }, "startAt": 30, "stopAt": 110 }
     ],
-    "spoils": [ ["power", 2], ["score", 1], ["relic", 1] ],
+    "spoils": [ ["power", 2], ["score", 1], ["relic", 1], ["bomb", 1] ],
     "scoreValue": 300,
     "onHit": "hit",
     "onDeath": "cinder"
@@ -774,7 +774,7 @@ example (`pyre`, abbreviated):
     "tint": { "r": 1, "g": 0.6, "b": 0.3 },
     "entry": { "x": 240, "y": 140, "ticks": 90 },
     "onDeath": "death.big",
-    "spoils": [ ["relic", 2], ["score", 3] ],
+    "spoils": [ ["relic", 2], ["score", 3], ["bomb", 1] ],
     "phases": [
       { "name": "Smoulder", "hpSeconds": 8, "isSpell": false,
         "timeline": [ "…" ],
@@ -788,7 +788,9 @@ example (`pyre`, abbreviated):
 ```
 
 `sprite`, `radius` and `phases` are required; a phase (spell card) requires `name`,
-`hpSeconds` and `patterns`. **Every field matches `BossSpec`/`SpellCard`
+`hpSeconds` and `patterns`. A boss that omits `spoils` falls back to the engine
+default (which includes a `bomb`); declaring the field replaces that default
+wholesale, so a boss meaning to keep the bomb re-declares it — `pyre` does. **Every field matches `BossSpec`/`SpellCard`
 field-for-field except one: a card declares `hpSeconds` (seconds of health a
 competent player needs to drain) where the engine's `SpellCard` carries `hp`
 (raw).** The injector computes `hp = phaseHp(hpSeconds)`, and an omitted
@@ -1470,6 +1472,15 @@ keys with two policies:
   and debug launches thread none, which is the legacy-warn path, and is why the
   base-content gate traces (§9.7) carry no `content` key and do not move when the
   fingerprint changes.
+
+A run also records two **non-pack** run parameters on the same strict policy as
+`packsData`, because each changes what the simulation did: the **difficulty tier**
+(meta key `difficulty`, always written) and the **infinite-lives assist** (meta
+key `infiniteLives`, written only when on). Both refuse on a present-and-different
+mismatch and accept an **absent** key as the default — Normal, and off — so every
+replay recorded before either field existed stays valid. Neither is a pack key;
+they ride their own `RunConfig` fields and are listed here only because they share
+the replay-meta contract.
 
 The pack hash is a SHA-256 over the manifest bytes followed by each loaded file's
 bytes, in a fixed canonical order, so it is stable regardless of how an author

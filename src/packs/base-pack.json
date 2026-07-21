@@ -255,6 +255,10 @@
           [
             "power",
             3
+          ],
+          [
+            "bomb",
+            1
           ]
         ],
         "scoreValue": 1000,
@@ -692,6 +696,10 @@
           [
             "power",
             3
+          ],
+          [
+            "bomb",
+            1
           ]
         ],
         "scoreValue": 1500,
@@ -998,6 +1006,10 @@
           [
             "score",
             1
+          ],
+          [
+            "bomb",
+            1
           ]
         ],
         "scoreValue": 500,
@@ -1023,6 +1035,20 @@
         },
         "music": "nemesis",
         "onDeath": "death.big",
+        "spoils": [
+          [
+            "big-power",
+            4
+          ],
+          [
+            "score",
+            12
+          ],
+          [
+            "bomb",
+            1
+          ]
+        ],
         "dialogue": [
           {
             "speaker": "sentinel",
@@ -1530,6 +1556,20 @@
         },
         "music": "nemesis",
         "onDeath": "death.big",
+        "spoils": [
+          [
+            "big-power",
+            4
+          ],
+          [
+            "score",
+            12
+          ],
+          [
+            "bomb",
+            1
+          ]
+        ],
         "dialogue": [
           {
             "speaker": "warden",
@@ -1885,6 +1925,24 @@
         },
         "music": "nemesis",
         "onDeath": "death.big",
+        "spoils": [
+          [
+            "big-power",
+            4
+          ],
+          [
+            "score",
+            14
+          ],
+          [
+            "bomb",
+            1
+          ],
+          [
+            "life",
+            1
+          ]
+        ],
         "dialogue": [
           {
             "speaker": "magistrate",

@@ -616,13 +616,34 @@ defineEnemy('skirmisher', {
 ```
 
 `scoreValue` is the kill's **immediate** points; `spoils` is what it scatters
-for the player to collect, a `[name, count]` list over the item registry. Every
-enemy in the game drops only `power`, so `[['power', 1]]` — but the list can name
-any registered item, so an enemy that dropped a `bomb` or a `score` pickup is
-`spoils: [['power', 1], ['bomb', 1]]` and nothing in `Run` needs to learn the
-name. It used to be `drops: { power, score }`: two fixed fields, only `power`
-ever read, and `score` dead because it duplicated `scoreValue`. A boss uses the
-same `Spoils` shape (§5), so the two drop through one code path.
+for the player to collect, a `[name, count]` list over the item registry. Most
+trash drops only `power`, so `[['power', 1]]` — but the list can name any
+registered item, and the base campaign uses that: one trash type per stage (the
+tanky wall the player has to engage — `turret`, `bastion`, `assessor`) carries a
+`bomb` in its spoils, so a stage hands back 2-4 mid-stage bombs and a spent bomb
+is not gone for the rest of the stage. That is the whole of the drop economy — it
+is pure spoils data, no new rule (see "The drop economy" below). It used to be
+`drops: { power, score }`: two fixed fields, only `power` ever read, and `score`
+dead because it duplicated `scoreValue`. A boss uses the same `Spoils` shape (§5),
+so the two drop through one code path.
+
+#### The drop economy
+
+Bombs recover through play rather than being gone for the stage once spent, and it
+is entirely spoils data — nothing in `Run` learns a new rule. Two doctrines:
+
+- **Every stage fields a mid-stage bomb carrier.** One trash type per stage — a
+  wall the player must fight, not an edge-skimmer — carries `['bomb', 1]` in its
+  spoils, sized against how often it spawns so the stage yields 2-4 bombs on every
+  tier (spawn counts are not tier-scaled). `tools/make-base-pack.test.ts` asserts
+  this invariant over the shipped pack, so re-authoring a wave set cannot silently
+  drop the carrier and regress the economy to boss-only bombs.
+- **Bosses declare their spoils explicitly.** The shipped bosses each name their
+  own `spoils` rather than fall through `DEFAULT_BOSS_SPOILS`. That default stays,
+  unchanged — it is the reward rule for a **guest pack** that declares none — but
+  the base campaign spells its own economy out so a change to the fallback cannot
+  silently retune the game we ship. Lives stay rare: only `magistrate` and
+  `chancellor` hand one back directly, two across the whole campaign.
 
 `startAt` and `stopAt` are **ticks since this enemy spawned**, not since the
 stage began (`src/sim/enemy.ts:26-36`). An enemy's script must not depend on when

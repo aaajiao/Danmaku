@@ -220,6 +220,19 @@ export interface RunConfig {
    * and then nothing is recorded and nothing is checked.
    */
   contentFingerprint?: string;
+  /**
+   * Assist: fly with infinite lives. Default false/absent. A death proceeds in
+   * full — power loss and scatter, invuln, deathCount, `boss.notePlayerDeath` —
+   * but the life is not spent, so the out-of-lives outcome is simply unreachable
+   * rather than special-cased (see `Player.kill` and `#settleOutcome`). Threaded
+   * into `Player` as a plain rule flag, so the sim never learns a menu chose it.
+   *
+   * Recorded into replay meta as `infiniteLives` ONLY when true, and strict on
+   * playback exactly like `difficulty`: a run flown with the assist is a
+   * different run — deaths that would have ended it did not — so a mismatch
+   * REFUSES. An ABSENT key means off, which keeps every pre-assist replay valid.
+   */
+  infiniteLives?: boolean;
 }
 
 /**
@@ -540,6 +553,10 @@ export class Run {
       // in the air, so a replay flown on a different tier is a different run and is
       // refused. Absent-is-accepted covers fixtures recorded before the field.
       expectMeta(replay, 'difficulty', this.difficulty);
+      // Assist marker, the difficulty key's exact shape: a run flown with
+      // infinite lives is a different run, so a mismatch refuses. Absent means
+      // off (`expectMeta` accepts absent), keeping every pre-assist replay valid.
+      expectMeta(replay, 'infiniteLives', String(this.config.infiniteLives ?? false));
       // Content fingerprint: the middle ground. A RECORDED value that differs is
       // refused like `packsData` — the base content drifted, so the run is not the
       // one recorded — but an ABSENT one only warns, because a legacy recording (or
@@ -581,6 +598,10 @@ export class Run {
         this.options.spec.levels.length,
       ) - 1,
       bounds: { width: bounds.width, height: bounds.height },
+      // The run's assist choice, threaded as a plain rule flag. Set here rather
+      // than on the character, so it overrides whatever the ship declared (none
+      // does) and the sim never learns a menu is behind it.
+      infiniteLives: this.config.infiniteLives ?? false,
     });
     this.stage = new StageRunner(stageSpec, this.enemies);
     this.#stageScene = stageSpec.background;
@@ -1429,6 +1450,12 @@ export class Run {
     // whose playback takes the absent-warns path instead of a spurious refusal.
     if (this.config.contentFingerprint !== undefined) {
       meta['content'] = this.config.contentFingerprint;
+    }
+    // Written ONLY when the assist was on, so an ordinary run's meta is
+    // byte-identical to before the assist existed and every existing replay (and
+    // the frozen gate traces) stays valid — absent means off, checked above.
+    if (this.config.infiniteLives === true) {
+      meta['infiniteLives'] = 'true';
     }
     return this.#recorder.finish(this.#tick, meta);
   }

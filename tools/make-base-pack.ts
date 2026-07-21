@@ -388,7 +388,13 @@ const enemies: PackContent['enemies'] = {
     ],
     // It crawls in from well above the field and is meant to survive the trip.
     despawnMargin: 96,
-    spoils: [['power', 3]],
+    // stage-1's bomb carrier. The wall is the one stage-1 enemy the player cannot
+    // skim past — three of them fall across the stage (waves at 760, 1500×2), so a
+    // player who spends a bomb clearing the ring earns roughly what they spent back
+    // by the boss door. The bomb rides on the type every difficulty must engage, so
+    // the mid-stage bomb count is the same 3 on Easy as on Lunatic (spawn counts are
+    // not tier-scaled; only the ring's density is).
+    spoils: [['power', 3], ['bomb', 1]],
     scoreValue: 1000,
     onHit: 'hit',
     // The heaviest thing in the cast, so it gets the heaviest death.
@@ -572,7 +578,10 @@ const enemies: PackContent['enemies'] = {
       },
     ],
     despawnMargin: 110,
-    spoils: [['power', 3]],
+    // stage-2's bomb carrier, the same role turret plays in stage-1: the wall that
+    // barely moves and must be killed. Three fall (waves at 1320, 1720×2), so the
+    // stage hands back 3 bombs on every tier — inside the 2-4 the economy targets.
+    spoils: [['power', 3], ['bomb', 1]],
     scoreValue: 1500,
     onHit: 'hit',
     onDeath: 'death.big',
@@ -709,7 +718,12 @@ const enemies: PackContent['enemies'] = {
       },
     ],
     despawnMargin: 80,
-    spoils: [['power', 2], ['score', 1]],
+    // stage-3's bomb carrier. The assessor plants centrally and pours an isotropic
+    // spiral for ~4.3s — the enemy that "punishes standing still", so the player is
+    // committed to fighting it, not skimming past. Three appear (waves at 1180×2,
+    // 1400), giving the final stage its 3 mid-stage bombs on every tier. It keeps
+    // its score row; the bomb rides alongside.
+    spoils: [['power', 2], ['score', 1], ['bomb', 1]],
     scoreValue: 500,
     onHit: 'hit',
     onDeath: 'explosion',
@@ -748,6 +762,12 @@ const bosses: PackContent['bosses'] = {
     entry: { x: 240, y: 140, ticks: 90 },
     music: 'nemesis',
     onDeath: 'death.big',
+    // Shipped bosses declare their spoils rather than fall through DEFAULT_BOSS_SPOILS.
+    // That default stays — it is the reward rule for a guest pack that names none —
+    // but the base campaign spells its own economy out so a change to the fallback
+    // cannot silently retune the game we ship. This row is byte-for-byte the current
+    // default: one bomb back for the stage-1 boss, as before.
+    spoils: [['big-power', 4], ['score', 12], ['bomb', 1]],
     // Speakers are portrait names: the boss's own, and 'player' for the ship.
     dialogue: [
       { speaker: 'sentinel', text: 'Far enough.' },
@@ -930,6 +950,8 @@ const bosses: PackContent['bosses'] = {
     entry: { x: 240, y: 120, ticks: 70 },
     music: 'nemesis',
     onDeath: 'death.big',
+    // Explicit, same as the retired fallback: one bomb for the stage-2 midboss.
+    spoils: [['big-power', 4], ['score', 12], ['bomb', 1]],
     dialogue: [
       { speaker: 'warden', text: 'This corridor is closed.' },
       { speaker: 'player', text: 'Open it.' },
@@ -1040,7 +1062,7 @@ const bosses: PackContent['bosses'] = {
   },
 
   /**
-   * The stage-2 boss and the last fight in the game. Four phases: the same three
+   * The stage-2 boss and the last fight before the final stage. Four phases: the same three
    * ideas the stage taught, then all at once. About fifty seconds, escalating
    * 7/12/14/17. Phase 3's clock is the tightest relative to its health — the last
    * card should be survivable, but not by standing still and waiting it out.
@@ -1054,6 +1076,12 @@ const bosses: PackContent['bosses'] = {
     entry: { x: 240, y: 150, ticks: 90 },
     music: 'nemesis',
     onDeath: 'death.big',
+    // The stage-2 boss, the campaign's penultimate boss, so it out-rewards its midboss:
+    // more score, and — net new to this economy — one `life`, the second and only
+    // other direct extend in the campaign beside chancellor's. Two handed-back lives
+    // across the whole game keeps the extend genuinely rare; the mid-stage bombs are
+    // the generous channel, lives are not.
+    spoils: [['big-power', 4], ['score', 14], ['bomb', 1], ['life', 1]],
     dialogue: [
       { speaker: 'magistrate', text: 'You have come a long way to be sentenced.' },
       { speaker: 'player', text: 'Read the charge, then.' },

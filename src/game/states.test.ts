@@ -569,7 +569,8 @@ describe('difficulty select', () => {
     const select = new DifficultySelectState(ctx);
     open(ctx.machine, select);
     const view = select.view();
-    expect(view.menu).toEqual(['EASY', 'NORMAL', 'HARD', 'LUNATIC']);
+    // The four tiers, then the assist toggle row beneath LUNATIC (off by default).
+    expect(view.menu).toEqual(['EASY', 'NORMAL', 'HARD', 'LUNATIC', 'INFINITE LIVES  OFF']);
     // Opening on NORMAL is what keeps the default path unchanged: hold confirm
     // through the menus and the run is Normal, as it was before this screen.
     expect(view.selected).toBe(DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY));
@@ -597,12 +598,13 @@ describe('difficulty select', () => {
     const ctx = context();
     const select = new DifficultySelectState(ctx);
     open(ctx.machine, select);
-    const count = DIFFICULTIES.length;
-    // Up from NORMAL (1) reaches EASY (0); another Up wraps to LUNATIC (last).
+    const rows = select.view().menu?.length ?? 0; // four tiers plus the assist toggle
+    // Up from NORMAL (1) reaches EASY (0); another Up wraps to the last row, now
+    // the assist toggle beneath LUNATIC rather than LUNATIC itself.
     tap(ctx.machine, Button.Up);
     expect(select.view().selected).toBe(DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY) - 1);
     tap(ctx.machine, Button.Up);
-    expect(select.view().selected).toBe(count - 1);
+    expect(select.view().selected).toBe(rows - 1);
   });
 
   test('cancelling out of difficulty select returns to the title', () => {
@@ -641,6 +643,69 @@ describe('difficulty select', () => {
     const playing = ctx.machine.current as PlayingState;
     expect(playing.name).toBe('playing');
     expect(playing.run.difficulty).toBe('hard');
+  });
+
+  test('the assist toggle flips in place on Shot and does not advance', () => {
+    const ctx = context();
+    const select = new DifficultySelectState(ctx);
+    open(ctx.machine, select);
+    // Down from NORMAL (1) three rows lands on the toggle: HARD, LUNATIC, toggle.
+    tap(ctx.machine, Button.Down, 3);
+    expect(select.view().selected).toBe(DIFFICULTIES.length);
+
+    // Shot flips the assist and stays on the screen — a value edited, not a move.
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.infiniteLives).toBe(true);
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
+    expect(select.view().menu?.[DIFFICULTIES.length]).toBe('INFINITE LIVES  ON');
+
+    // And back off on a second press — the label follows the live state.
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.infiniteLives).toBe(false);
+    expect(ctx.machine.current?.name).toBe('difficulty-select');
+    expect(select.view().menu?.[DIFFICULTIES.length]).toBe('INFINITE LIVES  OFF');
+  });
+
+  test('the toggle row carries its own blurb, not a tier', () => {
+    const ctx = context();
+    const select = new DifficultySelectState(ctx);
+    open(ctx.machine, select);
+    tap(ctx.machine, Button.Down, 3); // onto the toggle row
+    expect(select.view().selected).toBe(DIFFICULTIES.length);
+    // Still exactly one blurb line, now the assist's rather than a tier's.
+    expect(select.view().lines?.length).toBe(1);
+  });
+
+  test('confirming a tier carries the toggle state into the run config', () => {
+    // The whole wire for feature A: difficulty-select toggle → GameContext →
+    // RunConfig.infiniteLives on the live run and its recording.
+    const ctx = context();
+    open(ctx.machine, new DifficultySelectState(ctx));
+    tap(ctx.machine, Button.Down, 3); // to the toggle row
+    tap(ctx.machine, Button.Shot);    // flip the assist ON
+    tap(ctx.machine, Button.Up);      // toggle → LUNATIC
+    tap(ctx.machine, Button.Shot);    // confirm LUNATIC → character-select
+    expect(ctx.machine.current?.name).toBe('character-select');
+    expect(ctx.infiniteLives).toBe(true);
+
+    tap(ctx.machine, Button.Shot);    // → playing
+    const playing = ctx.machine.current as PlayingState;
+    expect(playing.name).toBe('playing');
+    expect(playing.run.config.infiniteLives).toBe(true);
+    expect(playing.run.difficulty).toBe('lunatic');
+    expect(playing.run.finishRecording().meta?.['infiniteLives']).toBe('true');
+  });
+
+  test('the default path leaves the assist off and writes no marker', () => {
+    // Confirm a tier without touching the toggle: the run is a plain one and its
+    // recording carries no assist key, so every existing replay stays valid.
+    const ctx = context();
+    open(ctx.machine, new DifficultySelectState(ctx));
+    tap(ctx.machine, Button.Shot); // NORMAL, toggle untouched → character-select
+    tap(ctx.machine, Button.Shot); // → playing
+    const playing = ctx.machine.current as PlayingState;
+    expect(playing.run.config.infiniteLives).toBeUndefined();
+    expect(playing.run.finishRecording().meta?.['infiniteLives']).toBeUndefined();
   });
 });
 
@@ -855,6 +920,20 @@ describe('endings', () => {
     if (playing.run.outcome !== 'cleared') return; // pilot died; covered above
     expect(ctx.machine.current?.name).toBe('cleared');
     expect((ctx.machine.current as ClearedState).view().title).toBe('STAGE CLEAR');
+  });
+
+  test('an assist run is marked on the results screen; a plain run is not', () => {
+    // The marker is a property of how the run was configured — shown wherever a
+    // result is — so it can be read off the ending card's own view lines without
+    // driving a whole run to its natural end.
+    const assistCtx = context({ infiniteLives: true });
+    const assisted = new PlayingState(assistCtx, PILOT);
+    expect(new ClearedState(assistCtx, assisted).view().lines).toContain('assist — infinite lives');
+    expect(new GameOverState(assistCtx, assisted).view().lines).toContain('assist — infinite lives');
+
+    const plainCtx = context();
+    const plain = new PlayingState(plainCtx, PILOT);
+    expect(new ClearedState(plainCtx, plain).view().lines).not.toContain('assist — infinite lives');
   });
 });
 

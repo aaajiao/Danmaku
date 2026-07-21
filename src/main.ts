@@ -560,7 +560,10 @@ function drawHud(run: Run | undefined): void {
   // Top-right: the resources a player checks between waves.
   surface.textAlign = 'right';
   surface.fillStyle = '#9a9aa4';
-  hudResource(packs.hudIcons.life, '♥', `${p.lives}`, FIELD_W - 8, topY);
+  // ∞ rather than a count when the assist is on: the life stock never falls, so
+  // a number would read as a fixed 3 and hide that deaths cost nothing here.
+  const lives = run.config.infiniteLives === true ? '∞' : `${p.lives}`;
+  hudResource(packs.hudIcons.life, '♥', lives, FIELD_W - 8, topY);
   surface.fillStyle = '#6f6f78';
   hudResource(packs.hudIcons.bomb, '★', `${p.bombs}   P ${p.power.toFixed(2)}`, FIELD_W - 8, topY + 14);
 

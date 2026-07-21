@@ -625,6 +625,73 @@ describe('record then replay', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Infinite lives — the assist                                         */
+/* ------------------------------------------------------------------ */
+
+describe('infinite lives (assist)', () => {
+  test('a death spares the life and only the life; the run outlasts its stock', () => {
+    const start = getCharacter(ALT).player.lives; // three
+
+    // Control: the same three-life ship and script without the assist flies out
+    // — lives reach zero, the run fails, and deathCount stops at the life count.
+    const control = new Run(config({ character: ALT }));
+    play(control, 2000);
+    expect(control.outcome).toBe('failed');
+    expect(control.player.alive).toBe(false);
+    expect(control.player.lives).toBe(0);
+    expect(control.player.deathCount).toBe(start);
+
+    // Assist: identical seed and script, but the life is never spent, so the
+    // out-of-lives outcome is unreachable and deathCount climbs past the stock.
+    // The death otherwise proceeds in full — `alive` never flips, so power loss
+    // and scatter still run, which is exactly why deaths keep costing.
+    const assisted = new Run(config({ character: ALT, infiniteLives: true }));
+    play(assisted, 2000);
+    expect(assisted.outcome).not.toBe('failed');
+    expect(assisted.player.alive).toBe(true);
+    expect(assisted.player.lives).toBe(start); // constant — never decremented
+    expect(assisted.player.deathCount).toBeGreaterThan(start);
+  });
+
+  test('an assisted run records the marker; an ordinary run records none', () => {
+    const assisted = new Run(config({ infiniteLives: true }));
+    play(assisted, 120);
+    expect(assisted.finishRecording().meta?.['infiniteLives']).toBe('true');
+
+    // Off is the default and writes nothing — absent means off, so every
+    // pre-assist replay (and the frozen gate traces) stays byte-identical.
+    const plain = new Run(config());
+    play(plain, 120);
+    expect(plain.finishRecording().meta?.['infiniteLives']).toBeUndefined();
+  });
+
+  test('a replay flown with the assist off is refused against an assisted recording', () => {
+    // The difficulty key's exact shape: an assisted run is a different run —
+    // deaths that would have ended it did not — so replaying it without the
+    // assist is rejected, not silently played as a harder run.
+    const live = new Run(config({ infiniteLives: true }));
+    play(live, 300);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ infiniteLives: true, replay }))).not.toThrow();
+    expect(() => new Run(config({ infiniteLives: false, replay }))).toThrow(/infiniteLives/);
+    // A config that names no assist is off, so it too mismatches an assisted recording.
+    expect(() => new Run(config({ replay }))).toThrow(/infiniteLives/);
+  });
+
+  test('a legacy replay without the marker plays as off', () => {
+    // Absent is accepted (expectMeta), so a recording made before the assist
+    // existed stays valid — replayed as a plain run, and accepted even under a
+    // shell that now offers the assist.
+    const live = new Run(config());
+    play(live, 120);
+    const replay = live.finishRecording();
+    expect(replay.meta?.['infiniteLives']).toBeUndefined();
+    expect(() => new Run(config({ replay }))).not.toThrow();
+    expect(() => new Run(config({ infiniteLives: true, replay }))).not.toThrow();
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* Score multiplier — the tier enters the economy in one place         */
 /* ------------------------------------------------------------------ */
 

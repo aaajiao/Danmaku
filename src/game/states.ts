@@ -123,6 +123,12 @@ export interface GameContext {
    */
   difficulty?: Difficulty;
   /**
+   * The infinite-lives assist, toggled on the DIFFICULTY screen and forwarded
+   * into `RunConfig.infiniteLives`. Unset means off — the default the screen
+   * lands and a shell that skips it (a test, a debug launch) leaves.
+   */
+  infiniteLives?: boolean;
+  /**
    * Fingerprint of the bundled base content, forwarded into
    * `RunConfig.contentFingerprint`. `main.ts` sets it from the generated pack
    * constant; a string by contract, like `packs` (see `RunConfig.contentFingerprint`).
@@ -274,6 +280,15 @@ const DIFFICULTY_BLURBS: Readonly<Record<Difficulty, string>> = {
 };
 
 /**
+ * The assist toggle row, shown beneath the tiers. The label carries its own
+ * state (`OFF`/`ON`) the way a tier label carries its name, so the menu reads it
+ * without a second widget. The blurb is in the tiers' register, kept brief.
+ */
+const INFINITE_LIVES_OFF = 'INFINITE LIVES  OFF';
+const INFINITE_LIVES_ON = 'INFINITE LIVES  ON';
+const INFINITE_LIVES_BLURB = 'deaths never end the run — a mark on the score says so';
+
+/**
  * The tier screen, between title and character select.
  *
  * Mirrors `CharacterSelectState`'s construction exactly — a menu read from data,
@@ -288,6 +303,18 @@ const DIFFICULTY_BLURBS: Readonly<Record<Difficulty, string>> = {
  * `enter` calls `edges.reset()`), so a held button does not auto-advance across
  * screens: the player releases and presses once per screen. Opening on NORMAL
  * keeps that added press a single tap of the same button with no cursor movement.
+ *
+ * ## The assist toggle row
+ *
+ * One extra row sits beneath the four tiers: the infinite-lives assist. It is
+ * navigated like any row, but CONFIRM on it *flips it in place and stays* rather
+ * than advancing — a value edited, not a destination — while CONFIRM on a tier
+ * confirms and carries the toggle's current state onward. The state lives on
+ * `ctx.infiniteLives` so it persists if the player backs out and returns, and it
+ * is read (not held locally) so the label always reports the live value. This is
+ * digital bits only, tap-latched by `Edges` like every other menu press (rule 4);
+ * the alternative — a separate assist screen — was rejected for the same reason
+ * this screen fought to open on NORMAL: the default path must stay cheap.
  */
 export class DifficultySelectState extends MenuState {
   readonly name = 'difficulty-select';
@@ -299,11 +326,29 @@ export class DifficultySelectState extends MenuState {
     this.selected = DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY);
   }
 
+  /** The toggle row's index: one past the last tier. */
+  private get toggleRow(): number {
+    return DIFFICULTIES.length;
+  }
+
+  private get infiniteLives(): boolean {
+    return this.ctx.infiniteLives ?? false;
+  }
+
   protected get entries(): readonly string[] {
-    return DIFFICULTIES.map((tier) => DIFFICULTY_LABELS[tier]);
+    return [
+      ...DIFFICULTIES.map((tier) => DIFFICULTY_LABELS[tier]),
+      this.infiniteLives ? INFINITE_LIVES_ON : INFINITE_LIVES_OFF,
+    ];
   }
 
   protected confirm(index: number): void {
+    // The toggle row flips in place and stays; a tier row confirms and advances,
+    // carrying whatever the toggle currently reads.
+    if (index === this.toggleRow) {
+      this.ctx.infiniteLives = !this.infiniteLives;
+      return;
+    }
     const tier = DIFFICULTIES[index];
     if (tier === undefined) return;
     this.ctx.difficulty = tier;
@@ -316,10 +361,16 @@ export class DifficultySelectState extends MenuState {
 
   view(): StateView {
     const tier = DIFFICULTIES[this.selected];
+    const line =
+      this.selected === this.toggleRow
+        ? INFINITE_LIVES_BLURB
+        : tier === undefined
+          ? undefined
+          : DIFFICULTY_BLURBS[tier];
     return {
       kind: 'difficulty-select',
       title: 'DIFFICULTY',
-      lines: tier === undefined ? [] : [DIFFICULTY_BLURBS[tier]],
+      lines: line === undefined ? [] : [line],
       menu: this.entries,
       selected: this.selected,
     };
@@ -423,6 +474,10 @@ export class PlayingState implements GameState {
       // Strict like `packsData`: the tier changes what bullets are in the air, so
       // it is recorded and checked on playback. Unset defaults to Normal in `Run`.
       ...(ctx.difficulty === undefined ? {} : { difficulty: ctx.difficulty }),
+      // The assist, strict on playback like `difficulty` (see RunConfig). Unset
+      // is off, and forwarding only when set keeps an ordinary run's config and
+      // recording byte-identical to before the assist existed.
+      ...(ctx.infiniteLives === undefined ? {} : { infiniteLives: ctx.infiniteLives }),
       // The base-content fingerprint, recorded so a replay played against drifted
       // base content is caught. Absent means the shell opted out (see RunConfig).
       ...(ctx.contentFingerprint === undefined ? {} : { contentFingerprint: ctx.contentFingerprint }),
@@ -600,11 +655,18 @@ abstract class EndingState extends MenuState {
 
   protected scoreLines(): readonly string[] {
     const { player } = this.playing.run;
-    return [
+    const lines = [
       `score ${player.score}`,
       `graze ${player.graze}`,
       `deaths ${player.deathCount}`,
     ];
+    // Honesty is a marker, not a penalty (decisions §A.5): score arithmetic is
+    // untouched, but an assist run is tagged wherever its result is shown, so a
+    // screenshot or a replay viewer can always tell it flew with help.
+    if (this.playing.run.config.infiniteLives === true) {
+      return [...lines, 'assist — infinite lives'];
+    }
+    return lines;
   }
 }
 

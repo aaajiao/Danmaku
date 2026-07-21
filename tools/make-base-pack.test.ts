@@ -42,3 +42,24 @@ test('the committed base-pack.fingerprint.ts is byte-identical to the generator 
   expect(generated.length).toBe(committed.length);
   expect(generated).toBe(committed);
 });
+
+test('every stage fields a mid-stage bomb carrier — a wave enemy whose spoils drop a bomb', () => {
+  // The drop economy (decisions §B) restores bombs through play: each stage names
+  // one trash type whose spoils include `bomb`, chosen so the stage hands back 2-4
+  // mid-stage bombs on every tier. This is a data property nothing else pins — a
+  // wave set can be re-authored to drop the carrier and the game still boots, still
+  // clears, and every other test stays green while the economy silently regresses to
+  // boss-only bombs. This asserts the invariant over the shipped pack directly, so
+  // that regression fails the build. It counts only wave enemies, not the boss: the
+  // point is bombs *before* the boss door, which a boss drop cannot supply.
+  const pack = JSON.parse(readFileSync(BASE_PACK_PATH, 'utf8'));
+  const enemies: Record<string, { spoils?: [string, number][] }> = pack.content.enemies;
+  const dropsBomb = (name: string): boolean =>
+    (enemies[name]?.spoils ?? []).some(([kind]) => kind === 'bomb');
+
+  const stages: Record<string, { waves: { enemy: string }[] }> = pack.content.stages;
+  for (const stage of Object.values(stages)) {
+    const carriers = [...new Set(stage.waves.map((w) => w.enemy))].filter(dropsBomb);
+    expect(carriers.length).toBeGreaterThanOrEqual(1);
+  }
+});

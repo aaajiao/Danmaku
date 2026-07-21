@@ -667,7 +667,10 @@ const CONTENT: PackContent = {
     // leave — the `weaver` shape), two patterns with real options, spoils, a
     // tint, and a score value. Everything an `EnemySpec` can carry. Its `onDeath`
     // names the pack effect `cinder`, and its `spoils` drop the pack item `relic`
-    // — both resolved pack-first, so both are reached by this enemy dying.
+    // — both resolved pack-first, so both are reached by this enemy dying. The
+    // `bomb` in its spoils is the mid-stage carrier pattern the base campaign
+    // follows (docs/extending.md §The drop economy): spent bombs come back
+    // through play, and a guest stage owes its players the same economy.
     ember: {
       sprite: 'star',
       hp: 30,
@@ -707,7 +710,7 @@ const CONTENT: PackContent = {
           stopAt: 110,
         },
       ],
-      spoils: [['power', 2], ['score', 1], ['relic', 1]] as [string, number][],
+      spoils: [['power', 2], ['score', 1], ['relic', 1], ['bomb', 1]] as [string, number][],
       scoreValue: 300,
       onHit: 'hit',
       onDeath: 'cinder',
@@ -828,7 +831,11 @@ const CONTENT: PackContent = {
       tint: { r: 1, g: 0.6, b: 0.3 },
       entry: { x: 240, y: 140, ticks: 90 },
       onDeath: 'death.big',
-      spoils: [['relic', 2], ['score', 3]] as [string, number][],
+      // An explicit spoils row replaces the engine default WHOLESALE — a boss
+      // that declares its own rewards silently loses the default's bomb unless
+      // it re-declares one. This row keeps it on purpose; copy the shape, not
+      // the mistake of dropping it.
+      spoils: [['relic', 2], ['score', 3], ['bomb', 1]] as [string, number][],
       // A two-line pre-fight exchange. The first speaker, `pyre`, names this
       // pack's own portrait (bare, resolved pack-first to `example/pyre`); the
       // second, `player`, is a built-in portrait referenced bare. When `ashfall`

@@ -41,6 +41,13 @@ export interface PlayerConfig {
   lives: number;
   bombs: number;
   invulnTicks: number;
+  /**
+   * Assist: never spend a life on death. A rule parameter like `radius`, not a
+   * menu concept — the sim stays engine-agnostic and only reads a boolean the
+   * game layer threads in from `RunConfig.infiniteLives`. Off (default) is the
+   * shipped rule. A death still costs everything else; see `kill`.
+   */
+  infiniteLives?: boolean;
   /** Shot table indexed by power level. */
   shots: readonly ShotSpec[];
   /**
@@ -230,11 +237,17 @@ export class Player {
     if (!this.alive || this.invuln > 0) return;
 
     this.deathCount++;
-    this.lives--;
-    if (this.lives <= 0) {
-      this.lives = 0;
-      this.alive = false;
-      return;
+    // Infinite-lives assist spares the life and only the life: the death still
+    // costs the invuln reset below and, in the caller, power loss and scatter
+    // (which run because `alive` never flips). The out-of-lives outcome is
+    // unreachable by absence of the decrement, not by a special-cased branch.
+    if (!this.#config.infiniteLives) {
+      this.lives--;
+      if (this.lives <= 0) {
+        this.lives = 0;
+        this.alive = false;
+        return;
+      }
     }
 
     // Deliberately no reposition: being thrown back to the start line mid
