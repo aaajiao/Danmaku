@@ -12,11 +12,23 @@
  * render-side and nothing else, every entry point is total (`play` on an unknown
  * name is a no-op), and nothing here may throw into the game loop. A missing
  * asset, a refused `AudioContext`, or a runtime with no WebAudio degrades to
- * silence. As with sounds (CLAUDE.md rule 9) the permanent floor is a
- * synthesised placeholder — a dark drone per track — so the game is never
- * blocked on an asset and never tempted to borrow one. A track given a `url`
- * loads that file instead, and swapping a placeholder for real work is one
- * `defineMusic` call.
+ * silence. As with sounds (CLAUDE.md rule 9) the floor is synthesised at
+ * runtime — original by construction, never borrowed — so the game is never
+ * blocked on an asset. A track given a `url` loads that file instead, and
+ * swapping the synthesis for a real recording is one `defineMusic` call.
+ *
+ * ## The engine is a subtraction, not a wall of sound
+ *
+ * `MusicSynth` (below) is an additive composer: a handful of terms summed
+ * sample by sample into one whole-cycle loop. It is deliberately small, and the
+ * three aaajiao filters it answers to are documented on that interface — 做减法
+ * (at most three voices), the Internet Void (the loop is the negative space the
+ * player's own graze/pickup cues sound *into*, so it leaves the 1.5–3kHz
+ * behavior band measurably empty), and 入神/出神 (the two stances, opposites).
+ * The mix doctrine those produce — BGM RMS under the SFX peaks, the vacated
+ * behavior band, the click-free seam — is measured in `mix.test.ts` and printed
+ * by `tools/measure-audio.ts`, not asserted in prose (the audio analogue of a
+ * background's "peak luminance near 0.1").
  *
  * ## Clock honesty — do NOT move this onto `uTick`
  *
@@ -41,12 +53,15 @@
  * engine's, is what lets the shell duck music on pause without touching a single
  * SFX voice.
  *
- * ## Randomness
+ * ## Randomness — there is none
  *
- * The drone's per-track variation is seeded from a hash of the track *name*, not
- * from any RNG stream and never from `Math.random`. Audio is `fx`-side, but a
- * placeholder that changed run to run could not be taste-tuned, so it is made
- * reproducible instead — the same name always synthesises the same drone.
+ * The composer draws from no RNG stream at all: not `sim`, not `fx`, never
+ * `Math.random`. Its only source of per-track variation is a hash of the track
+ * *name* (`hashName`), which seeds micro-detail (the bass sway rate, the chord
+ * count) deterministically. Same name → bit-identical buffer every boot, so a
+ * track can be taste-tuned and a test can assert it byte-for-byte (`mix.test.ts`
+ * M11). Everything that distinguishes one track from another is authored in its
+ * `MusicSynth` spec below, not drawn.
  */
 
 /* Trigonometry note: this module is `src/audio`, which CLAUDE.md rule 3's
@@ -55,13 +70,50 @@
  * into a position, so the exact-trig rule does not bind them — the same licence
  * `audio/index.ts` already takes. */
 
+/**
+ * A track's composition, read by the additive engine below. Every field is
+ * optional and every default is the darkest, quietest choice — a track that
+ * names only a `root` is still a coherent 入神 loop.
+ *
+ * The three aaajiao filters live in these fields, not in prose:
+ *  - **做减法 (subtraction):** `voices` is hard-capped at three. If a track
+ *    works with a voice removed, it names two. Never more.
+ *  - **Internet Void (behavior over content):** the loop is negative space. Its
+ *    voices sit sub-400Hz and its melodic notes are gated to silence at every
+ *    slot boundary, so the 1.5–3kHz behavior band — where the player's own
+ *    graze/pickup cues live — stays measurably empty. The player's play is the
+ *    lead the mix is missing.
+ *  - **入神 / 出神 (absorption / trance):** `stance` drives the whole envelope.
+ *    `absorption` is the equal-tempered pulse a threading player sinks into;
+ *    `trance` removes the floor — `detune` unmoors the pitch, the pulse voice
+ *    drops out, the envelopes widen. They are opposites and must sound like it.
+ */
 export interface MusicSynth {
   /**
-   * Base frequency of the placeholder drone, in Hz. Absent means one derived
-   * from the track name's hash, so two tracks sound different without either
-   * naming a number.
+   * Tonic frequency, in Hz. Absent means one derived from the track name's
+   * hash, so two tracks sound different without either naming a number. Kept in
+   * the 38–55Hz institutional band.
    */
   root?: number;
+  /** Semitone offsets of the scale, e.g. minor `[0,2,3,5,7,8,10]`. Default minor. */
+  mode?: number[];
+  /** Loop length in seconds, 6–24. Replaces the old fixed 6s drone. */
+  loopSeconds?: number;
+  /** Beat slots the lead and pulse are gridded onto. Default 8. */
+  beatsPerLoop?: number;
+  /** Which voices sound. Capped at three, 做减法; a fourth is dropped, not summed. */
+  voices?: ('bass' | 'lead' | 'pulse')[];
+  /**
+   * The lead phrase, as scale-degree indices into `mode`. Negative indices and
+   * indices past the mode length wrap by octave, so an inversion is `[-x]` and an
+   * upper register is `[+n]`. A `NaN` entry is a rest. Slots past the motif's end
+   * are rests too — that is where the structural silence comes from.
+   */
+  motif?: number[];
+  /** Detune, in cents. Zero for 入神; nonzero unmoors the pitch for 出神. */
+  detune?: number;
+  /** `absorption` (入神, the default) or `trance` (出神). */
+  stance?: 'absorption' | 'trance';
 }
 
 export interface MusicSpec {
@@ -147,14 +199,59 @@ export function musicNames(): readonly string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Synthesis — the dark-drone floor                                    */
+/* Synthesis — the additive composer                                   */
 /* ------------------------------------------------------------------ */
 
-/** Seconds of the generated loop. A few seconds, seamless — see `drone`. */
-const DRONE_SECONDS = 6;
+/**
+ * BGM is rendered at 22050Hz, not the context's usual 44100. Every voice lives
+ * under ~400Hz, far below the 11025Hz Nyquist, so nothing is lost — but the
+ * decoded buffer halves in memory and the render is band-limited away from the
+ * behavior band in one move. WebAudio resamples on playback (browser-only path,
+ * unmeasurable here — see `mix.test.ts` M13, a boot check).
+ */
+const BGM_RATE = 22050;
 
-/** Peak sample of the drone before the track and master gains scale it down. */
-const DRONE_PEAK = 0.5;
+/** Peak sample the loop is attenuated to if it would exceed it. Well under explosion's 0.55,
+ * and low enough that the summed RMS stays a negative space beneath the SFX (mix.test M1/M2). */
+const BGM_PEAK = 0.32;
+
+/** Loop length when a track names none. */
+const DEFAULT_LOOP_SECONDS = 16;
+
+/** Per-voice gains. Tuned so the summed peak lands near `BGM_PEAK`; the clamp is the floor. */
+const BASS_AMP = 0.34;
+const LEAD_AMP = 0.26;
+const PULSE_AMP = 0.3;
+
+/* Scale tables — semitone offsets from the tonic. Minor and dorian are the 入神
+ * institutional voice; phrygian darkens (the ♭2, `sanction`); whole-tone and
+ * locrian are the two 出神 modes, a floor removed from under the same cell. */
+const MINOR = [0, 2, 3, 5, 7, 8, 10];
+const DORIAN = [0, 2, 3, 5, 7, 9, 10];
+const PHRYGIAN = [0, 1, 3, 5, 7, 8, 10];
+const WHOLE_TONE = [0, 2, 4, 6, 8, 10];
+const LOCRIAN = [0, 1, 3, 5, 6, 8, 10];
+
+/** A rest slot inside a `motif`. */
+const R = Number.NaN;
+
+/**
+ * The one institutional cell, and its transformations. Identity in the array,
+ * individuality in the boss that names it: `nemesis` states it plainly,
+ * `interdict` truncates it and ends on a rest, `docket` inverts it, `sanction`
+ * darkens it — its second degree pulled from the 2 to the 1, which under
+ * phrygian is the ♭2, the half-step above the tonic that is the mode's whole
+ * character. (The mode alone could not darken the plain `CELL`: its indices
+ * {0,2,4,3} never touch degree 1, the *only* place phrygian differs from minor,
+ * so the darkening has to be voiced in the cell, not merely named in the mode.)
+ * `interregnum` makes it whole and resolves to the tonic. `zenith`/`fiat` take it
+ * into 出神 by mode + detune, not by a different cell.
+ */
+const CELL = [0, 2, 4, 3];
+const CELL_TRUNCATED = [0, 2, R];
+const CELL_INVERTED = [0, -2, -4, -3];
+const CELL_DARKENED = [0, 1, 4, 3];
+const CELL_WHOLE = [0, 2, 4, 3, 4, 2, 0];
 
 /** FNV-1a over the name: deterministic, so a track always sounds the same. */
 function hashName(name: string): number {
@@ -166,42 +263,156 @@ function hashName(name: string): number {
   return h >>> 0;
 }
 
+/** Cycles that complete a **whole** number of times over the loop, ≥1. The seam discipline. */
+function snapCycles(hz: number, loopSeconds: number): number {
+  return Math.max(1, Math.round(hz * loopSeconds));
+}
+
+/** A scale degree (wrapping by octave for negatives and indices past the mode) to semitones. */
+function degreeToSemitone(mode: number[], degree: number): number {
+  const n = mode.length;
+  const oct = Math.floor(degree / n);
+  const idx = ((degree % n) + n) % n;
+  return (mode[idx] as number) + 12 * oct;
+}
+
+/** Distance on the unit circle, [0, 0.5] — for the periodic bass windows. */
+function circularDistance(a: number, b: number): number {
+  let d = Math.abs(a - b) % 1;
+  if (d > 0.5) d = 1 - d;
+  return d;
+}
+
 /**
- * A low, quiet, seamless drone stand-in for a track nobody has authored yet.
+ * A melodic note's envelope within its slot, local position `u` in [0,1).
  *
- * Every partial and the amplitude sway complete a **whole** number of cycles
- * across the buffer, so the whole-track loop wraps with no click — that is what
- * lets the placeholder default to `loopEnd = buffer end` and still loop cleanly.
- * The pitch sits in the bass so it cannot mask a bullet's SFX cue.
+ * Attack to a peak, exponential decay, and a `(1 - u)` factor that forces the
+ * value to **exactly zero at the slot boundary**. This is the seam-as-rest
+ * graft: it is why the loop wraps click-free (every melodic voice is zero at
+ * t=0 and t=1) AND why the structural rests exist (a slot with no note is
+ * silent) — 做减法 and click-free are the one mechanism. 出神 widens the tail.
  */
-function drone(ctx: BaseAudioContext, name: string, synth: MusicSynth | undefined): AudioBuffer {
-  const rate = ctx.sampleRate;
-  const length = Math.max(1, Math.round(DRONE_SECONDS * rate));
-  const buffer = ctx.createBuffer(1, length, rate);
+function noteEnvelope(u: number, trance: boolean): number {
+  const attack = trance ? 0.12 : 0.06;
+  const decay = trance ? 1.4 : 3;
+  const a = u < attack ? u / attack : Math.exp(-decay * (u - attack));
+  return a * (1 - u);
+}
+
+/** A pulse hit's envelope across its short window `v` in [0,1). Zero at both ends. */
+function pulseEnvelope(v: number): number {
+  const a = v < 0.1 ? v / 0.1 : Math.exp(-6 * (v - 0.1));
+  return a * (1 - v);
+}
+
+/**
+ * Compose one loop from a `MusicSynth`, as a sum of additive terms — no node
+ * graph, no RNG. Every voice's frequency is snapped to whole cycles over the
+ * buffer, so the bass drone crosses the seam continuously; every melodic note is
+ * enveloped to zero at its slot edges, so the lead and pulse never cross it at
+ * all. The peak is attenuated (never amplified) to `BGM_PEAK`, so the mix keeps
+ * its headroom under the SFX.
+ */
+function compose(
+  ctx: BaseAudioContext,
+  name: string,
+  synth: MusicSynth | undefined,
+): AudioBuffer {
+  const h = hashName(name);
+  const loopSeconds = clamp(finite(synth?.loopSeconds, DEFAULT_LOOP_SECONDS), 6, 24);
+  const length = Math.max(1, Math.round(loopSeconds * BGM_RATE));
+  const buffer = ctx.createBuffer(1, length, BGM_RATE);
   const data = buffer.getChannelData(0);
 
-  const h = hashName(name);
-
-  // A low root, whole cycles over the loop so it wraps seamlessly. The name's
-  // hash spreads tracks across a small band so they are audibly distinct.
+  const mode = synth?.mode ?? MINOR;
   const rootHz = synth?.root ?? 44 + (h % 12);
-  const rootCycles = Math.max(1, Math.round(rootHz * DRONE_SECONDS));
-  // A quiet fifth and octave for colour — rounded to keep whole cycles.
-  const fifthCycles = Math.round(rootCycles * 1.5);
-  const octaveCycles = rootCycles * 2;
-  // A slow breath over the whole loop; integer so it too wraps cleanly.
-  const swayCycles = 2 + ((h >> 8) % 3);
+  const trance = synth?.stance === 'trance';
+  const detuneMul = Math.pow(2, finite(synth?.detune, 0) / 1200);
+  const beats = Math.max(1, Math.round(finite(synth?.beatsPerLoop, 8)));
+  const motif = synth?.motif ?? [];
+
+  // 做减法: at most three voices, and the pulse never survives 出神.
+  const voices = (synth?.voices ?? ['bass', 'lead']).slice(0, 3);
+  const hasBass = voices.includes('bass');
+  const hasLead = voices.includes('lead');
+  const hasPulse = voices.includes('pulse') && !trance;
+
+  // Bass: an institutional falling line, i–VII–VI–V, truncated by the loop's own
+  // hash so the arc is real (2–4 chord roots) and not a static drone. Each root
+  // is a whole-cycle partial under a periodic Hann window; the windows overlap
+  // 50% and sum to a constant, so the bass amplitude holds while its pitch moves.
+  const DESCENT = [0, -2, -4, -5];
+  const nRoots = 2 + (h % 3);
+  const bassCycles: number[] = [];
+  for (let k = 0; k < nRoots; k++) {
+    const semi = DESCENT[k] as number;
+    bassCycles.push(snapCycles(rootHz * Math.pow(2, semi / 12) * detuneMul, loopSeconds));
+  }
+  const bassSway = 2 + ((h >> 8) % 3);
+
+  // Lead: one octave above the tonic for presence, still well under the band.
+  const leadBaseHz = rootHz * 2 * detuneMul;
+  const leadCycles: number[] = [];
+  for (let s = 0; s < beats; s++) {
+    const deg = motif[s];
+    if (deg === undefined || Number.isNaN(deg)) {
+      leadCycles.push(0);
+      continue;
+    }
+    const hz = leadBaseHz * Math.pow(2, degreeToSemitone(mode, deg) / 12);
+    leadCycles.push(snapCycles(hz, loopSeconds));
+  }
+
+  // Pulse: a sub-200Hz thud on the beat grid — never in the behavior band.
+  const pulseCycles = snapCycles(Math.min(rootHz * detuneMul, 180), loopSeconds);
+  const PULSE_WIDTH = 0.18;
 
   const TAU = Math.PI * 2;
-  const norm = 1 / (1 + 0.5 + 0.28);
+  let peak = 0;
   for (let i = 0; i < length; i++) {
     const t = i / length;
-    const tone =
-      Math.sin(TAU * rootCycles * t) +
-      0.5 * Math.sin(TAU * fifthCycles * t) +
-      0.28 * Math.sin(TAU * octaveCycles * t);
-    const sway = 0.72 + 0.28 * Math.sin(TAU * swayCycles * t);
-    data[i] = tone * norm * sway * DRONE_PEAK;
+    let sample = 0;
+
+    if (hasBass) {
+      let bass = 0;
+      for (let k = 0; k < nRoots; k++) {
+        const center = (k + 0.5) / nRoots;
+        const hw = 1 / nRoots;
+        const d = circularDistance(t, center);
+        if (d < hw) {
+          const w = 0.5 * (1 + Math.cos((Math.PI * d) / hw));
+          bass += w * Math.sin(TAU * (bassCycles[k] as number) * t);
+        }
+      }
+      const sway = 0.78 + 0.22 * Math.sin(TAU * bassSway * t);
+      sample += BASS_AMP * bass * sway;
+    }
+
+    if (hasLead) {
+      const slot = Math.min(beats - 1, Math.floor(t * beats));
+      const cyc = leadCycles[slot] as number;
+      if (cyc > 0) {
+        const u = t * beats - slot;
+        sample += LEAD_AMP * noteEnvelope(u, trance) * Math.sin(TAU * cyc * t);
+      }
+    }
+
+    if (hasPulse) {
+      const beatPos = t * beats;
+      const u = beatPos - Math.floor(beatPos);
+      if (u < PULSE_WIDTH) {
+        sample += PULSE_AMP * pulseEnvelope(u / PULSE_WIDTH) * Math.sin(TAU * pulseCycles * t);
+      }
+    }
+
+    data[i] = sample;
+    const a = Math.abs(sample);
+    if (a > peak) peak = a;
+  }
+
+  if (peak > BGM_PEAK) {
+    const scale = BGM_PEAK / peak;
+    for (let i = 0; i < length; i++) data[i] = (data[i] as number) * scale;
   }
 
   return buffer;
@@ -458,7 +669,7 @@ export class Music {
       return undefined; // Silent until the fetch lands.
     }
 
-    const buffer = drone(ctx, name, music.synth);
+    const buffer = compose(ctx, name, music.synth);
     this.#buffers.set(name, buffer);
     return buffer;
   }
@@ -486,51 +697,116 @@ export class Music {
 /* Built-in tracks                                                     */
 /* ------------------------------------------------------------------ */
 
-// The launch set, kept small (decisions-bgm): the menu, one theme per built-in
-// stage, one boss theme every boss shares, and one per-card track. Each is a
-// synthesised drone until a content file or a pack gives it a `url`. Their names
-// are wired onto the built-in stages and bosses (`StageSpec.music` /
-// `BossSpec.music` / `SpellCard.music`) so the feature is real, not merely
-// registered — the honesty rule that `reachability.test.ts` enforces for music
-// the same way it does for scenes.
-defineMusic(MENU_MUSIC, {});
-defineMusic('vigil', {});
-defineMusic('descent', {});
-defineMusic('nemesis', {});
-// The one per-spell-card track: sentinel's Lunatic-only fourth card names it (the
-// first `SpellCard.music` in the game), so it is reached only on Lunatic — which
-// is why `reachability.test.ts`'s music check unions the Lunatic run for it.
-defineMusic('zenith', {});
-// Stage 3's theme, named by `stages['stage-3'].music`. The heaviest, slowest
-// settling in the game: the root is pinned to the bottom of the drone band (44Hz,
-// the floor `hashName` can reach) so two close low tones beat against each other
-// as ballast — "what was decided before you arrived binds you," the metronome the
-// enemies play against. Pinned rather than name-derived so the weight is a
-// property of the track, not of how its letters happen to hash.
-defineMusic('precedent', { synth: { root: 44 } });
-// Stage 3's Lunatic-only final card (`Fiat "Sealed"`) names this via
-// `SpellCard.music`, the second per-card track after `zenith` and reached the
-// same way — only on the shared Lunatic run. Pitched a little higher than
-// `precedent` (55Hz, the top of the band) so it reads as drier and closer: the
-// moment the court stops hearing and simply decrees.
-defineMusic('fiat', { synth: { root: 55 } });
+// Thirteen tracks, one cell, two stances. Each is composed by the additive
+// engine above until a content file or a pack gives it a `url`; their names are
+// wired onto the built-in stages and bosses (`StageSpec.music` / `BossSpec.music`
+// / `SpellCard.music`) so the feature is real, not merely registered — the
+// honesty rule `reachability.test.ts` enforces for music as it does for scenes.
+// The motif journey is the heart of the set: the four bosses each state the ONE
+// `CELL` through a different filter, so identity lives in the spec and
+// individuality in the name.
 
-// Stage 4's theme, named by `stages['stage-4'].music`. The terminal register:
-// pinned a hair below `precedent`'s 44 — the single lowest STAGE tone in the
-// game, stage 4 felt beneath stage 3 more than heard. The descending progression
-// 44 (precedent) → 41 (ordinance) → 38 (adjourn) is the whole band settling. Pinned
-// rather than name-derived so the weight is a property of the track. Registered
-// live now that its declarer exists (`stages['stage-4'].music: 'ordinance'` in
-// `base-pack.json`): `reachability.test.ts`'s music-honesty check binds the two
-// in both directions — a track no stage names is dead content, a stage naming a
-// track no one registers is an equally loud red — so they cannot drift apart.
-defineMusic('ordinance', { synth: { root: 41 } });
+// Menu: harmony present, cell absent — a sparse two-note figure over a bass, most
+// of the loop silent. 入神 idle, the trance you sit in on the title screen.
+defineMusic(MENU_MUSIC, {
+  synth: { mode: MINOR, loopSeconds: 20, beatsPerLoop: 8, voices: ['bass', 'lead'], motif: [4, R, 2, R] },
+});
 
-// The ending track: the shell's ENDING screen crossfades to it on every clear
-// (`states.ts`'s `EndingScreenState`, read off the stack in `main.ts` the same way
-// `MENU_MUSIC` is). Pinned to 38 — BELOW the entire authority band (44–55) and
-// below even the stage floor: you have gone beneath everything. When the Regent
-// falls the music must audibly change — the apparatus going quiet is the reveal,
-// and carrying the fight or menu track through it would undercut that. A single
-// hollow low tone.
-defineMusic('adjourn', { synth: { root: 38 } });
+// The four stage themes — 入神 pulses, distinct per scene, no boss cell.
+// vigil (stage-1 旷野): a four-note beacon over a drifting bass, lead sparse.
+defineMusic('vigil', {
+  synth: { root: 45, mode: MINOR, loopSeconds: 20, beatsPerLoop: 8, voices: ['bass', 'lead'], motif: [0, 4, 2, 4] },
+});
+// descent (stage-2 竖井): a three-note echo with a hole, over a sub-200 quarter pulse.
+defineMusic('descent', {
+  synth: { root: 46, mode: MINOR, loopSeconds: 16, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: [0, 3, R, 2] },
+});
+// precedent (stage-3 沉积): the deepest 入神. Pinned to 44Hz — the floor of the
+// authority band — so two close low tones settle as ballast: "what was decided
+// before you arrived binds you." Dorian, an accreting ostinato over a sparse tick.
+defineMusic('precedent', {
+  synth: { root: 44, mode: DORIAN, loopSeconds: 20, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: [0, 2, 3, 2] },
+});
+// ordinance (stage-4 穹顶): claustral, a circular motif that never resolves over a
+// pressing pulse. Pinned to 41 — the descending stage floor 44→41→38 (precedent→
+// ordinance→adjourn) is the whole band settling beneath you.
+defineMusic('ordinance', {
+  synth: { root: 41, mode: MINOR, loopSeconds: 18, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: [0, 4, 0, 4] },
+});
+
+// The motif journey — four bosses, one CELL, four filters. Roots hash-derived so
+// each fight sits at its own pitch without naming a number.
+// nemesis (sentinel s1 boss): states the cell plainly, answered by rest. A march pulse.
+defineMusic('nemesis', {
+  synth: { mode: MINOR, loopSeconds: 16, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: CELL },
+});
+// interdict (warden midboss): the cell TRUNCATED to two notes, ending on a rest.
+// Curt, an 8s loop that completes ~1.75× inside the 14s fight — bass a two-note stab.
+defineMusic('interdict', {
+  synth: { mode: MINOR, loopSeconds: 8, beatsPerLoop: 4, voices: ['bass', 'lead'], motif: CELL_TRUNCATED },
+});
+// docket (magistrate s2 boss): the cell INVERTED, item by item, over a gavel pulse.
+defineMusic('docket', {
+  synth: { mode: MINOR, loopSeconds: 18, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: CELL_INVERTED },
+});
+// sanction (chancellor s3 boss): the cell DARKENED — its second degree pulled to
+// the phrygian ♭2 (CELL_DARKENED), the half-step above the tonic that voices the
+// mode — over an enforcing pulse. Oppressive, heavy on the root.
+defineMusic('sanction', {
+  synth: { mode: PHRYGIAN, loopSeconds: 18, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: CELL_DARKENED },
+});
+// interregnum (regent s4 final): the cell MADE WHOLE, resolving to the tonic — the
+// melodic payoff, least rest of the set, over a reigning pulse.
+defineMusic('interregnum', {
+  synth: { mode: MINOR, loopSeconds: 20, beatsPerLoop: 8, voices: ['bass', 'lead', 'pulse'], motif: CELL_WHOLE },
+});
+
+// The two 出神 card tracks — the same cell with the floor removed. Detuned, no
+// pulse, whole-tone/locrian: the opposite of the 入神 pulses above, and they must
+// sound like the opposite.
+// zenith (sentinel Lunatic 4th phase): the nemesis cell unmoored. Root matched to
+// nemesis's own hash-derived tonic, then detuned ~30¢ flat; whole-tone, no grid feel.
+defineMusic('zenith', {
+  synth: {
+    root: 44 + (hashName('nemesis') % 12),
+    mode: WHOLE_TONE,
+    loopSeconds: 13,
+    beatsPerLoop: 8,
+    voices: ['bass', 'lead'],
+    motif: CELL,
+    detune: -30,
+    stance: 'trance',
+  },
+});
+// fiat (chancellor + regent Lunatic finales, shared): the finale cell dissolving.
+// Pinned 55 (the top of the band) and detuned, locrian — the court stops hearing
+// and simply decrees.
+defineMusic('fiat', {
+  synth: {
+    root: 55,
+    mode: LOCRIAN,
+    loopSeconds: 17,
+    beatsPerLoop: 8,
+    voices: ['bass', 'lead'],
+    motif: CELL_WHOLE,
+    detune: -18,
+    stance: 'trance',
+  },
+});
+
+// adjourn (EndingScreenState): the one cadence in the game. A descending farewell
+// that lands on the tonic and stops, over a bass that resolves i→home. Pinned to
+// 38 — below the whole authority band: you have gone beneath everything. 出神
+// come-down, so the apparatus reads as going quiet, which is the reveal.
+defineMusic('adjourn', {
+  synth: {
+    root: 38,
+    mode: MINOR,
+    loopSeconds: 24,
+    beatsPerLoop: 8,
+    voices: ['bass', 'lead'],
+    motif: [4, 3, 2, 1, 0],
+    detune: -8,
+    stance: 'trance',
+  },
+});

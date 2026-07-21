@@ -287,6 +287,17 @@ machine.push(new TitleState(context));
 
 let unlocked = false;
 
+/**
+ * Shell-side UI cues (`SHELL_CUES`), none of them a run event.
+ *
+ * `wasPaused` gives the pause its rising edge — `ui-pause` plays the tick the
+ * pause menu appears, not every tick it is up. `dialogueIndex` remembers the
+ * line each run was last showing, so a fresh advance (`run.dialogue.index` ticks
+ * up) plays `ui-advance` — a getter read on declared state, no `RunEventType`,
+ * no trace touched. A `WeakMap` so a finished run is collected with its entry.
+ */
+let wasPaused = false;
+const dialogueIndex = new WeakMap<Run, number>();
 
 const loop = new Loop({
   tick() {
@@ -298,11 +309,24 @@ const loop = new Loop({
       void music.unlock();
     }
 
+    // The state about to tick, captured before the tick applies its transitions:
+    // a menu confirm/cancel replaces this state, but its `.cue` field is set on
+    // the object during the tick and survives the transition, so reading it here
+    // is what catches those actions (the field is cleared at the top of a menu's
+    // own next tick, so it never lingers past the frame it was set).
+    const acted = machine.stack[machine.stack.length - 1] as { cue?: string } | undefined;
+
     machine.tick(buttons);
     background.step();
 
+    // Play the menu cue the ticked state named, if any (`ui-move`/`ui-confirm`/
+    // `ui-cancel`). Resolved here, in the shell, because `src/game` names sounds
+    // as strings and never imports the audio engine — the `.music`/scene idiom.
+    if (acted?.cue !== undefined) audio.play(acted.cue);
+
     let scene: string | undefined;
     let track: string | undefined;
+    let topRun: Run | undefined;
 
     for (const state of machine.stack) {
       // A state may declare a music track directly, with no `Run` behind it — the
@@ -320,10 +344,25 @@ const loop = new Loop({
       // callback uses to pick whose HUD to draw.
       scene = run.scene ?? scene;
       track = run.music ?? track;
+      topRun = run;
 
       for (const event of run.drainEvents()) {
         const sound = EVENT_SOUNDS[event.type];
         if (sound) audio.play(sound);
+      }
+    }
+
+    // Dialogue advance is shell-side edge detection, not a run event: a fresh
+    // Shot press ticks `run.dialogue.index` up, and that increment plays
+    // `ui-advance`. Read off declared state (`run.dialogue`), so no `RunEventType`
+    // is introduced and no replay trace moves. A line landing (index 0 → the
+    // exchange appearing) also counts as an advance into the first line.
+    if (topRun !== undefined) {
+      const line = topRun.dialogue?.index;
+      const last = dialogueIndex.get(topRun);
+      if (line !== undefined && (last === undefined || line > last)) {
+        if (last !== undefined) audio.play('ui-advance');
+        dialogueIndex.set(topRun, line);
       }
     }
 
@@ -342,8 +381,22 @@ const loop = new Loop({
     // only ever switches on a real change. Before unlock `current` stays
     // undefined, which is exactly what makes the theme start on the first tick
     // after the gesture with no special case.
-    const wanted = track ?? MENU_MUSIC;
-    if (wanted !== music.current) music.play(wanted, MUSIC_FADE_SECONDS);
+    // On a failed run the shell CUTS the theme to silence — the void the player
+    // wrote — rather than falling back to the stage track the finished run
+    // beneath it still reports (`run.music` resolves to `#stageMusic` once the
+    // boss is dead, and a failed run never returns undefined). The `death` sound
+    // punctuates the cut. `GameOverState` is always the stack top while it is up
+    // (its confirm pops or clears the stack, never pushes over itself), so its
+    // name is the signal — read the same way the pause duck below reads the top.
+    // The `current !== undefined` guard makes the cut a one-shot; a RETRY pops
+    // the card and the reconcile resumes on the next tick with no special case.
+    const gameOver = machine.stack[machine.stack.length - 1]?.name === 'game-over';
+    if (gameOver) {
+      if (music.current !== undefined) music.stopAll();
+    } else {
+      const wanted = track ?? MENU_MUSIC;
+      if (wanted !== music.current) music.play(wanted, MUSIC_FADE_SECONDS);
+    }
 
     // Duck the theme while paused rather than cutting it — the room stays, just
     // quieter. Pause is a non-transparent state on top of a run (`states.ts`);
@@ -351,6 +404,12 @@ const loop = new Loop({
     // since no `Run` exposes "am I paused" (the pause lives one level up).
     const paused = machine.stack[machine.stack.length - 1]?.name === 'pause';
     music.masterVolume = paused ? MUSIC_PAUSE_LEVEL : MUSIC_LEVEL;
+
+    // `ui-pause` on the rising edge only — the tick the pause menu appears, not
+    // every tick it is up. A pure shell reconcile off the stack-top name, the
+    // same signal the duck above reads; no run event, no trace touched.
+    if (paused && !wasPaused) audio.play('ui-pause');
+    wasPaused = paused;
   },
 
   render() {

@@ -1836,7 +1836,7 @@
           "y": 120,
           "ticks": 70
         },
-        "music": "nemesis",
+        "music": "interdict",
         "onDeath": "death.big",
         "spoils": [
           [
@@ -2205,7 +2205,7 @@
           "y": 150,
           "ticks": 90
         },
-        "music": "nemesis",
+        "music": "docket",
         "onDeath": "death.big",
         "spoils": [
           [
@@ -2808,7 +2808,7 @@
           "y": 96,
           "ticks": 90
         },
-        "music": "nemesis",
+        "music": "sanction",
         "onDeath": "death.big",
         "spoils": [
           [
@@ -3320,7 +3320,7 @@
           "y": 96,
           "ticks": 90
         },
-        "music": "nemesis",
+        "music": "interregnum",
         "onDeath": "death.big",
         "spoils": [
           [

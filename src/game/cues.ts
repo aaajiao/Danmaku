@@ -54,15 +54,45 @@ export const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
   'shot-hit': 'hit',
   'enemy-killed': 'explosion',
   'boss-hit': 'hit',
-  'boss-entered': 'explosion',
-  'boss-phase': 'pickup',
-  'boss-cleared': 'explosion',
+  // The boss ladder, distinct cues where one `explosion` used to serve: a low
+  // bell announces the adversary, a rising stab declares a spell card, a bright
+  // shatter breaks one. The boss *death* keeps `explosion` — it is the biggest
+  // report, and declare→break→explosion is the ladder without a fourth name
+  // (做减法; `knell` was rejected for that reason). See `docs/audio.md`.
+  'boss-entered': 'toll',
+  'boss-phase': 'declare',
+  'boss-cleared': 'break',
   'boss-defeated': 'explosion',
   'player-death': 'death',
   pickup: 'pickup',
   extend: 'pickup',
   graze: 'graze',
   bomb: 'explosion',
-  cleared: 'pickup',
+  // A stage clear gets its own resolving stinger, not the pickup chirp — the same
+  // wrongness fixed for boss-phase: a reward chirp is not a threat or a clear.
+  cleared: 'clear',
   failed: 'death',
 };
+
+/**
+ * The UI cue channel — sounds the SHELL plays, never a run event.
+ *
+ * Menus, pause and dialogue advance are shell/menu state, not simulation, so
+ * they are cued outside `EVENT_SOUNDS`: `main.ts` reads a menu state's transient
+ * `.cue` field (set at the semantic move/confirm/cancel), reconciles the pause
+ * enter edge, and watches `run.dialogue.index` for the advance. None of it
+ * introduces a `RunEventType`, so no trace moves (see CLAUDE.md trace integrity)
+ * — but every name here is still a registered sound a real menu run must reach,
+ * which is why `reachability.test.ts` unions this set into both halves of its
+ * sound check and drives the menu stack to prove each one is played.
+ *
+ * A `string[]` the game names and the shell resolves, exactly like a scene name
+ * (`StageSpec.background`) — `src/game` never imports the audio engine.
+ */
+export const SHELL_CUES: readonly string[] = [
+  'ui-move',
+  'ui-confirm',
+  'ui-cancel',
+  'ui-pause',
+  'ui-advance',
+];

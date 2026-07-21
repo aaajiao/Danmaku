@@ -158,6 +158,16 @@ const CANCEL = Button.Bomb;
 abstract class MenuState implements GameState {
   abstract readonly name: string;
 
+  /**
+   * The UI sound the shell plays for this tick's action, or undefined for none.
+   * Set at the semantic move/confirm/cancel below and cleared once, at the top
+   * of `tick` — one place, so it can never be left stale into a later frame. A
+   * string the game names and the shell resolves (see `game/cues.ts` and rule:
+   * `src/game` imports no audio). Public so `main.ts` can read it off the state
+   * that ticked; the reachability probe reads it the same way.
+   */
+  cue?: string;
+
   protected readonly edges = new Edges();
   protected selected = 0;
 
@@ -182,6 +192,11 @@ abstract class MenuState implements GameState {
   }
 
   tick(buttons: number): void {
+    // Clear last tick's cue here — the one place it is cleared, so it never
+    // leaks into a frame where nothing happened (the foot-gun a per-site clear
+    // would be). Set again below only on an actual move/confirm/cancel.
+    this.cue = undefined;
+
     this.edges.update(buttons);
     if (this.intercept()) return;
 
@@ -192,15 +207,22 @@ abstract class MenuState implements GameState {
       const back = this.edges.pressed(Button.Up) || this.edges.pressed(Button.Left);
       const forward =
         this.edges.pressed(Button.Down) || this.edges.pressed(Button.Right);
+      if (count > 1 && (back || forward)) this.cue = 'ui-move';
       if (back) this.selected = (this.selected + count - 1) % count;
       if (forward) this.selected = (this.selected + 1) % count;
     }
 
     if (this.edges.pressed(CONFIRM)) {
+      // Set before `confirm`, which usually transitions this state away — the
+      // shell reads the cue off this same object afterwards regardless.
+      this.cue = 'ui-confirm';
       this.confirm(this.selected);
       return;
     }
-    if (this.edges.pressed(CANCEL)) this.cancel();
+    if (this.edges.pressed(CANCEL)) {
+      this.cue = 'ui-cancel';
+      this.cancel();
+    }
   }
 
   enter(): void {

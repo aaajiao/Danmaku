@@ -33,8 +33,10 @@
  * Patterns, motion behaviours, background shaders and sim rules stay engine
  * code, joined to this pack only by name. The base pack references the
  * built-in bullet-sheet sprites, the `expanse`/`undertow`/`surge` scenes, the
- * `nemesis`/`vigil`/`descent` tracks and the `sentinel`/`warden`/`magistrate`/
- * `player` portraits by name — it declares no assets of its own.
+ * per-boss tracks (`nemesis`/`interdict`/`docket`/`sanction`/`interregnum`) and
+ * the stage/card tracks (`vigil`/`descent`/`precedent`/`ordinance`/`zenith`/
+ * `fiat`) and the `sentinel`/`warden`/`magistrate`/`player` portraits by name —
+ * it declares no assets of its own.
  *
  * Run with `bun tools/make-base-pack.ts`.
  */
@@ -1212,7 +1214,7 @@ const bosses: PackContent['bosses'] = {
     height: 52,
     tint: { r: 1, g: 0.6, b: 0.72 },
     entry: { x: 240, y: 120, ticks: 70 },
-    music: 'nemesis',
+    music: 'interdict',
     onDeath: 'death.big',
     // Explicit, same as the retired fallback: one bomb for the stage-2 midboss.
     spoils: [['big-power', 4], ['score', 12], ['bomb', 1]],
@@ -1338,7 +1340,7 @@ const bosses: PackContent['bosses'] = {
     height: 60,
     tint: { r: 0.72, g: 0.68, b: 1 },
     entry: { x: 240, y: 150, ticks: 90 },
-    music: 'nemesis',
+    music: 'docket',
     onDeath: 'death.big',
     // The stage-2 boss, the campaign's penultimate boss, so it out-rewards its midboss:
     // more score, and — net new to this economy — one `life`, the second and only
@@ -1544,7 +1546,7 @@ const bosses: PackContent['bosses'] = {
     // magistrate's violet. The portrait tint in render/portrait.ts mirrors it.
     tint: { r: 0.95, g: 0.82, b: 0.5 },
     entry: { x: 240, y: 96, ticks: 90 },
-    music: 'nemesis',
+    music: 'sanction',
     onDeath: 'death.big',
     // A `life` row rewards clearing the mid-game peak — the one enemy in the game
     // that hands back an extend directly rather than through the score threshold.
@@ -1750,7 +1752,7 @@ const bosses: PackContent['bosses'] = {
     height: 64,
     tint: { r: 0.95, g: 0.82, b: 0.5 },
     entry: { x: 240, y: 96, ticks: 90 },
-    music: 'nemesis',
+    music: 'interregnum',
     onDeath: 'death.big',
     // Final-boss generous, and it includes the bomb: the whole shower lands before
     // the ending screen. A `life` row, like the chancellor's — the second enemy in

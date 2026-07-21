@@ -142,7 +142,7 @@ the same bare `bun tools/make-clearing-pack.ts` with or without it.
 ## 4. Content-first: carry only what the floor cannot give you
 
 The floor gives you bullets, the ship, the HUD, every particle effect, every
-scene, and all six sounds — procedurally, forever. So a content pack's austerity
+scene, and all fifteen sounds — procedurally, forever. So a content pack's austerity
 question is: *what genuinely cannot be procedural?* For `clearing`, only three
 files:
 
@@ -394,7 +394,7 @@ Then the three gates that must be green before a pack is done:
 
 ```
 bun run typecheck     # clean
-bun test              # 1725 pass, 0 fail — a second packs/ folder is invisible to it
+bun test              # 1741 pass, 0 fail — a second packs/ folder is invisible to it
 bun run build         # copy-packs stages packs/clearing into dist/packs/
 ```
 

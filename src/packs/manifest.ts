@@ -31,6 +31,15 @@ export const SOUND_NAMES = [
   'graze',
   'pickup',
   'death',
+  'toll',
+  'declare',
+  'break',
+  'clear',
+  'ui-move',
+  'ui-confirm',
+  'ui-cancel',
+  'ui-pause',
+  'ui-advance',
 ] as const;
 
 export type SoundName = (typeof SOUND_NAMES)[number];

@@ -121,6 +121,29 @@ const SYNTHS: Readonly<Record<string, Synth>> = {
     square: true,
   },
   death: { duration: 0.85, from: 420, to: 55, decay: 3, noise: 0.35, peak: 0.95 },
+
+  // The boss ladder: toll (a card announces itself) → declare (a spell card is
+  // declared) → break (a card is broken) → and the boss death keeps `explosion`,
+  // the biggest report of all (做减法 — the death IS the largest explosion, no
+  // `knell`). `toll` sits below the behavior band by pitch, so it announces
+  // without camping the 1.5–3kHz the graze/pickup cues own; `declare`/`break` are
+  // brief and bright so they pass through the band rather than sit in it.
+  toll: { duration: 0.7, from: 160, to: 150, decay: 4, noise: 0.05, peak: 0.6 },
+  declare: { duration: 0.35, from: 300, to: 520, decay: 8, peak: 0.45, square: true },
+  break: { duration: 0.22, from: 1800, to: 600, decay: 18, noise: 0.4, peak: 0.5 },
+  // Stage clear: a resolving rise, its own small stinger rather than the pickup chirp.
+  clear: { duration: 0.25, from: 520, to: 780, decay: 6, peak: 0.4, attack: 0.003 },
+
+  // The UI channel — 负空间 sounds: all under 0.09s and quiet (playback volume
+  // ≤0.18; the synth `peak` here is the raw buffer amplitude, kept above the
+  // not-silence floor and scaled down at play), carving a click of silence
+  // rather than filling the field. Move is the faintest tick;
+  // confirm rises, cancel falls; pause is a soft low note; advance a dry blip.
+  'ui-move': { duration: 0.03, from: 900, to: 900, decay: 9, peak: 0.24 },
+  'ui-confirm': { duration: 0.06, from: 640, to: 1080, decay: 8, peak: 0.3 },
+  'ui-cancel': { duration: 0.06, from: 620, to: 300, decay: 8, peak: 0.28 },
+  'ui-pause': { duration: 0.07, from: 320, to: 220, decay: 8, peak: 0.26 },
+  'ui-advance': { duration: 0.04, from: 780, to: 700, decay: 10, peak: 0.24 },
 };
 
 /** Stands in for a registered name nobody has authored a sound for yet. */
@@ -429,3 +452,20 @@ defineSound('graze', { volume: 0.22, polyphony: 3, throttleMs: 60 });
 defineSound('pickup', { volume: 0.35, polyphony: 4, throttleMs: 25 });
 // One death at a time, and never re-triggered by a follow-up frame.
 defineSound('death', { volume: 0.8, polyphony: 1, throttleMs: 250 });
+
+// The boss ladder (see `cues.ts`): each announces or resolves a moment that
+// happens once, so a single voice and a throttle wide enough to swallow a
+// double-fire on the same tick.
+defineSound('toll', { volume: 0.6, polyphony: 1, throttleMs: 120 });
+defineSound('declare', { volume: 0.5, polyphony: 2, throttleMs: 90 });
+defineSound('break', { volume: 0.55, polyphony: 2, throttleMs: 60 });
+defineSound('clear', { volume: 0.5, polyphony: 1, throttleMs: 200 });
+
+// The UI channel: quiet (all ≤0.18, below graze — the 负空间 floor of the mix),
+// single- or double-voice, throttled against a held-button double-tap. Played
+// shell-side (`SHELL_CUES`), never off a run event.
+defineSound('ui-move', { volume: 0.12, polyphony: 2, throttleMs: 30 });
+defineSound('ui-confirm', { volume: 0.18, polyphony: 2, throttleMs: 40 });
+defineSound('ui-cancel', { volume: 0.16, polyphony: 2, throttleMs: 40 });
+defineSound('ui-pause', { volume: 0.15, polyphony: 1, throttleMs: 60 });
+defineSound('ui-advance', { volume: 0.12, polyphony: 2, throttleMs: 30 });

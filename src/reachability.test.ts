@@ -83,7 +83,7 @@ import { itemNames } from './sim/item';
 import { getOptionSpec, optionNames } from './sim/option';
 import { getStage, stageNames } from './content/stage';
 import { getShot, shotNames } from './content/shots';
-import { EVENT_SOUNDS } from './game/cues';
+import { EVENT_SOUNDS, SHELL_CUES } from './game/cues';
 import { StateMachine } from './game/state';
 import { TitleState, type GameContext } from './game/states';
 import { characterNames, type Run, type RunEventType } from './game/run';
@@ -454,6 +454,116 @@ const COVER: Coverage = {
  */
 const LUNATIC = playThroughGame(0, 'lunatic');
 
+/**
+ * The UI cue channel, driven the way `main.ts` reads it.
+ *
+ * `SHELL_CUES` are sounds the SHELL plays, not run events — a menu's transient
+ * `.cue` (move/confirm/cancel), the pause enter edge, and a dialogue advance —
+ * so they carry no `EVENT_SOUNDS` row and the gameplay probe above never touches
+ * them. Registration is not reachability for UI sounds either: a `ui-*` sound
+ * registered but reached by no menu is silent forever, exactly the failure this
+ * file exists for. So this probe drives the real state stack through a
+ * navigation, a cancel, a pause and a boss dialogue, reads the cue off the state
+ * that *ticked* (captured before the tick, as `main.ts` does — a confirm/cancel
+ * transitions that state away before the read), and returns which cues fired.
+ */
+function collectUiCues(): Set<string> {
+  const cues = new Set<string>();
+  const machine = new StateMachine();
+  let seed = 1;
+  const ctx: GameContext = { machine, nextSeed: () => 0x9a1 + seed++ };
+  machine.push(new TitleState(ctx));
+
+  let confirm = 0;
+  let wasPaused = false;
+  let cancelled = false;
+  let movedTier = false;
+  let paused = false;
+  const dialogueIndex = new WeakMap<Run, number>();
+
+  for (let tick = 0; tick < 60_000 && cues.size < SHELL_CUES.length; tick++) {
+    const top = machine.stack[machine.stack.length - 1];
+    const name = top?.name ?? '?';
+    let buttons = 0;
+
+    if (name === 'title') {
+      // Confirm straight through — a single-entry menu's move sounds nothing.
+      confirm ^= 1;
+      buttons = confirm ? Button.Shot : 0;
+    } else if (name === 'difficulty-select') {
+      if (!cancelled) {
+        // Back out once (ui-cancel); returns to title, then we come back here.
+        confirm ^= 1;
+        if (confirm) {
+          buttons = Button.Bomb;
+          cancelled = true;
+        }
+      } else if (!movedTier) {
+        // A cursor move on a multi-row menu (ui-move).
+        confirm ^= 1;
+        if (confirm) {
+          buttons = Button.Down;
+          movedTier = true;
+        }
+      } else {
+        confirm ^= 1;
+        buttons = confirm ? Button.Shot : 0; // confirm the tier (ui-confirm)
+      }
+    } else if (name === 'character-select') {
+      confirm ^= 1;
+      buttons = confirm ? Button.Shot : 0;
+    } else if (name === 'pause') {
+      confirm ^= 1;
+      buttons = confirm ? Button.Start : 0; // resume (intercept pops)
+    } else if (name === 'playing') {
+      const run = (top as { run?: Run }).run;
+      if (run !== undefined && run.dialogue !== undefined) {
+        confirm ^= 1;
+        buttons = confirm ? Button.Shot : 0; // advance a line (ui-advance)
+      } else if (!paused) {
+        confirm ^= 1;
+        if (confirm) {
+          buttons = Button.Start; // open the pause menu once (ui-pause)
+          paused = true;
+        }
+      } else {
+        // Fly on so the boss and its dialogue come due.
+        buttons = Button.Shot | (Math.floor(tick / 60) % 2 === 0 ? Button.Left : Button.Right);
+      }
+    } else {
+      confirm ^= 1;
+      buttons = confirm ? Button.Shot : 0;
+    }
+
+    const acted = machine.stack[machine.stack.length - 1] as { cue?: string } | undefined;
+    machine.tick(buttons);
+    if (acted?.cue !== undefined) cues.add(acted.cue);
+
+    const nowPaused = machine.stack[machine.stack.length - 1]?.name === 'pause';
+    if (nowPaused && !wasPaused) cues.add('ui-pause');
+    wasPaused = nowPaused;
+
+    for (const state of machine.stack) {
+      const run = (state as { run?: Run }).run;
+      if (run === undefined) continue;
+      // Immortal, so the run survives to the boss dialogue (see MORTAL_TICKS note).
+      if (run.player.lives < 3) run.player.lives = 3;
+      run.player.alive = true;
+      run.player.invuln = 999;
+      const line = run.dialogue?.index;
+      const last = dialogueIndex.get(run);
+      if (line !== undefined && (last === undefined || line > last)) {
+        if (last !== undefined) cues.add('ui-advance');
+        dialogueIndex.set(run, line);
+      }
+    }
+  }
+  return cues;
+}
+
+/** The UI cues a real menu+dialogue+pause run actually played. */
+const UI_CUES = collectUiCues();
+
 describe('a real playthrough reaches', () => {
   test('every registered stage', () => {
     // The failure: stage 2 was finished content behind a menu with no exit.
@@ -641,7 +751,14 @@ describe('a real playthrough reaches', () => {
     // registered sound is named by some cue. Both are needed. A cue naming a
     // sound nobody registered is a mute event; a sound no cue names is an
     // asset someone will author and never hear.
-    const cued = new Set(Object.values(EVENT_SOUNDS));
+    //
+    // Two cue tables now, not one: `EVENT_SOUNDS` (a run event → a sound) and
+    // `SHELL_CUES` (the UI channel the shell plays with no run event behind it —
+    // menu move/confirm/cancel, pause, dialogue advance). Both are unioned here,
+    // because both name registered sounds and the equality closes over the whole
+    // registry — a `ui-*` sound outside `SHELL_CUES` would be an unplayed asset
+    // exactly as a stranded gameplay sound is.
+    const cued = new Set([...Object.values(EVENT_SOUNDS), ...SHELL_CUES]);
     for (const name of cued) {
       expect(`${name} is registered: ${soundNames().includes(name)}`).toBe(
         `${name} is registered: true`,
@@ -650,20 +767,32 @@ describe('a real playthrough reaches', () => {
     expect([...cued].sort()).toEqual(content(soundNames()).sort());
 
     // And every registered sound is reachable through an event this probe
-    // actually raised. Not "every cue-event is raised": `failed` (game over)
-    // cues `death`, and this pilot is immortal by construction, so that row
-    // never fires — but `death` is still heard, because `player-death` cues it
-    // too. The claim that matters is that no sound is stranded behind only
-    // unreachable events, and it is asserted per sound rather than per cue.
-    const reachableSounds = new Set(
-      (Object.entries(EVENT_SOUNDS) as [RunEventType, string][])
+    // actually raised — or, for the UI channel, a cue the menu/dialogue probe
+    // actually played (`UI_CUES`). Not "every cue-event is raised": `failed`
+    // (game over) cues `death`, and this pilot is immortal by construction, so
+    // that row never fires — but `death` is still heard, because `player-death`
+    // cues it too. The claim that matters is that no sound is stranded behind
+    // only unreachable cues, and it is asserted per sound.
+    const reachableSounds = new Set([
+      ...(Object.entries(EVENT_SOUNDS) as [RunEventType, string][])
         .filter(([type]) => COVER.events.has(type))
         .map(([, sound]) => sound),
-    );
+      ...UI_CUES,
+    ]);
     for (const name of content(soundNames())) {
       expect(`${name} reachable: ${reachableSounds.has(name)}`).toBe(
         `${name} reachable: true`,
       );
+    }
+  });
+
+  test('every UI cue is played by a real menu/pause/dialogue run', () => {
+    // The §0 crux, asserted directly: registration is not reachability for the
+    // UI channel either. The probe drove the state stack through a navigation, a
+    // cancel, a pause and a boss dialogue; every `SHELL_CUES` name must have
+    // sounded, or it is a registered-but-silent asset.
+    for (const name of SHELL_CUES) {
+      expect(`${name} played: ${UI_CUES.has(name)}`).toBe(`${name} played: true`);
     }
   });
 

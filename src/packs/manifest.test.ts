@@ -371,7 +371,7 @@ describe('sounds', () => {
 
   test('an unknown sound name lists every valid name', () => {
     expect(errorsOf({ ...valid(), sounds: { explsion: 'x.wav' } })).toContain(
-      'pack "candy": pack.json: sounds."explsion" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death',
+      'pack "candy": pack.json: sounds."explsion" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance',
     );
   });
 

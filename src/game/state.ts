@@ -83,6 +83,18 @@ export interface GameState {
 
   /** When true, the state below still ticks. See the header. */
   readonly transparent?: boolean;
+
+  /**
+   * A one-tick UI sound the SHELL should play, named as a string the game does
+   * not resolve — exactly like a scene name (`src/game` imports no audio). Set
+   * by a menu on the tick of a semantic move/confirm/cancel and cleared at the
+   * top of its next tick, so it names the sound for exactly the frame the action
+   * happened. Read in `main.ts` off the state that *ticked* (captured before the
+   * tick, because a confirm/cancel transitions that state away before the read).
+   * Only menu/pause/ending states ever set it — never a `Run` or anything a
+   * golden/replay pilot drives (see `game/cues.ts` `SHELL_CUES`).
+   */
+  cue?: string;
 }
 
 type Transition =

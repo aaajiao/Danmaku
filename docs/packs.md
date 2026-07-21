@@ -284,15 +284,18 @@ art wants `"linear"`. The default matches `loadTexture`'s own behaviour.
 ### 5.3 `sounds.<name>` — a replaced sound
 
 One entry per sound you replace, keyed by the sound's **registered name**. The
-six names the game plays are:
+fifteen names the game plays are:
 
 ```
 shot   hit   explosion   graze   pickup   death
+toll   declare   break   clear
+ui-move   ui-confirm   ui-cancel   ui-pause   ui-advance
 ```
 
-(`SOUND_NAMES` in `src/packs/manifest.ts`; what each fires on is in
-`docs/audio.md` §2.) An unknown name is rejected and lists all six. A pack need
-not replace every sound — the example replaces only `shot` and `pickup`;
+(`SOUND_NAMES` in `src/packs/manifest.ts`; what each fires on, and the measured
+mix doctrine behind them, is in `docs/audio.md` §2 and §5.) An unknown name is
+rejected and lists all fifteen. A pack need not replace every sound — the
+example replaces only `shot` and `pickup`;
 everything else keeps its synthesised placeholder. Files are fed through
 `defineSound`'s `url` branch, so `docs/audio.md` §3's authoring constraints
 (mono, fade to zero at both ends, normalise then set volume) apply to a packed
@@ -404,7 +407,7 @@ refused, naming both the offending capabilities and the implemented set.
 | Condition | Message |
 |---|---|
 | `sounds` not an object | `sounds must be a JSON object` |
-| Unknown sound name | `sounds."<key>" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death` |
+| Unknown sound name | `sounds."<key>" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance` |
 | A sound value not a string | `sounds.<key> must be a string (a path to a WAV)` |
 
 ### 6.5 `hud`

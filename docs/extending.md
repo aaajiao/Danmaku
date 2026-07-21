@@ -1533,15 +1533,23 @@ import { defineSound } from '../audio';
 defineSound('shield', { volume: 0.4, polyphony: 2, throttleMs: 80 });
 ```
 
-**Registering a sound does not make it play.** A sound is played by a *cue*: a
-`RunEventType` mapped to a sound name in `src/game/cues.ts`, which the shell
-reads. Add a `defineSound` and nothing else, and you have a sound the game never
-reaches — the same registration-is-not-reachability gap that leaves a bomb no
-ship can fire (§7). To make it audible, either repoint an existing cue at your
-new name, or map a new event to it — and note that a *new* event also has to be
-raised by `Run`, or the cue never fires. `reachability.test.ts` holds this: every
-registered sound must be named by a cue, and every cue must name a registered
-sound, so an unplayed sound and an unplayable cue both fail the build.
+**Registering a sound does not make it play.** A sound is played by a *cue*, and
+there are two cue channels (`src/game/cues.ts`), not one: a gameplay sound is
+named by a `RunEventType` in `EVENT_SOUNDS`, which the shell reads off `Run`;
+a menu/shell sound is named in `SHELL_CUES` instead, since pause, dialogue
+advance and menu navigation are shell state with no `RunEventType` to attach
+to — `main.ts` reads those off a transient `.cue` field and two shell
+reconciles (`docs/audio.md` §1, §3). Add a `defineSound` and nothing else, and
+you have a sound the game never reaches — the same registration-is-not-reachability
+gap that leaves a bomb no ship can fire (§7). To make a gameplay sound audible,
+either repoint an existing `EVENT_SOUNDS` row at your new name, or map a new
+event to it — and note that a *new* event also has to be raised by `Run`, or the
+cue never fires; a menu sound instead joins `SHELL_CUES` and needs a shell edge
+to set `.cue`. `reachability.test.ts` holds both channels the same way: every
+registered sound must be named by one of the two, and every name in either must
+resolve to a registered sound — an unplayed sound and an unplayable cue both
+fail the build, and the UI channel is also driven by a scripted menu pilot so a
+registered-but-never-reached `ui-*` name fails too.
 
 **Replacing a sound with a real file is the `url`, and nothing else.** But get
 the `url` from a bundler import, not a bare path:
