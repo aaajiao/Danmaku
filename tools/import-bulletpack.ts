@@ -412,8 +412,8 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
   \`extra/<category>/\`, staged for a future engine round (laser system,
   sprite-animation, missile entities, exhaust effects, a bomb visual, a
   dedicated option sprite). None of these have an engine consumer today.
-- **${counts.skipped}** non-image files were skipped (\`.DS_Store\`; the two
-  \`.txt\` notes, quoted above and staged under \`extra/provenance/\`).
+- **${counts.skipped}** non-image files were skipped and are not tracked
+  (\`.DS_Store\`; the two \`.txt\` notes live on only as the quotes above).
 - Every one of the **${counts.total}** files in the folder is accounted for
   exactly once in \`extra/extras.json\`.
 `;
@@ -519,15 +519,13 @@ function main(): void {
     const cat = categoryOf(rel);
 
     if (file === '.DS_Store') {
-      entries.push({ category: cat, file: rel, disposition: 'skipped: macOS .DS_Store (not an asset)', width: null, height: null, frames: 0, frameW: null, frameH: null, orientation: '-', suggestedConsumer: '-' });
+      // Not listed in extras.json: the user ruled these deleted from tracking
+      // (2026-07-22) — they are OS junk, not assets awaiting a consumer.
       skipped++; continue;
     }
     if (rel.toLowerCase().endsWith('.txt')) {
-      // Stage the artist notes under extra/provenance, and quote them in README.
-      const dst = join(extraDir, 'provenance', file);
-      mkdirSync(join(extraDir, 'provenance'), { recursive: true });
-      copyFileSync(abs, dst);
-      entries.push({ category: 'provenance', file: rel, disposition: 'skipped: artist note (quoted in README, staged under extra/provenance)', width: null, height: null, frames: 0, frameW: null, frameH: null, orientation: '-', suggestedConsumer: '-' });
+      // The artist notes are quoted verbatim in README.md; the raw files are
+      // neither staged nor listed — deleted from tracking by the same ruling.
       skipped++; continue;
     }
     if (!rel.toLowerCase().endsWith('.png')) {
