@@ -22,8 +22,37 @@
  *     longer than either ring, coarser than a bullet by construction. The
  *     angular spokes stay INTEGER (6), untouched.
  *   - The moiré and the eclipse only ever MULTIPLY the structure down (both are
- *     <= 1), so coherence swims and shadow crosses while the glow never rises
- *     above the seal it came from. `umbra` is if anything darker than `signet`.
+ *     <= 1; the moiré floor is 0.45 in the shared cell, keeping the unmoored pair
+ *     clearly dimmer than the stated seals), so coherence swims and shadow
+ *     crosses while the glow never rises above the seal it came from. `umbra` is
+ *     if anything darker than `signet`.
+ *
+ * ## The quantized floor — 出神 dither
+ *
+ * `umbra` and `decree` add one line, `m = sealDither(m, uv, uScroll)`, that
+ * separates the 出神 pair from the five stated seals as well as from the stages:
+ * the substrate visibly loses bit depth (the visual twin of `zenith`'s detune).
+ * It is legal by construction, not by tuning — coarse cells (>=12 GAME px, a
+ * named `SEAL_DITHER_CELL` constant), DOWN-only (`min(m, q)` can only remove
+ * light, so the seal -> 出神 threshold is crossed by coherence/motion, never
+ * luminance), DARK zones only (a mask confines it to m < ~0.4, so the bright ring
+ * stays smooth and the largest steps land on the lowest luminance), and a
+ * traveling level wave clocked on `uScroll` (rule 1). Its bullet-band safety is
+ * AMPLITUDE, not period: the 12px cell overlaps the band in period, so on this
+ * <=0.041 field the dark-zone posterization steps are ~1.4% of a bullet's
+ * excursion. This is the round's highest-risk element and is gated on
+ * `test:density` (a single bullet stays findable; the dither must not read as
+ * sparse bullets) — gate PENDING live acceptance; the fallback raises
+ * `SEAL_DITHER_CELL` 12 -> 16 and floors `SEAL_DITHER_MIN_LEVELS` at 3.0, each a
+ * one-line change.
+ *
+ * ## Motion — continuous drift, NO ratchet
+ *
+ * The stated seals ratchet their rotation (入神, the mechanism ticking); the 出神
+ * pair deliberately does NOT — a ticking mechanism that is simultaneously
+ * unmooring would be self-contradictory. `umbra` carries `moireFreq > 0`, so the
+ * shared cell's ratchet branch selects the CONTINUOUS rotation path automatically;
+ * the 出神 motion signature is continuous drift + precession + the bit-depth wave.
  *
  * ## Hue — gold cooled
  *
@@ -43,10 +72,14 @@
  * consumer: `__background.name === 'umbra'` polled twice inside a live Lunatic
  * "Total Eclipse", the same card that swaps the music to `zenith`.
  *
- *   - Peak luminance 0.028 measured, at/below signet's measured 0.068 — NOT
- *     risen vs its seal, the whole point (analytic ceiling ~0.05: Rec.709 of
- *     BASE + GLOW * m_max with the moiré/eclipse multipliers only ever pulling
- *     down; base_lum ~0.0101, glow_lum ~0.0584).
+ *   - Peak luminance MEASURED 0.0314 whole-field (field mean 0.0143) after the
+ *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
+ *     signet.ts / background.ts SEAL_GLSL). The never-brighter doctrine binds
+ *     umbra to its PARENT seal, signet, not to its own prior value: measured
+ *     0.0314 < signet's measured 0.0926 ✓ with wide margin — the eclipse, moiré
+ *     and down-only dither multipliers pull the calibrated cell far back down.
+ *     Live frame-diff over 1.5s: bit-depth wave travels with per-pixel steps
+ *     <= 0.017, mean 0.0009 — coherence motion, luminance ceiling unchanged.
  *   - Device period: ring train ~112px analytic, unchanged from signet
  *     (measured 106px on `regnum`, the family instrument).
  *   - Moire beat ~620px analytic ((2*pi/|42.48-36|)*640), one beat across the
@@ -93,6 +126,11 @@ ${SEAL_GLSL}
         3.0,               /* centre falloff */
         2.4                /* top-lane falloff */
       );
+
+      /* 出神: the substrate losing bit depth. Coarse ordered dither, DOWN-only
+         (min -> never brighter), dark zones only, a traveling level wave —
+         coherence motion with the luminance ceiling unchanged. uScroll clock. */
+      m = sealDither(m, uv, uScroll);
 
       /* A slow eclipse-shadow crossing: a soft dark band swept by uScroll across
          the field. It only ever multiplies down (0.55..1), so luminance cannot

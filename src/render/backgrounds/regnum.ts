@@ -37,23 +37,27 @@
  * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
  * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
  *
- *   - Peak luminance 0.057 measured (analytic ceiling ~0.067: Rec.709 of
- *     BASE + GLOW * m_max, with the fill raising modulation toward its ceiling,
- *     m_max ~0.95 rather than ~0.83). Under 0.1. The measured ordering the
- *     analytic predicted holds: this crest sits BELOW signet (0.068), cordon
- *     (0.070) and intaglio (0.063) — the red-heavy crimson carries the lowest
- *     Rec.709 weight — and above only sable (0.032): regnum is the fullest
- *     (filled-field) seal, not the brightest-peaked.
- *   - Device period 106px measured by radial sinusoid projection inside the
- *     ring (analytic 112px: (2*pi/36)*640 — within 5%, the same margin vault
- *     measures). Bullet-band (16-30px) amplitude is 12% of the dominant
- *     structure: an order of magnitude down.
- *   - Palette relation R/G 2.53 measured masked-mean (2.56 exact off GLOW).
- *     Measured adjacency to sable's 2.56 mean is real; the pair separates by
- *     luminance (0.057 vs 0.032), filter geometry (filled-whole vs
+ *   - Peak luminance MEASURED 0.0769 whole-field (field mean 0.0240) after the
+ *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
+ *     signet.ts / background.ts SEAL_GLSL). `fill=1` deliberately FIGHTS the
+ *     inversion — the ground stays lit everywhere — so regnum reads as the seal
+ *     that stays present while its siblings empty out. R6 watch stands: if the
+ *     high mean reads stage-like (haze) rather than seal-like, drop the fill
+ *     floor in SEAL_GLSL (`max(lobe,0.7)` -> `max(lobe,0.5)`; regnum is its sole
+ *     consumer). Under 0.1.
+ *   - Device period 106px measured (pre-round) by radial sinusoid projection
+ *     inside the ring (analytic 112px: (2*pi/36)*640); the bounding ring is now
+ *     the engraved K=16 annulus (FWHM ~94px analytic, sigma_f 0.00563 < 0.00625
+ *     cyc/px, ~90% of budget; K-ceiling ~17.8). Bullet-band amplitude: signet's
+ *     measured ratio is 1.2% of the device amplitude and the shared cell scales
+ *     linearly (gain-invariant ratio).
+ *   - Palette relation R/G 2.53 measured masked-mean (2.56 exact off GLOW),
+ *     unchanged — BASE/GLOW untouched. Measured adjacency to sable's 2.56 mean is
+ *     real; the pair separates by luminance, filter geometry (filled-whole vs
  *     pressed-shut), and never being adjacent in play — see sable's header.
- *   - Rotation ~0.0012 rad/tick (ROT 0.0012 * scrollSpeed 1.0): a full reigning
- *     turn, faster than the earlier seals but still a turn, not a spin.
+ *   - Rotation ~0.0012 rad/tick average (ROT 0.0012 * scrollSpeed 1.0), now
+ *     RATCHETED into SEAL_DETENT (~7.5deg) steps — a full reigning tick, not a
+ *     continuous turn (see SEAL_GLSL motion).
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';

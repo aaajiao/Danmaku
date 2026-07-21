@@ -34,16 +34,36 @@
  * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
  * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
  *
- *   - Peak luminance 0.070 measured along the picket (analytic ceiling ~0.073:
- *     Rec.709 of BASE + GLOW * m_max, m_max ~0.83). Half the field is empty
- *     (the broken arc), so the field mean sits far lower. Under 0.1.
- *   - Device period: ring train ~112px analytic, measured 106px on `regnum`
- *     (the filled member of the family); here the arc envelope dominates,
- *     coarser still. No structure at a bullet's 16-30px.
- *   - Palette relation R/G 0.92 measured masked-mean (0.90 exact off GLOW).
- *     The least saturated of the five seals, by design.
- *   - Arc ~half the ring (arcHalf = PI/2), ends fading; curt sweep at ROT 0.0016
- *     * scrollSpeed 1.0 ~= 0.0016 rad/tick.
+ *   - Peak luminance MEASURED 0.0949 whole-field (field mean 0.0199) after the
+ *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (the
+ *     as-shipped body was imperceptibly different from the old rendering — see
+ *     signet.ts and background.ts SEAL_GLSL for the calibration story). The
+ *     dropped floor makes the absent half of the picket DEEP BLACK, so "half a
+ *     seal" reads as a hard bright arc, not a soft half-blob. Under 0.1 — the
+ *     brightest of the five by a hair, at ~95% of the law's ceiling.
+ *   - Device period: ring train ~112px analytic, measured 106px on `regnum`; the
+ *     lit half of the bounding ring is now the engraved K=16 annulus (FWHM ~94px
+ *     analytic, sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8).
+ *     Bullet-band amplitude: signet's measured ratio is 1.2% of the device
+ *     amplitude and the shared cell scales linearly, so the family stays an
+ *     order down (gain-invariant ratio).
+ *   - Palette relation R/G 0.92 measured masked-mean (0.90 exact off GLOW),
+ *     unchanged — BASE/GLOW untouched. The least saturated of the five seals.
+ *   - Arc ~half the ring (arcHalf = PI/2), ends fading; sweep at ROT 0.0016 *
+ *     scrollSpeed 1.0 ~= 0.0016 rad/tick average, now RATCHETED into SEAL_DETENT
+ *     (~7.5deg) steps — a curt tick, not a continuous sweep (see SEAL_GLSL motion).
+ *     Live frame-diff across detents: worst endpoint luminance step 0.036 (the
+ *     arc-END jump the whole-ring invariance proof does not cover; ~1/28 of a
+ *     bullet's excursion, once per ~82 ticks. If play shows it distracting, the
+ *     remedy is the broken-arc ratchet exemption noted in SEAL_GLSL's motion
+ *     comment — continuous rotation for arcHalf < PI).
+ *     Broken-arc caveat: unlike a whole seal, cordon's marker is `arc * ring` and
+ *     `arc` is rotation-dependent, so each detent steps the lit arc's ENDPOINTS by
+ *     one detent (~0.131 rad; at ringRadius 0.34 the endpoint sweeps ~28px). The
+ *     ring's RADIAL profile stays invariant, but the ratchet-capture gate (§8.7)
+ *     must also inspect the arc-END luminance; if the ~28px endpoint jump reads
+ *     near bullets, exempt cordon from the ratchet (continuous path) or coarsen
+ *     its detent. PENDING live acceptance.
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';

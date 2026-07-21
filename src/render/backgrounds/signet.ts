@@ -39,19 +39,28 @@
  * genuine consumer: the sentinel fight, stamped at the first card and held
  * through Vigil Unbroken.
  *
- *   - Peak luminance 0.068 measured (analytic ceiling ~0.071: Rec.709 of
- *     BASE + GLOW * m_max, m_max ~= 0.83, base_lum ~0.0111 + glow_lum ~0.0720).
- *     Under the 0.1 `background.ts` asks for; the crest sits just below its
- *     ceiling, as vault's does.
+ *   - Peak luminance MEASURED 0.0926 whole-field (field mean 0.0267). The
+ *     as-designed body measured 0.0565 — below the pre-round 0.068 hold-band
+ *     and, by the user's live verdict, imperceptibly different from the old
+ *     rendering — so the acceptance calibration raised the shared-cell gain
+ *     0.90 -> 1.50, spending the headroom the decisions doc licenses (peaks may
+ *     sit anywhere under the 0.1 law). Analytic: m_max ~= 1.28 (0.03 + 1.50 *
+ *     0.83), base_lum ~0.0111 + glow_lum ~0.0720 -> 0.092, matching measured.
+ *     Under the 0.1 `background.ts` asks for.
  *   - Device period: the family ring train is (2*pi/36)*640 ~= 112px analytic,
- *     measured 106px on `regnum` (the filled seal, where the rings span the
- *     field). Here the sparse filter leaves the single ring-band envelope
- *     dominant — coarser still. Bullet-band (16-30px) spectral amplitude
- *     measures 9% of the dominant structure: an order of magnitude down.
+ *     measured 106px on `regnum`. The bounding ring is now the engraved K=16
+ *     annulus (FWHM ~94px analytic vs the old ~215px), still bullet-coarse
+ *     (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8).
+ *     Bullet-band (16-30px) amplitude measured 1.2% of the device amplitude
+ *     (sinusoid projection on the detrended radial profile; the calibration
+ *     gain scales both terms linearly, so the ratio is gain-invariant).
  *   - Palette relation R/G 1.33 measured masked-mean (1.36 exact off the GLOW
- *     vec3). Clear of cordon 0.92, intaglio 1.02, and the two reds.
- *   - Rotation ~0.00048 rad/tick (ROT 0.0006 * scrollSpeed 0.8): a calm turn, the
- *     cell stated without hurry.
+ *     vec3), unchanged — BASE/GLOW untouched. Clear of cordon 0.92, intaglio
+ *     1.02, and the two reds.
+ *   - Rotation ~0.00048 rad/tick average (ROT 0.0006 * scrollSpeed 0.8), now
+ *     RATCHETED into SEAL_DETENT (~7.5deg) steps — a calm tick, not a continuous
+ *     turn. The bright ring is rotation-invariant, so the step carries no
+ *     luminance change on the class marker (see SEAL_GLSL motion).
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';

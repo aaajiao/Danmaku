@@ -32,15 +32,22 @@
  * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
  * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
  *
- *   - Peak luminance 0.063 measured (analytic ceiling ~0.072: Rec.709 of
- *     BASE + GLOW * m_max, m_max ~0.83). The inversion fills the field between
- *     lobes, so the field MEAN sits higher than the sparse seals while the
- *     crest stays modest; both well under 0.1.
- *   - Device period: ring train ~112px analytic (measured 106px on `regnum`).
- *   - Palette relation R/G 1.02 measured masked-mean (1.04 exact off GLOW).
- *     The most neutral seal, between cordon's olive and the reds.
- *   - Rotation ~0.00045 rad/tick (ROT 0.0005 * scrollSpeed 0.9): a steady inward
- *     read, slower than cordon's sweep.
+ *   - Peak luminance MEASURED 0.0899 whole-field (field mean 0.0271) after the
+ *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
+ *     signet.ts / background.ts SEAL_GLSL for the calibration story). The
+ *     `invert=1` swap lights the inter-petal ground and drops the cut lobes to
+ *     TRUE black; figure/ground reads more clearly on black. Between signet and
+ *     cordon, distinct from both by geometry and the bone-neutral hue. Under 0.1.
+ *   - Device period: ring train ~112px analytic (measured 106px on `regnum`); the
+ *     bounding ring is now the engraved K=16 annulus (FWHM ~94px analytic,
+ *     sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8).
+ *     Bullet-band amplitude: signet's measured ratio is 1.2% of the device
+ *     amplitude and the shared cell scales linearly (gain-invariant ratio).
+ *   - Palette relation R/G 1.02 measured masked-mean (1.04 exact off GLOW),
+ *     unchanged — BASE/GLOW untouched. The most neutral seal.
+ *   - Rotation ~0.00045 rad/tick average (ROT 0.0005 * scrollSpeed 0.9), now
+ *     RATCHETED into SEAL_DETENT (~7.5deg) steps — a steady tick, not a
+ *     continuous read (see SEAL_GLSL motion).
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';

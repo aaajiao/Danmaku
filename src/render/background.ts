@@ -221,25 +221,102 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
  * shape shared by many scenes lives once, and copying it would let the copies
  * drift. It is a **string constant only** — no new uniform, no cross-fade change.
  *
- * The cell is a bounding **ring** enclosing an N-fold **rosette** (the signet's
- * device — the notary's seal the fiction already carries). It is **flat**: there
- * is no perspective divide, so the run-to-infinity aliasing the two perspective
- * scenes have to decay their structure to fight never arises — and it arises
- * least where it would hurt most, the crowded centre of a boss fight (the `vault`
- * argument, made once more). Three disciplines carry across from the stage
- * scenes:
+ * The cell is an engraved, pressed-metal **ring** — a crisp bright annulus lit
+ * like a mark stamped into a dark surface — enclosing an N-fold **rosette** (the
+ * signet's device, the notary's seal the fiction already carries) and a train of
+ * soft concentric device rings. This is the class marker no stage scene contains:
+ * where the stages are a luminous, evenly-textured haze (unimodal histogram, high
+ * mean, low local contrast, translational drift), a seal is a **near-black frame
+ * with a thin bright ring closing on itself** (bimodal histogram — a tall spike at
+ * black, a thin tail reaching the peak), a mark *pressed into* a surface. A
+ * squinted single frame classifies stage-vs-boss before any colour is named.
+ *
+ * It is **flat**: there is no perspective divide, so the run-to-infinity aliasing
+ * the two perspective scenes have to decay their structure to fight never arises —
+ * and it arises least where it would hurt most, the crowded centre of a boss fight
+ * (the `vault` argument, made once more). Disciplines that carry across:
  *
  *   - **Integer spokes.** The rosette count is an integer, so the angle only ever
  *     enters `sin`, and the `atan` wrap from +pi to -pi closes seamlessly — the
  *     `undertow`/`vault` flute lesson. The broken-arc gate reads a *wrapped*
- *     angle for the same reason, so even a rotating picket cannot crack.
- *   - **Grain against the rosette value, never the raw angle**, so the fine noise
- *     inherits the rosette's periodicity and cannot shear across the wrap ray.
+ *     angle for the same reason, so even a rotating picket cannot crack. This is
+ *     also why the only HARD edge is the *radial* bounding ring: at the seal
+ *     radius an inked angular petal-outline would need a >=60px transition to stay
+ *     bullet-coarse, at which point the threshold IS the sinusoid — so angular
+ *     structure stays soft, and only `r` (no wrap) may be crisped.
+ *   - **Grain confined to strokes.** It rides the rosette *value* (never the raw
+ *     angle, so it cannot shear across the wrap ray) and multiplies `structure`,
+ *     which -> 0 in the black field, so the grain dies there — an engraved edge,
+ *     not a noisy smear. Trimmed to 0.18 amplitude.
  *   - **Detail decays toward the two crowded zones** — the centre (the boss
  *     station, the void the bright sprite reads against) and the top entry lane —
  *     and the field fades to nothing **outside the ring**: a seal is a STATE, not
  *     a place, and it is empty where it is not the seal (the rest around the
  *     device).
+ *
+ * ## Value structure — the inversion (why the ring reads as a hard line)
+ *
+ * The field between strokes falls to a hair of wax floor (0.03·body, deep black);
+ * the bright ring reads as a hard bright line by local contrast AND by spending
+ * the luminance headroom the law leaves. Peak `structure` ~= 0.90·ring_peak +
+ * 0.20·inner·device ~= 0.83, and the structure gain is **1.50** (acceptance
+ * calibration, was the design's 0.90): `return_max = body·(0.03 + 1.50·0.83)·beat
+ * ~= 1.28·body`. The design's own gain measured signet at 0.0565 — below the
+ * pre-round 0.068 and, by the user's live verdict, imperceptibly different from
+ * the old soft rendering. The decisions doc licenses peaks anywhere under the
+ * 0.1 law ("headroom INSIDE the law to be more present"), so the calibration
+ * spends it: measured peaks signet 0.0926 · cordon 0.0949 · intaglio 0.0899 ·
+ * regnum 0.0769 · sable 0.0444 · decree 0.0392 · umbra 0.0314 — all under 0.1,
+ * sable darkest stated seal, 出神 pair below their parents. A scene tunes GLOW,
+ * not this floor, if a peak lands wrong.
+ *
+ * ## The engraved ring, and why it stays bullet-coarse
+ *
+ * The bounding ring is crisped from K=7 to K=16 (Gaussian `exp(-dr*dr)`,
+ * `dr = (r-ringRadius)*16`), FWHM ~215px -> ~94px, still COARSE: `exp(-dr*dr)` is
+ * `exp(-x^2/(2*sigma^2))` with sigma_x = 640/(16*sqrt2) = 28.3px (the Gaussian std
+ * dev — NOT the e^-1 half-width 40px, which is sqrt(2)*sigma), so spatial frequency
+ * sigma_f = 1/(2*pi*28.3) = 0.00563 cyc/px, under the 0.00625 bullet-band bound
+ * (~90% of budget). The true K-ceiling where sigma_f reaches 0.00625 is K ~= 17.8,
+ * so K=16 has only ~10% headroom — do NOT raise K past ~17 (an earlier note here
+ * miscited sigma_f as 0.00398 with a K<=25 ceiling; that used sqrt(2)*sigma for
+ * sigma and is wrong by a factor of sqrt(2)). A pressed-metal **bevel** — a LOW-FREQUENCY linear radial ramp,
+ * inner rim lit, outer rim shadowed — carries the material; there is deliberately
+ * NO glint/specular (a tight bright pinpoint is a fake bullet). Value-ramp + rim
+ * lighting studied from pbakaus/radiant liquid-gold & moonlit-ripple (MIT); the
+ * ink-contour `lobe*(1-lobe)` from ink-dissolve; our GLSL, noise and clocks.
+ *
+ * ## The inner concentric train stays UNSQUARED
+ *
+ * The device rings (`inner`, freq ~36 -> ~112px period) are the compass-and-rule
+ * geometry-discipline the class contrast wants, already live-measured coarse, and
+ * the floor drop alone turns them into bright rings on black. They are left
+ * UNSQUARED on purpose: squaring a sinusoid injects an exact 2nd harmonic at
+ * ~56px, halving the bullet-band margin for a reveal the floor drop already
+ * delivers. No thresholded petals, no thresholded rings — outlawed by the angular
+ * bound above.
+ *
+ * ## Motion — three classes (stages drift, stated seals TICK, 出神 pair drifts)
+ *
+ * The stated seals RATCHET their rotation: `rot` advances in `SEAL_DETENT`
+ * detents rather than continuously — a mechanism, not a drift (the 入神/Absorption
+ * reading). This is licensed where the decisions-doc would normally forbid a
+ * ratchet, by a rotation-invariance proof: the bright `ring` TERM is a function of
+ * `r` alone, so `d(ring)/d(rotation) = 0` — a detent step produces NO luminance
+ * change on the class marker; only the DIM, coarse, subordinate rosette advances,
+ * under coarse angular gradients. The step's luminance edge near bullets is
+ * provably zero on the marker and negligible on the device. **This holds only for
+ * WHOLE seals (arcHalf >= pi, arc == 1 everywhere).** The visible bright marker is
+ * `arc * ring`, and for a BROKEN-arc seal (cordon, arcHalf = pi/2) the `arc` gate
+ * is rotation-DEPENDENT (it reads `abs(aw)`, and `aw` carries `rotAmount`), so a
+ * detent steps the lit arc's ENDPOINTS by one detent (~0.131 rad; at ringRadius
+ * 0.34 that sweeps the endpoint ~28px). The radial luminance profile is still
+ * invariant, so the §8.7 gate that inspects only the radial profile would MISS
+ * this — the ratchet-capture gate must also inspect the arc-END luminance for
+ * broken-arc seals, and if the endpoint jump reads near bullets, exempt them from
+ * the ratchet (continuous path) or coarsen their detent. The 出神 pair
+ * (`moireFreq > 0`) opts OUT automatically and keeps continuous drift — a ticking
+ * mechanism that is simultaneously unmooring would be self-contradictory.
  *
  * Each boss is a **thin call**: one filter geometry (`arcHalf`, `fill`, `invert`,
  * ring radius/frequency, rotation) plus one hue (the scene's `BASE`/`GLOW`).
@@ -250,7 +327,13 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
  * the dark void**. It reads `bgFbm`, so a scene must prepend `BACKGROUND_NOISE_GLSL`
  * before this. It reads no uniform — `aspect` and `scroll` are passed in — so it
  * stays a pure function of its arguments, and the ticks-only clock (rule 1) is the
- * caller's `uScroll`, never a wall clock.
+ * caller's `uScroll`, never a wall clock. GLSL `sin`/`cos` are used freely here;
+ * rule 3 binds `sim`/`content`/`core`/`game`, not values that reach the
+ * framebuffer and stop.
+ *
+ * `sealBayer4`/`sealDither` (the 出神 quantization) are defined alongside for
+ * `umbra`/`decree` to call; they take `uv`/`scroll` as arguments and read no
+ * uniform, exactly as `sealField` does.
  */
 export const SEAL_GLSL = /* glsl */ `
   const float SEAL_PI = 3.14159265;
@@ -261,6 +344,57 @@ export const SEAL_GLSL = /* glsl */ `
      speed ~0.8 this advances the ring phase about 0.023 rad/tick, one ring past a
      fixed radius roughly every 270 ticks, the terminal register the seal wants. */
   const float SEAL_CONTRACT = 0.00080;
+
+  /* 入神 tick size: 2*PI / (6 spokes * 8) ~= one detent per 7.5deg, keyed to the
+     rosette's own six-fold symmetry so a step lands one lobe-fraction on. */
+  const float SEAL_DETENT = 0.13089969;
+
+  /* 出神 dither knobs, named so the test:density fallback is a one-line change:
+     cell 12 -> 16 game px, min levels floor 2 -> 3. */
+  const float SEAL_DITHER_CELL = 12.0;        /* posterization cell, GAME px (readability unit) */
+  const float SEAL_DITHER_MIN_LEVELS = 2.0;   /* coarsest quantization; raise to 3.0 to soften */
+  const float SEAL_DITHER_MAX_LEVELS = 5.0;
+
+  /* Canonical 4x4 ordered-dither matrix, values 0..15 -> (v+0.5)/16. No texture,
+     no array (max GLSL-ES compat), no Math-approx call. Ordered-dither technique
+     studied from pbakaus/radiant dither-gradient (MIT); the arithmetic is ours. */
+  float sealBayer4(vec2 p) {
+    vec2 q = floor(mod(p, 4.0));
+    float x = q.x, y = q.y;
+    float m =
+        (x < 0.5) ? (y < 0.5 ?  0.0 : y < 1.5 ? 12.0 : y < 2.5 ?  3.0 : 15.0) :
+        (x < 1.5) ? (y < 0.5 ?  8.0 : y < 1.5 ?  4.0 : y < 2.5 ? 11.0 :  7.0) :
+        (x < 2.5) ? (y < 0.5 ?  2.0 : y < 1.5 ? 14.0 : y < 2.5 ?  1.0 : 13.0) :
+                    (y < 0.5 ? 10.0 : y < 1.5 ?  6.0 : y < 2.5 ?  9.0 :  5.0);
+    return (m + 0.5) / 16.0;
+  }
+
+  /* 出神 (umbra/decree only): the substrate losing bit depth. Structurally safe by
+     three guarantees, none of which raise peak:
+       - Never brighter — min(m, q) can only remove light; the seal -> 出神
+         threshold is crossed by coherence/motion, the wave modulates LEVELS not
+         amplitude.
+       - Dark zones only — mask confines quantization to m < ~0.4, so the bright
+         ring (m > 0.65) stays smooth and the largest dither steps land on the
+         lowest-luminance regions (smallest absolute steps).
+       - Bullet-band by AMPLITUDE not period — the 12px cell overlaps the bullet
+         band in period, so safety is amplitude: on a <=0.041 field the dark-zone
+         posterization steps are ~1.4% of a bullet's excursion. Gated on
+         test:density; fallback raises the two named constants above.
+     uv spans exactly the 480x640 field (vUv is geometry-derived, 0..1,
+     retina-independent — see the quad in the Background class), so
+     uv * vec2(480,640) is game px directly. uScroll clock (rule 1); no wall
+     clock. */
+  float sealDither(float m, vec2 uv, float scroll) {
+    float levels = mix(
+      SEAL_DITHER_MIN_LEVELS, SEAL_DITHER_MAX_LEVELS,
+      0.5 + 0.5 * sin(scroll * 0.003 - uv.y * 4.0)   /* a traveling bit-depth wave */
+    );
+    vec2 cell = floor(uv * vec2(480.0, 640.0) / SEAL_DITHER_CELL);
+    float q = floor(m * levels + sealBayer4(cell)) / levels;
+    float mask = 1.0 - smoothstep(0.35, 0.65, m);    /* only the dark field quantizes */
+    return mix(m, min(m, q), mask);                  /* min(): only ever removes light */
+  }
 
   float sealField(
     vec2  uv,
@@ -280,46 +414,86 @@ export const SEAL_GLSL = /* glsl */ `
   ) {
     vec2 c = (uv - centre) * vec2(aspect, 1.0);
     float r = length(c);
-    float a = atan(c.y, c.x) + scroll * rot;
+
+    /* 入神 tick: rotation advances in detents, a mechanism not a drift.
+       Deterministic, uScroll-derived (rule 1 safe), replay-identical. The bright
+       ring term is ROTATION-INVARIANT (a function of r alone), so a step produces
+       NO luminance change on the class marker — only the dim soft rosette advances.
+       Caveat: the VISIBLE marker is arc * ring; for a WHOLE seal arc == 1 so the
+       invariance holds outright, but for a BROKEN arc (arcHalf < pi, cordon) the
+       arc gate is rotation-dependent, so a detent steps the lit arc's endpoints
+       (see the header's motion section). The 出神 pair (moireFreq > 0) takes the
+       continuous path and never ticks. */
+    float rotAmount = (moireFreq > 0.001)
+        ? scroll * rot                                       /* 出神: continuous drift */
+        : floor(scroll * rot / SEAL_DETENT) * SEAL_DETENT;   /* stated seals: ratcheted */
+    float a = atan(c.y, c.x) + rotAmount;
 
     /* Wrapped angle for the arc gate. abs() of a value pulled back into
        (-pi, pi] is continuous across the seam (both sides reach pi), so a
        rotating broken arc still cannot crack. */
     float aw = mod(a + SEAL_PI, 2.0 * SEAL_PI) - SEAL_PI;
 
-    /* N-fold rosette. Integer spokes -> sin closes across the wrap. */
+    /* N-fold rosette (soft, angular — CANNOT be crisped, see the header's angular
+       bound). Integer spokes -> sin closes across the wrap. */
     float rosette = 0.5 + 0.5 * sin(a * spokes);
     float lobe = mix(rosette, 1.0 - rosette, invert);   /* inverted: lobes are the cut */
     lobe = mix(lobe, max(lobe, 0.7), fill);             /* filled: the ground lights too */
+    /* Ink-contour glow on the lobe boundary; technique from ink-dissolve. SMOOTH
+       (a sinusoid, never a hard line), but NOT wide: lobe*(1-lobe) squares the
+       rosette, so for fill=invert=0 it is 0.5 + 0.5*cos(2*spokes*a) — a sinusoid
+       at 2*spokes, HALF the rosette period (bullet-coarse at the seal radius,
+       entering the 16-30px band only for r < ~57px). Safe by AMPLITUDE, not
+       period: its return contribution is ~body*0.081*inner*petalEdge times GLOW,
+       a swing <~0.5% of a bullet's excursion — bounded by the ~0.04-0.07 field
+       peak, not by frequency. */
+    float petalEdge = lobe * (1.0 - lobe) * 4.0;
+    float device = 0.55 * lobe + 0.45 * petalEdge;
 
-    /* Grain against the rosette value, never the angle. */
+    /* Grain against the rosette value, never the angle; confined to strokes
+       because it multiplies structure, which -> 0 in the black field. */
     float grain = bgFbm(vec2(rosette * 2.2, r * 6.0 + scroll * 0.010));
 
-    /* The bounding ring (a bright annulus) and the inner device rings, both
-       pressing inward via SEAL_CONTRACT. */
     float pressed = r + scroll * SEAL_CONTRACT;
-    /* Square by multiplication, never pow(): GLSL pow(x, y) is undefined for
-       x < 0, and (r - ringRadius) is negative inside the ring. */
-    float dr = (r - ringRadius) * 7.0;
+
+    /* The bounding ring: an inked, pressed-metal annulus — the engraved class
+       marker no stage scene has. K=16 crisps it (FWHM ~215px -> ~94px), still
+       COARSE (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8).
+       Square by multiplication, never
+       pow(): GLSL pow(x, y) is undefined for x < 0, and (r - ringRadius) is
+       negative inside the ring. */
+    float dr = (r - ringRadius) * 16.0;
     float band = exp(-dr * dr);
+    /* Pressed-metal bevel: a LOW-FREQUENCY linear radial ramp, inner rim lit,
+       outer rim shadowed. It adds material across the band's support, not a new
+       edge — the RAMP carries the metal, never a glint (speculars dropped, not
+       dimmed: a tight bright point is a fake bullet). */
+    float bevel = clamp((ringRadius - r) * 7.0, -1.0, 1.0);
+    float ring  = band * (0.72 + 0.28 * bevel);
+
+    /* Inner concentric device rings (soft, KEPT, UNSQUARED — see the header):
+       radial, freq ~36 -> ~112px period, already live-measured coarse. The floor
+       drop below turns these into bright rings on black; squaring them would
+       inject a 56px 2nd harmonic toward the bullet band for no gain. */
     float inner = 0.5 + 0.5 * sin(pressed * ringFreq);
 
     /* Radial moiré (出神): a second ring RADIALLY detuned. r carries no angular
-       wrap, so a non-integer detune is safe (no crack). Its beat is far longer
-       than either ring -> coarser than a bullet, and it only ever multiplies the
-       structure down, so coherence swims while luminance never rises. */
+       wrap, so a non-integer detune is safe (no crack). It only ever multiplies
+       the structure down, so coherence swims while luminance never rises. Floor
+       0.45 keeps the unmoored pair clearly dimmer than the stated seals. */
     float beat = 1.0;
     if (moireFreq > 0.001) {
       float second = 0.5 + 0.5 * sin(pressed * moireFreq);
-      beat = 0.55 + 0.45 * (inner * second + (1.0 - inner) * (1.0 - second));
+      beat = 0.45 + 0.40 * (inner * second + (1.0 - inner) * (1.0 - second));
     }
 
     /* Broken arc: present for |aw| < arcHalf, fading at the ends. A whole seal
        passes arcHalf >= PI and this is 1 everywhere. */
     float arc = 1.0 - smoothstep(arcHalf - 0.35, arcHalf + 0.08, abs(aw));
 
-    float structure = arc * (0.55 * band + 0.45 * inner * lobe);
-    structure *= (0.66 + 0.34 * grain);
+    /* Value structure: the bright ring dominates; device + inner rings subordinate. */
+    float structure = arc * (0.90 * ring + 0.20 * inner * device);
+    structure *= (0.82 + 0.18 * grain);                 /* grain rides strokes only */
 
     /* The two crowded zones, and the empty field outside the ring. */
     float nearC = clamp(r * centreFall, 0.0, 1.0);
@@ -327,9 +501,12 @@ export const SEAL_GLSL = /* glsl */ `
     float outer = 1.0 - smoothstep(ringRadius, ringRadius + 0.16, r);
     float body = nearC * nearTop * outer;
 
-    /* A dim wax floor inside the ring; structure lifts it. Detail dies faster
-       toward the crowded zones than the floor, the doctrine every scene shares. */
-    return body * (0.18 + 0.72 * structure) * beat;
+    /* THE INVERSION: a hair of wax floor (0.03), structure lifts it. The field
+       between strokes falls to ~BASE (deep black); the ring reads as a hard
+       bright line by local contrast AND by peak — the 1.50 gain is the
+       acceptance calibration (design's 0.90 measured imperceptible; see the
+       header's value-structure section for the measured family). */
+    return body * (0.03 + 1.50 * structure) * beat;
   }
 `;
 

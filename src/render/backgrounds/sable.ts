@@ -29,23 +29,28 @@
  * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
  * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
  *
- *   - Peak luminance 0.032 measured, the DARKEST seal (analytic ceiling ~0.039:
- *     Rec.709 of BASE + GLOW * m_max, m_max ~0.83 — the dim glow vec3 is what
- *     makes it darkest, not a lower modulation). Well under 0.1, and below
- *     every other measured seal (signet 0.068, cordon 0.070, intaglio 0.063,
- *     regnum 0.057).
+ *   - Peak luminance MEASURED 0.0444 whole-field (field mean 0.0142), still the
+ *     DARKEST stated seal, after the acceptance calibration raised the
+ *     shared-cell gain 0.90 -> 1.50 (see signet.ts / background.ts SEAL_GLSL).
+ *     The tight K=16 ring on the darkest field reads as a line, not a smear.
+ *     R2 (ring-below-visibility watch) RESOLVED by the shared calibration — no
+ *     per-scene GLOW.R exception was needed. Well under 0.1.
  *   - Device period: ring train ~112px analytic (measured 106px on `regnum`),
- *     read across a smaller ring radius (0.22) so fewer rings are visible — the
- *     pressed-shut read. Bullet-band amplitude measures 8% of the dominant
- *     structure.
+ *     read across a smaller ring radius (0.22); the tight bounding ring is now
+ *     the engraved K=16 annulus (FWHM ~94px analytic, sigma_f 0.00563 < 0.00625
+ *     cyc/px, ~90% of budget; K-ceiling ~17.8). Bullet-band amplitude: signet's
+ *     measured ratio is 1.2% of the device amplitude and the shared cell scales
+ *     linearly (gain-invariant ratio).
  *   - Palette relation R/G 2.56 measured masked-mean (3.08 exact off GLOW; the
  *     dark field mean dilutes toward the base's 2.67). The most red-dominant
  *     seal at the pixel it glows. Measured adjacency to regnum's 2.53 is real —
- *     the pair is separated by luminance (0.057 vs 0.032, a 1.8x step), by the
+ *     the pair is separated by luminance (pre-inversion 0.057 vs 0.032, a 1.8x
+ *     step; measured 0.0769 vs 0.0444 after calibration, a 1.7x step), by the
  *     most-opposed filter geometries (filled-whole vs pressed-shut), and by
  *     never being adjacent in play, exactly as designed.
- *   - Rotation ~0.00018 rad/tick (ROT 0.0003 * scrollSpeed 0.6): the slowest
- *     turn of the five, the heavy slow press.
+ *   - Rotation ~0.00018 rad/tick average (ROT 0.0003 * scrollSpeed 0.6), the
+ *     slowest of the five, now RATCHETED into SEAL_DETENT (~7.5deg) steps — a
+ *     heavy slow tick, not a continuous press (see SEAL_GLSL motion).
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';

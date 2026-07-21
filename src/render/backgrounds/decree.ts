@@ -37,6 +37,30 @@
  * variant for the chancellor was rejected to keep the shared-fiat rhyme (one track
  * <-> one scene), exactly as the design chose.
  *
+ * ## The quantized floor — 出神 dither
+ *
+ * `decree` and `umbra` add one line, `m = sealDither(m, uv, uScroll)`, that
+ * separates the 出神 pair from the five stated seals: the substrate visibly loses
+ * bit depth (the visual twin of `fiat`'s dissolving cell). Legal by construction,
+ * not by tuning — coarse cells (>=12 GAME px, the named `SEAL_DITHER_CELL`),
+ * DOWN-only (`min(m, q)` only removes light, so the seal -> 出神 threshold is
+ * crossed by coherence/motion, never luminance), DARK zones only (masked to
+ * m < ~0.4, the bright ring stays smooth), traveling level wave on `uScroll`
+ * (rule 1). Bullet-band safety is AMPLITUDE not period: the 12px cell overlaps the
+ * band in period, so on this <=0.039 field the dark-zone posterization steps are
+ * ~1.4% of a bullet's excursion. Highest-risk element of the round, gated on
+ * `test:density` — gate PENDING live acceptance; the fallback raises
+ * `SEAL_DITHER_CELL` 12 -> 16 and floors `SEAL_DITHER_MIN_LEVELS` at 3.0, each a
+ * one-line change. (The moiré floor in the shared cell is 0.45, keeping the pair
+ * clearly dimmer than the stated seals.)
+ *
+ * ## Motion — continuous drift, NO ratchet
+ *
+ * The stated seals ratchet their rotation (入神); the 出神 pair deliberately does
+ * not. `decree` carries `moireFreq > 0`, so the shared cell's ratchet branch takes
+ * the CONTINUOUS rotation path automatically — the 出神 signature is continuous
+ * drift + precession + the bit-depth wave, not a tick.
+ *
  * ## Hue — crimson bleached toward cold rose-grey
  *
  * Regnum's crimson drained of its heat, R/G ~1.4 — a cold rose-grey, the red
@@ -56,10 +80,13 @@
  * shared-card wiring (chancellor "Sealed" + regent "Sine Die") is content,
  * verified in base-pack.json.
  *
- *   - Peak luminance 0.038 measured: below regnum's measured 0.057, above
- *     sable's 0.032 — exactly the family-budget doctrine above (analytic
- *     ceiling ~0.05: Rec.709 of BASE + GLOW * m_max with the fill drained and
- *     the moiré pulling down; base_lum ~0.0110, glow_lum ~0.0546).
+ *   - Peak luminance MEASURED 0.0392 whole-field (field mean 0.0166) after the
+ *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
+ *     signet.ts / background.ts SEAL_GLSL). Below regnum's measured 0.0769 and
+ *     just below sable's measured 0.0444 — the 出神 pair sits at the bottom of
+ *     the family with its parent doctrine intact (decree < regnum ✓). The
+ *     moiré/dither multipliers pull the calibrated cell back down; the Bayer
+ *     field is plainly visible in a still, which is the point.
  *   - Device period: ring train ~112px analytic (measured 106px on `regnum`).
  *   - Moire beat ~620px analytic ((2*pi/|42.48-36|)*640), one beat across the
  *     field, far coarser than the ring; the swim was motion-verified on the
@@ -103,6 +130,11 @@ ${SEAL_GLSL}
         2.8,               /* centre falloff */
         2.4                /* top-lane falloff */
       );
+
+      /* 出神: the substrate losing bit depth. Coarse ordered dither, DOWN-only
+         (min -> never brighter), dark zones only, a traveling level wave —
+         coherence motion with the luminance ceiling unchanged. uScroll clock. */
+      m = sealDither(m, uv, uScroll);
 
       return BASE + GLOW * m;
     }
