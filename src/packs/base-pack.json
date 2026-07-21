@@ -5211,6 +5211,210 @@
             "period": 5
           }
         ]
+      },
+      "scatter": {
+        "description": "point-blank ember spray that evaporates past the pocket",
+        "levels": [
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "offsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "offsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 254
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 286
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "offsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 254
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 286
+              },
+              {
+                "x": -12,
+                "y": -4,
+                "angle": 244
+              },
+              {
+                "x": 12,
+                "y": -4,
+                "angle": 296
+              }
+            ],
+            "period": 5
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "offsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 254
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 286
+              },
+              {
+                "x": -12,
+                "y": -4,
+                "angle": 244
+              },
+              {
+                "x": 12,
+                "y": -4,
+                "angle": 296
+              },
+              {
+                "x": -14,
+                "y": -2,
+                "angle": 234
+              },
+              {
+                "x": 14,
+                "y": -2,
+                "angle": 306
+              }
+            ],
+            "period": 4
+          }
+        ]
       }
     },
     "options": {
@@ -5544,6 +5748,125 @@
             }
           ]
         ]
+      },
+      "clinch": {
+        "sprite": "orb.medium",
+        "shot": {
+          "style": {
+            "sprite": "orb.small",
+            "r": 1,
+            "g": 0.55,
+            "b": 0.3,
+            "additive": true
+          },
+          "radius": 9,
+          "motion": {
+            "r": 9,
+            "theta": 270
+          },
+          "damage": 1,
+          "life": 20
+        },
+        "period": 12,
+        "followSpeed": 1.4,
+        "tint": {
+          "r": 1,
+          "g": 0.55,
+          "b": 0.3
+        },
+        "levels": [
+          [],
+          [
+            {
+              "x": -34,
+              "y": 2,
+              "focusX": -6,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": 34,
+              "y": 2,
+              "focusX": 6,
+              "focusY": -10,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": -34,
+              "y": 2,
+              "focusX": -6,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": 34,
+              "y": 2,
+              "focusX": 6,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": -50,
+              "y": 10,
+              "focusX": -10,
+              "focusY": -6,
+              "angle": 270
+            },
+            {
+              "x": 50,
+              "y": 10,
+              "focusX": 10,
+              "focusY": -6,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": -34,
+              "y": 2,
+              "focusX": -6,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": 34,
+              "y": 2,
+              "focusX": 6,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": -50,
+              "y": 10,
+              "focusX": -10,
+              "focusY": -6,
+              "angle": 270
+            },
+            {
+              "x": 50,
+              "y": 10,
+              "focusX": 10,
+              "focusY": -6,
+              "angle": 270
+            },
+            {
+              "x": -62,
+              "y": 16,
+              "focusX": -4,
+              "focusY": -14,
+              "angle": 270
+            },
+            {
+              "x": 62,
+              "y": 16,
+              "focusX": 4,
+              "focusY": -14,
+              "angle": 270
+            }
+          ]
+        ]
       }
     },
     "bombs": {
@@ -5636,6 +5959,25 @@
           "grazeRadius": 28,
           "lives": 2,
           "bombs": 3,
+          "invulnTicks": 90
+        }
+      },
+      "maw": {
+        "label": "MAW",
+        "sprite": "ship",
+        "blurb": "point-blank spray, graze-fed",
+        "shot": "scatter",
+        "options": "clinch",
+        "bomb": "lance",
+        "player": {
+          "x": 240,
+          "y": 568,
+          "speed": 3.9,
+          "focusSpeed": 1.4,
+          "radius": 2.5,
+          "grazeRadius": 30,
+          "lives": 2,
+          "bombs": 4,
           "invulnTicks": 90
         }
       }

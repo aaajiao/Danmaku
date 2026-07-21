@@ -1322,7 +1322,7 @@ largest consumer**: stage-1, stage-2, stage-3, stage-4, their fifteen trash enem
 `weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion` + `clerk`,
 `stele`, `summons`, `assessor` + `usher`, `marshal`, `notary`), five
 bosses (`sentinel`, `warden`, `magistrate`, `chancellor`, `regent`) **and the whole player side** — the
-four characters (`scout`, `lance`, `hound`, `spire`), their four shots, three
+five characters (`scout`, `lance`, `hound`, `spire`, `maw`), their five shots, four
 option sets and two bombs — are no longer engine TypeScript.
 They are `src/packs/base-pack.json`, authored in `tools/make-base-pack.ts`, and
 injected through this exact pipeline — the same `validateManifest`, the same

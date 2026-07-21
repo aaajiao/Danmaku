@@ -2289,8 +2289,8 @@ const stages: PackContent['stages'] = {
 /* Player weapons — shots, options and bombs the roster flies.        */
 /*                                                                    */
 /* The player side joins the base pack (decisions-round2 §D), the     */
-/* counterpart to the campaign port above. scout/lance/hound/spire,   */
-/* their four shots, three option sets and two bombs left engine      */
+/* counterpart to the campaign port above. scout/lance/hound/spire/maw, */
+/* their five shots, four option sets and two bombs left engine       */
 /* TypeScript (content/shots.ts, sim/option.ts, sim/bomb.ts,          */
 /* game/run.ts); the engine keeps the machinery — the registries, the */
 /* OptionSystem/BombSystem, the nesting-invariant checks — and the    */
@@ -2361,6 +2361,45 @@ const GUN_BEAM = {
   laser: { length: 48, growth: 90, maxLength: 520 },
   pierce: true,
 };
+
+/**
+ * `scatter`'s ember pellet — MAW's whole design in one field. `life: 18` is the
+ * leash: at `r: 8` the pellet reaches 8*18 = 144px and evaporates, so full damage
+ * lands inside the ~140px pocket and nothing survives to a top-stationed boss.
+ * `radius: 8` is fat and forgiving up close. Ember tint + additive distinguishes
+ * it from `spread`'s cool bolt with no new art.
+ */
+const SCATTER_PELLET = {
+  style: { sprite: 'glow.small', r: 1, g: 0.55, b: 0.3, additive: true },
+  radius: 8,
+  motion: { r: 8, theta: FORWARD },
+  damage: 1,
+  life: 18,
+};
+
+// `scatter`'s two muzzle roles. CENTRAL bolts fire dead-ahead and carry every
+// measured single-target hit; CHEEK pairs fan wide enough to miss a point target
+// at 100px (past the 12+8 tolerance) — pure coverage, ~0 measured DPS. The free
+// floor rests only on the central set, so it does not depend on where the target
+// is. CENTRAL is a fixed superset across tiers (only the period tightens); CHEEK
+// pairs are added outward, so the muzzle set nests by construction.
+const CENTRAL_PAIR = [
+  { x: -5, y: -10, angle: FORWARD },
+  { x: 5, y: -10, angle: FORWARD },
+];
+const CENTRAL_MID = [{ x: 0, y: -10, angle: FORWARD }];
+const CHEEK_A = [
+  { x: -10, y: -6, angle: FORWARD - 16 },
+  { x: 10, y: -6, angle: FORWARD + 16 },
+];
+const CHEEK_B = [
+  { x: -12, y: -4, angle: FORWARD - 26 },
+  { x: 12, y: -4, angle: FORWARD + 26 },
+];
+const CHEEK_C = [
+  { x: -14, y: -2, angle: FORWARD - 36 },
+  { x: 14, y: -2, angle: FORWARD + 36 },
+];
 
 /** `spread`'s muzzles: a parallel pair, then symmetric angled bolts mirrored. */
 function fan(spread: readonly number[]): Record<string, unknown>[] {
@@ -2455,6 +2494,19 @@ const shots: PackContent['shots'] = {
       { spec: { ...GUN_BEAM, life: 6, laser: { ...GUN_BEAM.laser, growth: 120 } }, offsets: MUZZLE, period: 5 },
     ],
   },
+  // MAW's gun: the inverse of `laser`. Reach is capped by the pellet's `life`
+  // (144px), not bought back — power adds cheek coverage and tightens the period,
+  // never range. Central muzzles are a fixed superset (2 then 3), so the nesting
+  // invariant holds; the widening cheeks miss a point target on purpose.
+  scatter: {
+    description: 'point-blank ember spray that evaporates past the pocket',
+    levels: [
+      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR], period: 6 },
+      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6 },
+      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5 },
+      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4 },
+    ],
+  },
 };
 
 /* ---- option bullet specs ---- */
@@ -2515,6 +2567,37 @@ const PICKET_OUTER = [
   { x: 58, y: 18, focusX: 36, focusY: 6, angle: FORWARD },
 ];
 
+/**
+ * `clinch`'s battery bullet — the option twin of `scatter`'s leash. `life: 20`
+ * reaches ~180px, a hair past the gun but still inside the pocket, so no chip
+ * damage sneaks out to a distant boss. Ember tint to match MAW's spray.
+ */
+const CLINCH_SHOT = {
+  style: { sprite: 'orb.small', r: 1, g: 0.55, b: 0.3, additive: true },
+  radius: 9,
+  motion: { r: 9, theta: FORWARD },
+  damage: 1,
+  life: 20,
+};
+
+// `clinch`'s slots fire straight up: wide when loose (each |x| ≥ 34 keeps the
+// column off a point target past the 21px tolerance → ~0 free DPS) and clinched
+// to the nose under focus (each |focusX| ≤ 10 < 21 → hits). The free/focus DPS
+// split is the whole formation. Each tier keeps the pair below and adds one, and
+// the same focus values are reused, so the option nesting invariant holds.
+const CLINCH_PAIR_A = [
+  { x: -34, y: 2, focusX: -6, focusY: -10, angle: FORWARD },
+  { x: 34, y: 2, focusX: 6, focusY: -10, angle: FORWARD },
+];
+const CLINCH_PAIR_B = [
+  { x: -50, y: 10, focusX: -10, focusY: -6, angle: FORWARD },
+  { x: 50, y: 10, focusX: 10, focusY: -6, angle: FORWARD },
+];
+const CLINCH_PAIR_C = [
+  { x: -62, y: 16, focusX: -4, focusY: -14, angle: FORWARD },
+  { x: 62, y: 16, focusX: 4, focusY: -14, angle: FORWARD },
+];
+
 const options: PackContent['options'] = {
   // The default: fixed forward fire, wide when loose and stacked under focus. Tier
   // 0 is empty — the bare ship, so the first power-up has something to give.
@@ -2564,6 +2647,22 @@ const options: PackContent['options'] = {
       [...PICKET_NOSE, ...PICKET_INNER],
       [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID],
       [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID, ...PICKET_OUTER],
+    ],
+  },
+  // MAW's battery: dead at range like the ship. 0 / 2 / 4 / 6 slots, each tier the
+  // pair below plus one. The deliberately slow period (12) holds p3-focused under
+  // the max rail; the wide-loose / clinched-focus split is the whole free/focus gap.
+  clinch: {
+    sprite: 'orb.medium',
+    shot: CLINCH_SHOT,
+    period: 12,
+    followSpeed: 1.4,
+    tint: { r: 1, g: 0.55, b: 0.3 },
+    levels: [
+      [],
+      [...CLINCH_PAIR_A],
+      [...CLINCH_PAIR_A, ...CLINCH_PAIR_B],
+      [...CLINCH_PAIR_A, ...CLINCH_PAIR_B, ...CLINCH_PAIR_C],
     ],
   },
 };
@@ -2658,6 +2757,26 @@ const characters: PackContent['characters'] = {
     player: {
       x: 240, y: 568, speed: 4.2, focusSpeed: 1,
       radius: 2.5, grazeRadius: 28, lives: 2, bombs: 3, invulnTicks: 90,
+    },
+  },
+  // Aggression is the only setting: the inverse of spire (reach traded for up-close
+  // rate). The `scatter` gun dies by ~165px and the `clinch` battery by ~205px
+  // (pellet travel 144px / 180px plus bullet+target radii), so every other ship can
+  // snipe from the floor and MAW cannot — it must fly up into the ~140px full-damage
+  // pocket, where the pattern is densest, to deal any damage. Largest graze
+  // (30) turns that forced proximity into score; most bombs (4) let it spend the
+  // point-blank `lance` and expect refills from drops — but only if it stays close.
+  // Lives 2: it lives dangerous.
+  maw: {
+    label: 'MAW',
+    sprite: 'ship',
+    blurb: 'point-blank spray, graze-fed',
+    shot: 'scatter',
+    options: 'clinch',
+    bomb: 'lance',
+    player: {
+      x: 240, y: 568, speed: 3.9, focusSpeed: 1.4,
+      radius: 2.5, grazeRadius: 30, lives: 2, bombs: 4, invulnTicks: 90,
     },
   },
 };

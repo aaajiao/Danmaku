@@ -315,14 +315,14 @@ The only art in the game that is not a bullet cell. `createShipAtlas`
 (`src/render/procedural.ts`) builds a 64×64 texture with **named regions and no
 grid**, `atlas.define('ship', { x: 0, y: 0, w: 64, h: 64 })`.
 
-**One region is not enough — the roster is four ships.** `scout`, `lance`,
-`hound` and `spire` each name their art through `CharacterSpec.sprite`
-(`src/game/run.ts`), and today all four name `'ship'` because that is the only
+**One region is not enough — the roster is five ships.** `scout`, `lance`,
+`hound`, `spire` and `maw` each name their art through `CharacterSpec.sprite`
+(`src/game/run.ts`), and today all five name `'ship'` because that is the only
 region the placeholder paints. A real art set gives each ship its own region and
 repoints its `sprite` string; the shell already reads the field, so no code
 changes. Register the regions the way the bullet grid names its cells — a
 `defineShip`-style helper, or `atlas.define('scout', …)` per ship — and give this
-section a row per character. Until then, one silhouette stands in for all four.
+section a row per character. Until then, one silhouette stands in for all five.
 
 | Property | Value | Verified at |
 |---|---|---|

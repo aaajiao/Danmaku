@@ -1583,7 +1583,7 @@ function expectOrWarnMeta(replay: Replay, key: string, expected: string): void {
 /* Starter characters                                                  */
 /* ------------------------------------------------------------------ */
 
-// scout/lance/hound/spire — and the four shots, three option sets and two bombs
+// scout/lance/hound/spire/maw — and the five shots, four option sets and two bombs
 // they fly — moved into the bundled base pack (`tools/make-base-pack.ts` →
 // `base-pack.json`), registering through the inject pipeline like any pack
 // character (decisions-round2 §D). This module keeps only the machinery above:

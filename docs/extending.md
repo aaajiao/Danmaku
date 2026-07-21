@@ -1146,12 +1146,12 @@ Three registries the player's side is assembled from. None of them owns any of
 the player's counters; each hands data to the game layer and stops.
 
 **The base game's own player side is generator-authored, exactly like its
-enemies and stages.** `scout`, `lance`, `hound` and `spire` — and the four shots,
-three option sets and two bombs they fly — are no longer inline `define*` calls in
+enemies and stages.** `scout`, `lance`, `hound`, `spire` and `maw` — and the five
+shots, four option sets and two bombs they fly — are no longer inline `define*` calls in
 `src/content/shots.ts`, `src/sim/option.ts`, `src/sim/bomb.ts` or `src/game/run.ts`;
 those files keep only the registries, the systems and the runtime constants they
 read (`FORWARD` and `DEFAULT_FOLLOW_SPEED` stay in `option.ts` — the option system
-reads them every tick). The four characters and their loadouts are JSON in
+reads them every tick). The five characters and their loadouts are JSON in
 `base-pack.json`, authored in `tools/make-base-pack.ts` and injected at boot
 (`docs/packs.md` §9.7). So adding a ship to the **base** roster is a generator
 edit; the `define*` surfaces below stay for engine-registered content, for a guest
@@ -1201,6 +1201,23 @@ The shipped `spread` weapon buys **coverage, not damage**: every tier fires the
 same bullet and the upgrade is more of them across a wider arc. A tier that
 raised `damage` instead would make the same fight easier without changing how it
 is played (`src/content/shots.ts:71-83`).
+
+A bullet's `life` on a **player** shot is a range cap, and a weapon can be built
+around it as a deliberate idiom rather than a housekeeping detail. `life: n` on a
+spec that moves at `r` px/tick expires the bullet after `n` ticks, so it travels
+`r*n` px and vanishes: full damage inside that radius, nothing past it. (This is
+the same `life` field the §1 *Lifetime* section documents for despawn timing —
+here it is spent on purpose to shape reach.) The base game's `maw` is authored
+entirely on it: its `scatter` gun fires `r: 8, life: 18` pellets that reach
+`8*18 = 144px` and die, and its `clinch` options fire `r: 9, life: 20` bullets
+that reach `~180px` — so a boss stationed at the top of the field (~240px from the
+pilot's usual station) takes **no** damage until `maw` flies up into the pocket,
+which is the whole character. A leash like this is pure data, priced by the
+balance wall like any other weapon: the shorter the reach, the higher the
+up-close rate it can carry (`scatter` in `tools/make-base-pack.ts`). No engine
+mechanism is involved — `life` already expires bullets; a player weapon just gets
+to choose the number as a design axis, the inverse of `laser` buying range back
+per tier.
 
 A tracking weapon steers at enemies, not at the ship, and that is now true —
 `hound` flies `homing`. It was once a standing warning here that `homing` must
