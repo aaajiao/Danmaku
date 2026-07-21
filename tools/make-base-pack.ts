@@ -2203,8 +2203,12 @@ const stages: PackContent['stages'] = {
       { at: 1460, enemy: 'stele', x: 200, y: ENTRY_Y },
 
       /* Rest 3 — the big rest. Field clears, a bright stratum seam passes, the
-         breath before the final movement. The boss enters on the downbeat. */
-      { at: 1620, boss: 'chancellor', x: CENTRE, y: -60 },
+         breath before the final movement. The chancellor enters through the
+         top-level `boss` wiring once the waves are spent — the stage-1 grammar,
+         NOT a boss wave. A wave naming the stage's own boss sends the whole
+         fight twice, dialogue and all: that shipped here (entrances at ticks
+         1621 and 7351) and was felt in play before any gate caught it. The
+         boss-wave slot is for a *different* midboss, as stage-2 uses it. */
     ],
   },
 
