@@ -109,8 +109,8 @@ const MUSIC_FADE_SECONDS = 1.0;
  * is still there, just quieter. The duck is an instant set on the music bus and
  * touches no SFX voice, which is the whole reason music owns a separate context.
  */
-const MUSIC_LEVEL = 0.5;
-const MUSIC_PAUSE_LEVEL = 0.2;
+const MUSIC_LEVEL = 0.55;
+const MUSIC_PAUSE_LEVEL = 0.22;
 
 /**
  * `drift` is the shell's own scene, not any stage's: it is what the title

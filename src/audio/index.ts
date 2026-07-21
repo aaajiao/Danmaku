@@ -107,7 +107,15 @@ interface Synth {
 const RELEASE = 0.006;
 
 const SYNTHS: Readonly<Record<string, Synth>> = {
-  shot: { duration: 0.07, from: 1050, to: 420, decay: 9, peak: 0.5, square: true },
+  // Sweep floor raised 420 → 640Hz (design §4, ordered fallback step 1): the BGM
+  // lead now lives in [300,1000], and a downward square sweep bottoming at 420 put
+  // the shot's own fundamental squarely in that lane (~90% of the shot's power) —
+  // M16′ measured the loudest track only ~5dB over a real shot schedule in-lane,
+  // ~0dB at playback. 640 clears the meat of the lane while staying an audible
+  // downward "pew"; the effective peak barely moves (0.1137 → 0.1140), so the M8
+  // effective-peak ladder is unchanged. The spectral fix — level and identity kept,
+  // the behavior-on-top asset unspent (step 2, the 0.30→0.20 cut, NOT taken).
+  shot: { duration: 0.07, from: 1050, to: 640, decay: 9, peak: 0.5, square: true },
   hit: { duration: 0.09, from: 700, to: 180, decay: 7, noise: 0.45, peak: 0.7 },
   explosion: { duration: 0.55, from: 260, to: 40, decay: 4, noise: 0.8, peak: 0.9 },
   graze: { duration: 0.13, from: 1900, to: 2600, decay: 8, peak: 0.4, attack: 0.004 },

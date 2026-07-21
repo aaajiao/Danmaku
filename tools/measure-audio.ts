@@ -17,7 +17,7 @@
  */
 
 import { Audio, soundNames } from '../src/audio/index';
-import { Music, musicNames } from '../src/audio/music';
+import { Music, musicNames, trackPhrase } from '../src/audio/music';
 
 /* ------------------------------------------------------------------ */
 /* Fake WebAudio — the same shape the audio tests install              */
@@ -227,6 +227,71 @@ function seamJump(x: Float32Array): number {
   return Math.abs((x[0] as number) - (x[x.length - 1] as number));
 }
 
+/**
+ * The IEC 61672 A-weighting gain (linear) at frequency `f` — the ear's own
+ * loudness curve, ~1.0 near 1–3kHz and steeply attenuating below ~200Hz. This is
+ * the sharpest single proof of the register thesis: re-weighting the same buffer
+ * for how the ear hears jumps far more than the raw +level lift, because the melody's
+ * energy moved from ~100Hz (heavily attenuated here) to ~500Hz (near-flat).
+ */
+function aWeightGain(f: number): number {
+  if (f <= 0) return 0;
+  const f2 = f * f;
+  const ra =
+    (12194 ** 2 * f2 * f2) /
+    ((f2 + 20.6 ** 2) * Math.sqrt((f2 + 107.7 ** 2) * (f2 + 737.9 ** 2)) * (f2 + 12194 ** 2));
+  return ra * Math.pow(10, 2.0 / 20); // +2.0 dB reference normalization, as linear
+}
+
+/**
+ * A-weighted-ish RMS, on the same time-domain scale as `rms()` — the buffer's power
+ * re-weighted bin by bin by the A curve, Welch-averaged like `spectrum()`.
+ */
+function aWeightedRms(x: Float32Array, rate: number): number {
+  const w = new Float64Array(NFFT);
+  let meanW2 = 0;
+  for (let i = 0; i < NFFT; i++) {
+    w[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (NFFT - 1));
+    meanW2 += (w[i] as number) * (w[i] as number);
+  }
+  meanW2 /= NFFT;
+  const frames = x.length >= NFFT ? 8 : 1;
+  const maxStart = Math.max(0, x.length - NFFT);
+  let pow = 0;
+  let used = 0;
+  for (let f = 0; f < frames; f++) {
+    const start = frames === 1 ? 0 : Math.round((maxStart * f) / (frames - 1));
+    const re = new Float64Array(NFFT);
+    const im = new Float64Array(NFFT);
+    for (let i = 0; i < NFFT; i++) re[i] = (start + i < x.length ? (x[start + i] as number) : 0) * (w[i] as number);
+    fft(re, im);
+    used++;
+    for (let k = 0; k < NFFT; k++) {
+      const freq = (Math.min(k, NFFT - k) * rate) / NFFT;
+      const g = aWeightGain(freq);
+      pow += ((re[k] as number) ** 2 + (im[k] as number) ** 2) * g * g;
+    }
+  }
+  return Math.sqrt(pow / used / (NFFT * NFFT) / meanW2);
+}
+
+/**
+ * A synthetic shot train: the rendered `shot` buffer (already at its playback
+ * volume) laid down every `periodTicks` ticks (one tick = 1/60s) across `seconds`,
+ * the schedule a firing player actually produces. M16′ measures the BGM lead band
+ * [300,1000] against this train's own energy in the same lane — the guard on the
+ * `shot`'s downward-sweep tail crossing into the melodic lane (design §4/§5).
+ */
+function shotTrain(shot: Float32Array, volume: number, rate: number, seconds: number, periodTicks: number): Float32Array {
+  const total = Math.max(1, Math.round(seconds * rate));
+  const step = Math.max(1, Math.round((periodTicks / 60) * rate));
+  const out = new Float32Array(total);
+  for (let start = 0; start + shot.length <= total; start += step) {
+    for (let i = 0; i < shot.length; i++) out[start + i] = (out[start + i] as number) + (shot[i] as number) * volume;
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* Drive the engine and print                                          */
 /* ------------------------------------------------------------------ */
@@ -238,56 +303,92 @@ function num(v: number, d = 4): string {
   return v.toFixed(d);
 }
 
+/** The melodic lane the lead now lives in — perceptible, and disjoint from the behavior band. */
+const LEAD_LO = 300;
+const LEAD_HI = 1000;
+/** M16′ schedule: `shot` every 6 ticks (the scout's corrected common firing cadence). */
+const SHOT_PERIOD_TICKS = 6;
+const SHOT_TRAIN_SECONDS = 4;
+
 async function main(): Promise<void> {
+  // Render SFX first: the M16′ column needs the `shot` buffer and its volume to
+  // build the shot train the BGM lane is measured against.
+  const audio = new Audio();
+  await audio.unlock();
+  const audioCtx = CONTEXTS[0]!;
+  const sfx = new Map<string, { data: Float32Array; volume: number }>();
+  for (const name of soundNames().filter((n) => !n.startsWith('test')).sort()) {
+    audio.play(name);
+    const buf = audioCtx.sources.at(-1)?.buffer;
+    const volume = audioCtx.gains.at(-1)?.gain.value ?? 1;
+    if (buf) sfx.set(name, { data: buf.getChannelData(), volume });
+  }
+
+  const shot = sfx.get('shot')!;
+  const train = shotTrain(shot.data, shot.volume, 44100, SHOT_TRAIN_SECONDS, SHOT_PERIOD_TICKS);
+  const shotLaneRms = spectrum(train, 44100, LEAD_LO, LEAD_HI).bandRms;
+
   const music = new Music();
   await music.unlock();
-  const musicCtx = CONTEXTS[0]!;
+  const musicCtx = CONTEXTS[1]!;
 
   console.log('BGM — one loop per track (rendered at 22050Hz)\n');
   console.log(
     `  ${pad('track', 13)} ${pad('loop s', 7)} ${pad('rms', 8)} ${pad('peak', 7)} ` +
-      `${pad('centroid', 10)} ${pad('bandRMS', 9)} ${pad('band%', 7)} ${pad('seam', 8)}`,
+      `${pad('centroid', 10)} ${pad('band%', 7)} ${pad('leadRMS', 9)} ${pad('lead%', 7)} ` +
+      `${pad('lead/whl', 9)} ${pad('slots', 7)} ${pad('A-RMS', 8)} ${pad('M16dB', 7)} ${pad('seam', 8)}`,
   );
   for (const name of musicNames().filter((n) => !n.startsWith('test')).sort()) {
     music.play(name, 0);
-    const buf = musicCtx.sources.at(-1)?.buffer;
+    const src = musicCtx.sources.at(-1);
+    const buf = src?.buffer;
+    const volume = musicCtx.gains.at(-1)?.gain.value ?? 1;
     if (!buf) {
       console.log(`  ${pad(name, 13)} (no buffer)`);
       continue;
     }
     const data = buf.getChannelData();
-    const sp = spectrum(data, buf.sampleRate);
+    const whole = rms(data);
+    const beh = spectrum(data, buf.sampleRate);
+    const lead = spectrum(data, buf.sampleRate, LEAD_LO, LEAD_HI);
+    const ratio = whole > 0 ? lead.bandRms / whole : 0;
+    const aw = aWeightedRms(data, buf.sampleRate);
+    const phrase = trackPhrase(name);
+    const slots = phrase ? `${phrase.sounded}/${phrase.beats}` : '-';
+    // In-lane SNR: BGM lead at its track volume vs the shot train, both in [300,1000].
+    const bgmLaneEff = lead.bandRms * volume;
+    const snrDb = shotLaneRms > 0 ? 20 * Math.log10(bgmLaneEff / shotLaneRms) : 0;
     console.log(
-      `  ${pad(name, 13)} ${pad(num(buf.duration, 1), 7)} ${pad(num(rms(data)), 8)} ` +
-        `${pad(num(peak(data)), 7)} ${pad(num(sp.centroid, 0) + 'Hz', 10)} ${pad(num(sp.bandRms), 9)} ` +
-        `${pad(num(sp.bandFraction * 100, 2) + '%', 7)} ${pad(num(seamJump(data)), 8)}`,
+      `  ${pad(name, 13)} ${pad(num(buf.duration, 1), 7)} ${pad(num(whole), 8)} ` +
+        `${pad(num(peak(data)), 7)} ${pad(num(beh.centroid, 0) + 'Hz', 10)} ` +
+        `${pad(num(beh.bandFraction * 100, 2) + '%', 7)} ${pad(num(lead.bandRms), 9)} ` +
+        `${pad(num(lead.bandFraction * 100, 1) + '%', 7)} ${pad(num(ratio, 3), 9)} ${pad(slots, 7)} ` +
+        `${pad(num(aw), 8)} ${pad(num(snrDb, 1), 7)} ${pad(num(seamJump(data)), 8)}`,
     );
   }
+  console.log(
+    `\n  shot train (every ${SHOT_PERIOD_TICKS} ticks) lane [${LEAD_LO},${LEAD_HI}]Hz RMS: ` +
+      `${num(shotLaneRms)}  — M16dB = 20·log10(bgm lane eff ÷ this)`,
+  );
 
   console.log('\nSFX — buffer peak, effective peak (buffer × voice volume), band share\n');
   console.log(
     `  ${pad('sound', 13)} ${pad('dur s', 7)} ${pad('bufPeak', 9)} ${pad('effPeak', 9)} ` +
-      `${pad('volume', 7)} ${pad('centroid', 10)} ${pad('band%', 7)}`,
+      `${pad('volume', 7)} ${pad('centroid', 10)} ${pad('band%', 7)} ${pad('lead%', 7)}`,
   );
-  const audio = new Audio();
-  await audio.unlock();
-  const audioCtx = CONTEXTS[1]!;
   for (const name of soundNames().filter((n) => !n.startsWith('test')).sort()) {
-    audio.play(name);
-    const src = audioCtx.sources.at(-1);
-    const buf = src?.buffer;
-    const volume = audioCtx.gains.at(-1)?.gain.value ?? 1;
-    if (!buf) {
+    const s = sfx.get(name);
+    if (!s) {
       console.log(`  ${pad(name, 13)} (no buffer)`);
       continue;
     }
-    const data = buf.getChannelData();
-    const bp = peak(data);
-    const sp = spectrum(data, buf.sampleRate);
+    const bp = peak(s.data);
+    const sp = spectrum(s.data, 44100);
+    const lead = spectrum(s.data, 44100, LEAD_LO, LEAD_HI);
     console.log(
-      `  ${pad(name, 13)} ${pad(num(buf.duration, 3), 7)} ${pad(num(bp), 9)} ` +
-        `${pad(num(bp * volume), 9)} ${pad(num(volume, 2), 7)} ${pad(num(sp.centroid, 0) + 'Hz', 10)} ` +
-        `${pad(num(sp.bandFraction * 100, 1) + '%', 7)}`,
+      `  ${pad(name, 13)} ${pad(num(s.data.length / 44100, 3), 7)} ${pad(num(bp), 9)} ` +
+        `${pad(num(bp * s.volume), 9)} ${pad(num(s.volume, 2), 7)} ${pad(num(sp.centroid, 0) + 'Hz', 10)} ` +
+        `${pad(num(sp.bandFraction * 100, 1) + '%', 7)} ${pad(num(lead.bandFraction * 100, 1) + '%', 7)}`,
     );
   }
 }
