@@ -26,6 +26,7 @@
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
+import { fx } from '../core/random';
 import { Audio, defineSound, soundNames } from './index';
 import { Music, musicNames } from './music';
 
@@ -228,6 +229,20 @@ function minLeadRestRms(x: Float32Array, rate: number): number {
 /* Render every built-in track and sound once                          */
 /* ------------------------------------------------------------------ */
 
+// A noisy SFX draws its noise from the *global* `fx` stream (`audio/index.ts`
+// render()), so the rendered buffer — and its measured peak — depends on how
+// much `fx` any earlier test drew. That made this file's numbers a hostage to
+// test order: the razor-thin `break`(noisy) ≥ `declare`(no noise, fixed 0.2126)
+// hierarchy below flips when an unrelated feature adds one `fx` emit. Seed `fx`
+// to its construction default before anything renders, so these buffers render
+// exactly as they do on a fresh load (isolation, and `tools/measure-audio.ts`,
+// both of which start pristine — that is the canonical the docs quote), then hand
+// the stream back once rendering is done so this file stays transparent to `fx`,
+// the same discipline the `AudioContext` handover above keeps. Value mirrors
+// `fx = new Random(0x9e3779b9)`.
+const fxEntry = fx.getState();
+fx.seed(0x9e3779b9);
+
 const music = new Music();
 await music.unlock();
 const musicCtx = CONTEXTS[0] as FakeAudioContext;
@@ -252,6 +267,9 @@ for (const name of soundNames().filter((n) => !isFixture(n))) {
   const volume = audioCtx.gains.at(-1)?.gain.value ?? 1;
   if (buf) SOUNDS.set(name, { buffer: buf, volume });
 }
+
+// Rendering is done; hand `fx` back exactly as found so siblings see no change.
+fx.setState(fxEntry);
 
 /* ------------------------------------------------------------------ */
 

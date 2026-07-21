@@ -46,6 +46,15 @@ import { Layer, Stage } from './render/stage';
 const FIELD_W = FIELD.width;
 const FIELD_H = FIELD.height;
 
+/**
+ * Per-channel tint boost added to the boss sprite at the peak of a hit flash.
+ * Modest on purpose: the boss sits in the darkest zone of the seal scenes, so
+ * this is behaviour made visible, not a light show. Under sustained fire the
+ * sim-side counter stays high and the boss holds a steady glow; on a ceasefire
+ * it decays to nothing.
+ */
+const BOSS_HIT_FLASH_BOOST = 0.6;
+
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
@@ -446,13 +455,20 @@ function drawRun(run: Run): void {
 
   const boss = run.boss.boss;
   if (boss?.alive) {
+    // Hit flash: presentation reading sim data (`hitFlashFraction`, the
+    // `phaseHpFraction` pattern). The tint multiplies the texel in the shader,
+    // so an already-white boss cannot brighten by lerping *toward* white —
+    // instead add a flat boost to every channel, which both lifts mid-tone
+    // texels (bloom then makes the pop visible) and desaturates a coloured boss
+    // toward white. Kept modest: the boss sits in the darkest zone of the seal.
+    const boost = boss.hitFlashFraction * BOSS_HIT_FLASH_BOOST;
     batches.enemies.draw(boss.x, boss.y, boss.spec.sprite, {
       rotation: boss.angle,
       width: boss.spec.width,
       height: boss.spec.height,
-      r: boss.spec.tint?.r,
-      g: boss.spec.tint?.g,
-      b: boss.spec.tint?.b,
+      r: (boss.spec.tint?.r ?? 1) + boost,
+      g: (boss.spec.tint?.g ?? 1) + boost,
+      b: (boss.spec.tint?.b ?? 1) + boost,
     });
   }
 

@@ -402,6 +402,9 @@ const TIMEOUT_BONUS_FRACTION = 0.25;
 /** Where a boss enters from, relative to the field. */
 const BOSS_ENTRY_Y = -60;
 
+/** The impact spark a player shot throws on the boss — the same modest `spark`-sprite burst trash enemies use, small and short for the seal's darkest zone. */
+const BOSS_HIT_SPARK = 'hit';
+
 /**
  * What a death costs, and how much of it is left on the floor.
  *
@@ -832,6 +835,11 @@ export class Run {
       if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
 
       this.boss.damage(b.damage);
+      // Mirror the enemy path (which emits `enemy.spec.onHit`): a boss hit was
+      // the only landing in the game that threw no spark. Drawn from the `fx`
+      // stream inside `EffectSystem.emit`, never `sim`, so the determinism
+      // contract and the golden traces are untouched by construction (rule 2).
+      this.effects.emit(BOSS_HIT_SPARK, b.x, b.y);
       this.#emit({ type: 'boss-hit', x: b.x, y: b.y, name: boss.name });
       if (!b.pierce) this.bullets.despawn(b);
     }

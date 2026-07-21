@@ -1,10 +1,11 @@
-import { describe, expect, spyOn, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { Button } from '../core/input';
-import { sim } from '../core/random';
+import { fx, sim } from '../core/random';
 import { defineBoss } from '../sim/boss';
 import { defineBomb, getBombSpec } from '../sim/bomb';
+import { effectNames, getEffectSpec } from '../sim/effects';
 import { defineEnemy } from '../sim/enemy';
 import { defineOptions } from '../sim/option';
 import { defineStage } from '../content/stage';
@@ -910,6 +911,90 @@ describe('rules', () => {
       if (!boss.entering) break;
       expect(boss.hp).toBe(boss.spec.phases[0]?.hp ?? 0);
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Boss hit feedback                                                   */
+/* ------------------------------------------------------------------ */
+
+describe('boss hit feedback', () => {
+  // Driving runs advances the global `fx` stream (a run's `EffectSystem` draws
+  // cosmetics from it, rule 2), and the audio SFX buffers are synthesized from
+  // that same stream — so these long boss fights must leave `fx` (and `sim`)
+  // exactly as they found them, or another file's synthesis drifts. Same idiom
+  // as `base-content.golden.test.ts` and `core/random.test.ts`.
+  let fxEntry: ReturnType<typeof fx.getState>;
+  let simEntry: ReturnType<typeof sim.getState>;
+  beforeAll(() => {
+    fxEntry = fx.getState();
+    simEntry = sim.getState();
+  });
+  afterAll(() => {
+    fx.setState(fxEntry);
+    sim.setState(simEntry);
+  });
+
+  /** Fire always; steer under the boss once it settles, else onto the nearest enemy so the stage clears and the boss releases. */
+  function pursue(run: Run): number {
+    let mask = Button.Shot;
+    const boss = run.boss.boss;
+    const target = boss?.alive && !boss.entering ? boss.x : run.enemies.enemies[0]?.x;
+    if (target !== undefined) {
+      if (run.player.x < target - 3) mask |= Button.Right;
+      else if (run.player.x > target + 3) mask |= Button.Left;
+    }
+    return mask;
+  }
+
+  test('the spark the boss path emits is a registered effect', () => {
+    // Guards the unregistered-name failure class for THIS const specifically:
+    // the literal in `run.ts` must resolve, or `EffectSystem.emit` throws the
+    // first time a shot lands on a boss.
+    const source = readFileSync(new URL('./run.ts', import.meta.url), 'utf8');
+    const match = source.match(/const BOSS_HIT_SPARK = '([^']+)'/);
+    expect(match).not.toBeNull();
+    const name = match![1]!;
+    expect(effectNames()).toContain(name);
+    expect(() => getEffectSpec(name)).not.toThrow();
+  });
+
+  test('a shot landing on a boss lights the flash and throws a spark', () => {
+    const sparkSprite = getEffectSpec('hit').sprite;
+    const run = new Run(config({ boss: MAIN_BOSS }));
+
+    let flashed = false;
+    let sparked = false;
+    let fought = false;
+    for (let t = 0; t < 40000 && !(flashed && sparked); t++) {
+      run.tick(pursue(run));
+      const boss = run.boss.boss;
+      if (boss === undefined || boss.entering) continue;
+      fought = true;
+      if (boss.hitFlash > 0) flashed = true;
+      // While the boss is up the field is otherwise clear, so a `spark`-sprite
+      // particle is the boss-hit spark and not a trash hit.
+      for (const p of run.effects.particles) if (p.spec.sprite === sparkSprite) sparked = true;
+    }
+    expect(fought).toBe(true);
+    expect(flashed).toBe(true);
+    expect(sparked).toBe(true);
+  });
+
+  test('no flash while the boss is invulnerable during entry', () => {
+    const run = new Run(config({ boss: MAIN_BOSS }));
+    let sawEntry = false;
+    for (let t = 0; t < 40000; t++) {
+      run.tick(script(t));
+      const boss = run.boss.boss;
+      if (boss === undefined) continue;
+      if (!boss.entering) break;
+      sawEntry = true;
+      // Shots pass through an entering boss without damaging it, so the flash —
+      // set on the same guarded branch as the spark — must never light.
+      expect(boss.hitFlash).toBe(0);
+    }
+    expect(sawEntry).toBe(true);
   });
 });
 

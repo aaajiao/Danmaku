@@ -226,6 +226,69 @@ describe('entry', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Hit flash                                                           */
+/* ------------------------------------------------------------------ */
+
+describe('hit flash', () => {
+  test('a landed hit lights the flash to full, and it decays to zero', () => {
+    const { system } = makeSystem();
+    system.spawn('test.three', 240, 120, rng());
+
+    expect(system.boss?.hitFlash).toBe(0);
+    system.damage(1);
+    // Set to the full ticks, so the normalized fraction reads 1 the tick it lands.
+    expect(system.boss?.hitFlashFraction).toBe(1);
+
+    const start = system.boss?.hitFlash ?? 0;
+    expect(start).toBeGreaterThan(0);
+
+    // One decrement per step, down to zero, and not below.
+    for (let i = 1; i <= start; i++) {
+      stepTimes(system, 1);
+      expect(system.boss?.hitFlash).toBe(start - i);
+    }
+    expect(system.boss?.hitFlash).toBe(0);
+    stepTimes(system, 1);
+    expect(system.boss?.hitFlash).toBe(0);
+  });
+
+  test('each hit refreshes the counter rather than accumulating', () => {
+    const { system } = makeSystem();
+    system.spawn('test.three', 240, 120, rng());
+
+    system.damage(1);
+    const full = system.boss?.hitFlash ?? 0;
+    stepTimes(system, 1); // decays one
+    expect(system.boss?.hitFlash).toBe(full - 1);
+
+    system.damage(1); // refresh — assignment, not += , so it caps at full
+    expect(system.boss?.hitFlash).toBe(full);
+  });
+
+  test('an entering boss cannot flash — damage is refused during the fly-in', () => {
+    const { system } = makeSystem();
+    system.spawn('test.entering', 240, -40, rng());
+
+    expect(system.boss?.entering).toBe(true);
+    expect(system.damage(999)).toBe(false);
+    expect(system.boss?.hitFlash).toBe(0);
+    expect(system.boss?.hitFlashFraction).toBe(0);
+  });
+
+  test('the hit that clears a phase does not flash the next card', () => {
+    const { system } = makeSystem();
+    system.spawn('test.three', 240, 120, rng()); // phase 0 hp 100
+    system.drainEvents();
+
+    // Exactly drains phase 0; `beginPhase` for the next card must clear the flash
+    // this same-tick hit set, or it would ghost onto a card not yet touched.
+    expect(system.damage(100)).toBe(true);
+    expect(system.boss?.phaseIndex).toBe(1);
+    expect(system.boss?.hitFlash).toBe(0);
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* Phase transitions                                                   */
 /* ------------------------------------------------------------------ */
 

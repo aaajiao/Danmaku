@@ -265,6 +265,17 @@ const UNSPAWNED: BossSpec = {
   phases: [{ name: '', hp: 1, timeLimit: 0, patterns: [] }],
 };
 
+/**
+ * How many ticks a landed hit keeps the boss's flash lit. Sized to bridge the
+ * player's fire cadence (~a shot every 2-4 ticks): each hit *refreshes* the
+ * counter to this value rather than accumulating, so sustained fire holds a
+ * steady glow that cannot ramp to a solid-white light show, and a ceasefire
+ * decays it over this many ticks. Deliberately short — the boss station is the
+ * darkest zone of the seal scenes, so the flash is behaviour made visible, not
+ * illumination. Pure integer state: no RNG (rule 2), no wall clock.
+ */
+const HIT_FLASH_TICKS = 4;
+
 export class Boss {
   x = 0;
   y = 0;
@@ -289,6 +300,14 @@ export class Boss {
 
   /** No death and no bomb since this phase began. Read by the transition event. */
   clean = true;
+
+  /**
+   * Ticks remaining on the hit-flash. Set by `BossSystem.damage`, decremented in
+   * `BossSystem.step`. Presentation-only: nothing in the sim reads it back and it
+   * is not part of the replay fingerprint, so it steers no gameplay. The shell
+   * lifts the sprite tint toward white while it is live (`hitFlashFraction`).
+   */
+  hitFlash = 0;
 
   /** Whether the current phase supplied a timeline. Read by the system's step. */
   hasTimeline = false;
@@ -339,6 +358,16 @@ export class Boss {
   }
 
   /**
+   * Hit-flash intensity, 1 on the tick a hit lands down to 0. For the shell to
+   * lerp the sprite tint toward white, the same read-only-data shape as
+   * `phaseHpFraction`. No hit, no flash.
+   */
+  get hitFlashFraction(): number {
+    const fraction = this.hitFlash / HIT_FLASH_TICKS;
+    return fraction < 0 ? 0 : fraction > 1 ? 1 : fraction;
+  }
+
+  /**
    * Remaining time of the current phase, 1 down to 0. For the timer ring.
    * An untimed phase reads as full, so a ring drawn from it simply never moves.
    */
@@ -357,6 +386,7 @@ export class Boss {
     this.phaseIndex = 0;
     this.phaseTicks = 0;
     this.hasTimeline = false;
+    this.hitFlash = 0;
     // `notePlayerDeath`/`notePlayerBomb` write this without checking `alive`,
     // so a death after the fight ended leaves it false. `spawn` sets it too,
     // but a cleared boss is readable before the next one arrives and must not
@@ -377,6 +407,7 @@ export class Boss {
     this.angle = 0;
     this.alive = true;
     this.clean = true;
+    this.hitFlash = 0;
     this.#difficulty = difficulty;
     // `defineBoss` guarantees at least one active phase per tier, so index 0 of
     // the list exists; the `?? 0` only quiets the index-access type.
@@ -452,6 +483,10 @@ export class Boss {
     this.phaseIndex = index;
     this.phaseTicks = 0;
     this.clean = true;
+    // A hit that clears a phase sets the flash on the same tick `#endPhase` arms
+    // the next card; clearing it here stops that flash from ghosting onto a fresh
+    // card the player has not yet touched.
+    this.hitFlash = 0;
 
     const phase = this.phase;
     this.hp = phase.hp;
@@ -620,6 +655,10 @@ export class BossSystem {
       return;
     }
 
+    // Decay the hit-flash one tick. Runs only past entry (damage refuses during
+    // entry, so it is 0 there anyway). Pure integer, no RNG, no wall clock.
+    if (boss.hitFlash > 0) boss.hitFlash--;
+
     if (boss.hasTimeline) {
       // Timeline first: a segment falling due this tick must apply before the
       // move it describes.
@@ -651,6 +690,12 @@ export class BossSystem {
     // left to hit — a shot landing on the tick the fight ended must not open
     // a phase that does not exist.
     if (!boss.alive || boss.entering) return false;
+
+    // Light the flash for every landed hit. Set before the hp check so a hit
+    // that clears the phase would set it too — but `beginPhase` immediately
+    // clears it for the next card, so the clearing hit deliberately shows no
+    // flash (the phase transition is its own, larger, event).
+    boss.hitFlash = HIT_FLASH_TICKS;
 
     boss.hp -= amount;
     if (boss.hp > 0) return false;
