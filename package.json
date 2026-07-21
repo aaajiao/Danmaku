@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun tools/serve.ts",
+    "art:kit": "bun tools/make-art-kit.ts",
     "make:example-pack": "bun tools/make-example-pack.ts",
     "make:clearing-pack": "bun tools/make-clearing-pack.ts",
     "measure:audio": "bun tools/measure-audio.ts",

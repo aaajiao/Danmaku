@@ -627,6 +627,14 @@ This is the section the rest of the file exists for. It is written as a
 procedure because the obvious one-line version does not work, and each step
 below is a place it stops working.
 
+> **Start from a template.** `bun run art:kit` emits paintable templates for
+> every hand-authored surface (bullet sheet, ship, portraits, HUD icons) into
+> `./art-kit/` — each carries the grid, the 2px safe margin, the cell names, the
+> current placeholder as a low-alpha ghost to paint over, and a `+x` arrow on the
+> directional cells, plus a Chinese quick guide (`README.zh.md`). Every size and
+> name in it is read from the engine, so it cannot drift from what the loader
+> checks. Paint a fresh layer over the ghost and export at the exact size.
+
 ### 5.0 The preferred route is a pack — no code edit at all
 
 Before the source-level swap below, know that there is a higher-level one that
