@@ -23,9 +23,7 @@ import './index';
 // and this is the honest way to get the real stage/boss set the scene check reads.
 import '../../packs/bundled';
 
-import { BACKGROUND_NOISE_GLSL, backgroundNames, getBackgroundSpec } from '../background';
-import { GOLD_GLSL } from './signet';
-import { VEIL_GLSL } from './umbra';
+import { backgroundNames, getBackgroundSpec } from '../background';
 import { getStage, stageNames } from '../../content/stage';
 import { bossNames, getBossSpec } from '../../sim/boss';
 
@@ -36,11 +34,10 @@ const SHIPPED = [
   'undertow',
   'stratum',
   'vault',
-  // The boss family: per-scene near-identical ports of the pbakaus/radiant
-  // references, not one engine cell. Two of them share a ported basis owned by a
-  // sibling — the gold trio (`signet` owns GOLD_GLSL; `cordon`/`regnum` import it)
-  // and the 出神 pair (`umbra` owns VEIL_GLSL; `decree` imports it) — the rest are
-  // standalone ports. Each is a boss scene named by a spell card.
+  // The boss scenes: per-scene near-identical ports of the pbakaus/radiant
+  // references, not one engine cell — one reference, one scene, no sharing (the
+  // no-repeat ruling; the structural test below enforces it). Each is a boss
+  // scene named by a spell card.
   'signet',
   'cordon',
   'intaglio',
@@ -48,6 +45,9 @@ const SHIPPED = [
   'regnum',
   'umbra',
   'decree',
+  // The terminal-screen scene: game-over and the ending declare it, the way the
+  // title sits on `drift` — the shell's scene-override idiom, not any stage's.
+  'signal-decay',
 ];
 
 describe('the shipped scenes', () => {
@@ -61,25 +61,26 @@ describe('the shipped scenes', () => {
     expect(spec.scrollSpeed).toBeGreaterThan(0);
   });
 
-  // The seal cell is retired; scenes are self-contained ports now, so there is no
-  // one noise helper every scene reuses. The "shared shape lives once, or the
-  // copies drift" guarantee the old single-cell test carried now applies where
-  // sharing actually happens: the two families that are cut from one ported basis
-  // must import it verbatim rather than fork a copy. A scene that hand-edited its
-  // own gold/veil would diverge silently — this is the test that catches it.
-  const GOLD_FAMILY = ['signet', 'cordon', 'regnum'];
-  const VEIL_FAMILY = ['umbra', 'decree'];
+  // The no-repeat ruling ("不要重复"), as structure: one reference, one scene.
+  // The gold trio and the 出神 pair each briefly shared a ported basis; both were
+  // dissolved when the user remapped their siblings to their own references, so
+  // now NO scene may import from a sibling scene — a `./` import here is either a
+  // resurrected shared basis or a scene leaning on another's picture, and both
+  // recreate the sameness this ruling exists to prevent. Engine imports
+  // (`../background`) stay legal. Directory-scanned so the check cannot go stale.
+  test('no scene imports from a sibling scene (one reference, one scene)', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const dir = new URL('.', import.meta.url).pathname;
 
-  test.each(GOLD_FAMILY)('%s is cut from the shared liquid-gold basis (GOLD_GLSL)', (name) => {
-    expect(getBackgroundSpec(name).fragment).toContain(GOLD_GLSL);
-  });
+    const offences: string[] = [];
+    for (const file of readdirSync(dir).filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'index.ts',
+    )) {
+      const source = readFileSync(`${dir}${file}`, 'utf8');
+      if (source.match(/from '\.\//)) offences.push(file);
+    }
 
-  test.each(VEIL_FAMILY)('%s is cut from the shared stardust-veil basis (VEIL_GLSL)', (name) => {
-    const fragment = getBackgroundSpec(name).fragment;
-    expect(fragment).toContain(VEIL_GLSL);
-    // VEIL_GLSL reads bgNoise, so the 出神 pair still prepends the shared noise
-    // helper before it — the one place BACKGROUND_NOISE_GLSL reuse is load-bearing.
-    expect(fragment).toContain(BACKGROUND_NOISE_GLSL);
+    expect(offences).toEqual([]);
   });
 });
 

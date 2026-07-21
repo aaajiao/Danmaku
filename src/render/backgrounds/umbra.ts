@@ -1,18 +1,19 @@
 /**
- * `umbra` — sentinel's "Total Eclipse" (Lunatic only), and the SHARED BASIS of the
- * 出神 pair. A NEAR-IDENTICAL port of pbakaus/radiant `stardust-veil` (MIT): a
- * dense shimmering cosmic stardust curtain — a domain-warped FBM nebula in deep
- * purples and midnight blues, flowing aurora ribbons, multiple parallax layers of
- * drifting twinkling stardust, and a slow diagonal brightness wave sweeping the
- * whole field.
+ * `umbra` — sentinel's "Total Eclipse" (Lunatic only). A NEAR-IDENTICAL port of
+ * pbakaus/radiant `stardust-veil` (MIT), and its ONLY home: a dense shimmering
+ * cosmic stardust curtain — a domain-warped FBM nebula in deep purples and
+ * midnight blues, flowing aurora ribbons, multiple parallax layers of drifting
+ * twinkling stardust, and a slow diagonal brightness wave sweeping the whole
+ * field.
  *
- * ## The pair shares one basis by design
+ * ## One reference, one scene
  *
- * `umbra` OWNS the ported picture and exports it as `VEIL_GLSL`; `decree` imports
- * it and applies its own variant. One nebula, two unmoored seals — the same reason
- * the seals shared `SEAL_GLSL`, except that cell is retired for this pair and the
- * shared thing is now a ported reference, not an engine grammar. Identity comes
- * from the port; each scene only grades and modulates it.
+ * The 出神 pair briefly shared this basis; the no-repeat ruling ("不要重复")
+ * dissolved that too — `decree` is `moire-interference` now — so `umbra` alone
+ * carries `stardust-veil` and `VEIL_GLSL` is internal to this file. What the
+ * pair still shares is its RELATIVE DISCIPLINE, not a picture: both scenes are
+ * the dimmest family in the game, unmoored from the seal grammar. Identity
+ * comes from the port; the scene only grades and modulates it.
  *
  * ## The role kept, the picture replaced
  *
@@ -99,8 +100,7 @@
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
 
 /**
- * The ported stardust-veil, shared by the 出神 pair. `decree` imports this and
- * applies its own palette and drain. It is a **string constant only** — no new
+ * The ported stardust-veil. It is a **string constant only** — no new
  * uniform — and it reads `bgNoise` from `BACKGROUND_NOISE_GLSL`, so a scene must
  * prepend that before this. Its helpers are `veil`-prefixed so nothing collides
  * with the `bgHash`/`bgNoise`/`bgFbm` already in each fragment.
@@ -110,7 +110,7 @@ import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
  * reference's soft-S-curve. Each scene composes: `veilCompose → veilGrade →
  * role multiply → veilTonemap → * EXPOSURE`.
  */
-export const VEIL_GLSL = /* glsl */ `
+const VEIL_GLSL = /* glsl */ `
   const float VEIL_PI  = 3.14159265359;
   const float VEIL_TAU = 6.28318530718;
 

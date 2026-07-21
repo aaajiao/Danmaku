@@ -58,6 +58,9 @@ const GAP = 6;
 const PREFERRED_ORDER = [
   'drift', 'surge', 'expanse', 'undertow', 'stratum', 'vault',
   'signet', 'cordon', 'intaglio', 'regnum', 'sable', 'umbra', 'decree',
+  // The terminal-screen scene (game-over / ending). Pinned to cell #14; the
+  // fade lab moves to #15 automatically (cellCount = names.length + 1).
+  'signal-decay',
 ];
 
 const names = [...backgroundNames()].sort((a, b) => {

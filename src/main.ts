@@ -346,6 +346,15 @@ const loop = new Loop({
       const override = (state as { music?: string }).music;
       if (override !== undefined) track = override;
 
+      // The scene's twin of the music read above — a state may declare a scene
+      // directly, with no `Run` behind it: game-over and the ending screen do, so
+      // the run's END gets its own field (`signal-decay`) even though the finished
+      // run's `run.scene` has fallen back to the stage or boss field it ended on.
+      // Read bottom-up so the topmost declaration wins, the exact precedence music
+      // uses just above and `run.scene` uses just below.
+      const sceneOverride = (state as { scene?: string }).scene;
+      if (sceneOverride !== undefined) scene = sceneOverride;
+
       const run = (state as { run?: Run }).run;
       if (!run) continue;
 

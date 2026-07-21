@@ -46,6 +46,7 @@ import './expanse';
 import './intaglio';
 import './regnum';
 import './sable';
+import './signal-decay';
 import './signet';
 import './stratum';
 import './surge';

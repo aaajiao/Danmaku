@@ -707,6 +707,16 @@ abstract class EndingState extends MenuState {
 export class GameOverState extends EndingState {
   readonly name = 'game-over';
 
+  /**
+   * The scene the shell reconciles to while game over is up — the twin of
+   * `EndingScreenState.music`, read off the stack the same way (`main.ts`'s scene
+   * reconcile, mirroring music precedence). The finished run's own `run.scene`
+   * has fallen back to the stage or boss field it died on; the run's END wants
+   * its own — `signal-decay`, clean harmonics dissolving into warm noise. A
+   * string the game names and the shell resolves; `src/game` imports no renderer.
+   */
+  readonly scene = 'signal-decay';
+
   constructor(ctx: GameContext, playing: PlayingState) {
     super(ctx, playing);
   }
@@ -867,6 +877,16 @@ export class EndingScreenState extends MenuState {
    * has fallen back to the stage theme, so the ending's track has to live here.
    */
   readonly music = 'adjourn';
+
+  /**
+   * The scene the shell reconciles to for the ending, the visual twin of `music`
+   * above and read off the stack exactly the same way (`main.ts`'s scene
+   * reconcile, mirroring music precedence). The finished run's own `run.scene`
+   * reports the field it cleared on; the ending wants its own — `signal-decay`,
+   * the apparatus decaying into noise as it goes quiet. A string, resolved in the
+   * shell, because `src/game` may not import the renderer.
+   */
+  readonly scene = 'signal-decay';
 
   readonly #playing: PlayingState;
 

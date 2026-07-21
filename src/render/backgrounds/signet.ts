@@ -1,25 +1,21 @@
 /**
  * `signet` — sentinel's fight (the stage-1 boss). A NEAR-IDENTICAL port of
- * pbakaus/radiant `liquid-gold` (MIT), and the OWNER of the shared basis the
- * three gold seals are cut from.
+ * pbakaus/radiant `liquid-gold` (MIT), and its ONLY home.
  *
- * ## The seal family is now one ported material
+ * ## One reference, one scene
  *
- * The old engraved-ring `SEAL_GLSL` cell is retired for this family. The user
- * re-affirmed `liquid-gold` as the reference for the seals — one basis, changeable
- * colour ("有一些是可以相对重复、可以改颜色的") — so `signet` owns the port as
- * `GOLD_GLSL` and exports it; `cordon` and `regnum` import it and pass their own
- * variant parameters. The picture is the reference; the engine only grades it.
+ * The old engraved-ring `SEAL_GLSL` cell is retired, and so is the brief "gold
+ * trio": the no-repeat ruling ("不要重复") gave every boss scene its own
+ * reference — `cordon` is `hologram-glitch`, `regnum` is `topographic` — so
+ * `signet` alone carries `liquid-gold` and `GOLD_GLSL` is internal to this file.
+ * The picture is the reference; the engine only grades it.
  *
- * `signet` itself is the reference look at the NEUTRAL variant set — no hue grade
- * (tint `vec3(1)`), no extra fill / saturation / station-calm — so it reads as
- * `liquid-gold` said plainly. It still carries the family-wide bullet-band grade
- * every gold seal shares (broadened speculars, coarsened ripple; see below), which
- * the readability contract requires of all three seals, so `signet` is the reference
- * FIELD at neutral params — the closest the contract allows to the original — not a
- * pixel-identical copy of it. It is the STATED cell of the family, the way it did
- * before, but now the picture IS the ported shader rather than our grammar wearing
- * its palette.
+ * `signet` renders the basis at the NEUTRAL variant set — no hue grade (tint
+ * `vec3(1)`), no extra fill / saturation / station-calm — so it reads as
+ * `liquid-gold` said plainly. The bullet-band grade below (broadened speculars,
+ * coarsened ripple) is what the readability contract requires, so `signet` is the
+ * reference FIELD at neutral params — the closest the contract allows to the
+ * original — not a pixel-identical copy of it.
  *
  * ## The reference's defining image
  *
@@ -49,10 +45,10 @@
  *     (`(gl_FragCoord - res*0.5)/min(res)`), reconstructed from uv + aspect so the
  *     feature scale relative to the short axis matches the reference exactly.
  *   - Variant seam: the palette, exposure, fill, saturation and a boss-station calm
- *     are parameters of `goldScene` so `cordon`/`regnum` re-use the identical field.
- *     `signet` passes the neutral set, so `signet` is the reference FIELD at neutral
- *     params (still carrying the shared bullet-band grade below) — the closest the
- *     readability contract allows to the original, not a pixel-identical copy.
+ *     are parameters of `goldScene`. The seam was cut for a shared gold family that
+ *     the no-repeat ruling then dissolved; it is kept because it is the honest
+ *     structure of the port (the reference's own tunables), and `signet` passes the
+ *     neutral set.
  *
  * ## Exposure & the bullet-band grading
  *
@@ -75,9 +71,7 @@
  *
  * ## Hue — gold
  *
- * The reference gold, hue-ungraded: R > G > B off the palette, the warmest reading
- * of the three seals. `cordon` grades cooler (brass), `regnum` warmer (rose) — both
- * still recognizably `liquid-gold`.
+ * The reference gold, hue-ungraded: R > G > B off the palette.
  *
  * liquid-gold by pbakaus/radiant, MIT. Ported near-identically; our clock, y-down
  * projection, exposure and the variant seam are the only departures.
@@ -86,14 +80,14 @@
 import { defineBackground } from '../background';
 
 /**
- * The ported `liquid-gold` basis, owned here and imported by `cordon`/`regnum`.
- * A pure function of its arguments (uv, aspect, scroll) plus a small variant set;
- * it reads no uniform, so the ticks-only clock (rule 1) is always the caller's
- * `uScroll`. Self-contained noise (the reference's own hash/value-noise, prefixed
- * `lg` so nothing collides with `bgFbm` or the compose wrapper's `tear*`). GLSL
- * `sin`/`cos` are free here — these values reach the framebuffer and stop.
+ * The ported `liquid-gold` basis. A pure function of its arguments (uv, aspect,
+ * scroll) plus a small variant set; it reads no uniform, so the ticks-only clock
+ * (rule 1) is always the caller's `uScroll`. Self-contained noise (the
+ * reference's own hash/value-noise, prefixed `lg` so nothing collides with
+ * `bgFbm` or the compose wrapper's `tear*`). GLSL `sin`/`cos` are free here —
+ * these values reach the framebuffer and stop.
  */
-export const GOLD_GLSL = /* glsl */ `
+const GOLD_GLSL = /* glsl */ `
   const float LG_PI   = 3.14159265359;
   const float LG_VISC = 0.6;      /* u_viscosity, baked to its shipped default */
   const float LG_FLOW = 0.00833;  /* scroll -> t: at scrollSpeed 0.8, ~0.4/s == ref u_flowSpeed */
