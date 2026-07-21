@@ -59,8 +59,20 @@
  * graft), `undertow` indigo / vanishing point (R/G ~2.1, B-high), `stratum`
  * verdigris / flat bands (G-dominant), `vault` gold / concentric dome (R/G ~1.4).
  * This one is the B-high polar shaft: vanishing POINT, six integer flutes, ring
- * ~50 ticks (the fastest stage), peak ~0.07 — below `expanse` and below the 0.1
- * `background.ts` asks for.
+ * ~50 ticks, peak ~0.072 [EST] — the shaft substrate is unchanged, so the peak is
+ * near the pre-rebuild ~0.07 and re-measured in acceptance.
+ *
+ * ## Refractive chromatic-swim (tropical-heat, §4.2)
+ *
+ * The shaft is factored into `vec3 shaft(vec2 uv)` (projection, flutes, rings —
+ * unchanged) and sampled PER CHANNEL at heat-flow offsets: R at +d, B at -d, and
+ * **G undisplaced**. G carries 0.72 of Rec.709 luma, so the luminance ceiling is
+ * protected and only the chroma fringe (R-B separation <= ~10px, < a 16px bullet)
+ * moves — a dim low-contrast colour fringe on a smooth ramp, never a compact bright
+ * blob. Motion: chromatic-swim ~55px/120t (high-salience even at low luminance) +
+ * the shaft's ring forward-fall ~50t. `test:density` is the arbiter; fallback
+ * lowers `HEAT_AMP` or drops the chroma on ring transitions. Tropical-heat studied
+ * from pbakaus/radiant (MIT); our GLSL. [EST, motion-strip in acceptance.]
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
@@ -101,7 +113,19 @@ ${BACKGROUND_NOISE_GLSL}
     const vec3 WALL_DEEP = vec3(0.026, 0.014, 0.044);
     const vec3 WALL_LIFT = vec3(0.100, 0.048, 0.150);
 
-    vec3 background(vec2 uv) {
+    /* Tropical-heat refractive swim (studied from pbakaus/radiant; our GLSL). A
+       coarse flowing field displaces R and B in opposite directions while G is
+       sampled UNDISPLACED — G carries 0.72 of Rec.709 luma, so the luminance
+       ceiling is protected and only the chroma fringe moves. HEAT_FREQ 1.4 keeps
+       the field at full-frame lobes; HEAT_RATE flows it ~55px / 120 ticks;
+       HEAT_AMP 0.016 holds the R<->B separation <= ~10px (< a 16px bullet). */
+    const float HEAT_FREQ = 1.4;
+    const float HEAT_RATE = 0.0009;
+    const float HEAT_AMP  = 0.016;
+
+    /* The shaft itself, factored out so the chromatic pass can sample it per
+       channel at heat-flow offsets. Projection, six flutes, rings — unchanged. */
+    vec3 shaft(vec2 uv) {
       float aspect = uRes.x / uRes.y;
 
       vec2 c = (uv - VANISHING) * vec2(aspect, 1.0);
@@ -129,6 +153,20 @@ ${BACKGROUND_NOISE_GLSL}
       vec3 lit = WALL_DEEP + WALL_LIFT * (0.34 + detail * (0.38 * grain + 0.28 * ridges));
 
       return mix(HAZE, lit, fog);
+    }
+
+    vec3 background(vec2 uv) {
+      float aspect = uRes.x / uRes.y;
+
+      /* Two coarse flowing fields drive the per-channel offset. G undisplaced. */
+      float h1 = bgFbm(vec2(uv.x * aspect * HEAT_FREQ,       uv.y * HEAT_FREQ - uScroll * HEAT_RATE));
+      float h2 = bgFbm(vec2(uv.x * aspect * HEAT_FREQ + 3.1, uv.y * HEAT_FREQ - uScroll * HEAT_RATE * 0.8));
+      vec2  d  = (vec2(h1, h2) - 0.5) * HEAT_AMP;
+
+      float R = shaft(uv + d).r;
+      float G = shaft(uv    ).g;   /* undisplaced -> ceiling protected */
+      float B = shaft(uv - d).b;
+      return vec3(R, G, B);
     }
   `,
 });

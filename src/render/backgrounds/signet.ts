@@ -3,12 +3,13 @@
  *
  * ## The seal family, and this one's filter
  *
- * The five boss scenes are one cell — `SEAL_GLSL`, a bounding ring enclosing an
- * N-fold rosette — stamped through five filters, the visual counterpart of the
- * audio round's one CELL through five treatments. `signet` is the cell said
- * plainly and answered by rest: a **whole** ring, a **full six-spoke rosette**,
- * a calm rotation, and the field **outside the ring empty** — the seal entire,
- * the rest around it silent. It rhymes with `nemesis`'s STATED cell.
+ * The five boss scenes are one cell — `SEAL_GLSL`, a compass-and-rule engraving
+ * (a bounding ring with a hexagram and six radial rays unioned in) — stamped
+ * through five filters, the visual counterpart of the audio round's one CELL
+ * through five treatments. `signet` is the cell said plainly and answered by
+ * rest: a **whole** ring, the **full hexagram and six rays**, an eased ratchet,
+ * and the field **outside the ring empty** — the seal entire, the rest around it
+ * silent. It rhymes with `nemesis`'s STATED cell.
  *
  * It is a STATE, not a place (the `surge` doctrine): it stamps over whichever
  * stage field sentinel was met in when the first spell card lands, and builds no
@@ -33,34 +34,35 @@
  *
  * ## Numbers
  *
- * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
- * verified, sprites masked, Rec.709, bloom on), the way `vault`/`stratum` quote
- * theirs; the analytic derivation stays beside each figure. Also verified in its
- * genuine consumer: the sentinel fight, stamped at the first card and held
- * through Vigil Unbroken.
+ * The engraved-union rebuild changed the picture; the figures below are the
+ * design's derived worst-case, flagged [EST], to be replaced by live measurement
+ * in the operator acceptance pass. The pre-rebuild MEASURED peak (0.0926) no
+ * longer describes this code — it was a bare-ring cell, and the union raises the
+ * coverage of primary~=1, so the peak shifts. (The pre-round complaint that the
+ * old rendering was "imperceptibly different from the old" is exactly what this
+ * rebuild fixes; that narration is retired.)
  *
- *   - Peak luminance MEASURED 0.0926 whole-field (field mean 0.0267). The
- *     as-designed body measured 0.0565 — below the pre-round 0.068 hold-band
- *     and, by the user's live verdict, imperceptibly different from the old
- *     rendering — so the acceptance calibration raised the shared-cell gain
- *     0.90 -> 1.50, spending the headroom the decisions doc licenses (peaks may
- *     sit anywhere under the 0.1 law). Analytic: m_max ~= 1.28 (0.03 + 1.50 *
- *     0.83), base_lum ~0.0111 + glow_lum ~0.0720 -> 0.092, matching measured.
- *     Under the 0.1 `background.ts` asks for.
- *   - Device period: the family ring train is (2*pi/36)*640 ~= 112px analytic,
- *     measured 106px on `regnum`. The bounding ring is now the engraved K=16
- *     annulus (FWHM ~94px analytic vs the old ~215px), still bullet-coarse
- *     (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8).
- *     Bullet-band (16-30px) amplitude measured 1.2% of the device amplitude
- *     (sinusoid projection on the detrended radial profile; the calibration
- *     gain scales both terms linearly, so the ratio is gain-invariant).
- *   - Palette relation R/G 1.33 measured masked-mean (1.36 exact off the GLOW
- *     vec3), unchanged — BASE/GLOW untouched. Clear of cordon 0.92, intaglio
- *     1.02, and the two reds.
- *   - Rotation ~0.00048 rad/tick average (ROT 0.0006 * scrollSpeed 0.8), now
- *     RATCHETED into SEAL_DETENT (~7.5deg) steps — a calm tick, not a continuous
- *     turn. The bright ring is rotation-invariant, so the step carries no
- *     luminance change on the class marker (see SEAL_GLSL motion).
+ *   - Peak luminance ~0.103 [EST] (design worst-case at GAIN=1.50, ~+11% over the
+ *     pre-rebuild 0.0926). This is the family's binding-constraint watch — if it
+ *     re-measures >0.1, drop the shared GAIN first (see background.ts SEAL_GLSL
+ *     peak-discipline). Under the 0.1 `background.ts` asks for is the acceptance
+ *     bar, not yet confirmed.
+ *   - Device period: the subordinate ring train is (2*pi/36)*640 ~= 112px
+ *     analytic. Every stroke (ring, hexagram, ray) uses the K=16 cross-section
+ *     (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8) — no new
+ *     spatial frequency, union-bounded. Hexagram strap vertices near the centre
+ *     are the one bullet-band watch (test:density).
+ *   - Palette relation R/G ~1.36 off the GLOW vec3, unchanged — BASE/GLOW
+ *     untouched. Clear of cordon ~0.90, intaglio ~1.04, and the two reds.
+ *   - Motion: eased ratchet, one SEAL_DETENT (~7.5deg) detent per ~100 ticks,
+ *     eased over the last ~18t (~1.1px/tick at Rstar) — a VISIBLE tick now, the
+ *     angularly-rich engraving turning; plus the travelling `sweep` orbiting the
+ *     strokes continuously during the hold, and the ~270t contraction. Per-tick
+ *     max |Δ| bounded by the ease span (>=10t, no temporal bullet). Displacement
+ *     over 1s: a full detent lands within the ratchet band. [EST, motion-strip in
+ *     acceptance.]
+ *   - Engraved compass-and-rule linework studied from pbakaus/radiant
+ *     radiant-geometry + liquid-gold (MIT); our GLSL, noise and clocks.
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';
@@ -86,7 +88,7 @@ ${SEAL_GLSL}
         4.0,               /* arcHalf > PI -> a whole seal */
         0.0,               /* sparse rosette: the field outside is rest */
         0.0,               /* device bright (not inverted) */
-        0.0006,            /* calm rotation */
+        0.001636,          /* eased ratchet, ~100t detent */
         0.0,               /* no moire */
         3.0,               /* centre falloff */
         2.4                /* top-lane falloff */

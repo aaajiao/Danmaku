@@ -31,39 +31,30 @@
  *
  * ## Numbers
  *
- * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
- * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
+ * Engraved-union rebuild; figures are the design's derived worst-case [EST], to be
+ * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
+ * (0.0949) no longer describes this code.
  *
- *   - Peak luminance MEASURED 0.0949 whole-field (field mean 0.0199) after the
- *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (the
- *     as-shipped body was imperceptibly different from the old rendering — see
- *     signet.ts and background.ts SEAL_GLSL for the calibration story). The
- *     dropped floor makes the absent half of the picket DEEP BLACK, so "half a
- *     seal" reads as a hard bright arc, not a soft half-blob. Under 0.1 — the
- *     brightest of the five by a hair, at ~95% of the law's ceiling.
- *   - Device period: ring train ~112px analytic, measured 106px on `regnum`; the
- *     lit half of the bounding ring is now the engraved K=16 annulus (FWHM ~94px
- *     analytic, sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8).
- *     Bullet-band amplitude: signet's measured ratio is 1.2% of the device
- *     amplitude and the shared cell scales linearly, so the family stays an
- *     order down (gain-invariant ratio).
- *   - Palette relation R/G 0.92 measured masked-mean (0.90 exact off GLOW),
- *     unchanged — BASE/GLOW untouched. The least saturated of the five seals.
- *   - Arc ~half the ring (arcHalf = PI/2), ends fading; sweep at ROT 0.0016 *
- *     scrollSpeed 1.0 ~= 0.0016 rad/tick average, now RATCHETED into SEAL_DETENT
- *     (~7.5deg) steps — a curt tick, not a continuous sweep (see SEAL_GLSL motion).
- *     Live frame-diff across detents: worst endpoint luminance step 0.036 (the
- *     arc-END jump the whole-ring invariance proof does not cover; ~1/28 of a
- *     bullet's excursion, once per ~82 ticks. If play shows it distracting, the
- *     remedy is the broken-arc ratchet exemption noted in SEAL_GLSL's motion
- *     comment — continuous rotation for arcHalf < PI).
- *     Broken-arc caveat: unlike a whole seal, cordon's marker is `arc * ring` and
- *     `arc` is rotation-dependent, so each detent steps the lit arc's ENDPOINTS by
- *     one detent (~0.131 rad; at ringRadius 0.34 the endpoint sweeps ~28px). The
- *     ring's RADIAL profile stays invariant, but the ratchet-capture gate (§8.7)
- *     must also inspect the arc-END luminance; if the ~28px endpoint jump reads
- *     near bullets, exempt cordon from the ratchet (continuous path) or coarsen
- *     its detent. PENDING live acceptance.
+ *   - Peak luminance ~0.0949 [EST, pre-rebuild; re-measure] — cordon was the
+ *     brightest of the family and is **the binding constraint** for the shared
+ *     GAIN: every seal must re-measure <0.1, and if any exceeds it the shared GAIN
+ *     drops first (see background.ts SEAL_GLSL peak-discipline). The dropped floor
+ *     makes the absent half of the picket DEEP BLACK, so "half a seal" reads as a
+ *     hard bright arc, not a soft half-blob.
+ *   - Device period: subordinate ring train ~112px analytic; the lit half of the
+ *     engraving uses the K=16 stroke cross-section (sigma_f 0.00563 < 0.00625
+ *     cyc/px, ~90% of budget; K-ceiling ~17.8) — union-bounded, no new frequency.
+ *   - Palette relation R/G ~0.90 off GLOW, unchanged — BASE/GLOW untouched. The
+ *     least saturated of the five seals.
+ *   - Motion: eased ratchet, ~70t detent, eased over ~13t. Because the whole
+ *     engraving rotates together and the ease spans ~13 ticks, cordon's broken-arc
+ *     ENDPOINT now SWEEPS ~28px over those ~13 ticks (~2.2px/tick) instead of
+ *     jumping one detent in a single frame. **The pre-rebuild endpoint-jump
+ *     pending note is retired** — the stepped-ease made it a smooth sweep, exactly
+ *     as the design intended. Plus the continuous `sweep` orbit. [EST,
+ *     motion-strip in acceptance: verify the endpoint sweeps smoothly.]
+ *   - Engraved linework studied from pbakaus/radiant radiant-geometry + liquid-gold
+ *     (MIT); our GLSL, noise and clocks.
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';
@@ -89,7 +80,7 @@ ${SEAL_GLSL}
         1.5708,            /* arcHalf = PI/2 -> ~half the ring, a broken arc */
         0.0,               /* sparse rosette */
         0.0,               /* device bright */
-        0.0016,            /* curt sweep */
+        0.001871,          /* eased ratchet, ~70t detent (endpoint sweeps, no jump) */
         0.0,               /* no moire */
         3.0,               /* centre falloff */
         2.4                /* top-lane falloff */

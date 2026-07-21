@@ -80,19 +80,20 @@
  * shared-card wiring (chancellor "Sealed" + regent "Sine Die") is content,
  * verified in base-pack.json.
  *
- *   - Peak luminance MEASURED 0.0392 whole-field (field mean 0.0166) after the
- *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
- *     signet.ts / background.ts SEAL_GLSL). Below regnum's measured 0.0769 and
- *     just below sable's measured 0.0444 — the 出神 pair sits at the bottom of
- *     the family with its parent doctrine intact (decree < regnum ✓). The
- *     moiré/dither multipliers pull the calibrated cell back down; the Bayer
- *     field is plainly visible in a still, which is the point.
- *   - Device period: ring train ~112px analytic (measured 106px on `regnum`).
+ *   - Peak luminance ~0.0392 [EST, pre-rebuild; re-measure]. Below regnum's
+ *     pre-rebuild 0.0769 — the 出神 pair sits at the bottom of the family with its
+ *     parent doctrine intact (decree < regnum). The moiré, down-only dither AND the
+ *     new §6 vortex `pull` (all <= 1) multiply the calibrated cell back down; the
+ *     Bayer field is plainly visible in a still, which is the point. Re-measure in
+ *     acceptance since the engraved union raises coverage before those multipliers.
+ *   - Device period: subordinate ring train ~112px analytic.
  *   - Moire beat ~620px analytic ((2*pi/|42.48-36|)*640), one beat across the
- *     field, far coarser than the ring; the swim was motion-verified on the
- *     sibling `umbra` (same moiré construction — see its header).
- *   - Palette relation R/G 1.38 measured masked-mean (1.40 exact off GLOW).
- *     Regnum's crimson bleached toward cold rose-grey.
+ *     field, far coarser than the ring; the swim shares umbra's construction.
+ *   - §6 vortex recession: a log-spiral `pull` (integer arm count 3, geometry-only,
+ *     <= 1) adds a second unmooring MEANING (被拽出画框) beside the dither. First to
+ *     revert if a readability gate complains.
+ *   - Palette relation R/G ~1.40 off GLOW. Regnum's crimson bleached toward cold
+ *     rose-grey.
  *   - Precession: centre circles at radius ~0.05 uv (~32px) at ~0.004 rad per
  *     scroll unit — the device adrift and unfilled.
  */
@@ -136,7 +137,16 @@ ${SEAL_GLSL}
          coherence motion with the luminance ceiling unchanged. uScroll clock. */
       m = sealDither(m, uv, uScroll);
 
-      return BASE + GLOW * m;
+      /* 出神 second vocabulary — vortex recession (被拽出画框): a log-spiral pull,
+         a second unmooring MEANING beside dither's bit-depth loss. Integer arm
+         count (3) closes the atan wrap; pull <= 1, so it only ever multiplies the
+         peak-bounded structure DOWN — never-brighter preserved, geometry only.
+         First to revert if a readability gate complains. */
+      vec2 cc = (uv - centre) * vec2(uRes.x / uRes.y, 1.0);
+      float spa = atan(cc.y, cc.x) + log(max(length(cc), 0.03)) * 1.5;
+      float pull = 0.6 + 0.4 * (0.5 + 0.5 * sin(3.0 * spa - uScroll * 0.05));
+
+      return BASE + GLOW * m * pull;
     }
   `,
 });

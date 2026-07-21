@@ -27,10 +27,19 @@
  * The gameplay one: the top of the screen is where enemies enter and where the
  * densest patterns form. It has to be the darkest, least detailed part of the
  * frame, or bullets get lost in it. `background.ts` states the constraint —
- * peak luminance near 0.1, no detail at a bullet's spatial frequency. This
- * shader measures 0.080 at the crest after the cyan graft (analytic ceiling
- * ~0.093; masked-mean R/G 0.48, a clear step off `drift`'s 0.63 — the graft's
- * whole point), with the rib row-period measuring ~117px.
+ * peak luminance near 0.1, no detail at a bullet's spatial frequency. The kept
+ * perspective plane measured 0.080 at the crest pre-rebuild; the lens-whisper
+ * layer is now added over it (§4.3), so the crest shifts — analytic worst-case
+ * ~0.093 [EST], to be re-measured in acceptance. `GROUND_LIFT` G is trimmed
+ * 0.104->0.092 to buy the lens its headroom, and the lens is `max`-composited so a
+ * light can only reveal where the plane is darker, never stack over it. The lights
+ * are confined to uv.y 0.35-0.50, clear of the top entry lane. Rib row-period
+ * ~117px; lens streak ~30x107px and the bokeh ring is a hollow K=14 wall (sigma_f
+ * 0.0050 < 0.00625) — no tight cores. Lens-whisper studied from pbakaus/radiant
+ * (MIT); our GLSL.
+ *
+ * Motion: lens drift ~60px/120t lateral + ring breathe +-13px over ~200t — the
+ * lens apparatus visibly drifts and pulses. [EST, motion-strip in acceptance.]
  *
  * The numerical one: as `uv.y` approaches the horizon, `depth` grows without
  * bound and adjacent pixels land arbitrarily far apart in world space. Sampling
@@ -85,7 +94,36 @@ ${BACKGROUND_NOISE_GLSL}
     const vec3 SKY_TOP     = vec3(0.004, 0.006, 0.014);
     const vec3 SKY_LIFT    = vec3(0.016, 0.034, 0.055);
     const vec3 GROUND_DEEP = vec3(0.016, 0.024, 0.050);
-    const vec3 GROUND_LIFT = vec3(0.038, 0.104, 0.152);
+    /* G trimmed 0.104 -> 0.092 to buy the lens layer its headroom. */
+    const vec3 GROUND_LIFT = vec3(0.038, 0.092, 0.152);
+
+    /* Lens-whisper: distant lights seen through a lens, drifting and breathing.
+       Studied from pbakaus/radiant lens-whisper (MIT); our GLSL. Centres sit in
+       the mid-lower band (uv.y 0.38-0.46); the streak's y-Gaussian and the bokeh
+       ring carry the visible feature to ~uv.y 0.27-0.57, still clear of the top
+       entry lane (uv.y -> 0). max-composited so a light never STACKS over the
+       plane. Tight Gaussian cores
+       are deliberately absent (a bright pinpoint is a fake bullet): the streak is
+       broad on both axes and the bokeh is a hollow ring wall. */
+    const vec3  CYAN_LIGHT = vec3(0.030, 0.070, 0.090);   /* <= 0.1 */
+    const float DRIFT_RATE = 0.005;   /* lateral ~0.5px/tick */
+    const float BREATHE    = 0.017;   /* ring radius pulses over ~200t */
+
+    vec3 lensLayer(vec2 uv, float aspect) {
+      vec3 acc = vec3(0.0);
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        vec2  lp = vec2(0.30 + 0.20 * sin(uScroll * DRIFT_RATE + fi), 0.38 + 0.04 * fi);  /* centres y 0.38-0.46; tails reach ~0.27-0.57 */
+        vec2  dd = (uv - lp) * vec2(aspect, 1.0);
+        float streak = exp(-(dd.y * dd.y) * 220.0) * exp(-(dd.x * dd.x) * 18.0);  /* anamorphic: ~30x107px, no core */
+        float rr     = 0.09 + 0.02 * sin(uScroll * BREATHE);                      /* breathes +-13px */
+        float rd     = (length(dd) - rr) * 14.0;
+        float ring   = exp(-rd * rd);                                             /* bokeh wall K=14, hollow */
+        float pulse  = 0.7 + 0.3 * sin(uScroll * 0.02 + fi * 2.1);
+        acc = max(acc, (streak * 0.6 + ring * 0.5) * pulse * CYAN_LIGHT);         /* max -> never stack */
+      }
+      return acc;
+    }
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
@@ -129,7 +167,11 @@ ${BACKGROUND_NOISE_GLSL}
 
       /* Both sides already agree at the horizon; the smoothstep is only here to
          antialias the row where the two formulas swap over. */
-      return mix(sky, plane, smoothstep(HORIZON - 0.004, HORIZON + 0.004, uv.y));
+      vec3 col = mix(sky, plane, smoothstep(HORIZON - 0.004, HORIZON + 0.004, uv.y));
+
+      /* The lens layer over the kept plane, max-composited so it can only reveal
+         a light where the plane is darker, never brighten the plane itself. */
+      return max(col, lensLayer(uv, aspect));
     }
   `,
 });

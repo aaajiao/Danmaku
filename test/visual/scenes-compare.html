@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>scenes compare</title>
+    <style>
+      body {
+        margin: 0;
+        background: #000;
+        color: #ddd;
+        font: 13px monospace;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: normal;
+        color: #fff;
+        margin: 0 0 4px;
+      }
+      p.note {
+        color: #888;
+        max-width: 920px;
+        margin: 0 0 10px;
+      }
+      #controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 10px;
+        flex-wrap: wrap;
+      }
+      button, select, input {
+        background: #111;
+        color: #ddd;
+        border: 1px solid #444;
+        font: 13px monospace;
+        padding: 3px 10px;
+        cursor: pointer;
+      }
+      button.active {
+        border-color: #8cf;
+        color: #8cf;
+      }
+      #grid {
+        position: relative;
+        display: inline-block;
+      }
+      canvas {
+        display: block;
+        background: #000;
+      }
+      .label {
+        position: absolute;
+        pointer-events: none;
+        font: 11px monospace;
+        color: #cde;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 1px 4px;
+        white-space: pre;
+      }
+      .label .bad {
+        color: #f66;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>scenes compare — every registered background, live, measured</h1>
+    <p class="note">
+      All scenes render simultaneously off the same tick clock (uTick/uScroll, exactly as
+      <code>Background#step</code> advances them). Per cell: <b>pk</b> peak luminance /
+      <b>mn</b> mean (Rec.709 on the raw framebuffer, no bloom — in-game headers still
+      re-measure) / <b>Δ</b> max per-tick luminance step (temporal law: red above 0.02).
+      The last cell is the <b>fade lab</b>: pick A→B and GO to watch the crossfade
+      (post-overhaul: the tear + stamp). Restamp zeroes every uScroll. Automation:
+      <code>__measure()</code>, <code>__dump()</code>, <code>__strips(n, stride)</code>.
+    </p>
+    <div id="controls">
+      <button id="pause"></button>
+      <button id="step">+1 tick</button>
+      speed
+      <button class="speed" data-v="1">×1</button>
+      <button class="speed" data-v="4">×4</button>
+      <button class="speed" data-v="16">×16</button>
+      <button id="restamp">restamp (uScroll=0)</button>
+      | fade lab:
+      <select id="fadeA"></select>
+      →
+      <select id="fadeB"></select>
+      <input id="fadeTicks" type="number" value="120" min="1" style="width: 60px" />
+      <button id="fadeGo">GO</button>
+    </div>
+    <div id="grid"><canvas id="canvas"></canvas></div>
+    <script type="module" src="./scenes-compare.ts"></script>
+  </body>
+</html>

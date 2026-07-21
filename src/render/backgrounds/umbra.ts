@@ -72,23 +72,21 @@
  * consumer: `__background.name === 'umbra'` polled twice inside a live Lunatic
  * "Total Eclipse", the same card that swaps the music to `zenith`.
  *
- *   - Peak luminance MEASURED 0.0314 whole-field (field mean 0.0143) after the
- *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
- *     signet.ts / background.ts SEAL_GLSL). The never-brighter doctrine binds
- *     umbra to its PARENT seal, signet, not to its own prior value: measured
- *     0.0314 < signet's measured 0.0926 ✓ with wide margin — the eclipse, moiré
- *     and down-only dither multipliers pull the calibrated cell far back down.
- *     Live frame-diff over 1.5s: bit-depth wave travels with per-pixel steps
- *     <= 0.017, mean 0.0009 — coherence motion, luminance ceiling unchanged.
- *   - Device period: ring train ~112px analytic, unchanged from signet
- *     (measured 106px on `regnum`, the family instrument).
+ *   - Peak luminance ~0.0314 [EST, pre-rebuild; re-measure]. The never-brighter
+ *     doctrine binds umbra to its PARENT seal, signet, not to its own prior value:
+ *     the eclipse, moiré, down-only dither AND the new §6 vortex `pull` (all <= 1)
+ *     multiply the calibrated cell far back down, so the peak can only fall below
+ *     signet's. The engraved union may raise coverage before those multipliers, so
+ *     re-measure in acceptance; margin under signet expected to stay wide.
+ *   - Device period: subordinate ring train ~112px analytic, unchanged from signet.
  *   - Moire beat ~620px analytic ((2*pi/|42.48-36|)*640), one beat across the
- *     field. Its MOTION is the measured claim: the detrended radial profile
- *     captured 2s apart decorrelates at zero shift (corr -0.46) and realigns at
- *     an inward shift of ~60 game px (corr 0.78) — the pattern swims, coherence
- *     moves while luminance does not.
- *   - Palette relation R/G 1.02 measured masked-mean (1.07 exact off GLOW).
- *     Signet's gold cooled toward neutral.
+ *     field, far coarser than the ring — the pattern swims, coherence moves while
+ *     luminance does not. [Motion-strip in acceptance.]
+ *   - §6 vortex recession: a log-spiral `pull` (integer arm count 3, geometry-only,
+ *     <= 1) adds a second unmooring MEANING (被拽出画框) beside the dither's
+ *     bit-depth loss. Never-brighter preserved. This is the FIRST thing to revert
+ *     if a readability gate complains.
+ *   - Palette relation R/G ~1.07 off GLOW. Signet's gold cooled toward neutral.
  *   - Precession: the centre circles at radius ~0.05 uv (~32px) at ~0.004 rad per
  *     scroll unit — off-station and slowly turning, the seal adrift.
  */
@@ -137,7 +135,16 @@ ${SEAL_GLSL}
          rise above the seal — coherence and shadow cross, brightness does not. */
       float eclipse = 0.55 + 0.45 * (0.5 + 0.5 * sin(uScroll * 0.0025 - uv.y * 3.0));
 
-      return BASE + GLOW * m * eclipse;
+      /* 出神 second vocabulary — vortex recession (被拽出画框): a log-spiral pull,
+         a second unmooring MEANING beside dither's bit-depth loss. Integer arm
+         count (3) closes the atan wrap; pull <= 1, so it only ever multiplies the
+         peak-bounded structure DOWN — never-brighter preserved, geometry only.
+         This is the first thing to revert if a readability gate complains. */
+      vec2 cc = (uv - centre) * vec2(uRes.x / uRes.y, 1.0);
+      float spa = atan(cc.y, cc.x) + log(max(length(cc), 0.03)) * 1.5;
+      float pull = 0.6 + 0.4 * (0.5 + 0.5 * sin(3.0 * spa - uScroll * 0.05));
+
+      return BASE + GLOW * m * eclipse * pull;
     }
   `,
 });

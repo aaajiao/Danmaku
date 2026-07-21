@@ -62,26 +62,24 @@
  *
  * ## Numbers
  *
- * Measured from live framebuffer captures in `bun run dev` (bloom on, sprites
- * masked out of the stats), the way `expanse` (0.09) and `undertow` (0.07)
- * quote theirs:
+ * The tectonic fold-flow rebuild (§4.1) added a coarse domain warp and per-stratum
+ * tone; figures are design-derived [EST], to be re-measured in acceptance.
  *
- *   - Peak luminance measures 0.07-0.09 depending on where a band crest sits in
- *     frame (the analytic figure from the constants below is 0.087); mid-field
- *     median ~0.036, and the top of the frame sits near 0.02. Under the 0.1
- *     that `background.ts` asks for.
- *   - Band period measures ~110px by row autocorrelation, against the analytic
- *     112 (`BAND_FREQ` 36 over 640px puts about six strata in frame) — an order
- *     of magnitude coarser than a 16-30px bullet.
- *   - One stratum settles past a fixed row about every 89 ticks — this one is
- *     computed from the constants (a rate needs video, not a still): slower
- *     than `expanse`'s 75, matched to the heaviest, slowest drone in the game.
- *   - The palette relation above holds on screen: this scene measures
- *     green-dominant (G/B ~1.1, red lowest) while its boss seal `sable` is
- *     red-dominant (measured masked-mean R/G 2.56, oxblood) at a lower measured
- *     peak (0.032), so the spell-card cross-fade reads as the hue turning over,
- *     not the lights coming up. (`surge`, pack-only now, holds the same
- *     red-dominant relation at a measured 0.058.)
+ *   - Peak luminance ~0.087 [EST] = the pre-rebuild ceiling: the warp only
+ *     DISPLACES the band coordinate (luminance unchanged) and `tone` <= 1 only
+ *     REDUCES some bands, so neither raises the ceiling. Under the 0.1
+ *     `background.ts` asks for.
+ *   - Band period ~112px analytic (`BAND_FREQ` 36 over 640px, ~six strata) — an
+ *     order coarser than a 16-30px bullet. The warp is >= full-frame scale
+ *     (WARP_FREQ 0.9) and `tone` is piecewise-constant per band (keyed to the band
+ *     INDEX), so neither introduces a new spatial frequency.
+ *   - Motion: fold-flow ~52px/120t (the signature — folds visibly migrate) + band
+ *     settle ~71t/band (secondary). [EST, motion-strip in acceptance.]
+ *   - Palette relation: green-dominant (G/B ~1.1, red lowest) against its boss seal
+ *     `sable`'s red (oxblood), the maximum red-vs-green opposition, so the
+ *     spell-card cross-fade reads as the hue turning over, not the lights coming
+ *     up.
+ *   - Painted-strata studied from pbakaus/radiant (MIT); our GLSL.
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
@@ -98,12 +96,18 @@ ${BACKGROUND_NOISE_GLSL}
        smooth. */
     const float BAND_FREQ = 36.0;
 
-    /* Depth advance per unit of scroll. Deliberately the slowest settle in the
-       game: at scrollSpeed 0.7 the band phase advances BAND_FREQ * SCROLL_RATE *
-       0.7 = 0.0706 rad/tick, so one stratum passes a fixed row about every 89
-       ticks — slower than expanse's 75, matched to the heavy drone the stage
-       plays against. */
-    const float SCROLL_RATE = 0.0028;
+    /* Settle rate: at scrollSpeed 0.7 the band phase advances BAND_FREQ *
+       SCROLL_RATE * 0.7 = 0.0882 rad/tick, so one stratum passes a fixed row
+       about every 71 ticks — the secondary motion under the fold-flow. */
+    const float SCROLL_RATE = 0.0035;
+
+    /* Tectonic fold-flow — the signature motion. A coarse domain warp folds the
+       band coordinate and migrates it laterally. WARP_FREQ 0.9 keeps folds at
+       >= full-frame scale (never bullet-fine); WARP_AMP 0.075 displaces the band
+       coord by <= +/-24px; WARP_RATE migrates the folds ~52px / 120 ticks. */
+    const float WARP_FREQ = 0.9;
+    const float WARP_AMP  = 0.075;
+    const float WARP_RATE = 0.0009;
 
     /* Verdigris / oxidised bronze — cold green-grey. See the header for why the
        hue is chosen against expanse's ice-blue, undertow's indigo, and above all
@@ -119,14 +123,26 @@ ${BACKGROUND_NOISE_GLSL}
          the far top. Structure is spent along it; brightness far less so. */
       float near = uv.y;
 
+      /* The fold: a coarse migrating warp added to the band coordinate. It only
+         DISPLACES the phase — luminance is unchanged — so the strata visibly
+         fold and flow without brightening. */
+      float warp = bgFbm(vec2(uv.x * aspect * WARP_FREQ, uv.y * WARP_FREQ - uScroll * WARP_RATE));
+
       /* Scroll subtracts, so a fixed stratum drifts to larger uv.y over time --
-         the record settling downward past the viewer. */
-      float along = near - uScroll * SCROLL_RATE;
+         the record settling downward past the viewer -- plus the fold offset. */
+      float along = near - uScroll * SCROLL_RATE + WARP_AMP * (warp - 0.5);
 
       /* The strata. sin is smoothly periodic, so a band is continuous as it is
          born at the top and dies at the bottom — nothing here can crack the way a
          tunnel's angular seam can, because there is no wrapped coordinate. */
       float bands = 0.5 + 0.5 * sin(along * BAND_FREQ);
+
+      /* Per-stratum tone, keyed to the band INDEX so it is piecewise-constant per
+         band (never a new spatial frequency). tone <= 1, so it only ever REDUCES
+         some bands -- luminance ceiling protected. The 0.25 index bias parks the
+         step in the band trough so it never pops on a crest. */
+      float bIdx = floor(along * BAND_FREQ / 6.2831853 + 0.25);
+      float tone = 0.6 + 0.4 * bgHash(vec2(bIdx, 3.0));
 
       /* Dust between the strata, sampled against the band value rather than the
          raw coordinate so it rides the layers instead of shearing across them --
@@ -139,7 +155,7 @@ ${BACKGROUND_NOISE_GLSL}
       float light = 0.30 + 0.70 * near;
       float detail = near * near;
 
-      vec3 lit = DEEP + LIFT * (0.30 + detail * (0.42 * grain + 0.28 * bands));
+      vec3 lit = DEEP + LIFT * (0.30 + detail * (0.42 * grain + 0.28 * bands * tone));
       return mix(HAZE, lit, light);
     }
   `,

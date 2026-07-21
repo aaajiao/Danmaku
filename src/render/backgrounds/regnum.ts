@@ -3,15 +3,15 @@
  *
  * ## The filter — made whole and filled
  *
- * The same cell, complete: a whole bounding ring and a FILLED rosette — the
- * ground between the lobes lit too, so this is the **least empty** field of the
- * five (least rest), the seal finally pressed into the empty seat. A reigning
- * turn, slow and full. It rhymes with `interregnum`'s RESOLVED treatment, the
- * cell made whole and resolved to the tonic.
+ * The same cell, complete: a whole engraving and a FILLED interior — the disk
+ * inside the ring lit too, so this is the **least empty** field of the five (least
+ * rest), the seal finally pressed into the empty seat. A reigning turn, slow and
+ * full. It rhymes with `interregnum`'s RESOLVED treatment, the cell made whole and
+ * resolved to the tonic.
  *
- * The fill is a single `mix(lobe, max(lobe, 0.7), fill)` inside the cell: the
- * rosette's dark inter-lobe field is raised so the device reads as a full seal
- * rather than a sparse device. Identity kept; one parameter turned up.
+ * The fill is a single `primary = max(primary, ground * fill)` inside the cell:
+ * the interior disk is raised so the device reads as a full seal rather than a
+ * sparse device. Identity kept; one parameter turned up.
  *
  * ## Hue — crimson (R >> G)
  *
@@ -34,30 +34,27 @@
  *
  * ## Numbers
  *
- * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
- * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
+ * Engraved-union rebuild; figures are the design's derived worst-case [EST], to be
+ * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
+ * (0.0769) no longer describes this code.
  *
- *   - Peak luminance MEASURED 0.0769 whole-field (field mean 0.0240) after the
- *     acceptance calibration raised the shared-cell gain 0.90 -> 1.50 (see
- *     signet.ts / background.ts SEAL_GLSL). `fill=1` deliberately FIGHTS the
- *     inversion — the ground stays lit everywhere — so regnum reads as the seal
- *     that stays present while its siblings empty out. R6 watch stands: if the
- *     high mean reads stage-like (haze) rather than seal-like, drop the fill
- *     floor in SEAL_GLSL (`max(lobe,0.7)` -> `max(lobe,0.5)`; regnum is its sole
- *     consumer). Under 0.1.
- *   - Device period 106px measured (pre-round) by radial sinusoid projection
- *     inside the ring (analytic 112px: (2*pi/36)*640); the bounding ring is now
- *     the engraved K=16 annulus (FWHM ~94px analytic, sigma_f 0.00563 < 0.00625
- *     cyc/px, ~90% of budget; K-ceiling ~17.8). Bullet-band amplitude: signet's
- *     measured ratio is 1.2% of the device amplitude and the shared cell scales
- *     linearly (gain-invariant ratio).
- *   - Palette relation R/G 2.53 measured masked-mean (2.56 exact off GLOW),
- *     unchanged — BASE/GLOW untouched. Measured adjacency to sable's 2.56 mean is
- *     real; the pair separates by luminance, filter geometry (filled-whole vs
- *     pressed-shut), and never being adjacent in play — see sable's header.
- *   - Rotation ~0.0012 rad/tick average (ROT 0.0012 * scrollSpeed 1.0), now
- *     RATCHETED into SEAL_DETENT (~7.5deg) steps — a full reigning tick, not a
- *     continuous turn (see SEAL_GLSL motion).
+ *   - Peak luminance ~0.0769 [EST, pre-rebuild; re-measure]. `fill=1` lights the
+ *     whole interior disk (`primary = max(primary, ground*fill)`), so regnum reads
+ *     as the seal that stays present while its siblings empty out — the least
+ *     rest. R6 watch stands: if the high mean reads stage-like (haze), lower the
+ *     fill contribution. Under 0.1 is the acceptance bar (shared-GAIN re-measure,
+ *     cordon binding).
+ *   - Device period: subordinate ring train ~112px analytic; every stroke uses the
+ *     K=16 cross-section (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget;
+ *     K-ceiling ~17.8) — union-bounded, no new frequency.
+ *   - Palette relation R/G ~2.56 off GLOW, unchanged — BASE/GLOW untouched.
+ *     Adjacency to sable's red is real; the pair separates by luminance, filter
+ *     geometry (filled-whole vs pressed-shut), and never being adjacent in play.
+ *   - Motion: eased ratchet, ~85t detent, eased over ~15t (~1.3px/tick) — a full
+ *     reigning tick on the filled engraving; plus the continuous `sweep` orbit.
+ *     [EST, motion-strip in acceptance.]
+ *   - Engraved linework studied from pbakaus/radiant radiant-geometry + liquid-gold
+ *     (MIT); our GLSL, noise and clocks.
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';
@@ -83,7 +80,7 @@ ${SEAL_GLSL}
         4.0,               /* arcHalf > PI -> a whole seal */
         1.0,               /* FILLED: the ground lights, least rest */
         0.0,               /* device bright */
-        0.0012,            /* reigning turn */
+        0.001541,          /* eased ratchet, ~85t detent */
         0.0,               /* no moire */
         2.8,               /* centre falloff */
         2.4                /* top-lane falloff */

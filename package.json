@@ -11,6 +11,7 @@
     "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",
     "test:assets": "PORT=3007 bun ./test/visual/asset-loading.html",
     "test:density": "PORT=3008 bun ./test/visual/density.html",
+    "test:scenes": "PORT=3009 bun ./test/visual/scenes-compare.html",
     "build": "bun build ./index.html --outdir=dist --production && bun tools/copy-packs.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json"

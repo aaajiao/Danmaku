@@ -26,31 +26,26 @@
  *
  * ## Numbers
  *
- * MEASURED live (`bun run dev`, scene on the real quad, `__background.name`
- * verified, sprites masked, Rec.709, bloom on); analytic derivations kept.
+ * Engraved-union rebuild; figures are the design's derived worst-case [EST], to be
+ * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
+ * (0.0444) no longer describes this code.
  *
- *   - Peak luminance MEASURED 0.0444 whole-field (field mean 0.0142), still the
- *     DARKEST stated seal, after the acceptance calibration raised the
- *     shared-cell gain 0.90 -> 1.50 (see signet.ts / background.ts SEAL_GLSL).
- *     The tight K=16 ring on the darkest field reads as a line, not a smear.
- *     R2 (ring-below-visibility watch) RESOLVED by the shared calibration — no
- *     per-scene GLOW.R exception was needed. Well under 0.1.
- *   - Device period: ring train ~112px analytic (measured 106px on `regnum`),
- *     read across a smaller ring radius (0.22); the tight bounding ring is now
- *     the engraved K=16 annulus (FWHM ~94px analytic, sigma_f 0.00563 < 0.00625
- *     cyc/px, ~90% of budget; K-ceiling ~17.8). Bullet-band amplitude: signet's
- *     measured ratio is 1.2% of the device amplitude and the shared cell scales
- *     linearly (gain-invariant ratio).
- *   - Palette relation R/G 2.56 measured masked-mean (3.08 exact off GLOW; the
- *     dark field mean dilutes toward the base's 2.67). The most red-dominant
- *     seal at the pixel it glows. Measured adjacency to regnum's 2.53 is real —
- *     the pair is separated by luminance (pre-inversion 0.057 vs 0.032, a 1.8x
- *     step; measured 0.0769 vs 0.0444 after calibration, a 1.7x step), by the
- *     most-opposed filter geometries (filled-whole vs pressed-shut), and by
- *     never being adjacent in play, exactly as designed.
- *   - Rotation ~0.00018 rad/tick average (ROT 0.0003 * scrollSpeed 0.6), the
- *     slowest of the five, now RATCHETED into SEAL_DETENT (~7.5deg) steps — a
- *     heavy slow tick, not a continuous press (see SEAL_GLSL motion).
+ *   - Peak luminance ~0.0444 [EST, pre-rebuild; re-measure], still the DARKEST
+ *     stated seal by the dim GLOW and the small ring radius (0.22). The tight K=16
+ *     strokes on the darkest field read as lines, not a smear. Well under 0.1 is
+ *     the expected margin (shared-GAIN re-measure, cordon binding).
+ *   - Device period: subordinate ring train ~112px analytic across the smaller
+ *     ring radius; every stroke uses the K=16 cross-section (sigma_f 0.00563 <
+ *     0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8) — union-bounded.
+ *   - Palette relation R/G ~3.08 off GLOW, unchanged — BASE/GLOW untouched. The
+ *     most red-dominant seal. Adjacency to regnum's red separates by luminance,
+ *     the most-opposed filter geometries (filled-whole vs pressed-shut), and never
+ *     being adjacent in play.
+ *   - Motion: eased ratchet, ~130t detent (the slowest of the five), eased over
+ *     ~23t (~0.9px/tick) — a heavy slow tick on the small engraving; plus the
+ *     continuous `sweep` orbit. [EST, motion-strip in acceptance.]
+ *   - Engraved linework studied from pbakaus/radiant radiant-geometry + liquid-gold
+ *     (MIT); our GLSL, noise and clocks.
  */
 
 import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';
@@ -77,7 +72,7 @@ ${SEAL_GLSL}
         4.0,               /* arcHalf > PI -> a whole seal */
         0.0,               /* sparse rosette */
         0.0,               /* device bright */
-        0.0003,            /* heavy slow press */
+        0.001679,          /* eased ratchet, ~130t detent */
         0.0,               /* no moire */
         4.2,               /* stronger centre falloff: compressed inward */
         2.4                /* top-lane falloff */
