@@ -173,7 +173,7 @@ Per-draw scaling is a different thing and it exists. `SpriteStyle.width` and
 `:242-243`) and callers override them freely: the boss draws a 32px cell at 56px
 (the base pack's `sentinel`, `tools/make-base-pack.ts:744-745`), the turret at
 40px (the base pack's `turret`, `tools/make-base-pack.ts:361-362`), the
-ship's 64px art at 40px (`src/main.ts:367-369`), and particles anywhere from
+ship's 64px art at 40px (`src/main.ts:484-486`), and particles anywhere from
 1.6× to 0.05×. So "final display size" means the size to design *for*, not the
 only size a cell will ever be drawn at. The practical consequence is at the top
 of section 3.5: detail that only reads at one size is wasted.
@@ -186,14 +186,15 @@ of section 3.5: detail that only reads at one size is wasted.
 
 The name is a historical accident and it will mislead you. **This sheet is not
 just bullets.** Every `SpriteBatch` in the game except the player's own is built
-on it (`src/main.ts:102-119`): enemies wear `orb.large`, `ring` and `halo`
+on it (`src/main.ts:172-192`): enemies wear `orb.large`, `ring` and `halo`
 (the base pack's `grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), the boss
 wears `halo` (the base pack's `sentinel`, `tools/make-base-pack.ts:742`), items
 wear `shard`, `star`, `mote`, `petal` and `ring`
 (`src/sim/item.ts:407-451`), particles draw `glow.medium`, `spark`, `needle`,
 `star`, `glow.small` and `glow.large` (`src/sim/effects.ts:251-323`), and the
-player's shots draw `glow.small` and `scale` (`src/content/shots.ts:85`,
-`:222`). All sixteen cells are in use by something. Sixteen 32×32 cells carry
+player's shots draw `glow.small` and `scale` (the base pack's shot skins,
+`src/packs/base-pack.json`; `src/content/shots.ts` is now registration-only).
+All sixteen cells are in use by something. Sixteen 32×32 cells carry
 essentially the whole visual vocabulary of the game — the player ship is the
 only art outside them — which is why these cells deserve far more attention than
 a 256 × 64 PNG suggests.
@@ -270,9 +271,9 @@ workhorse and `orb.large` still reads as a threat.
 
 The last column is stricter than it looks. It does not mean "something sets
 `orientToHeading` on this cell today" — `kunai`, `scale`, `needle` and
-`glow.small` are the only four with a caller that does (the base pack's enemy and
-boss cards in `tools/make-base-pack.ts`, `src/content/shots.ts:154`/`:222`,
-`src/sim/option.ts:276`, and the BEAM shot at `src/content/shots.ts:308-316`). It
+`glow.small` are the only four with a caller that does (the base pack's enemy,
+boss and player shot cards in `src/packs/base-pack.json`, authored by
+`tools/make-base-pack.ts`). It
 means the shape is elongated
 or asymmetric and so has a direction at all, and rule 7 says that direction is
 east. `shard` and `petal` have no rotating caller yet and must still be drawn
@@ -335,14 +336,15 @@ in the game where art is not at final display size. Detail below about 1.6px in
 the source will not survive to the screen.
 
 The damage flash drives `g` and `b` to 0.5 and alpha to 0.35 on alternating
-4-tick blocks (`src/main.ts:343`, `:352-354`), so it reads as red only if the art is
+4-tick blocks (`src/main.ts:487-489`, `blink` at `:478`), so it reads as red only if the art is
 neutral. A ship drawn blue would flash grey.
 
 Must include a **visually distinct centre point** marking the hitbox. This is
 not a debug affordance — showing the hitbox is standard genre practice and a
 real readability feature, because the ship sprite is many times larger than the
-2.5px lethal radius (`src/game/run.ts:1196-1197`). The placeholder marks it with a
-3px-radius disc two pixels below centre (`src/render/procedural.ts:380-383`),
+2.5px lethal radius (each character's `radius`, `src/packs/base-pack.json`; read
+as `player.radius` at `src/game/run.ts:1021`). The placeholder marks it with a
+3px-radius disc two pixels below centre (`src/render/procedural.ts:392-395`),
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
 2.5px radius — close enough to be honest, and worth keeping close.
 
@@ -356,7 +358,7 @@ request.
 
 There is no `enemies.png` and no `createEnemyAtlas`. The status is not "not yet
 implemented" — enemies are drawn, right now, from the **bullet atlas**:
-`batches.enemies` is constructed on it (`src/main.ts:103`), `grunt` is a tinted
+`batches.enemies` is constructed on it (`src/main.ts:173`), `grunt` is a tinted
 `orb.large`, `weaver` a `ring`, `turret` a `halo` (the base pack's
 `grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), and the boss `sentinel` is
 a `halo` drawn at 56×56 out of a 32px cell (`tools/make-base-pack.ts:742-745`).
@@ -433,7 +435,7 @@ ones, so a proposal has something to sit next to:
 |---|---|---|
 | `drift` | deep → lift | `(0.015, 0.022, 0.050)` → `(0.045, 0.075, 0.130)` (`drift.ts:36-37`) |
 | `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.020, 0.030, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.055, 0.090, 0.155)` (`expanse.ts:82-86`) |
-| `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:96-98`) |
+| `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:103-105`) |
 | `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) |
 | `undertow` | haze / wall deep / wall lift | `(0.018, 0.010, 0.030)`, `(0.026, 0.014, 0.044)`, `(0.100, 0.048, 0.150)` (`undertow.ts:86-88`) |
 
@@ -443,7 +445,7 @@ added, so it never lands at 0.155 on screen. This is not a stylistic preference
 about moodiness; see the constraint below.
 
 There is also a hard ceiling above these numbers. Bloom is on in the shipped game
-— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:139`
+— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:209`
 passes `{ enabled: true }` — with a threshold of `0.95`
 (`src/render/post.ts:171-173`), chosen to catch bullet cores
 and nothing else. A background that approached it would bloom, and the bloom
@@ -524,7 +526,7 @@ Two properties of the particle system that constrain what those cells can be:
   to whatever is under it. Anything that relies on occluding the background will
   not read; luminance is the only channel doing work.
 - **Everything scales, and the quad size is hardcoded.** A particle is drawn at
-  `32 * p.scale` on both axes (`src/main.ts:332-333`) — the cell size is assumed,
+  `32 * p.scale` on both axes (`src/main.ts:449-450`) — the cell size is assumed,
   not read from the atlas. `death.big` runs from 1.6× down to 0.3× across its
   life (`src/sim/effects.ts:319`), so `glow.large` is drawn anywhere between
   51px and 10px. Detail that only exists at one size is wasted at both ends.

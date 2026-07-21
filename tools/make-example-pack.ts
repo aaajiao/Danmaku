@@ -122,8 +122,9 @@ const star = (outer: number, inner: number, points: number): Shape => (dx, dy) =
  * `kunai`, `scale`, `shard`, `needle`, `petal` are the sheet's directional
  * cells — every one tapers along +x (`wedgeRight`/`rhombusAxis`), matching
  * rule 7 and what `orientToHeading` content actually does with `kunai`,
- * `scale` and `needle` (`src/content/stage-2.ts`, `src/content/shots.ts`,
- * `src/sim/boss.ts`). Everything else is rotation-symmetric, so it reads the
+ * `scale` and `needle` (the base pack's enemy, boss and shot cards in
+ * `src/packs/base-pack.json`, authored by `tools/make-base-pack.ts`).
+ * Everything else is rotation-symmetric, so it reads the
  * same whichever way the shader happens to turn it.
  *
  * Every reach below is measured by eye against `MAX_CELL_EXTENT` (28, a 32px

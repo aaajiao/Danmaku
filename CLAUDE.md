@@ -342,8 +342,8 @@ it; it contributes **no campaign row and no replay meta** — its entry stage ta
 the plain START row and it joins neither `packs` nor `packsData`, exactly as
 engine-defined content did, which is why the port declares no replay divergence;
 and a validation failure **throws at boot** rather than warning, because a broken
-base pack is a build defect, not a user-file problem. `docs/packs.md` §Bundled
-pack is the reference.
+base pack is a build defect, not a user-file problem. `docs/packs.md` §9.7 (The
+bundled base pack) is the reference.
 
 **A registry only has what something imported.** A module nobody imports never
 runs, so its `define*` calls never happen and the name resolves to nothing at the

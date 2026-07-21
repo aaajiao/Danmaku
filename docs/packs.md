@@ -175,8 +175,10 @@ in the message.
 
 ### 4.1 A complete worked example
 
-This is `packs/example/pack.json`, which declares every v1 field a pack commonly
-uses:
+This is the presentation half of `packs/example/pack.json` — the fields a
+reskin commonly uses. The real file carries more than what is shown here: it
+goes on to declare `music` (§6.5a), `portraits` (§6.5b), and a `requires` plus
+a full `content` section (§9), each covered where its tier is introduced:
 
 ```json
 {
@@ -617,7 +619,7 @@ substitutions (a stage's `entry`/`next`, a boss card's `hpSeconds`, a character'
 `shot` by name), and name resolution that runs pack-first (§9.3).
 
 `packs/example/` is the reference and carries one of every section: two enemies
-(`ember` and the minimal `drone`), a boss (`pyre`, two phases), a shot
+(`ember` and the minimal `drone`), a boss (`pyre`, three phases), a shot
 (`emberbolt`), options (`emberwing`), a bomb (`firestorm`), a character (`raider`,
 equipping all three), an effect (`cinder`), an item (`relic`), and a two-stage
 campaign (`gauntlet` → `ashfall`, which sends the built-in `sentinel` as a midboss

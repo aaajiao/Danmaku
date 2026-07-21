@@ -751,10 +751,10 @@ A boss is an enemy with a script: a sequence of `SpellCard` phases, each with it
 own health, clock, movement and fire.
 
 `BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
-`tint`, `entry`, `onDeath`, `music` and `spoils` (`src/sim/boss.ts:135-198`). A
-`SpellCard` requires `name`, `hp`, `timeLimit` and `patterns`, and takes optional
-`difficulties`, `motion`, `timeline`, `bonus`, `isSpell` and `background`
-(`src/sim/boss.ts:71-122`).
+`tint`, `entry`, `onDeath`, `music`, `dialogue`, `dialogueFor` and `spoils`
+(`src/sim/boss.ts:135-198`). A `SpellCard` requires `name`, `hp`, `timeLimit`
+and `patterns`, and takes optional `difficulties`, `motion`, `timeline`,
+`bonus`, `isSpell`, `background` and `music` (`src/sim/boss.ts:71-122`).
 
 `music` names the theme this fight is scored to, by registered track name. It is
 **boss-level by default** — a fight enters with one theme and holds it across its
@@ -949,13 +949,14 @@ const hp = phaseHp(10);        // health a good player spends in 10 seconds
 const timeLimit = phaseClock(hp);  // the timer that health earns
 ```
 
-`phaseHp(seconds)` is `REFERENCE_DPS × seconds × 60`, and `REFERENCE_DPS` is
-**1.125** damage per tick — the rate a competent player sustains, measured by
-driving the real `Run`, not guessed. `phaseClock(hp)` is twice what that rate
-needs to spend the health (`CLOCK_MARGIN = 2`), so a good player finishes at the
-half-way mark and a weaker one times out; both are clears, and the gap between
-them is the difficulty curve. Timing out pays a quarter of the card's bonus, so
-outlasting a phase is a worse clear rather than a free one.
+`phaseHp(seconds)` is `REFERENCE_DPS × seconds × 60` rounded to a multiple of
+10, and `REFERENCE_DPS` is **1.125** damage per tick — the rate a competent
+player sustains, measured by driving the real `Run`, not guessed.
+`phaseClock(hp)` is twice what that rate needs to spend the health
+(`CLOCK_MARGIN = 2`), rounded up to a multiple of 10, so a good player finishes
+at the half-way mark and a weaker one times out; both are clears, and the gap
+between them is the difficulty curve. Timing out pays a quarter of the card's
+bonus, so outlasting a phase is a worse clear rather than a free one.
 
 **Every number here is derived, and a test holds it there.**
 `src/balance.test.ts` re-measures `REFERENCE_DPS` from every character ×
