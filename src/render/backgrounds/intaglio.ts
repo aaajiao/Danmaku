@@ -33,10 +33,11 @@
  * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
  * (0.0899) no longer describes this code.
  *
- *   - Peak luminance ~0.0899 [EST, pre-rebuild; re-measure]. Now the `invert=1`
- *     swap makes the engraved LINEWORK the dark CUTS in a lit interior disk (the
- *     incised die), the lines TRUE black; figure/ground reads clearly. Under 0.1
- *     is the acceptance bar, subject to the shared-GAIN re-measure (cordon binding).
+ *   - Peak luminance ~0.22-0.24 raw [MEASURED-IN-ACCEPTANCE], at the shared
+ *     `SEAL_GAIN` 3.6 (the 0.1 ceiling is retired). The `invert=1` swap makes the
+ *     engraved LINEWORK the dark CUTS in a lit interior disk (the incised die), the
+ *     lines TRUE black; figure/ground reads clearly. The arbiter is bullet
+ *     readability under a real curtain (cordon is the binding seal).
  *   - Device period: subordinate ring train ~112px analytic; every stroke uses the
  *     K=16 cross-section (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget;
  *     K-ceiling ~17.8) — union-bounded, no new frequency.

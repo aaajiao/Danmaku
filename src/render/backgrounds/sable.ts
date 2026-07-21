@@ -30,10 +30,11 @@
  * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
  * (0.0444) no longer describes this code.
  *
- *   - Peak luminance ~0.0444 [EST, pre-rebuild; re-measure], still the DARKEST
- *     stated seal by the dim GLOW and the small ring radius (0.22). The tight K=16
- *     strokes on the darkest field read as lines, not a smear. Well under 0.1 is
- *     the expected margin (shared-GAIN re-measure, cordon binding).
+ *   - Peak luminance ~0.12-0.15 raw [MEASURED-IN-ACCEPTANCE], at the shared
+ *     `SEAL_GAIN` 3.6 (the 0.1 ceiling is retired) — still the DARKEST stated seal
+ *     by the dim GLOW and the small ring radius (0.20). The tight K=16 strokes on
+ *     the darkest field read as lines, not a smear. The arbiter is bullet
+ *     readability under a real curtain.
  *   - Device period: subordinate ring train ~112px analytic across the smaller
  *     ring radius; every stroke uses the K=16 cross-section (sigma_f 0.00563 <
  *     0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8) — union-bounded.

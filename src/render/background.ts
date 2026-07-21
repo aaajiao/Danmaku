@@ -56,13 +56,25 @@
  * `uIntensity` and the cross-fade alpha. Prepend `BACKGROUND_NOISE_GLSL` if you
  * want the value-noise helpers the shipped backgrounds use.
  *
- * Keep it dark and keep it smooth. The play field has to stay readable on top,
- * which in practice means peak luminance around 0.1 and no detail fine enough to
- * be confused with a bullet. Every shipped background sits under that, and the
- * two perspective ones (`expanse`, `undertow`) additionally decay their
- * structured terms faster than their brightness, because a projection that runs
- * to infinity samples noise faster than the pixel grid can carry — and what that
- * aliases into looks exactly like sparse bullets.
+ * Bright enough to see, dark enough to play — 亮到能看,暗到能玩. The fixed
+ * "peak near 0.1" ceiling is RETIRED (see the shader-ports round): the diversity
+ * rounds proved the structure was present all along and only the ceiling made it
+ * invisible, so scenes now ship at their ported reference's native visual richness
+ * with a per-scene EXPOSURE constant tuned for playability. Structured peaks land
+ * in roughly the 0.25-0.35 raw band (the user-confirmed anchor, ~×3 the old
+ * ceiling), graded by role: the menu (`drift`) brightest, the stages a touch below
+ * to leave a bullet curtain its headroom, the seals a calmer boss station. What
+ * still binds every scene is not a number but four properties: per-tick luminance
+ * steps stay bounded (coherent motion, no strobing), no structure at a bullet's
+ * spatial frequency in the play band (a bright scene must not counterfeit
+ * bullets), and bullets/UI win the contrast fight (bullets are 1.0-white + bloom;
+ * the scene never approaches that). The exposure that ships is MEASURED in the
+ * acceptance pass — the density page and `bun run dev` under real curtains are the
+ * arbiter — and the numbers describe what shipped, they do not prescribe it. A
+ * scene that runs its projection to infinity (a spiral or perspective one) still
+ * decays its structured terms faster than its brightness, because a projection
+ * samples noise faster than the pixel grid can carry and what that aliases into
+ * looks exactly like sparse bullets.
  *
  * Written scenes live in `./backgrounds/`, one per file, imported by that
  * directory's index. Nothing in *this* file names a scene.
@@ -89,10 +101,12 @@
  *      and call `background.step()` inside the fixed-tick callback, next to the
  *      simulation step — **not** in the render callback.
  *
- *   2. `bun run dev`, open the page. The field must be a dark blue-grey cloud
- *      drifting steadily **downward**, brighter toward the bottom of the screen.
- *      Bullets and the player must read cleanly against it; if you find yourself
- *      losing a bullet, the shader is too bright or too detailed, not the sprite.
+ *   2. `bun run dev`, open the page. The menu field (`drift`) must be a lit,
+ *      rippling moonlit water — the brightest scene in the game — with the moon low
+ *      in the frame and the water filling the bottom. Whatever scene is up, bullets
+ *      and the player must read cleanly against it; if you find yourself losing a
+ *      bullet, the shader is too bright or too detailed in the play band, not the
+ *      sprite — lower that scene's EXPOSURE constant, or coarsen its structure.
  *
  *   3. **Draw order:** the background must be behind everything, including the
  *      HUD. If a sprite disappears behind it, it was added at a layer below
@@ -267,50 +281,44 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
  *
  * The field between strokes falls to a hair of wax floor (0.03·body, deep black);
  * the engraved linework reads bright by local contrast AND by spending the
- * luminance headroom the law leaves. Structure is `arc·(0.82·primary +
- * 0.18·device)` — a **weight-sum of 1.00** (down from the pre-rebuild
- * 0.90·ring + 0.20·inner·device ~= 1.10 sum), where `primary` is the engraved
- * union (`max(ring, linework)`, or the inverted/filled variants) at unit peak and
- * `device` is the subordinate `0.60·inner` ring train. The structure gain is
- * **1.35**, the single shared recalibration knob — shipped at 1.50 through the
- * rebuild, then dropped one rung down the pre-specified ladder when the live
- * sweep measured signet 0.101 / cordon 0.102 raw (compare page, crest phases).
+ * exposure the shader-ports law now allows. Structure is `arc·(0.82·primary +
+ * 0.18·device)`, where `primary` is the engraved union (`max(ring, linework)`, or
+ * the inverted/filled variants) at unit peak and `device` is the subordinate
+ * `0.60·inner` ring train. The single shared exposure knob is **SEAL_GAIN** (in
+ * the return, not this comment): raised from the retired peak~0.1 era's 1.35 to
+ * **3.6**, so the engraving crests VIVID rather than invisible.
  *
- * **Peak discipline (honest form).** The analytic ceiling drops from the
- * pre-rebuild 1.10 to **<=0.928** (`0.82·1 + 0.18·0.60`). BUT the union raises the
- * COVERAGE of `primary~=1` — the whole engraving, not a thin ring — so the
- * MEASURED peak shifts and is **not** peak-identical to the pre-rebuild seals.
- * The pre-rebuild MEASURED family (signet 0.0926 · cordon 0.0949 · intaglio
- * 0.0899 · regnum 0.0769 · sable 0.0444 · decree 0.0392 · umbra 0.0314) no longer
- * describes this code. The binding gate fired exactly as written: at GAIN=1.50
- * the acceptance sweep (test:scenes compare page, raw framebuffer, no bloom,
- * crest phases in frame) measured signet 0.101 and cordon 0.102 — over the law —
- * so the shared GAIN took the pre-specified ladder step 1.50→1.35. Post-drop
- * swept peaks (same instrument, 14s crest sweep): signet 0.0851 · cordon 0.0809 ·
- * intaglio 0.0776 · regnum 0.0721 · sable 0.0453 · umbra 0.0507 · decree 0.0440 —
- * all <0.1, and the 出神 dither-wave per-tick steps measured 0.0118 (umbra) /
- * 0.0137 (decree), back under the 0.02 temporal law (the GAIN=1.50 crest had
- * touched 0.022). These are compare-page raw numbers; the in-game
- * (bloom-on) family re-measure is due with the scene-diversity round that
- * rewrites the stage bodies. Remaining ladder rungs if a future change lands
- * wrong: per-scene GLOW, then scale strokes so `max(ring,star,spoke)` peaks at
- * 0.83. A scene tunes GLOW, not this floor.
+ * **The luminance law that governs this cell (shader-ports round).** The fixed
+ * "peak near 0.1" ceiling is RETIRED — the diversity rounds proved the structure
+ * was present all along and only the ceiling made it invisible (the same pixels at
+ * ×3 exposure are plainly distinct pictures). The seals now ship at the ported
+ * liquid-gold material's native richness: structured engraving peaks land near
+ * **~0.22-0.24 raw** (roughly ×3 the old ceiling, the user-confirmed anchor —
+ * 亮到能看,暗到能玩), graded a step below the stages so a boss station stays a
+ * calmer field than an open stage. What SURVIVES of the old law and still binds
+ * every seal: per-tick luminance steps stay bounded (the ratchet EASES over >=10
+ * ticks, the 出神 dither-wave steps stay small — no strobing); no structure at
+ * bullet spatial frequency in the play band (every stroke rides the ring's K=16
+ * cross-section, sigma_f 0.00563 < 0.00625 cyc/px); the boss-station centre stays
+ * relatively calmer than its surround (`body`'s nearC falloff); and bullets/UI win
+ * the contrast fight (bullets are 1.0-white + bloom; the engraving never
+ * approaches that). Every number here is **[MEASURED-IN-ACCEPTANCE]** — the
+ * arbiter is bullet readability over the live scene on the density page and in
+ * `bun run dev` under real curtains, recorded from whatever ships, never a target
+ * chosen in advance. If a seal reads too hot under a curtain, drop SEAL_GAIN;
+ * cordon (chartreuse, luminance-expensive) is the seal most likely to want it, and
+ * desaturating its G is the next rung.
  *
- * **Scene-diversity round (post the above): the swept family is superseded and
- * re-derived [EST].** That round spent the peak-neutral coverage axes the law
- * leaves free — it re-tuned per-seal ringRadius (spread 0.20-0.38, a size cue),
- * gave each seal a distinct bevelDir (the directional rake above), and hung one
- * <=1 secondary-material ornament in each stated seal's own body (cordon
- * field-lines, intaglio wet-ink ground, regnum kintsugi, sable wax ramp) — every
- * ornament max 1.0, so it can only LOWER the swept peak, never raise it. Several
- * seals also moved hue (GLOW): cordon->olive-chartreuse, intaglio->cool-ivory,
- * regnum->orange-crimson, umbra->cold blue-violet, decree->bleached rose. So the
- * swept numbers above (signet 0.0851 ... decree 0.0440) still describe signet
- * exactly and bound the rest from ABOVE (the ornaments only subtract), but the
- * measured family for cordon/intaglio/regnum/umbra/decree is pending the round's
- * acceptance re-measure and is [EST] until then; per-seal derived worst-cases are
- * in each scene header. cordon is the binding seal (chartreuse is luminance-
- * expensive): if it re-measures over 0.1, desaturate its G first.
+ * **The peak-neutral coverage axes still hold.** Each seal keeps its own
+ * ringRadius (spread 0.20-0.38, a size cue), a distinct bevelDir (the directional
+ * rake), a distinct hue (GLOW), and one <=1 secondary-material ornament in its own
+ * body (cordon banded field, intaglio wet-ink ground, regnum cellular seams, sable
+ * wax ramp) — every ornament max 1.0, so it only ever LOWERS the local value,
+ * never raises the crest. All four ornaments are value-ramp / threshold / cellular
+ * fields in the liquid-gold and ink-dissolve families (the user-given refs); none
+ * scripts a rule. Seal hues: signet gold, cordon olive-chartreuse, intaglio
+ * cool-ivory, sable oxblood, regnum orange-crimson; umbra cold blue-violet, decree
+ * bleached rose.
  *
  * ## The engraved ring, and why it stays bullet-coarse
  *
@@ -659,15 +667,21 @@ export const SEAL_GLSL = /* glsl */ `
     float outer = 1.0 - smoothstep(ringRadius, ringRadius + 0.16, r);
     float body = nearC * nearTop * outer;
 
-    /* THE INVERSION: a hair of wax floor (0.03), structure lifts it. The field
-       between strokes falls to ~BASE (deep black); the engraving reads as bright
-       linework by local contrast AND by peak. GAIN stays 1.50 — the single shared
-       recalibration knob; the union raises the COVERAGE of primary~=1 (the whole
-       engraving, not a thin ring), so the analytic ceiling drops to <=0.928 but
-       the MEASURED peak shifts and must be re-measured all seven, cordon
-       (shipped 0.0949) the binding constraint. See the header's peak-discipline
-       section. */
-    return body * (0.03 + 1.35 * structure) * beat;
+    /* THE INVERSION: a hair of wax floor (0.03·GLOW, deep black) that structure
+       lifts. The field between strokes stays near-black; the engraving reads as
+       bright pressed-gold linework by local contrast AND by spending the exposure
+       the shader-ports law now allows. SEAL_GAIN is the single shared exposure
+       knob for the family — raised from the retired peak~0.1 era's 1.35 to 3.6, so
+       the engraving crests VIVID (structured peak ~0.22-0.24 raw, roughly x3 the
+       old ceiling — the user-confirmed anchor). The boss-station centre stays
+       calmer than its surround through the body nearC falloff, so the bright sprite
+       still wins the void. The 出神 pair rides the same gain but multiplies far
+       back down (its beat floor, its dither and eclipse/pull), so it is always
+       relatively dimmer than the seal it drifts from. Numbers are
+       [MEASURED-IN-ACCEPTANCE]; the empirical arbiter is bullet readability under a
+       real curtain, not this constant. */
+    const float SEAL_GAIN = 3.6;
+    return body * (0.03 + SEAL_GAIN * structure) * beat;
   }
 `;
 

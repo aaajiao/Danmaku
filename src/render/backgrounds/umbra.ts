@@ -72,12 +72,12 @@
  * consumer: `__background.name === 'umbra'` polled twice inside a live Lunatic
  * "Total Eclipse", the same card that swaps the music to `zenith`.
  *
- *   - Peak luminance ~0.0314 [EST, pre-rebuild; re-measure]. The never-brighter
- *     doctrine binds umbra to its PARENT seal, signet, not to its own prior value:
- *     the eclipse, moiré, down-only dither AND the new §6 vortex `pull` (all <= 1)
- *     multiply the calibrated cell far back down, so the peak can only fall below
- *     signet's. The engraved union may raise coverage before those multipliers, so
- *     re-measure in acceptance; margin under signet expected to stay wide.
+ *   - Peak luminance ~0.13-0.16 raw [MEASURED-IN-ACCEPTANCE], at the shared
+ *     `SEAL_GAIN` 3.6 (the 0.1 ceiling is retired). The never-brighter doctrine
+ *     binds umbra RELATIVELY to its PARENT seal signet, not to a fixed number: the
+ *     eclipse, moiré, down-only dither AND the vortex `pull` (all <= 1) multiply
+ *     the shared cell back down, so umbra always crests below signet's ~0.23. The
+ *     arbiter is bullet readability under a real curtain; the pair stays dimmer.
  *   - Device period: subordinate ring train ~112px analytic, unchanged from signet.
  *   - Moire beat ~620px analytic ((2*pi/|42.48-36|)*640), one beat across the
  *     field, far coarser than the ring — the pattern swims, coherence moves while

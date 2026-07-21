@@ -24,18 +24,20 @@
  * As with `umbra`: the 出神 threshold is crossed by coherence and motion, never
  * luminance. The moiré is RADIAL-ONLY (non-integer detune safe on `r`, no crack;
  * beat far longer than either ring; angular spokes stay INTEGER 6) and only
- * multiplies down. `decree` is bounded by the seal FAMILY's readability budget
- * (peak well under 0.1) — the doctrine that protects the fullest screen — not by
- * each fight's own seal. It stays below `regnum` (measured 0.057), the seal its
- * crimson is bleached from and which it shares with the regent. But `decree` is
- * ONE scene serving TWO fights: in the chancellor fight the other seal is
- * `sable`, the DARKEST of the five (measured 0.032), and a single shared scene
- * cannot be dimmer than both a 0.057 and a 0.032 seal at once — so against
- * sable, `decree` (measured 0.038) sits brighter. This does not break the doctrine: the 出神 threshold there is
- * still crossed by coherence and motion, and readability holds because the peak
- * stays far under the 0.1 ceiling. Splitting `decree` into a second, dimmed
- * variant for the chancellor was rejected to keep the shared-fiat rhyme (one track
- * <-> one scene), exactly as the design chose.
+ * multiplies down. `decree` is bounded by the seal FAMILY's readability budget —
+ * the doctrine that protects the fullest screen — not by each fight's own seal,
+ * and that budget is now RELATIVE, not a fixed 0.1 ceiling (retired this round;
+ * see `background.ts` and the Numbers section below). It stays below `regnum`,
+ * the seal its crimson is bleached from and which it shares with the regent. But
+ * `decree` is ONE scene serving TWO fights: in the chancellor fight the other
+ * seal is `sable`, the DARKEST of the five, and a single shared scene cannot be
+ * dimmer than both regnum and sable at once — so against sable, `decree` sits
+ * brighter. This does not break the doctrine: the 出神 threshold there is still
+ * crossed by coherence and motion, and readability holds because the pair crests
+ * at the FAMILY BOTTOM (see Numbers) and the play band wins the contrast fight.
+ * Splitting `decree` into a second, dimmed variant for the chancellor was rejected
+ * to keep the shared-fiat rhyme (one track <-> one scene), exactly as the design
+ * chose.
  *
  * ## The quantized floor — 出神 dither
  *
@@ -47,9 +49,11 @@
  * crossed by coherence/motion, never luminance), DARK zones only (masked to
  * m < ~0.4, the bright ring stays smooth), traveling level wave on `uScroll`
  * (rule 1). Bullet-band safety is AMPLITUDE not period: the 12px cell overlaps the
- * band in period, so on this <=0.039 field the dark-zone posterization steps are
- * ~1.4% of a bullet's excursion. Highest-risk element of the round, gated on
- * `test:density` — gate PENDING live acceptance; the fallback raises
+ * band in period, but the DOWN-only steps live in the masked dark zones (m < ~0.4)
+ * where GLOW is small, so each posterization step stays a small fraction of a
+ * bullet's 1.0 excursion — the fraction scales with EXPOSURE, so it is measured,
+ * not asserted. Highest-risk element of the round, gated on
+ * `test:density` under a real curtain — gate PENDING live acceptance; the fallback raises
  * `SEAL_DITHER_CELL` 12 -> 16 and floors `SEAL_DITHER_MIN_LEVELS` at 3.0, each a
  * one-line change. (The moiré floor in the shared cell is 0.45, keeping the pair
  * clearly dimmer than the stated seals.)
@@ -80,12 +84,12 @@
  * shared-card wiring (chancellor "Sealed" + regent "Sine Die") is content,
  * verified in base-pack.json.
  *
- *   - Peak luminance ~0.0392 [EST, pre-rebuild; re-measure]. Below regnum's
- *     pre-rebuild 0.0769 — the 出神 pair sits at the bottom of the family with its
- *     parent doctrine intact (decree < regnum). The moiré, down-only dither AND the
- *     new §6 vortex `pull` (all <= 1) multiply the calibrated cell back down; the
- *     Bayer field is plainly visible in a still, which is the point. Re-measure in
- *     acceptance since the engraved union raises coverage before those multipliers.
+ *   - Peak luminance ~0.13-0.16 raw [MEASURED-IN-ACCEPTANCE], at the shared
+ *     `SEAL_GAIN` 3.6 (the 0.1 ceiling is retired). The 出神 pair sits at the
+ *     bottom of the family (decree crests below regnum's ~0.22): the moiré,
+ *     down-only dither AND the vortex `pull` (all <= 1) multiply the shared cell
+ *     back down, and the Bayer field is plainly visible in a still — the point of
+ *     the 出神 read. The arbiter is bullet readability under a real curtain.
  *   - Device period: subordinate ring train ~112px analytic.
  *   - Moire beat ~620px analytic ((2*pi/|42.48-36|)*640), one beat across the
  *     field, far coarser than the ring; the swim shares umbra's construction.

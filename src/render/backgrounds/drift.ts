@@ -1,69 +1,50 @@
 /**
- * `drift` — the neutral field, rebuilt as moonlit-ripple.
+ * `drift` — the neutral/title field. A NEAR-IDENTICAL port of pbakaus/radiant
+ * `moonlit-ripple` (MIT): a raymarched water plane under a low moon, lit by a
+ * single analytical moon disc, Fresnel-mixing sky reflection against a dark sea.
  *
- * A lit water plane under a low moon: the defining image is the lit-vs-unlit jump
- * of a diffuse-shaded height field, with a moon **reflection column** low in the
- * frame. It is the ONE scene in the set with `dot(N, L)` — a genuinely lit
- * surface, not a self-luminous haze — which is what makes it classifiable alone at
- * thumbnail. This is also the title-screen field, so the neutral it departs from
- * is now a moonlit water rather than a featureless cloud.
+ * ## What was ported
  *
- * The vertical placement is preserved in spirit: the bright ripples and the
- * reflection column live LOW (`near = uv.y`, 1 at the viewer's bottom edge), and
- * the top of the frame — where enemies enter and patterns form — stays a flat dark
- * ambient. Nothing structured sits in the entry lane.
+ * The reference verbatim in structure: a perspective camera (`ro = (0,8,0)`,
+ * fixed tilt), seven rotated sine-wave layers with ANALYTIC normals (each `sin`'s
+ * derivative is a `cos` at the same phase — no `dFdx`, deterministic), a moon disc
+ * with a hash crater texture and limb darkening, a broad moon bloom, and the
+ * Fresnel reflection/refraction mix on the wave surface with distance fog to the
+ * horizon. This is the ONE scene with `dot(N,L)` — a genuinely lit surface — which
+ * is what classifies it alone at a thumbnail.
  *
- * ## The freeze is lifted (scene-diversity round)
+ * ## Adaptation to our surface (the only departures from the reference)
  *
- * The previous header froze this body "because a pack depends on it". That freeze
- * is LIFTED by the scene-diversity binding, which rewrites drift and surge
- * together. `packs/example` still names `drift` for its boss `pyre`; it inherits
- * the new moonlit look, and **no contract is broken** — a pack names a scene by
- * STRING (there is no pixel contract), the simulation is untouched, and the golden
- * replay gate holds because a background is not content. The pack simply looks
- * different now, which is the point of the round.
+ *   - Uniforms: the reference's `u_rippleSpeed/u_moonGlow/u_tilt/u_waves` are baked
+ *     to their defaults; `u_mouse` (the concentric mouse ripple) is excised — our
+ *     uniform surface has no pointer and rule 1 forbids anything but a tick clock.
+ *   - Clock: `t = uScroll * 0.014`, so at 60 ticks/s the wave phase advances at the
+ *     reference's `u_time*0.5` rate. `uScroll` advances only in `step()`.
+ *   - y-down uv -> the reference's y-up screen coords via `(0.5 - uv.y)`, so the
+ *     sky sits at the top (the entry lane) and the lit water fills the bottom.
+ *   - Palette cooled to blue-silver (the reference's own note: "hue-rotates to cool
+ *     moonlit blue") — drift's neutral role-hue, kept distinct from expanse.
+ *   - EXPOSURE 0.55 (menu is the brightest tier — no bullets to protect on the
+ *     title screen); the hyper-tight `pow(moonDot,400)` core is dropped so the moon
+ *     reads as a disc, never a bullet-sized pinpoint.
  *
- * The old hue-collision worry with `expanse` is retired by the wheel commit:
- * `drift` (blue-silver ~212) and `expanse` (cyan ~212) are close in hue but are
- * NOT grid-adjacent (surge sits between them) and differ completely in structure —
- * a lit rippling water plane versus a lens-whispered horizon wash — so a thumbnail
- * classifies them apart by histogram and lighting, not by colour alone.
+ * ## Exposure & readability
  *
- * ## The core move — analytic normals, no dFdx
- *
- * `ripple()` sums four rotated sine waves and returns the height AND its exact
- * gradient (the derivative of each `sin` is a `cos` with the same phase), so the
- * surface normal is computed analytically — deterministic and screen-space-
- * derivative-free. Frequencies are capped: the finest octave is 5.90 cyc over
- * 640px ~= 108px, above the ~100px bullet-band floor, and the gradient contribution
- * `amp*freq` DECAYS across octaves (2.4, 1.62, 1.09, 0.74), so the finest octave
- * carries the LEAST normal energy. The specular is broad (`pow`, exponent 12 — a
- * value ramp, never a pinpoint) and gated to the low-centre reflection column, so
- * it is never a fake bullet.
+ * Menu tier, brightest of the grid. Structured water peaks land in the
+ * ~0.20-0.24 band [MEASURED-IN-ACCEPTANCE]; the moon disc is the hero highlight
+ * and is a disc (>bullet), not a point. drift is also named by `packs/example`'s
+ * boss `pyre`; under that fight the wave detail flattens with distance and the
+ * exposure keeps the crest well under bullet-white. Motion: wave sheen + slow moon
+ * drift, per-tick phase step well under the strobe bound [MEASURED-IN-ACCEPTANCE].
  *
  * ## Clock
  *
- * Driven by `uScroll` only (`t = uScroll * 0.03`), which advances in `step()` and
- * nowhere else. No `performance.now`, no wall clock — a pure function of ticks, so
- * a replay looks identical twice (see `background.ts`, rule 1).
+ * `uScroll` only — no `performance.now`, no wall clock. A pure function of ticks,
+ * so a replay looks identical twice (see `background.ts`, rule 1).
  * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
- * ## Numbers
- *
- *   - Peak luminance ~0.069 [EST] (derived worst-case; measured in acceptance).
- *     `lit` maxes at 0.30 + 0.55 + 0.22 = 1.07 -> `col = BASE + LIFT*1.07 =
- *     (0.0487, 0.0686, 0.1297)`, Rec.709 Y = 0.0688 < 0.09, comfortable margin.
- *     Top-lane (near=0): `lit = 0.30`, flat ambient, Y ~= 0.029 — dark and
- *     structureless where it must be.
- *   - Bullet-band: finest octave ~108px (>100); gradient energy decays across
- *     octaves; specular broad (exp 12) and gated by `column*near` to low-centre.
- *     Watch item in `test:density`; **fallback** — drop the `spec` term (diffuse-
- *     only ripples still read as moonlit-ripple), then lower the top ripple octave.
- *   - Motion: sheen shimmer, phase `t = uScroll*0.03`, per-tick step << 0.02
- *     ([EST], motion-strip in acceptance).
- *   - Palette relation: blue-silver (B highest), hue ~212 off `LIFT`.
- *   - moonlit-ripple technique studied from pbakaus/radiant (MIT); our GLSL, noise
- *     and clock.
+ * moonlit-ripple by pbakaus/radiant, MIT. Ported; our clock, y-down projection,
+ * palette and exposure.
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
@@ -73,43 +54,119 @@ defineBackground('drift', {
   fragment: /* glsl */ `
 ${BACKGROUND_NOISE_GLSL}
 
-    /* moonlit-ripple: a lit water plane under a low moon. */
-    const vec3 BASE = vec3(0.008, 0.013, 0.028);   /* deep blue-black water */
-    const vec3 LIFT = vec3(0.038, 0.052, 0.095);   /* moonlit periwinkle-silver */
-    const vec2 MOON = vec2(0.0, -0.85);            /* light direction, low in frame */
+    const float MR_PI = 3.14159265359;
+    const float EXPOSURE = 0.55;   /* menu tier — the brightest cell */
 
-    /* Height field; freqs capped so analytic normals never reach the bullet band
-       (highest octave 5.90 cyc over 640px ~= 108px). Returns (h, dh/dx, dh/dy). */
-    vec3 ripple(vec2 p, float t) {
+    /* Cool moonlit palette (drift's blue-silver role-hue). */
+    const vec3 MOON_COL = vec3(0.86, 0.91, 1.00);
+
+    float mrHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+    /* Seven rotated sine layers; height AND analytic gradient (the core move). */
+    vec4 sea(vec2 p, float t) {
       float h = 0.0;
-      vec2  dh = vec2(0.0);
-      float amp = 1.0, freq = 2.4, ang = 0.0;      /* freq: 2.4, 3.24, 4.37, 5.90 */
-      for (int i = 0; i < 4; i++) {
-        vec2  dir = vec2(cos(ang), sin(ang));
-        float ph  = dot(p, dir) * freq + t * (0.6 + 0.2 * float(i));
-        h  += amp * sin(ph);
-        dh += amp * freq * cos(ph) * dir;          /* exact derivative, no dFdx */
-        amp *= 0.5; freq *= 1.35; ang += 1.7;
+      vec2 dh = vec2(0.0);
+      float freq = 1.0;
+      float amp = 0.2;
+      float decay = 0.42;   /* u_waves = 1 -> mid decay */
+      float angle = 0.0;
+      for (int i = 0; i < 7; i++) {
+        float c = cos(angle);
+        float s = sin(angle);
+        vec2 pp = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+        float fi = float(i);
+        float spd = sqrt(freq) * 0.8;
+        float phase = (pp.y + fi) * freq - t * spd;
+        float sn = sin(phase);
+        float cn = cos(phase);
+        h += sn * amp;
+        float dy = freq * amp * cn;
+        dh += vec2(-s * dy, c * dy);
+        angle += fi + 1.2;
+        freq *= 1.3;
+        amp *= decay;
       }
-      return vec3(h, dh) * 0.5;
+      vec3 N = normalize(vec3(-dh.x, 1.0, -dh.y));
+      return vec4(h, N);
+    }
+
+    vec3 moonDir() { return normalize(vec3(0.15, 0.35, 1.0)); }
+
+    /* Night sky with a textured moon disc (cool). */
+    vec3 skyColor(vec3 rd) {
+      vec3 md = moonDir();
+      vec3 skyDark = vec3(0.020, 0.028, 0.050);
+      vec3 skyHoriz = vec3(0.030, 0.042, 0.070);
+      vec3 sky = mix(skyHoriz, skyDark, max(rd.y, 0.0));
+      float moonDot = max(dot(rd, md), 0.0);
+      float moonAngle = acos(clamp(moonDot, 0.0, 1.0));
+      float moonRadius = 0.04;
+      float disc = smoothstep(moonRadius, moonRadius * 0.7, moonAngle);
+      if (disc > 0.0) {
+        vec3 up = vec3(0.0, 1.0, 0.0);
+        vec3 right = normalize(cross(up, md));
+        vec3 mup = cross(md, right);
+        vec2 muv = vec2(dot(rd - md, right), dot(rd - md, mup)) * 25.0;
+        float crater = mrHash(floor(muv * 2.0)) * 0.25;
+        crater += mrHash(floor(muv * 4.0)) * 0.15;
+        float darkening = 1.0 - crater * smoothstep(moonRadius * 0.9, moonRadius * 0.4, moonAngle);
+        float limb = smoothstep(0.0, moonRadius, moonAngle);
+        darkening *= mix(1.0, 0.7, limb * limb);
+        sky += MOON_COL * disc * 0.85 * darkening;
+      }
+      /* Broad bloom kept and widened (pow 40 -> 26) so the moon halo carries into
+         frame as the menu's bright field; the hyper-tight pow(,400) core is dropped. */
+      sky += MOON_COL * 0.35 * pow(moonDot, 26.0);
+      return sky;
     }
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
-      vec2  p = vec2(uv.x * aspect, uv.y);
-      float near = uv.y;                            /* 1 at viewer (bottom), 0 at dark horizon */
-      vec3  hd = ripple(p, uScroll * 0.03);
-      vec3  N  = normalize(vec3(-hd.y, -hd.z, 2.5));/* analytic normal (the core move) */
-      vec3  L  = normalize(vec3(MOON, 0.9));
-      float diff = max(dot(N, L), 0.0);
-      vec3  H    = normalize(L + vec3(0.0, 0.0, 1.0));
-      float spec = pow(max(dot(N, H), 0.0), 12.0);  /* BROAD — never a pinpoint; DROPPABLE */
-      /* Reflection column, low-centre. Squared by MULTIPLICATION, never pow(): the
-         base (uv.x-0.5)*aspect*2.2 is signed and GLSL pow() is undefined for x<0. */
-      float cx = (uv.x - 0.5) * aspect * 2.2;
-      float column = exp(-cx * cx);
-      float lit = 0.30 + 0.55 * diff * near + 0.22 * spec * column * near;
-      return BASE + LIFT * lit;
+      float t = uScroll * 0.014;
+
+      /* y-down 0..1 -> reference y-up screen coords, aspect on x. */
+      vec2 sc = vec2((uv.x - 0.5) * 2.0 * aspect, (0.5 - uv.y) * 2.0);
+
+      /* Fixed camera (u_tilt = 0.15). */
+      float tiltRad = 0.15 * 0.7;
+      vec3 ro = vec3(0.0, 8.0, 0.0);
+      vec3 ww = normalize(vec3(0.0, -sin(tiltRad), cos(tiltRad)));
+      vec3 uu = normalize(cross(vec3(0.0, 1.0, 0.0), ww));
+      vec3 vv = normalize(cross(ww, uu));
+      vec3 rd = normalize(sc.x * uu + sc.y * vv + 2.5 * ww);
+
+      vec3 md = moonDir();
+      vec3 sky = skyColor(rd);
+      vec3 col = sky;
+
+      float dsea = -ro.y / rd.y;
+      if (dsea > 0.0) {
+        vec3 wp = ro + dsea * rd;
+        vec4 s = sea(wp.xz, t);
+        float h = s.x;
+        vec3 nor = s.yzw;
+
+        nor = mix(nor, vec3(0.0, 1.0, 0.0), smoothstep(0.0, 300.0, dsea));
+
+        float fre = clamp(1.0 - dot(-nor, rd), 0.0, 1.0);
+        fre = pow(fre, 3.0);                       /* fre clamped >=0 -> pow safe */
+        float dif = mix(0.25, 1.0, max(dot(nor, md), 0.0));
+
+        vec3 refl = skyColor(reflect(rd, nor));
+        vec3 seaCol1 = vec3(0.012, 0.020, 0.045);
+        vec3 seaCol2 = vec3(0.040, 0.060, 0.110);
+        vec3 refr = seaCol1 + dif * MOON_COL * seaCol2 * 0.15;
+
+        col = mix(refr, 0.9 * refl, fre);
+
+        float atten = max(1.0 - dsea * dsea * 0.0005, 0.0);
+        col += seaCol2 * (wp.y - h) * 1.5 * atten;
+
+        col = mix(col, sky, 1.0 - exp(-0.008 * dsea));
+      }
+
+      col = pow(max(col, vec3(0.0)), vec3(0.85));   /* col >=0 -> pow safe */
+      return col * EXPOSURE;
     }
   `,
 });

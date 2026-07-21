@@ -454,12 +454,21 @@ Two constraints bind every scene, and both are in `background.ts`'s header:
   A background on a wall clock desynchronises from a replay visually while every
   test stays green, because the simulation is untouched and nothing can notice.
   `backgrounds/index.test.ts` scans for wall-clock sources.
-- **Keep it dark and smooth** — peak luminance near 0.1, and no detail at a
-  bullet's spatial frequency. A perspective scene has a second reason: a
-  projection running to infinity samples noise faster than the pixel grid can
-  carry, and what that aliases into looks exactly like sparse bullets. `expanse`
-  and `undertow` therefore decay their structured terms much faster than their
-  brightness, so nothing is left to alias by the time the sampling rate breaks.
+- **亮到能看,暗到能玩 — bright enough to see, dark enough to play.** The fixed
+  "peak near 0.1" ceiling is RETIRED: the diversity rounds proved the structure
+  was present all along and only the ceiling made it invisible, so scenes ship at
+  their ported reference's native richness with a per-scene EXPOSURE constant,
+  structured peaks landing in roughly the 0.25-0.35 raw band (graded by role —
+  menu brightest, stages leaving a curtain its headroom, seals a calmer boss
+  station). The exposure that ships is MEASURED in acceptance (the density page
+  and `bun run dev` under real curtains are the arbiter); the numbers describe
+  what shipped, not the reverse. What still binds: bounded per-tick luminance
+  steps (coherent motion, no strobing), no structure at a bullet's spatial
+  frequency in the play band (a bright scene must not counterfeit bullets), and
+  bullets/UI winning the contrast fight (bullets are 1.0-white + bloom; the scene
+  never approaches that). A scene running its projection to infinity (a spiral or
+  perspective one) still decays its structured terms faster than its brightness,
+  or what that aliases into looks exactly like sparse bullets.
 
 GLSL `sin`/`cos` are used freely. Rule 3 binds `sim`, `content`, `core` and
 `game` because their results integrate into positions; these values reach the
@@ -609,7 +618,9 @@ the same question for a background; judge that in `bun run dev`. Compositing a
 scene into it would be the better tool and is not a small change: the page's
 automated half measures frame time, and a full-screen shader alters fill cost,
 so the scene would have to go into a readability-only panel rather than into the
-timed levels. Until then, a background is measured rather than judged — peak
-luminance near 0.1, and structure an order of magnitude coarser than a bullet.
-`expanse` measures 0.080 against a bullet's 1.0, with a band period near 117px
-against a 16–30px sprite.
+timed levels. Until then, a background's readability is judged in `bun run dev`
+under a real curtain, not against a fixed peak number: structured peaks now sit
+in roughly the 0.25-0.35 raw band (per-scene EXPOSURE, graded by role), well
+below a bullet's 1.0-white + bloom, with structure an order of magnitude coarser
+than a bullet. The number that ships is measured from whatever is on the quad,
+not a target set in advance.

@@ -35,12 +35,12 @@
  * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
  * (0.0949) no longer describes this code.
  *
- *   - Peak luminance ~0.0949 [EST, pre-rebuild; re-measure] — cordon was the
- *     brightest of the family and is **the binding constraint** for the shared
- *     GAIN: every seal must re-measure <0.1, and if any exceeds it the shared GAIN
- *     drops first (see background.ts SEAL_GLSL peak-discipline). The dropped floor
- *     makes the absent half of the picket DEEP BLACK, so "half a seal" reads as a
- *     hard bright arc, not a soft half-blob.
+ *   - Peak luminance ~0.22-0.24 raw [MEASURED-IN-ACCEPTANCE], at the shared
+ *     `SEAL_GAIN` 3.6. cordon is still **the binding constraint** of the family
+ *     (chartreuse is luminance-expensive): if any seal reads too hot under a real
+ *     curtain the shared gain drops first, and cordon's G desaturates next (see
+ *     background.ts SEAL_GLSL). The dropped floor makes the absent half of the
+ *     picket DEEP BLACK, so "half a seal" reads as a hard bright arc, not a blob.
  *   - Device period: subordinate ring train ~112px analytic; the lit half of the
  *     engraving uses the K=16 stroke cross-section (sigma_f 0.00563 < 0.00625
  *     cyc/px, ~90% of budget; K-ceiling ~17.8) — union-bounded, no new frequency.
@@ -71,11 +71,11 @@ ${SEAL_GLSL}
     const vec3 BASE = vec3(0.012, 0.013, 0.006);
     const vec3 GLOW = vec3(0.058, 0.078, 0.026);
 
-    /* magnetic-field: quantized dipole field-lines under the broken picket, the
-       reference read as a barrier that reads as a force diagram. DOWN-only (max
-       1.0). The seal centre stays PINNED at (0.5,0.42) so the boss-station void
-       does not move; the dipole gets its OWN internal pole offset here. Technique
-       studied from pbakaus/radiant magnetic-field (MIT); our GLSL, noise, clock. */
+    /* A banded confocal field under the broken picket — a barrier that reads as a
+       force diagram. DOWN-only (max 1.0), a value-ramp banding in the liquid-gold /
+       dither family (the user-given refs). The seal centre stays PINNED at
+       (0.5,0.42) so the boss-station void does not move; the band field gets its
+       OWN internal pole offset here. Our GLSL, noise, clock. */
     float fieldLines(vec2 uv, float aspect) {
       vec2 c = (uv - vec2(0.50, 0.40)) * vec2(aspect, 1.0);          /* internal to the ornament */
       float R = length(c - vec2(0.0, 0.16)) + length(c + vec2(0.0, 0.16)); /* confocal coord */

@@ -1,85 +1,56 @@
 /**
- * `stratum` — stage 3. Broad horizontal strata of settled record, scrolling
- * slowly downward as the player descends through them.
+ * `stratum` — stage 3. A NEAR-IDENTICAL port of pbakaus/radiant `dither-gradient`
+ * (MIT): a smooth flowing gradient field quantized through ordered dither and a
+ * traveling bit-depth wave, so "resolution bands sweep across the canvas" — which
+ * reads, at stage 3, as broad geological STRATA settling past the descent. The
+ * reference's own defining image (quantization as a visible class marker) IS the
+ * strata identity; this is the round's principled home for a slot no single
+ * user-given ref supplies natively.
  *
- * ## Lateral layering, the third of three spaces
+ * ## What was ported
  *
- * `expanse` is an open plane converging on a horizon; `undertow` is a shaft seen
- * from inside, both perspective scenes with a vanishing point. This one is
- * neither. It is flat, and it is horizontal: parallel bands of accumulated
- * sediment — the strata of authority the descent has been passing through —
- * stacked up the frame and settling downward past the viewer. Where the first
- * two levels convince the eye of depth, this one convinces it of *weight*: layer
- * on layer of what was decided before you arrived. That is a property of the
- * shape, not the palette.
+ * The reference verbatim in structure: the slowly-rotating three-center flowing
+ * `baseGradient`, the four dither algorithms (Bayer-8x8, halftone, diagonal line,
+ * cross-hatch) with FBM-drifting zone weights, the traveling bit-depth wave
+ * (`baseLevels = mix(2,32,waveMix)` — the resolution bands = strata), the
+ * per-channel chromatic dither separation, the band-edge emphasis and the
+ * vignette. The amber ramp is recoloured to verdigris.
  *
- * There is no perspective divide here, so no vanishing point and no radius clamp.
- * The near-far axis is simply the frame's own vertical: the bottom of the screen
- * is the stratum nearest the descent, the top is the oldest layer — and, not by
- * coincidence, the lane enemies enter through.
+ * ## Adaptation to our surface (the only departures from the reference)
  *
- * ## The seam, and why it cannot crack the way a tunnel's does
+ *   - Uniforms baked: `u_ditherScale` (1.0), `u_bitDepth` (1.0); `u_mouse` (the
+ *     analog-truth reveal and the halftone ring) is excised — no pointer (rule 1).
+ *   - The dither cell is coarsened to GAME px (`uv * fieldSize / DITHER_CELL`,
+ *     retina-independent like `sealDither`) instead of per-device-pixel
+ *     `gl_FragCoord`, so the ordered dither reads as textured banding, never as
+ *     per-pixel speckle in the bullet band. The reference's per-pixel FILM GRAIN
+ *     is dropped for the same reason.
+ *   - A gentle top-lane calm multiplies structure toward `uv.y=0` — a stage scene
+ *     must keep the entry lane dark and smooth; the reference fills uniformly.
+ *   - Clock: `t = uScroll * 0.011`, slowed below the reference's raw `u_time` rate
+ *     because an animated dither crawls (pixels flip between quantization levels) if
+ *     the underlying field moves fast — slowing it keeps the crawl coherent, not a
+ *     boil (the surviving no-strobing property). `uScroll` advances only in `step()`.
+ *   - Palette recoloured to verdigris (stage 3's role-hue), value ramp preserved.
+ *   - EXPOSURE 0.28 (stage 3, under a curtain).
  *
- * `undertow` had to fight an angular seam: sampling noise at `(angle, depth)`
- * cracks along the ray where `atan` wraps from +pi to -pi. There is no wrapped
- * coordinate here — the scroll is a plain vertical translation — so the class of
- * seam that discipline guards against does not exist. What remains is the milder
- * hazard that dust sampled directly against a raw scrolling coordinate would
- * shear across a band boundary. The fix is the same one `undertow` uses: build
- * the strata out of `sin`, which is smoothly periodic and continuous as a band
- * is born at the top and dies at the bottom, and sample the dust against that
- * band value rather than against the coordinate, so the grain rides the layers
- * instead of cutting across them.
+ * ## Exposure & readability
  *
- * ## Detail decays faster than light
- *
- * Same doctrine as the two perspective scenes, honoured here on the vertical
- * axis: brightness falls gently toward the top of the frame, but band sharpness
- * and dust fall off far faster (`near * near` against a linear light term), so
- * the finest rules have dissolved into a smooth dark well well before they reach
- * the crowded entry lane where a fine detail would alias into sparse bullets.
- *
- * ## Palette — verdigris / oxidised bronze
- *
- * Cold green-grey: tarnished seals, patinated metal, the colour of a record left
- * to age. Chosen relationally, exactly as `undertow` chose indigo. It is the
- * third of four stage scenes chosen to occupy four hue quadrants and four
- * geometry families: `expanse` cyan-ice / horizon line (R/G ~0.37 post-graft),
- * `undertow` indigo / vanishing point (B-high), this one verdigris / flat bands
- * (G-dominant, G/B ~1.1), `vault` gold / concentric dome (R/G ~1.4) — no two
- * mistaken for each other. And it must sit far from the RED of the seal its own
- * boss stamps: the chancellor's `sable` (oxblood, R/G ~3) is the maximum red-vs-
- * green opposition against this verdigris, so the stage-3 -> boss transition
- * reads as the fight changing gear, not the lights coming up. (`surge`'s red is
- * the same relation, but that comparandum is pack-only now — the base game no
- * longer cross-fades to it.)
+ * Stage-3 tier. The bright strata crest in the ~0.24-0.30 band
+ * [MEASURED-IN-ACCEPTANCE]. Dither safety is by AMPLITUDE, not period: it only
+ * toggles between adjacent quantization levels of a SMOOTH field, so each step is
+ * a small fraction of the local value, and the bit-depth wave carries more levels
+ * (finer steps) where the field is brighter. Motion: the resolution bands sweep
+ * and the gradient drifts, per-tick step under the strobe bound
+ * [MEASURED-IN-ACCEPTANCE].
  *
  * ## Clock
  *
- * Driven by `uScroll` only, which advances in `step()` and nowhere else. No
- * `performance.now`, no wall clock — the scene is a pure function of accumulated
- * ticks, so a replay looks identical twice (see `background.ts`, rule 1).
+ * `uScroll` only — no wall clock (see `background.ts`, rule 1);
+ * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
- * ## Numbers
- *
- * The tectonic fold-flow rebuild (§4.1) added a coarse domain warp and per-stratum
- * tone; figures are design-derived [EST], to be re-measured in acceptance.
- *
- *   - Peak luminance ~0.087 [EST] = the pre-rebuild ceiling: the warp only
- *     DISPLACES the band coordinate (luminance unchanged) and `tone` <= 1 only
- *     REDUCES some bands, so neither raises the ceiling. Under the 0.1
- *     `background.ts` asks for.
- *   - Band period ~112px analytic (`BAND_FREQ` 36 over 640px, ~six strata) — an
- *     order coarser than a 16-30px bullet. The warp is >= full-frame scale
- *     (WARP_FREQ 0.9) and `tone` is piecewise-constant per band (keyed to the band
- *     INDEX), so neither introduces a new spatial frequency.
- *   - Motion: fold-flow ~52px/120t (the signature — folds visibly migrate) + band
- *     settle ~71t/band (secondary). [EST, motion-strip in acceptance.]
- *   - Palette relation: green-dominant (G/B ~1.1, red lowest) against its boss seal
- *     `sable`'s red (oxblood), the maximum red-vs-green opposition, so the
- *     spell-card cross-fade reads as the hue turning over, not the lights coming
- *     up.
- *   - Painted-strata studied from pbakaus/radiant (MIT); our GLSL.
+ * dither-gradient by pbakaus/radiant, MIT. Ported; our clock, coarse game-px
+ * cells, top-lane calm, verdigris palette, exposure ours.
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
@@ -89,74 +60,155 @@ defineBackground('stratum', {
   fragment: /* glsl */ `
 ${BACKGROUND_NOISE_GLSL}
 
-    /* Bands per screen height. 36 puts about six broad strata across the frame
-       (36 / 2pi), each spanning roughly a sixth of the 640px field — about
-       112px. Unlike undertow's flute count this need not be an integer: there is
-       no angular wrap to close, only a vertical scroll, so any value stays
-       smooth. */
-    const float BAND_FREQ = 36.0;
+    const float DG_PI = 3.14159265;
+    const float DG_TAU = 6.28318530718;
+    const float EXPOSURE = 0.28;      /* stage 3 — under a curtain */
+    const float DITHER_CELL = 6.0;    /* GAME px per dither cell (coarse, retina-free) */
 
-    /* Settle rate: at scrollSpeed 0.7 the band phase advances BAND_FREQ *
-       SCROLL_RATE * 0.7 = 0.0882 rad/tick, so one stratum passes a fixed row
-       about every 71 ticks — the secondary motion under the fold-flow. */
-    const float SCROLL_RATE = 0.0035;
+    float dgHash(vec2 p) {
+      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+      p3 += dot(p3, p3.yzx + 33.33);
+      return fract((p3.x + p3.y) * p3.z);
+    }
+    float dgNoise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(dgHash(i), dgHash(i + vec2(1.0, 0.0)), f.x),
+                 mix(dgHash(i + vec2(0.0, 1.0)), dgHash(i + vec2(1.0, 1.0)), f.x), f.y);
+    }
+    float dgFbm(vec2 p) {
+      float v = 0.0, a = 0.5;
+      mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+      for (int i = 0; i < 4; i++) { v += a * dgNoise(p); p = rot * p * 2.0 + vec2(100.0); a *= 0.5; }
+      return v;
+    }
 
-    /* Tectonic fold-flow — the signature motion. A coarse domain warp folds the
-       band coordinate and migrates it laterally. WARP_FREQ 0.9 keeps folds at
-       >= full-frame scale (never bullet-fine); WARP_AMP 0.075 displaces the band
-       coord by <= +/-24px; WARP_RATE migrates the folds ~52px / 120 ticks. */
-    const float WARP_FREQ = 0.9;
-    const float WARP_AMP  = 0.075;
-    const float WARP_RATE = 0.0009;
+    /* Bayer 8x8 via three recursive 2x2 levels (WebGL1-safe, no array). */
+    float bayer8(vec2 p) {
+      vec2 fp = floor(mod(p, 8.0));
+      float val = 0.0;
+      float bx = step(4.0, fp.x), by = step(4.0, fp.y);
+      float b = bx * 2.0 * (1.0 - by) + (1.0 - bx) * 3.0 * by + bx * by * 1.0;
+      val += b * 16.0;
+      float mx = mod(fp.x, 4.0), my = mod(fp.y, 4.0);
+      bx = step(2.0, mx); by = step(2.0, my);
+      b = bx * 2.0 * (1.0 - by) + (1.0 - bx) * 3.0 * by + bx * by * 1.0;
+      val += b * 4.0;
+      float lx = mod(fp.x, 2.0), ly = mod(fp.y, 2.0);
+      bx = step(1.0, lx); by = step(1.0, ly);
+      b = bx * 2.0 * (1.0 - by) + (1.0 - bx) * 3.0 * by + bx * by * 1.0;
+      val += b;
+      return val / 64.0;
+    }
+    float halftone(vec2 p, float size) {
+      vec2 cell = floor(p / size) * size + size * 0.5;
+      return clamp(length(p - cell) / (size * 0.5), 0.0, 1.0);
+    }
+    float lineDither(vec2 p, float size) { return mod(p.x + p.y, size) / size; }
+    float crossHatch(vec2 p, float size) {
+      return min(mod(p.x + p.y, size) / size, mod(p.x - p.y, size) / size);
+    }
+    float ditherQuantize(float val, float levels, float threshold) {
+      float stepped = floor(val * levels) / levels;
+      float next = stepped + 1.0 / levels;
+      return fract(val * levels) > threshold ? next : stepped;
+    }
 
-    /* Verdigris / oxidised bronze — cold green-grey. See the header for why the
-       hue is chosen against expanse's ice-blue, undertow's indigo, and above all
-       surge's red. */
-    const vec3 HAZE = vec3(0.005, 0.014, 0.013);   /* was (0.006,0.014,0.012) */
-    const vec3 DEEP = vec3(0.009, 0.022, 0.021);   /* was (0.010,0.022,0.019) */
-    const vec3 LIFT = vec3(0.028, 0.082, 0.078);   /* teal 175; was (0.035,0.082,0.070) */
+    /* Flowing gradient field, verdigris ramp. */
+    vec3 baseGradient(vec2 uv, float t) {
+      float angle = t * 0.05;
+      mat2 rot = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+      vec2 ruv = rot * uv;
+      vec2 c1 = vec2(0.35 * sin(t * 0.07), 0.25 * cos(t * 0.09));
+      vec2 c2 = vec2(-0.3 * cos(t * 0.06 + 1.0), 0.3 * sin(t * 0.08 + 2.0));
+      vec2 c3 = vec2(0.2 * sin(t * 0.11 + 3.0), -0.35 * cos(t * 0.05 + 1.5));
+      float d1 = length(ruv - c1), d2 = length(ruv - c2), d3 = length(ruv - c3);
+      float a1 = atan(ruv.y - c1.y, ruv.x - c1.x);
+      float a2 = atan(ruv.y - c2.y, ruv.x - c2.x);
+      float g1 = sin(d1 * 3.0 - t * 0.15 + a1 * 0.5) * 0.5 + 0.5;
+      float g2 = cos(d2 * 2.5 + t * 0.12 - a2 * 0.3) * 0.5 + 0.5;
+      float g3 = sin(d3 * 4.0 + t * 0.1 + d1 * 2.0) * 0.5 + 0.5;
+      float warp = dgFbm(ruv * 2.0 + t * 0.05) * 0.3;
+      float f = clamp(g1 * 0.4 + g2 * 0.35 + g3 * 0.25 + warp, 0.0, 1.0);
+      /* Verdigris / oxidised bronze ramp. */
+      vec3 col0 = vec3(0.020, 0.045, 0.038);
+      vec3 col1 = vec3(0.060, 0.170, 0.140);
+      vec3 col2 = vec3(0.210, 0.440, 0.360);
+      vec3 col3 = vec3(0.560, 0.800, 0.640);
+      vec3 col;
+      if (f < 0.33) col = mix(col0, col1, f / 0.33);
+      else if (f < 0.66) col = mix(col1, col2, (f - 0.33) / 0.33);
+      else col = mix(col2, col3, (f - 0.66) / 0.34);
+      return col;
+    }
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
+      /* Reference centred coord; y-down retained (the strata scroll vertically). */
+      vec2 sc = vec2((uv.x - 0.5) * aspect, (uv.y - 0.5));
+      float t = uScroll * 0.011;   /* slowed below the reference rate: the animated
+                                      dither crawls (pixels flip levels) if the field
+                                      moves fast — slow it so the crawl stays coherent */
 
-      /* The near-far axis is the frame's own vertical: 1 at the near bottom, 0 at
-         the far top. Structure is spent along it; brightness far less so. */
-      float near = uv.y;
+      vec3 smoothColor = baseGradient(sc, t);
 
-      /* The fold: a coarse migrating warp added to the band coordinate. It only
-         DISPLACES the phase — luminance is unchanged — so the strata visibly
-         fold and flow without brightening. */
-      float warp = bgFbm(vec2(uv.x * aspect * WARP_FREQ, uv.y * WARP_FREQ - uScroll * WARP_RATE));
+      /* Coarse game-px cell coords (retina-free), never per-device-pixel. */
+      vec2 ditherCoord = uv * vec2(480.0, 640.0) / DITHER_CELL;
 
-      /* Scroll subtracts, so a fixed stratum drifts to larger uv.y over time --
-         the record settling downward past the viewer -- plus the fold offset. */
-      float along = near - uScroll * SCROLL_RATE + WARP_AMP * (warp - 0.5);
+      float regionNoise = dgFbm(sc * 1.5 + t * 0.04);
+      float regionNoise2 = dgFbm(sc * 2.0 - t * 0.03 + vec2(50.0));
+      float zoneBayer = smoothstep(0.3, 0.6, regionNoise);
+      float zoneHalftone = smoothstep(0.4, 0.7, regionNoise2);
+      float zoneLine = smoothstep(0.35, 0.65, sin(regionNoise * DG_TAU + t * 0.2) * 0.5 + 0.5);
+      float zoneCross = 1.0 - zoneBayer;
+      float tw = zoneBayer + zoneHalftone + zoneLine + zoneCross + 0.001;
+      zoneBayer /= tw; zoneHalftone /= tw; zoneLine /= tw; zoneCross /= tw;
 
-      /* The strata. sin is smoothly periodic, so a band is continuous as it is
-         born at the top and dies at the bottom — nothing here can crack the way a
-         tunnel's angular seam can, because there is no wrapped coordinate. */
-      float bands = 0.5 + 0.5 * sin(along * BAND_FREQ);
+      /* Traveling bit-depth wave — the resolution bands = strata. */
+      float waveAngle = t * 0.08;
+      vec2 waveDir = vec2(cos(waveAngle), sin(waveAngle));
+      float wavePos = dot(sc, waveDir);
+      float wave1 = sin(wavePos * 4.0 - t * 0.3) * 0.5 + 0.5;
+      float wave2 = sin(dot(sc, vec2(sin(t * 0.05), cos(t * 0.07))) * 6.0 + t * 0.2) * 0.5 + 0.5;
+      float waveMix = wave1 * 0.6 + wave2 * 0.4;
+      /* Coarsest level floored at 4 (not the reference's 2): on the darkest bands a
+         2-level flip is the largest per-tick dither step (the crawl); 4 halves it. */
+      float baseLevels = max(mix(4.0, 32.0, waveMix), 4.0);
 
-      /* Per-stratum tone, keyed to the band INDEX so it is piecewise-constant per
-         band (never a new spatial frequency). tone <= 1, so it only ever REDUCES
-         some bands -- luminance ceiling protected. The 0.25 index bias parks the
-         step in the band trough so it never pops on a crest. */
-      float bIdx = floor(along * BAND_FREQ / 6.2831853 + 0.25);
-      float tone = 0.6 + 0.4 * bgHash(vec2(bIdx, 3.0));
+      vec2 offsetR = vec2(0.0), offsetG = vec2(2.7, 1.3), offsetB = vec2(-1.5, 3.1);
+      float threshR = bayer8(ditherCoord + offsetR) * zoneBayer
+                    + halftone(ditherCoord + offsetR, 8.0) * zoneHalftone
+                    + lineDither(ditherCoord + offsetR, 6.0) * zoneLine
+                    + crossHatch(ditherCoord + offsetR, 6.0) * zoneCross;
+      float threshG = bayer8(ditherCoord + offsetG) * zoneBayer
+                    + halftone(ditherCoord + offsetG, 8.0) * zoneHalftone
+                    + lineDither(ditherCoord + offsetG, 6.0) * zoneLine
+                    + crossHatch(ditherCoord + offsetG, 6.0) * zoneCross;
+      float threshB = bayer8(ditherCoord + offsetB) * zoneBayer
+                    + halftone(ditherCoord + offsetB, 8.0) * zoneHalftone
+                    + lineDither(ditherCoord + offsetB, 6.0) * zoneLine
+                    + crossHatch(ditherCoord + offsetB, 6.0) * zoneCross;
 
-      /* Dust between the strata, sampled against the band value rather than the
-         raw coordinate so it rides the layers instead of shearing across them --
-         the same trick undertow uses to keep grain seamless. */
-      float grain = bgFbm(vec2(uv.x * aspect * 2.0, bands * 3.0 + along * 1.4));
+      float levelsR = baseLevels, levelsG = baseLevels * 1.15, levelsB = baseLevels * 0.85;
+      vec3 ditheredColor;
+      ditheredColor.r = ditherQuantize(smoothColor.r, levelsR, threshR);
+      ditheredColor.g = ditherQuantize(smoothColor.g, levelsG, threshG);
+      ditheredColor.b = ditherQuantize(smoothColor.b, levelsB, threshB);
 
-      /* Brightness falls gently toward the top; detail falls far faster, so the
-         finest rules have dissolved into a smooth dark well before they reach the
-         crowded entry lane where they would alias into sparse bullets. */
-      float light = 0.30 + 0.70 * near;
-      float detail = near * near;
+      vec3 finalColor = ditheredColor;
+      float bandEdge = abs(fract(waveMix * 4.0) - 0.5) * 2.0;
+      bandEdge = smoothstep(0.85, 1.0, bandEdge);
+      finalColor += vec3(0.03, 0.08, 0.06) * bandEdge;
 
-      vec3 lit = DEEP + LIFT * (0.30 + detail * (0.42 * grain + 0.28 * bands * tone));
-      return mix(HAZE, lit, light);
+      float vig = clamp(1.0 - dot(sc * 0.85, sc * 0.85), 0.0, 1.0);
+      vig = pow(vig, 0.4);
+      finalColor *= vig;
+
+      /* Top-lane calm: a stage scene keeps the entry lane dark and smooth. */
+      float nearLane = smoothstep(0.0, 0.28, uv.y);
+      finalColor *= 0.35 + 0.65 * nearLane;
+
+      return max(finalColor, 0.0) * EXPOSURE;
     }
   `,
 });

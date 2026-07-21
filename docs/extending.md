@@ -1759,11 +1759,17 @@ The rule bans the approximated `Math` functions from `sim`, `content`, `core` an
 `game` because their results integrate into positions and eventually flip a hit test.
 These values reach the framebuffer and stop.
 
-**Dark and smooth.** The play field has to stay readable on top, which in
-practice means peak luminance around 0.1 and no detail fine enough to be confused
-with a bullet. `expanse` peaks near 0.09 and `undertow` near 0.07. If you find
-yourself losing a bullet against a background, the shader is too bright or too
-detailed — the sprite is not the problem.
+**Bright enough to see, dark enough to play — 亮到能看,暗到能玩.** The play field
+has to stay readable on top, and no detail may be fine enough to be confused with
+a bullet. The old fixed "peak near 0.1" ceiling is RETIRED (see the shader-ports
+round and `background.ts`): the diversity rounds proved the structure was present
+all along and only the ceiling made it invisible. Scenes now ship at their ported
+reference's native richness with a per-scene `EXPOSURE` constant, structured peaks
+landing in roughly the 0.25-0.35 raw band (graded by role — menu brightest, stages
+a touch below, seals a calmer boss station). That number is MEASURED in the
+acceptance pass (the density page and `bun run dev` under real curtains), not
+prescribed. If you find yourself losing a bullet against a background, lower that
+scene's `EXPOSURE` or coarsen its detail — the sprite is not the problem.
 
 **Perspective scenes alias into fake bullets.** This is the one that catches
 people. A projection that runs to infinity — `depth = SCALE / (uv.y - HORIZON)`

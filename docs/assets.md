@@ -474,11 +474,14 @@ thing, running, with bullets on top of it.
 Both are gameplay constraints wearing art clothing, and both are already written
 down in the code.
 
-**Peak luminance near 0.1.** The play field has to stay readable on top of the
-background at all times. `src/render/background.ts:59-61` states it, and
-`expanse` records its own measurement in its header: that shader peaks around
-**0.09**. If you find yourself losing a bullet against a background, the shader
-is too bright — the sprite is not the thing to change.
+**Bright enough to see, dark enough to play — 亮到能看,暗到能玩.** The play field
+has to stay readable on top of the background at all times, but the old fixed
+"peak near 0.1" ceiling is RETIRED (see the shader-ports round). `background.ts`'s
+header now states the replacement: scenes ship at their ported reference's native
+richness with a per-scene `EXPOSURE` constant, structured peaks landing in roughly
+the 0.25-0.35 raw band, MEASURED in the acceptance pass rather than prescribed by a
+number chosen in advance. If you find yourself losing a bullet against a
+background, lower that scene's `EXPOSURE` — the sprite is not the thing to change.
 
 **No detail at a bullet's spatial frequency.** The shared value-noise helper
 runs **three octaves, not four**, and the comment says exactly why: the fourth

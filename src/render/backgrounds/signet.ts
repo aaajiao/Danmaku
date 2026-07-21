@@ -42,11 +42,10 @@
  * old rendering was "imperceptibly different from the old" is exactly what this
  * rebuild fixes; that narration is retired.)
  *
- *   - Peak luminance ~0.103 [EST] (design worst-case at GAIN=1.50, ~+11% over the
- *     pre-rebuild 0.0926). This is the family's binding-constraint watch — if it
- *     re-measures >0.1, drop the shared GAIN first (see background.ts SEAL_GLSL
- *     peak-discipline). Under the 0.1 `background.ts` asks for is the acceptance
- *     bar, not yet confirmed.
+ *   - Peak luminance ~0.22-0.24 raw [MEASURED-IN-ACCEPTANCE], at the retired-
+ *     ceiling era's ×3 exposure (shared `SEAL_GAIN` 3.6). The 0.1 ceiling is gone
+ *     (see background.ts SEAL_GLSL); the arbiter is bullet readability under a real
+ *     curtain. If a seal reads too hot, drop SEAL_GAIN — cordon is the binding one.
  *   - Device period: the subordinate ring train is (2*pi/36)*640 ~= 112px
  *     analytic. Every stroke (ring, hexagram, ray) uses the K=16 cross-section
  *     (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget; K-ceiling ~17.8) — no new

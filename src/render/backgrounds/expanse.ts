@@ -1,57 +1,51 @@
 /**
- * `expanse` — stage 1. An open plane running out to a high horizon.
+ * `expanse` — stage 1. A NEAR-IDENTICAL port of pbakaus/radiant `lens-whisper`
+ * (MIT): point lights seen through an anamorphic lens, each drawn as a
+ * horizontally-stretched streak with per-channel chromatic split and concentric
+ * bokeh-ring halos, drifting on slow Lissajous orbits over a near-black haze.
  *
- * ## Depth from projection, not from parallax
+ * ## What was ported
  *
- * `drift` fakes depth the cheap way: two noise layers scrolling at different
- * rates. It reads as *motion* and never quite as *distance*, because nothing in
- * it converges. This one does the actual perspective divide.
+ * The reference verbatim in structure: six lights with per-light hashed tints
+ * (cobalt, amber, teal, warm white, rose, cool white) on independent Lissajous
+ * orbits with noise perturbation and a subtle brightness pulse; per light the
+ * anamorphic streak (very wide in x, tight in y) with the warm-orange-left /
+ * cool-blue-right chromatic fringe, the secondary wider streak, and the two
+ * concentric bokeh-ring halos; the FBM haze field; and the compressive tonemap.
  *
- * For a screen point below the horizon, the plane it is looking at sits at
+ * ## Adaptation to our surface (the only departures from the reference)
  *
- *     depth = PLANE_SCALE / (uv.y - HORIZON)
+ *   - The tight Gaussian point CORE (`exp(-d*d*160)`) is DROPPED — a bright
+ *     bullet-sized pinpoint is exactly a fake bullet. The anamorphic streaks and
+ *     hollow bokeh rings (the actual lens-whisper identity) carry the picture.
+ *   - The lens-dust sparkle and film grain are DROPPED — both are per-pixel
+ *     high-frequency terms that read as speckle/bullets in the play band.
+ *   - The two bokeh-ring walls are broadened (`3500->520`, `5000->380`) so the
+ *     ring sits bullet-COARSE rather than at ~6px; the streak's y-tightness is
+ *     eased likewise. Everything else is the reference.
+ *   - Uniforms baked: `u_flareSpread` (1.0), `u_driftSpeed` (0.5 -> the clock);
+ *     `u_mouse` (the cursor light) is excised.
+ *   - Clock: `t = uScroll * 0.012`, matching the reference's `u_time*0.5` rate at
+ *     60 ticks/s. `uScroll` advances only in `step()`.
+ *   - EXPOSURE 0.42 over the compressive tonemap: stage 1 opens the game, so it is
+ *     the dimmest of the "own picture" scenes and leaves the most curtain headroom
+ *     of the stages — the field is near-black between flares.
  *
- * which is the standard y-over-w inversion: depth runs to infinity at the
- * horizon line and shrinks to nothing at the viewer's feet. Feeding that back
- * into the horizontal coordinate — `x * depth` — is what makes the same world
- * width cover fewer and fewer pixels as it recedes. Everything converges on one
- * vanishing line, which is the cue the brain actually reads as space.
+ * ## Exposure & readability
  *
- * Scroll is added to the depth axis, so features are born at the horizon and
- * flow toward the player. The field falls toward you rather than past you.
+ * Stage-1 tier. Bright streaks crest in the ~0.25-0.33 band, the near-black haze
+ * between them far below [MEASURED-IN-ACCEPTANCE]. No tight cores, no per-pixel
+ * terms; the sharpest surviving feature (a bokeh ring wall) is broadened to
+ * bullet-coarse. Motion: lens drift + ring breathe, per-tick step under the strobe
+ * bound [MEASURED-IN-ACCEPTANCE].
  *
- * ## Why the far half is deliberately empty
+ * ## Clock
  *
- * Two independent reasons, and they happen to want the same thing.
+ * `uScroll` only — no wall clock (see `background.ts`, rule 1);
+ * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
- * The gameplay one: the top of the screen is where enemies enter and where the
- * densest patterns form. It has to be the darkest, least detailed part of the
- * frame, or bullets get lost in it. `background.ts` states the constraint —
- * peak luminance near 0.1, no detail at a bullet's spatial frequency. The kept
- * perspective plane measured 0.080 at the crest pre-rebuild; the lens-whisper
- * layer is now added over it (§4.3), so the crest shifts — analytic worst-case
- * ~0.093 [EST], to be re-measured in acceptance. `GROUND_LIFT` G is trimmed
- * 0.104->0.092 to buy the lens its headroom, and the lens is `max`-composited so a
- * light can only reveal where the plane is darker, never stack over it. The lights
- * are confined to uv.y 0.35-0.50, clear of the top entry lane. Rib row-period
- * ~117px; lens streak ~30x107px and the bokeh ring is a hollow K=14 wall (sigma_f
- * 0.0050 < 0.00625) — no tight cores. Lens-whisper studied from pbakaus/radiant
- * (MIT); our GLSL.
- *
- * Motion: lens drift ~60px/120t lateral + ring breathe +-13px over ~200t — the
- * lens apparatus visibly drifts and pulses. [EST, motion-strip in acceptance.]
- *
- * The numerical one: as `uv.y` approaches the horizon, `depth` grows without
- * bound and adjacent pixels land arbitrarily far apart in world space. Sampling
- * noise there aliases into exactly the fine speckle that reads as bullets. So
- * `detail` decays much faster than `fog` does: the structured terms are gone
- * well before the sampling rate breaks down, and what survives near the horizon
- * is a smooth gradient with nothing to alias.
- *
- * Atmospheric falloff is a `mix` toward `HAZE` rather than a fade to black, and
- * the sky converges on the same `HAZE` at the horizon from above. Both sides of
- * the seam therefore arrive at an identical colour and the horizon line itself
- * is invisible — there is no geometry there, only where two formulas meet.
+ * lens-whisper by pbakaus/radiant, MIT. Ported; our clock, cores/grain dropped,
+ * bokeh broadened, exposure ours.
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
@@ -61,117 +55,142 @@ defineBackground('expanse', {
   fragment: /* glsl */ `
 ${BACKGROUND_NOISE_GLSL}
 
-    /* Screen y of the vanishing line, in 0..1 y-down. High, so the plane owns
-       most of the frame and the crowded top of the field stays empty. */
-    const float HORIZON = 0.20;
+    const float LW_PI = 3.14159265359;
+    const float EXPOSURE = 0.42;   /* stage 1 — most curtain headroom */
 
-    /* Numerator of the perspective divide. Larger pushes the whole plane away. */
-    const float PLANE_SCALE = 0.30;
-
-    /* Clamp on the divisor. Without it the horizon row divides by zero; with it
-       the maximum representable depth is PLANE_SCALE / MIN_BELOW, and fog has
-       already taken that to nothing. */
-    const float MIN_BELOW = 0.004;
-
-    /* Depth advance per unit of scroll.
-       Small, and it has to be. The rib period is 2*pi/RIB_FREQ in depth units,
-       so ticks-per-rib is that over (scrollSpeed * this). At 0.7 px/tick and the
-       frequency below, one band passes the bottom of the screen about every 75
-       ticks — a steady walk. An earlier value of 0.05 made it 15 ticks, which
-       strobes. */
-    const float SCROLL_RATE = 0.010;
-
-    /* Bands per depth unit.
-       This was 2.2 and the field read as flat, which is worth recording because
-       the projection was already correct: depth only spans about 0.4 to 1.0
-       across the near two-thirds of the screen, so at 2.2 there was less than a
-       quarter of a cycle in the entire region the player looks at. Convergence
-       you cannot see is not convergence. The cue needs several bands visible at
-       once for the eye to read them as compressing. */
-    const float RIB_FREQ = 12.0;
-
-    const vec3 HAZE        = vec3(0.014, 0.020, 0.044);
-    const vec3 SKY_TOP     = vec3(0.004, 0.006, 0.014);
-    const vec3 SKY_LIFT    = vec3(0.016, 0.034, 0.055);
-    const vec3 GROUND_DEEP = vec3(0.016, 0.024, 0.050);
-    /* G trimmed 0.104 -> 0.092 to buy the lens layer its headroom. */
-    const vec3 GROUND_LIFT = vec3(0.038, 0.092, 0.152);
-
-    /* Lens-whisper: distant lights seen through a lens, drifting and breathing.
-       Studied from pbakaus/radiant lens-whisper (MIT); our GLSL. Centres sit in
-       the mid-lower band (uv.y 0.38-0.46); the streak's y-Gaussian and the bokeh
-       ring carry the visible feature to ~uv.y 0.27-0.57, still clear of the top
-       entry lane (uv.y -> 0). max-composited so a light never STACKS over the
-       plane. Tight Gaussian cores
-       are deliberately absent (a bright pinpoint is a fake bullet): the streak is
-       broad on both axes and the bokeh is a hollow ring wall. */
-    const vec3  CYAN_LIGHT = vec3(0.030, 0.070, 0.090);   /* <= 0.1 */
-    const float DRIFT_RATE = 0.005;   /* lateral ~0.5px/tick */
-    const float BREATHE    = 0.017;   /* ring radius pulses over ~200t */
-
-    vec3 lensLayer(vec2 uv, float aspect) {
-      vec3 acc = vec3(0.0);
-      for (int i = 0; i < 3; i++) {
-        float fi = float(i);
-        vec2  lp = vec2(0.30 + 0.20 * sin(uScroll * DRIFT_RATE + fi), 0.38 + 0.04 * fi);  /* centres y 0.38-0.46; tails reach ~0.27-0.57 */
-        vec2  dd = (uv - lp) * vec2(aspect, 1.0);
-        float streak = exp(-(dd.y * dd.y) * 220.0) * exp(-(dd.x * dd.x) * 18.0);  /* anamorphic: ~30x107px, no core */
-        float rr     = 0.09 + 0.02 * sin(uScroll * BREATHE);                      /* breathes +-13px */
-        float rd     = (length(dd) - rr) * 14.0;
-        float ring   = exp(-rd * rd);                                             /* bokeh wall K=14, hollow */
-        float pulse  = 0.7 + 0.3 * sin(uScroll * 0.02 + fi * 2.1);
-        acc = max(acc, (streak * 0.6 + ring * 0.5) * pulse * CYAN_LIGHT);         /* max -> never stack */
+    float lwHash(vec2 p) {
+      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+      p3 += dot(p3, p3.yzx + 33.33);
+      return fract((p3.x + p3.y) * p3.z);
+    }
+    float lwHash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+    float lwNoise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(lwHash(i), lwHash(i + vec2(1.0, 0.0)), f.x),
+        mix(lwHash(i + vec2(0.0, 1.0)), lwHash(i + vec2(1.0, 1.0)), f.x),
+        f.y);
+    }
+    float lwFbm(vec2 p) {
+      float v = 0.0;
+      float a = 0.5;
+      for (int i = 0; i < 4; i++) {
+        v += a * lwNoise(p);
+        p = p * 2.1 + vec2(1.7, 3.2);
+        a *= 0.5;
       }
-      return acc;
+      return v;
+    }
+
+    vec3 lightTint(int idx) {
+      if (idx == 0) return vec3(0.30, 0.45, 1.00);
+      if (idx == 1) return vec3(1.00, 0.65, 0.20);
+      if (idx == 2) return vec3(0.20, 0.85, 0.75);
+      if (idx == 3) return vec3(1.00, 0.92, 0.80);
+      if (idx == 4) return vec3(0.95, 0.40, 0.55);
+      return vec3(0.75, 0.85, 1.00);
+    }
+
+    vec2 lightPos(int idx, float t) {
+      float fi = float(idx);
+      float seed = fi * 47.3;
+      float ax = 0.30 + lwHash1(seed) * 0.20;
+      float ay = 0.35 + lwHash1(seed + 1.0) * 0.20;
+      float fx = 0.07 + lwHash1(seed + 2.0) * 0.05;
+      float fy = 0.05 + lwHash1(seed + 3.0) * 0.04;
+      float px = lwHash1(seed + 4.0) * LW_PI * 2.0;
+      float py = lwHash1(seed + 5.0) * LW_PI * 2.0;
+      float nx = lwNoise(vec2(t * 0.03 + fi * 10.0, 0.0)) * 0.08 - 0.04;
+      float ny = lwNoise(vec2(0.0, t * 0.025 + fi * 10.0)) * 0.06 - 0.03;
+      return vec2(sin(t * fx + px) * ax + nx, sin(t * fy + py) * ay + ny);
+    }
+    float lightBrightness(int idx, float t) {
+      float fi = float(idx);
+      float base = 0.45 + lwHash1(fi * 13.7 + 100.0) * 0.25;
+      float pulse = sin(t * (0.15 + lwHash1(fi * 23.1) * 0.1) + fi * 2.0) * 0.12;
+      return base + pulse;
+    }
+
+    /* Anamorphic flare, tight core removed, bokeh walls broadened. */
+    vec3 anamorphicFlare(vec2 uv, vec2 lp, float brightness, vec3 tint) {
+      vec2 delta = uv - lp;
+      float stretch = 7.0;
+      float coreD = length(delta);
+
+      float streakDx = delta.x / stretch;
+      float streakDy = delta.y;
+      float streakD = streakDx * streakDx * 12.0 + streakDy * streakDy * 420.0;
+      float streak = exp(-streakD) * brightness * 0.35;
+
+      float chromaOffset = 0.015;
+      float streakR_dx = (delta.x - chromaOffset) / stretch;
+      float streakB_dx = (delta.x + chromaOffset) / stretch;
+      float streakR_d = streakR_dx * streakR_dx * 12.0 + streakDy * streakDy * 420.0;
+      float streakB_d = streakB_dx * streakB_dx * 12.0 + streakDy * streakDy * 420.0;
+      float streakR = exp(-streakR_d) * brightness * 0.35;
+      float streakB = exp(-streakB_d) * brightness * 0.35;
+
+      float edgeness = smoothstep(0.0, 0.35, abs(delta.x));
+      vec3 warmFringe = vec3(1.00, 0.55, 0.15);
+      vec3 coolFringe = vec3(0.15, 0.35, 1.00);
+      vec3 leftColor = mix(tint, warmFringe, edgeness);
+      vec3 rightColor = mix(tint, coolFringe, edgeness);
+      vec3 streakTint = mix(leftColor, rightColor, smoothstep(-0.1, 0.1, delta.x));
+
+      vec3 streakCol = vec3(0.0);
+      streakCol.r = streakR * streakTint.r;
+      streakCol.g = streak * streakTint.g;
+      streakCol.b = streakB * streakTint.b;
+
+      float wideStretch = stretch * 1.6;
+      float wideDx = delta.x / wideStretch;
+      float wideD = wideDx * wideDx * 8.0 + streakDy * streakDy * 500.0;
+      float wideStreak = exp(-wideD) * brightness * 0.15;
+      vec3 wideCol = mix(tint * 0.6, mix(warmFringe, coolFringe, smoothstep(-0.2, 0.2, delta.x)) * 0.4, edgeness) * wideStreak;
+
+      /* Bokeh rings, broadened to bullet-coarse (3500->520, 5000->380). */
+      float haloR = 0.05 + brightness * 0.015;
+      float haloDist = abs(coreD - haloR);
+      float halo = exp(-haloDist * haloDist * 520.0) * brightness * 0.12;
+      float haloR2 = haloR * 1.8;
+      float haloDist2 = abs(coreD - haloR2);
+      float halo2 = exp(-haloDist2 * haloDist2 * 380.0) * brightness * 0.05;
+      vec3 haloCol = tint * 0.8 * halo + vec3(0.50, 0.60, 0.80) * halo2;
+
+      return streakCol + wideCol + haloCol;
     }
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
+      float t = uScroll * 0.012;
+      /* Reference centred coord (min-dimension normalized, y-down retained). */
+      vec2 sc = vec2((uv.x - 0.5) * aspect, (uv.y - 0.5));
 
-      /* ---- the plane, below the horizon ---- */
+      vec3 col = vec3(0.0);
 
-      float below = max(uv.y - HORIZON, 0.0);
-      float depth = PLANE_SCALE / max(below, MIN_BELOW);
+      vec2 hazeUV = sc * 1.5 + vec2(t * 0.01, t * 0.007);
+      float hazeNoise = lwFbm(hazeUV);
+      float hazeNoise2 = lwFbm(hazeUV * 0.7 + vec2(5.3, 2.1));
+      vec3 hazeColor = mix(vec3(0.20, 0.28, 0.45), vec3(0.12, 0.18, 0.35), hazeNoise2);
+      col += hazeColor * hazeNoise * 0.03;
 
-      /* World point under this pixel. Multiplying x by depth is the whole
-         perspective effect — it is what makes parallel lines converge. */
-      vec2 w = vec2((uv.x - 0.5) * aspect * depth, depth + uScroll * SCROLL_RATE);
+      for (int i = 0; i < 6; i++) {
+        vec2 lp = lightPos(i, t);
+        float bright = lightBrightness(i, t);
+        vec3 tint = lightTint(i);
+        col += anamorphicFlare(sc, lp, bright, tint);
+      }
 
-      float fog = exp(-depth * 0.16);
+      float vd = length(sc * vec2(1.2, 1.0));
+      float vignette = 1.0 - smoothstep(0.3, 0.95, vd);
+      vignette = vignette * vignette;
+      col *= vignette;
 
-      /* Structure dies far sooner than brightness does; see the header. */
-      float detail = exp(-depth * 0.28);
-
-      float ground = bgFbm(w * vec2(0.85, 2.4));
-
-      /* Bands of constant depth. They compress toward the horizon, which is the
-         single strongest read of distance available in a flat image. */
-      float ribs = 0.5 + 0.5 * sin(w.y * RIB_FREQ);
-
-      vec3 lit = GROUND_DEEP + GROUND_LIFT * (0.35 + detail * (0.40 * ground + 0.25 * ribs));
-      vec3 plane = mix(HAZE, lit, fog);
-
-      /* ---- the sky, above it ---- */
-
-      float above = max(HORIZON - uv.y, 0.0);
-      float lift = smoothstep(0.0, HORIZON, above);
-
-      /* A hump, so the band contributes nothing at either end: zero at the
-         horizon keeps the seam exact, zero at the top keeps the entry lane
-         clean. Sampled almost still — the sky is the far layer, and a distant
-         thing that moves at the speed of the ground is not distant. */
-      float hump = 4.0 * lift * (1.0 - lift);
-      float band = bgFbm(vec2(uv.x * aspect * 1.5, uv.y * 4.0 - uScroll / uRes.y * 0.30));
-
-      vec3 sky = mix(HAZE, SKY_TOP, lift) + SKY_LIFT * band * hump;
-
-      /* Both sides already agree at the horizon; the smoothstep is only here to
-         antialias the row where the two formulas swap over. */
-      vec3 col = mix(sky, plane, smoothstep(HORIZON - 0.004, HORIZON + 0.004, uv.y));
-
-      /* The lens layer over the kept plane, max-composited so it can only reveal
-         a light where the plane is darker, never brighten the plane itself. */
-      return max(col, lensLayer(uv, aspect));
+      col = max(col, vec3(0.0));
+      col = col / (col + vec3(0.6)) * 1.5;   /* reference compressive tonemap */
+      return col * EXPOSURE;
     }
   `,
 });
