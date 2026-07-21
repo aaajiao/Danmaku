@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun tools/serve.ts",
+    "make:example-pack": "bun tools/make-example-pack.ts",
+    "make:clearing-pack": "bun tools/make-clearing-pack.ts",
     "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",
     "test:assets": "PORT=3007 bun ./test/visual/asset-loading.html",
     "test:density": "PORT=3008 bun ./test/visual/density.html",

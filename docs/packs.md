@@ -32,6 +32,11 @@ a pack is the packaged, drop-in version of the same swap those documents describ
 at the source level. You do not need them to write a pack; you need them if you
 want to understand *why* a bullet must be white or a sound must fade to zero.
 
+If you want the shortest path rather than the full reference, start with
+[`docs/quickstart.md`](./quickstart.md) — it grows the worked example pack
+`packs/clearing` from an empty folder to two playable campaigns, and links back
+here for each field.
+
 ---
 
 ## 1. What a pack is, and is not
@@ -127,6 +132,13 @@ obeys every rule the loader checks. **Copy it, rename the folder and its `name`,
 and start replacing files.** Its `README.md` annotates every field and every art
 decision; this document is the specification, that pack is the reference
 implementation of it.
+
+`packs/clearing/` is a second committed pack and the opposite proof: it carries
+almost no art — two campaigns, three bosses and a character on the procedural
+floor, with one replaced music track and two dialogue portraits its only files.
+Read `example` to see art take effect, `clearing` to see how little a content pack
+must carry. [`docs/quickstart.md`](./quickstart.md) walks `clearing` from an empty
+folder to two playable campaigns and is the fastest way in for a first-time author.
 
 ---
 
@@ -1372,9 +1384,9 @@ established make-example-pack idiom (§9): authoring-time code may generate data
 data never carries code. The generator emits a second artifact beside the JSON —
 `src/packs/base-pack.fingerprint.ts`, the sha256 of the JSON bytes (first 12 hex),
 drift-tested the same way — which `bundled.ts` re-exports and the shell threads in
-as the `content` fingerprint (§11). Alongside these, four committed replay traces
-(`src/base-content.golden.test.ts`) assert zero simulation divergence — the
-permanent behavioural guard. (The port itself was additionally gated on a
+as the `content` fingerprint (§11). Alongside these, eight committed replay traces
+(`src/base-content.golden.test.ts` — four stages × two difficulties) assert zero
+simulation divergence — the permanent behavioural guard. (The port itself was additionally gated on a
 registry snapshot proving every ported registration reproduced byte-for-byte;
 it did its job when the port landed and was retired, as decisions recorded it
 would be — structural drift is the drift test's problem now.)

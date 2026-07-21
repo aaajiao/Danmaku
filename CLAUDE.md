@@ -25,7 +25,8 @@ src/packs/         drop-in packs: pure shape validation, content injector,
                    bundled.ts — the built-in game, injected as pack data)
 src/main.ts        the browser shell: input in, pixels out, nothing else
 docs/              asset specification, extension guide, pack format
-packs/             fetched asset packs on disk (packs/example is the reference)
+packs/             fetched asset packs on disk (packs/example is the reference
+                   reskin; packs/clearing is the content-first second pack)
 test/visual/       checks that need a real GL context and cannot run in `bun test`
 tools/             fixture, example-pack and base-pack generation, dev server,
                    build copy
