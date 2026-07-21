@@ -1,132 +1,168 @@
 /**
- * `vault` — stage 4, the bottom of the descent. A port of pbakaus/radiant
- * `ink-calligraphy` (MIT) via the closed-form substitute the references doc
- * scoped for it: the reference is Canvas2D with a wall clock, mouse-driven brushes
- * and canvas-feedback accumulation — portable=NO as authored — so its DEFINING
- * IMAGE (a directional calligraphic mark that swells early and tapers gracefully)
- * is re-derived as an SDF stroke along a parametric LOG-SPIRAL winding into a dark
- * central oculus, with the swell/taper envelope re-expressed as a function of
- * arc-length (radius) instead of animation time, and curvature->width replacing
- * the reference's speed->width (there is no cursor). Gold ink on a near-black
- * ground — the calligraphic gesture as the terminal pull into the empty seat
- * (被拽出画框).
+ * `vault` — stage 4, the bottom of the descent, and the most crowded play field
+ * in the game. A NEAR-IDENTICAL port of pbakaus/radiant `fluid-amber` (MIT): a
+ * domain-warped simplex-noise field (Iñigo Quilez's "fbm of fbm") in a warm amber
+ * palette — dense flowing molten marble. The flow IS the identity; its density and
+ * warmth are kept as the terminal chamber's slow, heavy churn.
  *
- * ## Why the substitute, not the file
+ * ## What was ported (verbatim in structure)
  *
- * The fetched `ink-calligraphy.html` has no fragment shader at all: two SimplexNoise
- * brushes stroke quadratic curves onto off-screen canvases, `diffuse()`/`fade()`
- * read canvas history every frame, and `simTime` is a `requestAnimationFrame`
- * accumulator (a wall clock, forbidden by rule 1). None of that ports. What ports
- * is the gesture — a mark with a beginning, a swell, and a taper — which the refs
- * doc names as the only legal path, and which a log-spiral SDF expresses exactly.
+ * The reference's whole field math, carried across unchanged:
+ *   - its exact Simplex noise (`snoise`, the Ashima/IQ `mod289`/`permute`
+ *     construction — no trig, all IEEE-exact ops) and 5-octave `fbm` (freq ×2.1,
+ *     `amp *= u_ampDecay`, per-octave domain offset, temporal shift `t*0.3`);
+ *   - the two-stage domain warp verbatim — `q = fbm(p), fbm(p+off)`, then
+ *     `r = fbm(p + 4·q + off)`, then `f = fbm(p + 3.5·r)`, with the reference's
+ *     staggered clocks (`t`, `t·1.2`, `t·0.8`);
+ *   - the palette verbatim — the dark base `mix` on `f·f`, the two amber lifts on
+ *     `length(q)` and `length(r.x)`, the `smoothstep` highlight, and the `pow(,1.1)`
+ *     grade. Constants copied exactly.
+ * This is a straight port, not a re-derivation: identity comes from the reference.
  *
- * ## Structure
+ * ## Adaptation to our surface (the only departures from the reference)
  *
- *   - A single continuous log-spiral stroke, `sp = a + log(r)*PITCH`, wound inward
- *     by the clock (the recession — the biggest motion delta in the game, placed
- *     where the terminal descent needs it). `ARM_COUNT` is an INTEGER (3), so the
- *     stroke stays a-periodic across the `atan` wrap and no crack runs out of the
- *     centre (the flute lesson). `log(max(r,0.03))` guards the divide.
- *   - The width envelope `wEnv` is a function of RADIUS (arc-length): the stroke
- *     begins thin at the outer edge, swells mid-field, and tapers to nothing at the
- *     oculus — the calligraphic swell/taper, and the load-bearing centre-decay that
- *     keeps the crowded boss station a smooth dark well (no fine structure where
- *     bullets form). A gold-leaf shimmer rides the stroke only.
- *
- * ## Adaptation & hygiene
- *
- *   - Clock: `t = uScroll * 0.03`; `uScroll` advances only in `step()`.
- *   - The reference's bright gold-leaf SPECKS (individual arcs) are re-expressed as
- *     a broad shimmer that multiplies the stroke — a bright pinpoint is a fake
- *     bullet. Canvas feedback and mouse brushes are gone by construction.
- *   - EXPOSURE 0.26: stage 4 is the terminal, most crowded scene; the oculus
- *     darkens toward zero (the empty seat as absence) and the top lane stays calm.
+ *   - Uniforms: `u_timeScale` and `u_ampDecay` are baked to their reference
+ *     defaults (`0.15`, `0.48`). `u_mouse` — a cursor swirl warp — is EXCISED: the
+ *     reference's default resting state (`u_mouse.x < 0`) skips that block entirely,
+ *     so dropping it *is* the faithful no-cursor appearance, not a substitution. No
+ *     new uniform is added (rule 1 allows only the tick clock).
+ *   - Clock: `t = uScroll * 0.005`. At `scrollSpeed = 0.5` that is `0.0025/tick =
+ *     0.15/s`, exactly the reference's `u_time * u_timeScale` rate at 60 ticks/s
+ *     (the same derivation drift uses). `uScroll` advances only in `step()`.
+ *   - y-down uv → the reference's y-up centred coords (`0.5 - uv.y`), normalised by
+ *     the short axis exactly as the reference divides by `min(u_res)`.
+ *   - FIELD_SCALE 0.8 coarsens the marble (the bullet-band knob, below).
+ *   - EXPOSURE 0.34 dims the reference's bright native output to the stage floor.
  *
  * ## Exposure & readability
  *
- * Stage-4 tier. Gold stroke crests in the ~0.22-0.28 band
- * [MEASURED-IN-ACCEPTANCE]; the oculus and the top lane fall to near-black. Arm
- * spacing is ~200px mid-field, an order coarser than a bullet, and the envelope
- * kills all structure before the arms narrow near the centre. Motion: the spiral
- * winds inward, one arm-pass over ~1.5-2s, per-tick step under the strobe bound
- * [MEASURED-IN-ACCEPTANCE].
+ * Stage-4 tier, toward the LOWER stage band because the curtain above it is the
+ * heaviest in the game. The reference outputs a bright warm field (hot amber veins
+ * near ~0.8 raw); EXPOSURE 0.34 brings the structured amber crests down to roughly
+ * the 0.26-0.30 band on the R-dominant veins [MEASURED-IN-ACCEPTANCE] (luminance
+ * lower still, amber being R>G>B), with the marble's dark inter-vein channels
+ * falling to ~0.02-0.03 — the playable gaps a curtain reads through. Bullets stay
+ * 1.0-white + bloom, well clear.
+ *
+ * ## Bullet-band grading (the marble vein width)
+ *
+ * The DOMINANT amber veins are the low-octave ridges of the domain warp (freq ~1-2,
+ * period ~240-480px), an order of magnitude coarser than a bullet — never a
+ * concern. The only structure near the play band is the finest of the 5 fbm
+ * octaves: at native scale its period on the 480px short axis is ~25px, inside the
+ * 16-30px bullet band. Two graders keep it from counterfeiting a bullet:
+ *   - **FIELD_SCALE (the vein-width knob)** multiplies `p` by 0.8, coarsening every
+ *     octave; the finest lands at ~31px, above the band. Lower it if the marble
+ *     reads too fine under a curtain; raise toward 1.0 for the reference's native
+ *     scale.
+ *   - **Amplitude grading**: that octave carries `amp = 0.5·0.48^4 ≈ 0.027`, an
+ *     order below the bright veins, and the palette's highlight term keys off the
+ *     LOW-frequency warp (`f`, `r`), so the fine octave is never selectively
+ *     brightened. It textures; it cannot alternate bright/dark at bullet scale.
+ *
+ * ## Motion
+ *
+ * The noise input drifts by `t·0.3 = 0.00075/tick` (per octave, not multiplied by
+ * frequency), so the whole marble churns very slowly and coherently — per-tick
+ * luminance step well under the strobe bound [MEASURED-IN-ACCEPTANCE].
  *
  * ## Clock
  *
- * `uScroll` only — no wall clock (see `background.ts`, rule 1);
+ * `uScroll` only — no `performance.now`, no wall clock. A pure function of ticks,
+ * so a replay looks identical twice (see `background.ts`, rule 1).
  * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
- * ink-calligraphy by pbakaus/radiant, MIT. Re-derived as a log-spiral SDF stroke
- * (the refs-doc substitute); our GLSL, clock, palette and exposure.
+ * fluid-amber by pbakaus/radiant, MIT. Ported near-identically; our clock, y-down
+ * projection, field scale and exposure. The cursor swirl is excised (no pointer).
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { defineBackground } from '../background';
 
 defineBackground('vault', {
   scrollSpeed: 0.5,
   fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
+    const float EXPOSURE = 0.34;   /* stage 4 — terminal, heaviest curtain */
 
-    const float VA_TAU = 6.28318530718;
-    const float EXPOSURE = 0.26;   /* stage 4 — terminal, most crowded */
+    /* Vein-width knob: <1 coarsens the marble so the finest fbm octave clears the
+       bullet band (~25px -> ~31px at 0.8). Raise toward 1.0 for native scale. */
+    const float FIELD_SCALE = 0.8;
 
-    /* INTEGER arm count -> a-periodic across the atan wrap, no centre crack. */
-    const int   ARM_COUNT = 3;
-    /* Log-spiral pitch -> ~200px arm spacing mid-field, coarser than a bullet. */
-    const float PITCH = 1.7;
-    /* Inward winding rate (the recession). One arm-pass ~1.5-2s. */
-    const float SWIRL = 0.9;
-    /* Faint contracting radial ring, for the dome read. */
-    const float RING_FREQ = 36.0;
-    const float CONTRACT_RATE = 0.01;
+    /* Reference defaults, baked (were u_ampDecay / u_timeScale uniforms). */
+    const float AMP_DECAY = 0.48;
 
-    /* Near-black warm ground and the gold calligraphic ink. */
-    const vec3 BASE = vec3(0.010, 0.007, 0.002);
-    const vec3 INK  = vec3(0.95, 0.70, 0.30);   /* gold leaf, R > G > B */
+    /* --- The reference's exact Simplex noise (Ashima/IQ). No trig; IEEE-exact. */
+    vec3 mod289(vec3 x)  { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+    vec2 mod289v2(vec2 x){ return x - floor(x * (1.0 / 289.0)) * 289.0; }
+    vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }
+
+    float snoise(vec2 v) {
+      const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                         -0.577350269189626, 0.024390243902439);
+      vec2 i  = floor(v + dot(v, C.yy));
+      vec2 x0 = v - i + dot(i, C.xx);
+      vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+      vec4 x12 = x0.xyxy + C.xxzz;
+      x12.xy -= i1;
+      i = mod289v2(i);
+      vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+      vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+      m = m * m;
+      m = m * m;
+      vec3 x  = 2.0 * fract(p * C.www) - 1.0;
+      vec3 h  = abs(x) - 0.5;
+      vec3 ox = floor(x + 0.5);
+      vec3 a0 = x - ox;
+      m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+      vec3 g;
+      g.x  = a0.x * x0.x + h.x * x0.y;
+      g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+      return 130.0 * dot(m, g);
+    }
+
+    /* 5-octave fbm, verbatim: freq x2.1, amp x AMP_DECAY, per-octave domain shift,
+       and the reference's temporal drift t*0.3 (added to the noise input, so the
+       churn is slow and octave-independent — no strobing). */
+    float fbm(vec2 p, float t) {
+      float val  = 0.0;
+      float amp  = 0.5;
+      float freq = 1.0;
+      for (int i = 0; i < 5; i++) {
+        val  += amp * snoise(p * freq + t * 0.3);
+        freq *= 2.1;
+        amp  *= AMP_DECAY;
+        p    += vec2(1.7, 9.2);
+      }
+      return val;
+    }
 
     vec3 background(vec2 uv) {
-      float aspect = uRes.x / uRes.y;
-      vec2 c = (uv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
-      float r = length(c);
-      float a = atan(c.y, c.x);
-      float t = uScroll * 0.03;
+      /* y-down uv -> the reference's y-up centred coords, normalised by the short
+         axis exactly as the reference divides by min(u_res). */
+      float m = min(uRes.x, uRes.y);
+      vec2 p = vec2((uv.x - 0.5) * uRes.x, (0.5 - uv.y) * uRes.y) / m;
+      p *= FIELD_SCALE;
 
-      /* Log-spiral coordinate; clamp keeps log() finite and the tight centre
-         in-band. Square by multiplication elsewhere; here log is guarded. */
-      float lr = log(max(r, 0.03));
-      float sp = a + lr * PITCH;
+      float t = uScroll * 0.005;   /* = 0.15/s at 60 ticks/s; ticks only (rule 1) */
 
-      /* Continuous arm index; winds inward with the clock. ARM_COUNT integer, so
-         the a-seam jump (a -> a+2*pi) shifts the index by an integer and fract()
-         stays continuous — no crack out of the oculus. */
-      float g = float(ARM_COUNT) * sp / VA_TAU - t * SWIRL;
-      float cell = abs(fract(g) - 0.5) * 2.0;   /* 0 on the stroke centreline */
+      /* Two-stage domain warp — the fluid marble — carried across verbatim. */
+      vec2 q = vec2(fbm(p + vec2(0.0, 0.0), t),
+                    fbm(p + vec2(5.2, 1.3), t));
 
-      /* Calligraphic width envelope as a function of arc-length (radius): thin at
-         the outer edge, swelling mid-field, tapering to nothing at the oculus.
-         This is the centre-decay safety — no fine structure where bullets crowd. */
-      float wEnv = smoothstep(0.58, 0.34, r) * smoothstep(0.04, 0.17, r);
+      vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2), t * 1.2),
+                    fbm(p + 4.0 * q + vec2(8.3, 2.8), t * 1.2));
 
-      /* The stroke: soft calligraphic edges; width couples to the envelope
-         (curvature->width in the arc-length sense). */
-      float W = 0.20 + 0.22 * wEnv;
-      float stroke = (1.0 - smoothstep(0.0, W, cell)) * wEnv;
+      float f = fbm(p + 3.5 * r, t * 0.8);
 
-      /* Gold-leaf shimmer rides the stroke only (never a bright pinpoint). */
-      float shimmer = bgFbm(vec2(g * 1.5, r * 4.0 - t * 2.0));
-      stroke *= 0.72 + 0.28 * shimmer;
+      /* Palette verbatim: dark warm base, two amber lifts, a broad highlight. */
+      vec3 col = mix(vec3(0.075, 0.065, 0.055), vec3(0.20, 0.14, 0.07), clamp(f * f * 2.0, 0.0, 1.0));
+      col = mix(col, vec3(0.78, 0.58, 0.24), clamp(length(q) * 0.5, 0.0, 1.0));
+      col = mix(col, vec3(0.95, 0.75, 0.35), clamp(length(r.x) * 0.6, 0.0, 1.0));
 
-      /* Faint contracting radial ring for the dome read (subordinate). */
-      float rings = 0.5 + 0.5 * sin((r + uScroll * CONTRACT_RATE) * RING_FREQ);
-      stroke *= 0.80 + 0.20 * rings;
+      float highlight = smoothstep(0.5, 1.2, f * f * 3.0 + length(r) * 0.5);
+      col += vec3(0.18, 0.12, 0.04) * highlight;
 
-      /* The oculus darkens toward zero (the empty seat as absence); the top entry
-         lane stays calm. */
-      float oculus = smoothstep(0.02, 0.22, r);
-      float nearLane = smoothstep(0.0, 0.26, uv.y);
-      float look = stroke * oculus * (0.35 + 0.65 * nearLane);
-
-      return (BASE + INK * look) * EXPOSURE;
+      col = pow(max(col, vec3(0.0)), vec3(1.1));   /* col >= 0 -> pow safe */
+      return col * EXPOSURE;
     }
   `,
 });

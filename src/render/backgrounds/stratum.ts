@@ -21,7 +21,7 @@
  *   - Uniforms baked: `u_ditherScale` (1.0), `u_bitDepth` (1.0); `u_mouse` (the
  *     analog-truth reveal and the halftone ring) is excised — no pointer (rule 1).
  *   - The dither cell is coarsened to GAME px (`uv * fieldSize / DITHER_CELL`,
- *     retina-independent like `sealDither`) instead of per-device-pixel
+ *     retina-independent — game-px units, not device-px) instead of per-device-pixel
  *     `gl_FragCoord`, so the ordered dither reads as textured banding, never as
  *     per-pixel speckle in the bullet band. The reference's per-pixel FILM GRAIN
  *     is dropped for the same reason.

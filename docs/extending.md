@@ -1786,49 +1786,56 @@ They carry the reasoning at length — including why `undertow` has exactly six
 flutes, which is a genuine seam problem with a non-obvious fix — and it is not
 worth repeating here.
 
-### A family of scenes sharing one cell: the seal idiom
+### A family of scenes sharing one ported basis: the seal idiom
 
 Not every new scene should be a scene written from nothing. The five boss
 scenes — `signet`, `cordon`, `intaglio`, `sable`, `regnum` — and the two
-Lunatic-only 出神 scenes — `umbra`, `decree` — are one shared GLSL cell,
-`SEAL_GLSL` (`src/render/background.ts`, exported beside
-`BACKGROUND_NOISE_GLSL` for the same reason: a shape reused by several scenes
-lives once, or the copies drift), stamped through thin per-scene registrations.
-This is the visual counterpart of `defineMusic` composing a track from one
-`CELL_*` motif and a root: identity lives in the shared cell, individuality is
-one filter plus one hue.
+Lunatic-only 出神 scenes — `umbra`, `decree` — are each a **near-identical port
+of a pbakaus/radiant reference** (MIT), because identity comes from porting the
+reference, not from an engine grammar wearing a palette. There is no single
+`SEAL_GLSL` cell for the whole family any more; it was retired. Where several
+members share one picture, the scene that OWNS the port exports it as a string
+constant and its siblings import it — for the same reason `BACKGROUND_NOISE_GLSL`
+lives once: a shape reused by several scenes lives once, or the copies drift.
+There are two shared bases, each owned by a scene:
 
-The cell itself is a bounding ring enclosing an integer-spoke rosette — the
-signet the game's own fiction already carries (`tools/make-base-pack.ts`) — flat
-and centred, with no perspective divide, so it never opens the run-to-infinity
-aliasing a perspective scene has to fight, at the one moment (a boss's spell
-card) where the screen is most crowded. Each per-boss file is a handful of lines:
-import `SEAL_GLSL` and `BACKGROUND_NOISE_GLSL`, declare a `BASE`/`GLOW` pair, and
-call `sealField(...)` with the parameters that pick the filter — an `arcHalf`
-that truncates the ring into a broken arc, an `invert` that swaps figure and
-ground, a `fill` that lights the rosette's rest, a smaller `ringRadius` and
-slower rotation that read as a darkened, compressed press, or a full ring with
-`fill` at its ceiling that reads as resolved. Five filters — stated, truncated,
-inverted, darkened, resolved — five thin registrations, one cell.
+  - `GOLD_GLSL` — the `liquid-gold` port, owned by `backgrounds/signet.ts` and
+    imported by `cordon` and `regnum`. `signet` is the reference ungraded; the
+    other two pass their own variant set to `goldScene(...)` — a hue `tint`, an
+    `exposure`, a `fill` (dark rest → fuller field), a saturation, and a `calm`
+    (a gentle radial dim at the boss station). One molten-gold pool, three hues.
+  - `VEIL_GLSL` — the `stardust-veil` port, owned by `backgrounds/umbra.ts` and
+    imported by `decree`. One cosmic nebula, unmoored two ways.
 
-The two 出神 scenes are the same cell **unmoored**: the seal's centre drifts and
-precesses (`sin`/`cos` of `uScroll`, never a wall clock — rule 1 binds this file
-exactly as it binds every other), and a second ring detuned only along `r` (never
-across the angular wrap, so the integer-spoke seam stays safe even undetuned)
-beats against the first into a slow radial moiré. The hard rule for a 出神 scene
-is that the crossing is never a brightness change: `umbra` and `decree` both
-multiply their structure down from the seal they came from and must not measure
-brighter at the crest. Breaking legibility at the fullest screen in the game to
-signal "this card is different" would cost more than the signal is worth: the
-same reason `expanse`/`undertow` decay their *structured* terms near the horizon
-rather than dimming — losing a bullet is worse than losing a flourish.
+The other boss scenes — `intaglio`, `sable` — are standalone ports in their own
+file, reusing no basis. This is the visual counterpart of `defineMusic` composing
+a track from one `CELL_*` motif and a root: where a picture is shared, identity
+lives in the ported basis and individuality is one variant set plus a hue.
+
+Each member file is short: import the basis it is cut from (plus
+`BACKGROUND_NOISE_GLSL` when the basis reads `bgNoise`, as `VEIL_GLSL` does),
+declare an `EXPOSURE` graded for its role, and call the basis's scene function
+with its variant parameters. The picture is the reference; the file only grades
+and modulates it.
+
+The two 出神 scenes are the veil **unmoored**: the field drifts and precesses
+(`sin`/`cos` of `uScroll`, never a wall clock — rule 1 binds this file exactly as
+it binds every other) and a soft eclipse shadow crosses it. The hard rule for a
+出神 scene is that the crossing is never a brightness rise: `umbra` and `decree`
+are the dimmest family in the game and must not measure brighter at the crest —
+the 出神 threshold is crossed by coherence and motion, never luminance. Breaking
+legibility at the fullest screen in the game to signal "this card is different"
+would cost more than the signal is worth: the same reason `expanse`/`undertow`
+decay their *structured* terms near the horizon rather than dimming — losing a
+bullet is worse than losing a flourish.
 
 If you are adding a new *family* of scenes — several thin variations on one
-shape, rather than one more standalone place — this is the pattern: one shared
-cell exported as a string constant from `background.ts` or its own sibling
-module, a fixed vocabulary of filter parameters, and one file per member that
-sets those parameters and a palette. Reserve it for that case; a stage scene like
-`expanse` or `stratum` is one place and stays one file.
+picture, rather than one more standalone place — this is the pattern: port the
+reference once in the scene that owns it, export it as a string constant, give it
+a fixed vocabulary of variant parameters, and write one file per member that
+imports it, sets those parameters, and grades its own palette and exposure.
+Reserve it for that case; a stage scene like `expanse` or `stratum` is one place
+and stays one file.
 
 ### Dialogue portraits: `definePortrait`, a sibling render registry
 

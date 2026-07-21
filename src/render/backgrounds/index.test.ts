@@ -24,6 +24,8 @@ import './index';
 import '../../packs/bundled';
 
 import { BACKGROUND_NOISE_GLSL, backgroundNames, getBackgroundSpec } from '../background';
+import { GOLD_GLSL } from './signet';
+import { VEIL_GLSL } from './umbra';
 import { getStage, stageNames } from '../../content/stage';
 import { bossNames, getBossSpec } from '../../sim/boss';
 
@@ -34,8 +36,11 @@ const SHIPPED = [
   'undertow',
   'stratum',
   'vault',
-  // The seal family: one shared cell (SEAL_GLSL) through five filters, plus the
-  // two 出神 unmoorings. Each is a boss scene named by a spell card.
+  // The boss family: per-scene near-identical ports of the pbakaus/radiant
+  // references, not one engine cell. Two of them share a ported basis owned by a
+  // sibling — the gold trio (`signet` owns GOLD_GLSL; `cordon`/`regnum` import it)
+  // and the 出神 pair (`umbra` owns VEIL_GLSL; `decree` imports it) — the rest are
+  // standalone ports. Each is a boss scene named by a spell card.
   'signet',
   'cordon',
   'intaglio',
@@ -56,8 +61,25 @@ describe('the shipped scenes', () => {
     expect(spec.scrollSpeed).toBeGreaterThan(0);
   });
 
-  test.each(SHIPPED)('%s reuses the shared noise helpers', (name) => {
-    expect(getBackgroundSpec(name).fragment).toContain(BACKGROUND_NOISE_GLSL);
+  // The seal cell is retired; scenes are self-contained ports now, so there is no
+  // one noise helper every scene reuses. The "shared shape lives once, or the
+  // copies drift" guarantee the old single-cell test carried now applies where
+  // sharing actually happens: the two families that are cut from one ported basis
+  // must import it verbatim rather than fork a copy. A scene that hand-edited its
+  // own gold/veil would diverge silently — this is the test that catches it.
+  const GOLD_FAMILY = ['signet', 'cordon', 'regnum'];
+  const VEIL_FAMILY = ['umbra', 'decree'];
+
+  test.each(GOLD_FAMILY)('%s is cut from the shared liquid-gold basis (GOLD_GLSL)', (name) => {
+    expect(getBackgroundSpec(name).fragment).toContain(GOLD_GLSL);
+  });
+
+  test.each(VEIL_FAMILY)('%s is cut from the shared stardust-veil basis (VEIL_GLSL)', (name) => {
+    const fragment = getBackgroundSpec(name).fragment;
+    expect(fragment).toContain(VEIL_GLSL);
+    // VEIL_GLSL reads bgNoise, so the 出神 pair still prepends the shared noise
+    // helper before it — the one place BACKGROUND_NOISE_GLSL reuse is load-bearing.
+    expect(fragment).toContain(BACKGROUND_NOISE_GLSL);
   });
 });
 

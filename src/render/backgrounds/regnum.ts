@@ -1,113 +1,68 @@
 /**
- * `regnum` — regent's fight (the stage-4 boss). The seal RESOLVED.
+ * `regnum` — regent's fight (the stage-4 boss). The FULLEST gold seal.
  *
- * ## The filter — made whole and filled
+ * ## The variant — the same molten gold, warmer and filled to the edges
  *
- * The same cell, complete: a whole engraving and a FILLED interior — the disk
- * inside the ring lit too, so this is the **least empty** field of the five (least
- * rest), the seal finally pressed into the empty seat. A reigning turn, slow and
- * full. It rhymes with `interregnum`'s RESOLVED treatment, the cell made whole and
- * resolved to the tonic.
+ * `regnum` imports `signet`'s ported `liquid-gold` basis (`GOLD_GLSL`) and grades
+ * it to the fullest register of the family. It is the same pool of liquid gold —
+ * the reference material — shifted a shade warmer toward rose (the tint pulls green
+ * and blue down), its chroma pushed up, and its field FILLED: the reference vignette
+ * darkens the edges to a dark rest, and `regnum` raises that floor so the molten
+ * surface carries all the way out. It is the least empty of the three — the seal
+ * finally pressed into the whole seat, a reigning fullness.
  *
- * The fill is a single `primary = max(primary, ground * fill)` inside the cell:
- * the interior disk is raised so the device reads as a full seal rather than a
- * sparse device. Identity kept; one parameter turned up.
+ * The fullness is `fill = 1`: the vignette floor lifts (0.35 -> 0.62) and the
+ * central pool widens. This is fill and SATURATION, not peak — see below.
  *
- * ## Hue — crimson (R >> G)
+ * ## Hue — rose-gold (warmer), and why its peak is not the family's brightest
  *
- * Rich red, R/G ~2.56 — set against `vault`'s gold (R/G ~1.4) so the stage-4 ->
- * boss cross-fade reads as heat entering the terminal gold, the fight changing
- * gear. The **fullest** of the five seals — the only one with a filled field, so
- * the least empty (least rest), the resolved register reading fullest by fill and
- * chroma. Note this is fill and saturation, NOT peak luminance: the crimson glow
- * is red-heavy, and red carries the lowest Rec.709 weight (0.2126), so regnum's
- * PEAK sits below the neutral/olive seals (signet, cordon, intaglio) — it is the
- * fourth-brightest crest of the five, above only sable. What the design needs is
- * that it stays clearly brighter than sable's oxblood — its one hue-proximity
- * partner — which it does; the two are further separated by opposed geometry and
- * never sit adjacent in play.
+ * The tint `vec3(1.0, 0.85, 0.72)` keeps red full and pulls green and blue down, so
+ * the gold warms toward rose; `sat = 1.15` then pushes the chroma. Because the grade
+ * lowers the green channel — green carries most of the luminance weight — regnum's
+ * PEAK sits below cordon's and signet's even though it is the fullest FIELD. That is
+ * the intended reading: regnum is the fullest by fill and chroma (least rest), not
+ * the brightest by crest. Set against `vault`'s terminal gold, the warmer rose reads
+ * as heat entering the fight, still unmistakably `liquid-gold`.
+ *
+ * ## Exposure & bullet-band grading
+ *
+ * EXPOSURE 0.28, the lowest of the three; peaks ~0.22-0.26 raw
+ * [MEASURED-IN-ACCEPTANCE]. Raising the vignette floor lifts the DIM field, not the
+ * crest, so a fuller field costs no peak. The two bullet-band knobs live in
+ * `GOLD_GLSL` (broadened speculars; coarsened fine ripple) and cover this variant
+ * unchanged — the tint, saturation and fill only redistribute value, adding no new
+ * spatial frequency. Per-tick step is small (slow molten flow), coherent, no
+ * strobing.
  *
  * ## Clock
  *
- * Driven by `uScroll` only (see `background.ts`, rule 1);
- * `backgrounds/index.test.ts` scans for wall-clock sources.
+ * `uScroll` only, which advances in `step()` and nowhere else — no
+ * `performance.now`, so a replay looks identical twice (`background.ts`, rule 1).
+ * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
- * ## Numbers
- *
- * Engraved-union rebuild; figures are the design's derived worst-case [EST], to be
- * replaced by live measurement in acceptance. The pre-rebuild MEASURED peak
- * (0.0769) no longer describes this code.
- *
- *   - Peak luminance ~0.20-0.23 raw [MEASURED-IN-ACCEPTANCE], at the shared
- *     `SEAL_GAIN` 3.6 (the 0.1 ceiling is retired). `fill=1` lights the whole
- *     interior disk (`primary = max(primary, ground*fill)`), so regnum reads as the
- *     seal that stays present while its siblings empty out — the least rest. Its
- *     crimson is red-heavy (low Rec.709 weight), so its PEAK sits below the neutral
- *     seals; the arbiter is bullet readability under a real curtain.
- *   - Device period: subordinate ring train ~112px analytic; every stroke uses the
- *     K=16 cross-section (sigma_f 0.00563 < 0.00625 cyc/px, ~90% of budget;
- *     K-ceiling ~17.8) — union-bounded, no new frequency.
- *   - Palette relation R/G ~2.56 off GLOW, unchanged — BASE/GLOW untouched.
- *     Adjacency to sable's red is real; the pair separates by luminance, filter
- *     geometry (filled-whole vs pressed-shut), and never being adjacent in play.
- *   - Motion: eased ratchet, ~85t detent, eased over ~15t (~1.3px/tick) — a full
- *     reigning tick on the filled engraving; plus the continuous `sweep` orbit.
- *     [EST, motion-strip in acceptance.]
- *   - Engraved linework studied from pbakaus/radiant radiant-geometry + liquid-gold
- *     (MIT); our GLSL, noise and clocks.
+ * liquid-gold by pbakaus/radiant, MIT (basis in `signet.ts`). Ported
+ * near-identically; regnum grades hue/exposure/saturation and fills the field.
  */
 
-import { BACKGROUND_NOISE_GLSL, SEAL_GLSL, defineBackground } from '../background';
+import { defineBackground } from '../background';
+import { GOLD_GLSL } from './signet';
 
 defineBackground('regnum', {
-  scrollSpeed: 1.0,
+  scrollSpeed: 0.8,
   fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
-${SEAL_GLSL}
+${GOLD_GLSL}
 
-    /* Orange-crimson (hue ~12) — rich red toward orange. Set against vault's gold;
-       the fullest (filled-field) seal, not the brightest-peaked — see the header. */
-    const vec3 BASE = vec3(0.020, 0.008, 0.010);
-    const vec3 GLOW = vec3(0.112, 0.050, 0.034);
-
-    /* The filled disk cracked into gilded plates: a cellular (Voronoi) value field
-       whose SEAMS stay bright (kintsugi — the bright seam) while plates darken.
-       DOWN-only (max 1.0), so the gild reads bright by contrast and the peak is
-       preserved. A cellular value-ramp in the liquid-gold family (a user-given
-       ref); our GLSL, noise. */
-    float kintsugi(vec2 uv, float aspect) {
-      vec2 p = (uv - vec2(0.5, 0.41)) * vec2(aspect, 1.0) * 2.5;   /* cells ~256px */
-      vec2 g = floor(p), f = fract(p);
-      float d = 1.0;
-      for (int j = -1; j <= 1; j++) {
-        for (int i = -1; i <= 1; i++) {
-          vec2 o = vec2(float(i), float(j));
-          vec2 cc = o + vec2(bgHash(g + o + 0.1), bgHash(g + o + 0.7)) - f;
-          d = min(d, length(cc));
-        }
-      }
-      return mix(1.0, 0.60, smoothstep(0.0, 0.06, d));   /* SEAM=1.0 bright, plate=0.60 */
-    }
+    const float EXPOSURE = 0.28;   /* lowest of the three: fullest field, not highest peak */
 
     vec3 background(vec2 uv) {
-      float aspect = uRes.x / uRes.y;
-      float m = sealField(
-        uv, aspect, uScroll,
-        vec2(0.5, 0.42),   /* the seal on the empty seat */
-        0.36,              /* full bounding ring */
-        36.0,              /* ring frequency (~112px device period) */
-        6.0,               /* six-fold rosette (integer) */
-        4.0,               /* arcHalf > PI -> a whole seal */
-        1.0,               /* FILLED: the ground lights, least rest */
-        0.0,               /* device bright */
-        0.001541,          /* eased ratchet, ~85t detent */
-        0.0,               /* no moire */
-        2.8,               /* centre falloff */
-        2.4,               /* top-lane falloff */
-        4.7124             /* raking light from the bottom (3*PI/2) */
+      return goldScene(
+        uv, uRes.x / uRes.y, uScroll,
+        vec3(1.0, 0.85, 0.72),   /* rose-gold: warmer, red-heavy so peak sits below the others */
+        EXPOSURE,
+        1.0,                     /* FILLED: floor lifts, pool widens — the least-rest field */
+        1.15,                    /* chroma push — the fullest register */
+        0.0                      /* no station calm */
       );
-      m *= kintsugi(uv, aspect);   /* <=1 gilded plates: seams keep m, plates fall */
-      return BASE + GLOW * m;
     }
   `,
 });
