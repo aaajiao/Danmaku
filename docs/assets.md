@@ -829,3 +829,40 @@ teaches is recorded here so nobody has to:
 The generalisable lesson is that an art pipeline with no manifest and no
 validation degrades quietly. Naming cells and checking them at load time costs
 very little and prevents all five of the above.
+
+---
+
+## 8. Reserved surfaces — art a pack may carry, no engine consumer yet
+
+This engine wires art to exactly four hand-authored surfaces — the bullet sheet,
+the ship, portraits and HUD icons (sections 3.1, 3.2, 3.6 and the HUD icons in
+`docs/packs.md`). Items, effects and options are **not** additional surfaces:
+they reuse the 16 bullet cells (section 3.5), and a bomb carries no sprite field
+at all. So the four templates the art kit (`bun run art:kit`) emits cover every
+paintable surface the game has.
+
+Importing a third-party art set makes visible a second set of categories the
+engine has real art for but **cannot receive today**. The reference import,
+`tools/import-bulletpack.ts`, curates one frame per bullet cell out of such a
+set and stages everything it does not consume under
+`packs/<pack>/extra/<category>/`, with a machine-readable `extra/extras.json`
+manifest (per file: dimensions, strip frame count, an orientation guess and a
+suggested future consumer). These are recorded here as **format expectations**,
+not as templates — a template slot that looks consumable but is not is exactly
+what the reachability doctrine (CLAUDE.md, *Registration is not reachability*)
+forbids. A template for one of these belongs in the kit **only after** the
+engine round that gives it a consumer lands.
+
+| Category | Format expectation | Why no consumer today |
+|---|---|---|
+| **Laser body + hit-cap** | Vertical beam segments meant to **tile** along a beam's length (`strip3`–`strip12`, 13–32px/frame), plus separate 3-frame impact caps. | `LaserSpec` exists (`src/sim/bullet.ts`), but a laser renders as **one 32×32 cell stretched** along the beam (`src/main.ts`) — there is no tiled-beam renderer and no separate cap sprite. |
+| **Per-frame animation strips** | Horizontal strips of 2–41 frames. | The engine has **no frame playback anywhere** (`frameIndex`/`animFrame` do not exist); every animated strip collapses to one representative frame. |
+| **Missiles as entities** | 5-frame banking-pose sprites (turn, not loop) with an exhaust trail. | The closest mechanism is a `homing` behaviour on an ordinary single-cell bullet, continuously rotated by `orientToHeading` — no discrete poses, no exhaust. |
+| **Thruster / engine trails** | Continuous trail strips (`strip2`–`strip6`, 4–6px/frame). | The six `defineEffect` entries have no continuous-trail analogue. |
+| **Bomb visual** | Large nova / shockwave strips (up to 41 frames). | `BombSpec` carries no sprite surface; a bomb expresses only through the existing particle/effect system. |
+| **Dedicated option sprite** | A distinct twin-pod satellite sprite. | `OptionSpec.sprite` names a **bullet cell** — options share the bullet namespace and have no sprite identity of their own. |
+
+Advancing any of these means extending `src/render/procedural.ts` / `src/sim/*`
+and the art kit **first**, then painting — never the reverse. Until then, an
+imported pack keeps this material in `extra/`, out of the loaded pack and (for
+third-party art of unconfirmed licence) out of version control.

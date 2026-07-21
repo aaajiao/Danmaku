@@ -1,0 +1,28 @@
+{
+  "$comment": "Mapping from the third-party BulletPack folder onto this engine's art surfaces, consumed by tools/import-bulletpack.ts. Every path is relative to the BulletPack root (argv[2], default /Users/aaajiao/Downloads/BulletPack). Per entry: src=file, frames=strip frame count (1 = single), frame=which frame, crop={x,y,w,h} sub-rect (applied after slicing the frame), rotate=degrees clockwise to bring a directional shape to +x/east (rule 7), whiten=convert to white-luminance so the engine's per-instance tint recolours it (tinted surfaces only; the ship keeps its shading), trim=crop to the alpha bounding box, threshold=alpha floor for trim/measure, targetExtent=fit the longer painted axis to this many px then centre in the cell (keeps every cell inside MAX_CELL_EXTENT=28 with 2px margin). Directional cells (kunai, scale, shard, needle, petal) end pointing +x.",
+  "bullets": {
+    "orb.small":  { "src": "Bullet Pack/Bullet Pack/Tiny_Bullet_CianBermuda_strip4.png", "frames": 4, "frame": 0, "whiten": true, "trim": true, "targetExtent": 11 },
+    "orb.medium": { "src": "Bullet Pack/Missiles/Missiles_Exp_Mid_strip9.png", "frames": 9, "frame": 0, "whiten": true, "trim": true, "targetExtent": 16 },
+    "orb.large":  { "src": "Bullet Pack/Missiles/Missiles_Exp_Big_strip8.png", "frames": 8, "frame": 0, "whiten": true, "trim": true, "targetExtent": 26 },
+    "ring":       { "src": "Bullet Pack/Missiles/Missiles_Exp_Mid_strip9.png", "frames": 9, "frame": 5, "whiten": true, "trim": true, "targetExtent": 26 },
+    "kunai":      { "src": "Bullet Pack/Missiles/Missile1_strip5.png", "frames": 5, "frame": 0, "rotate": 90, "whiten": true, "trim": true, "targetExtent": 26 },
+    "scale":      { "src": "Bullet Pack/Bullet Pack/Gradius_Alt.png", "frames": 1, "frame": 0, "crop": { "x": 1, "y": 0, "w": 16, "h": 8 }, "whiten": true, "trim": true, "targetExtent": 20 },
+    "star":       { "src": "Bullet Pack/Misc/Yellow_Gem_strip9-sheet.png", "frames": 9, "frame": 0, "whiten": true, "trim": true, "targetExtent": 24 },
+    "shard":      { "src": "Bullet Pack/Bullet Pack/Medium_gradius.png", "frames": 1, "frame": 0, "whiten": true, "trim": true, "targetExtent": 26 },
+    "glow.small": { "src": "Bullet Pack/Missiles/Missiles_Exp_Tiny_strip11.png", "frames": 11, "frame": 4, "whiten": true, "trim": true, "targetExtent": 14 },
+    "glow.medium":{ "src": "Bullet Pack/Missiles/Missiles_Exp_Big_strip8.png", "frames": 8, "frame": 2, "whiten": true, "trim": true, "targetExtent": 22 },
+    "glow.large": { "src": "Bullet Pack/Explosions/New_Player_Explosion_strip38.png", "frames": 38, "frame": 2, "whiten": true, "trim": true, "targetExtent": 27 },
+    "halo":       { "src": "Bullet Pack/Bullet Pack/Rings.png", "frames": 1, "frame": 0, "crop": { "x": 0, "y": 0, "w": 13, "h": 13 }, "whiten": true, "trim": true, "targetExtent": 26 },
+    "needle":     { "src": "Bullet Pack/Bullet Pack/Lines_purple.png", "frames": 1, "frame": 0, "crop": { "x": 1, "y": 0, "w": 13, "h": 4 }, "whiten": true, "trim": true, "targetExtent": 28 },
+    "petal":      { "src": "Bullet Pack/Bullet Pack/medium_flamy.png", "frames": 1, "frame": 0, "crop": { "x": 0, "y": 0, "w": 6, "h": 19 }, "rotate": 90, "whiten": true, "trim": true, "targetExtent": 22 },
+    "spark":      { "src": "Bullet Pack/Player Bullets/P1_Bullet_Hit.png", "frames": 1, "frame": 0, "crop": { "x": 57, "y": 0, "w": 13, "h": 13 }, "whiten": true, "trim": true, "targetExtent": 20 },
+    "mote":       { "src": "Bullet Pack/Player Ship/ThrusterParticle0_strip6.png", "frames": 6, "frame": 0, "whiten": true, "trim": true, "targetExtent": 6 }
+  },
+  "ship": {
+    "src": "Bullet Pack/Player Ship/PlayerShip_strip5.png", "frames": 5, "frame": 2, "whiten": false, "trim": true, "targetExtent": 58, "hitbox": true
+  },
+  "hud": {
+    "life": { "src": "Bullet Pack/Misc/Pink_Gem_strip9.png", "frames": 9, "frame": 0, "whiten": true, "trim": true, "targetExtent": 14 },
+    "bomb": { "src": "Bullet Pack/Misc/Gold_coin_strip6.png", "frames": 6, "frame": 0, "whiten": true, "trim": true, "targetExtent": 14 }
+  }
+}

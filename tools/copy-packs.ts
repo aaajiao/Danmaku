@@ -2,30 +2,61 @@
 //
 // The dev server (tools/serve.ts) synthesizes /packs/index.json per request;
 // a static host cannot. So the build copies the packs/ tree into dist/packs/
-// verbatim and writes the same index.json alongside it — the listing the
-// loader fetches, precomputed. On any static host the built output then works
-// with no wrapper. Skips (with a log line) when packs/ is absent, so a repo
-// with no packs still builds.
+// and writes the same index.json alongside it — the listing the loader fetches,
+// precomputed. On any static host the built output then works with no wrapper.
+// Skips (with a log line) when packs/ is absent, so a repo with no packs still
+// builds.
+//
+// A pack whose pack.json `license` begins with "UNCONFIRMED" is staged by
+// neither the copy nor the index (CLAUDE.md rule 9: everything we ship must be
+// original/clearable). `.gitignore` keeps such a pack out of the commit, but
+// `bun run build` + a static-host deploy is a second path onto the public web,
+// and a whole-tree `cp` would have carried the art down it. So each pack is
+// copied individually and the unconfirmed ones are skipped out loud — never
+// silently — so a licence that clears later is the only thing needed to ship it.
 
-import { cp, mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const PACKS_DIR = new URL("../packs/", import.meta.url).pathname;
 const DIST_PACKS_DIR = new URL("../dist/packs/", import.meta.url).pathname;
 
-async function packIndex(dir: string): Promise<string[]> {
+/** True when a pack's declared licence forbids distribution until cleared. */
+function isUnconfirmed(license: unknown): boolean {
+  return typeof license === "string" && license.trimStart().startsWith("UNCONFIRMED");
+}
+
+/**
+ * The packs eligible to ship: every directory with a pack.json whose licence is
+ * not UNCONFIRMED. Returns the names to stage and copy, plus the names skipped
+ * so the caller can report them.
+ */
+async function surveyPacks(dir: string): Promise<{ ship: string[]; skipped: string[] }> {
   const entries = await readdir(dir, { withFileTypes: true });
-  const names: string[] = [];
+  const ship: string[] = [];
+  const skipped: string[] = [];
   for (const e of entries) {
     if (!e.isDirectory()) continue;
+    const manifest = join(dir, e.name, "pack.json");
     try {
-      const s = await stat(join(dir, e.name, "pack.json"));
-      if (s.isFile()) names.push(e.name);
+      const s = await stat(manifest);
+      if (!s.isFile()) continue;
     } catch {
-      // not a pack — skipped.
+      // not a pack — skipped, but not "skipped for licence".
+      continue;
     }
+    let license: unknown;
+    try {
+      license = JSON.parse(await readFile(manifest, "utf8")).license;
+    } catch {
+      license = undefined; // unreadable/invalid manifest — treat as no licence field.
+    }
+    if (isUnconfirmed(license)) skipped.push(e.name);
+    else ship.push(e.name);
   }
-  return names.sort();
+  ship.sort();
+  skipped.sort();
+  return { ship, skipped };
 }
 
 let hasPacks = true;
@@ -39,12 +70,19 @@ try {
 if (!hasPacks) {
   console.log("copy-packs: no packs/ directory — nothing to stage.");
 } else {
-  await cp(PACKS_DIR, DIST_PACKS_DIR, { recursive: true });
-  const packs = await packIndex(PACKS_DIR);
+  const { ship, skipped } = await surveyPacks(PACKS_DIR);
   await mkdir(DIST_PACKS_DIR, { recursive: true });
+  for (const name of ship) {
+    await cp(join(PACKS_DIR, name), join(DIST_PACKS_DIR, name), { recursive: true });
+  }
   await writeFile(
     join(DIST_PACKS_DIR, "index.json"),
-    JSON.stringify({ packs }),
+    JSON.stringify({ packs: ship }),
   );
-  console.log(`copy-packs: staged ${packs.length} pack(s) → dist/packs/`);
+  console.log(`copy-packs: staged ${ship.length} pack(s) → dist/packs/`);
+  if (skipped.length > 0) {
+    console.log(
+      `copy-packs: skipped ${skipped.length} unconfirmed-licence pack(s): ${skipped.join(", ")}`,
+    );
+  }
 }

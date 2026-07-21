@@ -37,6 +37,13 @@ toho-like-js/
 # working surface for an artist, regenerated on demand, never committed.
 art-kit/
 
+# Imported third-party art pack. `bun tools/import-bulletpack.ts` derives this
+# whole tree from a local BulletPack folder whose LICENSE is UNCONFIRMED (no
+# license file, no named author). The repo is public, so under CLAUDE.md rule 9
+# the ART is not committed — only the importer (tools/import-bulletpack.ts) and
+# its mapping (tools/bulletpack-map.json) are. The pack is regenerable on demand.
+packs/bulletpack/
+
 # Throwaway measurement harnesses. These drive the real `Run` to answer a
 # question a unit test cannot — "does a player ever reach this", "what does
 # tier 3 actually deal" — and they are written, read once, and abandoned. What
