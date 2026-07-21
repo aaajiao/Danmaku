@@ -57,11 +57,10 @@
  *
  * ## Exposure & the bullet-band grading
  *
- * Seal tier — a boss station, a step below the open stages. EXPOSURE 0.42 is the
+ * Seal tier — a boss station, a step below the open stages. EXPOSURE 0.55 is the
  * final gain; a mid-elevation major line (the brightest thing on the field) crests
- * ~0.24-0.27 raw across the morph [MEASURED-IN-ACCEPTANCE] and essentially never
- * passes 0.30, the near-black relief between the lines sits ~0.01, always far under a
- * bullet's 1.0-white + bloom. The image is bimodal by
+ * ~0.22-0.27 raw across the morph [MEASURED-IN-ACCEPTANCE], the near-black relief between the lines sits
+ * ~0.01, always far under a bullet's 1.0-white + bloom. The image is bimodal by
  * nature — thin bright lines over a dark field — which is the readable shape a seal
  * wants; the arbiter is bullet readability under a real curtain (`bun run dev` and
  * the density page), and these numbers describe what the code produces, not a target
@@ -70,14 +69,17 @@
  * Two knobs keep bright detail out of the bullet band (16-30px):
  *   1. **`CONTOUR_SPACING` grade (the primary knob).** Contour *pitch* is the
  *      readability parameter. Where the relief steepens, adjacent iso-lines crowd
- *      together — and a stack of ~20px-spaced parallel lines would read as a bullet
- *      curtain. `tightFade = smoothstep(TIGHT_MIN, TIGHT_OK, spacing_px)` fades a
- *      line's brightness toward zero wherever its neighbours fall inside the play
- *      band, so the surviving bright lines are always pitched WELL above it. A line's
- *      constant ~1-4px *width* is far finer than a 16-30px bullet and reads as a
- *      line, never a blob; it is line SPACING, not width, that the band cares about.
+ *      together — and a stack of bright ~20px-spaced parallel lines would read as a
+ *      bullet curtain. The grade dims a line wherever its neighbours fall inside
+ *      the play band — flooring at `TIGHT_FLOOR` (0.45), not zero: zeroing was
+ *      measured in acceptance deleting most of the picture (mean .010, the map
+ *      invisible). A floored in-band line peaks ~.12 raw — in-band-but-dim, the
+ *      same grade sable's fizz uses — while full brightness is reserved for lines
+ *      pitched WELL above the band. A line's constant ~1-4px *width* is far finer
+ *      than a 16-30px bullet and reads as a line, never a blob; it is line
+ *      SPACING, not width, that the band cares about.
  *   2. **`FIELD_SCALE` / octave count.** The field's spatial frequency is set so even
- *      the finest (4th) octave lands its cells ~36px — just above the band — so the
+ *      the finest (4th) octave lands its cells ~42px — clear of the band — so the
  *      relief's own crinkle never counterfeits a curtain either.
  *
  * No strobing: `TOPO_TIME` is held a touch below the reference's morph rate so a
@@ -101,25 +103,30 @@ defineBackground('regnum', {
   scrollSpeed: 0.8,
   fragment: /* glsl */ `
     /* Seal tier — a boss station a step below the open stages. See the header. */
-    const float EXPOSURE = 0.42;
+    const float EXPOSURE = 0.55;
 
     /* Ported from the reference's constants. LEVELS is NUM_CONTOURS (14). */
     const float LEVELS = 14.0;
 
     /* THE READABILITY KNOB (spatial). FIELD_SCALE sets the relief's frequency; at
-       2.1 the coarse humps span the 3:4 frame and even the 4th octave's cells land
-       ~36px, just above the 16-30px bullet band. FIELD_STRETCH replaces the
-       reference's per-frame min/max renormalisation with a fixed transform around
-       the value-noise mean (0.5), giving the same contour density without a global
+       1.8 the coarse humps span the 3:4 frame and the bulk of the contour pitch
+       clears the 16-30px bullet band. FIELD_STRETCH replaces the reference's
+       per-frame min/max renormalisation with a fixed transform around the
+       value-noise mean (0.5), giving the same contour density without a global
        per-frame breathe. Lower FIELD_SCALE / STRETCH = flatter relief, wider pitch. */
-    const float FIELD_SCALE = 2.1;
+    const float FIELD_SCALE = 1.8;
     const float FIELD_STRETCH = 1.7;
 
-    /* Contour-pitch grade (the primary bullet-band knob). A line fades toward zero
-       where its neighbours crowd inside the play band; full brightness once the
-       pitch clears it. TIGHT_OK sits above the 30px band ceiling. */
+    /* Contour-pitch grade (the primary bullet-band knob). A line GRADES DOWN where
+       its neighbours crowd inside the play band and holds full brightness once the
+       pitch clears it — but it floors at TIGHT_FLOOR rather than zero. Zeroing was
+       measured deleting most of the picture (acceptance: mean .010, the contour
+       field invisible); a floored line peaks ~.12 raw against a 1.0+bloom bullet,
+       in-band-but-dim, so the map stays a map and nothing counterfeits a shot.
+       TIGHT_OK sits above the 30px band ceiling. */
     const float TIGHT_MIN = 20.0;
     const float TIGHT_OK  = 44.0;
+    const float TIGHT_FLOOR = 0.45;
 
     /* Clock: net morph ~0.0012 per tick (scrollSpeed 0.8 × TOPO_TIME), held well
        under the reference's ~0.0025/tick so a drifting contour steps a fraction of a
@@ -229,9 +236,9 @@ defineBackground('regnum', {
         float sharp = 1.0 - smoothstep(sharpWidth * 0.5 - 1.1, sharpWidth * 0.5 + 1.1, distPx);
         float lineTerm = glow * glowAlpha + sharp * sharpAlpha;
 
-        /* BULLET-BAND KNOB — fade the line where the contour pitch crowds into the
-           play band, so only lines pitched well above 30px stay bright. */
-        lineTerm *= smoothstep(TIGHT_MIN, TIGHT_OK, spacingPx);
+        /* BULLET-BAND KNOB — grade the line down (to TIGHT_FLOOR, not zero) where
+           the contour pitch crowds into the play band; full brightness above it. */
+        lineTerm *= mix(TIGHT_FLOOR, 1.0, smoothstep(TIGHT_MIN, TIGHT_OK, spacingPx));
 
         col += lineColor * lineTerm;
       }
