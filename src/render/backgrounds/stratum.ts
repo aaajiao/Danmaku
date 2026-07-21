@@ -112,9 +112,9 @@ ${BACKGROUND_NOISE_GLSL}
     /* Verdigris / oxidised bronze — cold green-grey. See the header for why the
        hue is chosen against expanse's ice-blue, undertow's indigo, and above all
        surge's red. */
-    const vec3 HAZE = vec3(0.006, 0.014, 0.012);
-    const vec3 DEEP = vec3(0.010, 0.022, 0.019);
-    const vec3 LIFT = vec3(0.035, 0.082, 0.070);
+    const vec3 HAZE = vec3(0.005, 0.014, 0.013);   /* was (0.006,0.014,0.012) */
+    const vec3 DEEP = vec3(0.009, 0.022, 0.021);   /* was (0.010,0.022,0.019) */
+    const vec3 LIFT = vec3(0.028, 0.082, 0.078);   /* teal 175; was (0.035,0.082,0.070) */
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;

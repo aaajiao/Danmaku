@@ -99,10 +99,11 @@ defineBackground('umbra', {
 ${BACKGROUND_NOISE_GLSL}
 ${SEAL_GLSL}
 
-    /* Signet's gold cooled toward neutral, R/G ~1.07 — the warmth draining as
-       the seal comes unmoored. See the header. */
-    const vec3 BASE = vec3(0.010, 0.010, 0.012);
-    const vec3 GLOW = vec3(0.062, 0.058, 0.052);
+    /* Cold blue-violet (hue ~253) — the warmth drained ALL the way as the seal
+       unmoors; the round's bold wheel-fill, unmistakable in the grid where at the
+       old desaturated gold umbra sat inside the warm cluster. See the header. */
+    const vec3 BASE = vec3(0.010, 0.010, 0.014);
+    const vec3 GLOW = vec3(0.056, 0.044, 0.098);
 
     vec3 background(vec2 uv) {
       /* The seal drifts off-station and precesses. sin/cos of uScroll only —
@@ -113,7 +114,7 @@ ${SEAL_GLSL}
       float m = sealField(
         uv, uRes.x / uRes.y, uScroll,
         centre,            /* drifting, precessing */
-        0.34,              /* bounding ring radius */
+        0.32,              /* bounding ring radius (spread) */
         36.0,              /* ring frequency (~112px device period) */
         6.0,               /* six-fold rosette (integer, untouched) */
         4.0,               /* arcHalf > PI -> whole seal, just adrift */
@@ -122,7 +123,8 @@ ${SEAL_GLSL}
         0.0006,            /* the calm turn continues, now unanchored */
         42.48,             /* second radial ring: 36 * 1.18, RADIAL-only detune */
         3.0,               /* centre falloff */
-        2.4                /* top-lane falloff */
+        2.4,               /* top-lane falloff */
+        uScroll * 0.003    /* raking light DRIFTS: the light itself comes unmoored */
       );
 
       /* 出神: the substrate losing bit depth. Coarse ordered dither, DOWN-only

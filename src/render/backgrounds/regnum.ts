@@ -65,14 +65,34 @@ defineBackground('regnum', {
 ${BACKGROUND_NOISE_GLSL}
 ${SEAL_GLSL}
 
-    /* Crimson — rich red, R/G ~2.56. Set against vault's gold; the fullest
-       (filled-field) seal, not the brightest-peaked — see the header. */
+    /* Orange-crimson (hue ~12) — rich red toward orange. Set against vault's gold;
+       the fullest (filled-field) seal, not the brightest-peaked — see the header. */
     const vec3 BASE = vec3(0.020, 0.008, 0.010);
-    const vec3 GLOW = vec3(0.115, 0.045, 0.040);
+    const vec3 GLOW = vec3(0.112, 0.050, 0.034);
+
+    /* gilded-fracture: the filled disk cracked into gilded plates. SEAMS stay
+       bright (kintsugi IS the bright seam — the judge flipped concept A's dark-seam
+       polarity), plates darken. DOWN-only (max 1.0), so the gild reads bright by
+       contrast and the peak is preserved. Technique studied from pbakaus/radiant
+       gilded-fracture (MIT); our GLSL, noise. */
+    float kintsugi(vec2 uv, float aspect) {
+      vec2 p = (uv - vec2(0.5, 0.41)) * vec2(aspect, 1.0) * 2.5;   /* cells ~256px */
+      vec2 g = floor(p), f = fract(p);
+      float d = 1.0;
+      for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+          vec2 o = vec2(float(i), float(j));
+          vec2 cc = o + vec2(bgHash(g + o + 0.1), bgHash(g + o + 0.7)) - f;
+          d = min(d, length(cc));
+        }
+      }
+      return mix(1.0, 0.60, smoothstep(0.0, 0.06, d));   /* SEAM=1.0 bright, plate=0.60 */
+    }
 
     vec3 background(vec2 uv) {
+      float aspect = uRes.x / uRes.y;
       float m = sealField(
-        uv, uRes.x / uRes.y, uScroll,
+        uv, aspect, uScroll,
         vec2(0.5, 0.42),   /* the seal on the empty seat */
         0.36,              /* full bounding ring */
         36.0,              /* ring frequency (~112px device period) */
@@ -83,8 +103,10 @@ ${SEAL_GLSL}
         0.001541,          /* eased ratchet, ~85t detent */
         0.0,               /* no moire */
         2.8,               /* centre falloff */
-        2.4                /* top-lane falloff */
+        2.4,               /* top-lane falloff */
+        4.7124             /* raking light from the bottom (3*PI/2) */
       );
+      m *= kintsugi(uv, aspect);   /* <=1 gilded plates: seams keep m, plates fall */
       return BASE + GLOW * m;
     }
   `,

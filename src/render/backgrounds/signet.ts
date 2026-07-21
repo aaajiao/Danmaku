@@ -91,7 +91,8 @@ ${SEAL_GLSL}
         0.001636,          /* eased ratchet, ~100t detent */
         0.0,               /* no moire */
         3.0,               /* centre falloff */
-        2.4                /* top-lane falloff */
+        2.4,               /* top-lane falloff */
+        1.5708             /* raking light from the top (the reference control) */
       );
       return BASE + GLOW * m;
     }

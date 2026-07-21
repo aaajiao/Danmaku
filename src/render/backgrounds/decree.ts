@@ -106,10 +106,10 @@ defineBackground('decree', {
 ${BACKGROUND_NOISE_GLSL}
 ${SEAL_GLSL}
 
-    /* Crimson bleached toward cold rose-grey, R/G ~1.4 — regnum's red drained of
-       heat as the seal dissolves. See the header. */
+    /* Bleached rose (hue ~341) — regnum's crimson drained of its heat toward a
+       cold rose as the seal dissolves. See the header. */
     const vec3 BASE = vec3(0.014, 0.010, 0.012);
-    const vec3 GLOW = vec3(0.070, 0.050, 0.055);
+    const vec3 GLOW = vec3(0.078, 0.040, 0.052);
 
     vec3 background(vec2 uv) {
       /* The device drifts off-station and precesses, unfilled. sin/cos of
@@ -120,7 +120,7 @@ ${SEAL_GLSL}
       float m = sealField(
         uv, uRes.x / uRes.y, uScroll,
         centre,            /* drifting, precessing */
-        0.34,              /* bounding ring radius */
+        0.30,              /* bounding ring radius (spread) */
         36.0,              /* ring frequency (~112px device period) */
         6.0,               /* six-fold rosette (integer, untouched) */
         4.0,               /* arcHalf > PI -> whole ring, but the fill is gone */
@@ -129,7 +129,8 @@ ${SEAL_GLSL}
         0.0010,            /* the reigning turn, now unanchored */
         42.48,             /* second radial ring: 36 * 1.18, RADIAL-only detune */
         2.8,               /* centre falloff */
-        2.4                /* top-lane falloff */
+        2.4,               /* top-lane falloff */
+        uScroll * 0.003    /* raking light DRIFTS: the light itself comes unmoored */
       );
 
       /* 出神: the substrate losing bit depth. Coarse ordered dither, DOWN-only

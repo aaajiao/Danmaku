@@ -62,21 +62,35 @@ ${SEAL_GLSL}
     const vec3 BASE = vec3(0.016, 0.006, 0.006);
     const vec3 GLOW = vec3(0.080, 0.026, 0.020);
 
+    /* liquid-gold: pressed molten wax, a value RAMP (a few smoothstep stops, no
+       glint) — the reference's natural home is a wax seal. Coarse (~135px lobes),
+       DOWN-only (max 1.0). Technique studied from pbakaus/radiant liquid-gold
+       (MIT); our GLSL, noise, clock. */
+    float waxRamp(vec2 uv, float aspect) {
+      vec2 p = (uv - vec2(0.5, 0.43)) * vec2(aspect, 1.0);
+      float fld = bgFbm(p * 2.4 + uScroll * 0.002);
+      float ramp = smoothstep(0.35, 0.45, fld) * 0.4 + smoothstep(0.50, 0.62, fld) * 0.6;
+      return mix(0.60, 1.0, ramp);   /* max 1.0 */
+    }
+
     vec3 background(vec2 uv) {
+      float aspect = uRes.x / uRes.y;
       float m = sealField(
-        uv, uRes.x / uRes.y, uScroll,
+        uv, aspect, uScroll,
         vec2(0.5, 0.42),   /* centred on the boss station */
-        0.22,              /* ring pressed nearly shut, small radius */
-        36.0,              /* ring frequency (~112px device period) */
+        0.20,              /* ring pressed nearly shut, the smallest radius */
+        30.0,              /* ring frequency (~134px device period) */
         6.0,               /* six-fold rosette (integer) */
         4.0,               /* arcHalf > PI -> a whole seal */
         0.0,               /* sparse rosette */
         0.0,               /* device bright */
         0.001679,          /* eased ratchet, ~130t detent */
         0.0,               /* no moire */
-        4.2,               /* stronger centre falloff: compressed inward */
-        2.4                /* top-lane falloff */
+        4.4,               /* stronger centre falloff: compressed inward */
+        2.4,               /* top-lane falloff */
+        0.7854             /* raking light from upper-right (PI/4) */
       );
+      m *= waxRamp(uv, aspect);   /* <=1 wax value-ramp: peak only falls */
       return BASE + GLOW * m;
     }
   `,

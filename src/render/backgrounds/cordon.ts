@@ -65,17 +65,39 @@ defineBackground('cordon', {
 ${BACKGROUND_NOISE_GLSL}
 ${SEAL_GLSL}
 
-    /* Olive-brass, R ~= G (R/G ~0.90) — a desaturated brass, NOT gold. Chosen to
-       sit over undertow's indigo without a warm flash; see the header. */
+    /* Olive-chartreuse, toward green (hue ~74) — a barrier of quantized force,
+       NOT gold. G held at 0.078 (chartreuse is luminance-expensive; see header)
+       so cordon, the binding seal, stays under the ceiling. */
     const vec3 BASE = vec3(0.012, 0.013, 0.006);
-    const vec3 GLOW = vec3(0.070, 0.078, 0.030);
+    const vec3 GLOW = vec3(0.058, 0.078, 0.026);
+
+    /* magnetic-field: quantized dipole field-lines under the broken picket, the
+       reference read as a barrier that reads as a force diagram. DOWN-only (max
+       1.0). The seal centre stays PINNED at (0.5,0.42) so the boss-station void
+       does not move; the dipole gets its OWN internal pole offset here. Technique
+       studied from pbakaus/radiant magnetic-field (MIT); our GLSL, noise, clock. */
+    float fieldLines(vec2 uv, float aspect) {
+      vec2 c = (uv - vec2(0.50, 0.40)) * vec2(aspect, 1.0);          /* internal to the ornament */
+      float R = length(c - vec2(0.0, 0.16)) + length(c + vec2(0.0, 0.16)); /* confocal coord */
+      const float SP = 0.16;                                        /* ~102px band spacing */
+      float s = abs(R - floor(R / SP + 0.5) * SP) / SP;
+      float line = 1.0 - smoothstep(0.0, 0.45, s);                  /* BROAD soft band */
+      /* DENSITY-GATE FALLBACK (test:density): if the confocal lines read as
+         bullets, replace the two lines above with soft dipole LOBES (drops the
+         quantized banding, keeps the two-pole placement):
+           float line = exp(-6.0 * min(length(c - vec2(0.0,0.16)),
+                                        length(c + vec2(0.0,0.16)))); */
+      float pulse = 0.9 + 0.1 * sin(R * 6.0 - uScroll * 0.03);      /* coherence motion only */
+      return mix(0.82, 1.0, line * pulse);                         /* gaps dim to .82, lines max 1.0 */
+    }
 
     vec3 background(vec2 uv) {
+      float aspect = uRes.x / uRes.y;
       float m = sealField(
-        uv, uRes.x / uRes.y, uScroll,
-        vec2(0.5, 0.42),   /* the picket holds the station */
-        0.34,              /* bounding ring radius */
-        36.0,              /* ring frequency (~112px device period) */
+        uv, aspect, uScroll,
+        vec2(0.5, 0.42),   /* the picket holds the station (void PINNED) */
+        0.30,              /* bounding ring radius (spread: smaller) */
+        30.0,              /* ring frequency (~134px device period) */
         6.0,               /* six-fold rosette (integer), partly drawn */
         1.5708,            /* arcHalf = PI/2 -> ~half the ring, a broken arc */
         0.0,               /* sparse rosette */
@@ -83,8 +105,10 @@ ${SEAL_GLSL}
         0.001871,          /* eased ratchet, ~70t detent (endpoint sweeps, no jump) */
         0.0,               /* no moire */
         3.0,               /* centre falloff */
-        2.4                /* top-lane falloff */
+        2.4,               /* top-lane falloff */
+        3.9270             /* raking light from lower-left (5*PI/4) */
       );
+      m *= fieldLines(uv, aspect);   /* <=1 material multiply: peak only falls */
       return BASE + GLOW * m;
     }
   `,

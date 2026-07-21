@@ -57,17 +57,29 @@ defineBackground('intaglio', {
 ${BACKGROUND_NOISE_GLSL}
 ${SEAL_GLSL}
 
-    /* Bone — pale, desaturated, R/G ~1.04, the three channels close. The
-       negative of the cut die; see the header. */
-    const vec3 BASE = vec3(0.012, 0.012, 0.011);
-    const vec3 GLOW = vec3(0.075, 0.072, 0.060);
+    /* Cool-ivory near-neutral (hue ~210, leaning cool for wheel spread) — the
+       grid's one desaturated anchor, the three channels close with B just ahead.
+       The negative of the cut die; see the header. */
+    const vec3 BASE = vec3(0.012, 0.012, 0.013);
+    const vec3 GLOW = vec3(0.066, 0.070, 0.078);
+
+    /* ink-dissolve: the lit interior reads as wet ink pooling in the incised die.
+       Coarse organic threshold (~150px lobes), DOWN-only (max 1.0). Technique
+       studied from pbakaus/radiant ink-dissolve (MIT); our GLSL, noise, clock. */
+    float inkGround(vec2 uv, float aspect) {
+      vec2 p = (uv - vec2(0.5, 0.44)) * vec2(aspect, 1.0);
+      float q = bgFbm(p * 2.0 + uScroll * 0.003);
+      float field = bgFbm(p * 2.0 + 2.2 * q);          /* ~150px, wide boundary */
+      return mix(0.70, 1.0, smoothstep(-0.15, 0.15, field));  /* max 1.0 */
+    }
 
     vec3 background(vec2 uv) {
+      float aspect = uRes.x / uRes.y;
       float m = sealField(
-        uv, uRes.x / uRes.y, uScroll,
+        uv, aspect, uScroll,
         vec2(0.5, 0.42),   /* centred on the boss station */
-        0.34,              /* bounding ring radius */
-        36.0,              /* ring frequency (~112px device period) */
+        0.38,              /* bounding ring radius (spread: the largest) */
+        40.0,              /* ring frequency (~100px device period) */
         6.0,               /* six-fold rosette (integer) */
         4.0,               /* arcHalf > PI -> a whole seal */
         0.0,               /* no extra fill; inversion supplies the ground */
@@ -75,8 +87,10 @@ ${SEAL_GLSL}
         0.001532,          /* eased ratchet, ~95t detent */
         0.0,               /* no moire */
         3.0,               /* centre falloff */
-        2.4                /* top-lane falloff */
+        2.4,               /* top-lane falloff */
+        0.0                /* raking light from the right */
       );
+      m *= inkGround(uv, aspect);   /* <=1 wet-ink ground: peak only falls */
       return BASE + GLOW * m;
     }
   `,

@@ -109,9 +109,9 @@ ${BACKGROUND_NOISE_GLSL}
        shaft you are falling down should feel quicker than an open plain. */
     const float RING_FREQ = 14.0;
 
-    const vec3 HAZE      = vec3(0.018, 0.010, 0.030);
-    const vec3 WALL_DEEP = vec3(0.026, 0.014, 0.044);
-    const vec3 WALL_LIFT = vec3(0.100, 0.048, 0.150);
+    const vec3 HAZE      = vec3(0.020, 0.008, 0.032);   /* was (0.018,0.010,0.030) */
+    const vec3 WALL_DEEP = vec3(0.032, 0.012, 0.048);   /* was (0.026,0.014,0.044) */
+    const vec3 WALL_LIFT = vec3(0.120, 0.036, 0.150);   /* violet 284; was (0.100,0.048,0.150) */
 
     /* Tropical-heat refractive swim (studied from pbakaus/radiant; our GLSL). A
        coarse flowing field displaces R and B in opposite directions while G is

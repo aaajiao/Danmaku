@@ -296,6 +296,22 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
  * wrong: per-scene GLOW, then scale strokes so `max(ring,star,spoke)` peaks at
  * 0.83. A scene tunes GLOW, not this floor.
  *
+ * **Scene-diversity round (post the above): the swept family is superseded and
+ * re-derived [EST].** That round spent the peak-neutral coverage axes the law
+ * leaves free — it re-tuned per-seal ringRadius (spread 0.20-0.38, a size cue),
+ * gave each seal a distinct bevelDir (the directional rake above), and hung one
+ * <=1 secondary-material ornament in each stated seal's own body (cordon
+ * field-lines, intaglio wet-ink ground, regnum kintsugi, sable wax ramp) — every
+ * ornament max 1.0, so it can only LOWER the swept peak, never raise it. Several
+ * seals also moved hue (GLOW): cordon->olive-chartreuse, intaglio->cool-ivory,
+ * regnum->orange-crimson, umbra->cold blue-violet, decree->bleached rose. So the
+ * swept numbers above (signet 0.0851 ... decree 0.0440) still describe signet
+ * exactly and bound the rest from ABOVE (the ornaments only subtract), but the
+ * measured family for cordon/intaglio/regnum/umbra/decree is pending the round's
+ * acceptance re-measure and is [EST] until then; per-seal derived worst-cases are
+ * in each scene header. cordon is the binding seal (chartreuse is luminance-
+ * expensive): if it re-measures over 0.1, desaturate its G first.
+ *
  * ## The engraved ring, and why it stays bullet-coarse
  *
  * The bounding ring is crisped from K=7 to K=16 (Gaussian `exp(-dr*dr)`,
@@ -306,9 +322,18 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
  * (~90% of budget). The true K-ceiling where sigma_f reaches 0.00625 is K ~= 17.8,
  * so K=16 has only ~10% headroom — do NOT raise K past ~17 (an earlier note here
  * miscited sigma_f as 0.00398 with a K<=25 ceiling; that used sqrt(2)*sigma for
- * sigma and is wrong by a factor of sqrt(2)). A pressed-metal **bevel** — a LOW-FREQUENCY linear radial ramp,
- * inner rim lit, outer rim shadowed — carries the material; there is deliberately
- * NO glint/specular (a tight bright pinpoint is a fake bullet).
+ * sigma and is wrong by a factor of sqrt(2)). A pressed-metal **bevel** carries the
+ * material; there is deliberately NO glint/specular (a tight bright pinpoint is a
+ * fake bullet). The bevel has TWO terms: a low-frequency radial ramp (inner rim
+ * lit, outer rim shadowed) AND a **directional rake** keyed to the per-seal
+ * `bevelDir` parameter — a raking light held FIXED in the frame while the engraving
+ * ratchets under it (real metal catching a fixed light), which adds motion life to
+ * the ratchet for free and is a peak-neutral thumbnail cue (each seal lit from a
+ * different quarter). It is peak-neutral by construction: the 0.5/0.5 blend still
+ * tops out at 1.0, so bright coverage only drops and the per-pixel ceiling is
+ * unchanged; the rake is a smooth angular cosine (angular freq 1), no bullet-band
+ * risk. The 出神 pair DRIFTS its `bevelDir` (`uScroll*0.003`) — the light itself
+ * comes unmoored.
  *
  * The **engraved device** (`sdHexagram` + `spokeGlow`) is unioned into the ring
  * with `strokeGlow`, the ring's OWN K=16 cross-section — so no stroke introduces a
@@ -497,7 +522,8 @@ export const SEAL_GLSL = /* glsl */ `
     float rot,         /* rotation per unit scroll */
     float moireFreq,   /* second radial ring for the 出神 moiré; 0 = off */
     float centreFall,  /* centre-decay strength */
-    float topFall      /* top-lane-decay strength */
+    float topFall,     /* top-lane-decay strength */
+    float bevelDir     /* raking-light angle, FIXED in the frame (radians) */
   ) {
     vec2 c = (uv - centre) * vec2(aspect, 1.0);
     float r = length(c);
@@ -540,11 +566,21 @@ export const SEAL_GLSL = /* glsl */ `
        x < 0, and (r - ringRadius) is negative inside the ring. */
     float dr = (r - ringRadius) * 16.0;
     float band = exp(-dr * dr);
-    /* Pressed-metal bevel: a LOW-FREQUENCY linear radial ramp, inner rim lit,
-       outer rim shadowed. It adds material across the band's support, not a new
-       edge — the RAMP carries the metal, never a glint (speculars dropped, not
-       dimmed: a tight bright point is a fake bullet). */
-    float bevel = clamp((ringRadius - r) * 7.0, -1.0, 1.0);
+    /* Pressed-metal bevel: a LOW-FREQUENCY ramp carrying the metal, never a glint
+       (speculars dropped, not dimmed: a tight bright point is a fake bullet). Two
+       terms compose it — a radial ramp (inner rim lit, outer rim shadowed) and a
+       DIRECTIONAL rake: the light stays FIXED in the frame (bevelDir) while the
+       engraving ratchets under it, so real metal catches a fixed light and the
+       ratchet gains motion life for free. ringN is the UNROTATED frame outward
+       normal, so the lit side does not turn with the engraving. Peak-neutral: the
+       0.5/0.5 blend still tops out at 1.0 (requiring inner rim AND light-facing
+       side), so bright COVERAGE only drops and the per-pixel ceiling is unchanged.
+       rake is a smooth angular cosine (angular freq 1, broadest possible) — no new
+       spatial frequency, no bullet-band risk. */
+    float radialBevel = clamp((ringRadius - r) * 7.0, -1.0, 1.0);
+    vec2  ringN = c / max(r, 1e-4);
+    float rake  = dot(ringN, vec2(cos(bevelDir), sin(bevelDir)));
+    float bevel = clamp(0.5 * radialBevel + 0.5 * rake, -1.0, 1.0);
     float ring  = band * (0.72 + 0.28 * bevel);
 
     /* Inner concentric device rings (soft, KEPT, UNSQUARED — see the header):

@@ -220,15 +220,18 @@ function measureCell(key: string, x: number, y: number): Metrics {
 
 const grid = document.getElementById('grid')!;
 const labels = new Map<string, HTMLDivElement>();
+/** Stable cell numbers (#1..#N in grid order) so the page can be discussed by number. */
+const cellNo = new Map<string, number>();
 for (let i = 0; i < cellCount; i++) {
   const key = i === FADE_CELL ? 'fade-lab' : names[i]!;
+  cellNo.set(key, i + 1);
   const el = document.createElement('div');
   el.className = 'label';
   const { x } = cellRect(i);
   const row = Math.floor(i / COLS);
   el.style.left = `${x + 2}px`;
   el.style.top = `${row * (CELL_H + GAP) + 2}px`;
-  el.textContent = key;
+  el.textContent = `#${i + 1} ${key}`;
   grid.appendChild(el);
   labels.set(key, el);
 }
@@ -243,7 +246,7 @@ function updateLabel(key: string, m: Metrics): void {
   const pkBad = m.peak > 0.1;
   const stBad = m.maxStep > 0.02;
   el.innerHTML =
-    `${key}\n` +
+    `#${cellNo.get(key)} ${key}\n` +
     `pk <span class="${pkBad ? 'bad' : ''}">${fmt(m.peak)}</span>` +
     ` mn ${fmt(m.mean)}` +
     ` Δ <span class="${stBad ? 'bad' : ''}">${fmt(m.maxStep)}</span>`;
