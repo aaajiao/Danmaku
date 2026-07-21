@@ -123,6 +123,14 @@ interface Cell {
   scroll: number;
 }
 
+/**
+ * Viewing exposure: multiplies every cell's uIntensity so structure authored
+ * near-black can be inspected. Measurements are divided back by this factor,
+ * so the overlay always reports the shader's OWN output, boost-independent.
+ */
+let viewBoost = 3;
+const intensityUniforms: THREE.IUniform<number>[] = [];
+
 function compile(name: string): Cell {
   const spec = getBackgroundSpec(name);
   const uTick: THREE.IUniform<number> = { value: 0 };
@@ -135,7 +143,9 @@ function compile(name: string): Cell {
   uniforms['uTick'] = uTick;
   uniforms['uScroll'] = uScroll;
   uniforms['uRes'] = { value: new THREE.Vector2(FIELD_W, FIELD_H) };
-  uniforms['uIntensity'] = { value: 1 };
+  const uIntensity: THREE.IUniform<number> = { value: viewBoost };
+  intensityUniforms.push(uIntensity);
+  uniforms['uIntensity'] = uIntensity;
   uniforms['uAlpha'] = uAlpha;
   const material = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
@@ -200,9 +210,10 @@ function measureCell(key: string, x: number, y: number): Metrics {
   let peak = 0;
   let sum = 0;
   let maxStep = 0;
+  const norm = 255 * viewBoost; // report the shader's own output, boost-independent
   for (let i = 0; i < n; i++) {
     const l =
-      (0.2126 * px[i * 4]! + 0.7152 * px[i * 4 + 1]! + 0.0722 * px[i * 4 + 2]!) / 255;
+      (0.2126 * px[i * 4]! + 0.7152 * px[i * 4 + 1]! + 0.0722 * px[i * 4 + 2]!) / norm;
     if (l > peak) peak = l;
     sum += l;
     if (!fresh) {
@@ -282,6 +293,18 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('button.speed')) {
   for (const c of cells) c.scroll = 0;
   fade.base.scroll = 0;
 };
+for (const b of document.querySelectorAll<HTMLButtonElement>('button.boost')) {
+  b.onclick = () => {
+    viewBoost = Number(b.dataset['v']);
+    for (const u of intensityUniforms) u.value = viewBoost;
+    prevLuma.clear(); // step baselines are in the old scale
+    for (const o of document.querySelectorAll('button.boost')) o.classList.remove('active');
+    b.classList.add('active');
+  };
+  if (b.dataset['v'] === '3') b.classList.add('active');
+}
+// Note: at boost k, shader output above 1/k clips in the framebuffer, so the
+// normalized overlay saturates at 1/k. Measure bright scenes at ×1.
 
 const selA = document.getElementById('fadeA') as HTMLSelectElement;
 const selB = document.getElementById('fadeB') as HTMLSelectElement;
@@ -387,8 +410,12 @@ window.__measure = () => {
   return out;
 };
 
-/** Render one scene full-res into a scratch region and return it as a PNG. */
+/** Render one scene full-res into a scratch region and return it as a PNG.
+ *  Dumps are always taken at ×1 exposure — archival pixels stay honest. */
 function snapshot(c: Cell, w: number, h: number): string {
+  const ui = c.material.uniforms['uIntensity'] as THREE.IUniform<number>;
+  const savedBoost = ui.value;
+  ui.value = 1;
   const target = new THREE.WebGLRenderTarget(w, h);
   renderer.setRenderTarget(target);
   renderer.setViewport(0, 0, w, h);
@@ -400,6 +427,7 @@ function snapshot(c: Cell, w: number, h: number): string {
   renderer.readRenderTargetPixels(target, 0, 0, w, h, buf);
   renderer.setRenderTarget(null);
   target.dispose();
+  ui.value = savedBoost;
   const out = document.createElement('canvas');
   out.width = w;
   out.height = h;
