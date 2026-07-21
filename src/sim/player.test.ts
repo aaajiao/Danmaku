@@ -541,18 +541,22 @@ describe('graze', () => {
     expect(player.checkGraze(bullets)).toBe(0);
   });
 
-  test('grazing pays score', () => {
+  test('grazing counts near misses once — Run prices them, Player never scores', () => {
     const player = makePlayer();
     const bullets = makeBullets();
     place(bullets, 250, 400);
     place(bullets, 240, 410);
 
-    player.checkGraze(bullets);
-    expect(player.score).toBeGreaterThan(0);
+    // The count moved out of score: `checkGraze` counts and `Run.#award` prices,
+    // because score reads the difficulty tier and this pure simulation has none.
+    expect(player.checkGraze(bullets)).toBe(2);
+    expect(player.graze).toBe(2);
+    expect(player.score).toBe(0);
 
-    const afterTwo = player.score;
-    player.checkGraze(bullets);
-    expect(player.score).toBe(afterTwo);
+    // Both bullets are already grazed, so a second look this tick counts none.
+    expect(player.checkGraze(bullets)).toBe(0);
+    expect(player.graze).toBe(2);
+    expect(player.score).toBe(0);
   });
 
   test('a bullet at the lethal radius is grazed too — the radii nest', () => {

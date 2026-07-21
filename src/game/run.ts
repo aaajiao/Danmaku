@@ -41,7 +41,6 @@
 
 import { Button } from '../core/input';
 import { Random } from '../core/random';
-import { getShot } from '../content/shots';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec, type DialogueLine } from '../sim/boss';
@@ -196,11 +195,31 @@ export interface RunConfig {
    * replay flown on a different tier is a different run and is refused, not
    * warned. Recorded into replay meta by `finishRecording`.
    *
-   * Nothing but presentation reads the tier in v1 — there is no score multiplier;
-   * the tier is recorded and displayed and otherwise inert. A future scoring
-   * bonus would read it here.
+   * Read by score as well as presentation: every award passes `#award`, which
+   * scales `points` by the tier's rational in `SCORE_MULTIPLIER` (easy ×1/2,
+   * normal ×1, hard ×3/2, lunatic ×2). Normal is `1/1` and so leaves the score
+   * exactly what it was before the multiplier existed.
    */
   difficulty?: Difficulty;
+  /**
+   * Fingerprint of the bundled base content this run was flown under: a short
+   * opaque hash the shell computes from `base-pack.json` and threads in. Recorded
+   * into replay meta as `content`, and on playback: absent WARNS (a legacy
+   * recording, or a harness that threaded none), present-and-different REFUSES.
+   *
+   * The middle ground between `packs` (warn) and `packsData` (refuse), and it
+   * exists because the base content is not a data pack — it is the build itself,
+   * so it joins neither of those meta keys, yet it CAN drift when the engine's
+   * own enemies or bosses change. This is the only signal that a recording made
+   * on one build is being replayed against different base content; it covers the
+   * bundled pack JSON, not the pattern/behaviour code the pack names.
+   *
+   * A plain **string** by the same contract as `packs`: `src/game` must not import
+   * `src/packs`, so the identity crosses as text and nothing here learns what a
+   * fingerprint is of. Unset means the shell opted out (fixtures, debug launches),
+   * and then nothing is recorded and nothing is checked.
+   */
+  contentFingerprint?: string;
 }
 
 /**
@@ -317,6 +336,46 @@ const AUTO_COLLECT_LINE = 96;
 
 /** Score per bullet a converting bomb erased. This is why bombing scores. */
 const CLEARED_BULLET_SCORE = 20;
+
+/**
+ * Score per bullet grazed. Grazing is a scoring system, so it pays here.
+ *
+ * Lived on `Player` until score learned the tier: the graze increment was the
+ * one award the pure-simulation `Player` scored for itself, and a tier rational
+ * has no place there. It now pays through `#award` beside every other award, so
+ * `Player.checkGraze` counts near misses and `Run` prices them.
+ */
+const GRAZE_SCORE = 10;
+
+/**
+ * How score scales with the tier — a per-tier integer rational applied as
+ * `floor(points * num / den)`, so no float accumulates across a run and Normal
+ * (`1/1`) leaves every award byte-identical to the pre-multiplier arithmetic.
+ * That identity is what keeps the Normal gate traces frozen while the Lunatic
+ * ones move.
+ *
+ * Engine constants today; content someday. A pack that tunes its own economy
+ * would carry this table the way a pattern already carries its per-tier density
+ * — until then the rationals live here, closed with the tier union they key on.
+ */
+export const SCORE_MULTIPLIER: Record<Difficulty, readonly [num: number, den: number]> = {
+  easy: [1, 2],
+  normal: [1, 1],
+  hard: [3, 2],
+  lunatic: [2, 1],
+};
+
+/**
+ * `points` scaled by the tier's rational, floored to an integer — the whole of
+ * what the tier does to score, factored out so it can be proven directly rather
+ * than only through a run. `floor(points * num / den)`: integer-exact for any
+ * score this game reaches, and for Normal (`1/1`) it is the identity, which is
+ * the guarantee the frozen Normal gate traces rest on.
+ */
+export function scaleScore(points: number, difficulty: Difficulty): number {
+  const [num, den] = SCORE_MULTIPLIER[difficulty];
+  return Math.floor((points * num) / den);
+}
 
 /**
  * What a spell card pays when its timer runs out instead of its health.
@@ -481,6 +540,13 @@ export class Run {
       // in the air, so a replay flown on a different tier is a different run and is
       // refused. Absent-is-accepted covers fixtures recorded before the field.
       expectMeta(replay, 'difficulty', this.difficulty);
+      // Content fingerprint: the middle ground. A RECORDED value that differs is
+      // refused like `packsData` — the base content drifted, so the run is not the
+      // one recorded — but an ABSENT one only warns, because a legacy recording (or
+      // the gate harness, which threads no fingerprint) predates the key and is not
+      // wrong about it. Routed through neither existing helper: `expectMeta` is
+      // silent on absent, `warnMeta` never throws.
+      expectOrWarnMeta(replay, 'content', config.contentFingerprint ?? '');
       // Packs are presentation-only: a different pack changes how the run looked,
       // never what it did, so a mismatch WARNS and never refuses. Deliberately
       // not routed through `expectMeta`, which throws.
@@ -661,6 +727,9 @@ export class Run {
 
     const grazed = player.checkGraze(this.bullets);
     if (grazed > 0) {
+      // Priced here, not in `checkGraze`: the pure-simulation `Player` counts
+      // near misses, `Run` scores them through the one tier-aware choke point.
+      this.#award(grazed * GRAZE_SCORE);
       // The `graze` effect was registered, complete, and emitted by nothing, so
       // a near miss made a sound and left no mark on the screen — in a genre
       // where leaning into fire is the scoring system.
@@ -748,6 +817,20 @@ export class Run {
   }
 
   /**
+   * The one place score enters the run. Every award — kills, cleared bullets,
+   * score pickups, card bonuses, grazes — passes `points` through here, so the
+   * tier multiplies the economy in exactly one arithmetic and no other site
+   * needs to know a tier exists.
+   *
+   * Integer-exact: `points` is an integer, the rational is small integers, and
+   * `points * num` stays well inside the safe range for any score this game
+   * reaches, so `floor` sees an exact product and no float accumulates.
+   */
+  #award(points: number): void {
+    this.player.score += scaleScore(points, this.difficulty);
+  }
+
+  /**
    * Kills pay their score directly and scatter their spoils as items.
    *
    * `scoreValue` is the kill's **immediate** points, credited on death.
@@ -767,7 +850,7 @@ export class Run {
   #resolveDeaths(rng: Random): void {
     for (const death of this.enemies.drainDeaths()) {
       if (death.spec.onDeath) this.effects.emit(death.spec.onDeath, death.x, death.y);
-      this.player.score += death.spec.scoreValue ?? 0;
+      this.#award(death.spec.scoreValue ?? 0);
 
       for (const [name, count] of death.spec.spoils ?? []) {
         this.items.burst(name, death.x, death.y, count, rng);
@@ -794,7 +877,7 @@ export class Run {
   #resolveClearedBullets(): void {
     const cleared = this.bombs.drainCleared();
     if (cleared.length === 0) return;
-    this.player.score += cleared.length * CLEARED_BULLET_SCORE;
+    this.#award(cleared.length * CLEARED_BULLET_SCORE);
   }
 
   #resolvePickups(): void {
@@ -805,7 +888,7 @@ export class Run {
           this.player.addPower(value);
           break;
         case 'score':
-          this.player.score += value;
+          this.#award(value);
           break;
         case 'life':
           this.player.lives += value;
@@ -999,9 +1082,13 @@ export class Run {
           // it without firing must never beat doing it with.
           if (event.clean === true) {
             const bonus = card?.bonus ?? 0;
-            this.player.score += Math.floor(
+            // Floor the timeout fraction to an integer BEFORE the tier scales it,
+            // so `#award` sees integer points and Normal stays byte-identical to
+            // the pre-multiplier `Math.floor(...)` this replaced.
+            const points = Math.floor(
               event.type === 'phase-cleared' ? bonus : bonus * TIMEOUT_BONUS_FRACTION,
             );
+            this.#award(points);
           }
           this.#emit({
             type: 'boss-cleared',
@@ -1075,7 +1162,12 @@ export class Run {
    * exact failure class `reachability.test.ts` exists to catch.
    */
   #releaseBoss(name: string, x: number, y: number, rng: Random): void {
-    const lines = getBossSpec(name).dialogue;
+    // Per-character variant first, the shared exchange otherwise — pure data
+    // selection off the character this run already pins. A variant with a
+    // different line count changes only this character's timeline, which is why a
+    // replay records the character (see `BossSpec.dialogueFor`).
+    const spec = getBossSpec(name);
+    const lines = spec.dialogueFor?.[this.characterName] ?? spec.dialogue;
     if (lines === undefined || lines.length === 0) {
       this.boss.spawn(name, x, y, rng);
       return;
@@ -1262,20 +1354,25 @@ export class Run {
    * drop a message and strand the wrong theme. Reading it is idempotent, so a
    * paused, replayed, or restarted run needs no resynchronisation.
    *
-   * The precedence mirrors `scene` with one deliberate difference: a scene can
-   * be overridden per spell card, but music is **boss-level**. A fight declares
-   * one theme on entry and holds it across its cards, so this reads
-   * `boss.spec.music`, not the live card's. If per-card music is ever wanted it
-   * belongs on `SpellCard` beside `background`, and this getter would read the
-   * card first exactly as `scene` does — see the note on `BossSpec.music`.
+   * The precedence mirrors `scene`: the live card's own track wins first — a
+   * spell card may override the theme for its duration exactly as it overrides
+   * the background — then the fight's boss-level track, then the stage's. A fight
+   * declares one theme on entry and most cards hold it, so `SpellCard.music` is
+   * left unset on all but the card that wants its own; those fall through to
+   * `boss.spec.music`, the fight's identity.
    *
    * `boss?.alive` is the same guard as `scene`, and for the same reason: the
    * theme announces the *live* fight, and once the boss is gone the run falls
-   * back to the stage's own track.
+   * back to the stage's own track. Reading the live card here is correct for the
+   * same reason `scene` reads it — see that getter's note on `#resolveBossEvents`.
    */
   get music(): string | undefined {
     const boss = this.boss.boss;
-    if (boss?.alive && boss.spec.music !== undefined) return boss.spec.music;
+    if (boss?.alive) {
+      const card = boss.spec.phases[boss.phaseIndex];
+      if (card?.music !== undefined) return card.music;
+      if (boss.spec.music !== undefined) return boss.spec.music;
+    }
     return this.#stageMusic;
   }
 
@@ -1308,7 +1405,7 @@ export class Run {
    * as something it was not.
    */
   finishRecording(): Replay {
-    return this.#recorder.finish(this.#tick, {
+    const meta: Record<string, string | number> = {
       character: this.characterName,
       stage: this.stageName,
       boss: this.bossName ?? '',
@@ -1324,7 +1421,16 @@ export class Run {
       packs: this.config.packs ?? '',
       outcome: this.#outcome,
       score: this.player.score,
-    });
+    };
+    // The base-content fingerprint is written ONLY when the shell threaded one —
+    // a present value is a real hash, never ''. Omitting it (rather than
+    // defaulting to '') keeps "opted out" distinct from a valid fingerprint, and
+    // is exactly what makes a fingerprint-free harness (the gate) record a replay
+    // whose playback takes the absent-warns path instead of a spurious refusal.
+    if (this.config.contentFingerprint !== undefined) {
+      meta['content'] = this.config.contentFingerprint;
+    }
+    return this.#recorder.finish(this.#tick, meta);
   }
 
   /** Drain what happened this tick. Presentation-only; nothing reads it back. */
@@ -1418,198 +1524,44 @@ function expectMeta(replay: Replay, key: string, expected: string): void {
   }
 }
 
+/**
+ * The third meta semantics, between `expectMeta` (refuse) and `warnMeta` (warn):
+ * a RECORDED value that differs is refused exactly as `expectMeta` refuses, but
+ * an ABSENT one WARNS instead of being silently accepted.
+ *
+ * `content` needs it. Silent-on-absent (`expectMeta`) would let a recording that
+ * predates the fingerprint slip through with no signal at all, and never-throw
+ * (`warnMeta`) would let genuine content drift replay quietly under the wrong
+ * base content — the one failure the key exists to make loud. So: a recording
+ * that pinned a fingerprint and meets a different one is a different simulation
+ * and throws; a recording that pinned none (a legacy replay, or the gate harness
+ * that threads no fingerprint) is warned and plays.
+ */
+function expectOrWarnMeta(replay: Replay, key: string, expected: string): void {
+  const actual = replay.meta?.[key];
+  if (actual === undefined) {
+    console.warn(
+      `run: replay has no ${key} fingerprint (a legacy recording, or a harness that threaded none) — replaying without a content check`,
+    );
+    return;
+  }
+  if (String(actual) !== expected) {
+    throw new Error(
+      `run: replay was recorded with ${key} "${String(actual)}", not "${expected}"`,
+    );
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Starter characters                                                  */
 /* ------------------------------------------------------------------ */
 
-const START_X = FIELD.width / 2;
-const START_Y = FIELD.height - 72;
-
-/**
- * Two ships, from content that already exists. Two rather than one because a
- * seam with a single implementation is a seam nobody has checked: the select
- * screen, the replay's character guard and the option-set wiring are all
- * exercised only when the second one behaves differently from the first.
- */
-defineCharacter('scout', {
-  label: 'SCOUT',
-  sprite: 'ship',
-  blurb: 'even fire, wide bomb',
-  options: 'standard',
-  bomb: 'spread',
-  player: {
-    x: START_X,
-    y: START_Y,
-    speed: 3.6,
-    focusSpeed: 1.5,
-    // Lethal radius against a 40px sprite. That ratio is the genre.
-    radius: 2.5,
-    grazeRadius: 20,
-    lives: 3,
-    bombs: 3,
-    invulnTicks: 90,
-    shots: getShot('spread').levels,
-  },
-});
-
-defineCharacter('lance', {
-  label: 'LANCE',
-  sprite: 'ship',
-  blurb: 'homing options, focused bomb',
-  options: 'seeker',
-  bomb: 'lance',
-  player: {
-    x: START_X,
-    y: START_Y,
-    // Slower and more fragile in exchange for options that do the aiming.
-    speed: 3.1,
-    focusSpeed: 1.2,
-    radius: 2.5,
-    grazeRadius: 24,
-    lives: 2,
-    bombs: 3,
-    invulnTicks: 90,
-    shots: getShot('needle').levels,
-  },
-});
-
-/**
- * `hound` and `spire` exist because `homing` and `laser` did not.
- *
- * Both weapons were registered, imported, unit-tested and equipped by nobody:
- * `getShot` was called exactly twice in the whole project. That is the defect
- * the reachability work is about, one layer up — a registry entry is not
- * content until something asks for it — and the fix is a consumer, not a
- * deletion.
- *
- * Adding them also buys the thing two characters could not. With two ships
- * every registry entry in the game had exactly one consumer, so nothing proved
- * `shot`, `options` and `bomb` were independent fields rather than three names
- * for the same choice. `hound` fires `homing` and bombs `spread`; `spire` fires
- * `laser` and flies `lance`'s bomb and `lance`'s options. `seeker`, `spread`
- * and `lance` now each have a second consumer, and `character.bomb` is
- * demonstrably its own axis.
- *
- * Neither ship moves the balance envelope, and that was a constraint rather
- * than an outcome. Measured across every character × tier × focus state the
- * loadout spread is **4.125**, the same figure the two-ship roster produced:
- * `spire` p0 ties `lance`'s floor at 0.3333 and `spire` p3 ties its ceiling at
- * 1.3717 against 1.3750, with `hound` wholly inside. So `REFERENCE_DPS` is
- * untouched and no boss needed resizing — see `balance.test.ts`, which
- * re-derives all of it.
- */
-
-/**
- * Half the rate over four times the width.
- *
- * Measured at tier 3, guns only: `needle` lands 1.000 dead ahead and **0.000**
- * at 80px of lateral offset — a ±19° slot. `homing` lands 0.489 dead ahead and
- * 0.480 at 283px on a 32° bearing, keeping 98% of its rate across a wide
- * forward cone at any range, where `spread` and `needle` both land nothing.
- *
- * It is not `lance` with better aim, and the inversion is exact. `lance`'s gun
- * is fixed forward and narrow while its `seeker` options cover all 360°, so it
- * has no blind spot and a narrow gun. `hound`'s gun covers a wide cone without
- * being pointed while its `picket` battery covers nothing but straight ahead,
- * so it has a wide gun and a real blind spot: the shot's turn circle is 133px
- * (r 7 at 3°/tick), and against a target level with the ship it measures
- * **0.000** where `lance` and `spire` both land 0.372 from their aimed options.
- * Dead ahead `lance` out-damages it 1.372 to 0.765.
- */
-defineCharacter('hound', {
-  label: 'HOUND',
-  sprite: 'ship',
-  blurb: 'self-aiming gun, hand-aimed options',
-  options: 'picket',
-  bomb: 'spread',
-  player: {
-    x: START_X,
-    y: START_Y,
-    // The slowest ship, against scout's 3.6 and lance's 3.1. Every other ship's
-    // movement does two jobs — dodging and aiming — and is priced for both.
-    // This gun keeps 98% of its rate at a 32° bearing, so this ship's movement
-    // does one job and is priced for one.
-    speed: 2.9,
-    // And the fastest focus, above scout's 1.5. The exact inversion of lance,
-    // by the same argument run backwards: lance crawls at 1.2 because its
-    // options aim for it, so focus is for threading only. These options are
-    // fixed forward and land nothing off-axis, so focus is where this ship
-    // aims, and a battery the player cannot walk onto a target is not an
-    // upgrade.
-    focusSpeed: 1.6,
-    // Unchanged from both existing ships, deliberately: it is the genre's ratio
-    // against a 40px sprite, and it is the one dial that would make a ship
-    // strictly better in a way `balance.test.ts` cannot see — that test
-    // measures damage dealt and never damage taken.
-    radius: 2.5,
-    // Above scout's 20 and lance's 24. This is the lowest-damage ship in the
-    // game at every tier flown dead ahead, so its fights are the longest and it
-    // spends the most time under fire. Graze is pure reward and costs nothing
-    // else, so it is the right place to pay that back.
-    grazeRadius: 26,
-    // The only odd stock in the game, against scout's 3/3 and lance's 2/3. Long
-    // fights are survived rather than escaped, so the length is paid in lives
-    // and charged in bombs. Nothing in the suite reads either number; this is a
-    // play decision and is stated as one.
-    lives: 3,
-    bombs: 2,
-    // Identical to both ships on purpose. `Run` applies
-    // `max(player.invulnTicks, bomb.invulnTicks)` and `spread` declares 150
-    // against `lance`'s 90, so the bombs already differentiate the window; a
-    // per-ship dial on top would double-count it.
-    invulnTicks: 90,
-    shots: getShot('homing').levels,
-  },
-});
-
-/**
- * Commitment and reach.
- *
- * The beam is anchored where it was fired and cannot be turned, so every change
- * of target is a change of position: its lethal width is 6px, and it measures
- * 1.000 at 120px dead ahead against **0.000** at 40px of lateral offset. It has
- * to be walked onto its target. And because `growth` accumulates only while a
- * beam lives, power buys *range* rather than rate — p0 lands 0.167 at 200px and
- * nothing at 380px, p3 lands 0.800 and 0.600.
- *
- * This ship is also the only production caller of two paths that unit tests
- * were the sole users of: `pierce` on the player-fire side of
- * `#resolvePlayerShots`, and `BulletSpec.life` expiry on a player bullet — no
- * other player bullet in the game has a life, because no other one is
- * stationary enough to need one.
- */
-defineCharacter('spire', {
-  label: 'SPIRE',
-  sprite: 'ship',
-  blurb: 'planted beam, point-blank bomb',
-  options: 'seeker',
-  bomb: 'lance',
-  player: {
-    x: START_X,
-    y: START_Y,
-    // The fastest ship, above scout's 3.6. The beam cannot be re-aimed, so this
-    // ship's action loop is crossing the field, and it has to cross faster than
-    // the ships that can simply turn.
-    speed: 4.2,
-    // And the slowest focus, below lance's 1.2. Measured rather than felt: the
-    // beam's half-width is 3, so against a radius-11 grunt the window the
-    // player must hold is ±14px. At lance's 1.2px/tick that 28px window is 23
-    // ticks wide; at 1.0 it is 28. The number is the width of the correction
-    // window in ticks, and the fastest free speed in the game is what buys it.
-    focusSpeed: 1,
-    radius: 2.5,
-    // The largest in the game. The beam pays for time spent stationary, and
-    // standing still is the most expensive thing a player can do in this genre.
-    // This ship is obliged to do it, so it is the ship that should be paid for
-    // it, and the loop closes on itself: the gun wants you planted, planted is
-    // dangerous, danger is graze, graze is score.
-    grazeRadius: 28,
-    // The mirror of hound's 3/2. It survives by bombing out of the place it
-    // planted itself rather than flying out of it, so it carries the stock and
-    // pays the life.
-    lives: 2,
-    bombs: 3,
-    invulnTicks: 90,
-    shots: getShot('laser').levels,
-  },
-});
+// scout/lance/hound/spire — and the four shots, three option sets and two bombs
+// they fly — moved into the bundled base pack (`tools/make-base-pack.ts` →
+// `base-pack.json`), registering through the inject pipeline like any pack
+// character (decisions-round2 §D). This module keeps only the machinery above:
+// the `CharacterSpec` shape and the registry `CharacterSelectState` reads. The
+// roster's presence and correctness are proved at the composition root — the
+// port gate (`src/base-player.golden.test.ts`), `src/reachability.test.ts` and
+// `src/balance.test.ts` — none of which a `src/game` unit test may reach, since
+// importing the base pack would cross the `src/packs` boundary.

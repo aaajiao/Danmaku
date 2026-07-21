@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
 import { Button } from '../core/input';
-import { getShot } from '../content/shots';
+import { defineBomb } from '../sim/bomb';
+import { defineOptions } from '../sim/option';
 import type { Replay } from '../sim/replay';
 import { Edges, type GameState, StateMachine, type StateView } from './state';
 import { characterNames, defineCharacter, getCharacter, type Run } from './run';
@@ -18,24 +19,59 @@ import {
 } from './states';
 
 /**
- * A pack character, registered namespaced so the reachability and balance scans
- * (both filter '/') leave it alone and it is reachable only by being offered on
- * SELECT — exactly how the real injector registers one. It reuses built-in
- * shot/options/bomb because this file tests the replay-identity WIRE, not the
- * content: what matters is that its qualified name and owning-pack identity flow
- * into `RunConfig.packsData` off the plain START row.
+ * Local player weapons. The shipped roster and its shots/options/bombs moved into
+ * the bundled base pack (decisions-round2 §D), which a `src/game` test may not
+ * import — so this file registers its own, `test.`-prefixed so the reachability
+ * and balance scans skip them, and reused by both pilots below because this file
+ * tests the SELECT/replay-identity WIRE, not weapon content.
+ */
+const PILOT_OPTIONS = 'test.states-options';
+defineOptions(PILOT_OPTIONS, {
+  sprite: 'orb.medium',
+  shot: { style: { sprite: 'orb.small' }, radius: 4, motion: { r: 11, theta: 270 }, damage: 1 },
+  period: 5,
+  levels: [[], [{ x: -20, y: 0, focusX: -8, focusY: -10, angle: 270 }, { x: 20, y: 0, focusX: 8, focusY: -10, angle: 270 }]],
+});
+const PILOT_BOMB = 'test.states-bomb';
+defineBomb(PILOT_BOMB, { duration: 90, invulnTicks: 150, damagePerTick: 2, convertBullets: true, effect: 'death.big' });
+const PILOT_SHOTS = [
+  { spec: { style: { sprite: 'glow.small' }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 }, offsets: [{ x: 0, y: -10, angle: 270 }], period: 5 },
+];
+
+/**
+ * A bare built-in-style pilot — registered FIRST, so it takes SELECT row 0 the
+ * way the shipped roster used to (the "row 0 is a built-in" case below relies on
+ * it). It stands in for `scout` everywhere this file names one.
+ */
+const PILOT = 'test-pilot';
+defineCharacter(PILOT, {
+  label: 'PILOT',
+  sprite: 'ship',
+  options: PILOT_OPTIONS,
+  bomb: PILOT_BOMB,
+  player: {
+    x: 240, y: 560, speed: 3.6, focusSpeed: 1.5, radius: 2.5,
+    grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90, shots: PILOT_SHOTS,
+  },
+});
+
+/**
+ * A pack character, registered namespaced (and LAST) so the reachability and
+ * balance scans (both filter '/') leave it alone and it is reachable only by
+ * being offered on SELECT — exactly how the real injector registers one. What
+ * matters is that its qualified name and owning-pack identity flow into
+ * `RunConfig.packsData` off the plain START row.
  */
 const PACK_CHARACTER = 'demo/raider';
 const PACK_DATA = 'demo@abcdef012345';
 defineCharacter(PACK_CHARACTER, {
   label: 'RAIDER',
   sprite: 'ship',
-  options: 'standard',
-  bomb: 'spread',
+  options: PILOT_OPTIONS,
+  bomb: PILOT_BOMB,
   player: {
     x: 240, y: 560, speed: 3.6, focusSpeed: 1.5, radius: 2.5,
-    grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90,
-    shots: getShot('spread').levels,
+    grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90, shots: PILOT_SHOTS,
   },
 });
 
@@ -438,7 +474,7 @@ describe('screens', () => {
     open(ctx.machine, select);
     const view = select.view();
     expect(view.menu?.length).toBe(characterNames().length);
-    expect(view.menu).toContain(getCharacter('scout').label);
+    expect(view.menu).toContain(getCharacter(PILOT).label);
   });
 
   test('the cursor wraps in both directions', () => {
@@ -613,7 +649,7 @@ describe('difficulty select', () => {
 /* ------------------------------------------------------------------ */
 
 function startPlaying(ctx: GameContext): PlayingState {
-  const playing = new PlayingState(ctx, 'scout');
+  const playing = new PlayingState(ctx, PILOT);
   ctx.machine.push(playing);
   return playing;
 }
@@ -773,7 +809,7 @@ describe('endings', () => {
     expect(restarted.run.tickCount).toBe(0);
     expect(restarted.run.outcome).toBe('playing');
     expect(restarted.run.player.lives).toBe(
-      getCharacter('scout').player.lives,
+      getCharacter(PILOT).player.lives,
     );
     // The card is gone and the old run went with it.
     expect(ctx.machine.depth).toBe(1);
@@ -808,7 +844,7 @@ describe('endings', () => {
 
   test('a cleared run raises the clear card instead', () => {
     const ctx = context();
-    const playing = new PlayingState(ctx, 'scout');
+    const playing = new PlayingState(ctx, PILOT);
     ctx.machine.push(playing);
     // Shooting keeps the ship alive long enough for the stage to run out.
     for (let t = 0; t < 40000 && !playing.run.finished; t++) {

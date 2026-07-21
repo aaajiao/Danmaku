@@ -14,17 +14,47 @@
 import { describe, expect, test } from 'bun:test';
 
 import { Button } from '../core/input';
+import { defineBomb } from '../sim/bomb';
 import { defineBoss } from '../sim/boss';
 import type { BulletSpec } from '../sim/bullet';
+import { defineOptions } from '../sim/option';
 import { defineStage } from '../content/stage';
 import { deserialize, serialize } from '../sim/replay';
-import { Run, type RunConfig } from './run';
+import { defineCharacter, Run, type RunConfig } from './run';
 
 const SEED = 0x0d1a;
 
 /** No waves and no boss of its own: the config's boss is the only one sent. */
 const STAGE = 'test-dialogue-stage';
 defineStage(STAGE, { name: STAGE, outro: 0, waves: [] });
+
+/**
+ * A local pilot. The shipped roster (scout/lance/…) moved into the bundled base
+ * pack (decisions-round2 §D), which a `src/game` test may not import — so this
+ * file registers a faithful stand-in with a forward gun and a plain option/bomb,
+ * enough to fly the exchange and chip the boss down. Its shot/options/bomb are
+ * local so the file runs alone rather than under the full suite's leakage.
+ */
+const DIALOGUE_OPTIONS = 'test.dialogue-options';
+defineOptions(DIALOGUE_OPTIONS, {
+  sprite: 'orb.medium',
+  shot: { style: { sprite: 'orb.small' }, radius: 4, motion: { r: 11, theta: 270 }, damage: 1 },
+  period: 5,
+  levels: [[], [{ x: -20, y: 0, focusX: -8, focusY: -10, angle: 270 }, { x: 20, y: 0, focusX: 8, focusY: -10, angle: 270 }]],
+});
+const DIALOGUE_BOMB = 'test.dialogue-bomb';
+defineBomb(DIALOGUE_BOMB, { duration: 90, invulnTicks: 150, damagePerTick: 2, convertBullets: true, effect: 'death.big' });
+const CHARACTER = 'test-dialogue-character';
+defineCharacter(CHARACTER, {
+  label: 'DIALOGUE',
+  sprite: 'ship',
+  options: DIALOGUE_OPTIONS,
+  bomb: DIALOGUE_BOMB,
+  player: {
+    x: 240, y: 568, speed: 3.6, focusSpeed: 1.5, radius: 2.5, grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90,
+    shots: [{ spec: { style: { sprite: 'glow.small' }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 }, offsets: [{ x: 0, y: -10, angle: 270 }], period: 5 }],
+  },
+});
 
 /**
  * A boss with a three-line exchange. Its phase is deliberately fat — high health,
@@ -62,7 +92,7 @@ const STRAY: BulletSpec = {
 };
 
 function config(boss: string, overrides: Partial<RunConfig> = {}): RunConfig {
-  return { seed: SEED, character: 'scout', stage: STAGE, boss, ...overrides };
+  return { seed: SEED, character: CHARACTER, stage: STAGE, boss, ...overrides };
 }
 
 /** Everything a dialogue divergence could hide in, flattened to a string. */

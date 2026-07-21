@@ -92,14 +92,16 @@ function settle(
   }
 }
 
+// The shipped formations — standard/seeker/picket — are no longer defined here;
+// they moved into the bundled base pack (decisions-round2 §D), which a `src/sim`
+// test may not import. Their specs are pinned by the port gate
+// (`src/base-player.golden.test.ts`) and their tier ladders by `balance.test.ts`.
+// These registry tests run against the local `test.*` fixtures above, so they
+// hold when this file runs alone rather than under the full suite's leakage.
 describe('registry', () => {
   test('specs round-trip by name', () => {
-    expect(getOptionSpec('standard').period).toBe(5);
-    expect(getOptionSpec('seeker').levels).toHaveLength(4);
-  });
-
-  test('the starter set has four power tiers', () => {
-    expect(getOptionSpec('standard').levels).toHaveLength(4);
+    expect(getOptionSpec('test.fixed').period).toBe(4);
+    expect(getOptionSpec('test.fixed').levels).toHaveLength(3);
   });
 
   test('redefining a name throws rather than silently replacing', () => {
@@ -114,8 +116,8 @@ describe('registry', () => {
   });
 
   test('names are enumerable, so tooling can list loadouts', () => {
-    expect(optionNames()).toContain('standard');
-    expect(optionNames()).toContain('seeker');
+    expect(optionNames()).toContain('test.fixed');
+    expect(optionNames()).toContain('test.aimed');
   });
 });
 

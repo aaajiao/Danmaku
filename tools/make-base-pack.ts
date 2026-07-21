@@ -39,6 +39,7 @@
  * Run with `bun tools/make-base-pack.ts`.
  */
 
+import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { validateManifest, type PackContent, type PackManifest } from '../src/packs/manifest';
@@ -524,6 +525,17 @@ const bosses: PackContent['bosses'] = {
       { speaker: 'player', text: 'The gate is behind you.' },
       { speaker: 'sentinel', text: 'The gate is me.' },
     ],
+    // One per-character variant, for the built-in `spire`: the exchange keyed by
+    // a character name is used in place of `dialogue` when that ship flies the
+    // fight, every other character keeping the default above. Same sparse voice,
+    // fewer lines — a variant may differ in count, which changes only spire's
+    // timeline (why a replay pins the character).
+    dialogueFor: {
+      spire: [
+        { speaker: 'sentinel', text: 'You climb without a summit.' },
+        { speaker: 'player', text: 'The climb is the summit.' },
+      ],
+    },
     phases: [
       {
         name: 'Approach',
@@ -660,6 +672,10 @@ const bosses: PackContent['bosses'] = {
         difficulties: ['lunatic'],
         bonus: 800000,
         background: 'surge',
+        // The one per-card track in the game: this Lunatic-only card lifts to its
+        // own theme for its duration, overriding sentinel's `nemesis` exactly as
+        // `background` overrides the stage scene. Reached only on Lunatic.
+        music: 'zenith',
         motion: { r: 0 },
         patterns: [
           { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
@@ -1151,10 +1167,387 @@ const stages: PackContent['stages'] = {
 };
 
 /* ================================================================== */
+/* Player weapons — shots, options and bombs the roster flies.        */
+/*                                                                    */
+/* The player side joins the base pack (decisions-round2 §D), the     */
+/* counterpart to the campaign port above. scout/lance/hound/spire,   */
+/* their four shots, three option sets and two bombs left engine      */
+/* TypeScript (content/shots.ts, sim/option.ts, sim/bomb.ts,          */
+/* game/run.ts); the engine keeps the machinery — the registries, the */
+/* OptionSystem/BombSystem, the nesting-invariant checks — and the    */
+/* data is authored here. Headings are degrees in the y-down space    */
+/* the motion DSL uses: 270 is up, toward the enemy. A shot names the  */
+/* `homing` behaviour, engine code the injector resolves by name — a   */
+/* pack ships the reference, never the steering.                       */
+/* ================================================================== */
+
+/** Straight up: the whole cast fires toward the top of the screen. */
+const FORWARD = 270;
+
+/* ---- shot bullet specs ---- */
+
+/**
+ * `spread`'s bolt. Power buys coverage, not damage — every tier fires this same
+ * bullet and the upgrade is more of them across a wider arc, so a wider fan
+ * trades single-target rate for two lanes at once, a decision made with position.
+ */
+const GUN_BOLT = {
+  style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 },
+  radius: 4,
+  motion: { r: 9, theta: FORWARD },
+  damage: 1,
+};
+
+/**
+ * `needle`'s pin — the concentrated counterpart to the bolt, every tier straight
+ * forward. `radius: 2` is half the painted thickness (the cell is 26x4); `blade`
+ * makes the lethal shape the capsule the art already draws.
+ */
+const GUN_NEEDLE = {
+  style: { sprite: 'needle', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
+  radius: 2,
+  motion: { r: 11, theta: FORWARD },
+  damage: 2,
+  blade: { length: 26 },
+};
+
+/**
+ * `homing`'s tracker. The turn is the registered `homing` behaviour (engine
+ * code), referenced by name — no options passed, so the behaviour's own defaults
+ * decide the rate. Priced against `spread` by fire rate and speed, not damage: a
+ * bullet that cannot miss is slower in the air and comes out at half the cadence.
+ */
+const GUN_SEEKER = {
+  style: { sprite: 'scale', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
+  radius: 5,
+  motion: { r: 7, theta: FORWARD, behaviour: 'homing' },
+  damage: 1,
+};
+
+/**
+ * `laser`'s beam. `r: 0`, so the muzzle stays where it was fired and the bullet
+ * is purely its own length — sweeping is walking the emitter along a row while
+ * the beams already in the air keep burning. `life` is not optional: a stationary
+ * bullet the offscreen cull can never reach would sit in the field forever.
+ * `growth` costs the first ticks of reach, so point-blank fire is immediate while
+ * a distant target must be held; `pierce` stops the beam being spent on the first
+ * enemy it touches. Per tier the beam gains duration and reach, never muzzles —
+ * one emitter at every tier, so the nesting invariant holds by construction.
+ */
+const GUN_BEAM = {
+  style: { sprite: 'glow.small', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
+  radius: 3,
+  motion: { r: 0, theta: FORWARD },
+  damage: 1,
+  laser: { length: 48, growth: 90, maxLength: 520 },
+  pierce: true,
+};
+
+/** `spread`'s muzzles: a parallel pair, then symmetric angled bolts mirrored. */
+function fan(spread: readonly number[]): Record<string, unknown>[] {
+  const offsets: Record<string, unknown>[] = [
+    { x: -6, y: -10, angle: FORWARD },
+    { x: 6, y: -10, angle: FORWARD },
+  ];
+  for (const degrees of spread) {
+    offsets.push({ x: -10, y: -6, angle: FORWARD - degrees });
+    offsets.push({ x: 10, y: -6, angle: FORWARD + degrees });
+  }
+  return offsets;
+}
+
+/** `needle`'s muzzles: the centre, then symmetric pairs at 9px steps outward. */
+function rake(pairs: number): Record<string, unknown>[] {
+  const offsets: Record<string, unknown>[] = [{ x: 0, y: -12, angle: FORWARD }];
+  for (let i = 1; i <= pairs; i++) {
+    offsets.push({ x: -9 * i, y: -12, angle: FORWARD });
+    offsets.push({ x: 9 * i, y: -12, angle: FORWARD });
+  }
+  return offsets;
+}
+
+/** `laser`'s single emitter, shared by every tier so nesting is not a claim. */
+const MUZZLE = [{ x: 0, y: -12, angle: FORWARD }];
+
+const shots: PackContent['shots'] = {
+  // Each tier's muzzle set ⊇ the tier below's and its period ≤ the tier below's —
+  // the nesting invariant the engine's `shots.test.ts` enforces for every weapon.
+  // It makes "a stronger tier deals less against some geometry" unrepresentable.
+  spread: {
+    description: 'parallel bolts that fan wider with each power tier',
+    levels: [
+      { spec: GUN_BOLT, offsets: fan([]), period: 5 },
+      { spec: GUN_BOLT, offsets: fan([7]), period: 5 },
+      { spec: GUN_BOLT, offsets: fan([7, 15]), period: 4 },
+      // 7 and 15 again, not re-spaced: a different muzzle set can be a worse one.
+      { spec: GUN_BOLT, offsets: fan([7, 15, 26]), period: 4 },
+    ],
+  },
+  needle: {
+    description: 'parallel needles; concentration instead of coverage',
+    levels: [
+      { spec: GUN_NEEDLE, offsets: rake(0), period: 6 },
+      { spec: GUN_NEEDLE, offsets: rake(1), period: 6 },
+      { spec: GUN_NEEDLE, offsets: rake(2), period: 6 },
+      { spec: GUN_NEEDLE, offsets: rake(3), period: 6 },
+    ],
+  },
+  homing: {
+    description: 'slow tracking shot; trades rate and speed for never missing',
+    levels: [
+      { spec: GUN_SEEKER, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 9 },
+      {
+        spec: GUN_SEEKER,
+        offsets: [
+          { x: -7, y: -10, angle: FORWARD },
+          { x: 7, y: -10, angle: FORWARD },
+        ],
+        period: 9,
+      },
+      {
+        spec: GUN_SEEKER,
+        offsets: [
+          { x: -7, y: -10, angle: FORWARD },
+          { x: 7, y: -10, angle: FORWARD },
+          { x: 0, y: -14, angle: FORWARD },
+        ],
+        period: 8,
+      },
+      {
+        spec: GUN_SEEKER,
+        offsets: [
+          { x: -10, y: -8, angle: FORWARD - 6 },
+          { x: -4, y: -12, angle: FORWARD },
+          { x: 4, y: -12, angle: FORWARD },
+          { x: 10, y: -8, angle: FORWARD + 6 },
+        ],
+        period: 8,
+      },
+    ],
+  },
+  laser: {
+    description: 'stationary piercing beam; reach instead of a spread',
+    levels: [
+      // One muzzle at every tier; the tiers buy duration (life) and reach (growth),
+      // going from a strobe to an unbroken beam, never more emitters.
+      { spec: { ...GUN_BEAM, life: 3 }, offsets: MUZZLE, period: 6 },
+      { spec: { ...GUN_BEAM, life: 4 }, offsets: MUZZLE, period: 6 },
+      { spec: { ...GUN_BEAM, life: 5 }, offsets: MUZZLE, period: 6 },
+      { spec: { ...GUN_BEAM, life: 6, laser: { ...GUN_BEAM.laser, growth: 120 } }, offsets: MUZZLE, period: 5 },
+    ],
+  },
+};
+
+/* ---- option bullet specs ---- */
+
+/** Option fire is weaker per bullet than the ship's own — options multiply shot count. */
+const OPT_STD_SHOT = {
+  style: { sprite: 'orb.small', r: 0.75, g: 0.9, b: 1, additive: true },
+  radius: 4,
+  motion: { r: 11, theta: FORWARD },
+  damage: 1,
+};
+
+const OPT_SEEKER_SHOT = {
+  style: { sprite: 'scale', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
+  radius: 5,
+  motion: { r: 9, theta: FORWARD },
+  damage: 1,
+};
+
+const OPT_PICKET_SHOT = {
+  style: { sprite: 'orb.small', r: 0.7, g: 0.9, b: 1, additive: true },
+  radius: 4,
+  motion: { r: 11, theta: FORWARD },
+  damage: 1,
+};
+
+// Each tier keeps the tier below's slots and adds a pair — the option-layout twin
+// of the shot nesting invariant (sim/option.ts holds every set to it). These fire
+// straight forward, so a re-placed slot moves its column off the target.
+const STD_INNER = [
+  { x: -26, y: 6, focusX: -11, focusY: -10, angle: FORWARD },
+  { x: 26, y: 6, focusX: 11, focusY: -10, angle: FORWARD },
+];
+const STD_FORWARD = [
+  { x: -18, y: -16, focusX: -7, focusY: -24, angle: FORWARD },
+  { x: 18, y: -16, focusX: 7, focusY: -24, angle: FORWARD },
+];
+const STD_OUTER = [
+  { x: -44, y: 14, focusX: -16, focusY: -4, angle: FORWARD },
+  { x: 44, y: 14, focusX: 16, focusY: -4, angle: FORWARD },
+];
+
+// `picket` is the only formation armed at power 0 — the `homing` gun cannot carry
+// a bare ship, so `hound` needs a battery from the start. Period 4 is the fastest
+// in the game, keeping the slow gun's ship in the fight between volleys. NOSE and
+// INNER gather under focus; MID and OUTER stay wide — coverage, not concentration.
+const PICKET_NOSE = [{ x: 0, y: -22, focusX: 0, focusY: -28, angle: FORWARD }];
+const PICKET_INNER = [
+  { x: -22, y: -6, focusX: -8, focusY: -20, angle: FORWARD },
+  { x: 22, y: -6, focusX: 8, focusY: -20, angle: FORWARD },
+];
+const PICKET_MID = [
+  { x: -40, y: 8, focusX: -22, focusY: -6, angle: FORWARD },
+  { x: 40, y: 8, focusX: 22, focusY: -6, angle: FORWARD },
+];
+const PICKET_OUTER = [
+  { x: -58, y: 18, focusX: -36, focusY: 6, angle: FORWARD },
+  { x: 58, y: 18, focusX: 36, focusY: 6, angle: FORWARD },
+];
+
+const options: PackContent['options'] = {
+  // The default: fixed forward fire, wide when loose and stacked under focus. Tier
+  // 0 is empty — the bare ship, so the first power-up has something to give.
+  standard: {
+    sprite: 'orb.medium',
+    shot: OPT_STD_SHOT,
+    period: 5,
+    followSpeed: 1.6,
+    levels: [
+      [],
+      [...STD_INNER],
+      [...STD_INNER, ...STD_FORWARD],
+      [...STD_INNER, ...STD_FORWARD, ...STD_OUTER],
+    ],
+  },
+  // Every slot aims, so nothing is wasted on empty sky, but the shot is slower and
+  // the satellites trail badly — the cost of the tracking.
+  seeker: {
+    sprite: 'ring',
+    shot: OPT_SEEKER_SHOT,
+    period: 8,
+    followSpeed: 0.9,
+    tint: { r: 1, g: 0.85, b: 0.6 },
+    levels: [
+      [],
+      [{ x: 0, y: -30, focusX: 0, focusY: -22 }],
+      [
+        { x: -30, y: 0, focusX: -12, focusY: -18 },
+        { x: 30, y: 0, focusX: 12, focusY: -18 },
+      ],
+      [
+        { x: -36, y: 4, focusX: -14, focusY: -14 },
+        { x: 36, y: 4, focusX: 14, focusY: -14 },
+        { x: 0, y: -34, focusX: 0, focusY: -30 },
+      ],
+    ],
+  },
+  picket: {
+    sprite: 'orb.medium',
+    shot: OPT_PICKET_SHOT,
+    period: 4,
+    followSpeed: 1.8,
+    tint: { r: 0.75, g: 0.9, b: 1 },
+    // 1 / 3 / 5 / 7 slots, each tier the one below plus a pair, nothing re-placed.
+    levels: [
+      [...PICKET_NOSE],
+      [...PICKET_NOSE, ...PICKET_INNER],
+      [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID],
+      [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID, ...PICKET_OUTER],
+    ],
+  },
+};
+
+const bombs: PackContent['bombs'] = {
+  // The default: covers the screen, converts everything it eats, modest damage —
+  // its real payment is the clear.
+  spread: {
+    duration: 90,
+    invulnTicks: 150,
+    damagePerTick: 2,
+    convertBullets: true,
+    effect: 'death.big',
+  },
+  // The trade: half the coverage and no conversion, for four times the damage.
+  // Fired point-blank into a boss it is a damage cooldown, not an escape.
+  lance: {
+    duration: 60,
+    invulnTicks: 90,
+    damagePerTick: 8,
+    radius: 96,
+    effect: 'explosion',
+  },
+};
+
+/* ================================================================== */
+/* Characters — the SELECT roster.                                    */
+/*                                                                    */
+/* Registered in this order, which is the order SELECT offers them.   */
+/* A character names its shot/options/bomb; the injector resolves the  */
+/* references (pack-first, then built-in) and fills `player.shots`.    */
+/* Every ship names 'ship' — the only region the placeholder generator */
+/* paints — and starts at field centre (480x640 → 240, 568).          */
+/* ================================================================== */
+
+const characters: PackContent['characters'] = {
+  // Even fire, forgiving. The generalist the other three are measured against.
+  scout: {
+    label: 'SCOUT',
+    sprite: 'ship',
+    blurb: 'even fire, wide bomb',
+    shot: 'spread',
+    options: 'standard',
+    bomb: 'spread',
+    player: {
+      x: 240, y: 568, speed: 3.6, focusSpeed: 1.5,
+      // Lethal radius against a 40px sprite. That ratio is the genre.
+      radius: 2.5, grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90,
+    },
+  },
+  // Slower and more fragile, in exchange for options that do the aiming.
+  lance: {
+    label: 'LANCE',
+    sprite: 'ship',
+    blurb: 'homing options, focused bomb',
+    shot: 'needle',
+    options: 'seeker',
+    bomb: 'lance',
+    player: {
+      x: 240, y: 568, speed: 3.1, focusSpeed: 1.2,
+      radius: 2.5, grazeRadius: 24, lives: 2, bombs: 3, invulnTicks: 90,
+    },
+  },
+  // A wide self-aiming gun and a hand-aimed battery — the exact inversion of
+  // lance (narrow gun, all-round options). Slowest ship, fastest focus: the gun
+  // keeps 98% of its rate at a 32° bearing, so movement aims nothing and focus is
+  // where the fixed-forward `picket` is walked onto a target. The odd 3/2 stock
+  // pays for the game's longest fights in lives and charges them in bombs.
+  hound: {
+    label: 'HOUND',
+    sprite: 'ship',
+    blurb: 'self-aiming gun, hand-aimed options',
+    shot: 'homing',
+    options: 'picket',
+    bomb: 'spread',
+    player: {
+      x: 240, y: 568, speed: 2.9, focusSpeed: 1.6,
+      radius: 2.5, grazeRadius: 26, lives: 3, bombs: 2, invulnTicks: 90,
+    },
+  },
+  // Commitment and reach: the beam cannot be turned, so every change of target is
+  // a change of position and power buys range, not rate. Fastest ship (it crosses
+  // the field instead of turning), slowest focus (the width of its correction
+  // window in ticks), largest hitbox and graze (it is paid for standing still).
+  spire: {
+    label: 'SPIRE',
+    sprite: 'ship',
+    blurb: 'planted beam, point-blank bomb',
+    shot: 'laser',
+    options: 'seeker',
+    bomb: 'lance',
+    player: {
+      x: 240, y: 568, speed: 4.2, focusSpeed: 1,
+      radius: 2.5, grazeRadius: 28, lives: 2, bombs: 3, invulnTicks: 90,
+    },
+  },
+};
+
+/* ================================================================== */
 /* Manifest assembly                                                  */
 /* ================================================================== */
 
-const CONTENT: PackContent = { enemies, bosses, stages };
+const CONTENT: PackContent = { enemies, bosses, stages, shots, options, bombs, characters };
 
 /**
  * The bundled base pack. `name: "base"` is what the bundled injector self-checks
@@ -1171,7 +1564,15 @@ const MANIFEST: PackManifest = {
   author: 'Danmaku',
   license: 'CC0-1.0',
   description: 'The built-in campaign: stage-1 and stage-2, their cast and bosses.',
-  requires: ['content.enemies', 'content.stages', 'content.bosses'],
+  requires: [
+    'content.enemies',
+    'content.stages',
+    'content.bosses',
+    'content.shots',
+    'content.characters',
+    'content.options',
+    'content.bombs',
+  ],
   content: CONTENT,
 };
 
@@ -1193,10 +1594,41 @@ export function buildBasePackJson(): string {
 /** The checked-in path the generator writes and the drift test reads. */
 export const BASE_PACK_PATH = fileURLToPath(new URL('../src/packs/base-pack.json', import.meta.url));
 
+/**
+ * The generated fingerprint module's text: a SHA-256 of the base-pack JSON
+ * bytes, truncated to 12 hex exactly like `hashPack`, wrapped in one exported
+ * constant. Derived from `buildBasePackJson()` so the two artifacts are
+ * fingerprint-of-content by construction — the hash can never describe an older
+ * JSON than the one shipped beside it. This is the base content's identity in
+ * replay meta (`RunConfig.contentFingerprint`): a recording pins it, and a
+ * later engine whose bundled content has drifted meets a different hash and is
+ * refused rather than silently replaying under content it was not recorded on.
+ */
+export function buildBasePackFingerprint(): string {
+  const fingerprint = createHash('sha256').update(buildBasePackJson()).digest('hex').slice(0, 12);
+  return (
+    `// GENERATED by tools/make-base-pack.ts — do not edit; run \`bun tools/make-base-pack.ts\`.\n` +
+    `// SHA-256 of src/packs/base-pack.json (first 12 hex), the bundled base\n` +
+    `// content's identity in replay meta (see RunConfig.contentFingerprint in\n` +
+    `// src/game/run.ts). tools/make-base-pack.test.ts byte-diffs it against the\n` +
+    `// generator, so it cannot silently disagree with the JSON it fingerprints.\n` +
+    `export const CONTENT_FINGERPRINT = '${fingerprint}';\n`
+  );
+}
+
+/** The checked-in path of the generated fingerprint module. */
+export const BASE_PACK_FINGERPRINT_PATH = fileURLToPath(
+  new URL('../src/packs/base-pack.fingerprint.ts', import.meta.url),
+);
+
 if (import.meta.main) {
   const text = buildBasePackJson();
+  const fingerprint = buildBasePackFingerprint();
   mkdirSync(fileURLToPath(new URL('../src/packs/', import.meta.url)), { recursive: true });
   writeFileSync(BASE_PACK_PATH, text);
+  writeFileSync(BASE_PACK_FINGERPRINT_PATH, fingerprint);
   // eslint-disable-next-line no-console
   console.log(`wrote ${BASE_PACK_PATH} (${text.length} bytes)`);
+  // eslint-disable-next-line no-console
+  console.log(`wrote ${BASE_PACK_FINGERPRINT_PATH} (${fingerprint.length} bytes)`);
 }

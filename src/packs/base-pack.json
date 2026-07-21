@@ -8,7 +8,11 @@
   "requires": [
     "content.enemies",
     "content.stages",
-    "content.bosses"
+    "content.bosses",
+    "content.shots",
+    "content.characters",
+    "content.options",
+    "content.bombs"
   ],
   "content": {
     "enemies": {
@@ -727,6 +731,18 @@
             "text": "The gate is me."
           }
         ],
+        "dialogueFor": {
+          "spire": [
+            {
+              "speaker": "sentinel",
+              "text": "You climb without a summit."
+            },
+            {
+              "speaker": "player",
+              "text": "The climb is the summit."
+            }
+          ]
+        },
         "phases": [
           {
             "name": "Approach",
@@ -1107,6 +1123,7 @@
             ],
             "bonus": 800000,
             "background": "surge",
+            "music": "zenith",
             "motion": {
               "r": 0
             },
@@ -2498,6 +2515,1073 @@
             "stepX": 72
           }
         ]
+      }
+    },
+    "shots": {
+      "spread": {
+        "description": "parallel bolts that fan wider with each power tier",
+        "levels": [
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.7,
+                "g": 0.95,
+                "b": 1
+              },
+              "radius": 4,
+              "motion": {
+                "r": 9,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 6,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "period": 5
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.7,
+                "g": 0.95,
+                "b": 1
+              },
+              "radius": 4,
+              "motion": {
+                "r": 9,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 263
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 277
+              }
+            ],
+            "period": 5
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.7,
+                "g": 0.95,
+                "b": 1
+              },
+              "radius": 4,
+              "motion": {
+                "r": 9,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 263
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 277
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 255
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 285
+              }
+            ],
+            "period": 4
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.7,
+                "g": 0.95,
+                "b": 1
+              },
+              "radius": 4,
+              "motion": {
+                "r": 9,
+                "theta": 270
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 6,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 263
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 277
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 255
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 285
+              },
+              {
+                "x": -10,
+                "y": -6,
+                "angle": 244
+              },
+              {
+                "x": 10,
+                "y": -6,
+                "angle": 296
+              }
+            ],
+            "period": 4
+          }
+        ]
+      },
+      "needle": {
+        "description": "parallel needles; concentration instead of coverage",
+        "levels": [
+          {
+            "spec": {
+              "style": {
+                "sprite": "needle",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "needle",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "needle",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "needle",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -27,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 27,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          }
+        ]
+      },
+      "homing": {
+        "description": "slow tracking shot; trades rate and speed for never missing",
+        "levels": [
+          {
+            "spec": {
+              "style": {
+                "sprite": "scale",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 9
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "scale",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -7,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 7,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "period": 9
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "scale",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -7,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 7,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -14,
+                "angle": 270
+              }
+            ],
+            "period": 8
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "scale",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "offsets": [
+              {
+                "x": -10,
+                "y": -8,
+                "angle": 264
+              },
+              {
+                "x": -4,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 4,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 10,
+                "y": -8,
+                "angle": 276
+              }
+            ],
+            "period": 8
+          }
+        ]
+      },
+      "laser": {
+        "description": "stationary piercing beam; reach instead of a spread",
+        "levels": [
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 90,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 3
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 90,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 4
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 90,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 5
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 6
+          },
+          {
+            "spec": {
+              "style": {
+                "sprite": "glow.small",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 120,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 6
+            },
+            "offsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "period": 5
+          }
+        ]
+      }
+    },
+    "options": {
+      "standard": {
+        "sprite": "orb.medium",
+        "shot": {
+          "style": {
+            "sprite": "orb.small",
+            "r": 0.75,
+            "g": 0.9,
+            "b": 1,
+            "additive": true
+          },
+          "radius": 4,
+          "motion": {
+            "r": 11,
+            "theta": 270
+          },
+          "damage": 1
+        },
+        "period": 5,
+        "followSpeed": 1.6,
+        "levels": [
+          [],
+          [
+            {
+              "x": -26,
+              "y": 6,
+              "focusX": -11,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": 26,
+              "y": 6,
+              "focusX": 11,
+              "focusY": -10,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": -26,
+              "y": 6,
+              "focusX": -11,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": 26,
+              "y": 6,
+              "focusX": 11,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": -18,
+              "y": -16,
+              "focusX": -7,
+              "focusY": -24,
+              "angle": 270
+            },
+            {
+              "x": 18,
+              "y": -16,
+              "focusX": 7,
+              "focusY": -24,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": -26,
+              "y": 6,
+              "focusX": -11,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": 26,
+              "y": 6,
+              "focusX": 11,
+              "focusY": -10,
+              "angle": 270
+            },
+            {
+              "x": -18,
+              "y": -16,
+              "focusX": -7,
+              "focusY": -24,
+              "angle": 270
+            },
+            {
+              "x": 18,
+              "y": -16,
+              "focusX": 7,
+              "focusY": -24,
+              "angle": 270
+            },
+            {
+              "x": -44,
+              "y": 14,
+              "focusX": -16,
+              "focusY": -4,
+              "angle": 270
+            },
+            {
+              "x": 44,
+              "y": 14,
+              "focusX": 16,
+              "focusY": -4,
+              "angle": 270
+            }
+          ]
+        ]
+      },
+      "seeker": {
+        "sprite": "ring",
+        "shot": {
+          "style": {
+            "sprite": "scale",
+            "r": 1,
+            "g": 0.8,
+            "b": 0.5,
+            "additive": true,
+            "orientToHeading": true
+          },
+          "radius": 5,
+          "motion": {
+            "r": 9,
+            "theta": 270
+          },
+          "damage": 1
+        },
+        "period": 8,
+        "followSpeed": 0.9,
+        "tint": {
+          "r": 1,
+          "g": 0.85,
+          "b": 0.6
+        },
+        "levels": [
+          [],
+          [
+            {
+              "x": 0,
+              "y": -30,
+              "focusX": 0,
+              "focusY": -22
+            }
+          ],
+          [
+            {
+              "x": -30,
+              "y": 0,
+              "focusX": -12,
+              "focusY": -18
+            },
+            {
+              "x": 30,
+              "y": 0,
+              "focusX": 12,
+              "focusY": -18
+            }
+          ],
+          [
+            {
+              "x": -36,
+              "y": 4,
+              "focusX": -14,
+              "focusY": -14
+            },
+            {
+              "x": 36,
+              "y": 4,
+              "focusX": 14,
+              "focusY": -14
+            },
+            {
+              "x": 0,
+              "y": -34,
+              "focusX": 0,
+              "focusY": -30
+            }
+          ]
+        ]
+      },
+      "picket": {
+        "sprite": "orb.medium",
+        "shot": {
+          "style": {
+            "sprite": "orb.small",
+            "r": 0.7,
+            "g": 0.9,
+            "b": 1,
+            "additive": true
+          },
+          "radius": 4,
+          "motion": {
+            "r": 11,
+            "theta": 270
+          },
+          "damage": 1
+        },
+        "period": 4,
+        "followSpeed": 1.8,
+        "tint": {
+          "r": 0.75,
+          "g": 0.9,
+          "b": 1
+        },
+        "levels": [
+          [
+            {
+              "x": 0,
+              "y": -22,
+              "focusX": 0,
+              "focusY": -28,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": -22,
+              "focusX": 0,
+              "focusY": -28,
+              "angle": 270
+            },
+            {
+              "x": -22,
+              "y": -6,
+              "focusX": -8,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": 22,
+              "y": -6,
+              "focusX": 8,
+              "focusY": -20,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": -22,
+              "focusX": 0,
+              "focusY": -28,
+              "angle": 270
+            },
+            {
+              "x": -22,
+              "y": -6,
+              "focusX": -8,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": 22,
+              "y": -6,
+              "focusX": 8,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": -40,
+              "y": 8,
+              "focusX": -22,
+              "focusY": -6,
+              "angle": 270
+            },
+            {
+              "x": 40,
+              "y": 8,
+              "focusX": 22,
+              "focusY": -6,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": -22,
+              "focusX": 0,
+              "focusY": -28,
+              "angle": 270
+            },
+            {
+              "x": -22,
+              "y": -6,
+              "focusX": -8,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": 22,
+              "y": -6,
+              "focusX": 8,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": -40,
+              "y": 8,
+              "focusX": -22,
+              "focusY": -6,
+              "angle": 270
+            },
+            {
+              "x": 40,
+              "y": 8,
+              "focusX": 22,
+              "focusY": -6,
+              "angle": 270
+            },
+            {
+              "x": -58,
+              "y": 18,
+              "focusX": -36,
+              "focusY": 6,
+              "angle": 270
+            },
+            {
+              "x": 58,
+              "y": 18,
+              "focusX": 36,
+              "focusY": 6,
+              "angle": 270
+            }
+          ]
+        ]
+      }
+    },
+    "bombs": {
+      "spread": {
+        "duration": 90,
+        "invulnTicks": 150,
+        "damagePerTick": 2,
+        "convertBullets": true,
+        "effect": "death.big"
+      },
+      "lance": {
+        "duration": 60,
+        "invulnTicks": 90,
+        "damagePerTick": 8,
+        "radius": 96,
+        "effect": "explosion"
+      }
+    },
+    "characters": {
+      "scout": {
+        "label": "SCOUT",
+        "sprite": "ship",
+        "blurb": "even fire, wide bomb",
+        "shot": "spread",
+        "options": "standard",
+        "bomb": "spread",
+        "player": {
+          "x": 240,
+          "y": 568,
+          "speed": 3.6,
+          "focusSpeed": 1.5,
+          "radius": 2.5,
+          "grazeRadius": 20,
+          "lives": 3,
+          "bombs": 3,
+          "invulnTicks": 90
+        }
+      },
+      "lance": {
+        "label": "LANCE",
+        "sprite": "ship",
+        "blurb": "homing options, focused bomb",
+        "shot": "needle",
+        "options": "seeker",
+        "bomb": "lance",
+        "player": {
+          "x": 240,
+          "y": 568,
+          "speed": 3.1,
+          "focusSpeed": 1.2,
+          "radius": 2.5,
+          "grazeRadius": 24,
+          "lives": 2,
+          "bombs": 3,
+          "invulnTicks": 90
+        }
+      },
+      "hound": {
+        "label": "HOUND",
+        "sprite": "ship",
+        "blurb": "self-aiming gun, hand-aimed options",
+        "shot": "homing",
+        "options": "picket",
+        "bomb": "spread",
+        "player": {
+          "x": 240,
+          "y": 568,
+          "speed": 2.9,
+          "focusSpeed": 1.6,
+          "radius": 2.5,
+          "grazeRadius": 26,
+          "lives": 3,
+          "bombs": 2,
+          "invulnTicks": 90
+        }
+      },
+      "spire": {
+        "label": "SPIRE",
+        "sprite": "ship",
+        "blurb": "planted beam, point-blank bomb",
+        "shot": "laser",
+        "options": "seeker",
+        "bomb": "lance",
+        "player": {
+          "x": 240,
+          "y": 568,
+          "speed": 4.2,
+          "focusSpeed": 1,
+          "radius": 2.5,
+          "grazeRadius": 28,
+          "lives": 2,
+          "bombs": 3,
+          "invulnTicks": 90
+        }
       }
     }
   }

@@ -246,6 +246,13 @@ export interface ContentSpellCard {
   bonus?: number;
   isSpell?: boolean;
   background?: string;
+  /**
+   * The card's own theme while it is active (`SpellCard.music`), resolved
+   * pack-first then built-in — the same legality as `background`, and it overrides
+   * the boss's track for this card's duration. A bare string; unset holds the
+   * boss's own track.
+   */
+  music?: string;
 }
 
 /**
@@ -286,8 +293,7 @@ export interface ContentBoss {
    * pack-first then built-in. Deliberately **boss-level, not per-phase**, unlike
    * `background`, which lives on each `ContentSpellCard`: a fight announces itself
    * with one theme on entry and keeps it, so the music belongs to the boss and not
-   * to a card. (Per-spell-card music is a plausible future — it would move onto
-   * `ContentSpellCard` beside `background`, mirroring `BossSpec.music`'s note.)
+   * to a card.
    */
   music?: string;
   /**
@@ -295,10 +301,19 @@ export interface ContentBoss {
    * Run enters a dialogue phase before this boss spawns, one line advanced per
    * fresh Shot press. Each speaker names a portrait resolved pack-first (the
    * pack's own `portraits` section) then built-in. Identical for every player
-   * character in this format — per-character variants would key by character
-   * name here, mirroring `BossSpec.dialogue`'s own future note.
+   * character in this format; a character with a `dialogueFor` entry gets that
+   * exchange instead.
    */
   dialogue?: readonly DialogueLine[];
+  /**
+   * Per-character dialogue variants (`BossSpec.dialogueFor`). Keys are character
+   * names — built-in ∪ this pack's own — and each value is an exchange used in
+   * place of `dialogue` when that character flies the fight. Every speaker
+   * validates exactly as `dialogue`'s does (portrait names, pack-first); an
+   * unknown character key is a rejection. Unset means every character shares
+   * `dialogue`.
+   */
+  dialogueFor?: Record<string, readonly DialogueLine[]>;
 }
 
 /**
@@ -631,6 +646,7 @@ const BOSS_FIELDS = [
   'spoils',
   'music',
   'dialogue',
+  'dialogueFor',
 ] as const;
 const BOSS_ENTRY_FIELDS = ['x', 'y', 'ticks'] as const;
 /** The fields of one `dialogue` line — a speaker (portrait name) and its text. */
@@ -646,6 +662,7 @@ const SPELLCARD_FIELDS = [
   'bonus',
   'isSpell',
   'background',
+  'music',
 ] as const;
 const SHOT_FIELDS = ['levels', 'description'] as const;
 const SHOT_LEVEL_FIELDS = ['spec', 'offsets', 'period'] as const;
@@ -1429,6 +1446,10 @@ function validateBoss(
     validateDialogue(raw.dialogue, `${where}.dialogue`, prefix, errors);
   }
 
+  if ('dialogueFor' in raw && raw.dialogueFor !== undefined) {
+    validateDialogueFor(raw.dialogueFor, `${where}.dialogueFor`, prefix, errors);
+  }
+
   if (!('phases' in raw) || raw.phases === undefined) {
     errors.push(`${prefix}${where} is missing required field "phases" — an array of spell cards`);
   } else if (!Array.isArray(raw.phases)) {
@@ -1480,6 +1501,27 @@ function validateDialogue(
   });
 }
 
+/**
+ * A boss's `dialogueFor`: an object mapping a character name to a variant exchange.
+ * Shape only — each value is validated exactly as `dialogue` is, and whether the
+ * KEY names a real character (built-in ∪ the pack's own) is a registry question
+ * that belongs to `inject.ts`, not this pure module.
+ */
+function validateDialogueFor(
+  raw: unknown,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object mapping a character name to its lines`);
+    return;
+  }
+  for (const [character, variant] of Object.entries(raw)) {
+    validateDialogue(variant, `${where}."${character}"`, prefix, errors);
+  }
+}
+
 function validateBossEntry(
   raw: unknown,
   where: string,
@@ -1517,6 +1559,7 @@ function validateSpellCard(
   optField(raw, 'bonus', 'number', where, prefix, errors);
   optField(raw, 'isSpell', 'boolean', where, prefix, errors);
   optField(raw, 'background', 'string', where, prefix, errors);
+  optField(raw, 'music', 'string', where, prefix, errors);
   if ('difficulties' in raw && raw.difficulties !== undefined) {
     validateDifficultyGate(raw.difficulties, where, prefix, errors);
   }

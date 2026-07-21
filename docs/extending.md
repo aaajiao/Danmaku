@@ -679,6 +679,30 @@ A boss phase's pattern slot takes the identical block (`PhasePattern.difficulty`
 `src/sim/boss.ts:66`); §5 adds the one thing a boss has beyond it — a card that
 exists only on some tiers.
 
+### Difficulty also scales score
+
+Density is the tier's first axis; the score multiplier is its second. Every award
+passes one choke point, `Run.#award(points)`, which prices `points` through
+`scaleScore(points, difficulty)` — `floor(points * num / den)` from a per-tier
+rational in `SCORE_MULTIPLIER` (`src/game/run.ts`):
+
+| Tier | Rational | A 1000-point kill pays |
+|---|---|---|
+| easy | ×1/2 | 500 |
+| normal | ×1/1 | 1000 |
+| hard | ×3/2 | 1500 |
+| lunatic | ×2/1 | 2000 |
+
+Two properties are load-bearing. **Normal is the identity** (`1/1`), so every
+Normal award is byte-identical to the pre-multiplier arithmetic — that is what
+keeps the Normal gate traces frozen while the Lunatic ones move. And the rational
+is **integer-exact**: no float accumulates across a run, because the floor is
+applied per award, not to a running total. A content author writes nothing for
+this — the tier is already recorded in replay meta (the difficulty block above),
+so a replay stays honest with no new field. The rationals are engine constants for now; a pack that
+tuned its own economy would carry the table the way a pattern already carries its
+per-tier density.
+
 **Leaving the field is not a death.** The cull is silent: no score, no drop, no
 death effect (`src/sim/enemy.ts:290-296`). Only `damage` records one, and it
 guards on `alive` first, because two player bullets can land on the same enemy in
@@ -726,18 +750,22 @@ A boss is an enemy with a script: a sequence of `SpellCard` phases, each with it
 own health, clock, movement and fire.
 
 `BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
-`tint`, `entry`, `onDeath`, `music` and `spoils` (`src/sim/boss.ts:114-153`). A
+`tint`, `entry`, `onDeath`, `music` and `spoils` (`src/sim/boss.ts:135-198`). A
 `SpellCard` requires `name`, `hp`, `timeLimit` and `patterns`, and takes optional
 `difficulties`, `motion`, `timeline`, `bonus`, `isSpell` and `background`
-(`src/sim/boss.ts:71-112`).
+(`src/sim/boss.ts:71-122`).
 
-`music` names the theme this fight is scored to, by registered track name, and is
-**boss-level — not per-card**: a fight holds one theme across its cards, where
-`background` is per-`SpellCard`. It is a string resolved by the audio layer and
-never validated here (the music registry is audio-side; importing it would cross
-the same import boundary that keeps `background` a string, §15), and `Run.music`
-reports it whenever this boss is alive and declares one, else the stage's. The
-per-card override is a plausible future noted beside `Run.music`, not built.
+`music` names the theme this fight is scored to, by registered track name. It is
+**boss-level by default** — a fight enters with one theme and holds it across its
+cards — but a single card may override it: `SpellCard.music` overrides
+`BossSpec.music` for that card's duration, exactly as `SpellCard.background`
+overrides the scene. Both are strings resolved by the audio layer and never
+validated here (the music registry is audio-side; importing it would cross the
+same import boundary that keeps `background` a string, §15). `Run.music`
+reports the precedence live: **the current card's `music` if it declares one, else
+this boss's, else the stage's**, mirroring `Run.scene` hop for hop. A Lunatic-only
+card that names its own track is the shipped example — `sentinel`'s fourth card —
+so a fight's theme can change on the card the pattern changes on.
 
 `spoils` is the item shower dropped on death — the same `[name, count]` list an
 enemy carries (§4), over the item registry. Omit it and the boss drops the game
@@ -890,9 +918,18 @@ The interposition wraps **both** boss-spawn paths — the midboss cue and the
 end-of-stage boss — so a boss reached only as a midboss (like `warden`) still
 gets its exchange; a dialogue registered but never advanced would be the empty
 wire this repo keeps finding, so the built-in bosses each carry a short one and
-`reachability.test.ts` advances dialogue to reach them. The lines are identical
-for every player character in v1; per-character variants would key by character
-name on this field and are noted there, not built.
+`reachability.test.ts` advances dialogue to reach them.
+
+`dialogue` is the line every character hears. A boss may also carry
+`dialogueFor?: Record<characterName, readonly DialogueLine[]>` — a per-character
+override, keyed by the flying character's name. `Run` picks
+`dialogueFor[characterName] ?? dialogue` at the moment the exchange begins, pure
+data selection off a field the replay already pins (a run records its character,
+so the branch is reproducible with no new meta). A variant may run a different
+line count — that changes only that character's timeline, which is exactly why the
+character is pinned. `sentinel` carries a two-line `spire` variant beside its
+default. A variant is authored in the same sparse voice as the default, and every
+`speaker` still names a portrait (§12).
 
 The portrait a `speaker` names is registered on the render side with
 `definePortrait` (§12) — but the boss author never touches it: a speaker name that
@@ -1049,8 +1086,8 @@ script (`src/content/stage.ts:398-411`).
 it cannot be an import. `music` names the stage's theme the same way — a
 registered track name resolved by the audio layer, never imported, so
 `src/content` stays runnable with no audio context (the identical boundary
-argument, §15). `Run.music` mirrors `Run.scene`: the live boss's theme if one is
-alive and declares one, else this stage's, else undefined (leave what plays).
+argument, §15). `Run.music` mirrors `Run.scene`: the live card's theme if it
+declares one, else the boss's, else this stage's, else undefined (leave what plays).
 The theme is authored for a pack the same way a scene is — see
 [`docs/audio.md`](./audio.md) §4 and [`docs/packs.md`](./packs.md) §6.5a.
 
@@ -1076,6 +1113,19 @@ covers how it round-trips byte-for-byte and the drift test that holds it.
 
 Three registries the player's side is assembled from. None of them owns any of
 the player's counters; each hands data to the game layer and stops.
+
+**The base game's own player side is generator-authored, exactly like its
+enemies and stages.** `scout`, `lance`, `hound` and `spire` — and the four shots,
+three option sets and two bombs they fly — are no longer inline `define*` calls in
+`src/content/shots.ts`, `src/sim/option.ts`, `src/sim/bomb.ts` or `src/game/run.ts`;
+those files keep only the registries, the systems and the runtime constants they
+read (`FORWARD` and `DEFAULT_FOLLOW_SPEED` stay in `option.ts` — the option system
+reads them every tick). The four characters and their loadouts are JSON in
+`base-pack.json`, authored in `tools/make-base-pack.ts` and injected at boot
+(`docs/packs.md` §9.7). So adding a ship to the **base** roster is a generator
+edit; the `define*` surfaces below stay for engine-registered content, for a guest
+pack's injector path, and for the tests that fixture their own. The subsections
+document the shapes those all share.
 
 ### `defineShot` — a weapon, by power tier
 

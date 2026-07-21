@@ -867,6 +867,22 @@ describe('content — format-2 sections', () => {
       expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
     });
 
+    test('a card naming its own music round-trips (resolution is the injector\'s)', () => {
+      const raw = boss({
+        ...base(),
+        phases: [{ name: 'eclipse', hpSeconds: 12, music: 'zenith', patterns: [{ pattern: 'ring' }] }],
+      });
+      expect('manifest' in validateManifest(raw, 'candy')).toBe(true);
+    });
+
+    test('a card music that is not a string', () => {
+      expect(
+        errorsOf(boss({ ...base(), phases: [{ name: 'eclipse', hpSeconds: 12, music: 7, patterns: [{ pattern: 'ring' }] }] })),
+      ).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".phases[0].music must be a string',
+      );
+    });
+
     test('a difficulties gate that is not an array', () => {
       expect(
         errorsOf(boss({ ...base(), phases: [{ name: 'opening', hpSeconds: 10, difficulties: 'lunatic', patterns: [{ pattern: 'ring' }] }] })),
@@ -936,6 +952,39 @@ describe('content — format-2 sections', () => {
       test('an unknown line field suggests the near key', () => {
         expect(errorsOf(boss({ ...base(), dialogue: [{ speaker: 'warlord', text: 'hi', txet: 'x' }] }))).toContain(
           'pack "candy": pack.json: content.bosses."warlord".dialogue[0]: unknown field "txet" — did you mean "text"?',
+        );
+      });
+    });
+
+    describe('dialogueFor', () => {
+      test('a boss with per-character variants round-trips (key + speaker resolution is the injector\'s)', () => {
+        const raw = boss({
+          ...base(),
+          dialogueFor: {
+            raider: [
+              { speaker: 'warlord', text: 'A raider.' },
+              { speaker: 'player', text: 'And yet.' },
+            ],
+          },
+        });
+        expect('manifest' in validateManifest(raw, 'candy')).toBe(true);
+      });
+
+      test('dialogueFor must be an object', () => {
+        expect(errorsOf(boss({ ...base(), dialogueFor: [] }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogueFor must be a JSON object mapping a character name to its lines',
+        );
+      });
+
+      test("a variant's lines validate exactly as dialogue's — the key is named in the path", () => {
+        expect(errorsOf(boss({ ...base(), dialogueFor: { raider: [{ text: 'hi' }] } }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogueFor."raider"[0] is missing required field "speaker" — a portrait name',
+        );
+      });
+
+      test('a variant that is not an array', () => {
+        expect(errorsOf(boss({ ...base(), dialogueFor: { raider: {} } }))).toContain(
+          'pack "candy": pack.json: content.bosses."warlord".dialogueFor."raider" must be an array of {speaker, text} lines',
         );
       });
     });

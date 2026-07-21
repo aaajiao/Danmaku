@@ -53,6 +53,11 @@ import basePackJson from './base-pack.json';
 /** The bundled pack's name — bare, distinct from any real `packs/` directory. */
 export const BASE_PACK_NAME = 'base';
 
+// Re-exported so the shell (main.ts) can thread it into `RunConfig.contentFingerprint`
+// without importing the generated module directly — the base content's identity in
+// replay meta, a plain string the sim carries opaquely (see RunConfig.contentFingerprint).
+export { CONTENT_FINGERPRINT } from './base-pack.fingerprint';
+
 const manifest = basePackJson as unknown as PackManifest;
 
 // Validate through the real manifest validator first, the same gate a fetched

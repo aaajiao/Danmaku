@@ -20,6 +20,7 @@ import './render/backgrounds';
 // loadPacks below so a fetched pack naming a base name still qualifies away from
 // it. START keeps resolving 'stage-1'. See packs/bundled.ts.
 import './packs/bundled';
+import { CONTENT_FINGERPRINT } from './packs/bundled';
 
 import * as THREE from 'three';
 import { Audio, defineSound } from './audio';
@@ -264,6 +265,10 @@ const context: GameContext = {
   machine,
   nextSeed: () => Date.now() & 0xffffffff,
   packs: packs.packsMeta || undefined,
+  // The bundled base content's fingerprint, forwarded into every run's
+  // `RunConfig.contentFingerprint` and recorded into replay meta — so a replay
+  // made on this build is caught when replayed against drifted base content.
+  contentFingerprint: CONTENT_FINGERPRINT,
   campaigns: packs.campaigns,
   // The pack characters this build registered, each with its owning pack's
   // identity — the character path's mirror of `campaigns`. `CharacterSelectState`

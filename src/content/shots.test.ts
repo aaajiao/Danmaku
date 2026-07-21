@@ -4,19 +4,150 @@ import { Random } from '../core/random';
 import { BulletSystem, type Bullet, type FieldBounds } from '../sim/bullet';
 import { getBehaviour } from '../sim/motion';
 import { Player } from '../sim/player';
+// Registers the `homing` behaviour the tracking fixture names, so the steering
+// cases below run rather than early-returning. A content import — allowed here.
+import './behaviours';
 import { defineShot, getShot, shotNames, type ShotType } from './shots';
 
 const FIELD: FieldBounds = { width: 480, height: 480, margin: 48 };
-
-const STARTERS = ['spread', 'homing', 'laser', 'needle'] as const;
 
 function makeSystem(): BulletSystem {
   return new BulletSystem({ bounds: FIELD, initial: 256 });
 }
 
+/*
+ * The shipped weapons — spread/needle/homing/laser — no longer live here. They
+ * moved into the bundled base pack (`tools/make-base-pack.ts` → `base-pack.json`)
+ * with the characters that fire them (decisions-round2 §D), and a `src/content`
+ * test may not import that pack. Their exact specs are pinned by the port gate
+ * (`src/base-player.golden.test.ts`) and their damage envelope by
+ * `src/balance.test.ts`. What THIS file tests is the machinery every weapon runs
+ * on — the registry, the shot-table contract, the nesting invariant, and that a
+ * table drives a real `Player` — against local fixtures that exercise each of the
+ * four archetypes the base pack ships. Named `test.*`, so the process-global
+ * registry never confuses them with content and the cross-suite scans skip them.
+ */
+
+const FORWARD = 270;
+
+/** A fanning weapon: a parallel pair plus symmetric angled bolts. Mirrors `spread`. */
+function fanOffsets(spread: readonly number[]): { x: number; y: number; angle: number }[] {
+  const offsets = [
+    { x: -6, y: -10, angle: FORWARD },
+    { x: 6, y: -10, angle: FORWARD },
+  ];
+  for (const d of spread) {
+    offsets.push({ x: -10, y: -6, angle: FORWARD - d });
+    offsets.push({ x: 10, y: -6, angle: FORWARD + d });
+  }
+  return offsets;
+}
+
+const FAN_BOLT = {
+  style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 },
+  radius: 4,
+  motion: { r: 9, theta: FORWARD },
+  damage: 1,
+} as const;
+
+// Power buys coverage, not damage: every tier fires the same bullet, and each
+// tier's muzzle set is a superset of the one below with a period no larger.
+defineShot('test.fan', {
+  name: 'test.fan',
+  description: 'fixture: a fanning weapon',
+  levels: [
+    { spec: FAN_BOLT, offsets: fanOffsets([]), period: 5 },
+    { spec: FAN_BOLT, offsets: fanOffsets([7]), period: 5 },
+    { spec: FAN_BOLT, offsets: fanOffsets([7, 15]), period: 4 },
+    { spec: FAN_BOLT, offsets: fanOffsets([7, 15, 26]), period: 4 },
+  ],
+});
+
+/** Parallel needles at 9px steps. Mirrors `needle` — concentration, not coverage. */
+function rakeOffsets(pairs: number): { x: number; y: number; angle: number }[] {
+  const offsets = [{ x: 0, y: -12, angle: FORWARD }];
+  for (let i = 1; i <= pairs; i++) {
+    offsets.push({ x: -9 * i, y: -12, angle: FORWARD });
+    offsets.push({ x: 9 * i, y: -12, angle: FORWARD });
+  }
+  return offsets;
+}
+
+const RAKE_NEEDLE = {
+  style: { sprite: 'needle', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
+  radius: 2,
+  motion: { r: 11, theta: FORWARD },
+  damage: 2,
+  blade: { length: 26 },
+} as const;
+
+defineShot('test.needle', {
+  name: 'test.needle',
+  description: 'fixture: parallel needles',
+  levels: [
+    { spec: RAKE_NEEDLE, offsets: rakeOffsets(0), period: 6 },
+    { spec: RAKE_NEEDLE, offsets: rakeOffsets(1), period: 6 },
+    { spec: RAKE_NEEDLE, offsets: rakeOffsets(2), period: 6 },
+    { spec: RAKE_NEEDLE, offsets: rakeOffsets(3), period: 6 },
+  ],
+});
+
+// A tracking weapon: it names the `homing` behaviour rather than reimplementing a
+// turn, and is priced slower and rarer than the fan since it cannot miss.
+const TRACK_SEEKER = {
+  style: { sprite: 'scale', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
+  radius: 5,
+  motion: { r: 7, theta: FORWARD, behaviour: 'homing' },
+  damage: 1,
+} as const;
+
+defineShot('test.homing', {
+  name: 'test.homing',
+  description: 'fixture: a tracking shot',
+  levels: [
+    { spec: TRACK_SEEKER, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 9 },
+    {
+      spec: TRACK_SEEKER,
+      offsets: [
+        { x: -7, y: -10, angle: FORWARD },
+        { x: 7, y: -10, angle: FORWARD },
+      ],
+      period: 9,
+    },
+  ],
+});
+
+// A stationary beam: `r: 0`, so it is purely its own length; a `life` so the cull
+// can reach it; reach that grows; `pierce`; and NO warmup — a player weapon does
+// not telegraph itself. One muzzle at every tier, so nesting holds by construction.
+const BEAM = {
+  style: { sprite: 'glow.small', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
+  radius: 3,
+  motion: { r: 0, theta: FORWARD },
+  damage: 1,
+  laser: { length: 48, growth: 90, maxLength: 520 },
+  pierce: true,
+} as const;
+
+const BEAM_MUZZLE = [{ x: 0, y: -12, angle: FORWARD }] as const;
+
+defineShot('test.beam', {
+  name: 'test.beam',
+  description: 'fixture: a stationary piercing beam',
+  levels: [
+    { spec: { ...BEAM, life: 3 }, offsets: BEAM_MUZZLE, period: 6 },
+    { spec: { ...BEAM, life: 4 }, offsets: BEAM_MUZZLE, period: 6 },
+    { spec: { ...BEAM, life: 5 }, offsets: BEAM_MUZZLE, period: 6 },
+    { spec: { ...BEAM, life: 6, laser: { ...BEAM.laser, growth: 120 } }, offsets: BEAM_MUZZLE, period: 5 },
+  ],
+});
+
+/** The archetype fixtures, for the contract loops. */
+const FIXTURES = ['test.fan', 'test.needle', 'test.homing', 'test.beam'] as const;
+
 describe('the registry', () => {
-  test('the starter weapons are registered under their own names', () => {
-    for (const name of STARTERS) {
+  test('a fixture is registered under its own name', () => {
+    for (const name of FIXTURES) {
       expect(shotNames()).toContain(name);
       expect(getShot(name).name).toBe(name);
     }
@@ -43,14 +174,14 @@ describe('the registry', () => {
 
   test('shotNames reports registration order and every registered name resolves', () => {
     const names = shotNames();
-    expect(names.indexOf('spread')).toBeLessThan(names.indexOf('homing'));
+    expect(names.indexOf('test.fan')).toBeLessThan(names.indexOf('test.homing'));
     for (const name of names) expect(getShot(name).name).toBe(name);
   });
 });
 
 describe('the shot table contract', () => {
-  test('every starter has a tier 0 — a ship is never unarmed', () => {
-    for (const name of STARTERS) {
+  test('every fixture has a tier 0 — a ship is never unarmed', () => {
+    for (const name of FIXTURES) {
       const levels = getShot(name).levels;
       expect(levels.length).toBeGreaterThan(0);
       expect(levels[0]?.offsets.length).toBeGreaterThan(0);
@@ -58,7 +189,7 @@ describe('the shot table contract', () => {
   });
 
   test('every tier fires, at a whole number of ticks', () => {
-    for (const name of STARTERS) {
+    for (const name of FIXTURES) {
       for (const level of getShot(name).levels) {
         expect(level.period).toBeGreaterThan(0);
         expect(Number.isInteger(level.period)).toBe(true);
@@ -72,7 +203,7 @@ describe('the shot table contract', () => {
     // 270 is up in the y-down space the DSL uses. A weapon authored in the
     // radian convention, or with the sign flipped, would fire into the floor —
     // and would still typecheck.
-    for (const name of STARTERS) {
+    for (const name of FIXTURES) {
       for (const level of getShot(name).levels) {
         for (const muzzle of level.offsets) {
           const angle = muzzle.angle ?? (level.spec.motion.theta as number);
@@ -83,30 +214,21 @@ describe('the shot table contract', () => {
       }
     }
   });
-
-  // "power never makes a weapon strictly worse" used to live here, comparing
-  // muzzle counts and periods. It passed for the entire life of `spread`'s
-  // broken top tier, because four muzzles at ±8/±17 is still four muzzles: the
-  // count was right and the *identity* was not. Replaced by the set-inclusion
-  // check in "power tiers never go backwards" below, which is what the weaker
-  // version should have been.
 });
 
-describe('spread', () => {
+describe('a fanning weapon', () => {
   const angles = (tier: number): number[] =>
-    (getShot('spread').levels[tier]?.offsets ?? []).map((o) => o.angle as number);
+    (getShot('test.fan').levels[tier]?.offsets ?? []).map((o) => o.angle as number);
 
   test('every tier keeps a parallel pair to aim with', () => {
-    for (let tier = 0; tier < getShot('spread').levels.length; tier++) {
+    for (let tier = 0; tier < getShot('test.fan').levels.length; tier++) {
       expect(angles(tier).filter((a) => a === 270)).toHaveLength(2);
     }
   });
 
   test('the fan widens with power', () => {
-    const width = (tier: number): number => {
-      const spread = angles(tier).map((a) => Math.abs(a - 270));
-      return Math.max(...spread);
-    };
+    const width = (tier: number): number =>
+      Math.max(...angles(tier).map((a) => Math.abs(a - 270)));
 
     expect(width(0)).toBe(0);
     expect(width(1)).toBeGreaterThan(width(0));
@@ -115,7 +237,7 @@ describe('spread', () => {
   });
 
   test('the fan is symmetric about forward', () => {
-    for (let tier = 0; tier < getShot('spread').levels.length; tier++) {
+    for (let tier = 0; tier < getShot('test.fan').levels.length; tier++) {
       // `+ 0` collapses the negative zero that mirroring a forward bolt
       // produces — -0 and 0 are the same heading, and only deep equality
       // disagrees.
@@ -128,13 +250,13 @@ describe('spread', () => {
   });
 
   test('power buys coverage, not damage', () => {
-    const damages = getShot('spread').levels.map((l) => l.spec.damage);
+    const damages = getShot('test.fan').levels.map((l) => l.spec.damage);
     expect(new Set(damages).size).toBe(1);
   });
 
   test('a volley reaches the field, spread across the declared headings', () => {
     const system = makeSystem();
-    const level = getShot('spread').levels[3] as { offsets: readonly { x: number; y: number; angle?: number }[]; spec: Parameters<BulletSystem['spawn']>[2] };
+    const level = getShot('test.fan').levels[3] as { offsets: readonly { x: number; y: number; angle?: number }[]; spec: Parameters<BulletSystem['spawn']>[2] };
 
     const fired: Bullet[] = [];
     for (const muzzle of level.offsets) {
@@ -158,39 +280,34 @@ describe('spread', () => {
   });
 });
 
-describe('homing', () => {
+describe('a tracking weapon', () => {
   test('the steering is referenced by name, not reimplemented here', () => {
-    for (const level of getShot('homing').levels) {
+    for (const level of getShot('test.homing').levels) {
       expect(level.spec.motion.behaviour).toBe('homing');
     }
   });
 
-  test('it is priced slower and rarer than spread, since it cannot miss', () => {
-    const seeker = getShot('homing').levels[0] as { spec: { motion: { r?: number } }; period: number };
-    const bolt = getShot('spread').levels[0] as { spec: { motion: { r?: number } }; period: number };
+  test('it is priced slower and rarer than the fan, since it cannot miss', () => {
+    const seeker = getShot('test.homing').levels[0] as { spec: { motion: { r?: number } }; period: number };
+    const bolt = getShot('test.fan').levels[0] as { spec: { motion: { r?: number } }; period: number };
 
     expect(seeker.spec.motion.r).toBeLessThan(bolt.spec.motion.r as number);
     expect(seeker.period).toBeGreaterThan(bolt.period);
   });
 
   test('it actually steers, once the behaviour is registered', () => {
-    // Skipped rather than asserted-away while `sim/motion.ts` has no `homing`
-    // entry: the behaviour is another module's to register, and a test that
-    // silently passed on its absence would be the one thing worth catching
-    // here. `MoveVector.init` throws on an unknown name, so this is also what
-    // proves the spec is spawnable at all.
+    // `MoveVector.init` throws on an unknown name, so this is also what proves
+    // the spec is spawnable at all. Guarded so the file still runs if some
+    // refactor stops registering the behaviour it names.
     if (getBehaviour('homing') === undefined) return;
 
     const system = makeSystem();
-    const spec = getShot('homing').levels[0]?.spec as Parameters<BulletSystem['spawn']>[2];
+    const spec = getShot('test.homing').levels[0]?.spec as Parameters<BulletSystem['spawn']>[2];
     const bullet = system.spawn(240, 400, spec, 'player', new Random(1)) as Bullet;
 
-    // The enemy-side target and the player-side one are now separate
-    // arguments, and this is a **player** bullet — so it steers at the fourth,
-    // not the first two. This test used to pass the target as the field-wide
-    // one and read a player bullet turning toward it as success, which is
-    // precisely the defect: in a real run that field-wide target is the ship's
-    // own position, so the weapon curved around and came home.
+    // The enemy-side target and the player-side one are separate arguments, and
+    // this is a **player** bullet — so it steers at the fourth argument, not the
+    // first two (which in a real run are the ship's own position).
     const target = { x: 80, y: 120 };
     const playerPosition = { x: 240, y: 400 };
     for (let tick = 0; tick < 30; tick++) {
@@ -202,12 +319,12 @@ describe('homing', () => {
   });
 
   test('a player shot does not steer at the player', () => {
-    // The regression itself. Given only the enemy-side target — the ship — a
-    // player bullet must hold its heading rather than turn around.
+    // Given only the enemy-side target — the ship — a player bullet must hold
+    // its heading rather than turn around.
     if (getBehaviour('homing') === undefined) return;
 
     const system = makeSystem();
-    const spec = getShot('homing').levels[0]?.spec as Parameters<BulletSystem['spawn']>[2];
+    const spec = getShot('test.homing').levels[0]?.spec as Parameters<BulletSystem['spawn']>[2];
     // Fired to the left of the ship, so "turns toward the player" is a turn to
     // the right and unmistakable in `theta`.
     const bullet = system.spawn(140, 400, spec, 'player', new Random(1)) as Bullet;
@@ -221,9 +338,9 @@ describe('homing', () => {
   });
 });
 
-describe('laser', () => {
+describe('a stationary beam', () => {
   test('every tier is a beam with reach', () => {
-    for (const level of getShot('laser').levels) {
+    for (const level of getShot('test.beam').levels) {
       const laser = level.spec.laser;
       expect(laser).toBeDefined();
       expect(laser?.length).toBeGreaterThan(0);
@@ -231,26 +348,26 @@ describe('laser', () => {
     }
   });
 
-  test('a stationary beam declares a life, or it would never be culled', () => {
+  test('it declares a life, or it would never be culled', () => {
     // `r: 0` means the offscreen cull can never reach it. Without a life every
     // volley is a permanent pool slot.
-    for (const level of getShot('laser').levels) {
+    for (const level of getShot('test.beam').levels) {
       expect(level.spec.motion.r).toBe(0);
       expect(level.spec.life).toBeGreaterThan(0);
     }
   });
 
-  test('the player weapon does not telegraph itself', () => {
+  test('a player weapon does not telegraph itself', () => {
     // Warmup exists so the player can read an incoming beam. On the player's
     // own weapon it would only be input latency.
-    for (const level of getShot('laser').levels) {
+    for (const level of getShot('test.beam').levels) {
       expect(level.spec.laser?.warmup ?? 0).toBe(0);
     }
   });
 
   test('a fired beam is lethal along its whole length within a couple of ticks', () => {
     const system = makeSystem();
-    const level = getShot('laser').levels[0] as { spec: Parameters<BulletSystem['spawn']>[2] };
+    const level = getShot('test.beam').levels[0] as { spec: Parameters<BulletSystem['spawn']>[2] };
     const bullet = system.spawn(240, 400, level.spec, 'player', new Random(1)) as Bullet;
 
     expect(bullet.lethal).toBe(true);
@@ -263,7 +380,7 @@ describe('laser', () => {
 
   test('the beam is culled by its life rather than lingering in the field', () => {
     const system = makeSystem();
-    const level = getShot('laser').levels[0] as {
+    const level = getShot('test.beam').levels[0] as {
       spec: Parameters<BulletSystem['spawn']>[2];
     };
     system.spawn(240, 400, level.spec, 'player', new Random(1));
@@ -274,7 +391,7 @@ describe('laser', () => {
 });
 
 describe('a shot table drives a real player', () => {
-  test('every tier of every starter fires without the run touching Math.random', () => {
+  test('every tier of every fixture fires without the run touching Math.random', () => {
     // The whole point of the registry is that a weapon is data a `Player` can
     // be constructed from. Anything unspawnable — an unregistered behaviour,
     // a malformed spec — fails here rather than on the tick a player first
@@ -285,9 +402,8 @@ describe('a shot table drives a real player', () => {
     };
 
     try {
-      for (const name of STARTERS) {
+      for (const name of FIXTURES) {
         const levels = getShot(name).levels;
-        if (name === 'homing' && getBehaviour('homing') === undefined) continue;
 
         for (let tier = 0; tier < levels.length; tier++) {
           const system = makeSystem();
@@ -307,7 +423,7 @@ describe('a shot table drives a real player', () => {
           player.addPower(tier);
 
           // The peak, not the final count: a beam's whole life is shorter than
-          // this loop, so a laser tier legitimately ends it with an empty
+          // this loop, so a beam tier legitimately ends it with an empty
           // field. What is being asserted is that fire happened at all.
           let peak = 0;
           for (let tick = 0; tick < 40; tick++) {
@@ -330,11 +446,11 @@ describe('a shot table drives a real player', () => {
  *
  * This is checked structurally rather than by measuring damage, because a
  * measurement only ever covers the target it was taken against. `spread`'s top
- * tier measured *stronger* than tier 2 against a radius-14 enemy and 35% weaker
- * against a radius-22 one, and both numbers were true. What was wrong was the
- * shape: tier 3 re-spaced its inner bolts from ±7/±15 to ±8/±17, so it was a
- * different muzzle set rather than a wider one, and a different set can drop
- * bullets the old set was landing.
+ * tier once measured *stronger* than tier 2 against a radius-14 enemy and 35%
+ * weaker against a radius-22 one, and both numbers were true. What was wrong was
+ * the shape: tier 3 re-spaced its inner bolts, so it was a different muzzle set
+ * rather than a wider one, and a different set can drop bullets the old set was
+ * landing.
  *
  * The invariant that removes the whole class:
  *
@@ -345,9 +461,14 @@ describe('a shot table drives a real player', () => {
  *
  * **Aimed weapons are exempt from the geometry half**, and the exemption is
  * narrow and stated rather than assumed: a bullet that steers to its target
- * cannot be moved off it by shifting the muzzle, so for those only the count
- * and the cadence have to hold. `homing` is the one that qualifies, by naming a
- * steering behaviour on its motion.
+ * cannot be moved off it by shifting the muzzle, so for those only the count and
+ * the cadence have to hold — the tracking fixture is the one that qualifies.
+ *
+ * The base pack's four weapons obey this by construction (the generator authors
+ * them so); that they still do is guarded behaviourally at the composition root,
+ * where `src/balance.test.ts` measures every real loadout's damage rising with
+ * power. Here the checker itself is under test, against fixtures that nest and
+ * one hand-built ladder that does not.
  */
 describe('power tiers never go backwards', () => {
   const key = (o: { x: number; y: number; angle?: number }) =>
@@ -356,10 +477,8 @@ describe('power tiers never go backwards', () => {
   const steers = (type: ShotType, tier: number): boolean =>
     type.levels[tier]?.spec.motion?.behaviour !== undefined;
 
-  for (const name of shotNames()) {
-    // Fixtures other tests register are not content and are not held to this.
-    if (name.startsWith('test.')) continue;
-
+  // The nesting fixtures — the aimed one included, held only to count and cadence.
+  for (const name of ['test.fan', 'test.needle', 'test.homing'] as const) {
     test(`${name}: each tier keeps what the one below it fired`, () => {
       const type = getShot(name);
       for (let tier = 1; tier < type.levels.length; tier++) {
@@ -369,10 +488,7 @@ describe('power tiers never go backwards', () => {
         const where = `${name} tier ${tier}`;
 
         // Cadence first: a tier that fires less often is weaker however its
-        // muzzles are arranged, and this is the half that caught the first
-        // draft of `needle`, where three muzzles at period 7 replaced two at
-        // period 6 and lost damage against anything thin enough to slip
-        // between them.
+        // muzzles are arranged.
         expect(`${where} period ${here.period}`).toBe(
           `${where} period ${Math.min(here.period, below.period)}`,
         );
@@ -392,7 +508,7 @@ describe('power tiers never go backwards', () => {
 
   test('the check can fail', () => {
     // A ladder nobody has watched reject anything is not evidence. This is the
-    // exact shape `spread` shipped as.
+    // exact shape `spread` once shipped as — a re-spaced inner pair.
     const shifted: ShotType = {
       name: 'test.shifted',
       levels: [

@@ -309,6 +309,10 @@ describe('base campaign replay regression (the permanent behavioural guard)', ()
       // Deserialize and validate through the real replay path — the masks are
       // fed to a fresh run with no live input, exactly as a saved replay is.
       const replay = deserialize(JSON.stringify(fixture.replay));
+      // `baseConfig` threads no `contentFingerprint`, and these fixtures carry no
+      // `content` meta key, so the replay-meta check takes the legacy-warn path by
+      // design: this gate proves gameplay by trace comparison, not by fingerprint,
+      // and a content edit that should break gameplay is caught by the trace below.
       const playback = new Run({ ...baseConfig(stage, difficulty), replay });
       const reproduced = traceRun(playback, () => 0, replay.length + 1);
 

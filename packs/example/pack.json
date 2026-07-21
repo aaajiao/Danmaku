@@ -507,6 +507,22 @@
             "text": "Then few have put it out."
           }
         ],
+        "dialogueFor": {
+          "raider": [
+            {
+              "speaker": "pyre",
+              "text": "A raider. You burn what you cannot carry."
+            },
+            {
+              "speaker": "player",
+              "text": "And carry what will not burn."
+            },
+            {
+              "speaker": "pyre",
+              "text": "Then we are the same. A pity."
+            }
+          ]
+        },
         "phases": [
           {
             "name": "Smoulder",

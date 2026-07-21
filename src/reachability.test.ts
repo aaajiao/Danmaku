@@ -433,6 +433,16 @@ const COVER: Coverage = {
   ticks: Math.max(...RUNS.map((c) => c.ticks)),
 };
 
+/**
+ * One full Lunatic playthrough, shared.
+ *
+ * `RUNS` (and so `COVER`) is Normal only, so a track named by a Lunatic-only card
+ * — `sentinel`'s fourth phase names `zenith` — is never entered there and could
+ * not be proved reached. This one full Lunatic run reaches it, and the tier
+ * describe below reuses it rather than paying for a second.
+ */
+const LUNATIC = playThroughGame(0, 'lunatic');
+
 describe('a real playthrough reaches', () => {
   test('every registered stage', () => {
     // The failure: stage 2 was finished content behind a menu with no exit.
@@ -502,7 +512,7 @@ describe('a real playthrough reaches', () => {
     expect([...COVER.scenes].sort()).toEqual([...declared].sort());
   });
 
-  test('every registered track a stage, a boss, or the menu declares', () => {
+  test('every registered track a stage, a boss, a card, or the menu declares', () => {
     // Music is wired like scenes (declared per stage and boss), not like sounds
     // (cued per event), so this mirrors the scene test above — with two seams.
     //
@@ -511,30 +521,36 @@ describe('a real playthrough reaches', () => {
     // fallback and the menu is what "reaches" it — hence it joins `declared`
     // here but is excluded from the entered-check below.
     //
-    // Second, boss-level not per-phase: unlike a scene, which a spell card can
-    // override, a track is `BossSpec.music` and holds across a fight's cards, so
-    // this reads `getBossSpec(boss).music` with no phase loop. Both are the same
-    // string-across-a-boundary the scene test relies on — `musicNames` is
-    // audio-side, reachable from `src/game` (this test already imports
-    // `soundNames`), while the sim never learns a track exists.
+    // Second, a track is boss-level (`BossSpec.music`, held across a fight) but a
+    // single spell card may override it for its duration (`SpellCard.music`),
+    // exactly as a card may override the scene — so unlike an earlier version this
+    // loops the phases too, the way the scene test does. All are the same
+    // string-across-a-boundary — `musicNames` is audio-side, reachable from
+    // `src/game`, while the sim never learns a track exists.
     const declared = new Set<string>([MENU_MUSIC]);
     for (const stage of content(stageNames())) {
       const track = getStage(stage).music;
       if (track !== undefined) declared.add(track);
     }
     for (const boss of content(bossNames())) {
-      const track = getBossSpec(boss).music;
-      if (track !== undefined) declared.add(track);
+      const spec = getBossSpec(boss);
+      if (spec.music !== undefined) declared.add(spec.music);
+      for (const phase of spec.phases) {
+        if (phase.music !== undefined) declared.add(phase.music);
+      }
     }
 
-    // No dead track: every registered track is named by a stage, a boss, or the
-    // menu, and every name a stage or boss declares is registered.
+    // No dead track: every registered track is named by a stage, a boss, a card,
+    // or the menu, and every name declared is registered.
     expect(content(musicNames()).sort()).toEqual([...declared].sort());
 
-    // And every track a stage or boss declares is actually entered by the real
-    // playthrough — the menu excepted, since no run ever reports it.
+    // And every declared track is actually entered by a real playthrough — the
+    // menu excepted (no run reports it). A card-level track can sit on a
+    // Lunatic-only card (`zenith` does), unreachable on Normal, so the entered set
+    // unions the Lunatic run with the Normal `COVER`.
+    const entered = new Set<string>([...COVER.music, ...LUNATIC.music]);
     for (const track of [...declared].filter((n) => n !== MENU_MUSIC)) {
-      expect(`${track} entered: ${COVER.music.has(track)}`).toBe(`${track} entered: true`);
+      expect(`${track} entered: ${entered.has(track)}`).toBe(`${track} entered: true`);
     }
   });
 
@@ -686,7 +702,8 @@ describe('a real playthrough emits', () => {
  * inside the suite budget, so no truncated per-tier density check is needed.
  */
 describe('each difficulty tier is reachable and real', () => {
-  const LUNATIC = playThroughGame(0, 'lunatic');
+  // The full Lunatic run is `LUNATIC` at module scope — shared with the music
+  // assertion above, which needs it to reach the Lunatic-only card's track.
   const SMOKE_LIMIT = 3000;
   const smokes = (['easy', 'normal', 'hard'] as const).map((tier) => ({
     tier,

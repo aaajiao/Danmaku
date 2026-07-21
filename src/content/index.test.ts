@@ -13,23 +13,22 @@ import { describe, expect, test } from 'bun:test';
 import './index';
 
 import { patternNames } from './patterns';
-import { shotNames } from './shots';
 import { behaviourNames } from '../sim/motion';
 
 // Stages, bosses and enemies are no longer registered by importing this index:
 // the campaign — stage-1/stage-2, their cast and bosses — moved into the bundled
 // base pack (`src/packs/base-pack.json`) and registers through the injector at boot.
-// That those names still resolve to byte-identical specs is the port gate's job
-// (`src/base-content.golden.test.ts`), and that a real playthrough reaches every
-// one of them is `src/reachability.test.ts`'s. What this index still registers,
-// and what this file therefore still guards, is the engine content joined to a
-// pack only by name: patterns, motion behaviours and shot types.
+// Since decisions-round2 §D the player weapons and characters (spread/needle/…,
+// scout/lance/…) moved there too, so `./shots` now exports only the shot REGISTRY,
+// registering no types of its own. That those names still resolve to byte-identical
+// specs is the port gates' job (`src/base-content.golden.test.ts`,
+// `src/base-player.golden.test.ts`), and that a real playthrough reaches every one
+// of them is `src/reachability.test.ts`'s. What this index still registers, and
+// what this file therefore still guards, is the engine content joined to a pack
+// only by name: patterns and motion behaviours. (`./shots` stays imported for its
+// machinery, so the completeness scan below still expects it.)
 
 describe('importing the content index registers the engine content packs name', () => {
-  test('shot types', () => {
-    expect(shotNames().length).toBeGreaterThan(1);
-  });
-
   test('motion behaviours', () => {
     expect(behaviourNames()).toContain('homing');
   });

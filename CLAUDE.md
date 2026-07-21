@@ -32,10 +32,12 @@ tools/             fixture, example-pack and base-pack generation, dev server,
 ```
 
 The built-in campaign — stage-1, stage-2, their eight trash enemies and three
-bosses — is no longer engine TypeScript. It is `src/packs/base-pack.json`,
-authored by `tools/make-base-pack.ts` and injected through the same
-validate+inject pipeline as any fetched pack (`src/packs/bundled.ts`), the
-format eating the game's own content. The four ways a bundled pack differs from
+bosses — is no longer engine TypeScript, and neither is the player side: the four
+characters (scout, lance, hound, spire), their four shots, three option sets and
+two bombs are pack data too. All of it is `src/packs/base-pack.json`, authored by
+`tools/make-base-pack.ts` and injected through the same validate+inject pipeline
+as any fetched pack (`src/packs/bundled.ts`), the format eating the game's own
+content. The four ways a bundled pack differs from
 a fetched one are under "How this is extended".
 
 Four tests scan whole trees rather than testing one module, and all four exist
@@ -289,14 +291,18 @@ Content references registry entries **by name**, never by index, so re-packing a
 atlas or reordering a table cannot silently repoint at the wrong thing.
 
 The **Defined in** column is where a registry's *mechanism* lives, not where the
-built-in campaign's data does. `defineEnemy`, `defineBoss` and `defineStage` are
-the registration surface — but the enemies, bosses and stages of the base game
-are no longer written inline beneath them. They are pack data now, authored in
-`tools/make-base-pack.ts`, emitted to `src/packs/base-pack.json`, and registered
-through the injector at boot. So a new enemy, boss or stage *for the base
-campaign* is written in the generator (`docs/extending.md` §6); the `define*`
-calls still take a hand-written spec when you register content from engine code,
-which is how a guest pack's names still reach these registries.
+built-in campaign's data does. `defineEnemy`, `defineBoss`, `defineStage`,
+`defineShot`, `defineCharacter`, `defineOptions` and `defineBomb` are the
+registration surfaces — but the enemies, bosses, stages *and the player side* of
+the base game are no longer written inline beneath them. They are pack data now,
+authored in `tools/make-base-pack.ts`, emitted to `src/packs/base-pack.json`, and
+registered through the injector at boot. So a new enemy, boss, stage, weapon,
+option set, bomb or character *for the base campaign* is written in the generator
+(`docs/extending.md` §6–§7); the `define*` calls still take a hand-written spec
+when you register content from engine code, which is how a guest pack's names
+still reach these registries. Those files keep their machinery — the registries,
+the systems, and the runtime constants a system reads every tick (`option.ts`'s
+`FORWARD` and `DEFAULT_FOLLOW_SPEED`) — none of which moved with the data.
 
 The last row is the one that is not code: an **asset pack** is a folder dropped
 into `packs/`, and it extends the game without touching a registry or the engine

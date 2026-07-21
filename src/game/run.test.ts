@@ -1,40 +1,108 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { Button } from '../core/input';
 import { sim } from '../core/random';
 import { defineBoss } from '../sim/boss';
-import { getBombSpec } from '../sim/bomb';
+import { defineBomb, getBombSpec } from '../sim/bomb';
 import { defineEnemy } from '../sim/enemy';
+import { defineOptions } from '../sim/option';
 import { defineStage } from '../content/stage';
 import { deserialize, serialize, type Replay } from '../sim/replay';
+import { type Difficulty } from '../sim/difficulty';
 import {
   characterNames,
   defineCharacter,
   getCharacter,
   Run,
   type RunConfig,
+  scaleScore,
 } from './run';
 
 const SEED = 0x5747a1;
 
 /**
- * A ship with enough lives to survive the scripted pilot below.
+ * A local player loadout, and why one is needed now.
  *
- * The pilot flies a fixed pattern, not the level, so it dies — with three lives
- * it is gone around tick 670, which is before the stage script ends and long
- * before the boss. Every test that needs a *whole* run therefore needs a ship
- * that can absorb the mistakes, and stock is the honest lever: it changes how
- * long the run lasts and nothing about how it is simulated.
+ * The shipped roster used to reach this file for free: importing `./run`
+ * registered scout/lance and pulled in their shots, options and bombs. That
+ * content moved into the bundled base pack (`src/packs/base-pack.json`), which a
+ * `src/game` unit test may not import — so this file registers its own faithful
+ * stand-in instead of depending on some other test file injecting the pack into
+ * the shared process (the cross-file coupling this file's `OTHER_BOSS` note
+ * condemns). The real roster's presence and behaviour are proved at the
+ * composition root by `src/base-player.golden.test.ts`, `src/reachability.test.ts`
+ * and `src/balance.test.ts`.
+ */
+const RUN_BOLT = { style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 };
+const RUN_SHOT_LEVELS = [
+  { spec: RUN_BOLT, offsets: [{ x: -6, y: -10, angle: 270 }, { x: 6, y: -10, angle: 270 }], period: 5 },
+  {
+    spec: RUN_BOLT,
+    offsets: [
+      { x: -6, y: -10, angle: 270 }, { x: 6, y: -10, angle: 270 },
+      { x: -10, y: -6, angle: 263 }, { x: 10, y: -6, angle: 277 },
+    ],
+    period: 5,
+  },
+];
+
+const RUN_OPTIONS = 'test.run-options';
+defineOptions(RUN_OPTIONS, {
+  sprite: 'orb.medium',
+  shot: { style: { sprite: 'orb.small', r: 0.75, g: 0.9, b: 1, additive: true }, radius: 4, motion: { r: 11, theta: 270 }, damage: 1 },
+  period: 5,
+  followSpeed: 1.6,
+  levels: [
+    [],
+    [{ x: -26, y: 6, focusX: -11, focusY: -10, angle: 270 }, { x: 26, y: 6, focusX: 11, focusY: -10, angle: 270 }],
+  ],
+});
+
+// Mirrors the shipped `spread` bomb — a 150-tick invuln window longer than the
+// ship's own 90, which is what the invulnerability test below reads back.
+const RUN_BOMB = 'test.run-bomb';
+defineBomb(RUN_BOMB, { duration: 90, invulnTicks: 150, damagePerTick: 2, convertBullets: true, effect: 'death.big' });
+
+/**
+ * The endurance pilot: enough lives to survive the scripted pilot's mistakes.
  *
- * Registered rather than passed inline, because going through the registry is
- * what proves the character seam is real.
+ * The script flies a fixed pattern, not the level, so a three-life ship is gone
+ * around tick 670 — before the stage script ends and long before the boss. Every
+ * test that needs a *whole* run needs a ship that can absorb that, and stock is
+ * the honest lever: it changes how long the run lasts and nothing about how it is
+ * simulated. Registered rather than passed inline, because going through the
+ * registry is what proves the character seam is real.
  */
 const ENDURANCE = 'test-endurance';
 defineCharacter(ENDURANCE, {
-  ...getCharacter('scout'),
   label: 'ENDURANCE',
-  player: { ...getCharacter('scout').player, lives: 40 },
+  sprite: 'ship',
+  blurb: 'test pilot, deep stock',
+  options: RUN_OPTIONS,
+  bomb: RUN_BOMB,
+  player: {
+    x: 240, y: 568, speed: 3.6, focusSpeed: 1.5, radius: 2.5,
+    grazeRadius: 20, lives: 40, bombs: 3, invulnTicks: 90, shots: RUN_SHOT_LEVELS,
+  },
+});
+
+/**
+ * A second, three-life ship: the run-ending cases (a replay flown by the wrong
+ * character, dying out, the bomb invuln window) need a ship that is *not* the
+ * endurance one and a character name that differs from it.
+ */
+const ALT = 'test-alt';
+defineCharacter(ALT, {
+  label: 'ALT',
+  sprite: 'ship',
+  blurb: 'test pilot, three lives',
+  options: RUN_OPTIONS,
+  bomb: RUN_BOMB,
+  player: {
+    x: 240, y: 568, speed: 3.6, focusSpeed: 1.5, radius: 2.5,
+    grazeRadius: 20, lives: 3, bombs: 3, invulnTicks: 90, shots: RUN_SHOT_LEVELS,
+  },
 });
 
 /**
@@ -243,9 +311,15 @@ function config(overrides: Partial<RunConfig> = {}): RunConfig {
 /* ------------------------------------------------------------------ */
 
 describe('characters', () => {
-  test('the starter ships are registered', () => {
-    expect(characterNames()).toContain('scout');
-    expect(characterNames()).toContain('lance');
+  test('a registered character is enumerable, so SELECT can offer it', () => {
+    // The shipped roster — scout/lance/hound/spire — is no longer registered by
+    // importing `./run`; it lives in the bundled base pack this file may not
+    // import (decisions-round2 §D). Its presence on SELECT is proved by
+    // `src/reachability.test.ts` and the port gate. Here the registry mechanism
+    // is under test against the local pilots, so it holds when this file runs
+    // alone rather than under the full suite's cross-file registration.
+    expect(characterNames()).toContain(ENDURANCE);
+    expect(characterNames()).toContain(ALT);
   });
 
   test('a character carries an option set and a bomb that both exist', () => {
@@ -260,8 +334,8 @@ describe('characters', () => {
   });
 
   test('defining the same character twice throws', () => {
-    defineCharacter('test-dupe', getCharacter('scout'));
-    expect(() => defineCharacter('test-dupe', getCharacter('scout'))).toThrow(
+    defineCharacter('test-dupe', getCharacter(ENDURANCE));
+    expect(() => defineCharacter('test-dupe', getCharacter(ENDURANCE))).toThrow(
       /already defined/,
     );
   });
@@ -380,10 +454,10 @@ describe('record then replay', () => {
   });
 
   test('a replay flown by the wrong character is refused, not silently wrong', () => {
-    const live = new Run(config({ character: 'scout' }));
+    const live = new Run(config({ character: ENDURANCE }));
     play(live, 300);
     const replay = live.finishRecording();
-    expect(() => new Run(config({ character: 'lance', replay }))).toThrow(/character/);
+    expect(() => new Run(config({ character: ALT, replay }))).toThrow(/character/);
   });
 
   test('a replay played on the wrong seed is refused', () => {
@@ -428,10 +502,10 @@ describe('record then replay', () => {
   });
 
   test('the recording carries what it was flown with', () => {
-    const live = new Run(config({ character: 'lance', boss: MAIN_BOSS }));
+    const live = new Run(config({ character: ALT, boss: MAIN_BOSS }));
     play(live, 240);
     const replay = live.finishRecording();
-    expect(replay.meta?.['character']).toBe('lance');
+    expect(replay.meta?.['character']).toBe(ALT);
     expect(replay.meta?.['stage']).toBe(MAIN_STAGE);
     expect(replay.meta?.['boss']).toBe(MAIN_BOSS);
     expect(replay.seed).toBe(SEED);
@@ -499,6 +573,113 @@ describe('record then replay', () => {
     // A config that names no tier is Normal, so it too mismatches a hard recording.
     expect(() => new Run(config({ replay }))).toThrow(/difficulty/);
   });
+
+  test('the recording carries the content fingerprint it was flown under', () => {
+    const live = new Run(config({ contentFingerprint: 'abc123def456' }));
+    play(live, 240);
+    expect(live.finishRecording().meta?.['content']).toBe('abc123def456');
+  });
+
+  test('a run with no fingerprint records no content key at all', () => {
+    // Absent, not '': the key is a real hash or nothing. A harness that threaded
+    // none leaves the meta without it, which is the legacy-warn path on playback —
+    // this is exactly how the gate fixtures record, so they keep no content key.
+    const live = new Run(config());
+    play(live, 120);
+    expect(live.finishRecording().meta?.['content']).toBeUndefined();
+  });
+
+  test('a replay replayed under the same content fingerprint is accepted', () => {
+    const live = new Run(config({ contentFingerprint: 'abc123def456' }));
+    play(live, 120);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ contentFingerprint: 'abc123def456', replay }))).not.toThrow();
+  });
+
+  test('a replay recorded under different content is refused', () => {
+    // The strict half: the base content drifted, so the recorded run is not the one
+    // this build produces. Refused like the packsData mismatch above, and for the
+    // same reason — different content is a different simulation.
+    const live = new Run(config({ contentFingerprint: 'abc123def456' }));
+    play(live, 300);
+    const replay = live.finishRecording();
+    expect(() => new Run(config({ contentFingerprint: '000000000000', replay }))).toThrow(/content/);
+  });
+
+  test('a replay with no recorded fingerprint warns and plays', () => {
+    // The legacy/opted-out half: a recording that pinned no fingerprint plays back
+    // under a build that now threads one — warned, not refused. This is the gate
+    // path, proven here so the warn is a real emission, not a silent accept.
+    const live = new Run(config());
+    play(live, 120);
+    const replay = live.finishRecording();
+    expect(replay.meta?.['content']).toBeUndefined();
+    const warn = spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(() => new Run(config({ contentFingerprint: 'abc123def456', replay }))).not.toThrow();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Score multiplier — the tier enters the economy in one place         */
+/* ------------------------------------------------------------------ */
+
+describe('score multiplier', () => {
+  test('each tier scales an award by its rational, integer-exact', () => {
+    // 100 was chosen so every tier floors exactly and the rational reads plainly:
+    // easy ×1/2, normal ×1, hard ×3/2, lunatic ×2.
+    expect(scaleScore(100, 'easy')).toBe(50);
+    expect(scaleScore(100, 'normal')).toBe(100);
+    expect(scaleScore(100, 'hard')).toBe(150);
+    expect(scaleScore(100, 'lunatic')).toBe(200);
+  });
+
+  test('normal is the identity — a direct proof the frozen gate traces rest on', () => {
+    // Normal's rational is 1/1, so `#award(points)` adds exactly `points`. This is
+    // why the two normal gate traces did NOT move; asserted here directly rather
+    // than only through those traces, over a spread of award sizes up to a whole
+    // clean run's score.
+    for (const points of [0, 1, 7, 13, 20, 99, 100, 1000, 12_345, 547_000]) {
+      expect(scaleScore(points, 'normal')).toBe(points);
+    }
+  });
+
+  test('the floor is exact and never rounds up — no float accumulates', () => {
+    expect(scaleScore(1, 'easy')).toBe(0); // floor(0.5)
+    expect(scaleScore(101, 'easy')).toBe(50); // floor(50.5), not 51
+    expect(scaleScore(1, 'hard')).toBe(1); // floor(1.5)
+    expect(scaleScore(3, 'hard')).toBe(4); // floor(4.5)
+    expect(scaleScore(1, 'lunatic')).toBe(2); // ×2/1 never floors
+  });
+
+  test('identical play scores easy < normal < hard < lunatic, lunatic exactly double', () => {
+    // The test campaign authors no per-tier density, so one seed and one script
+    // fire byte-identical bullets on every tier — the only thing that can differ
+    // across these four runs is the multiplier, so the score IS the multiplier,
+    // isolated. (The built-in campaign's real per-tier density is a separate axis,
+    // guarded by difficulty-honesty.test.ts on bullet population, not score.)
+    const scoreOn = (difficulty: Difficulty): number => {
+      const run = new Run(config({ difficulty }));
+      play(run, 2000);
+      return run.player.score;
+    };
+    const easy = scoreOn('easy');
+    const normal = scoreOn('normal');
+    const hard = scoreOn('hard');
+    const lunatic = scoreOn('lunatic');
+
+    expect(normal).toBeGreaterThan(0);
+    expect(easy).toBeLessThan(normal);
+    expect(normal).toBeLessThan(hard);
+    expect(hard).toBeLessThan(lunatic);
+    // ×2/1 floors nothing, and every award is an integer, so the whole is exactly
+    // twice the un-scaled total — the strongest single proof the multiplier is real.
+    expect(lunatic).toBe(normal * 2);
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -554,7 +735,7 @@ describe('lifecycle', () => {
   test('dying out fails the run', () => {
     // The three-life ship, not the endurance one: this is the test that the
     // run *ends* when the stock does.
-    const run = new Run(config({ character: 'scout' }));
+    const run = new Run(config({ character: ALT }));
     // Parked at the top of the field with no shot: everything that spawns
     // survives and everything it fires arrives.
     for (let t = 0; t < 40000 && !run.finished; t++) run.tick(Button.Up);
@@ -936,13 +1117,13 @@ describe('a boss encounter pays for damage', () => {
     // `BombSpec.invulnTicks` is documented as "read by the game"; nothing read
     // it, so both bombs gave exactly the character's 90-tick respawn window and
     // `spread`'s declared 150 did nothing.
-    const run = new Run(config({ character: 'scout' }));
+    const run = new Run(config({ character: ALT }));
     run.player.bombs = 3;
     run.player.invuln = 0;
     run.tick(Button.Bomb);
 
-    expect(getBombSpec('spread').invulnTicks).toBe(150);
+    expect(getBombSpec(RUN_BOMB).invulnTicks).toBe(150);
     // One tick has already been spent by the time we look.
-    expect(run.player.invuln).toBeGreaterThan(getCharacter('scout').player.invulnTicks);
+    expect(run.player.invuln).toBeGreaterThan(getCharacter(ALT).player.invulnTicks);
   });
 });

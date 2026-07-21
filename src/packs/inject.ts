@@ -65,9 +65,9 @@ import { musicNames } from '../audio/music';
 import { patternNames } from '../content/patterns';
 import { defineShot, getShot, shotNames, type ShotType } from '../content/shots';
 import { defineStage, stageNames, type BossWave, type EnemyWave, type StageSpec, type WaveEntry } from '../content/stage';
-import { defineCharacter, type CharacterSpec } from '../game/run';
+import { characterNames, defineCharacter, type CharacterSpec } from '../game/run';
 import { bombNames, defineBomb, type BombSpec } from '../sim/bomb';
-import { bossNames, defineBoss, phaseClock, phaseHp, type BossSpec, type PhasePattern, type SpellCard } from '../sim/boss';
+import { bossNames, defineBoss, phaseClock, phaseHp, type BossSpec, type DialogueLine, type PhasePattern, type SpellCard } from '../sim/boss';
 import { activePhaseIndices, DIFFICULTIES } from '../sim/difficulty';
 import { defineEffect, effectNames, type ParticleSpec } from '../sim/effects';
 import { defineEnemy, enemyNames, type EnemySpec } from '../sim/enemy';
@@ -402,6 +402,18 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
   const portraitKnown = (name: string): boolean =>
     packPortraitNames.has(name) || builtinPortraits.has(name);
   const portraits = new Set([...context.portraits, ...packPortraitNames]);
+  // A boss's `dialogueFor` keys are character names, resolved pack-first like
+  // everything else: a key naming this pack's OWN character qualifies to
+  // `<pack>/<key>` so it matches that character's registered name at run time,
+  // while a built-in character key stays bare. Built-in names are registry-backed
+  // and process-global — other test files register into the same maps — so, like
+  // patterns/effects/music, an unknown-character message names the bad key
+  // without listing the known set, which could not be a stable golden.
+  const builtinCharacters = new Set(characterNames());
+  const packCharacterNames = new Set(characterKeys);
+  const characterKnown = (name: string): boolean =>
+    packCharacterNames.has(name) || builtinCharacters.has(name);
+  const refCharacter = (name: string): string => (packCharacterNames.has(name) ? q(name) : name);
   const builtinItems = new Set(itemNames());
   const builtinEffects = new Set(effectNames());
   const builtinShots = new Set(shotNames());
@@ -614,6 +626,12 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
           `pack "${pack}": ${cw} is set in unknown background "${card.background}" — known backgrounds: ${list(scenes)}`,
         );
       }
+
+      if (card.music !== undefined && !musicKnown(card.music)) {
+        problems.push(
+          `pack "${pack}": ${cw} names unknown music "${card.music}" — no such music in this pack or built in`,
+        );
+      }
     });
 
     if (b.onDeath !== undefined && !effectKnown(b.onDeath)) {
@@ -639,6 +657,23 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
         );
       }
     });
+
+    // Per-character variants: each key names a character (built-in ∪ this pack's
+    // own) and each variant's speakers resolve exactly as `dialogue`'s do.
+    for (const [character, variant] of Object.entries(b.dialogueFor ?? {})) {
+      if (!characterKnown(character)) {
+        problems.push(
+          `pack "${pack}": ${where} dialogueFor names unknown character "${character}" — no such character in this pack or built in`,
+        );
+      }
+      variant.forEach((line, i) => {
+        if (!portraitKnown(line.speaker)) {
+          problems.push(
+            `pack "${pack}": ${where} dialogueFor "${character}" line ${i} names unknown portrait "${line.speaker}" — known portraits: ${list(portraits)}`,
+          );
+        }
+      });
+    }
 
     for (const [item] of b.spoils ?? []) {
       if (!itemKnown(item)) {
@@ -1013,7 +1048,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
   }));
   const builtBosses: BuiltBoss[] = bossKeys.map((name) => ({
     name: q(name),
-    spec: toBossSpec(packBosses[name] as ContentBoss, refEffect, refItem, refMusic, refPortrait),
+    spec: toBossSpec(packBosses[name] as ContentBoss, refEffect, refItem, refMusic, refPortrait, refCharacter),
   }));
   const builtStages: BuiltStage[] = stageKeys.map((name) => ({
     name: q(name),
@@ -1104,8 +1139,8 @@ function toWave(
  * assignment — which is the compile-time drift guard: rename a field on either
  * shape and this stops compiling. `phases` is translated (a pack spell card
  * declares `hpSeconds` where the engine's `SpellCard` wants `hp`), and the
- * `onDeath` effect, `music` track, `spoils` item names and each dialogue
- * speaker's portrait are qualified pack-first.
+ * `onDeath` effect, `music` track, `spoils` item names, each dialogue speaker's
+ * portrait and each `dialogueFor` character key are qualified pack-first.
  */
 function toBossSpec(
   b: ContentBoss,
@@ -1113,11 +1148,12 @@ function toBossSpec(
   refItem: (name: string) => string,
   refMusic: (name: string) => string,
   refPortrait: (name: string) => string,
+  refCharacter: (name: string) => string,
 ): BossSpec {
   const spec: BossSpec = {
     sprite: b.sprite,
     radius: b.radius,
-    phases: b.phases.map(toSpellCard),
+    phases: b.phases.map((c) => toSpellCard(c, refMusic)),
   };
   if (b.width !== undefined) spec.width = b.width;
   if (b.height !== undefined) spec.height = b.height;
@@ -1134,6 +1170,19 @@ function toBossSpec(
     // `portraitImage`, so the qualified name must match what the loader registered.
     spec.dialogue = b.dialogue.map((line) => ({ speaker: refPortrait(line.speaker), text: line.text }));
   }
+  if (b.dialogueFor !== undefined) {
+    // The KEY qualifies pack-first (a pack character's registered name is
+    // `<pack>/<key>`, which is what `Run` selects on); each speaker qualifies as
+    // in `dialogue` above.
+    const variants: Record<string, DialogueLine[]> = {};
+    for (const [character, lines] of Object.entries(b.dialogueFor)) {
+      variants[refCharacter(character)] = lines.map((line) => ({
+        speaker: refPortrait(line.speaker),
+        text: line.text,
+      }));
+    }
+    spec.dialogueFor = variants;
+  }
   return spec;
 }
 
@@ -1142,9 +1191,10 @@ function toBossSpec(
  * defaults to `phaseClock(hp)` — the same derivation the engine's own bosses
  * use, so a `REFERENCE_DPS` change re-sizes pack bosses too. `motion`/`timeline`
  * are cast for the reason `ContentEnemy`'s are: their deep shape is the motion
- * DSL's, resolved by name above, not re-typed here.
+ * DSL's, resolved by name above, not re-typed here. A card's own `music` track
+ * qualifies pack-first, exactly as the boss-level track does.
  */
-function toSpellCard(c: ContentSpellCard): SpellCard {
+function toSpellCard(c: ContentSpellCard, refMusic: (name: string) => string): SpellCard {
   const hp = phaseHp(c.hpSeconds);
   const card: SpellCard = {
     name: c.name,
@@ -1158,6 +1208,7 @@ function toSpellCard(c: ContentSpellCard): SpellCard {
   if (c.bonus !== undefined) card.bonus = c.bonus;
   if (c.isSpell !== undefined) card.isSpell = c.isSpell;
   if (c.background !== undefined) card.background = c.background;
+  if (c.music !== undefined) card.music = refMusic(c.music);
   return card;
 }
 

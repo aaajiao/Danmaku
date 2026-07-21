@@ -109,6 +109,16 @@ export interface SpellCard {
   isSpell?: boolean;
   /** Named background for the phase, resolved by the render layer. */
   background?: string;
+  /**
+   * Named track for the phase, resolved by the audio layer — the card's own theme
+   * while it is active, overriding the boss's for the card's duration exactly as
+   * `background` overrides the scene. A **string**, never validated here (the music
+   * registry is audio-side and importing it would break the boundary); an unknown
+   * name is caught at the point of use like `background`. `Run.music` reads the
+   * live card's track before the boss's — see its getter. Unset holds the boss's
+   * own track.
+   */
+  music?: string;
 }
 
 /**
@@ -144,10 +154,10 @@ export interface BossSpec {
    *
    * Boss-level, unlike `background`, which is per spell card: a fight announces
    * itself with one theme on entry and holds it across its cards, so the music
-   * belongs to the boss and not to a phase. (Per-spell-card music is a plausible
-   * future — it would move onto `SpellCard` beside `background` and `Run.music`
-   * would read the live card first — but nothing wants it yet, so it is not
-   * built.) A **string**, resolved by the audio layer, never validated here: the
+   * belongs to the boss and not to a phase. A single card may still override it
+   * for its own duration — `SpellCard.music` does that and `Run.music` reads the
+   * live card first — but the boss's track is the fight's identity and the default
+   * every card falls back to. A **string**, resolved by the audio layer, never validated here: the
    * music registry is audio-side and importing it would break the boundary; an
    * unknown name is caught at the point of use, exactly as `background` is. Unset
    * leaves the stage's own track playing.
@@ -163,10 +173,20 @@ export interface BossSpec {
    * boss and is driven by input — so it lives in the tick-and-mask world and a
    * replay reproduces it (see `Run`). Unset means the boss spawns immediately.
    *
-   * Identical for every player character in v1. Per-character variants would move
-   * onto a shape keyed by character name here; nothing wants them yet.
+   * The default for every character; a character with a `dialogueFor` entry gets
+   * that exchange instead.
    */
   dialogue?: readonly DialogueLine[];
+  /**
+   * Per-character dialogue, keyed by the flying character's registered name. When
+   * the run's character has an entry here the exchange uses it in place of
+   * `dialogue`; every other character falls back to `dialogue`. A variant may run
+   * a different number of lines — that changes only that character's timeline,
+   * which is exactly why a replay pins the character (see `Run`). The keys are
+   * character names, selected by the game layer, never validated here. Unset means
+   * every character shares `dialogue`.
+   */
+  dialogueFor?: Record<string, readonly DialogueLine[]>;
   /**
    * Items showered when the boss dies, by registry name and count. See
    * `Spoils`. Unset means the game layer's default shower — a boss that wants

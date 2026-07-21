@@ -487,12 +487,17 @@ export class Music {
 /* ------------------------------------------------------------------ */
 
 // The launch set, kept small (decisions-bgm): the menu, one theme per built-in
-// stage, and one boss theme every boss shares. Each is a synthesised drone until
-// a content file or a pack gives it a `url`. Their names are wired onto the
-// built-in stages and bosses (`StageSpec.music` / `BossSpec.music`) so the
-// feature is real, not merely registered — the honesty rule that
-// `reachability.test.ts` enforces for music the same way it does for scenes.
+// stage, one boss theme every boss shares, and one per-card track. Each is a
+// synthesised drone until a content file or a pack gives it a `url`. Their names
+// are wired onto the built-in stages and bosses (`StageSpec.music` /
+// `BossSpec.music` / `SpellCard.music`) so the feature is real, not merely
+// registered — the honesty rule that `reachability.test.ts` enforces for music
+// the same way it does for scenes.
 defineMusic(MENU_MUSIC, {});
 defineMusic('vigil', {});
 defineMusic('descent', {});
 defineMusic('nemesis', {});
+// The one per-spell-card track: sentinel's Lunatic-only fourth card names it (the
+// first `SpellCard.music` in the game), so it is reached only on Lunatic — which
+// is why `reachability.test.ts`'s music check unions the Lunatic run for it.
+defineMusic('zenith', {});

@@ -68,9 +68,6 @@ export interface PlayerConfig {
  */
 const DIAGONAL = Math.SQRT1_2;
 
-/** Score per bullet grazed. Grazing is a scoring system, so it pays here. */
-const GRAZE_SCORE = 10;
-
 /**
  * Power is accumulated on a hundredths grid rather than as a bare float.
  * Ten pickups worth 0.1 sum to 0.9999999999999999 in binary floating point,
@@ -247,8 +244,10 @@ export class Player {
   }
 
   /**
-   * Near-miss scoring. Returns how many bullets grazed *this tick* — each
+   * Near-miss counting. Returns how many bullets grazed *this tick* — each
    * bullet counts once as it enters the circle, not once per tick it lingers.
+   * The caller prices them: score reads the difficulty tier and this pure
+   * simulation has no notion of one.
    *
    * A bullet that leaves the circle and comes back counts again, because that
    * is a second near miss and not a bookkeeping slip.
@@ -281,7 +280,6 @@ export class Player {
     this.#grazing = previous;
 
     this.graze += counted;
-    this.score += counted * GRAZE_SCORE;
     return counted;
   }
 

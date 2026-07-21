@@ -85,9 +85,15 @@ describe('the registry', () => {
     expect(() => getBombSpec('test.bomb.nonexistent')).toThrow(/unknown bomb/);
   });
 
-  test('the starter set is registered', () => {
-    expect(bombNames()).toContain('spread');
-    expect(bombNames()).toContain('lance');
+  test('a registered bomb is enumerable, so tooling can list it', () => {
+    // The shipped bombs — spread and lance — are no longer defined here; they
+    // moved into the bundled base pack (decisions-round2 §D), which a `src/sim`
+    // test may not import. Their specs are pinned by the port gate
+    // (`src/base-player.golden.test.ts`) and their behaviour by
+    // `src/base-content.golden.test.ts`. Here the registry itself is under test,
+    // against a local fixture, so it holds when this file runs alone.
+    const name = defineTestBomb();
+    expect(bombNames()).toContain(name);
   });
 });
 

@@ -838,6 +838,18 @@ const CONTENT: PackContent = {
         { speaker: 'pyre', text: 'You reached the ash. Few do.' },
         { speaker: 'player', text: 'Then few have put it out.' },
       ],
+      // One per-character variant, keyed by this pack's OWN character `raider`
+      // (resolved pack-first to `example/raider`, the name a raider run flies
+      // under). When raider reaches this fight the exchange below replaces the
+      // default above; every other ship keeps the default. A variant may differ in
+      // line count — this one runs three — which changes only raider's timeline.
+      dialogueFor: {
+        raider: [
+          { speaker: 'pyre', text: 'A raider. You burn what you cannot carry.' },
+          { speaker: 'player', text: 'And carry what will not burn.' },
+          { speaker: 'pyre', text: 'Then we are the same. A pity.' },
+        ],
+      },
       phases: [
         {
           name: 'Smoulder',
@@ -1299,6 +1311,28 @@ run *does* — it delays the boss, so a replay must reproduce the taps — the l
 travel with the boss spec under the run's strict \`packsData\` identity, the same as
 a stage or a character. **A replay recorded against different dialogue is refused,
 not warned.**
+
+**A boss can speak differently to different ships.** Beside \`dialogue\` an optional
+\`dialogueFor\` maps a **character name** to its own exchange, used in place of the
+default when that ship flies the fight; every other character keeps \`dialogue\`.
+\`pyre\` greets this pack's own \`raider\` with three lines of its own:
+
+\`\`\`json
+"dialogueFor": {
+  "raider": [
+    { "speaker": "pyre",   "text": "A raider. You burn what you cannot carry." },
+    { "speaker": "player", "text": "And carry what will not burn." },
+    { "speaker": "pyre",   "text": "Then we are the same. A pity." }
+  ]
+}
+\`\`\`
+
+A key resolves pack-first exactly as a reference does — \`raider\` is this pack's own
+character, so it matches the \`example/raider\` a raider run flies under; a built-in
+character name would stay bare. A variant may run a **different line count** (this
+one runs three where the default runs two): that changes only that character's
+tap timeline, which is why a replay pins the character it was flown on. Speakers
+inside a variant validate as the default's do.
 
 **The faces are presentation — they ride in a top-level \`portraits\` section.** A
 portrait is a file the shell draws beside the line; it changes nothing the

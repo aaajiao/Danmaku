@@ -257,31 +257,8 @@ export class BombSystem {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Starter set                                                         */
-/* ------------------------------------------------------------------ */
-
-/**
- * Two shapes, so content has something to contrast against. Both live here
- * only until there is a `content/bombs.ts`; nothing above knows they exist.
- */
-
-// The default: covers the screen, converts everything it eats, and is worth
-// firing on reflex. Damage is modest because its real payment is the clear.
-defineBomb('spread', {
-  duration: 90,
-  invulnTicks: 150,
-  damagePerTick: 2,
-  convertBullets: true,
-  effect: 'death.big',
-});
-
-// The trade: half the coverage and no conversion, for four times the damage.
-// Fired point-blank into a boss it is a damage cooldown, not an escape.
-defineBomb('lance', {
-  duration: 60,
-  invulnTicks: 90,
-  damagePerTick: 8,
-  radius: 96,
-  effect: 'explosion',
-});
+// The starter bombs — spread and lance — moved into the bundled base pack
+// (`tools/make-base-pack.ts` → `base-pack.json`) with the characters that deploy
+// them (decisions-round2 §D). This file keeps the machinery only: the `BombSpec`
+// shape, the registry and the `BombSystem` that burns one. `effect` names a
+// particle effect the game resolves; nothing above knows which bombs exist.

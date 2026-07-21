@@ -174,14 +174,17 @@ whole doctrine — render-side, total (nothing throws into the loop), synth-firs
 it. What it does **not** share is the sound engine's clock. Read the module header
 before touching it; the one-paragraph version:
 
-- **A stage or boss names a track, exactly as it names a scene.** `StageSpec.music`
-  and `BossSpec.music` are strings (`Run.music` is a getter mirroring `Run.scene`
-  line for line: boss's theme if one is alive and it declares one, else the
-  stage's, else undefined). The shell reconciles `run.music` against what is
+- **A stage, boss or spell card names a track, exactly as it names a scene.**
+  `StageSpec.music`, `BossSpec.music` and `SpellCard.music` are strings (`Run.music`
+  is a getter mirroring `Run.scene` line for line: the live **card's** theme if it
+  declares one, else the **boss's** if one is alive and declares one, else the
+  **stage's**, else undefined). The shell reconciles `run.music` against what is
   playing each tick and cross-fades on a change, the same idempotent
-  reconcile-not-react as backgrounds. Music is **boss-level, not per-spell-card** —
-  a fight holds one theme; the per-card override is a plausible future noted beside
-  the getter.
+  reconcile-not-react as backgrounds. A fight enters **boss-level** — one theme
+  across its cards — but a single card overrides it for its own duration, exactly
+  as `SpellCard.background` overrides the scene; `sentinel`'s Lunatic-only fourth
+  card names its own track (`zenith`, a drone floor like the rest), so the theme
+  can turn on the card the pattern turns on.
 - **It runs on the audio clock, not `uTick` — deliberately, the opposite of a
   background.** A background must advance on `uTick` because a wall-clock scene
   desyncs *visually* from a replay while every test stays green. Music carries no
@@ -206,9 +209,10 @@ runs from 0 so any intro plays once, then `[loopStart, loopEnd)` repeats forever
 clamped to the decoded duration at play time, so an out-of-range pair loops the
 whole track rather than throwing.
 
-The launch set is small — `menu`, and one theme per built-in stage and boss
-(`vigil`, `descent`, `nemesis`) — each a placeholder drone until a content file or
-a pack gives it a `url`. A **pack** adds or replaces tracks through its top-level
+The launch set is small — `menu`, one theme per built-in stage and boss
+(`vigil`, `descent`, `nemesis`), and one per-card track (`zenith`, named by
+`sentinel`'s Lunatic-only fourth card, the first `SpellCard.music` in the game) —
+each a placeholder drone until a content file or a pack gives it a `url`. A **pack** adds or replaces tracks through its top-level
 `music` section (`docs/packs.md` §6.5a): a new name registers namespaced for the
 pack's own stages/bosses to name, a built-in name replaces that placeholder.
 

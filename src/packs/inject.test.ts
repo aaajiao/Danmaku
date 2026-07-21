@@ -702,6 +702,50 @@ describe('music resolves pack-first — like a background, but a pack may add it
       `pack "${name}": boss "warlord" names unknown music "nope" — no such music in this pack or built in`,
     );
   });
+
+  test('a spell card overrides with its own pack track, qualified — per-phase, unlike the boss', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(
+        name,
+        {
+          enemies: { ember: enemy() },
+          bosses: {
+            warlord: boss({
+              phases: [{ name: 'eclipse', hpSeconds: 12, music: 'ashen', patterns: [{ pattern: 'ring' }] }],
+            }),
+          },
+          stages: {
+            gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+          },
+        },
+        { ashen: { file: 'ashen.wav' } },
+      ),
+      CTX,
+    );
+    expect(getBossSpec(`${name}/warlord`).phases[0]?.music).toBe(`${name}/ashen`);
+  });
+
+  test('an unknown card track is a golden error naming the phase', () => {
+    const name = uniqueName();
+    expect(
+      problemsOf(
+        manifest(name, {
+          enemies: { ember: enemy() },
+          bosses: {
+            warlord: boss({
+              phases: [{ name: 'eclipse', hpSeconds: 12, music: 'nope', patterns: [{ pattern: 'ring' }] }],
+            }),
+          },
+          stages: {
+            gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+          },
+        }),
+      ),
+    ).toContain(
+      `pack "${name}": boss "warlord" phase "eclipse" names unknown music "nope" — no such music in this pack or built in`,
+    );
+  });
 });
 
 describe('boss dialogue — speakers resolve against portraits, pack-first', () => {
@@ -770,6 +814,100 @@ describe('boss dialogue — speakers resolve against portraits, pack-first', () 
       problemsOf(bossWithDialogue(name, [{ speaker: 'nobody', text: 'x' }], { warlord: 'warlord.png' })),
     ).toContain(
       `pack "${name}": boss "warlord" dialogue line 0 names unknown portrait "nobody" — known portraits: player, sentinel, warlord`,
+    );
+  });
+
+  test('a variant keyed by a BUILT-IN character stays bare and its speakers resolve', () => {
+    const name = uniqueName();
+    // 'scout' is a built-in character (`game/run` registers it), so the key stays
+    // bare — matching the bare name a scout run flies under.
+    injectPack(
+      manifest(name, {
+        enemies: { ember: enemy() },
+        bosses: {
+          warlord: boss({
+            dialogue: [{ speaker: 'sentinel', text: 'default' }],
+            dialogueFor: {
+              scout: [
+                { speaker: 'sentinel', text: 'for scout' },
+                { speaker: 'player', text: 'reply' },
+              ],
+            },
+          }),
+        },
+        stages: {
+          gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+        },
+      }),
+      CTX,
+    );
+    expect(getBossSpec(`${name}/warlord`).dialogueFor).toEqual({
+      scout: [
+        { speaker: 'sentinel', text: 'for scout' },
+        { speaker: 'player', text: 'reply' },
+      ],
+    });
+  });
+
+  test("a variant keyed by the pack's OWN character qualifies to <pack>/<name>", () => {
+    const name = uniqueName();
+    // The key names this pack's own `raider`, so it qualifies to `<pack>/raider` —
+    // the registered name that run flies under — exactly as a pack reference does.
+    injectPack(
+      manifest(name, {
+        enemies: { ember: enemy() },
+        characters: {
+          raider: { label: 'R', shot: 'spread', options: 'standard', bomb: 'spread', sprite: 'ship', player: player() },
+        },
+        bosses: {
+          warlord: boss({ dialogueFor: { raider: [{ speaker: 'player', text: 'hi' }] } }),
+        },
+        stages: {
+          gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+        },
+      }),
+      CTX,
+    );
+    expect(getBossSpec(`${name}/warlord`).dialogueFor).toEqual({
+      [`${name}/raider`]: [{ speaker: 'player', text: 'hi' }],
+    });
+  });
+
+  test('an unknown character key is a golden error', () => {
+    const name = uniqueName();
+    expect(
+      problemsOf(
+        manifest(name, {
+          enemies: { ember: enemy() },
+          bosses: {
+            warlord: boss({ dialogueFor: { nobody: [{ speaker: 'player', text: 'x' }] } }),
+          },
+          stages: {
+            gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+          },
+        }),
+      ),
+    ).toContain(
+      `pack "${name}": boss "warlord" dialogueFor names unknown character "nobody" — no such character in this pack or built in`,
+    );
+  });
+
+  test("a variant's unknown speaker is a golden error naming the character and line", () => {
+    const name = uniqueName();
+    expect(
+      problemsOf(
+        manifest(name, {
+          enemies: { ember: enemy() },
+          bosses: {
+            warlord: boss({ dialogueFor: { scout: [{ speaker: 'nobody', text: 'x' }] } }),
+          },
+          stages: {
+            gauntlet: { entry: true, boss: 'warlord', waves: [{ at: 0, enemy: 'ember', x: 0, y: 0 }] },
+          },
+        }),
+      ),
+    ).toContain(
+      `pack "${name}": boss "warlord" dialogueFor "scout" line 0 names unknown portrait "nobody" — known portraits: player, sentinel`,
     );
   });
 });

@@ -757,8 +757,10 @@ holds the schedule until the fight ends, exactly as a built-in `BossWave` does
   resolved like every other reference (§9.3): a background is always a built-in
   (shaders are engine code), but a track may be one this pack's own `music`
   section (§6.5a) added — `gauntlet` names `ashen`, which qualifies to
-  `example/ashen`. A boss may likewise carry `music` (boss-level, not per-phase —
-  a fight holds one theme), while a spell card's `background` overrides the scene.
+  `example/ashen`. A boss may likewise carry `music` — a fight enters with one
+  theme and holds it across its cards — while a **spell card** may carry its own
+  `music` (and `background`) to override the boss theme (and scene) for that one
+  card's duration (`ContentSpellCard.music`, resolved the same pack-first way).
 
 **A boss** — a `BossSpec` whose one substitution is the phase clock. From the
 example (`pyre`, abbreviated):
@@ -838,6 +840,28 @@ delay the fight). That mechanism is engine code; the pack supplies only the line
 and, optionally, the faces. A `speaker` with no portrait still draws a procedural
 silhouette, so dialogue never blocks on art — but an *unresolvable* speaker name is
 a typo, and is rejected (§9.4).
+
+**A boss may vary the exchange per character** with `dialogueFor` — an object
+keyed by character name, each value a `{ speaker, text }` array replacing
+`dialogue` for that one character (`BossSpec.dialogueFor`, `docs/extending.md` §5).
+The run picks `dialogueFor[character] ?? dialogue` when the exchange begins, so a
+character with no entry hears the default. Each **key** resolves against character
+names **built-in ∪ this pack's own** (§9.3) — a key naming no character is rejected
+— and each variant's `speaker` names a portrait exactly as `dialogue`'s does. A
+variant may run a different line count; because the flying character is already
+strict in the replay, that reproduces with no new meta. The example's `pyre`
+carries a `raider` variant (its own pack's character) to teach the feature.
+
+```json
+"pyre": {
+  "sprite": "ring", "radius": 18,
+  "dialogue": [ { "speaker": "pyre", "text": "You reached the ash. Few do." } ],
+  "dialogueFor": {
+    "raider": [ { "speaker": "pyre", "text": "A raider. You burn what you cannot carry." } ]
+  },
+  "phases": [ "…" ]
+}
+```
 
 A pack boss reaches the field by being named by a pack stage — as a boss wave
 (midboss) or the stage's end `boss` — resolving pack-first (§9.3). A boss no pack
@@ -1075,6 +1099,10 @@ the same validator):
 | Line missing `speaker` | `content.bosses."pyre".dialogue[0] is missing required field "speaker" — a portrait name` |
 | Line missing `text` | `content.bosses."pyre".dialogue[0] is missing required field "text" — the line spoken` |
 | Unknown field on a line | `content.bosses."pyre".dialogue[0]: unknown field "spekaer" — did you mean "speaker"?` |
+| Card `music` not a string | `content.bosses."pyre".phases[0].music must be a string` |
+| `dialogueFor` not an object | `content.bosses."pyre".dialogueFor must be a JSON object mapping a character name to its lines` |
+| A `dialogueFor` variant not an array | `content.bosses."pyre".dialogueFor."raider" must be an array of {speaker, text} lines` |
+| A `dialogueFor` line missing `speaker` | `content.bosses."pyre".dialogueFor."raider"[0] is missing required field "speaker" — a portrait name` |
 
 **Shots, options and bombs**:
 
@@ -1137,7 +1165,10 @@ stand in for the caller's sorted lists):
 | Boss: unknown card background | `boss "pyre" phase "Ashfall" is set in unknown background "nebula" — known backgrounds: <known backgrounds>` |
 | Boss: unknown `onDeath` effect | `boss "pyre" onDeath names unknown effect "cindr" — no such effect in this pack or built in` |
 | Boss: unknown `music` | `boss "pyre" names unknown music "nokturn" — no such music in this pack or built in` |
+| Boss: unknown card `music` | `boss "pyre" phase "Ashfall" names unknown music "nokturn" — no such music in this pack or built in` |
 | Boss: dialogue speaker unresolved | `boss "pyre" dialogue line 0 names unknown portrait "sentinl" — known portraits: <known portraits>` |
+| Boss: `dialogueFor` key names no character | `boss "pyre" dialogueFor names unknown character "raidr" — no such character in this pack or built in` |
+| Boss: `dialogueFor` variant speaker unresolved | `boss "pyre" dialogueFor "raider" line 0 names unknown portrait "sentinl" — known portraits: <known portraits>` |
 | Boss: unknown spoils item | `boss "pyre" drops unknown item "relik" — no such item in this pack or built in` |
 | Shot: unknown bullet sprite | `shot "emberbolt" level 0 uses unknown sprite "kunia" — known sprites: <known sprites>` |
 | Shot: unknown bullet behaviour | `shot "emberbolt" level 0 uses unknown motion behaviour "homng" — no such behaviour is registered` |
@@ -1279,11 +1310,13 @@ what the simulation does, the picture is only how it looks.
 
 Everything above describes a *fetched* pack. The **base game is now this format's
 largest consumer**: stage-1, stage-2, their eight trash enemies (`grunt`,
-`weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion`) and three
-bosses (`sentinel`, `warden`, `magistrate`) are no longer engine TypeScript.
+`weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion`), three
+bosses (`sentinel`, `warden`, `magistrate`) **and the whole player side** — the
+four characters (`scout`, `lance`, `hound`, `spire`), their four shots, three
+option sets and two bombs — are no longer engine TypeScript.
 They are `src/packs/base-pack.json`, authored in `tools/make-base-pack.ts`, and
 injected through this exact pipeline — the same `validateManifest`, the same
-`ContentEnemy`/`ContentBoss`/`ContentStage` shapes (§9.2), the same `injectPack`,
+`ContentEnemy`/`ContentBoss`/`ContentStage`/`ContentCharacter` shapes (§9.2), the same `injectPack`,
 the same reachability rules (§9.3) and the same golden validation strings (§9.4).
 There is **no forked validator and no special-cased shape**. If a typo'd bullet
 sprite or motion behaviour buried in a base-pack pattern slot could ever ship,
@@ -1305,11 +1338,14 @@ more (`decisions-basepack.md`):
    the built-in campaign resolves by the bare names the shell and every test
    already use. A guest pack naming `sentinel` still qualifies to `<pack>/sentinel`
    exactly as §9.3 describes — the replacement seam is unchanged.
-3. **No campaign row, no replay meta.** Its entry stage takes the plain START row
-   (`TitleState` keeps resolving `'stage-1'`), so the title menu is byte-for-byte
-   what it was. It joins neither `packs` (§11) nor `packsData` (§9.6): its
-   identity is the build itself, exactly as engine-defined content was — which is
-   why moving the campaign into a pack declares **no replay divergence** at all.
+3. **No campaign row, and no pack-identity meta.** Its entry stage takes the plain
+   START row (`TitleState` keeps resolving `'stage-1'`), so the title menu is
+   byte-for-byte what it was. It joins neither `packs` (§11) nor `packsData`
+   (§9.6): its identity is the build itself, exactly as engine-defined content was
+   — which is why moving the campaign into a pack declares **no replay divergence**
+   at all. The one meta signal the base content *does* carry is the `content`
+   fingerprint (§11) — but that is the build's own hash, not a pack row, and it
+   only ever **warns** the gate harness (which threads none), never refuses it.
 4. **Invalid = throw.** A bundled pack that fails validation is a *build* defect,
    not a user-file problem, so `bundled.ts` throws at import rather than routing a
    warning through the boot report. A broken base pack can never reach a running
@@ -1323,16 +1359,19 @@ stayed with its mechanism in `src/sim/boss.ts`.) The generator emits `base-pack.
 drift test (`tools/make-base-pack.test.ts`) regenerates and diffs it, so generator
 output that disagrees with the committed JSON fails the build. This is the
 established make-example-pack idiom (§9): authoring-time code may generate data;
-data never carries code. Alongside it, four committed replay traces
+data never carries code. The generator emits a second artifact beside the JSON —
+`src/packs/base-pack.fingerprint.ts`, the sha256 of the JSON bytes (first 12 hex),
+drift-tested the same way — which `bundled.ts` re-exports and the shell threads in
+as the `content` fingerprint (§11). Alongside these, four committed replay traces
 (`src/base-content.golden.test.ts`) assert zero simulation divergence — the
 permanent behavioural guard. (The port itself was additionally gated on a
 registry snapshot proving every ported registration reproduced byte-for-byte;
 it did its job when the port landed and was retired, as decisions recorded it
 would be — structural drift is the drift test's problem now.)
 
-**Extending the base campaign** — a new stage, enemy or boss for the built-in game
-— is therefore a generator edit (`docs/extending.md` §4–§6), not an inline
-`define*` call. Guest-pack authoring is entirely unchanged: drop a folder in
+**Extending the base campaign** — a new stage, enemy or boss, or a new ship,
+weapon, option set or bomb for the built-in roster — is therefore a generator edit
+(`docs/extending.md` §4–§7), not an inline `define*` call. Guest-pack authoring is entirely unchanged: drop a folder in
 `packs/`, everything in §1–§9.6 applies.
 
 ---
@@ -1412,8 +1451,24 @@ keys with two policies:
   Because content changes what the game *does*, a mismatch here **refuses**, exactly
   as a mismatched character, stage, boss or difficulty tier does. This is the strict
   path the v1 spec reserved and format 2 made real.
+- **`RunConfig.contentFingerprint`** (meta key `content`) — the **bundled base
+  content** identity: a short opaque hash the shell computes from `base-pack.json`
+  (`src/packs/base-pack.fingerprint.ts`, generated beside the JSON and drift-tested
+  with it) and threads in. The base pack joins neither key above — it is not a
+  fetched pack but the build itself — yet it *can* drift when the engine's own
+  enemies, bosses or player side change. So it takes a **third policy, the middle
+  ground**: on playback an **absent** `content` key **warns** (a legacy recording,
+  or a harness that threaded none) — `run: replay has no content fingerprint (a
+  legacy recording, or a harness that threaded none) — replaying without a content
+  check` — while a **present-and-different** one **refuses** — `run: replay was
+  recorded with content "…", not "…"`. What it covers is the bundled pack **JSON**;
+  it does **not** cover the pattern, behaviour or shader **code** the pack names by
+  string (a future build hash would). Unset means the shell opted out — fixtures
+  and debug launches thread none, which is the legacy-warn path, and is why the
+  base-content gate traces (§9.7) carry no `content` key and do not move when the
+  fingerprint changes.
 
-The hash is a SHA-256 over the manifest bytes followed by each loaded file's
+The pack hash is a SHA-256 over the manifest bytes followed by each loaded file's
 bytes, in a fixed canonical order, so it is stable regardless of how an author
 ordered their JSON keys.
 

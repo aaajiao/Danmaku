@@ -122,6 +122,13 @@ export interface GameContext {
    * skips the screen entirely (a test, a debug launch) leaves it at.
    */
   difficulty?: Difficulty;
+  /**
+   * Fingerprint of the bundled base content, forwarded into
+   * `RunConfig.contentFingerprint`. `main.ts` sets it from the generated pack
+   * constant; a string by contract, like `packs` (see `RunConfig.contentFingerprint`).
+   * Unset for a shell that opted out — nothing is recorded and nothing is checked.
+   */
+  contentFingerprint?: string;
   /** Handed the recording when a run ends. */
   onReplay?(replay: Replay): void;
 }
@@ -416,6 +423,9 @@ export class PlayingState implements GameState {
       // Strict like `packsData`: the tier changes what bullets are in the air, so
       // it is recorded and checked on playback. Unset defaults to Normal in `Run`.
       ...(ctx.difficulty === undefined ? {} : { difficulty: ctx.difficulty }),
+      // The base-content fingerprint, recorded so a replay played against drifted
+      // base content is caught. Absent means the shell opted out (see RunConfig).
+      ...(ctx.contentFingerprint === undefined ? {} : { contentFingerprint: ctx.contentFingerprint }),
     });
   }
 

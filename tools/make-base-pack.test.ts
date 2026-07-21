@@ -16,13 +16,29 @@ import { readFileSync } from 'node:fs';
 
 import { expect, test } from 'bun:test';
 
-import { BASE_PACK_PATH, buildBasePackJson } from './make-base-pack';
+import {
+  BASE_PACK_FINGERPRINT_PATH,
+  BASE_PACK_PATH,
+  buildBasePackFingerprint,
+  buildBasePackJson,
+} from './make-base-pack';
 
 test('the committed base-pack.json is byte-identical to the generator output', () => {
   const committed = readFileSync(BASE_PACK_PATH, 'utf8');
   const generated = buildBasePackJson();
   // Compare lengths first so a size mismatch reports as a number, not a wall of
   // diff, then the exact-equality assertion pins the content.
+  expect(generated.length).toBe(committed.length);
+  expect(generated).toBe(committed);
+});
+
+test('the committed base-pack.fingerprint.ts is byte-identical to the generator output', () => {
+  // The fingerprint is derived from the JSON bytes, so this drifting means one of
+  // two things: the JSON changed without regenerating the hash (the whole failure
+  // this catches), or the fingerprint module was hand-edited. Either is fixed by
+  // one action — `bun tools/make-base-pack.ts` — same as the JSON above.
+  const committed = readFileSync(BASE_PACK_FINGERPRINT_PATH, 'utf8');
+  const generated = buildBasePackFingerprint();
   expect(generated.length).toBe(committed.length);
   expect(generated).toBe(committed);
 });

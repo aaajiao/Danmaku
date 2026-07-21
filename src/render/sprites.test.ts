@@ -42,7 +42,13 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import '../content';
+// The base campaign — enemies, bosses, stages AND (since decisions-round2 §D) the
+// player weapons and characters — lives in the bundled base pack, not in
+// `../content`. This is render, not a headless tree, so it may import the pack;
+// doing so is what lets this file validate the REAL declared sprites standalone
+// rather than vacuously passing on empty registries under the full suite's
+// cross-file leakage.
+import '../packs/bundled';
 import { getShot, shotNames } from '../content/shots';
 import { bossNames, getBossSpec } from '../sim/boss';
 import { enemyNames, getEnemySpec } from '../sim/enemy';
