@@ -630,7 +630,14 @@ describe('a real playthrough reaches', () => {
     }
 
     expect(declared.size).toBeGreaterThan(0);
-    expect([...COVER.scenes].sort()).toEqual([...declared].sort());
+    // Union the Lunatic run with the Normal `COVER`, mirroring the music arm
+    // below: the two 出神 scenes (`umbra` on sentinel's Total Eclipse, `decree`
+    // on the chancellor's Sealed and the regent's Sine Die) are declared ONLY on
+    // Lunatic-gated cards, so a Normal playthrough never enters them — exactly as
+    // `zenith`/`fiat` sit on Lunatic-only cards for music. The five seals are all
+    // Normal-reachable via each boss's non-Lunatic cards.
+    const entered = new Set<string>([...COVER.scenes, ...LUNATIC.scenes]);
+    expect([...entered].sort()).toEqual([...declared].sort());
   });
 
   test('every registered track a stage, a boss, a card, or the menu declares', () => {

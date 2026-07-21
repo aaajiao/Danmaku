@@ -1465,7 +1465,7 @@
             "hpSeconds": 10,
             "isSpell": true,
             "bonus": 200000,
-            "background": "surge",
+            "background": "signet",
             "motion": {
               "r": 0
             },
@@ -1595,6 +1595,7 @@
             "hpSeconds": 12,
             "isSpell": true,
             "bonus": 500000,
+            "background": "signet",
             "timeline": [
               {
                 "count": 0,
@@ -1736,7 +1737,7 @@
               "lunatic"
             ],
             "bonus": 800000,
-            "background": "surge",
+            "background": "umbra",
             "music": "zenith",
             "motion": {
               "r": 0
@@ -1984,7 +1985,7 @@
             "hpSeconds": 5,
             "isSpell": true,
             "bonus": 120000,
-            "background": "surge",
+            "background": "cordon",
             "motion": {
               "r": 0
             },
@@ -2086,7 +2087,7 @@
             "hpSeconds": 5,
             "isSpell": true,
             "bonus": 200000,
-            "background": "surge",
+            "background": "cordon",
             "timeline": [
               {
                 "count": 0,
@@ -2403,7 +2404,7 @@
             "hpSeconds": 12,
             "isSpell": true,
             "bonus": 150000,
-            "background": "surge",
+            "background": "intaglio",
             "motion": {
               "r": 0
             },
@@ -2501,7 +2502,7 @@
             "hpSeconds": 14,
             "isSpell": true,
             "bonus": 250000,
-            "background": "surge",
+            "background": "intaglio",
             "motion": {
               "r": 0
             },
@@ -2599,7 +2600,7 @@
             "hpSeconds": 17,
             "isSpell": true,
             "bonus": 600000,
-            "background": "surge",
+            "background": "intaglio",
             "timeline": [
               {
                 "count": 0,
@@ -2863,7 +2864,7 @@
             "name": "Appeal",
             "hpSeconds": 7,
             "isSpell": false,
-            "background": "surge",
+            "background": "sable",
             "timeline": [
               {
                 "count": 0,
@@ -2964,7 +2965,7 @@
             "hpSeconds": 12,
             "isSpell": true,
             "bonus": 250000,
-            "background": "surge",
+            "background": "sable",
             "timeline": [
               {
                 "count": 0,
@@ -3067,7 +3068,7 @@
             "hpSeconds": 13,
             "isSpell": true,
             "bonus": 300000,
-            "background": "surge",
+            "background": "sable",
             "patterns": [
               {
                 "pattern": "ring",
@@ -3152,7 +3153,7 @@
             "hpSeconds": 14,
             "isSpell": true,
             "bonus": 500000,
-            "background": "surge",
+            "background": "sable",
             "patterns": [
               {
                 "pattern": "ring",
@@ -3234,7 +3235,7 @@
               "lunatic"
             ],
             "bonus": 800000,
-            "background": "surge",
+            "background": "decree",
             "music": "fiat",
             "patterns": [
               {
@@ -3383,7 +3384,7 @@
             "name": "Session",
             "hpSeconds": 8,
             "isSpell": false,
-            "background": "surge",
+            "background": "regnum",
             "timeline": [
               {
                 "count": 0,
@@ -3484,7 +3485,7 @@
             "hpSeconds": 12,
             "isSpell": true,
             "bonus": 300000,
-            "background": "surge",
+            "background": "regnum",
             "patterns": [
               {
                 "pattern": "ring",
@@ -3575,7 +3576,7 @@
             "hpSeconds": 13,
             "isSpell": true,
             "bonus": 400000,
-            "background": "surge",
+            "background": "regnum",
             "patterns": [
               {
                 "pattern": "ring",
@@ -3654,7 +3655,7 @@
             "hpSeconds": 14,
             "isSpell": true,
             "bonus": 500000,
-            "background": "surge",
+            "background": "regnum",
             "patterns": [
               {
                 "pattern": "ring",
@@ -3746,7 +3747,7 @@
             "hpSeconds": 15,
             "isSpell": true,
             "bonus": 600000,
-            "background": "surge",
+            "background": "regnum",
             "patterns": [
               {
                 "pattern": "ring",
@@ -3865,7 +3866,7 @@
               "lunatic"
             ],
             "bonus": 1000000,
-            "background": "vault",
+            "background": "decree",
             "music": "fiat",
             "patterns": [
               {

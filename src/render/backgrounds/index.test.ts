@@ -27,7 +27,23 @@ import { BACKGROUND_NOISE_GLSL, backgroundNames, getBackgroundSpec } from '../ba
 import { getStage, stageNames } from '../../content/stage';
 import { bossNames, getBossSpec } from '../../sim/boss';
 
-const SHIPPED = ['drift', 'surge', 'expanse', 'undertow', 'stratum', 'vault'];
+const SHIPPED = [
+  'drift',
+  'surge',
+  'expanse',
+  'undertow',
+  'stratum',
+  'vault',
+  // The seal family: one shared cell (SEAL_GLSL) through five filters, plus the
+  // two 出神 unmoorings. Each is a boss scene named by a spell card.
+  'signet',
+  'cordon',
+  'intaglio',
+  'sable',
+  'regnum',
+  'umbra',
+  'decree',
+];
 
 describe('the shipped scenes', () => {
   test.each(SHIPPED)('%s is registered', (name) => {

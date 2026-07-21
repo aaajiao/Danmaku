@@ -42,11 +42,25 @@
  * rate goes, leaving a smooth dark well exactly where enemies enter and where
  * speckle would be read as bullets.
  *
- * The palette is indigo rather than the red of `surge`, deliberately. A spell
- * card cross-fades from this into that, and if the two shared a hue the
- * transition would read as the lights coming up rather than as the fight
- * changing gear. Peak luminance is about 0.07, below `expanse` and below the
- * 0.1 that `background.ts` asks for.
+ * The palette is indigo, deliberately, and its job is now distinctness from the
+ * seals rather than from `surge`. The base game no longer cross-fades to `surge`
+ * (that comparandum is pack-only now); instead the stage-2 bosses stamp two seals
+ * over this indigo — warden's `cordon` (olive-brass) and magistrate's `intaglio`
+ * (bone). Neither is a gold-on-indigo flash: both are separated from the indigo
+ * by desaturation (R ~= G) and by the seal's flat centred geometry, so the
+ * stage -> boss transition reads as the fight changing gear, not the lights
+ * coming up — the exact bar this header always held, now held against the seals.
+ *
+ * ## Four places, four quadrants
+ *
+ * `undertow` is the second of four stage scenes chosen to occupy four hue
+ * quadrants, four geometry families, and a spread of periods, so no two are
+ * mistaken for each other: `expanse` cyan-ice / horizon line (R/G ~0.37 post-
+ * graft), `undertow` indigo / vanishing point (R/G ~2.1, B-high), `stratum`
+ * verdigris / flat bands (G-dominant), `vault` gold / concentric dome (R/G ~1.4).
+ * This one is the B-high polar shaft: vanishing POINT, six integer flutes, ring
+ * ~50 ticks (the fastest stage), peak ~0.07 — below `expanse` and below the 0.1
+ * `background.ts` asks for.
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';

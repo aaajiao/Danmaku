@@ -48,13 +48,21 @@
  * ## Palette — dim gold / amber
  *
  * The colour of the seal, of wax and brass, of authority itself. It reads
- * R > G > B with G about 0.7 of R — a clear yellow-gold at R/G near 1.4. Chosen
- * relationally, exactly as the three before it: it must not be mistaken for
- * `expanse`'s ice-blue, `undertow`'s indigo, or `stratum`'s green-dominant
- * verdigris, and above all it sits **far from `surge`'s red** (surge measures
- * R/G near 3, a magenta-red; vault sits near R/G 1.4, gold) so a spell card's
- * cross-fade to `surge` still reads as the fight changing gear, not the lights
- * coming up. It reads *terminal*.
+ * R > G > B with G about 0.7 of R — a clear yellow-gold at R/G near 1.4. It is
+ * the fourth of four stage scenes chosen to occupy four hue quadrants and four
+ * geometry families, no two mistaken for each other: `expanse` cyan-ice / horizon
+ * line (R/G ~0.37 post-graft), `undertow` indigo / vanishing point (B-high),
+ * `stratum` verdigris / flat bands (G-dominant), this one gold / concentric dome
+ * (R/G ~1.4) — the only scene with no travel at all. And it sits clear of the RED
+ * of the seal its own boss stamps: the regent's `regnum` (crimson, R/G ~2.56) is
+ * heat entering the terminal gold, so the stage-4 -> boss transition reads as the
+ * fight changing gear, not the lights coming up. (`surge`'s red, R/G ~3, holds
+ * the same relation, but that comparandum is pack-only now — the base game no
+ * longer cross-fades to it.) It reads *terminal*.
+ *
+ * The regent's "Sine Die" no longer drains to this gold (it takes the shared
+ * 出神 scene `decree` now), but `vault` remains the stage-4 scene, so it is still
+ * declared and reachable.
  *
  * ## Clock
  *
@@ -88,7 +96,8 @@
  *     magnitude coarser than a 16-30px bullet.
  *   - Palette relation holds on the framebuffer: R/G at the crest measures **1.39**
  *     (gold), against the analytic 1.42 (`0.085/0.060`), clear of the three prior
- *     scenes and far from `surge`'s red.
+ *     scenes and clear of its boss seal `regnum`'s crimson (R/G ~2.56) — and of
+ *     `surge`'s red (R/G ~3), pack-only now.
  *   - One coffer presses past a fixed radius about every 218 ticks
  *     (`RING_FREQ * CONTRACT_RATE * scrollSpeed` = 36 * 0.0016 * 0.5 = 0.0288
  *     rad/tick) — computed, since a rate needs video not a still: the slowest

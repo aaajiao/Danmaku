@@ -216,6 +216,124 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
 `;
 
 /**
+ * THE SEAL — one shared cell the boss scenes stamp through five filters and two
+ * unmoorings, exported here for the same reason `BACKGROUND_NOISE_GLSL` is: a
+ * shape shared by many scenes lives once, and copying it would let the copies
+ * drift. It is a **string constant only** — no new uniform, no cross-fade change.
+ *
+ * The cell is a bounding **ring** enclosing an N-fold **rosette** (the signet's
+ * device — the notary's seal the fiction already carries). It is **flat**: there
+ * is no perspective divide, so the run-to-infinity aliasing the two perspective
+ * scenes have to decay their structure to fight never arises — and it arises
+ * least where it would hurt most, the crowded centre of a boss fight (the `vault`
+ * argument, made once more). Three disciplines carry across from the stage
+ * scenes:
+ *
+ *   - **Integer spokes.** The rosette count is an integer, so the angle only ever
+ *     enters `sin`, and the `atan` wrap from +pi to -pi closes seamlessly — the
+ *     `undertow`/`vault` flute lesson. The broken-arc gate reads a *wrapped*
+ *     angle for the same reason, so even a rotating picket cannot crack.
+ *   - **Grain against the rosette value, never the raw angle**, so the fine noise
+ *     inherits the rosette's periodicity and cannot shear across the wrap ray.
+ *   - **Detail decays toward the two crowded zones** — the centre (the boss
+ *     station, the void the bright sprite reads against) and the top entry lane —
+ *     and the field fades to nothing **outside the ring**: a seal is a STATE, not
+ *     a place, and it is empty where it is not the seal (the rest around the
+ *     device).
+ *
+ * Each boss is a **thin call**: one filter geometry (`arcHalf`, `fill`, `invert`,
+ * ring radius/frequency, rotation) plus one hue (the scene's `BASE`/`GLOW`).
+ * Identity is in the cell; individuality is in filter + hue — the visual
+ * counterpart of each `defineMusic` setting one `CELL_*` and one root.
+ *
+ * `sealField` returns a modulation in ~0..1 the scene lifts its `GLOW` by; **0 is
+ * the dark void**. It reads `bgFbm`, so a scene must prepend `BACKGROUND_NOISE_GLSL`
+ * before this. It reads no uniform — `aspect` and `scroll` are passed in — so it
+ * stays a pure function of its arguments, and the ticks-only clock (rule 1) is the
+ * caller's `uScroll`, never a wall clock.
+ */
+export const SEAL_GLSL = /* glsl */ `
+  const float SEAL_PI = 3.14159265;
+
+  /* The seal presses inward slowly, the same cadence for every filter (identity
+     in the cell): a fixed ring drifts to smaller r as scroll grows, exactly as
+     vault's coffers contract. Deliberately tiny — at ring frequency 36 and scroll
+     speed ~0.8 this advances the ring phase about 0.023 rad/tick, one ring past a
+     fixed radius roughly every 270 ticks, the terminal register the seal wants. */
+  const float SEAL_CONTRACT = 0.00080;
+
+  float sealField(
+    vec2  uv,
+    float aspect,
+    float scroll,
+    vec2  centre,      /* seal centre in uv; drifts for the unmoored 出神 pair */
+    float ringRadius,  /* radius of the bounding ring */
+    float ringFreq,    /* radial ring frequency (device rings; ~110px period) */
+    float spokes,      /* INTEGER rosette lobe count */
+    float arcHalf,     /* half-angle of ring present (>= PI => a whole seal) */
+    float fill,        /* 0 sparse rosette .. 1 filled field (least rest) */
+    float invert,      /* 0 device bright .. 1 figure/ground swapped (the cut void) */
+    float rot,         /* rotation per unit scroll */
+    float moireFreq,   /* second radial ring for the 出神 moiré; 0 = off */
+    float centreFall,  /* centre-decay strength */
+    float topFall      /* top-lane-decay strength */
+  ) {
+    vec2 c = (uv - centre) * vec2(aspect, 1.0);
+    float r = length(c);
+    float a = atan(c.y, c.x) + scroll * rot;
+
+    /* Wrapped angle for the arc gate. abs() of a value pulled back into
+       (-pi, pi] is continuous across the seam (both sides reach pi), so a
+       rotating broken arc still cannot crack. */
+    float aw = mod(a + SEAL_PI, 2.0 * SEAL_PI) - SEAL_PI;
+
+    /* N-fold rosette. Integer spokes -> sin closes across the wrap. */
+    float rosette = 0.5 + 0.5 * sin(a * spokes);
+    float lobe = mix(rosette, 1.0 - rosette, invert);   /* inverted: lobes are the cut */
+    lobe = mix(lobe, max(lobe, 0.7), fill);             /* filled: the ground lights too */
+
+    /* Grain against the rosette value, never the angle. */
+    float grain = bgFbm(vec2(rosette * 2.2, r * 6.0 + scroll * 0.010));
+
+    /* The bounding ring (a bright annulus) and the inner device rings, both
+       pressing inward via SEAL_CONTRACT. */
+    float pressed = r + scroll * SEAL_CONTRACT;
+    /* Square by multiplication, never pow(): GLSL pow(x, y) is undefined for
+       x < 0, and (r - ringRadius) is negative inside the ring. */
+    float dr = (r - ringRadius) * 7.0;
+    float band = exp(-dr * dr);
+    float inner = 0.5 + 0.5 * sin(pressed * ringFreq);
+
+    /* Radial moiré (出神): a second ring RADIALLY detuned. r carries no angular
+       wrap, so a non-integer detune is safe (no crack). Its beat is far longer
+       than either ring -> coarser than a bullet, and it only ever multiplies the
+       structure down, so coherence swims while luminance never rises. */
+    float beat = 1.0;
+    if (moireFreq > 0.001) {
+      float second = 0.5 + 0.5 * sin(pressed * moireFreq);
+      beat = 0.55 + 0.45 * (inner * second + (1.0 - inner) * (1.0 - second));
+    }
+
+    /* Broken arc: present for |aw| < arcHalf, fading at the ends. A whole seal
+       passes arcHalf >= PI and this is 1 everywhere. */
+    float arc = 1.0 - smoothstep(arcHalf - 0.35, arcHalf + 0.08, abs(aw));
+
+    float structure = arc * (0.55 * band + 0.45 * inner * lobe);
+    structure *= (0.66 + 0.34 * grain);
+
+    /* The two crowded zones, and the empty field outside the ring. */
+    float nearC = clamp(r * centreFall, 0.0, 1.0);
+    float nearTop = clamp(uv.y * topFall, 0.0, 1.0);
+    float outer = 1.0 - smoothstep(ringRadius, ringRadius + 0.16, r);
+    float body = nearC * nearTop * outer;
+
+    /* A dim wax floor inside the ring; structure lifts it. Detail dies faster
+       toward the crowded zones than the floor, the doctrine every scene shares. */
+    return body * (0.18 + 0.72 * structure) * beat;
+  }
+`;
+
+/**
  * Assemble a full fragment shader from a spec's body.
  *
  * Exported for `background.test.ts`: the standard uniform block is a contract

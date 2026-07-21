@@ -3,4 +3,4 @@
 // content's identity in replay meta (see RunConfig.contentFingerprint in
 // src/game/run.ts). tools/make-base-pack.test.ts byte-diffs it against the
 // generator, so it cannot silently disagree with the JSON it fingerprints.
-export const CONTENT_FINGERPRINT = 'ae0608933b1a';
+export const CONTENT_FINGERPRINT = 'c029b35f066e';

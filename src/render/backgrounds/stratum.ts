@@ -42,11 +42,17 @@
  * ## Palette — verdigris / oxidised bronze
  *
  * Cold green-grey: tarnished seals, patinated metal, the colour of a record left
- * to age. Chosen relationally, exactly as `undertow` chose indigo. It must not
- * be mistaken for stage 1's ice-blue (`expanse`) or stage 2's indigo
- * (`undertow`), and above all it must sit far from the red that every spell card
- * cross-fades to (`surge`) — so a `stratum` -> `surge` transition reads as the
- * fight changing gear rather than as the lights coming up.
+ * to age. Chosen relationally, exactly as `undertow` chose indigo. It is the
+ * third of four stage scenes chosen to occupy four hue quadrants and four
+ * geometry families: `expanse` cyan-ice / horizon line (R/G ~0.37 post-graft),
+ * `undertow` indigo / vanishing point (B-high), this one verdigris / flat bands
+ * (G-dominant, G/B ~1.1), `vault` gold / concentric dome (R/G ~1.4) — no two
+ * mistaken for each other. And it must sit far from the RED of the seal its own
+ * boss stamps: the chancellor's `sable` (oxblood, R/G ~3) is the maximum red-vs-
+ * green opposition against this verdigris, so the stage-3 -> boss transition
+ * reads as the fight changing gear, not the lights coming up. (`surge`'s red is
+ * the same relation, but that comparandum is pack-only now — the base game no
+ * longer cross-fades to it.)
  *
  * ## Clock
  *
@@ -71,9 +77,11 @@
  *     computed from the constants (a rate needs video, not a still): slower
  *     than `expanse`'s 75, matched to the heaviest, slowest drone in the game.
  *   - The palette relation above holds on screen: this scene measures
- *     green-dominant (G/B ~1.1, red lowest) while `surge` measures red-dominant
- *     (R/G ~3) at a slightly *lower* peak (0.069), so the spell-card cross-fade
- *     reads as the hue turning over, not the lights coming up.
+ *     green-dominant (G/B ~1.1, red lowest) while its boss seal `sable` is
+ *     red-dominant (measured masked-mean R/G 2.56, oxblood) at a lower measured
+ *     peak (0.032), so the spell-card cross-fade reads as the hue turning over,
+ *     not the lights coming up. (`surge`, pack-only now, holds the same
+ *     red-dominant relation at a measured 0.058.)
  */
 
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';

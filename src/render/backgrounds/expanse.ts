@@ -28,7 +28,9 @@
  * densest patterns form. It has to be the darkest, least detailed part of the
  * frame, or bullets get lost in it. `background.ts` states the constraint —
  * peak luminance near 0.1, no detail at a bullet's spatial frequency. This
- * shader peaks around 0.09.
+ * shader measures 0.080 at the crest after the cyan graft (analytic ceiling
+ * ~0.093; masked-mean R/G 0.48, a clear step off `drift`'s 0.63 — the graft's
+ * whole point), with the rib row-period measuring ~117px.
  *
  * The numerical one: as `uv.y` approaches the horizon, `depth` grows without
  * bound and adjacent pixels land arbitrarily far apart in world space. Sampling
@@ -81,9 +83,9 @@ ${BACKGROUND_NOISE_GLSL}
 
     const vec3 HAZE        = vec3(0.014, 0.020, 0.044);
     const vec3 SKY_TOP     = vec3(0.004, 0.006, 0.014);
-    const vec3 SKY_LIFT    = vec3(0.020, 0.030, 0.055);
+    const vec3 SKY_LIFT    = vec3(0.016, 0.034, 0.055);
     const vec3 GROUND_DEEP = vec3(0.016, 0.024, 0.050);
-    const vec3 GROUND_LIFT = vec3(0.055, 0.090, 0.155);
+    const vec3 GROUND_LIFT = vec3(0.038, 0.104, 0.152);
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;

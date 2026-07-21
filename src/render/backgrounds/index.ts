@@ -39,9 +39,16 @@
  * of it rather than debugging it twice, and write GLSL comments in plain prose.
  */
 
+import './cordon';
+import './decree';
 import './drift';
 import './expanse';
+import './intaglio';
+import './regnum';
+import './sable';
+import './signet';
 import './stratum';
 import './surge';
+import './umbra';
 import './undertow';
 import './vault';

@@ -611,5 +611,5 @@ automated half measures frame time, and a full-screen shader alters fill cost,
 so the scene would have to go into a readability-only panel rather than into the
 timed levels. Until then, a background is measured rather than judged — peak
 luminance near 0.1, and structure an order of magnitude coarser than a bullet.
-`expanse` measures 0.085 against a bullet's 1.0, with a band period near 100px
+`expanse` measures 0.080 against a bullet's 1.0, with a band period near 117px
 against a 16–30px sprite.

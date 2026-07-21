@@ -1091,8 +1091,9 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 10,
         isSpell: true,
         bonus: 200000,
-        // 'surge' is the registered spell-card background.
-        background: 'surge',
+        // 'signet' is sentinel's seal — the cell stated plainly, stamped over the
+        // stage field when the first card lands (see render/backgrounds/signet.ts).
+        background: 'signet',
         // Stationary: the card is a shape to be read, and a moving source would
         // smear it into noise.
         motion: { r: 0 },
@@ -1136,6 +1137,10 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 12,
         isSpell: true,
         bonus: 500000,
+        // Explicit 'signet', not undefined: an undefined background silently
+        // reverts to the stage scene mid-fight (the R1 defect). Once the seal is
+        // stamped on Tidal Corolla it stays down through Vigil Unbroken.
+        background: 'signet',
         // Sways through the top of the field, so the spiral's origin moves and
         // its arms cannot be memorised as fixed lanes.
         timeline: [
@@ -1186,7 +1191,9 @@ const bosses: PackContent['bosses'] = {
         isSpell: true,
         difficulties: ['lunatic'],
         bonus: 800000,
-        background: 'surge',
+        // 'umbra' — the seal unmoored: signet drifts off-station, a radial moiré
+        // swims, never brighter (render/backgrounds/umbra.ts). Lunatic-only.
+        background: 'umbra',
         // The one per-card track in the game: this Lunatic-only card lifts to its
         // own theme for its duration, overriding sentinel's `nemesis` exactly as
         // `background` overrides the stage scene. Reached only on Lunatic.
@@ -1262,7 +1269,9 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 5,
         isSpell: true,
         bonus: 120000,
-        background: 'surge',
+        // 'cordon' — the seal truncated: a broken half-arc, a picket line
+        // (render/backgrounds/cordon.ts). Olive-brass over undertow's indigo.
+        background: 'cordon',
         // Stationary. A beam's telegraph is a promise about where the line will
         // be, and a moving muzzle breaks it.
         motion: { r: 0 },
@@ -1295,7 +1304,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 5,
         isSpell: true,
         bonus: 200000,
-        background: 'surge',
+        // 'cordon' again — warden's truncated seal held across the fight.
+        background: 'cordon',
         // Drifts slowly so the mill's centre stays put while its feeder does not.
         timeline: [
           { count: 0, motion: { r: 0.8, theta: 0, w: 2.6 } },
@@ -1403,7 +1413,9 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 12,
         isSpell: true,
         bonus: 150000,
-        background: 'surge',
+        // 'intaglio' — the seal inverted: the rosette is the cut void, the ground
+        // the fill (render/backgrounds/intaglio.ts). Bone over undertow's indigo.
+        background: 'intaglio',
         motion: { r: 0 },
         patterns: [
           // A ring of seekers: every bullet flies straight for 18 ticks and then
@@ -1435,7 +1447,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 14,
         isSpell: true,
         bonus: 250000,
-        background: 'surge',
+        // 'intaglio' again — magistrate's inverted seal held across the fight.
+        background: 'intaglio',
         // Stationary, for the same reason 'Picket Line' is.
         motion: { r: 0 },
         patterns: [
@@ -1469,7 +1482,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 17,
         isSpell: true,
         bonus: 600000,
-        background: 'surge',
+        // 'intaglio' — magistrate's inverted seal, held to the last word.
+        background: 'intaglio',
         // Sways through the top of the field so the spiral's origin moves — but
         // slowly, because beams are also in the air.
         timeline: [
@@ -1573,7 +1587,9 @@ const bosses: PackContent['bosses'] = {
         // Seven seconds: the court hears you. An opener, not a wall.
         hpSeconds: 7,
         isSpell: false,
-        background: 'surge',
+        // 'sable' — the seal darkened: pressed nearly shut, oxblood, the darkest
+        // scene (render/backgrounds/sable.ts). Against stratum's verdigris.
+        background: 'sable',
         // A slow horizontal drift, reversed so it paces rather than leaves —
         // aimed streams you weave against, from a moving source.
         timeline: [
@@ -1612,7 +1628,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 12,
         isSpell: true,
         bonus: 250000,
-        background: 'surge',
+        // 'sable' — chancellor's darkened seal held across the fight.
+        background: 'sable',
         timeline: [
           { count: 0, motion: { r: 0.7, theta: 0 } },
           { count: 100, motion: { r: 0.7, theta: 180 } },
@@ -1651,7 +1668,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 13,
         isSpell: true,
         bonus: 300000,
-        background: 'surge',
+        // 'sable' — chancellor's darkened seal.
+        background: 'sable',
         patterns: [
           {
             pattern: 'ring',
@@ -1682,7 +1700,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 14,
         isSpell: true,
         bonus: 500000,
-        background: 'surge',
+        // 'sable' — chancellor's darkened seal, held to the fight's normal end.
+        background: 'sable',
         patterns: [
           {
             pattern: 'ring',
@@ -1710,15 +1729,17 @@ const bosses: PackContent['bosses'] = {
         // 'Estoppel'. The decree the appeal is denied by: the full combination at
         // once — spiral, aimed-fan and a rotating ring — but the authored lane
         // never closes (readable at the 2000-bullet budget, never the 5000 soup).
-        // It lifts to its own drier, closer track for its duration, staying
-        // visually on `surge`, exactly as 'Total Eclipse' uses `zenith`. Reached
-        // only on the shared Lunatic full run.
+        // It lifts to its own drier, closer track for its duration, on the shared
+        // 出神 scene `decree` (the seal draining, render/backgrounds/decree.ts),
+        // exactly as 'Total Eclipse' pairs `zenith`+`umbra`. `decree` is shared by
+        // this card and the regent's 'Sine Die', the one scene for the one `fiat`
+        // track. Reached only on the shared Lunatic full run.
         name: 'Fiat "Sealed"',
         hpSeconds: 17,
         isSpell: true,
         difficulties: ['lunatic'],
         bonus: 800000,
-        background: 'surge',
+        background: 'decree',
         music: 'fiat',
         patterns: [
           { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
@@ -1739,9 +1760,12 @@ const bosses: PackContent['bosses'] = {
    * would be contradicted by a new verb, so every card composes existing patterns
    * (the one allowed new-pattern slot is spent nowhere).
    *
-   * Wan gold — the chancellor's amber, a shade darker in the vault. Cards cross-
-   * fade to `surge` (the fight changing gear) EXCEPT the terminal Sine Die, which
-   * drains the red and returns the gold of the empty seat. Sizing is `hpSeconds`
+   * Wan gold — the chancellor's amber, a shade darker in the vault. Cards stamp
+   * the regent's seal `regnum` (the cell resolved and FILLED, crimson — the seal
+   * finally pressed into the empty seat) EXCEPT the terminal Sine Die, which comes
+   * unmoored to the shared 出神 scene `decree` (the fill draining out), the same
+   * scene the chancellor's 'Sealed' takes — one scene for the one `fiat` track.
+   * Sizing is `hpSeconds`
    * against REFERENCE_DPS; the lunatic total (80s) is the longest fight in the
    * game, +17s over the chancellor, without bloat.
    */
@@ -1784,7 +1808,9 @@ const bosses: PackContent['bosses'] = {
         name: 'Session',
         hpSeconds: 8,
         isSpell: false,
-        background: 'surge',
+        // 'regnum' — the seal resolved and filled, crimson on the empty seat
+        // (render/backgrounds/regnum.ts). Against vault's gold.
+        background: 'regnum',
         // A slow horizontal pace, reversed so it stations rather than leaves —
         // aimed streams from a moving source, the chancellor's opener recalled.
         timeline: [
@@ -1821,7 +1847,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 12,
         isSpell: true,
         bonus: 300000,
-        background: 'surge',
+        // 'regnum' — the regent's resolved seal.
+        background: 'regnum',
         patterns: [
           {
             pattern: 'ring',
@@ -1853,7 +1880,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 13,
         isSpell: true,
         bonus: 400000,
-        background: 'surge',
+        // 'regnum' — the regent's resolved seal.
+        background: 'regnum',
         patterns: [
           {
             pattern: 'ring',
@@ -1884,7 +1912,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 14,
         isSpell: true,
         bonus: 500000,
-        background: 'surge',
+        // 'regnum' — the regent's resolved seal.
+        background: 'regnum',
         patterns: [
           {
             pattern: 'ring',
@@ -1915,7 +1944,8 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 15,
         isSpell: true,
         bonus: 600000,
-        background: 'surge',
+        // 'regnum' — the regent's resolved seal, held to the fight's normal end.
+        background: 'regnum',
         patterns: [
           {
             pattern: 'ring',
@@ -1950,18 +1980,20 @@ const bosses: PackContent['bosses'] = {
         // LUNATIC-ONLY finale — the decree that never reconvenes. The composed
         // maximum: spiral, aimed-fan and a rotating ring at once, with a designed
         // lane. Gated exactly as the chancellor's 'Fiat "Sealed"' is, so on every
-        // other tier the fight ends on 'Statute'. It is the terminal beat: it
-        // alone DRAINS the red — `background: 'vault'`, not surge — and lifts to
-        // `fiat` (the chancellor's decree returning at the source). Both overrides
-        // are already reachable (`vault` via the stage, `fiat` via the chancellor),
-        // so the card adds no new reachability requirement — it is proved reached
-        // on the shared Lunatic run, the way `zenith`/`fiat` are.
+        // other tier the fight ends on 'Statute'. It is the terminal beat: the
+        // seal comes unmoored to the shared 出神 scene `decree` — the same scene
+        // the chancellor's 'Sealed' takes, one scene for the one `fiat` track —
+        // and lifts to `fiat` itself (the chancellor's decree returning at the
+        // source). `decree` is declared ONLY on these two Lunatic cards, so it is
+        // Lunatic-only-reachable (reachability.test.ts unions the Lunatic run for
+        // exactly this), proved reached on the shared Lunatic run the way
+        // `zenith`/`umbra`/`fiat` are.
         name: 'Last Fiat "Sine Die"',
         hpSeconds: 18,
         isSpell: true,
         difficulties: ['lunatic'],
         bonus: 1000000,
-        background: 'vault',
+        background: 'decree',
         music: 'fiat',
         patterns: [
           { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },

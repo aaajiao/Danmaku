@@ -396,7 +396,14 @@ and no plan for either. A background is a full-screen quad at `Layer.Background`
 running a shader registered with `defineBackground`
 (`src/render/background.ts:149`), one scene per file under
 `src/render/backgrounds/`, reaching the game only because that directory's index
-imports it. Six exist: `drift`, `expanse`, `stratum`, `surge`, `undertow`, `vault`.
+imports it. Thirteen exist. Six are stage/menu places, each its own shader:
+`drift`, `expanse`, `stratum`, `surge`, `undertow`, `vault`. Seven more are the
+**seal family** — `signet`, `cordon`, `intaglio`, `sable`, `regnum`, `umbra`,
+`decree` — one shared GLSL cell (`SEAL_GLSL`, exported from
+`src/render/background.ts` beside `BACKGROUND_NOISE_GLSL`) stamped by a boss's
+spell card through a thin per-scene filter and palette; see
+[`docs/extending.md` §12](./extending.md#12-adding-a-background-scene), "A
+family of scenes sharing one cell."
 
 The reason is in the header of `src/render/background.ts`: upstream's background
 was a textured plane scrolled by a counter, which gives you exactly one
@@ -434,9 +441,9 @@ ones, so a proposal has something to sit next to:
 | Scene | Constants | Values (`src/render/backgrounds/`) |
 |---|---|---|
 | `drift` | deep → lift | `(0.015, 0.022, 0.050)` → `(0.045, 0.075, 0.130)` (`drift.ts:36-37`) |
-| `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.020, 0.030, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.055, 0.090, 0.155)` (`expanse.ts:82-86`) |
+| `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.016, 0.034, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.038, 0.104, 0.152)` (`expanse.ts:82-86`) — `SKY_LIFT`/`GROUND_LIFT` pull the scene toward cyan-ice (R/G ≈0.37), the one deliberate stage-body edit of the seal-family round, closing the hue collision with `drift` |
 | `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:103-105`) |
-| `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) |
+| `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) — the base campaign no longer names this scene (its boss cards stamp the seal family instead); kept registered because `packs/example` and `packs/clearing` still name it |
 | `undertow` | haze / wall deep / wall lift | `(0.018, 0.010, 0.030)`, `(0.026, 0.014, 0.044)`, `(0.100, 0.048, 0.150)` (`undertow.ts:86-88`) |
 | `vault` | haze / deep / lift | `(0.010, 0.007, 0.002)`, `(0.022, 0.016, 0.005)`, `(0.085, 0.060, 0.018)` (`vault.ts:130-132`) — analytic peak ≈0.079, still pending the live `test:visual`/`dev` measurement the other rows already carry |
 

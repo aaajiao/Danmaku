@@ -1780,6 +1780,50 @@ They carry the reasoning at length — including why `undertow` has exactly six
 flutes, which is a genuine seam problem with a non-obvious fix — and it is not
 worth repeating here.
 
+### A family of scenes sharing one cell: the seal idiom
+
+Not every new scene should be a scene written from nothing. The five boss
+scenes — `signet`, `cordon`, `intaglio`, `sable`, `regnum` — and the two
+Lunatic-only 出神 scenes — `umbra`, `decree` — are one shared GLSL cell,
+`SEAL_GLSL` (`src/render/background.ts`, exported beside
+`BACKGROUND_NOISE_GLSL` for the same reason: a shape reused by several scenes
+lives once, or the copies drift), stamped through thin per-scene registrations.
+This is the visual counterpart of `defineMusic` composing a track from one
+`CELL_*` motif and a root: identity lives in the shared cell, individuality is
+one filter plus one hue.
+
+The cell itself is a bounding ring enclosing an integer-spoke rosette — the
+signet the game's own fiction already carries (`tools/make-base-pack.ts`) — flat
+and centred, with no perspective divide, so it never opens the run-to-infinity
+aliasing a perspective scene has to fight, at the one moment (a boss's spell
+card) where the screen is most crowded. Each per-boss file is a handful of lines:
+import `SEAL_GLSL` and `BACKGROUND_NOISE_GLSL`, declare a `BASE`/`GLOW` pair, and
+call `sealField(...)` with the parameters that pick the filter — an `arcHalf`
+that truncates the ring into a broken arc, an `invert` that swaps figure and
+ground, a `fill` that lights the rosette's rest, a smaller `ringRadius` and
+slower rotation that read as a darkened, compressed press, or a full ring with
+`fill` at its ceiling that reads as resolved. Five filters — stated, truncated,
+inverted, darkened, resolved — five thin registrations, one cell.
+
+The two 出神 scenes are the same cell **unmoored**: the seal's centre drifts and
+precesses (`sin`/`cos` of `uScroll`, never a wall clock — rule 1 binds this file
+exactly as it binds every other), and a second ring detuned only along `r` (never
+across the angular wrap, so the integer-spoke seam stays safe even undetuned)
+beats against the first into a slow radial moiré. The hard rule for a 出神 scene
+is that the crossing is never a brightness change: `umbra` and `decree` both
+multiply their structure down from the seal they came from and must not measure
+brighter at the crest. Breaking legibility at the fullest screen in the game to
+signal "this card is different" would cost more than the signal is worth: the
+same reason `expanse`/`undertow` decay their *structured* terms near the horizon
+rather than dimming — losing a bullet is worse than losing a flourish.
+
+If you are adding a new *family* of scenes — several thin variations on one
+shape, rather than one more standalone place — this is the pattern: one shared
+cell exported as a string constant from `background.ts` or its own sibling
+module, a fixed vocabulary of filter parameters, and one file per member that
+sets those parameters and a palette. Reserve it for that case; a stage scene like
+`expanse` or `stratum` is one place and stays one file.
+
 ### Dialogue portraits: `definePortrait`, a sibling render registry
 
 A portrait is the face drawn beside a boss's pre-fight dialogue line (§5). It is
