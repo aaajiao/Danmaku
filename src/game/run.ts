@@ -1588,7 +1588,7 @@ function expectOrWarnMeta(replay: Replay, key: string, expected: string): void {
 // `base-pack.json`), registering through the inject pipeline like any pack
 // character (decisions-round2 §D). This module keeps only the machinery above:
 // the `CharacterSpec` shape and the registry `CharacterSelectState` reads. The
-// roster's presence and correctness are proved at the composition root — the
-// port gate (`src/base-player.golden.test.ts`), `src/reachability.test.ts` and
-// `src/balance.test.ts` — none of which a `src/game` unit test may reach, since
+// roster's presence and correctness are proved at the composition root —
+// `src/reachability.test.ts`, `src/balance.test.ts` and the replay regression
+// (`src/base-content.golden.test.ts`) — none of which a `src/game` unit test may reach, since
 // importing the base pack would cross the `src/packs` boundary.

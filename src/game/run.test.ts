@@ -31,8 +31,8 @@ const SEED = 0x5747a1;
  * stand-in instead of depending on some other test file injecting the pack into
  * the shared process (the cross-file coupling this file's `OTHER_BOSS` note
  * condemns). The real roster's presence and behaviour are proved at the
- * composition root by `src/base-player.golden.test.ts`, `src/reachability.test.ts`
- * and `src/balance.test.ts`.
+ * composition root by `src/reachability.test.ts`, `src/balance.test.ts` and the
+ * replay regression (`src/base-content.golden.test.ts`).
  */
 const RUN_BOLT = { style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 };
 const RUN_SHOT_LEVELS = [

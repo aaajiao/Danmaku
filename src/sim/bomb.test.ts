@@ -88,8 +88,8 @@ describe('the registry', () => {
   test('a registered bomb is enumerable, so tooling can list it', () => {
     // The shipped bombs — spread and lance — are no longer defined here; they
     // moved into the bundled base pack (decisions-round2 §D), which a `src/sim`
-    // test may not import. Their specs are pinned by the port gate
-    // (`src/base-player.golden.test.ts`) and their behaviour by
+    // test may not import. Their specs are pinned by the generator drift test
+    // (`tools/make-base-pack.test.ts`) and their behaviour by
     // `src/base-content.golden.test.ts`. Here the registry itself is under test,
     // against a local fixture, so it holds when this file runs alone.
     const name = defineTestBomb();

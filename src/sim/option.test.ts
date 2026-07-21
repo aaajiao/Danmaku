@@ -94,8 +94,8 @@ function settle(
 
 // The shipped formations — standard/seeker/picket — are no longer defined here;
 // they moved into the bundled base pack (decisions-round2 §D), which a `src/sim`
-// test may not import. Their specs are pinned by the port gate
-// (`src/base-player.golden.test.ts`) and their tier ladders by `balance.test.ts`.
+// test may not import. Their specs are pinned by the generator drift test
+// (`tools/make-base-pack.test.ts`) and their tier ladders by `balance.test.ts`.
 // These registry tests run against the local `test.*` fixtures above, so they
 // hold when this file runs alone rather than under the full suite's leakage.
 describe('registry', () => {

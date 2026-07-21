@@ -20,9 +20,10 @@ import { behaviourNames } from '../sim/motion';
 // base pack (`src/packs/base-pack.json`) and registers through the injector at boot.
 // Since decisions-round2 §D the player weapons and characters (spread/needle/…,
 // scout/lance/…) moved there too, so `./shots` now exports only the shot REGISTRY,
-// registering no types of its own. That those names still resolve to byte-identical
-// specs is the port gates' job (`src/base-content.golden.test.ts`,
-// `src/base-player.golden.test.ts`), and that a real playthrough reaches every one
+// registering no types of its own. That those names still resolve to the shipped
+// specs is the generator drift test's job (`tools/make-base-pack.test.ts`) and the
+// replay regression's (`src/base-content.golden.test.ts`), and that a real
+// playthrough reaches every one
 // of them is `src/reachability.test.ts`'s. What this index still registers, and
 // what this file therefore still guards, is the engine content joined to a pack
 // only by name: patterns and motion behaviours. (`./shots` stays imported for its

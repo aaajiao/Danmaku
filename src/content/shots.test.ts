@@ -19,8 +19,8 @@ function makeSystem(): BulletSystem {
  * The shipped weapons — spread/needle/homing/laser — no longer live here. They
  * moved into the bundled base pack (`tools/make-base-pack.ts` → `base-pack.json`)
  * with the characters that fire them (decisions-round2 §D), and a `src/content`
- * test may not import that pack. Their exact specs are pinned by the port gate
- * (`src/base-player.golden.test.ts`) and their damage envelope by
+ * test may not import that pack. Their exact specs are pinned by the generator
+ * drift test (`tools/make-base-pack.test.ts`) and their damage envelope by
  * `src/balance.test.ts`. What THIS file tests is the machinery every weapon runs
  * on — the registry, the shot-table contract, the nesting invariant, and that a
  * table drives a real `Player` — against local fixtures that exercise each of the
