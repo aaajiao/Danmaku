@@ -92,6 +92,8 @@ export interface Option {
   y: number;
   angle: number;
   active: boolean;
+  /** Fixed-tick lifetime of this deployment, for strip animation. */
+  age: number;
 }
 
 export class OptionSystem {
@@ -115,7 +117,7 @@ export class OptionSystem {
       if (level.length > widest) widest = level.length;
     }
     for (let i = 0; i < widest; i++) {
-      this.options.push({ x: 0, y: 0, angle: FORWARD, active: false });
+      this.options.push({ x: 0, y: 0, angle: FORWARD, active: false, age: 0 });
     }
   }
 
@@ -144,6 +146,7 @@ export class OptionSystem {
       const slot = layout[i];
       if (slot === undefined) {
         option.active = false;
+        option.age = 0;
         continue;
       }
 
@@ -155,6 +158,9 @@ export class OptionSystem {
         option.active = true;
         option.x = playerX;
         option.y = playerY;
+        option.age = 0;
+      } else {
+        option.age++;
       }
 
       this.#chase(
@@ -239,6 +245,7 @@ export class OptionSystem {
       option.y = 0;
       option.angle = FORWARD;
       option.active = false;
+      option.age = 0;
     }
   }
 

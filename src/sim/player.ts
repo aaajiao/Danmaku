@@ -83,6 +83,13 @@ const DIAGONAL = Math.SQRT1_2;
  */
 const POWER_QUANTUM = 100;
 
+function horizontalIntentOf(buttons: Buttons): -1 | 0 | 1 {
+  const left = (buttons & Button.Left) !== 0;
+  const right = (buttons & Button.Right) !== 0;
+  if (left === right) return 0;
+  return left ? -1 : 1;
+}
+
 export class Player {
   x = 0;
   y = 0;
@@ -94,6 +101,8 @@ export class Player {
   invuln = 0;
   alive = true;
   deathCount = 0;
+  /** Fixed ticks since the run reset, used only to clock player strip art. */
+  age = 0;
 
   /**
    * True for exactly the tick a bomb was triggered. The blast, the screen
@@ -129,6 +138,15 @@ export class Player {
   #previous: Buttons = 0;
 
   /**
+   * Consecutive fixed ticks the current horizontal direction has been held.
+   *
+   * Read only by presentation to settle a five-pose banking strip. It is
+   * derived from the replay mask here — never from render frames — so a replay
+   * cannot turn a stable bank into the old 30 Hz left/right flicker.
+   */
+  #horizontalHeldTicks = 0;
+
+  /**
    * Bullets inside the graze circle as of the previous `checkGraze`, each
    * mapped to the life it was in. A bullet scores on the tick it *enters*, so
    * this is what stops a bullet drifting alongside the ship from paying every
@@ -155,6 +173,14 @@ export class Player {
   step(buttons: number, bullets: BulletSystem, tick: number): void {
     this.#previous = this.#buttons;
     this.#buttons = buttons;
+    const horizontal = horizontalIntentOf(this.#buttons);
+    const previousHorizontal = horizontalIntentOf(this.#previous);
+    this.#horizontalHeldTicks = horizontal === 0
+      ? 0
+      : horizontal === previousHorizontal
+        ? this.#horizontalHeldTicks + 1
+        : 1;
+    this.age++;
     this.bombing = false;
     this.fired = false;
 
@@ -330,15 +356,39 @@ export class Player {
     this.invuln = 0;
     this.alive = true;
     this.deathCount = 0;
+    this.age = 0;
     this.bombing = false;
     this.fired = false;
     this.#buttons = 0;
     this.#previous = 0;
+    this.#horizontalHeldTicks = 0;
     this.#grazed.clear();
     this.#grazing.clear();
   }
 
   get focused(): boolean {
     return (this.#buttons & Button.Slow) !== 0;
+  }
+
+  /**
+   * Last tick's horizontal input, exposed as presentation data for a banked
+   * ship strip. Derived from the replayed button mask — no extra state, RNG or
+   * clock — so choosing a visual frame cannot feed back into movement.
+   */
+  get horizontalIntent(): -1 | 0 | 1 {
+    return horizontalIntentOf(this.#buttons);
+  }
+
+  /** Consecutive ticks of the current left/right intent, for a banking pose. */
+  get horizontalHeldTicks(): number {
+    return this.#horizontalHeldTicks;
+  }
+
+  /** Last tick's vertical input, for the presentation-only thruster bank. */
+  get verticalIntent(): -1 | 0 | 1 {
+    const up = (this.#buttons & Button.Up) !== 0;
+    const down = (this.#buttons & Button.Down) !== 0;
+    if (up === down) return 0;
+    return up ? -1 : 1;
   }
 }

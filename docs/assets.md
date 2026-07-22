@@ -176,9 +176,13 @@ image is the degenerate case. Four points are law:
 2. **Per-frame padding is the seam law, per frame.** Each frame's painted extent
    (both axes) clears `frameW − 2·PAD` / `frameH − 2·PAD`, PAD = 2 — the
    generalization of `MAX_CELL_EXTENT` (§1.2), now evaluated at every frame
-   boundary. Additionally `x + frames·stride ≤ sheetWidth`, `y + frameH ≤
-   sheetHeight`, and `stride ≥ frameW`. The procedural fx floor's per-frame boxes
+   boundary. Additionally `x + (frames − 1)·stride + frameW ≤ sheetWidth`,
+   `y + frameH ≤ sheetHeight`, and `stride ≥ frameW`. The procedural fx floor's per-frame boxes
    are asserted against this in `src/render/procedural.test.ts` (`FX_STRIPS`).
+   The sole role-based exception is a registered laser **body**: its +x extent
+   must fill `frameW` so a stretch reaches muzzle/tip and repeated tiles butt
+   without a gap; its cross axis still clears PAD. Laser caps and pack-new laser
+   names receive no exemption.
 
 3. **The art declares playback:** frame count, frame size, `ticksPerFrame`,
    `mode` (`loop`/`once`), `color` (`tinted`/`baked`) and orientation. Frames
@@ -919,29 +923,42 @@ very little and prevents all five of the above.
 
 ---
 
-## 8. Reserved surfaces — art a pack may carry, no engine consumer yet
+## 8. BulletPack reference import — live surfaces and fidelity audit
 
-This engine wires art to exactly four hand-authored surfaces — the bullet sheet,
-the ship, portraits and HUD icons (sections 3.1, 3.2, 3.6 and the HUD icons in
-`docs/packs.md`). Items, effects and options are **not** additional surfaces:
-they reuse the 16 bullet cells (section 3.5), and a bomb carries no sprite field
-at all. So the four templates the art kit (`bun run art:kit`) emits cover every
-paintable surface the game has.
-
-Importing a third-party art set makes visible a second set of categories the
-engine has real art for. Some it now **receives natively** (bullets and
-explosions, once the animation-strip and native-format rounds landed); the rest
-still have **no consumer today** and are staged, not consumed.
+The renderer has native strip surfaces for bullets, effects, lasers, missiles,
+pickups, the player ship and player effects. The purchased BulletPack reference
+import exercises all seven generated sheets. The art-kit templates remain a
+small authoring starter rather than an inventory of every renderer surface.
 
 ### The reference importer — `tools/import-bulletpack.ts`
 
 It produces a **native self-describing strip** pack (not the retired
-whiten-and-regrid-to-a-32px-grid it once did, which took frame 0 of any
-animation and flattened every source into one cell size). Driven by explicit
-per-strip metadata in `tools/bulletpack-map.json` — never a filename-suffix
-parser, because a wide file is as often a *choice-sheet of unrelated designs*
-(`Medium_Pink_Purple`, 18 repeated 13px designs; `P1_Hyper_Bullet`, two) as it is
-a real animation — it emits:
+whiten-and-regrid-to-a-32px-grid form, which took frame 0 and flattened every
+source into one cell size). `tools/bulletpack-map.json` declares every logical
+frame count explicitly; filename suffixes are not trusted. Every enemy- and
+player-bullet row is preserved as a complete looping strip, including rows whose
+filenames omit `_stripN`. Directional art is rotated once at import so its
+heading is +x (rule 7).
+
+The output is one shared PNG per runtime texture namespace:
+
+| Namespace | Generated sheet | Named strips |
+|---|---|---:|
+| bullets | `bullets/bullets.png` | 70 (16 tinted floor names + baked campaign/player names) |
+| effects | `explosions/explosions.png` | 11 |
+| lasers | `lasers/lasers.png` | 11 (8 bodies + 3 caps) |
+| missiles | `missiles/missiles.png` | 13 bodies |
+| pickups | `misc/pickups.png` | 10 (8 field items + 2 result-card tallies) |
+| player ship | `player/ship.png` | 1 five-bank strip |
+| player effects | `player/player-effects.png` | 9 (option, 3 thrusters, 2 residues, 3 bombs) |
+
+Several strip records may point at one source PNG through explicit
+`src`/`x`/`y`/`stride` metadata (§5.6 of `docs/packs.md`). This keeps each render
+batch on one texture without forcing unrelated namespaces, filtering rules or
+fallbacks into a single oversized mega-atlas. Legacy one-PNG-per-strip manifests
+remain valid when those placement fields are omitted.
+
+The importer emits:
 
 - **`bullets.png` + `assets.bullets: { sheet, strips }`** (§3.1's object form): the
   16 built-in cells as **`tinted`** native strips — whitened to luminance so the
@@ -963,49 +980,76 @@ a real animation — it emits:
   So the importer maps a baked design **onto a `BULLET_VARIANTS` name**, and only
   where orientation and bullet size fit — directional families (`needle`/`kunai`/
   `scale`, player shots) take elongated art rotated to +x, radial families take
-  compact art whose native size stays near a bullet's. Coverage is deliberately
-  **partial** (22 of 33 fired names this round); an uncovered name keeps aliasing
-  to its reskinned floor cell, and BulletPack's oversized beams and surplus shots
-  have no bullet-sized home yet, so they **stage** (§ Categories with no consumer).
-- **one PNG per explosion + `assets.effects`** (§3.5's strip form): native colour
-  and animation, each frame re-padded with a transparent margin so it clears the
-  inter-frame seam gate. **Only the two named after fx floor strips a death site
-  fires ship** — **`burst`** (enemy death) and **`burst.big`** (boss/player death)
-  — so they reskin those flashes the moment the pack loads. A pack-only fx name has
-  no emit site, and firing one from a base death site would throw on the
-  never-blocked floor (`main.ts` resolves the sprite against the fx/bullet atlas,
-  which lacks it), so the other explosion strips **stage** until a death/bomb tier
-  with its own procedural floor is added — dead presentation otherwise, same rule
-  as a baked bullet keyed by an unfired name.
+  compact art whose native size stays near a bullet's. The four-stage campaign
+  fires 54 baked names: 48 direct mappings plus six fired aliases that reuse
+  complete baked BulletPack rows. Five registered compatibility aliases are not fired by the base
+  campaign: `needle.lance`, `needle.column`, `halo.seal`, `halo.crown` and
+  `glow.small.beam`. They are code aliases, not omitted source files.
+- **`assets.effects`**: all eight explosion sources plus the three missile
+  detonation strips are reachable through the existing death/detonation tiers.
+  Native colour and animation are retained, and every frame is re-padded with a
+  transparent margin for the seam gate.
+- **`assets.lasers`**: all eight body skins and all three hit caps are named by
+  reachable laser specs in the campaign. Body frames carry no longitudinal
+  padding; tileable frames extend their boundary texels to both +x edges. The
+  short-axis pad remains, with `contentH` carried to rendering so the visible
+  band lands at `skin.thickness` rather than shrinking inside its frame.
+- **`assets.missiles`**: all thirteen body strips are named by reachable missile
+  specs. The three missile explosion sources live on the effects sheet instead.
+- **`assets.pickups`**: eight coin/gem/bar loops are reachable as field items;
+  both shadowed coins are sampled by the result-card tally.
 
-Its in-tool self-check (`assertNativeBulletSheet` / `assertEffectStrip`)
-replicates the loader's browser-only measured gates headless — floor-cell
-coverage, per-strip bounds, the per-frame seam (`frameW − 2·FX_PAD`), and mean
-saturation on tinted strips — so a bad sheet fails in the tool before a browser
-loads it. Everything it does not consume is staged under
-`packs/<pack>/extra/<category>/` with a machine-readable `extra/extras.json`
-(per file: dimensions, strip frame count, an orientation guess and a suggested
-future consumer). The **ship is deliberately not imported** (player/enemy/boss
-形象 are out of scope by user directive), and the coins/gems **HUD** icons wait
-for the pickup round — those seams stay engine machinery.
+Its in-tool self-check replicates the loader's browser-only measured gates
+headlessly: complete floor-cell coverage, exact strip bounds, independent x/y
+transparent margins, non-empty logical frames and mean saturation on tinted
+strips. Source images sharing a generated sheet are decoded once, and the
+runtime loader likewise deduplicates fetch/decode/hash work by URL.
 
-### Categories with no consumer today (staged, not templated)
+The source inventory is explicit in `extra/extras.json`: **117 PNG files** plus
+four non-art/junk files were inspected; all **117 PNGs have named runtime
+consumers** and **0 PNGs are staged**. `Bermuda_Medium copy.png` is byte-identical
+to the consumed `Bermuda_Medium.png`, so it is represented without packing
+duplicate pixels. The ten `Player Ship/` images are live too: the ship is the
+v4 heroine's compact back-wing/core layer and explicitly declares five-way
+banking semantics, while the option, three thrusters, two residue strips and
+three bomb strips use the player-effects atlas.
 
-Recorded as **format expectations**, not kit templates — a template slot that
-looks consumable but is not is exactly what the reachability doctrine (CLAUDE.md,
-*Registration is not reachability*) forbids. A template for one of these belongs
-in the kit **only after** the engine round that gives it a consumer lands.
+### What “consumed” does and does not prove
 
-| Category | Format expectation | Why no consumer today |
-|---|---|---|
-| **Laser body + hit-cap** | Vertical beam segments meant to **tile** along a beam's length (`strip3`–`strip12`, 13–32px/frame), plus separate 3-frame impact caps. | `LaserSpec` exists (`src/sim/bullet.ts`), but a laser renders as **one 32×32 cell stretched** along the beam (`src/main.ts`) — there is no tiled-beam renderer and no separate cap sprite. |
-| **Missiles as entities** | 5-frame banking-pose sprites (turn, not loop) with an exhaust trail. | The closest mechanism is a `homing` behaviour on an ordinary single-cell bullet, continuously rotated by `orientToHeading` — no discrete poses, no exhaust. |
-| **Coins / gems (pickups)** | Looping spin strips (`strip6`–`strip9`). | `ItemSpec.sprite` names a bullet cell; a dedicated animated pickup skin is the pickup-variety round, not yet landed. |
-| **Thruster / engine trails** | Continuous trail strips (`strip2`–`strip6`, 4–6px/frame). | No continuous-trail effect exists, and the player 形象 (ship + its trails) is out of scope by user directive. |
-| **Bomb visual** | Large nova / shockwave strips (up to 41 frames). | `BombSpec` carries no sprite surface; a bomb expresses only through the existing particle/effect system. |
-| **Dedicated option sprite** | A distinct twin-pod satellite sprite. | `OptionSpec.sprite` names a **bullet cell** — options share the bullet namespace and have no sprite identity of their own. |
+File-level accounting is complete, but that is not the same as a source-faithful
+visual sign-off. The remaining audit items are deliberately recorded instead of
+being hidden behind the 117/117 number:
 
-Advancing any of these means extending `src/render/procedural.ts` / `src/sim/*`
-and the art kit **first**, then painting — never the reverse. Until then, an
-imported pack keeps this material in `extra/`, out of the loaded pack and (for
-third-party art of unconfirmed licence) out of version control.
+- Twelve floor sources currently contribute whitened/resampled projections to
+  tintable built-in bullet cells; their original RGB and exact authored framing
+  are not independently reachable as baked variants.
+- `Medium_Gradius2.png` reaches the `kunai` floor projection but has no bare
+  runtime consumer that displays its original coloured strip.
+- The result-card gold/silver tally currently samples frame 0; the remaining
+  coin animation frames are present in the atlas but not shown there.
+- The terminal frame of `P1_Bullet_Hit.png` can fall outside the short spark
+  lifetime, depending on the effect consumer.
+- Laser-body geometry is now corrected mechanically: generated frames fill the
+  longitudinal axis, preserve short-axis padding, and compensate that padding
+  at draw time. Browser inspection remains the final rendering check, not an
+  unimplemented atlas task.
+- Some directional sources carry large transparent cells. Drawing by full cell
+  bounds preserves safety but can make their painted blade/needle content look
+  smaller than the intended gameplay silhouette.
+
+These are presentation/fidelity tasks, not missing files. Do not describe the
+pack as visually complete until they pass the browser audit.
+
+### Provenance and local use
+
+Product: **16Bit Bullets, Explosions & Misc Asset Pack** by **J i m**
+(`jinvorionstg` on itch.io). The user confirmed the purchase on 2026-07-20, and
+the product-page terms allow commercial project use. That permission does not
+grant redistribution of the purchased source sprites, so the generated
+`packs/bulletpack/` tree remains local and gitignored; the committed importer and
+semantic map reproduce it from the purchaser's copy.
+
+When no explicit `?pack=` is supplied, project-owned `v4` is the default; a
+discovered `bulletpack` is only the purchaser-local fallback when v4 is absent.
+An explicit query remains authoritative, so `?pack=bulletpack`, `?pack=example`
+or another named pack still wins when intentionally requested.

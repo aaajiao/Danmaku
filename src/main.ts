@@ -31,7 +31,7 @@ import { TitleState, type GameContext } from './game/states';
 import { StateMachine } from './game/state';
 import { EVENT_SOUNDS } from './game/cues';
 import type { Replay } from './sim/replay';
-import { FIELD, type Run } from './game/run';
+import { FIELD, getCharacter, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
 import { Background } from './render/background';
 import {
@@ -39,11 +39,13 @@ import {
   shipAtlas as makeShipAtlas,
   effectAtlas as makeEffectAtlas,
   laserAtlas as makeLaserAtlas,
+  laserBodyDisplayThickness,
   missileAtlas as makeMissileAtlas,
   pickupAtlas as makePickupAtlas,
 } from './render/procedural';
 import { getItemSpec, itemNames } from './sim/item';
 import { beamLayout } from './render/beam';
+import { bladeDisplaySize } from './render/bullet-geometry';
 import { getLaserSkin, laserSkinNames } from './render/laser-skin';
 import { stripFrame } from './render/strip';
 import type { Atlas } from './render/atlas';
@@ -51,6 +53,25 @@ import { PostProcessing } from './render/post';
 import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
+import {
+  V4_BOSS_ACTORS,
+  V4_ENEMY_ACTORS,
+  V4_PLAYER_ACTORS,
+  loadV4ActorAtlases,
+  v4BossPoseFrame,
+  v4EnemyIdleFrame,
+  v4PlayerBankFrame,
+} from './render/v4-actors';
+import {
+  V4_CHARACTER_UI,
+  V4_DIFFICULTY_UI,
+  V4_UI_CELLS,
+  V4_UI_SCREEN,
+  drawV4Ui,
+  drawV4UiPanel,
+  loadV4UiAtlas,
+  type V4UiCellName,
+} from './render/v4-ui';
 
 // The sim's field constant, not a local copy: the whole screen is the play
 // field now (3:4, HUD composited over it), so the shell and the sim must mean
@@ -70,6 +91,8 @@ const BOSS_HIT_FLASH_BOOST = 0.6;
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
+/** Production keeps diagnostics and the Bloom control out of the authored UI. */
+const DEBUG_UI = new URLSearchParams(location.search).get('debug') === '1';
 
 const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
 
@@ -217,6 +240,14 @@ const missileAtlas = await makeMissileAtlas(undefined, packs.missileStrips);
 // stay procedural — without the sim ever learning a pickup has a skin.
 const pickupAtlas = await makePickupAtlas(undefined, packs.pickupStrips);
 
+// v4's women and default projectile/feedback package are project-owned art, but
+// actors stay on normal-blend textures of their own. The selected art pack (v4
+// by default, purchaser-local BulletPack only by explicit query) supplies bullets,
+// lasers, missiles, explosions, pickups and player feedback.
+const v4Actors = await loadV4ActorAtlases();
+// Original engine-owned UI, independent of whichever projectile pack is live.
+const v4Ui = await loadV4UiAtlas();
+
 // Every registered skin's body and cap must resolve on the laser atlas, or a
 // beam that names it draws nothing — throw at boot rather than in the draw loop
 // the first frame the beam is fired. This is the "all named strips exist" gate
@@ -265,9 +296,18 @@ if (packs.filter === 'linear') {
 /** One batch per layer and blend mode; each is a single instanced draw call. */
 const batches = {
   enemies: new SpriteBatch(bulletAtlas, { capacity: 256, renderOrder: Layer.Enemies }),
+  actorEnemies: new SpriteBatch(v4Actors.enemies, { capacity: 256, renderOrder: Layer.Enemies + 1 }),
+  actorBosses: new SpriteBatch(v4Actors.bosses, { capacity: 8, renderOrder: Layer.Enemies + 2 }),
   items: new SpriteBatch(bulletAtlas, { capacity: 512, renderOrder: Layer.Items }),
   player: new SpriteBatch(shipAtlas, { capacity: 8, renderOrder: Layer.Player }),
+  actorPlayer: new SpriteBatch(v4Actors.players, { capacity: 4, renderOrder: Layer.Player + 2 }),
   options: new SpriteBatch(bulletAtlas, { capacity: 32, renderOrder: Layer.Player, }),
+  optionsFx: new SpriteBatch(fxAtlas, { capacity: 32, renderOrder: Layer.Player }),
+  playerFx: new SpriteBatch(fxAtlas, {
+    capacity: 32,
+    blending: 'additive',
+    renderOrder: Layer.Player - 1,
+  }),
   playerShots: new SpriteBatch(bulletAtlas, {
     capacity: 2048,
     blending: 'additive',
@@ -276,6 +316,11 @@ const batches = {
   enemyShots: new SpriteBatch(bulletAtlas, {
     capacity: 8192,
     renderOrder: Layer.EnemyShots,
+  }),
+  enemyShotsAdditive: new SpriteBatch(bulletAtlas, {
+    capacity: 8192,
+    blending: 'additive',
+    renderOrder: Layer.EnemyShots + 1,
   }),
   // Missiles ride their own texture (the strips doctrine — one atlas is one
   // batch) at their own layer (Layer.Missiles), a heavier threat over the bullet
@@ -346,20 +391,32 @@ const batches = {
     blending: 'additive',
     renderOrder: Layer.Effects,
   }),
+  bombFx: new SpriteBatch(fxAtlas, {
+    capacity: 16,
+    blending: 'additive',
+    renderOrder: Layer.Bursts + 1,
+  }),
 };
 
 stage.add(batches.enemies.mesh, 'Enemies');
+stage.add(batches.actorEnemies.mesh, 'Enemies', 1);
+stage.add(batches.actorBosses.mesh, 'Enemies', 2);
 stage.add(batches.itemGlow.mesh, 'Items');
 stage.add(batches.items.mesh, 'Items', 1);
 stage.add(batches.pickups.mesh, 'Items', 1);
 stage.add(batches.beamBodies.mesh, 'Beams');
 stage.add(batches.player.mesh, 'Player');
+stage.add(batches.actorPlayer.mesh, 'Player', 2);
+stage.add(batches.playerFx.mesh, 'Player', -1);
 stage.add(batches.options.mesh, 'Player', 1);
+stage.add(batches.optionsFx.mesh, 'Player', 1);
 stage.add(batches.playerShots.mesh, 'PlayerShots');
 stage.add(batches.enemyShots.mesh, 'EnemyShots');
+stage.add(batches.enemyShotsAdditive.mesh, 'EnemyShots', 1);
 stage.add(batches.missiles.mesh, 'Missiles');
 stage.add(batches.burstsBack.mesh, 'BurstsBack');
 stage.add(batches.bursts.mesh, 'Bursts');
+stage.add(batches.bombFx.mesh, 'Bursts', 1);
 stage.add(batches.effects.mesh, 'Effects');
 // Caps at the Effects tier but one step above the small-particle effects batch,
 // so the tip flash reads over both bullets and sparks (a deterministic order,
@@ -400,7 +457,7 @@ const machine = new StateMachine();
  * and the simulation cannot collide.
  */
 window.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyB' || e.repeat) return;
+  if (!DEBUG_UI || e.code !== 'KeyB' || e.repeat) return;
   post.enabled = !post.enabled;
 });
 
@@ -467,6 +524,22 @@ let unlocked = false;
 let wasPaused = false;
 const dialogueIndex = new WeakMap<Run, number>();
 
+interface GrazeUiPulse {
+  readonly run: Run;
+  readonly x: number;
+  readonly y: number;
+  readonly count: number;
+  age: number;
+}
+
+/**
+ * Presentation reaction to the existing `graze` RunEvent.  No collision query,
+ * distance check or inferred near-miss lives here; if the simulation did not
+ * emit the event, the UI cannot invent one.
+ */
+const grazeUiPulses: GrazeUiPulse[] = [];
+const GRAZE_UI_TICKS = 16;
+
 const loop = new Loop({
   tick() {
     const buttons = input.sample();
@@ -486,6 +559,11 @@ const loop = new Loop({
 
     machine.tick(buttons);
     background.step();
+    for (let i = grazeUiPulses.length - 1; i >= 0; i--) {
+      const pulse = grazeUiPulses[i]!;
+      pulse.age++;
+      if (pulse.age >= GRAZE_UI_TICKS) grazeUiPulses.splice(i, 1);
+    }
 
     // Play the menu cue the ticked state named, if any (`ui-move`/`ui-confirm`/
     // `ui-cancel`). Resolved here, in the shell, because `src/game` names sounds
@@ -526,8 +604,22 @@ const loop = new Loop({
       for (const event of run.drainEvents()) {
         const sound = EVENT_SOUNDS[event.type];
         if (sound) audio.play(sound);
+        if (event.type === 'graze') {
+          grazeUiPulses.push({
+            run,
+            x: event.x,
+            y: event.y,
+            count: Math.max(1, event.count ?? 1),
+            age: 0,
+          });
+          // A dense multi-graze tick still reads as one clean arc; cap retained
+          // pulses so presentation work cannot scale with curtain density.
+          if (grazeUiPulses.length > 12) grazeUiPulses.splice(0, grazeUiPulses.length - 12);
+        }
       }
     }
+
+    if (topRun === undefined) grazeUiPulses.length = 0;
 
     // Dialogue advance is shell-side edge detection, not a run event: a fresh
     // Shot press ticks `run.dialogue.index` up, and that increment plays
@@ -665,20 +757,95 @@ function drawStrip(
   });
 }
 
+/**
+ * Draw one explicitly selected actor pose.
+ *
+ * Projectile/effect strips advance from entity age through `drawStrip`. Actor
+ * poses are different: banking input, an enemy's breathing pair and a boss's
+ * phase select a semantic frame directly. Keeping that distinction here avoids
+ * pretending an attack gesture is a perpetual four-frame clock.
+ */
+function drawPose(
+  batch: SpriteBatch,
+  atlas: Atlas,
+  x: number,
+  y: number,
+  name: string,
+  frame: number,
+  style: {
+    width?: number;
+    height?: number;
+    r?: number;
+    g?: number;
+    b?: number;
+    a?: number;
+  } = {},
+): void {
+  const strip = atlas.strip(name);
+  batch.draw(x, y, atlas.frameOf(strip, frame), {
+    width: style.width ?? strip.displayW ?? strip.frameW,
+    height: style.height ?? strip.displayH ?? strip.frameH,
+    r: style.r,
+    g: style.g,
+    b: style.b,
+    a: style.a,
+  });
+}
+
+/**
+ * Resolve the instance tint for one named strip.
+ *
+ * A tinted strip is white art whose colour comes from content, so it keeps the
+ * authored tint. A baked strip already carries its final colour in its texels and
+ * therefore draws identity-white. `boost` is presentation layered on top of both
+ * modes — currently the boss hit flash — so a baked boss still flashes without
+ * having its resting colour multiplied by the content tint.
+ */
+function stripTint(
+  atlas: Atlas,
+  name: string,
+  tint?: { r?: number; g?: number; b?: number },
+  boost = 0,
+): { r: number; g: number; b: number } {
+  const source = atlas.strip(name).color === 'baked' ? undefined : tint;
+  return {
+    r: (source?.r ?? 1) + boost,
+    g: (source?.g ?? 1) + boost,
+    b: (source?.b ?? 1) + boost,
+  };
+}
+
 function drawRun(run: Run): void {
   for (const e of run.enemies.enemies) {
+    const actor = V4_ENEMY_ACTORS[e.name];
+    if (actor !== undefined) {
+      // Women are the positive form; their projectile vocabulary remains on the
+      // selected art pack, project-owned v4 by default. Only the two breathing frames loop until the simulation
+      // exposes an honest fire cue for attack/recover. Never rotate a person by
+      // her movement angle: the authored front three-quarter silhouette is part
+      // of the safe-space grammar.
+      drawPose(
+        batches.actorEnemies,
+        v4Actors.enemies,
+        e.x,
+        e.y,
+        actor.strip,
+        v4EnemyIdleFrame(e.age),
+        { width: actor.size, height: actor.size, r: 0.86, g: 0.86, b: 0.86 },
+      );
+      continue;
+    }
     // Law of Animation: the frame resolves off `e.age` (enemy.ts sets it, 0 at
     // spawn, tick-advanced) so a multi-frame enemy strip (clerk/hunter/ray) cycles
     // instead of freezing on frame 0 — the primary bug the user reported. Size
     // stays SPEC-driven: `spec.width/height` override any `displayW`, because an
     // enemy's size is its spec and the cell is only its skin.
+    const tint = stripTint(bulletAtlas, e.spec.sprite, e.spec.tint);
     drawStrip(batches.enemies, bulletAtlas, e.x, e.y, e.spec.sprite, e.age, {
       rotation: e.angle,
       width: e.spec.width,
       height: e.spec.height,
-      r: e.spec.tint?.r,
-      g: e.spec.tint?.g,
-      b: e.spec.tint?.b,
+      ...tint,
     });
   }
 
@@ -694,14 +861,27 @@ function drawRun(run: Run): void {
     // Same routing as an enemy, clocked off `boss.age`: a 1-frame boss cell (all
     // five base bosses today) draws frame 0, a future multi-frame boss cell cycles.
     // Size stays spec-driven; the hit-flash boost rides the tint as before.
-    drawStrip(batches.enemies, bulletAtlas, boss.x, boss.y, boss.spec.sprite, boss.age, {
-      rotation: boss.angle,
-      width: boss.spec.width,
-      height: boss.spec.height,
-      r: (boss.spec.tint?.r ?? 1) + boost,
-      g: (boss.spec.tint?.g ?? 1) + boost,
-      b: (boss.spec.tint?.b ?? 1) + boost,
-    });
+    const actor = V4_BOSS_ACTORS[boss.name];
+    if (actor !== undefined) {
+      const base = 0.86 + boost;
+      drawPose(
+        batches.actorBosses,
+        v4Actors.bosses,
+        boss.x,
+        boss.y,
+        actor.strip,
+        v4BossPoseFrame(boss.entering, boss.phaseIndex, boss.phaseTicks),
+        { width: actor.size, height: actor.size, r: base, g: base, b: base },
+      );
+    } else {
+      const tint = stripTint(bulletAtlas, boss.spec.sprite, boss.spec.tint, boost);
+      drawStrip(batches.enemies, bulletAtlas, boss.x, boss.y, boss.spec.sprite, boss.age, {
+        rotation: boss.angle,
+        width: boss.spec.width,
+        height: boss.spec.height,
+        ...tint,
+      });
+    }
   }
 
   for (const item of run.items.items) {
@@ -712,12 +892,11 @@ function drawRun(run: Run): void {
     // across replays watched at different session offsets (the grafted clock law).
     const glow = fxAtlas.strip('pulse');
     const glowFrame = fxAtlas.frameOf(glow, stripFrame(glow, item.age));
+    const glowTint = stripTint(fxAtlas, 'pulse', item.spec.tint);
     batches.itemGlow.draw(item.x, item.y, glowFrame, {
       width: glow.frameW,
       height: glow.frameH,
-      r: item.spec.tint?.r,
-      g: item.spec.tint?.g,
-      b: item.spec.tint?.b,
+      ...glowTint,
       a: 0.5,
     });
 
@@ -731,30 +910,34 @@ function drawRun(run: Run): void {
       // Baked art carries its own colour (tint stays identity-white so it shows
       // unmultiplied); a tinted floor strip takes the content tint, so a coin is
       // coloured by its denomination until baked pixels load (the strips colour law
-      // the missile/beam draws obey). The glow halo above always carries the tint.
+      // the missile/beam draws obey). The glow halo above follows the same rule.
       // `drawStrip` resolves the frame off `item.age` (Law of Animation, already so
       // for the spinning pickup) and the size off `displayW` (Law of Geometry).
-      const baked = pickupAtlas.strip(item.spec.sprite).color === 'baked';
+      const tint = stripTint(pickupAtlas, item.spec.sprite, item.spec.tint);
       drawStrip(batches.pickups, pickupAtlas, item.x, item.y, item.spec.sprite, item.age, {
-        r: baked ? undefined : item.spec.tint?.r,
-        g: baked ? undefined : item.spec.tint?.g,
-        b: baked ? undefined : item.spec.tint?.b,
+        ...tint,
       });
     } else {
       // The bullet-atlas item branch (`power`/`life`/`bomb`/`score`/`big-power`).
       // Routed off `item.age` so a multi-frame item skin cycles — this is what
       // unfreezes `big-power`→`star` (7 frames), reported static.
+      const tint = stripTint(bulletAtlas, item.spec.sprite, item.spec.tint);
       drawStrip(batches.items, bulletAtlas, item.x, item.y, item.spec.sprite, item.age, {
         rotation: item.angle,
-        r: item.spec.tint?.r,
-        g: item.spec.tint?.g,
-        b: item.spec.tint?.b,
+        ...tint,
       });
     }
   }
 
   for (const b of run.bullets.bullets) {
-    const batch = b.faction === 'player' ? batches.playerShots : batches.enemyShots;
+    // Enemy bullets honour their authored blend flag too. The old single normal
+    // batch made every additive pack-authored curtain draw as a flat sticker; the
+    // split remains presentation-only and keeps both batches on the same atlas.
+    const batch = b.faction === 'player'
+      ? batches.playerShots
+      : b.style.additive === true
+        ? batches.enemyShotsAdditive
+        : batches.enemyShots;
 
     // A beam is a line, and its stored position is the **muzzle** — one end,
     // not the middle. It draws as a two-element composite: a body strip stretched
@@ -778,16 +961,21 @@ function drawRun(run: Run): void {
           angle: b.angle,
           length: b.length,
           fit: skin.fit,
-          thickness: skin.thickness,
+          // The skin value is the VISIBLE band. A native frame keeps transparent
+          // cross-axis padding, so compensate by frameH/contentH at draw time.
+          thickness: laserBodyDisplayThickness(
+            skin.thickness,
+            bodyStrip.frameH,
+            bodyStrip.contentH,
+          ),
           // Default the tile length to the body strip's own frame width, so the
           // procedural floor and a native reskin each tile at their native cell.
           tileLength: skin.tileLength ?? bodyStrip.frameW,
           bodyUV,
-          // Law of Geometry, cap only: the cap adopts its display size (its
+          // Law of Geometry: the cap adopts its display size (its
           // per-frame union → engine cap size) when the pack carries `contentW`,
-          // native `frameW/H` otherwise. The BODY is excluded — its cross-axis is
-          // `skin.thickness` and its length the sim's, so native pixels never reach
-          // the quad (the one surface that already obeyed the invariant).
+          // native `frameW/H` otherwise. The body uses the contentH correction
+          // above; its imported +x frame already has no transparent pad.
           cap: {
             uv: capUV,
             width: capStrip.displayW ?? capStrip.frameW,
@@ -835,6 +1023,7 @@ function drawRun(run: Run): void {
       // stored x/y is the muzzle, one end) and stretched +x, rotated by the
       // heading (rule 7). Faded while it is only a telegraph, solid once lethal.
       const half = b.length / 2;
+      const tint = stripTint(bulletAtlas, b.style.sprite, b.style);
       batch.draw(
         b.x + half * Math.cos(b.angle),
         b.y + half * Math.sin(b.angle),
@@ -843,9 +1032,7 @@ function drawRun(run: Run): void {
           rotation: b.angle,
           width: b.length,
           height: b.style.height ?? b.style.width,
-          r: b.style.r,
-          g: b.style.g,
-          b: b.style.b,
+          ...tint,
           a: (b.style.a ?? 1) * (b.lethal ? 1 : 0.45),
         },
       );
@@ -861,24 +1048,27 @@ function drawRun(run: Run): void {
     const onMissile = b.missile !== undefined;
     const spriteAtlas = onMissile ? missileAtlas : bulletAtlas;
     const drawBatch = onMissile ? batches.missiles : batch;
-    // A baked missile body carries its own colour, so the tint stays white and it
-    // shows unmultiplied; the tinted procedural floor takes the content tint, so a
-    // missile is warm-coded by its spec until real pixels load (the strips colour
-    // law the laser branch above obeys, applied here to the missile surface only —
-    // the bullet atlas keeps its established behaviour, its baked variants being
-    // fired tint-free). Routed through `drawStrip` off `b.age`: the frame animates
+    // A baked body carries its own colour, so the tint stays white and it shows
+    // unmultiplied; the tinted procedural floor takes the content tint. That strip
+    // colour rule applies equally to missiles and ordinary bullets, after routing
+    // each body to the atlas that owns it. Routed through `drawStrip` off `b.age`:
+    // the frame animates
     // (Law of Animation) and the size is `b.style.width ?? displayW ?? frameW` (Law
     // of Geometry — an explicit spec width still wins; `displayW` is dormant until
     // the pack carries `contentW`). For the base game every bullet strip is
     // `frames: 1` at 32px, so this stays byte-identical to before.
-    const bodyBaked = onMissile && spriteAtlas.strip(b.style.sprite).color === 'baked';
+    const tint = stripTint(spriteAtlas, b.style.sprite, b.style);
+    // A carried blade's collision is a capsule. A named baked reskin used to be
+    // fitted back into the tiny needle cell and could paint only ~5px around a
+    // 26px lethal shape. The view now covers the capsule unless content supplied
+    // an explicit size; missiles keep their dedicated body geometry.
+    const projectileStrip = spriteAtlas.strip(b.style.sprite);
+    const bladeSize = bladeDisplaySize(b.style, b.bladeHalf, b.radius, projectileStrip);
     drawStrip(drawBatch, spriteAtlas, b.x, b.y, b.style.sprite, b.age, {
       rotation: b.angle,
-      width: b.style.width,
-      height: b.style.height,
-      r: bodyBaked ? 1 : b.style.r,
-      g: bodyBaked ? 1 : b.style.g,
-      b: bodyBaked ? 1 : b.style.b,
+      width: bladeSize.width,
+      height: bladeSize.height,
+      ...tint,
       a: b.style.a,
     });
   }
@@ -906,12 +1096,11 @@ function drawRun(run: Run): void {
     // squared burst) and `scale: p.scale` multiplies the resolved size, which is
     // `displayW ?? frameW` (Law of Geometry, dormant until `contentW`). With no
     // display size this is the old `frameW * p.scale`, byte-identical.
+    const tint = stripTint(atlas, p.spec.sprite, p.spec.tint);
     drawStrip(batch, atlas, p.x, p.y, p.spec.sprite, p.age, {
       rotation: p.angle,
       scale: p.scale,
-      r: p.spec.tint?.r,
-      g: p.spec.tint?.g,
-      b: p.spec.tint?.b,
+      ...tint,
       a: p.alpha,
     });
   }
@@ -921,21 +1110,25 @@ function drawRun(run: Run): void {
   // fields decorative — `seeker` authors a tinted `ring` and was drawn as
   // `standard`'s untinted orb.
   const optionSpec = run.options.spec;
-  for (const option of run.options.options) {
+  for (let optionIndex = 0; optionIndex < run.options.options.length; optionIndex++) {
+    const option = run.options.options[optionIndex];
+    if (option === undefined) continue;
     if (!option.active) continue;
-    // LATENT — bare name, NOT routed through `drawStrip`: `Option` carries no
-    // run-relative `.age`, so there is no honest clock to resolve a frame from.
-    // Animating an option strip first needs an age counter on `Option` (a sim
-    // change, out of scope this round); base options name only 1-frame cells, so
-    // frame 0 is correct today. `strip.test.ts` exempts this pair by name.
-    batches.options.draw(option.x, option.y, optionSpec.sprite, {
+    // Purchased packs may carry a dedicated option strip. `run.tickCount` is an
+    // honest run-relative clock even though Option itself has no age; an index
+    // offset keeps a four-pod formation from flashing in lockstep. Zero-pack
+    // keeps the spec-named bullet cell and its original batch.
+    const usePlayerOption = fxAtlas.has('player.option');
+    const atlas = usePlayerOption ? fxAtlas : bulletAtlas;
+    const batch = usePlayerOption ? batches.optionsFx : batches.options;
+    const sprite = usePlayerOption ? 'player.option' : optionSpec.sprite;
+    const tint = stripTint(atlas, sprite, optionSpec.tint);
+    drawStrip(batch, atlas, option.x, option.y, sprite, option.age, {
       // `Option.angle` is DEGREES — its own doc comment says so, and contrasts
       // itself with `Bullet.angle`, which is the radians this attribute wants.
       // Fed across unconverted, an option aiming at 270 was drawn at 349.9.
       rotation: (option.angle * Math.PI) / 180,
-      r: optionSpec.tint?.r,
-      g: optionSpec.tint?.g,
-      b: optionSpec.tint?.b,
+      ...tint,
     });
   }
 
@@ -947,18 +1140,110 @@ function drawRun(run: Run): void {
     // `CharacterSpec.sprite` decorative, and leaves a four-ship roster with
     // one silhouette and nowhere to put the others when real art lands.
     const ship = run.character;
-    // LATENT — bare name: the ship is a 1-frame procedural silhouette today, so
-    // frame 0 is correct. If a multi-frame ship strip ever ships (the `shipAtlas`
-    // native branch already anticipates one), route this through
-    // `drawStrip(batches.player, shipAtlas, …, player.age, …)`; there is nothing to
-    // animate until then. `strip.test.ts` exempts this pair by name.
-    batches.player.draw(player.x, player.y, ship.sprite, {
-      width: ship.width ?? 40,
-      height: ship.height ?? 40,
-      a: blink ? 0.35 : 1,
-      g: blink ? 0.5 : 1,
-      b: blink ? 0.5 : 1,
-    });
+    // The three named thrust states and two residue strips are conventional
+    // fx names, so any pack can supply them without widening Bomb/Player specs.
+    // Vertical intent comes from the replay mask; the animation clock is the
+    // player's fixed entity age, never the render loop.
+    const thrust = player.verticalIntent < 0
+      ? 'player.thruster.up'
+      : player.verticalIntent > 0
+        ? 'player.thruster.down'
+        : 'player.thruster.cruise';
+    if (fxAtlas.has(thrust)) {
+      drawStrip(batches.playerFx, fxAtlas, player.x, player.y + 19, thrust, player.age, {
+        a: blink ? 0.25 : 0.9,
+      });
+    }
+    for (const [i, residue] of ['player.thruster.particle.0', 'player.thruster.particle.1'].entries()) {
+      if (!fxAtlas.has(residue)) continue;
+      drawStrip(batches.playerFx, fxAtlas, player.x, player.y + 25 + i * 5, residue, player.age, {
+        a: blink ? 0.18 : 0.55 - i * 0.12,
+      });
+    }
+
+    // Five source frames are banking POSES, not a 60 Hz loop. A fresh direction
+    // uses the gentle frame for three replayed ticks, then settles into the hard
+    // pose and holds. A pack ship participates only when its manifest explicitly
+    // declares the same five-way semantics; arbitrary/legacy strips stay frame 0.
+    const bankFrame = v4PlayerBankFrame(player.horizontalIntent, player.horizontalHeldTicks);
+    const shipFrame = packs.shipStrip?.banking === 'five-way' ? bankFrame : 0;
+    const actor = V4_PLAYER_ACTORS[run.characterName];
+    if (actor !== undefined) {
+      // A pack ship remains visible as the heroine's compact back wing/core
+      // rather than impersonating the protagonist. It is pack-owned, so a
+      // zero-pack run simply omits this optional under-layer.
+      if (packs.shipUrl !== undefined) {
+        drawPose(batches.player, shipAtlas, player.x, player.y + 5, ship.sprite, shipFrame, {
+          width: 36,
+          height: 36,
+          a: blink ? 0.2 : 0.72,
+          g: blink ? 0.5 : 1,
+          b: blink ? 0.5 : 1,
+        });
+      }
+      drawPose(
+        batches.actorPlayer,
+        v4Actors.players,
+        player.x,
+        player.y,
+        actor.strip,
+        bankFrame,
+        {
+          width: actor.size,
+          height: actor.size,
+          r: 0.88,
+          g: blink ? 0.44 : 0.88,
+          b: blink ? 0.44 : 0.88,
+          a: blink ? 0.35 : 1,
+        },
+      );
+    } else {
+      // Pack characters keep their declared ship surface; only an explicit
+      // five-way contract enables banking, otherwise this is stable frame 0.
+      drawPose(batches.player, shipAtlas, player.x, player.y, ship.sprite, shipFrame, {
+        width: ship.width ?? 40,
+        height: ship.height ?? 40,
+        a: blink ? 0.35 : 1,
+        g: blink ? 0.5 : 1,
+        b: blink ? 0.5 : 1,
+      });
+    }
+  }
+
+  // The three pack-provided bomb strips visualize the two existing bombs; their
+  // elapsed time comes from BombSystem's integer duration/remaining pair. This
+  // is view-only: damage, clearing, conversion and invulnerability stay exactly
+  // where they were in the fixed-tick simulation.
+  if (run.bombs.active) {
+    const bomb = run.bombs;
+    if (bomb.name === 'spread' && fxAtlas.has('player.bomb.field')) {
+      drawStrip(batches.bombFx, fxAtlas, bomb.x, bomb.y, 'player.bomb.field', bomb.age, {
+        scale: 3.9,
+        a: 0.7,
+      });
+    } else if (bomb.name === 'lance') {
+      // A lance bomb is a travelling attack, not two large decals nailed to
+      // the activation point. Position is a pure function of the bomb entity's
+      // fixed age; the sprites keep their authored cell aspect ratio.
+      const projectileY = bomb.y - Math.min(bomb.age, 42) * 7;
+      const missileY = bomb.y - 24 - Math.min(bomb.age, 34) * 9;
+      if (fxAtlas.has('player.bomb.projectile')) {
+        drawStrip(batches.bombFx, fxAtlas, bomb.x - 26, projectileY, 'player.bomb.projectile', bomb.age, {
+          scale: 3.1,
+          a: 0.68,
+        });
+        drawStrip(batches.bombFx, fxAtlas, bomb.x + 26, projectileY, 'player.bomb.projectile', bomb.age, {
+          scale: 3.1,
+          a: 0.75,
+        });
+      }
+      if (fxAtlas.has('player.bomb.missile')) {
+        drawStrip(batches.bombFx, fxAtlas, bomb.x, missileY, 'player.bomb.missile', bomb.age, {
+          scale: 4,
+          a: 0.9,
+        });
+      }
+    }
   }
 }
 
@@ -966,8 +1251,51 @@ function drawRun(run: Run): void {
 /* Overlay                                                             */
 /* ------------------------------------------------------------------ */
 
+/** CJK-capable fallback stack: guest-pack labels remain verbatim Unicode. */
+const UI_FONT = '"Hiragino Sans GB", "Yu Gothic", "Noto Sans CJK SC", system-ui, sans-serif';
+
+function uiFont(size: number, weight: 400 | 500 | 600 = 400): void {
+  surface.font = `${weight} ${size}px ${UI_FONT}`;
+}
+
+function drawGrazeFeedback(run: Run): void {
+  for (const pulse of grazeUiPulses) {
+    if (pulse.run !== run) continue;
+    const frame = Math.min(3, Math.floor(pulse.age / 4));
+    const alpha = Math.max(0, 1 - pulse.age / GRAZE_UI_TICKS);
+    drawV4Ui(surface, v4Ui, 'ui.graze.arc', pulse.x - 16, pulse.y - 16, {
+      frame,
+      alpha,
+      rotation: ((pulse.age + pulse.count * 2) % 32) * (Math.PI / 16),
+    });
+  }
+}
+
 function drawOverlay(run: Run | undefined): void {
   surface.clearRect(0, 0, overlay.width, overlay.height);
+
+  if (run?.player.alive && run.player.focused) {
+    // Japanese STG contract: the heroine's painted body is deliberately much
+    // larger than the lethal centre. The hit point is overlay/UI, never baked
+    // into an actor pose, and appears only while focus is held.
+    const { x, y, radius: hitRadius } = run.player;
+    surface.save();
+    // The authored outer ring rotates from the run's fixed tick only.  The
+    // lethal core is still geometry read straight from `player.radius`.
+    drawV4Ui(surface, v4Ui, 'ui.focus.ring', x - 16, y - 16, {
+      rotation: (run.tickCount % 120) * (Math.PI / 60),
+      alpha: 0.92,
+    });
+    surface.fillStyle = '#f5fbff';
+    surface.shadowColor = 'rgba(190,224,255,0.85)';
+    surface.shadowBlur = 4;
+    surface.beginPath();
+    surface.arc(x, y, hitRadius, 0, Math.PI * 2);
+    surface.fill();
+    surface.restore();
+  }
+
+  if (run !== undefined) drawGrazeFeedback(run);
 
   drawHud(run);
 
@@ -976,7 +1304,7 @@ function drawOverlay(run: Run | undefined): void {
   // over it). `run.dialogue` is read as declared state, exactly like `scene`.
   if (run) {
     const line = run.dialogue;
-    if (line) drawDialogue(line, run.tickCount);
+    if (line) drawDialogue(line, run.tickCount, run.characterName);
   }
 
   // Menus and messages are the states' own business; they describe themselves
@@ -1006,14 +1334,15 @@ function drawOverlay(run: Run | undefined): void {
  * here is a change to that judgement.
  */
 function drawHud(run: Run | undefined): void {
-  surface.font = '11px monospace';
+  uiFont(11, 500);
   surface.textAlign = 'left';
 
-  // Display setting, readable on the title screen too. Reads `post.enabled`
-  // back rather than tracking the keypress, so a composer that failed to
-  // build reports "off" instead of claiming a bloom nobody is drawing.
-  surface.fillStyle = post.enabled ? '#4a6a58' : '#3a3a3a';
-  surface.fillText(`bloom ${post.enabled ? 'on' : 'off'} [B]`, 8, FIELD_H - 8);
+  // Tuning UI is explicitly opt-in.  Production screenshots contain only the
+  // authored v4 interface, never draw-call counters or the Bloom switch.
+  if (DEBUG_UI) {
+    surface.fillStyle = post.enabled ? '#668a77' : '#555861';
+    surface.fillText(`bloom ${post.enabled ? 'on' : 'off'} [B]`, 8, FIELD_H - 8);
+  }
 
   if (!run) return;
 
@@ -1023,20 +1352,23 @@ function drawHud(run: Run | undefined): void {
 
   // Top-left: score and graze, pushed below the boss bar when one is up.
   const topY = bossUp ? 50 : 16;
-  surface.fillStyle = '#9a9aa4';
-  surface.fillText(`score ${p.score}`, 8, topY);
-  surface.fillStyle = '#6f6f78';
-  surface.fillText(`graze ${p.graze}`, 8, topY + 14);
+  drawV4Ui(surface, v4Ui, 'ui.hud.score', 8, topY - 12, { alpha: 0.9 });
+  surface.fillStyle = '#d6e1e8';
+  surface.fillText(`${p.score.toString().padStart(9, '0')}`, 29, topY);
+  drawV4Ui(surface, v4Ui, 'ui.hud.graze', 8, topY + 3, { alpha: 0.8 });
+  surface.fillStyle = '#8796a3';
+  surface.fillText(`GRAZE ${p.graze}`, 29, topY + 15);
 
   // Top-right: the resources a player checks between waves.
   surface.textAlign = 'right';
-  surface.fillStyle = '#9a9aa4';
+  surface.fillStyle = '#d6e1e8';
   // ∞ rather than a count when the assist is on: the life stock never falls, so
   // a number would read as a fixed 3 and hide that deaths cost nothing here.
   const lives = run.config.infiniteLives === true ? '∞' : `${p.lives}`;
-  hudResource(packs.hudIcons.life, '♥', lives, FIELD_W - 8, topY);
-  surface.fillStyle = '#6f6f78';
-  hudResource(packs.hudIcons.bomb, '★', `${p.bombs}   P ${p.power.toFixed(2)}`, FIELD_W - 8, topY + 14);
+  hudResource(packs.hudIcons.life, 'ui.hud.life', lives, FIELD_W - 8, topY);
+  surface.fillStyle = '#91a0ad';
+  hudResource(packs.hudIcons.bomb, 'ui.hud.bomb', `${p.bombs}`, FIELD_W - 8, topY + 15);
+  hudResource(undefined, 'ui.hud.power', `P ${p.power.toFixed(2)}`, FIELD_W - 52, topY + 15);
 
   // The tier, one row under the resources: set once at the SELECT screen and
   // never changing, so it sits at the very bottom of the visual hierarchy in the
@@ -1045,16 +1377,18 @@ function drawHud(run: Run | undefined): void {
   // player deliberately picked. (`#3a3a3a` is the dimmest text the HUD uses; the
   // decisions doc's "dimmest style" is read literally rather than as "one step
   // down within this cluster", which would be `#6f6f78`.)
-  surface.fillStyle = '#3a3a3a';
-  surface.fillText(run.difficulty.toUpperCase(), FIELD_W - 8, topY + 28);
+  surface.fillStyle = '#687783';
+  surface.fillText(run.difficulty.toUpperCase(), FIELD_W - 8, topY + 31);
 
   // Bottom-right: diagnostics, dimmest text on screen.
-  surface.fillStyle = '#3a3a3a';
-  surface.fillText(
-    `${run.tickCount} t  ${run.bullets.count} b  ${stage.stats.calls} dc`,
-    FIELD_W - 8,
-    FIELD_H - 8,
-  );
+  if (DEBUG_UI) {
+    surface.fillStyle = '#59616b';
+    surface.fillText(
+      `${run.tickCount} t  ${run.bullets.count} b  ${stage.stats.calls} dc`,
+      FIELD_W - 8,
+      FIELD_H - 8,
+    );
+  }
   surface.textAlign = 'left';
 
   if (bossUp && boss) drawBossBar(boss);
@@ -1068,60 +1402,83 @@ function drawHud(run: Run | undefined): void {
  */
 /**
  * A right-aligned HUD resource: an icon-and-number when a pack supplied the
- * icon, the ♥/★ glyph otherwise.
+ * icon, the engine-owned v4 icon otherwise.
  *
  * The pack supplies the **shape** only — position, size and alpha stay
  * engine-owned, the same structural split as white-bullets-with-engine-tint. So
  * a loaded icon is drawn at a fixed small size and low alpha to the left of the
  * number, exactly where the glyph would have sat, and never gets to move the
- * HUD around. The glyph remains the fallback, so a pack that ships no hud art
- * changes nothing here.
+ * HUD around. The v4 atlas is the permanent fallback, so the UI remains a
+ * complete coherent package with no resource pack loaded.
  */
-const HUD_ICON = 10;
+const HUD_ICON = 13;
 const HUD_ICON_GAP = 3;
 const HUD_ICON_ALPHA = 0.85;
 
 function hudResource(
   icon: HTMLImageElement | undefined,
-  glyph: string,
+  fallback: V4UiCellName,
   text: string,
   rightX: number,
   baselineY: number,
 ): void {
-  if (icon === undefined) {
-    surface.fillText(`${glyph} ${text}`, rightX, baselineY);
-    return;
-  }
   surface.fillText(text, rightX, baselineY);
   const iconX = rightX - surface.measureText(text).width - HUD_ICON - HUD_ICON_GAP;
-  surface.save();
-  surface.globalAlpha = HUD_ICON_ALPHA;
-  surface.drawImage(icon, iconX, baselineY - HUD_ICON, HUD_ICON, HUD_ICON);
-  surface.restore();
+  if (icon === undefined) {
+    drawV4Ui(surface, v4Ui, fallback, iconX, baselineY - HUD_ICON, {
+      width: HUD_ICON,
+      height: HUD_ICON,
+      alpha: HUD_ICON_ALPHA,
+    });
+  } else {
+    surface.save();
+    surface.globalAlpha = HUD_ICON_ALPHA;
+    surface.drawImage(icon, iconX, baselineY - HUD_ICON, HUD_ICON, HUD_ICON);
+    surface.restore();
+  }
 }
 
 function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
-  const w = FIELD_W - 60;
   const spell = boss.phase.isSpell === true;
-
-  surface.fillStyle = '#2a1a1a';
-  surface.fillRect(30, 12, w, 4);
-  surface.fillStyle = spell ? '#d8607a' : '#8a8a9a';
-  surface.fillRect(30, 12, w * boss.phaseHpFraction, 4);
+  drawV4Ui(surface, v4Ui, 'ui.boss.frame', 30, 8);
+  drawUiBarFill(spell ? 'ui.boss.fill.spell' : 'ui.boss.fill.normal', 60, 12, boss.phaseHpFraction);
 
   // The timer runs down beside the health, because surviving it is a clear too.
   // Only a spell card gets one drawn: a non-spell phase has a clock as well,
   // but showing it makes every movement look like a card being captured.
   if (spell) {
-    surface.fillStyle = '#2a2a1a';
-    surface.fillRect(30, 20, w, 2);
-    surface.fillStyle = '#c8b060';
-    surface.fillRect(30, 20, w * (1 - boss.phaseTimeFraction), 2);
+    drawUiBarFill('ui.boss.timer', 60, 24, 1 - boss.phaseTimeFraction);
   }
 
-  surface.fillStyle = spell ? '#d8b0c0' : '#8a8a8a';
-  surface.font = '10px monospace';
-  surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, 30, 36);
+  const tint = tintFor(boss.name);
+  surface.fillStyle = `rgb(${Math.round(tint.r * 215)},${Math.round(tint.g * 215)},${Math.round(tint.b * 225)})`;
+  uiFont(9, 600);
+  surface.textAlign = 'left';
+  surface.fillText(boss.name, 30, 39);
+  surface.fillStyle = spell ? '#edb8c8' : '#9caab5';
+  surface.textAlign = 'right';
+  surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, FIELD_W - 30, 39);
+  surface.textAlign = 'left';
+}
+
+function drawUiBarFill(name: V4UiCellName, x: number, y: number, fraction: number): void {
+  const spec = V4_UI_CELLS[name];
+  const visible = Math.max(0, Math.min(spec.frameW, Math.round(spec.frameW * fraction)));
+  if (visible === 0) return;
+  surface.save();
+  surface.imageSmoothingEnabled = false;
+  surface.drawImage(
+    v4Ui.texture.image as CanvasImageSource,
+    spec.x,
+    spec.y,
+    visible,
+    spec.frameH,
+    x,
+    y,
+    visible,
+    spec.displayH,
+  );
+  surface.restore();
 }
 
 function drawView(view: {
@@ -1130,90 +1487,261 @@ function drawView(view: {
   lines?: readonly string[];
   menu?: readonly string[];
   selected?: number;
+  age?: number;
+  character?: string;
   tally?: readonly { readonly sprite: string; readonly count: number }[];
 }): void {
+  surface.save();
+  const age = view.age ?? 0;
   const cx = FIELD_W / 2;
-  // Upper third of the 3:4 frame: high enough that a menu never sits where
-  // the player's ship idles, low enough not to collide with the boss bar.
-  let y = Math.round(FIELD_H * 0.3);
 
-  if (view.title) {
-    surface.fillStyle = '#e8e8e8';
-    surface.font = '20px monospace';
+  if (view.kind === 'title') {
+    drawV4Ui(surface, v4Ui, 'ui.logo', 80, 54);
     surface.textAlign = 'center';
-    surface.fillText(view.title, cx, y);
-    y += 40;
+    uiFont(28, 600);
+    surface.fillStyle = '#e1ebf1';
+    surface.fillText(view.title ?? 'DANMAKU', cx, 145);
+    uiFont(11, 500);
+    surface.fillStyle = '#8596a3';
+    surface.fillText('余白御寮  /  THE NEGATIVE-SPACE WARD', cx, 166);
+    drawV4UiPanel(surface, v4Ui, 86, 260, 308, Math.max(128, 72 + (view.menu?.length ?? 0) * 30), 0.92);
+    drawMenuRows(view.menu ?? [], view.selected, 118, 302, 244, 30, age);
+    surface.restore();
+    return;
   }
 
-  surface.font = '12px monospace';
-  surface.textAlign = 'center';
-
-  for (const line of view.lines ?? []) {
-    surface.fillStyle = '#8a8a8a';
-    surface.fillText(line, cx, y);
-    y += 20;
+  if (view.kind === 'character-select') {
+    const panel = V4_UI_SCREEN.character;
+    drawV4UiPanel(surface, v4Ui, panel.x, panel.y, panel.w, panel.h, 0.96);
+    drawScreenHeading(view.title ?? 'SELECT', 72);
+    const previewActor = view.character === undefined ? undefined : V4_PLAYER_ACTORS[view.character];
+    const identity = view.character === undefined ? undefined : V4_CHARACTER_UI[view.character as keyof typeof V4_CHARACTER_UI];
+    if (identity !== undefined) drawV4Ui(surface, v4Ui, identity.crest, 84, 94, { width: 64, height: 64 });
+    if (previewActor !== undefined) {
+      const strip = v4Actors.players.strip(previewActor.strip);
+      const frame = v4Actors.players.frameOf(strip, 2);
+      surface.imageSmoothingEnabled = false;
+      surface.globalAlpha = 0.96;
+      surface.drawImage(
+        v4Actors.players.texture.image as CanvasImageSource,
+        frame.x,
+        frame.y,
+        frame.w,
+        frame.h,
+        46,
+        142,
+        178,
+        178,
+      );
+      surface.globalAlpha = 1;
+    } else if (view.character !== undefined) {
+      surface.drawImage(portraitImage(view.character), 58, 154, 154, 154);
+    }
+    drawMenuRows(view.menu ?? [], view.selected, 256, 142, 162, 48, age);
+    drawViewLines(view.lines ?? [], cx, 390, 346, '#93a2ae');
+    surface.restore();
+    return;
   }
 
-  if (view.tally && view.tally.length > 0) {
-    y += 4;
-    drawCoinTally(view.tally, cx, y);
-    y += 24;
+  if (view.kind === 'difficulty-select') {
+    const panel = V4_UI_SCREEN.menu;
+    drawV4UiPanel(surface, v4Ui, panel.x, 36, panel.w, 568, 0.96);
+    drawScreenHeading(view.title ?? 'DIFFICULTY', 78);
+    (view.menu ?? []).forEach((entry, index) => {
+      const y = 132 + index * 76;
+      const active = index === view.selected;
+      const seal = V4_DIFFICULTY_UI[entry as keyof typeof V4_DIFFICULTY_UI];
+      if (seal !== undefined) drawV4Ui(surface, v4Ui, seal, 96, y - 27, { alpha: active ? 1 : 0.55 });
+      else drawV4Ui(surface, v4Ui, 'ui.assist.seal', 96, y - 27, { alpha: active ? 1 : 0.55 });
+      if (active) drawV4Ui(surface, v4Ui, 'ui.cursor', 73, y - 15, { rotation: (age % 80) * (Math.PI / 40) });
+      surface.textAlign = 'left';
+      uiFont(13, active ? 600 : 400);
+      surface.fillStyle = active ? '#e2ebf1' : '#71808c';
+      surface.fillText(entry, 164, y + 4);
+    });
+    drawViewLines(view.lines ?? [], cx, 548, 318, '#96a6b2');
+    surface.restore();
+    return;
   }
 
-  y += 12;
-  (view.menu ?? []).forEach((entry, i) => {
-    const active = i === view.selected;
-    surface.fillStyle = active ? '#e8e8e8' : '#5a5a5a';
-    surface.fillText(active ? `> ${entry} <` : entry, cx, y);
-    y += 22;
+  const status = V4_UI_SCREEN.status;
+  drawV4UiPanel(surface, v4Ui, status.x, status.y, status.w, status.h, 0.97);
+  const sealByKind: Partial<Record<string, V4UiCellName>> = {
+    pause: 'ui.status.pause',
+    cleared: 'ui.status.clear',
+    'game-over': 'ui.status.gameover',
+    ending: 'ui.status.ending',
+  };
+  drawV4Ui(surface, v4Ui, sealByKind[view.kind] ?? 'ui.status.result', cx - 28, 132, {
+    rotation: view.kind === 'ending' ? (age % 180) * (Math.PI / 90) : undefined,
   });
+  if (view.title !== undefined) drawScreenHeading(view.title, 224);
+  drawV4Ui(surface, v4Ui, 'ui.divider', 80, 242, { width: 320, alpha: 0.68 });
+  let y = view.title === undefined ? 230 : 274;
+  y = drawViewLines(view.lines ?? [], cx, y, 270, '#9cabb6');
+  if (view.tally && view.tally.length > 0) {
+    y += 8;
+    drawCoinTally(view.tally, cx, y, age);
+    y += 28;
+  }
+  drawMenuRows(view.menu ?? [], view.selected, 128, Math.max(y + 18, 392), 224, 30, age);
+  if (view.kind === 'ending') {
+    drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 470, { alpha: 0.74 });
+    surface.textAlign = 'center';
+    uiFont(10, 600);
+    surface.fillStyle = '#c2ced6';
+    surface.fillText('SHOT / START', cx, 486);
+  }
+  surface.restore();
+}
 
-  surface.textAlign = 'left';
+function drawScreenHeading(title: string, baseline: number): void {
+  surface.textAlign = 'center';
+  uiFont(20, 600);
+  surface.fillStyle = '#e0eaf0';
+  surface.fillText(title, FIELD_W / 2, baseline);
+}
+
+function drawMenuRows(
+  entries: readonly string[],
+  selected: number | undefined,
+  x: number,
+  y: number,
+  width: number,
+  step: number,
+  age: number,
+): void {
+  entries.forEach((entry, index) => {
+    const active = index === selected;
+    if (active) {
+      drawV4Ui(surface, v4Ui, 'ui.cursor', x, y + index * step - 16, {
+        alpha: 0.95,
+        rotation: (age % 120) * (Math.PI / 60),
+      });
+    }
+    surface.textAlign = 'center';
+    uiFont(12, active ? 600 : 400);
+    surface.fillStyle = active ? '#e1ebf1' : '#697783';
+    // Draw the source string verbatim: pack labels may be namespaced or Unicode.
+    surface.fillText(entry, x + width / 2, y + index * step, width - 34);
+  });
+}
+
+function drawViewLines(
+  lines: readonly string[],
+  cx: number,
+  startY: number,
+  maxWidth: number,
+  colour: string,
+): number {
+  surface.textAlign = 'center';
+  uiFont(11, 400);
+  surface.fillStyle = colour;
+  let y = startY;
+  for (const value of lines) {
+    for (const row of wrapText(value, maxWidth)) {
+      surface.fillText(row, cx, y);
+      y += 17;
+    }
+  }
+  return y;
 }
 
 /**
  * The results-card coin tally (战役扩容轮) — a gold and a silver coin with the
  * run's counts beside them, centred as one group under the score lines. The state
  * hands a `{ sprite, count }[]` across the boundary (`states.ts` never learns the
- * coins are drawn); the SHELL owns presentation, so it maps each sprite name to a
- * coin colour here.
+ * coins are drawn); the SHELL owns presentation, so it resolves each sprite name
+ * against the pickup atlas here.
  *
- * The coin is drawn as a lit disc glyph on the 2D overlay — the honest home for
- * the shadowed coin twins the field bars (a lit UI surface where an implied light
- * makes a coin's sheen correct). The `pickup.tally.coin.*` names still resolve on
- * the pickup atlas (the never-blocked floor), so a BulletPack can bake real coin
- * art there and `test:assets` proves those pixels; the glyph is the zero-pack
- * floor for this card until a draw path blits the atlas cell.
+ * The coin frame is selected from the result state's fixed-tick `age`.  A native
+ * animated coin therefore remains animated after the finished Run beneath has
+ * frozen, without a wall clock or `loop.count`.  The atlas always has a
+ * procedural floor, so zero-pack and baked art use the same path.
  */
-const TALLY_COIN_R = 6;
-function tallyCoinColor(sprite: string): string {
-  return sprite.includes('gold') ? '#e6c24a' : '#c6ccd6';
+const TALLY_COIN_BOX = 16;
+const TALLY_COIN_LABEL_GAP = 5;
+const tallyCoinIcons = new Map<string, HTMLCanvasElement>();
+
+/**
+ * Cache one 16px result-card icon per tally strip. Baked art is copied as-is;
+ * the white procedural/tinted floor receives the denomination colour here,
+ * preserving a distinguishable zero-pack fallback without bypassing the atlas.
+ */
+function tallyCoinIcon(sprite: string, age: number): HTMLCanvasElement {
+  const strip = pickupAtlas.strip(sprite);
+  const frameIndex = stripFrame(strip, age);
+  const key = `${sprite}:${frameIndex}`;
+  const cached = tallyCoinIcons.get(key);
+  if (cached !== undefined) return cached;
+
+  const icon = document.createElement('canvas');
+  icon.width = TALLY_COIN_BOX;
+  icon.height = TALLY_COIN_BOX;
+  const iconSurface = icon.getContext('2d');
+  if (iconSurface === null) throw new Error('2D canvas unavailable for tally coin');
+  iconSurface.imageSmoothingEnabled = false;
+
+  const frame = pickupAtlas.frameOf(strip, frameIndex);
+  const displayW = strip.displayW ?? strip.frameW;
+  const displayH = strip.displayH ?? strip.frameH;
+  const fit = Math.min(TALLY_COIN_BOX / displayW, TALLY_COIN_BOX / displayH);
+  const drawW = displayW * fit;
+  const drawH = displayH * fit;
+  const drawX = (TALLY_COIN_BOX - drawW) / 2;
+  const drawY = (TALLY_COIN_BOX - drawH) / 2;
+  iconSurface.drawImage(
+    pickupAtlas.texture.image as CanvasImageSource,
+    frame.x,
+    frame.y,
+    frame.w,
+    frame.h,
+    drawX,
+    drawY,
+    drawW,
+    drawH,
+  );
+  if (strip.color !== 'baked') {
+    // Match SpriteBatch's RGB multiply rather than replacing the source colour:
+    // a legal tinted pack may use greyscale shading as well as alpha shading.
+    const [tr, tg, tb] = sprite.includes('gold') ? [230, 194, 74] : [198, 204, 214];
+    const pixels = iconSurface.getImageData(0, 0, TALLY_COIN_BOX, TALLY_COIN_BOX);
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      pixels.data[i] = Math.round((pixels.data[i] ?? 0) * tr / 255);
+      pixels.data[i + 1] = Math.round((pixels.data[i + 1] ?? 0) * tg / 255);
+      pixels.data[i + 2] = Math.round((pixels.data[i + 2] ?? 0) * tb / 255);
+    }
+    iconSurface.putImageData(pixels, 0, 0);
+  }
+  tallyCoinIcons.set(key, icon);
+  return icon;
 }
 
 function drawCoinTally(
   tally: readonly { readonly sprite: string; readonly count: number }[],
   cx: number,
   baselineY: number,
+  age: number,
 ): void {
-  surface.font = '12px monospace';
+  uiFont(12, 500);
   surface.textAlign = 'left';
-  const iconW = TALLY_COIN_R * 2 + 5;
+  const iconW = TALLY_COIN_BOX + TALLY_COIN_LABEL_GAP;
   const gap = 18;
   const labels = tally.map((t) => `${t.count}`);
   const widths = tally.map((_, i) => iconW + surface.measureText(labels[i] ?? '').width);
   const total = widths.reduce((a, b) => a + b, 0) + gap * Math.max(0, tally.length - 1);
 
+  const centreY = baselineY - 4;
   let x = cx - total / 2;
+  surface.save();
+  surface.imageSmoothingEnabled = false;
   tally.forEach((entry, i) => {
-    surface.fillStyle = tallyCoinColor(entry.sprite);
-    surface.beginPath();
-    surface.arc(x + TALLY_COIN_R, baselineY - 4, TALLY_COIN_R, 0, Math.PI * 2);
-    surface.fill();
-    surface.fillStyle = '#8a8a8a';
+    surface.drawImage(tallyCoinIcon(entry.sprite, age), x, centreY - TALLY_COIN_BOX / 2);
+    surface.fillStyle = '#aab7c0';
     surface.fillText(labels[i] ?? '', x + iconW, baselineY);
     x += (widths[i] ?? 0) + gap;
   });
-
+  surface.restore();
   surface.textAlign = 'center';
 }
 
@@ -1235,41 +1763,95 @@ const DIALOG_H = 118;
 const DIALOG_PAD = 11;
 const DIALOG_PORTRAIT = 88;
 
+/** Draw a close crop from the same Ghost actor art used on the field. */
+function drawV4Portrait(
+  speaker: string,
+  characterName: string,
+  x: number,
+  y: number,
+  size: number,
+): boolean {
+  const player = speaker === 'player' ? V4_PLAYER_ACTORS[characterName] : undefined;
+  const boss = V4_BOSS_ACTORS[speaker];
+  const actor = player ?? boss;
+  if (actor === undefined) return false;
+
+  const atlas = player === undefined ? v4Actors.bosses : v4Actors.players;
+  const pose = player === undefined ? 0 : 2;
+  const frame = atlas.frameOf(atlas.strip(actor.strip), pose);
+  // A portrait needs the face, heart and hands rather than an 88px full-body
+  // thumbnail. Both actor sheets have a stable square pivot, so the same
+  // deterministic upper-centre crop works for every character.
+  const crop = Math.round(frame.w * 0.72);
+  const sourceX = frame.x + Math.floor((frame.w - crop) / 2);
+  const sourceY = frame.y + Math.round(frame.h * 0.05);
+  surface.save();
+  surface.imageSmoothingEnabled = false;
+  surface.drawImage(
+    atlas.texture.image as CanvasImageSource,
+    sourceX,
+    sourceY,
+    crop,
+    crop,
+    x,
+    y,
+    size,
+    size,
+  );
+  surface.restore();
+  return true;
+}
+
 function drawDialogue(
   line: { speaker: string; text: string; index: number; count: number },
   tickCount: number,
+  characterName: string,
 ): void {
   const boxX = DIALOG_MARGIN;
   const boxY = FIELD_H - DIALOG_MARGIN - DIALOG_H;
   const boxW = FIELD_W - 2 * DIALOG_MARGIN;
-  const tint = tintFor(line.speaker);
+  const playerIdentity = line.speaker === 'player'
+    ? V4_CHARACTER_UI[characterName as keyof typeof V4_CHARACTER_UI]
+    : undefined;
+  const seeded = tintFor(line.speaker);
+  const tint = playerIdentity === undefined
+    ? seeded
+    : { r: playerIdentity.rgb[0] / 255, g: playerIdentity.rgb[1] / 255, b: playerIdentity.rgb[2] / 255 };
+  const speakerLabel = line.speaker === 'player'
+    ? getCharacter(characterName).label
+    : line.speaker;
 
-  // Panel: a dark fill and a thin edge, nothing that reaches a bullet's white.
-  surface.fillStyle = 'rgba(10,10,14,0.74)';
-  surface.fillRect(boxX, boxY, boxW, DIALOG_H);
-  surface.strokeStyle = '#2a2a32';
-  surface.lineWidth = 1;
-  surface.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, DIALOG_H - 1);
+  drawV4UiPanel(surface, v4Ui, boxX, boxY, boxW, DIALOG_H, 0.96);
 
   // Portrait on the left, drawn from its fixed square down to the box height.
   const pX = boxX + DIALOG_PAD;
   const pY = boxY + (DIALOG_H - DIALOG_PORTRAIT) / 2;
-  surface.drawImage(portraitImage(line.speaker), pX, pY, DIALOG_PORTRAIT, DIALOG_PORTRAIT);
+  if (!drawV4Portrait(line.speaker, characterName, pX, pY, DIALOG_PORTRAIT)) {
+    surface.drawImage(portraitImage(line.speaker), pX, pY, DIALOG_PORTRAIT, DIALOG_PORTRAIT);
+  }
   // Speaking-side highlight: the portrait's rim in its own tint.
   surface.strokeStyle = `rgba(${Math.round(tint.r * 200)},${Math.round(tint.g * 200)},${Math.round(tint.b * 210)},0.75)`;
   surface.strokeRect(pX + 0.5, pY + 0.5, DIALOG_PORTRAIT - 1, DIALOG_PORTRAIT - 1);
+  if (playerIdentity !== undefined) {
+    drawV4Ui(surface, v4Ui, playerIdentity.crest, pX - 7, pY - 7, { width: 30, height: 30 });
+  }
 
   const textX = pX + DIALOG_PORTRAIT + DIALOG_PAD;
   const textW = boxX + boxW - DIALOG_PAD - textX;
   surface.textAlign = 'left';
 
   // Name plate: tinted and bright, the speaking side's cue.
-  surface.font = '12px monospace';
+  drawV4Ui(surface, v4Ui, 'ui.nameplate', textX - 7, boxY + 5, {
+    width: Math.min(248, textW + 7),
+    height: 28,
+    alpha: 0.72,
+  });
+  uiFont(12, 600);
   surface.fillStyle = `rgb(${Math.round(tint.r * 220)},${Math.round(tint.g * 220)},${Math.round(tint.b * 230)})`;
-  surface.fillText(line.speaker.toUpperCase(), textX, boxY + DIALOG_PAD + 12);
+  surface.fillText(speakerLabel, textX, boxY + DIALOG_PAD + 12);
 
   // Body: wrapped to the panel width, HUD-primary luminance.
-  surface.font = '12px monospace';
+  uiFont(12, 400);
   surface.fillStyle = '#9a9aa4';
   let lineY = boxY + DIALOG_PAD + 34;
   for (const row of wrapText(line.text, textW)) {
@@ -1278,14 +1860,14 @@ function drawDialogue(
   }
 
   // Line counter: dimmest register, low-right, like the HUD diagnostics.
-  surface.fillStyle = '#3a3a3a';
+  surface.fillStyle = '#66737e';
   surface.textAlign = 'right';
   surface.fillText(`${line.index + 1} / ${line.count}`, boxX + boxW - DIALOG_PAD, boxY + DIALOG_H - DIALOG_PAD);
 
   // Advance hint: the genre's small blinking marker, pulsed on the tick clock so
   // it is identical on replay. Shown for two-thirds of each second.
   if (Math.floor(tickCount / 20) % 3 !== 2) {
-    surface.fillText('▸ shot', boxX + boxW - DIALOG_PAD, boxY + DIALOG_PAD + 8);
+    surface.fillText('▸ SHOT', boxX + boxW - DIALOG_PAD, boxY + DIALOG_PAD + 8);
   }
   surface.textAlign = 'left';
 }

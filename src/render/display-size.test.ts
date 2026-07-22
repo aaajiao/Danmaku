@@ -33,6 +33,7 @@ import {
   PICKUP_STRIPS,
   bulletEngineContent,
   displaySize,
+  laserBodyDisplayThickness,
   unionExtent,
 } from './procedural';
 
@@ -68,13 +69,29 @@ describe('Strip.displayW/H — the field a seam fills', () => {
       mode: 'once',
       displayW: 18,
       displayH: 10,
+      contentH: 8,
     });
     const s = a.strip('sized');
     expect(s.displayW).toBe(18);
     expect(s.displayH).toBe(10);
+    expect(s.contentH).toBe(8);
     // The frame rect (the texel/UV size) is unchanged by the display size.
     expect(a.frameOf(s, 0)).toEqual({ x: 4, y: 6, w: 24, h: 24 });
     expect(a.uv(a.frameOf(s, 0))).toEqual([4 / 256, 6 / 256, 24 / 256, 24 / 256]);
+  });
+});
+
+describe('native laser-body painted thickness', () => {
+  test('cross-axis padding expands the quad so visible paint reaches the skin width', () => {
+    // BulletPack warm: 20px of paint in a 26px frame, authored as a 24px beam.
+    const quad = laserBodyDisplayThickness(24, 26, 20);
+    expect(quad).toBeCloseTo(31.2);
+    expect(quad * (20 / 26)).toBeCloseTo(24);
+  });
+
+  test('missing or invalid metadata preserves the procedural/legacy thickness', () => {
+    expect(laserBodyDisplayThickness(18, 24, undefined)).toBe(18);
+    expect(laserBodyDisplayThickness(18, 24, 0)).toBe(18);
   });
 });
 

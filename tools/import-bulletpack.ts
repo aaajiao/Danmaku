@@ -9,7 +9,7 @@
  * ## What it produces
  *
  * A **reskin** pack (format 1) at `packs/bulletpack/`:
- *   - `bullets.png` — ONE shared sheet carrying every bullet strip, placed with
+ *   - `bullets/bullets.png` — ONE shared sheet carrying every bullet strip, placed with
  *     explicit x/y. It holds the 16 built-in `BULLET_CELLS` as **tinted**
  *     (whitened) native strips — animation frames kept, each fit to a coherent
  *     per-cell size so the reskinned curtain stays readable — plus the coloured
@@ -18,23 +18,21 @@
  *     `needle.pin`): `nativeBulletAtlas` keeps a pack strip over the floor-cell
  *     alias, so a baked design reaches real play the moment its strip carries that
  *     family's fired name — no companion content pack. Base content fires those
- *     names tint-free, so one baked colour per name is safe. Pixel-exact, no
- *     whiten, no resample; only lossless crop / 90° rotation. Coverage is
- *     deliberately PARTIAL — a fired name is baked only where a BulletPack design
- *     fits its orientation and bullet size; the rest keep aliasing to their
- *     reskinned floor cell, and BulletPack's oversized beams / surplus shots stage.
- *   - `<effect>.png` — one PNG per explosion strip, native colour and animation,
- *     each frame re-padded so it clears the inter-frame seam gate. Declared in
- *     `assets.effects`.
- *   - `pack.json` — `assets.bullets = { sheet, strips }` + `assets.effects`,
+ *     names tint-free, so one baked colour per name is safe. Every source row is
+ *     split explicitly and preserved; directional frames are losslessly rotated
+ *     to +x where needed, never cropped across logical cells.
+ *   - Four more shared category atlases: `explosions/explosions.png`,
+ *     `lasers/lasers.png`, `missiles/missiles.png`, `misc/pickups.png`. Every
+ *     `PackStrip` repeats the category `src` and carries explicit x/y/stride.
+ *   - `pack.json` — all category atlases plus the native player ship strip,
  *     validated in-process by the real `validateManifest` (a failure throws).
- *     **No ship, no HUD** this round: player/enemy/boss 形象 are out of scope by
- *     user directive (2026-07-22) and the coins/gems HUD icons belong to the
- *     later pickup round — the ship/HUD seams stay engine machinery.
+ *     Every one of the 10 `Player Ship/` PNGs is now a live consumer: banking
+ *     ship, option, three thrusters, two exhaust residues and three bomb strips.
  *   - `extra/<category>/…` + `extra/extras.json` — every source file this round
  *     does not consume, staged verbatim with its disposition. The completeness
  *     law: every file in the folder is accounted for exactly once.
- *   - `README.md` — provenance (source folder, missing-LICENSE flag, artist notes).
+ *   - `README.md` — purchase/product-page provenance, the no-redistribution
+ *     boundary and the artist notes shipped with the pack.
  *
  * ## Why native strips, not the old whiten+regrid
  *
@@ -51,7 +49,7 @@
  *
  * The loader's native-sheet gates (`packs/loader.ts` `checkNativeBulletSheet` /
  * `measureStripFrames` / `checkStripSheet`) are browser-only (they need a canvas).
- * `assertNativeBulletSheet` / `assertEffectStrip` below replicate them headless so
+ * `assertNativeBulletSheet` / `assertPackedStrip` below replicate them headless so
  * a bad sheet fails IN THIS TOOL before a browser ever loads it: floor-cell
  * coverage, per-strip bounds, the per-frame inter-frame seam (`frameW − 2·FX_PAD`),
  * and mean saturation on tinted strips (floor cells are measured as tinted, since
@@ -59,10 +57,10 @@
  *
  * ## Licence hygiene
  *
- * BulletPack ships **no LICENSE file** and names no author. The whole
- * `packs/bulletpack/` tree is `.gitignore`d — this TOOL and its MAP are the
- * committed artefacts; the ART is not. The pack is regenerable from the folder
- * on demand, so nothing derived from unconfirmed third-party art is committed.
+ * The user supplied their itch.io purchase receipt and the public product page
+ * identifies the author as J i m (jinvorionstg), whose public usage statement
+ * permits commercial use. The whole `packs/bulletpack/` tree remains
+ * `.gitignore`d because purchase grants use, not redistribution of source art.
  *
  * ## Why it decodes PNGs itself
  *
@@ -75,7 +73,8 @@
 
 import { mkdirSync, writeFileSync, copyFileSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
-import { BULLET_CELLS, FX_PAD } from '../src/render/procedural';
+import { BULLET_CELLS, FX_PAD, LASER_BODY_CELLS } from '../src/render/procedural';
+import { BASE_LASER_SKINS } from '../src/render/laser-skin';
 import { ColourType, encodePng, parsePng } from './png';
 import { decodePng, type DecodedImage } from './png-decode';
 import { validateManifest } from '../src/packs/manifest';
@@ -96,7 +95,7 @@ const MARGIN = 3;
 /* ------------------------------------------------------------------ */
 /* A mutable straight-alpha RGBA image.                                 */
 /* ------------------------------------------------------------------ */
-interface Img {
+export interface Img {
   w: number;
   h: number;
   rgba: Uint8Array; // RGBA, 4 bytes/pixel, straight alpha
@@ -117,9 +116,13 @@ function setPx(img: Img, x: number, y: number, r: number, g: number, b: number, 
   img.rgba[i] = r; img.rgba[i + 1] = g; img.rgba[i + 2] = b; img.rgba[i + 3] = a;
 }
 
-/** Slice one frame out of a horizontal strip (equal-width frames). */
+/** Slice one frame out of a validated horizontal equal-width strip. */
 function frameOf(img: Img, frames: number, frame: number): Img {
-  const fw = Math.floor(img.w / frames);
+  if (!Number.isInteger(frames) || frames < 1) throw new Error(`invalid strip count ${frames}`);
+  if (img.w % frames !== 0) {
+    throw new Error(`strip width ${img.w} is not divisible by ${frames} frames`);
+  }
+  const fw = img.w / frames;
   return crop(img, frame * fw, 0, fw, img.h);
 }
 
@@ -156,6 +159,45 @@ function trimAlpha(img: Img, threshold: number): Img {
   const box = alphaBox(img, threshold);
   if (box === undefined) return img;
   return crop(img, box.x, box.y, box.w, box.h);
+}
+
+/**
+ * Make one +x-native tile repeat without a transparent crack. The source's
+ * `t` bodies are authored as longitudinal tiles, but a few animation frames
+ * leave one to three empty columns at an end. Repeat the first/last non-empty
+ * texel of each painted scanline to the frame edge; cross-axis transparency is
+ * untouched, so the glow profile and its atlas-row padding stay intact.
+ */
+export function extendHorizontalEdges(img: Img): Img {
+  const out = { w: img.w, h: img.h, rgba: img.rgba.slice() };
+  for (let y = 0; y < out.h; y++) {
+    let left = -1;
+    let right = -1;
+    for (let x = 0; x < out.w; x++) {
+      if (out.rgba[(y * out.w + x) * 4 + 3]! > 0) {
+        if (left < 0) left = x;
+        right = x;
+      }
+    }
+    if (left < 0 || right < 0) continue;
+    const [lr, lg, lb, la] = px(out, left, y);
+    for (let x = 0; x < left; x++) setPx(out, x, y, lr, lg, lb, la);
+    const [rr, rg, rb, ra] = px(out, right, y);
+    for (let x = right + 1; x < out.w; x++) setPx(out, x, y, rr, rg, rb, ra);
+  }
+  return out;
+}
+
+/** Frame box policy shared by the importer and its headless regression test. */
+export function orientedFrameSize(
+  contentW: number,
+  contentH: number,
+  laserBody: boolean,
+): { frameW: number; frameH: number } {
+  return {
+    frameW: contentW + (laserBody ? 0 : 2 * MARGIN),
+    frameH: contentH + 2 * MARGIN,
+  };
 }
 
 /** Rotate clockwise by 0/90/180/270 degrees (lossless). */
@@ -290,8 +332,7 @@ function blitCentred(dst: Img, cell: Img, cellX: number, cellY: number, cellW: n
 /* ------------------------------------------------------------------ */
 interface StripMap {
   src: string;
-  strip?: number; // frame count (a horizontal strip); 1 or absent = single
-  crop?: { x: number; y: number; w: number; h: number };
+  strip: number; // explicit frame count; even a static source declares 1
   rotate?: number; // clockwise degrees to bring directional art to +x (rule 7)
   fit?: number; // FLOOR only: fit the longer painted axis to this many px
   nearest?: number; // integer nearest-neighbour upscale (sub-FX_PAD art, design §c)
@@ -305,9 +346,11 @@ interface EffectMap {
   nearest?: number; // integer nearest-neighbour upscale (sub-FX_PAD art, design §c)
   mode?: 'loop' | 'once';
   ticksPerFrame?: number;
+  /** Player exhaust strips intentionally contain an all-transparent off frame. */
+  allowEmpty?: boolean;
   note?: string;
 }
-interface Map {
+interface BulletPackMap {
   floor: Record<string, StripMap>;
   variants: Record<string, StripMap>;
   shots: Record<string, StripMap>;
@@ -317,35 +360,110 @@ interface Map {
   lasers: Record<string, StripMap>;
   /** Missile body strips → `assets.missiles` (baked, rotated +x). Keys are missile
    *  body names (`missile.0` … `missile.11`, `missile.massive`,
-   *  `src/render/procedural.ts`). Same oriented per-file shape as a laser. */
+   *  `src/render/procedural.ts`). They are packed as oriented rows in one atlas. */
   missiles: Record<string, StripMap>;
   /** Pickup coin/gem/bar strips → `assets.pickups` (baked, RADIAL — no rotate).
    *  Keys are pickup-skin names (`pickup.coin.silver`, `pickup.gem.cyan`,
-   *  `pickup.bar`, `src/render/procedural.ts`). Same radial per-file shape as an
-   *  effect, built through `buildEffectStrip`. */
+   *  `pickup.bar`, `src/render/procedural.ts`). They are packed as radial rows in
+   *  one atlas after building through `buildEffectStrip`. */
   pickups: Record<string, EffectMap>;
-  variantsDuplicate?: Record<string, string>;
+  player: {
+    ship: EffectMap;
+    effects: Record<string, EffectMap>;
+  };
+  variantsDuplicate?: Record<string, { of: string; representedBy: string }>;
+}
+
+/** Source-strip integrity is checked before any trim, fit or atlas packing. */
+function assertSourceStrip(whole: Img, frames: number, src: string, allowEmpty = false): void {
+  if (!Number.isInteger(frames) || frames < 1) {
+    throw new Error(`${src}: strip must be a positive integer, got ${frames}`);
+  }
+  if (whole.w % frames !== 0) {
+    throw new Error(`${src}: width ${whole.w} is not divisible by ${frames} frames`);
+  }
+  if (!allowEmpty) {
+    for (let f = 0; f < frames; f++) assertFrameHasAlpha(frameOf(whole, frames, f), src, f);
+  }
+}
+
+function assertFrameHasAlpha(frame: Img, src: string, index: number): void {
+  if (!alphaBox(frame, 1)) throw new Error(`${src}: frame ${index} has no non-transparent pixel`);
+}
+
+/**
+ * File-level "consumed" is insufficient for a strip source: prove that every
+ * enemy/player row is explicitly split, no cell crop survives, reused sources
+ * agree on their count, and every source frame contains paint.
+ */
+function assertBulletCellCompleteness(root: string, map: BulletPackMap): Map<string, number> {
+  const counts = new Map<string, number>();
+  const bulletSections = [map.floor, map.variants, map.shots];
+  for (const section of bulletSections) {
+    for (const [name, raw] of Object.entries(section)) {
+      if (name.startsWith('$')) continue;
+      const m = raw as StripMap & { crop?: unknown };
+      if ('crop' in m) throw new Error(`bullet mapping "${name}" must preserve the full strip; crop is forbidden`);
+      if (!Number.isInteger(m.strip) || m.strip < 1) {
+        throw new Error(`bullet mapping "${name}" must declare strip >= 1`);
+      }
+      if (m.strip > 1 && m.mode !== 'loop') {
+        throw new Error(`bullet mapping "${name}" has ${m.strip} frames but mode is not "loop"`);
+      }
+      const previous = counts.get(m.src);
+      if (previous !== undefined && previous !== m.strip) {
+        throw new Error(`${m.src}: inconsistent strip counts ${previous} and ${m.strip}`);
+      }
+      counts.set(m.src, m.strip);
+    }
+  }
+
+  for (const [src, frames] of counts) {
+    const whole = fromDecoded(decodePng(new Uint8Array(readFileSync(join(root, src)))));
+    assertSourceStrip(whole, frames, src);
+  }
+
+  const duplicates = Object.entries(map.variantsDuplicate ?? {})
+    .filter(([name]) => !name.startsWith('$'));
+  const duplicatePaths = new Set(duplicates.map(([src]) => src));
+  for (const [src, duplicate] of duplicates) {
+    const originalFrames = counts.get(duplicate.of);
+    if (originalFrames === undefined) throw new Error(`${src}: duplicate original "${duplicate.of}" is not mapped`);
+    const a = readFileSync(join(root, src));
+    const b = readFileSync(join(root, duplicate.of));
+    if (a.length !== b.length || !a.equals(b)) throw new Error(`${src}: not byte-identical to declared original "${duplicate.of}"`);
+    counts.set(src, originalFrames);
+  }
+
+  const sourceRows = walk(root)
+    .map((abs) => relative(root, abs))
+    .filter((rel) => rel.toLowerCase().endsWith('.png'))
+    .filter((rel) => rel.startsWith('Bullet Pack/Bullet Pack/') || rel.startsWith('Bullet Pack/Player Bullets/'));
+  const omitted = sourceRows.filter((rel) => !counts.has(rel) && !duplicatePaths.has(rel));
+  if (omitted.length > 0) throw new Error(`bullet source row(s) omitted from the cell ledger: ${omitted.join(', ')}`);
+  return counts;
 }
 
 /**
  * Load a source into its processed frames.
- *  - floor (`whitenFit` true): crop → rotate → trim → fit → whiten → trim.
- *  - baked (`whitenFit` false): crop → rotate → trim. Pixel-exact, no resample.
+ *  - floor (`whitenFit` true): split → rotate → trim → fit → whiten → trim.
+ *  - baked (`whitenFit` false): split → rotate → trim. Pixel-exact, no resample.
  */
 function loadFrames(root: string, m: StripMap, whitenFit: boolean): Img[] {
   const decoded = decodePng(new Uint8Array(readFileSync(join(root, m.src))));
   const whole = fromDecoded(decoded);
-  const n = m.strip && m.strip > 1 ? m.strip : 1;
+  const n = m.strip;
+  assertSourceStrip(whole, n, m.src);
   const out: Img[] = [];
   for (let f = 0; f < n; f++) {
-    let img = n > 1 ? frameOf(whole, n, f) : whole;
-    if (m.crop) img = crop(img, m.crop.x, m.crop.y, m.crop.w, m.crop.h);
+    let img = frameOf(whole, n, f);
     if (m.rotate) img = rotate(img, m.rotate);
     if (m.nearest) img = nearestUpscale(img, m.nearest);
     img = trimAlpha(img, BULLET_ALPHA_PAINTED);
     if (whitenFit && m.fit) img = fitTo(img, m.fit);
     if (whitenFit) img = whiten(img);
     img = trimAlpha(img, BULLET_ALPHA_PAINTED);
+    assertFrameHasAlpha(img, m.src, f);
     out.push(img);
   }
   return out;
@@ -434,10 +552,14 @@ function packBulletSheet(entries: StripEntry[]): { sheet: Img; strips: Record<st
 }
 
 /* ------------------------------------------------------------------ */
-/* Effects: one own-file strip per explosion, frames re-padded.         */
+/* Build one normalized effect row; category packing happens afterwards.*/
 /* ------------------------------------------------------------------ */
 interface EmittedEffect {
   src: string;
+  /** Frame-0 origin and inter-frame stride in the shared category atlas. */
+  x: number;
+  y: number;
+  stride: number;
   frames: number;
   frameW: number;
   frameH: number;
@@ -454,14 +576,15 @@ interface EmittedEffect {
 function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Img; meta: EmittedEffect; file: string } {
   const whole = fromDecoded(decodePng(new Uint8Array(readFileSync(join(root, m.src)))));
   const n = m.strip;
-  const fw = Math.floor(whole.w / n);
+  assertSourceStrip(whole, n, m.src, m.allowEmpty === true);
   const raw: Img[] = [];
   for (let f = 0; f < n; f++) {
     // A sub-`FX_PAD` source (the 2×2 debris) is nearest-upscaled to a paintable
     // frame BEFORE the union box / seam gate see it (design §c). Radial art only,
     // so no rotate here — the effect discipline.
-    let fr = crop(whole, f * fw, 0, fw, whole.h);
+    let fr = frameOf(whole, n, f);
     if (m.nearest) fr = nearestUpscale(fr, m.nearest);
+    if (!m.allowEmpty) assertFrameHasAlpha(fr, m.src, f);
     raw.push(fr);
   }
 
@@ -476,7 +599,7 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
     if (box.x + box.w - 1 > maxX) maxX = box.x + box.w - 1;
     if (box.y + box.h - 1 > maxY) maxY = box.y + box.h - 1;
   }
-  const efw = raw[0]?.w ?? fw;
+  const efw = raw[0]?.w ?? whole.w / n;
   const efh = raw[0]?.h ?? whole.h;
   if (maxX < minX) { minX = 0; minY = 0; maxX = efw - 1; maxY = efh - 1; }
   const uW = maxX - minX + 1;
@@ -496,15 +619,18 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
   const file = `${name}.png`;
   // `uW`/`uH` are the pre-margin, pre-square content bound — the Law of Geometry
   // divisor. The squared `frameW` divided by `uW` is the on-screen scale factor.
-  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, contentW: uW, contentH: uH, mode: m.mode ?? 'once', color: 'baked' };
+  const meta: EmittedEffect = {
+    src: file, x: 0, y: 0, stride: frameW,
+    frames: n, frameW, frameH, contentW: uW, contentH: uH,
+    mode: m.mode ?? 'once', color: 'baked',
+  };
   if ((m.ticksPerFrame ?? 1) !== 1) meta.ticksPerFrame = m.ticksPerFrame;
   return { sheet, meta, file };
 }
 
 /**
- * One ORIENTED per-file strip — a LASER body/cap (`assets.lasers`) or a MISSILE
- * body (`assets.missiles`): the same per-file, one-PNG-per-strip shape as an
- * effect, with two specifics that both surfaces share.
+ * Build one ORIENTED row — a LASER body/cap or a MISSILE body — before its
+ * category atlas packs it, with two specifics that both surfaces share.
  *
  *  - **+x rotation, once at import (rule 7).** The BulletPack laser art is drawn
  *    long-axis-VERTICAL (the beam runs up the frame) and the missile art nose-UP;
@@ -518,17 +644,28 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
  *    its own aspect — `frameW` from the length axis, `frameH` from the thickness.
  *
  * Baked native colour (no whiten, the `color: 'baked'` reskin path, saturation
- * gate skipped), content unioned across frames and re-padded by `MARGIN` so the
- * loader's `frameW − 2·FX_PAD` seam gate has headroom, exactly as effects do.
+ * gate skipped), content unioned across frames. Caps and missiles are re-padded
+ * by `MARGIN` on both axes. Laser bodies deliberately fill the +x axis (the
+ * procedural body's established seam exception) and retain `MARGIN` only on the
+ * cross axis; tile bodies also extend their boundary texels to remove source-side
+ * one-to-three-pixel gaps.
  */
-function buildLaserStrip(root: string, name: string, m: StripMap): { sheet: Img; meta: EmittedEffect; file: string } {
+function buildLaserStrip(
+  root: string,
+  name: string,
+  m: StripMap,
+  laserBody = false,
+  tileBody = false,
+): { sheet: Img; meta: EmittedEffect; file: string } {
   const whole = fromDecoded(decodePng(new Uint8Array(readFileSync(join(root, m.src)))));
-  const n = m.strip && m.strip > 1 ? m.strip : 1;
-  const srcFrameW = Math.floor(whole.w / n);
+  const n = m.strip;
+  assertSourceStrip(whole, n, m.src);
+  const srcFrameW = whole.w / n;
   const raw: Img[] = [];
   for (let f = 0; f < n; f++) {
-    let fr = crop(whole, f * srcFrameW, 0, srcFrameW, whole.h);
+    let fr = frameOf(whole, n, f);
     if (m.rotate) fr = rotate(fr, m.rotate); // bring the beam to +x (rule 7)
+    assertFrameHasAlpha(fr, m.src, f);
     raw.push(fr);
   }
 
@@ -548,12 +685,15 @@ function buildLaserStrip(root: string, name: string, m: StripMap): { sheet: Img;
   if (maxX < minX) { minX = 0; minY = 0; maxX = w0 - 1; maxY = h0 - 1; }
   const uW = maxX - minX + 1;
   const uH = maxY - minY + 1;
-  const frameW = uW + 2 * MARGIN; // length axis (kept long — no squaring)
-  const frameH = uH + 2 * MARGIN; // thickness axis
+  // A laser BODY must reach both longitudinal frame edges: stretch bodies then
+  // meet muzzle/tip exactly, and tile bodies butt without a transparent seam.
+  // Caps and missiles retain the ordinary two-axis padding contract.
+  const { frameW, frameH } = orientedFrameSize(uW, uH, laserBody);
 
   const sheet = blank(n * frameW, frameH);
   raw.forEach((fr, f) => {
-    const cropped = crop(fr, minX, minY, uW, uH);
+    const base = crop(fr, minX, minY, uW, uH);
+    const cropped = tileBody ? extendHorizontalEdges(base) : base;
     const ox = f * frameW + Math.round((frameW - uW) / 2);
     const oy = Math.round((frameH - uH) / 2);
     blit(sheet, cropped, ox, oy); // baked: native colour, no whiten
@@ -561,10 +701,89 @@ function buildLaserStrip(root: string, name: string, m: StripMap): { sheet: Img;
 
   const file = `${name}.png`;
   // `uW`/`uH` are the pre-margin content bound (a laser/missile keeps its aspect —
-  // no squaring), the Law of Geometry divisor for this oriented per-file strip.
-  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, contentW: uW, contentH: uH, mode: m.mode ?? 'loop', color: 'baked' };
+  // no squaring), the Law of Geometry divisor for this oriented strip.
+  const meta: EmittedEffect = {
+    src: file, x: 0, y: 0, stride: frameW,
+    frames: n, frameW, frameH, contentW: uW, contentH: uH,
+    mode: m.mode ?? 'loop', color: 'baked',
+  };
   if ((m.ticksPerFrame ?? 1) !== 1) meta.ticksPerFrame = m.ticksPerFrame;
   return { sheet, meta, file };
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared atlases for effects / lasers / missiles / pickups.           */
+/* ------------------------------------------------------------------ */
+interface BuiltCategoryStrip {
+  name: string;
+  sheet: Img;
+  meta: EmittedEffect;
+  allowEmpty?: boolean;
+  /** Laser body only: +x must fill for stretch endpoints / seamless tiling. */
+  allowLongAxisFill?: boolean;
+}
+
+const CATEGORY_ATLAS_MAX = 4096;
+const CATEGORY_ATLAS_GAP = 2;
+
+/** Shelf-pack complete strip rectangles. Frames remain contiguous within a strip. */
+function packCategoryAtlas(
+  entries: BuiltCategoryStrip[],
+  atlasPath: string,
+): { sheet: Img; strips: Record<string, EmittedEffect> } {
+  if (entries.length === 0) return { sheet: blank(1, 1), strips: {} };
+
+  const order = [...entries].sort((a, b) => {
+    if (a.sheet.h !== b.sheet.h) return b.sheet.h - a.sheet.h;
+    if (a.sheet.w !== b.sheet.w) return b.sheet.w - a.sheet.w;
+    return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+  });
+  const placed = new Map<string, { x: number; y: number }>();
+  let rowX = 0, rowY = 0, rowH = 0, usedW = 0;
+  for (const e of order) {
+    if (e.sheet.w > CATEGORY_ATLAS_MAX || e.sheet.h > CATEGORY_ATLAS_MAX) {
+      throw new Error(`${atlasPath}: strip "${e.name}" is ${e.sheet.w}×${e.sheet.h}, over ${CATEGORY_ATLAS_MAX}×${CATEGORY_ATLAS_MAX}`);
+    }
+    if (rowX > 0 && rowX + e.sheet.w > CATEGORY_ATLAS_MAX) {
+      rowY += rowH + CATEGORY_ATLAS_GAP;
+      rowX = 0;
+      rowH = 0;
+    }
+    if (rowY + e.sheet.h > CATEGORY_ATLAS_MAX) {
+      throw new Error(`${atlasPath}: packed height exceeds ${CATEGORY_ATLAS_MAX}px at strip "${e.name}"`);
+    }
+    placed.set(e.name, { x: rowX, y: rowY });
+    rowX += e.sheet.w + CATEGORY_ATLAS_GAP;
+    usedW = Math.max(usedW, rowX - CATEGORY_ATLAS_GAP);
+    rowH = Math.max(rowH, e.sheet.h);
+  }
+
+  const sheet = blank(Math.max(1, usedW), Math.max(1, rowY + rowH));
+  const strips: Record<string, EmittedEffect> = {};
+  for (const e of entries) {
+    const at = placed.get(e.name);
+    if (!at) throw new Error(`${atlasPath}: internal placement missing for "${e.name}"`);
+    blit(sheet, e.sheet, at.x, at.y);
+    const meta: EmittedEffect = {
+      ...e.meta,
+      src: atlasPath,
+      x: at.x,
+      y: at.y,
+      stride: e.meta.frameW,
+    };
+    assertPackedStrip(
+      e.name,
+      sheet,
+      meta,
+      e.allowEmpty === true,
+      e.allowLongAxisFill === true,
+    );
+    strips[e.name] = meta;
+  }
+  if (sheet.w > CATEGORY_ATLAS_MAX || sheet.h > CATEGORY_ATLAS_MAX) {
+    throw new Error(`${atlasPath}: atlas is ${sheet.w}×${sheet.h}, over ${CATEGORY_ATLAS_MAX}×${CATEGORY_ATLAS_MAX}`);
+  }
+  return { sheet, strips };
 }
 
 /* ------------------------------------------------------------------ */
@@ -591,6 +810,33 @@ function measureFrame(sheet: Img, fx0: number, y0: number, frameW: number, frame
   return { ex, ey, meanSat: satCount > 0 ? satSum / satCount : 0 };
 }
 
+/** Independent-axis padding gate; rectangular strips must not borrow X headroom for Y. */
+export function frameClearsPadding(
+  paintedW: number,
+  paintedH: number,
+  frameW: number,
+  frameH: number,
+  pad = FX_PAD,
+  allowLongAxisFill = false,
+): boolean {
+  const xPass = allowLongAxisFill
+    ? paintedW === frameW
+    : paintedW <= frameW - 2 * pad;
+  return xPass && paintedH <= frameH - 2 * pad;
+}
+
+/** Correct last-frame bound for stride > frameW as well as contiguous strips. */
+export function stripEnd(
+  x: number,
+  y: number,
+  frames: number,
+  stride: number,
+  frameW: number,
+  frameH: number,
+): { right: number; bottom: number } {
+  return { right: x + (frames - 1) * stride + frameW, bottom: y + frameH };
+}
+
 /** Mirror `checkNativeBulletSheet` + `measureStripFrames` (loader.ts). */
 function assertNativeBulletSheet(sheet: Img, strips: Record<string, EmittedStrip>): void {
   const floor = new Set<string>(BULLET_CELLS as readonly string[]);
@@ -600,17 +846,20 @@ function assertNativeBulletSheet(sheet: Img, strips: Record<string, EmittedStrip
   for (const [name, s] of Object.entries(strips)) {
     const frames = s.frames ?? 1;
     const stride = s.frameW; // stride omitted in the emit ⇒ loader defaults to frameW
-    if (s.x + frames * stride > sheet.w || s.y + s.frameH > sheet.h) {
-      throw new Error(`strip "${name}" runs to ${s.x + frames * stride}×${s.y + s.frameH}, past the ${sheet.w}×${sheet.h} sheet`);
+    const { right: lastRight, bottom } = stripEnd(s.x, s.y, frames, stride, s.frameW, s.frameH);
+    if (s.x < 0 || s.y < 0 || lastRight > sheet.w || bottom > sheet.h) {
+      throw new Error(`strip "${name}" runs to ${lastRight}×${bottom}, past the ${sheet.w}×${sheet.h} sheet`);
     }
     // Floor cells are drawn with the per-instance tint regardless of declared
     // colour, so they are measured as tinted (the loader forces this).
     const tinted = floor.has(name) || s.color === 'tinted';
-    const limit = s.frameW - 2 * FX_PAD;
+    const limitX = s.frameW - 2 * FX_PAD;
+    const limitY = s.frameH - 2 * FX_PAD;
     for (let f = 0; f < frames; f++) {
       const { ex, ey, meanSat } = measureFrame(sheet, s.x + f * stride, s.y, s.frameW, s.frameH);
-      if (Math.max(ex, ey) > limit) {
-        throw new Error(`strip "${name}" frame ${f} paints ${ex}×${ey}px, over the ${limit}px seam limit (frameW ${s.frameW})`);
+      if (ex === 0 || ey === 0) throw new Error(`strip "${name}" frame ${f} has no non-transparent pixel`);
+      if (!frameClearsPadding(ex, ey, s.frameW, s.frameH)) {
+        throw new Error(`strip "${name}" frame ${f} paints ${ex}×${ey}px, over the ${limitX}×${limitY}px seam limits (frame ${s.frameW}×${s.frameH})`);
       }
       if (tinted && meanSat > BULLET_SATURATION_MAX) {
         throw new Error(`strip "${name}" frame ${f} has mean saturation ${meanSat.toFixed(2)}, over ${BULLET_SATURATION_MAX} (a tinted/floor strip must be white)`);
@@ -619,20 +868,57 @@ function assertNativeBulletSheet(sheet: Img, strips: Record<string, EmittedStrip
   }
 }
 
-/** Mirror `checkStripSheet` (loader.ts) for an own-file effect strip. */
-function assertEffectStrip(name: string, sheet: Img, meta: EmittedEffect): void {
-  const expectedW = meta.frames * meta.frameW;
-  if (sheet.w !== expectedW || sheet.h !== meta.frameH) {
-    throw new Error(`effect "${name}" sheet is ${sheet.w}×${sheet.h}, expected ${expectedW}×${meta.frameH}`);
+/** Prove one just-built strip before it is placed into a category atlas. */
+function assertOwnStrip(
+  name: string,
+  sheet: Img,
+  meta: EmittedEffect,
+  allowEmpty = false,
+  allowLongAxisFill = false,
+): void {
+  const expectedW = (meta.frames - 1) * meta.stride + meta.frameW;
+  if (meta.x !== 0 || meta.y !== 0 || sheet.w !== expectedW || sheet.h !== meta.frameH) {
+    throw new Error(`strip "${name}" build is ${sheet.w}×${sheet.h} at ${meta.x},${meta.y}, expected ${expectedW}×${meta.frameH} at 0,0`);
   }
-  const limit = meta.frameW - 2 * FX_PAD;
+  assertPackedStrip(name, sheet, meta, allowEmpty, allowLongAxisFill);
+}
+
+/** Mirror the loader's shared-sheet strip gate, including x/y and last-frame end. */
+function assertPackedStrip(
+  name: string,
+  sheet: Img,
+  meta: EmittedEffect,
+  allowEmpty = false,
+  allowLongAxisFill = false,
+): void {
+  if (meta.stride < meta.frameW) {
+    throw new Error(`strip "${name}" stride ${meta.stride} is less than frameW ${meta.frameW}`);
+  }
+  const { right: lastRight, bottom } = stripEnd(
+    meta.x, meta.y, meta.frames, meta.stride, meta.frameW, meta.frameH,
+  );
+  if (meta.x < 0 || meta.y < 0 || lastRight > sheet.w || bottom > sheet.h) {
+    throw new Error(`strip "${name}" runs to ${lastRight}×${bottom}, past the ${sheet.w}×${sheet.h} atlas`);
+  }
+  const limitX = allowLongAxisFill ? meta.frameW : meta.frameW - 2 * FX_PAD;
+  const limitY = meta.frameH - 2 * FX_PAD;
   for (let f = 0; f < meta.frames; f++) {
-    const { ex, ey, meanSat } = measureFrame(sheet, f * meta.frameW, 0, meta.frameW, meta.frameH);
-    if (Math.max(ex, ey) > limit) {
-      throw new Error(`effect "${name}" frame ${f} paints ${ex}×${ey}px, over the ${limit}px seam limit`);
+    const fx = meta.x + f * meta.stride;
+    const { ex, ey, meanSat } = measureFrame(sheet, fx, meta.y, meta.frameW, meta.frameH);
+    if (ex === 0 || ey === 0) {
+      if (allowEmpty) continue;
+      throw new Error(`strip "${name}" frame ${f} has no non-transparent pixel`);
+    }
+    if (allowLongAxisFill && ex !== meta.frameW) {
+      throw new Error(
+        `laser body "${name}" frame ${f} paints ${ex}px on +x, expected full frameW ${meta.frameW}px for a seamless body`,
+      );
+    }
+    if (!frameClearsPadding(ex, ey, meta.frameW, meta.frameH, FX_PAD, allowLongAxisFill)) {
+      throw new Error(`strip "${name}" frame ${f} paints ${ex}×${ey}px, over the ${limitX}×${limitY}px seam limits`);
     }
     if (meta.color === 'tinted' && meanSat > BULLET_SATURATION_MAX) {
-      throw new Error(`effect "${name}" frame ${f} has mean saturation ${meanSat.toFixed(2)}, over ${BULLET_SATURATION_MAX}`);
+      throw new Error(`strip "${name}" frame ${f} has mean saturation ${meanSat.toFixed(2)}, over ${BULLET_SATURATION_MAX}`);
     }
   }
 }
@@ -697,25 +983,23 @@ function suggestedConsumer(cat: string, file: string): string {
   if (cat === 'lasers') return 'laser skin body/cap on the laser atlas (assets.lasers) — src/render/laser-skin.ts; a base-campaign beam fires it';
   if (cat === 'missiles' && file.startsWith('Missiles_Exp')) return 'missile detonation fx reskin (assets.effects: missile.pop.tiny|mid|big) — src/render/procedural.ts; a base-campaign missile fires it';
   if (cat === 'missiles') return 'missile body on the missile atlas (assets.missiles) — src/render/procedural.ts; a base-campaign firer launches it';
-  if (cat === 'player-ship' && /Thruster/i.test(file)) return 'exhaust / engine-trail effect (deferred: player 形象 out of scope)';
-  if (cat === 'player-ship' && /Bomb/i.test(file)) return 'bomb visual (BombSpec carries no sprite surface yet)';
-  if (cat === 'player-ship' && /Option/i.test(file)) return 'dedicated option sprite (OptionSpec currently names a bullet cell)';
-  if (cat === 'player-ship') return 'player 形象 — out of scope by user directive (2026-07-22)';
-  // The two SHADOWED coin twins (Gold_coin_strip6, Silver_coin_strip6 — _strip6 and
-  // NOT NoShadow) leave the staged pile in 战役扩容轮: their baked shadow is wrong on
-  // the dark FIELD (the no-baked-shadow policy that deferred them) but correct on the
-  // lit ALL CLEAR / GAME OVER results card, so they consume as pickup.tally.coin.*.
+  if (cat === 'player-ship' && /Thruster/i.test(file)) return 'live player thrust/residue strip (assets.playerEffects) — src/main.ts';
+  if (cat === 'player-ship' && /Bomb/i.test(file)) return 'live presentation-only bomb strip (assets.playerEffects) — src/main.ts';
+  if (cat === 'player-ship' && /Option/i.test(file)) return 'live dedicated option strip (assets.playerEffects) — src/main.ts';
+  if (cat === 'player-ship') return 'live five-bank back-wing/core strip (assets.ship) beneath the v4 heroine — src/main.ts';
+  // The two shadowed coin twins are results-card tally skins; all ten Misc PNGs
+  // are consumed, though the shadows remain deliberately absent from field items.
   if (cat === 'misc' && /_strip6\.png$/i.test(file) && !/noshadow/i.test(file)) {
     return 'results-card coin tally (assets.pickups: pickup.tally.coin.gold/silver) — the shadowed twin on the lit ending card, where a cast shadow is correct';
   }
-  if (cat === 'misc') return 'item skin (animated pickup) — pickup-variety round (8 coin/gem/bar strips consumed as assets.pickups)';
+  if (cat === 'misc') return 'item/tally skin — all 10 coin/gem/bar strips are consumed as assets.pickups';
   return 'unclassified';
 }
 
 /* ------------------------------------------------------------------ */
 /* README (provenance)                                                  */
 /* ------------------------------------------------------------------ */
-function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; lasers: number; missiles: number; pickups: number }): string {
+function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; playerEffects: number; lasers: number; missiles: number; pickups: number }): string {
   return `# bulletpack — imported native-strip reskin (provenance)
 
 **Generated** by \`bun tools/import-bulletpack.ts\`. Do not hand-edit; edit
@@ -725,8 +1009,12 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 
 - Imported from a local folder named **BulletPack** (\`${root}\`).
 - This is a **reskin** (pack format 1) in the engine's **native strip format**:
-  \`assets.bullets = { sheet, strips }\` (one packed \`bullets/bullets.png\`) plus
-  per-file strips for \`assets.effects\`, \`.lasers\`, \`.missiles\` and \`.pickups\`.
+  shared category atlases — \`bullets/bullets.png\`,
+  \`explosions/explosions.png\`, \`lasers/lasers.png\`,
+  \`missiles/missiles.png\`, \`misc/pickups.png\`, and
+  \`player/player-effects.png\` — plus \`player/ship.png\`. Every strip has explicit
+  placement; effects/lasers/missiles/pickups repeat their category \`src\` and
+  carry \`x\`/\`y\`/\`stride\`.
   It changes no simulation, so a mismatch **warns**, never refuses — replay-safe.
 - **Folder taxonomy.** The emitted tree mirrors the source pack's kebab-case
   categories instead of a flat root: \`bullets/\` (the packed sheet), \`explosions/\`
@@ -734,37 +1022,42 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
   caps), \`missiles/\` (missile bodies) and \`misc/\` (coin/gem/bar pickups).
   \`pack.json\`, \`README.md\` and \`extra/\` stay at the root; every manifest asset
   string carries its subpath.
-- **No ship, no HUD** this round: player/enemy/boss 形象 are out of scope by user
-  directive (2026-07-22); the coins/gems HUD icons belong to the later pickup round.
+- **Complete player binding**: all 10 \`Player Ship/\` PNGs are live: five bank
+  poses, one option strip, three thrust states, two residue strips and three bomb
+  animations. No image remains staged.
 
 ## What was consumed
 
-- **${counts.strips}** bullet strips packed onto \`bullets/bullets.png\`: the 16 built-in
-  cells (tinted/whitened, animation kept, coherently fit) plus baked \`role.family\`
-  variants and player shot skins at native size/colour.
-- **${counts.effects}** explosion strips as \`assets.effects\` (native colour +
-  animation, frames re-padded for the seam gate).
-- **${counts.lasers}** laser strips as \`assets.lasers\` (8 body + 3 cap, baked
-  native colour, each frame rotated 90° to +x — the laser system's beam skins).
-- **${counts.missiles}** missile body strips as \`assets.missiles\` (12 \`strip5\` +
-  1 \`strip17\`, baked native colour, each frame rotated 90° to +x — the missile
-  atlas bodies a base spec names). The 3 detonation tiers ride \`assets.effects\`
-  (\`missile.pop.tiny|mid|big\`), reskinning the fx-floor names a missile fires.
-- **${counts.pickups}** pickup coin/gem/bar strips as \`assets.pickups\` (2 coins +
-  5 gems + 1 bar, baked native colour, radial — no rotation — the pickup-atlas
-  skins a base item names). The 2 shadowed coin twins stage under the uniform
-  no-baked-shadow policy (the \`itemGlow\` halo supplies lift).
+- **${counts.strips}** complete bullet strips on \`bullets/bullets.png\`: 16 tinted
+  floor names plus baked enemy/player names. All logical source frames are kept;
+  multi-frame strips loop, and directional art is split before +x rotation.
+- **${counts.effects}** effect strips on \`explosions/explosions.png\`, including
+  all 8 Explosions files and the 3 missile detonations.
+- **${counts.lasers}** laser strips on \`lasers/lasers.png\` (8 bodies + 3 caps).
+- **${counts.missiles}** missile bodies on \`missiles/missiles.png\` (12 five-frame
+  bodies + the 17-frame massive body).
+- **${counts.pickups}** pickup strips on \`misc/pickups.png\`: 4 coins, 5 gems and
+  1 bar. The two shadowed coins are results-card tally skins, not staged files.
+- **1** five-bank ship strip plus **${counts.playerEffects}** option/thruster/bomb
+  strips on the player atlas. Their consumers are presentation-only and tick-clocked.
 - **${counts.consumed}** source files curated in total (see
   \`tools/bulletpack-map.json\` for the exact frame/rotate/fit per strip).
 
-## Licence — UNCONFIRMED (do not distribute)
+This is file-level completeness, not a visual-fidelity sign-off. Original RGB
+reachability for tintable floor projections, result-tally frame usage, short-lived
+effect tails, laser tiling seams and painted-content sizing remain explicit
+browser-audit items in \`docs/assets.md §8\`.
 
-- The BulletPack folder contains **no LICENSE file** and **names no author**.
-  Provenance is unverifiable from the files themselves.
-- Under CLAUDE.md **rule 9** everything shipped must be original and licence-clean.
-  This pack is therefore **\`.gitignore\`d** — the importer and its map are the
-  committed artefacts; the derived art is not, and the pack is regenerable on demand.
-- **Before this art is committed or distributed, confirm the source** and its terms.
+## Licence and provenance
+
+- Product: [16Bit Bullets, Explosions & Misc Asset Pack](https://jinvorionstg.itch.io/bullet-asset-pack-top-down-or-shmup-classic-bullet-hell-style)
+  by **J i m** (itch.io: \`jinvorionstg\`).
+- Purchase confirmed by the user on **2026-07-20**. The creator's public product-page
+  statement permits use however desired, including commercial use.
+- Purchase/use permission does not grant redistribution of the source sprites.
+  Therefore \`packs/bulletpack/\` remains **\`.gitignore\`d**; only this importer
+  and its semantic map are committed. Local and production builds may use the
+  generated pack from the purchaser's copy.
 
 ## The two artist notes shipped in the folder (verbatim)
 
@@ -776,14 +1069,8 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 
 ## Completeness
 
-- **${counts.staged}** files this round does not use are copied verbatim under
-  \`extra/<category>/\` (surplus player shots, oversized beams, and the explosions
-  no death site fires yet), staged for their own future rounds. The 11 \`Lasers/\`
-  files left this pile in the laser round — they are now consumed as
-  \`assets.lasers\`. The 16 \`Missiles/\` files left it in the import round — 13
-  bodies as \`assets.missiles\` and 3 detonation tiers as \`assets.effects\`. 8 of
-  the 10 \`Misc/\` coin/gem/bar files left it in the pickup round — consumed as
-  \`assets.pickups\`; the 2 shadowed coin twins remain (no-baked-shadow policy).
+- **${counts.staged}** image files are staged. The expected value is zero: all
+  purchased PNGs now have named runtime consumers.
 - **${counts.skipped}** pure-junk files (\`.DS_Store\`, author \`.txt\` notes) are
   counted in the total but not listed — they left the ledger by user directive.
 - Every one of the **${counts.total}** files in the folder is accounted for
@@ -799,10 +1086,8 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 // Report 3 (decisions-asset-fidelity.md): the emitted pack keeps a folder
 // taxonomy instead of a flat ~50-file root, so the art stays navigable. Each
 // manifest SECTION lands in its own kebab-case folder (the same names `extra/`
-// already uses); the multi-category `bullets.png` sheet — floor cells + enemy
-// variants + player shots — is an engine-section artefact, so it goes under
-// `bullets/`. `pack.json`/`README.md` stay at the root and `extra/` is unchanged.
-// The manifest asset strings carry the subpath (`explosions/burst.png`); the
+// already uses). Each section owns ONE shared atlas; `pack.json`/`README.md` stay
+// at the root and `extra/` is unchanged. The manifest strings carry subpaths; the
 // loader (`fileUrl` string-joins), `tools/serve.ts` (`normalize`+`join`) and
 // `tools/copy-packs.ts` (recursive `cp`) all handle it — no filename-only
 // assumption survives anywhere in that path.
@@ -811,30 +1096,20 @@ const EXPLOSIONS_DIR = 'explosions';
 const LASERS_DIR = 'lasers';
 const MISSILES_DIR = 'missiles';
 const MISC_DIR = 'misc';
-
-/**
- * Write one own-file strip into its category folder and rewrite its manifest
- * `src` to carry that subpath. Called AFTER the per-file seam gate
- * (`assertEffectStrip`), which reads only the frame geometry, never `src`.
- */
-function emit(outDir: string, dir: string, file: string, sheet: Img, meta: EmittedEffect): void {
-  mkdirSync(join(outDir, dir), { recursive: true });
-  writeVerified(join(outDir, dir, file), sheet);
-  meta.src = `${dir}/${file}`; // POSIX subpath — the manifest is fetched over HTTP
-}
+const PLAYER_DIR = 'player';
 
 /**
  * The importer's own taxonomy self-check (binding "TESTS TO GRAFT"): every asset
  * the manifest names must carry a category subpath AND exist at it under `outDir`.
  * A flat filename, or a manifest ↔ tree mismatch, fails the import loudly — the
- * same discipline `assertNativeBulletSheet`/`assertEffectStrip` apply to pixels.
+ * same discipline `assertNativeBulletSheet`/`assertPackedStrip` apply to pixels.
  */
 function assertTaxonomy(
   outDir: string,
   bulletsSheet: string,
   sections: Record<string, EmittedEffect>[],
 ): void {
-  const paths = [bulletsSheet, ...sections.flatMap((s) => Object.values(s).map((m) => m.src))];
+  const paths = new Set([bulletsSheet, ...sections.flatMap((s) => Object.values(s).map((m) => m.src))]);
   for (const p of paths) {
     if (!p.includes('/')) throw new Error(`taxonomy: emitted asset "${p}" has no category folder`);
     if (!existsSync(join(outDir, p))) {
@@ -853,7 +1128,22 @@ function main(): void {
   const extraDir = join(outDir, 'extra');
 
   const mapPath = join(import.meta.dir, 'bulletpack-map.json');
-  const map = JSON.parse(readFileSync(mapPath, 'utf8')) as Map;
+  const map = JSON.parse(readFileSync(mapPath, 'utf8')) as BulletPackMap;
+
+  // Fail on an incomplete/misaligned source ledger before deleting the previous
+  // generated pack. This is the cell-level complement to the later file walk.
+  const sourceFrameCounts = assertBulletCellCompleteness(root, map);
+  for (const section of [map.effects, map.lasers, map.missiles, map.pickups, map.player.effects]) {
+    for (const [name, m] of Object.entries(section)) {
+      if (name.startsWith('$')) continue;
+      const previous = sourceFrameCounts.get(m.src);
+      if (previous !== undefined && previous !== m.strip) {
+        throw new Error(`${m.src}: inconsistent strip counts ${previous} and ${m.strip}`);
+      }
+      sourceFrameCounts.set(m.src, m.strip);
+    }
+  }
+  sourceFrameCounts.set(map.player.ship.src, map.player.ship.strip);
 
   // Fresh output tree (art only — safe to wipe, it is regenerable & gitignored).
   rmSync(outDir, { recursive: true, force: true });
@@ -895,71 +1185,130 @@ function main(): void {
   const bulletsSheetPath = `${BULLETS_DIR}/bullets.png`;
   log.push(`assembled ${bulletsSheetPath} (${sheet.w}×${sheet.h}) — ${entries.length} strips — coverage + seam + saturation self-check PASSED`);
 
-  /* --- effects (one own-file strip per explosion) --- */
-  const effectsManifest: Record<string, EmittedEffect> = {};
+  /* --- player ship (one native five-bank strip) --- */
+  // Build through the same union-crop + transparent-margin path as an effect so
+  // every bank keeps its native pixels while satisfying the loader's seam gate.
+  // The shell selects banks from deterministic horizontal intent; this manifest
+  // still describes one ordinary horizontal strip and changes no simulation.
+  const { sheet: shipSheet, meta: shipMeta } = buildEffectStrip(root, 'ship', map.player.ship);
+  assertOwnStrip('ship', shipSheet, shipMeta);
+  const shipPath = `${PLAYER_DIR}/ship.png`;
+  mkdirSync(join(outDir, PLAYER_DIR), { recursive: true });
+  writeVerified(join(outDir, shipPath), shipSheet);
+  noteConsumed(map.player.ship.src, 'ship');
+  const shipManifest = {
+    src: shipPath,
+    frameW: shipMeta.frameW,
+    frameH: shipMeta.frameH,
+    frames: shipMeta.frames,
+    stride: shipMeta.stride,
+    ticksPerFrame: shipMeta.ticksPerFrame,
+    mode: shipMeta.mode,
+    color: shipMeta.color,
+    contentW: shipMeta.contentW,
+    contentH: shipMeta.contentH,
+    banking: 'five-way' as const,
+  };
+  log.push(`assembled ${shipPath} (${shipSheet.w}×${shipSheet.h}) — 5 bank poses — seam self-check PASSED`);
+
+  /* --- effects (one shared category atlas) --- */
+  const effectBuilds: BuiltCategoryStrip[] = [];
   for (const [name, m] of mapStrips(map.effects)) {
-    const { sheet: fxSheet, meta, file } = buildEffectStrip(root, name, m);
-    assertEffectStrip(name, fxSheet, meta);
-    emit(outDir, EXPLOSIONS_DIR, file, fxSheet, meta);
-    effectsManifest[name] = meta;
+    const { sheet: fxSheet, meta } = buildEffectStrip(root, name, m);
+    assertOwnStrip(name, fxSheet, meta, m.allowEmpty === true);
+    effectBuilds.push({ name, sheet: fxSheet, meta, allowEmpty: m.allowEmpty });
     noteConsumed(m.src, name);
-    log.push(`assembled ${meta.src} (${fxSheet.w}×${fxSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — seam self-check PASSED`);
   }
+  const effectsAtlasPath = `${EXPLOSIONS_DIR}/explosions.png`;
+  const { sheet: effectsSheet, strips: effectsManifest } = packCategoryAtlas(effectBuilds, effectsAtlasPath);
+  mkdirSync(join(outDir, EXPLOSIONS_DIR), { recursive: true });
+  writeVerified(join(outDir, effectsAtlasPath), effectsSheet);
+  log.push(`assembled ${effectsAtlasPath} (${effectsSheet.w}×${effectsSheet.h}) — ${effectBuilds.length} strips — x/y/stride + seam self-check PASSED`);
 
-  /* --- lasers (one own-file baked strip per body/cap, rotated +x) --- */
-  const lasersManifest: Record<string, EmittedEffect> = {};
+  /* --- player option / thrust / bomb strips (one shared category atlas) --- */
+  const playerEffectBuilds: BuiltCategoryStrip[] = [];
+  for (const [name, m] of mapStrips(map.player.effects)) {
+    const { sheet: playerSheet, meta } = buildEffectStrip(root, name, m);
+    assertOwnStrip(name, playerSheet, meta, m.allowEmpty === true);
+    playerEffectBuilds.push({ name, sheet: playerSheet, meta, allowEmpty: m.allowEmpty });
+    noteConsumed(m.src, name);
+  }
+  const playerEffectsAtlasPath = `${PLAYER_DIR}/player-effects.png`;
+  const { sheet: playerEffectsSheet, strips: playerEffectsManifest } =
+    packCategoryAtlas(playerEffectBuilds, playerEffectsAtlasPath);
+  writeVerified(join(outDir, playerEffectsAtlasPath), playerEffectsSheet);
+  log.push(`assembled ${playerEffectsAtlasPath} (${playerEffectsSheet.w}×${playerEffectsSheet.h}) — ${playerEffectBuilds.length} strips — x/y/stride + seam self-check PASSED`);
+
+  const allEffectsManifest: Record<string, EmittedEffect> = {
+    ...effectsManifest,
+    ...playerEffectsManifest,
+  };
+
+  /* --- lasers (one shared category atlas, frames rotated +x) --- */
+  const laserBuilds: BuiltCategoryStrip[] = [];
   for (const [name, m] of mapStrips(map.lasers)) {
-    const { sheet: lzSheet, meta, file } = buildLaserStrip(root, name, m);
-    assertEffectStrip(name, lzSheet, meta); // same per-file strip gate as effects
-    emit(outDir, LASERS_DIR, file, lzSheet, meta);
-    lasersManifest[name] = meta;
+    const skin = BASE_LASER_SKINS[name];
+    const laserBody = (LASER_BODY_CELLS as readonly string[]).includes(name) && skin?.body === name;
+    const tileBody = laserBody && skin?.fit === 'tile';
+    const { sheet: lzSheet, meta } = buildLaserStrip(root, name, m, laserBody, tileBody);
+    assertOwnStrip(name, lzSheet, meta, false, laserBody);
+    laserBuilds.push({ name, sheet: lzSheet, meta, allowLongAxisFill: laserBody });
     noteConsumed(m.src, name);
-    log.push(`assembled ${meta.src} (${lzSheet.w}×${lzSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — laser seam self-check PASSED`);
   }
+  const lasersAtlasPath = `${LASERS_DIR}/lasers.png`;
+  const { sheet: lasersSheet, strips: lasersManifest } = packCategoryAtlas(laserBuilds, lasersAtlasPath);
+  mkdirSync(join(outDir, LASERS_DIR), { recursive: true });
+  writeVerified(join(outDir, lasersAtlasPath), lasersSheet);
+  log.push(`assembled ${lasersAtlasPath} (${lasersSheet.w}×${lasersSheet.h}) — ${laserBuilds.length} strips — x/y/stride + seam self-check PASSED`);
 
-  /* --- missiles (one own-file baked body strip per missile, rotated +x) --- */
-  // The missile bodies are the same ORIENTED per-file strip a laser body is
-  // (long, thin, nose/beam along +x), so they build through the same
-  // `buildLaserStrip` and pass the same per-file seam gate — `assets.missiles`
-  // composites onto the fourth (missile) texture in `main.ts`, symmetric to lasers.
-  const missilesManifest: Record<string, EmittedEffect> = {};
+  /* --- missiles (one shared category atlas, frames rotated +x) --- */
+  // Missile rows have the same ORIENTED shape as laser rows (long, thin,
+  // nose/beam along +x), so they build through `buildLaserStrip`, then share one
+  // category atlas — `assets.missiles` is the fourth texture in `main.ts`.
+  const missileBuilds: BuiltCategoryStrip[] = [];
   for (const [name, m] of mapStrips(map.missiles)) {
-    const { sheet: msSheet, meta, file } = buildLaserStrip(root, name, m);
-    assertEffectStrip(name, msSheet, meta); // same per-file strip gate as effects/lasers
-    emit(outDir, MISSILES_DIR, file, msSheet, meta);
-    missilesManifest[name] = meta;
+    const { sheet: msSheet, meta } = buildLaserStrip(root, name, m);
+    assertOwnStrip(name, msSheet, meta);
+    missileBuilds.push({ name, sheet: msSheet, meta });
     noteConsumed(m.src, name);
-    log.push(`assembled ${meta.src} (${msSheet.w}×${msSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — missile seam self-check PASSED`);
   }
+  const missilesAtlasPath = `${MISSILES_DIR}/missiles.png`;
+  const { sheet: missilesSheet, strips: missilesManifest } = packCategoryAtlas(missileBuilds, missilesAtlasPath);
+  mkdirSync(join(outDir, MISSILES_DIR), { recursive: true });
+  writeVerified(join(outDir, missilesAtlasPath), missilesSheet);
+  log.push(`assembled ${missilesAtlasPath} (${missilesSheet.w}×${missilesSheet.h}) — ${missileBuilds.length} strips — x/y/stride + seam self-check PASSED`);
 
-  /* --- pickups (one own-file baked coin/gem/bar strip, radial — no rotate) --- */
+  /* --- pickups (one shared category atlas, radial — no rotate) --- */
   // Coins/gems/bar are RADIAL (no heading, rule 7 moot), so they build through the
-  // SAME `buildEffectStrip` an explosion uses (squared, no rotation) and pass the
-  // same per-file seam gate — `assets.pickups` composites onto the fifth (pickup)
-  // texture in `main.ts`, symmetric to missiles/lasers/effects. The Silver suffix
-  // trap is handled in the MAP (`strip: 6` hand-declared), not here.
-  const pickupsManifest: Record<string, EmittedEffect> = {};
+  // SAME `buildEffectStrip` an explosion uses (squared, no rotation), then share
+  // one category atlas — `assets.pickups` is the fifth texture in `main.ts`. The
+  // Silver suffix trap is handled in the MAP (`strip: 6` hand-declared), not here.
+  const pickupBuilds: BuiltCategoryStrip[] = [];
   for (const [name, m] of mapStrips(map.pickups)) {
-    const { sheet: pkSheet, meta, file } = buildEffectStrip(root, name, m);
-    assertEffectStrip(name, pkSheet, meta); // same per-file strip gate as effects/lasers/missiles
-    emit(outDir, MISC_DIR, file, pkSheet, meta);
-    pickupsManifest[name] = meta;
+    const { sheet: pkSheet, meta } = buildEffectStrip(root, name, m);
+    assertOwnStrip(name, pkSheet, meta);
+    pickupBuilds.push({ name, sheet: pkSheet, meta });
     noteConsumed(m.src, name);
-    log.push(`assembled ${meta.src} (${pkSheet.w}×${pkSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — pickup seam self-check PASSED`);
   }
+  const pickupsAtlasPath = `${MISC_DIR}/pickups.png`;
+  const { sheet: pickupsSheet, strips: pickupsManifest } = packCategoryAtlas(pickupBuilds, pickupsAtlasPath);
+  mkdirSync(join(outDir, MISC_DIR), { recursive: true });
+  writeVerified(join(outDir, pickupsAtlasPath), pickupsSheet);
+  log.push(`assembled ${pickupsAtlasPath} (${pickupsSheet.w}×${pickupsSheet.h}) — ${pickupBuilds.length} strips — x/y/stride + seam self-check PASSED`);
 
   /* --- manifest --- */
   const manifest = {
     format: 1,
     name: 'bulletpack',
-    version: '2.0.0',
-    author: 'Unknown — third-party BulletPack, source unconfirmed (see README.md)',
-    license: 'UNCONFIRMED — no LICENSE file in source; not for distribution until provenance is verified (CLAUDE.md rule 9; see README.md)',
-    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion + missile-detonation effects, baked laser body/cap strips, baked missile body strips, and baked coin/gem/bar pickup strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
+    version: '3.1.0',
+    author: 'J i m (itch.io: jinvorionstg)',
+    license: 'Commercial use permitted by the creator; purchased 2026-07-20. Source-sprite redistribution not granted; see README.md.',
+    description: 'File-complete native-strip binding imported from the purchased BulletPack: baked fired bullets, explosions, lasers, missiles, pickups, plus the five-bank player ship, options, thrust and bomb animation. All 117 PNG files are consumed or represented; visual-fidelity audit items remain documented; purchased pixels stay gitignored and regenerate from the purchaser copy.',
     assets: {
       bullets: { sheet: bulletsSheetPath, strips },
+      ship: shipManifest,
       filter: 'nearest' as const,
-      effects: effectsManifest,
+      effects: allEffectsManifest,
       lasers: lasersManifest,
       missiles: missilesManifest,
       pickups: pickupsManifest,
@@ -973,7 +1322,8 @@ function main(): void {
   log.push('pack.json — validateManifest ACCEPTED (format 1, native strips)');
 
   assertTaxonomy(outDir, manifest.assets.bullets.sheet, [
-    effectsManifest,
+    { ship: { ...shipMeta, src: shipPath } },
+    allEffectsManifest,
     lasersManifest,
     missilesManifest,
     pickupsManifest,
@@ -1010,7 +1360,10 @@ function main(): void {
     }
 
     const dec = decodePng(new Uint8Array(readFileSync(abs)));
-    const frames = framesFromName(file);
+    const frames = sourceFrameCounts.get(rel) ?? framesFromName(file);
+    if (dec.width % frames !== 0) {
+      throw new Error(`${rel}: ledger width ${dec.width} is not divisible by ${frames} frames`);
+    }
     const entry: Entry = {
       category: cat, file: rel, disposition: '',
       width: dec.width, height: dec.height, frames,
@@ -1023,7 +1376,7 @@ function main(): void {
       entry.disposition = `consumed → ${names.join(', ')}`;
       consumed++;
     } else if (rel in duplicates) {
-      entry.disposition = `consumed (duplicate) → ${duplicates[rel]}`;
+      entry.disposition = `consumed (duplicate of ${duplicates[rel]!.of}) → ${duplicates[rel]!.representedBy}`;
       consumed++;
     } else {
       const dst = join(extraDir, cat, file);
@@ -1054,10 +1407,10 @@ function main(): void {
   writeFileSync(join(extraDir, 'extras.json'), JSON.stringify({
     source: root,
     generatedBy: 'tools/import-bulletpack.ts',
-    license: 'UNCONFIRMED — no LICENSE file in source folder',
+    license: 'Commercial use permitted by J i m (jinvorionstg); purchased 2026-07-20. No source-sprite redistribution.',
     dispositions: {
-      consumed: 'packed into the pack (bullets.png, an effect PNG, a laser strip PNG, a missile body PNG, or a pickup coin/gem/bar PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, a fired laser skin body/cap (assets.lasers), a fired missile body (assets.missiles), or a dropped pickup skin (assets.pickups). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
-      staged: 'copied verbatim to extra/<category>/ for a future round. As of 战役扩容轮 (2026-07-22) the ONLY staged files are the 10 player-ship 形象 (ships, thrusters, bombs, options) — deferred by user directive. Every enemy-bullet, player-bullet, explosion and coin is now consumed: the 13 enemy families gem-coloured per boss (BULLET_VARIANTS re-skins), the 12 player shots as per-tier skins, the 6 explosions as the death-tier ladder (assets.effects boom.*/debris), and the 2 shadowed coin twins as the results-card tally (assets.pickups pickup.tally.coin.*). (Lasers left the pile in the laser round — 11 consumed as assets.lasers. Missiles in the import round — 16 as assets.missiles + missile.pop.*. Coins/gems in the pickup round — 8 as assets.pickups.)',
+      consumed: 'all logical frames are packed into shared category atlases (bullets, explosions, lasers, missiles, pickups, player effects) or the native ship strip under names the base four-stage campaign draws. Every source row declares its full equal-width strip count; no bullet cell crop is allowed.',
+      staged: 'unexpected PNGs only. The expected count is zero: the player ship, option, all thrusters and particles, all three bomb strips, every bullet/effect/laser/missile/pickup now have runtime consumers.',
       skipped: 'pure junk not tracked in files[] (.DS_Store, author .txt notes). Counted in total, not listed.',
     },
     totals: { total, consumed, staged, skipped },
@@ -1071,6 +1424,7 @@ function main(): void {
   writeFileSync(join(outDir, 'README.md'), buildReadme(root, notes, {
     consumed, staged, skipped, total,
     strips: entries.length, effects: Object.keys(effectsManifest).length,
+    playerEffects: Object.keys(playerEffectsManifest).length,
     lasers: Object.keys(lasersManifest).length,
     missiles: Object.keys(missilesManifest).length,
     pickups: Object.keys(pickupsManifest).length,
@@ -1079,8 +1433,8 @@ function main(): void {
   /* --- report --- */
   process.stdout.write(`\nBulletPack native import → ${outDir}\n`);
   for (const l of log) process.stdout.write(`  ✓ ${l}\n`);
-  process.stdout.write(`\nCompleteness: ${outEntries.length} files — ${consumed} consumed, ${staged} staged, ${skipped} skipped\n`);
+  process.stdout.write(`\nCompleteness: ${total} files — ${consumed} consumed, ${staged} staged, ${skipped} skipped\n`);
   process.stdout.write(`extras.json manifest: ${join(extraDir, 'extras.json')}\n`);
 }
 
-main();
+if (import.meta.main) main();

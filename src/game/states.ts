@@ -170,6 +170,8 @@ abstract class MenuState implements GameState {
 
   protected readonly edges = new Edges();
   protected selected = 0;
+  /** Fixed-tick presentation clock, reset whenever this screen is entered. */
+  protected age = 0;
 
   protected constructor(protected readonly ctx: GameContext) {}
 
@@ -196,6 +198,7 @@ abstract class MenuState implements GameState {
     // leaks into a frame where nothing happened (the foot-gun a per-site clear
     // would be). Set again below only on an actual move/confirm/cancel.
     this.cue = undefined;
+    this.age++;
 
     this.edges.update(buttons);
     if (this.intercept()) return;
@@ -230,6 +233,7 @@ abstract class MenuState implements GameState {
     // as its own. `Edges` suppresses its first update; re-arming here makes a
     // reused instance behave like a fresh one.
     this.edges.reset();
+    this.age = 0;
   }
 
   abstract view(): StateView;
@@ -277,6 +281,7 @@ export class TitleState extends MenuState {
       lines: ['press start'],
       menu: this.entries,
       selected: this.selected,
+      age: this.age,
     };
   }
 }
@@ -395,6 +400,7 @@ export class DifficultySelectState extends MenuState {
       lines: line === undefined ? [] : [line],
       menu: this.entries,
       selected: this.selected,
+      age: this.age,
     };
   }
 }
@@ -446,6 +452,8 @@ export class CharacterSelectState extends MenuState {
       lines: spec?.blurb === undefined ? [] : [spec.blurb],
       menu: this.entries,
       selected: this.selected,
+      age: this.age,
+      ...(name === undefined ? {} : { character: name }),
     };
   }
 }
@@ -653,6 +661,7 @@ export class PauseState extends MenuState {
       title: 'PAUSED',
       menu: this.entries,
       selected: this.selected,
+      age: this.age,
     };
   }
 }
@@ -753,6 +762,7 @@ export class GameOverState extends EndingState {
       tally: this.coinTally(),
       menu: this.entries,
       selected: this.selected,
+      age: this.age,
     };
   }
 }
@@ -812,6 +822,7 @@ export class ClearedState extends EndingState {
       tally: this.coinTally(),
       menu: this.entries,
       selected: this.selected,
+      age: this.age,
     };
   }
 }
@@ -951,6 +962,7 @@ export class EndingScreenState extends MenuState {
       kind: 'ending',
       lines: page,
       menu: [],
+      age: this.age,
     };
   }
 }

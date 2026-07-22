@@ -58,7 +58,53 @@ import {
   MISSILE_SHEET,
   MISSILE_SHEET_W,
   MISSILE_SHEET_H,
+  blitPackedStripFrames,
+  packedStripColor,
 } from './procedural';
+
+describe('shared PackStrip compositing', () => {
+  test('every composite surface inherits PackStrip color default tinted; baked is explicit', () => {
+    expect(packedStripColor()).toBe('tinted');
+    expect(packedStripColor('tinted')).toBe('tinted');
+    expect(packedStripColor('baked')).toBe('baked');
+  });
+
+  test('each frame crops its own x/y/stride rect and lands tightly in the output row', () => {
+    const calls: unknown[][] = [];
+    const ctx = {
+      drawImage: (...args: unknown[]) => calls.push(args),
+    } as unknown as Pick<CanvasRenderingContext2D, 'drawImage'>;
+    const image = {} as CanvasImageSource;
+
+    blitPackedStripFrames(
+      ctx,
+      image,
+      { x: 11, y: 7, stride: 20, frames: 3, frameW: 8, frameH: 6 },
+      40,
+    );
+
+    expect(calls).toEqual([
+      [image, 11, 7, 8, 6, 0, 40, 8, 6],
+      [image, 31, 7, 8, 6, 8, 40, 8, 6],
+      [image, 51, 7, 8, 6, 16, 40, 8, 6],
+    ]);
+  });
+
+  test('the legacy own-file form defaults to origin zero and frameW stride', () => {
+    const calls: unknown[][] = [];
+    const ctx = {
+      drawImage: (...args: unknown[]) => calls.push(args),
+    } as unknown as Pick<CanvasRenderingContext2D, 'drawImage'>;
+    const image = {} as CanvasImageSource;
+
+    blitPackedStripFrames(ctx, image, { frames: 2, frameW: 9, frameH: 5 }, 3);
+
+    expect(calls).toEqual([
+      [image, 0, 0, 9, 5, 0, 3, 9, 5],
+      [image, 9, 0, 9, 5, 9, 3, 9, 5],
+    ]);
+  });
+});
 
 describe('cell padding', () => {
   test('every cell leaves at least 2px of margin', () => {

@@ -834,52 +834,35 @@ ${inventory.map((l) => `- ${l}`).join('\n')}
 }
 
 /* ================================================================== */
-/* RESERVED — surfaces an imported pack may carry, but no engine        */
-/* consumer exists yet. Documented as format expectations, NOT emitted  */
-/* as templates: a dead template slot that looks live is exactly what   */
-/* the reachability doctrine (CLAUDE.md) forbids.                       */
+/* NATIVE STRIPS — self-describing surfaces are documented, not emitted */
+/* as fixed templates. BulletPack is the checked reference importer.    */
 /* ================================================================== */
 
 /**
- * The categories the third-party BulletPack import (tools/import-bulletpack.ts)
- * surfaced that this engine cannot receive today. This section exists so the
- * art is not mistaken for something the kit forgot to template — it is art the
- * *engine* has no home for. The importer stages every one of these under
- * `packs/<pack>/extra/<category>/` with an `extra/extras.json` manifest; a
- * future engine round consumes that manifest, and only then does a template for
- * the surface belong in this kit.
- *
- * This is prose, not a template, on purpose. The four surfaces the kit DOES emit
- * (bullets, ship, portraits, HUD) are the four the `define*` registries wire to
- * art. Items, effects and options are not missing — they reuse the 16 bullet
- * cells above (see the legend), and bombs carry no sprite field at all. So there
- * is nothing more to paint; there is only this, to describe what cannot yet be
- * painted into the game.
+ * Effects, lasers, missiles and pickups use self-describing animation strips,
+ * so a single fixed-size blank template would misstate their contract. The
+ * BulletPack importer is the checked reference and emits one shared atlas per
+ * runtime namespace. This prose points authors to that contract and records the
+ * complete BulletPack runtime binding and its remaining fidelity audit.
  */
 function reservedSection(): string {
-  return `## 保留区（RESERVED）：有美术、但引擎暂时无法消费的表面
+  return `## 自描述动画条与 BulletPack 参考导入
 
-下列类别在导入第三方素材（\`tools/import-bulletpack.ts\`）时出现，但**当前引擎没有任何消费它们的接口**。
-它们不是本套件“漏掉”的模板——本套件只为四个真正接线到 \`define*\` 注册表的表面出模板
-（bullets / ship / portrait / hud）；item、effect、option 都复用上面那 16 格子弹格，bomb 根本没有 sprite 字段，
-所以没有别的可画的了。下面这些是引擎侧还没有落点的东西，按**格式期望**记录，**不出占位模板**——
-一个看起来能用、其实没人消费的模板槽，正是可达性铁律（CLAUDE.md《Registration is not reachability》）禁止的。
+引擎已经直接消费 bullets、effects、lasers、missiles、pickups、player ship
+与 player effects 七张运行时图集。后三类和 effects 没有统一固定尺寸，因此本套件
+不生成一个会误导作者的空白模板；
+格式见 \`docs/packs.md §5.6\`，可执行参考见 \`tools/import-bulletpack.ts\`。
+参考导入器把每类条带分别合成一张共享图集，并在 manifest 中用
+\`src / x / y / stride\` 指向各帧；旧的一条带一 PNG 形式仍然兼容。
 
-导入器会把这些原样暂存到 \`packs/<包名>/extra/<类别>/\`，并生成 \`extra/extras.json\` 清单
-（每个文件的尺寸、帧数、朝向猜测、建议的未来消费者）。**将来某一轮引擎改动消费的是那份清单，而不是一堆神秘条带**；
-只有到那一步，对应表面的模板才该进本套件。
+BulletPack 的 117 张 PNG 都有命名运行时消费者，暂存数为 0；\`Player Ship/\`
+下的五档机体、option、推进器、残留与三种 bomb 也已经接入。完整逐文件状态写入生成包的
+\`extra/extras.json\`。
 
-| 类别 | 格式期望（条带布局 / 帧数 / 朝向 / 尺寸） | 为什么现在没有消费者 |
-|---|---|---|
-| **激光体 + 命中帽** | 竖直、沿长度**平铺**的光束段（\`strip3\`–\`strip12\`，帧宽 13–32），外加独立的 3 帧命中帽 | \`LaserSpec\` 存在（\`src/sim/bullet.ts\`），但渲染是把**一格 32×32 拉伸**铺满整条光束（\`src/main.ts\`），没有平铺光束渲染，也没有独立命中帽精灵 |
-| **逐帧动画条** | 2–41 帧水平条带，各种帧宽 | 引擎**任何地方都没有帧播放**（\`grep frameIndex/animFrame\` 零命中）；每条动画都塌缩成单帧 |
-| **导弹实体** | 5 帧转向姿态精灵（左右摆动，非循环）+ 尾焰 | 最接近的是把 \`homing\` 行为挂到一颗普通子弹上、单静态格连续旋转——没有离散姿态帧，没有尾焰 |
-| **推进 / 尾焰** | 连续拖尾条带（\`strip2\`–\`strip6\`，帧宽 4–6） | 六个 \`defineEffect\`（explosion/hit/graze/pickup/muzzle/death.big）都没有“持续拖尾”这一类 |
-| **炸弹视觉** | 大型新星/冲击波条带（最多 41 帧） | \`BombSpec\` 完全没有 sprite 表面；炸弹只通过现有粒子/effect 系统表现 |
-| **专用 option 精灵** | 独立的双吊舱卫星精灵（单帧小图） | \`OptionSpec.sprite\` 命名的是一格**子弹格**，option 没有独立精灵命名空间 |
-
-要点：这些**不改引擎就画不进游戏**。想推进其中任何一项，先扩 \`src/render/procedural.ts\` / \`src/sim/*\` /
-本套件的模板，然后才谈作画——顺序反了就是画了一堆没人加载的图。`;
+117/117 只代表文件级绑定，不代表视觉保真已经验收：12 个 floor 来源仍会白化/重采样，
+结算金币只显示首帧，\`P1_Bullet_Hit\` 尾帧、激光平铺接缝与透明单元格造成的内容缩小仍需
+浏览器检查。素材由用户购买，项目/商用许可已确认，但源图再分发权未授予，所以生成包
+保持本地、gitignored。`;
 }
 
 /* ================================================================== */

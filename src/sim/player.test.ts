@@ -119,6 +119,29 @@ describe('construction', () => {
   test('focused is false until a mask says otherwise', () => {
     expect(makePlayer().focused).toBe(false);
   });
+
+  test('presentation intents are derived from the last replay mask', () => {
+    const player = makePlayer();
+    const bullets = makeBullets();
+
+    player.step(Button.Left | Button.Up, bullets, 0);
+    expect(player.horizontalIntent).toBe(-1);
+    expect(player.horizontalHeldTicks).toBe(1);
+    expect(player.verticalIntent).toBe(-1);
+
+    player.step(Button.Left, bullets, 1);
+    expect(player.horizontalHeldTicks).toBe(2);
+
+    player.step(Button.Right | Button.Down, bullets, 2);
+    expect(player.horizontalIntent).toBe(1);
+    expect(player.horizontalHeldTicks).toBe(1);
+    expect(player.verticalIntent).toBe(1);
+
+    player.step(Button.Left | Button.Right | Button.Up | Button.Down, bullets, 3);
+    expect(player.horizontalIntent).toBe(0);
+    expect(player.horizontalHeldTicks).toBe(0);
+    expect(player.verticalIntent).toBe(0);
+  });
 });
 
 describe('movement', () => {
@@ -921,6 +944,7 @@ describe('reset', () => {
 
     place(bullets, 250, 400);
     hold(player, bullets, Button.Shot | Button.Right | Button.Bomb, 20);
+    expect(player.age).toBeGreaterThan(0);
     player.checkGraze(bullets);
     player.addPower(2);
     player.kill();
@@ -937,6 +961,7 @@ describe('reset', () => {
     expect(player.invuln).toBe(0);
     expect(player.alive).toBe(true);
     expect(player.deathCount).toBe(0);
+    expect(player.age).toBe(0);
     expect(player.bombing).toBe(false);
     expect(player.focused).toBe(false);
   });

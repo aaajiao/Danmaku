@@ -156,7 +156,9 @@ folder to two playable campaigns and is the fastest way in for a first-time auth
 So the whole activation story is: **drop a folder into `packs/`, refresh the
 page.** The server rescans the directory on every request for the index, so a
 pack added while the server is running is seen on the next reload. No build step,
-no config edit, no restart.
+no config edit, no restart. The plain URL intentionally selects project-owned
+`v4` when present, falling back to purchaser-local `bulletpack` only when v4 is
+absent; open any other newly added pack with `?pack=<name>` while testing it.
 
 ### 3.2 In a production build
 
@@ -228,7 +230,7 @@ The types below are exactly what `src/packs/manifest.ts` validates.
 | `author` | **yes** | string | Who made the art. Provenance, not decoration — see `license`. |
 | `license` | **yes** | string | **Provenance is mandatory.** CLAUDE.md rule 9: everything shipped needs a declared licence, because upstream's Touhou-derivative art shipped with none. A pack with no `license` is rejected. |
 | `description` | no | string | A sentence, shown wherever the boot report lists loaded packs. |
-| `assets` | no | object | `bullets?`, `ship?`, `filter?` — see §5.1–5.2. |
+| `assets` | no | object | `bullets?`, `ship?`, `effects?`, `lasers?`, `missiles?`, `pickups?`, `filter?` — see §5.1–5.6. |
 | `sounds` | no | object | One entry per replaced sound, keyed by the sound's registered name — see §5.3. |
 | `hud` | no | object | `life?`, `bomb?` icon PNGs — see §5.4. |
 | `portraits` | no | object | Name → PNG path, one per speaker face. Each is an exact 96×96 image drawn beside a boss's dialogue line — see §5.5. |
@@ -280,8 +282,10 @@ small bright disc marking the lethal centre, far smaller than the silhouette —
 a readability property no single-pixel test measures reliably, so it is **judged
 by eye** on the visual pages and in `bun run dev`, not asserted with a fabricated
 threshold. Draw it anyway; §7.3 says how. Like `assets.bullets`, `assets.ship`
-also accepts the native strip object form (§5.6), a bank drawn at frame 0 this
-round.
+also accepts the native strip object form (§5.6). It is stable on frame 0 by
+default. A strip may explicitly declare `"banking": "five-way"`; then it must
+contain exactly five poses ordered hard-left, left, idle, right, hard-right, and
+the shell chooses them from replayed input/held ticks rather than looping them.
 
 `assets.filter` — `"nearest"` (default) or `"linear"` — sets texture sampling for
 the sheets. Hard-edged pixel art wants `"nearest"`; smooth, gradient-shaded art
@@ -350,17 +354,19 @@ Three things bind it:
   placeholder — the same "always degrades to a placeholder" floor as every other
   resource.
 
-### 5.6 Native animation strips — `assets.effects`, and the object forms
+### 5.6 Native animation strips — shared and per-file sources
 
 Horizontal animation strips are the engine's native art format (`docs/assets.md`
-§1.4). Three surfaces carry them, and **all three are warn-only reskin material**:
-a mismatched or absent native sheet warns and falls back to the procedural floor,
-exactly as a legacy sheet does. Native art never escalates a run to content — the
-*spec* that names a strip is content, the *pixels* are not. Baked colour lives in
-a named variant, never on a floor cell content tints onto.
+§1.4). Bullets, ships, effects, lasers, missiles and pickups carry them, and all
+are warn-only reskin material: a mismatched or absent native sheet warns and
+falls back to the procedural floor, exactly as a legacy sheet does. Native art
+never escalates a run to content — the *spec* that names a strip is content, the
+*pixels* are not. Baked colour lives in a named variant, never on a floor cell
+content tints onto.
 
-**`assets.effects`** — per-file animation strips, a map of strip name → strip.
-Each is its own PNG of frames laid out horizontally, frame 0 leftmost:
+**`assets.effects` / `assets.lasers` / `assets.missiles` /
+`assets.pickups`** — four independent maps of strip name → strip. A strip may use
+its own tightly packed PNG (the legacy form):
 
 ```json
 "assets": {
@@ -375,6 +381,34 @@ Each is its own PNG of frames laid out horizontally, frame 0 leftmost:
 and `color` (default `tinted`) optional. A tinted strip is white and obeys the
 saturation gate; a baked strip declares its colour and skips it.
 
+Every ordinary strip clears two transparent pixels on both frame axes. A
+registered laser **body** is the one closed exception: it may and should fill
+its longitudinal +x axis, because that edge is a beam join rather than an atlas
+seam; it must still clear the cross-axis margin. Laser caps and unknown/new laser
+names use the ordinary two-axis rule. When `contentH` is present, the renderer
+uses it to keep the visible beam band at the skin's authored thickness despite
+that retained cross-axis padding.
+
+For a prepacked category atlas, several entries name the same `src` and add an
+explicit frame-0 origin plus stride:
+
+```json
+"effects": {
+  "burst": { "src": "explosions.png", "x": 0, "y": 0, "stride": 72,
+             "frames": 8, "frameW": 64, "frameH": 64, "mode": "once" },
+  "spiral": { "src": "explosions.png", "x": 576, "y": 0, "stride": 56,
+              "frames": 6, "frameW": 48, "frameH": 48, "mode": "loop", "color": "baked" }
+}
+```
+
+`x` and `y` default to 0; `stride` defaults to `frameW`. If all three are
+omitted, the source must be exactly `frames × frameW` by `frameH`. If any
+placement field is present, the source may be shared and only the declared
+rectangle must fit. The loader fetches, decodes and hashes each unique source
+URL once even when many strips refer to it. The four maps remain separate
+texture namespaces and fallback domains; sharing a file inside one map does not
+merge effects, lasers, missiles and pickups into a mega-atlas.
+
 **`assets.bullets: { sheet, strips }`** — the whole bullet atlas as native strips
 on **one shared PNG** (bullets are the hot path — 500+ a tick through one batch,
 so one texture). Each strip is placed with explicit `x/y` (offsets, non-negative
@@ -385,7 +419,9 @@ must define a strip for every one of the sixteen floor cells; it may add pack-ne
 variant names.
 
 **`assets.ship: { src, frameW, frameH, … }`** — a native strip bank in one file
-(no `x/y`), drawn at frame 0 this round (bank-by-input is a later round).
+(no `x/y`). It draws frame 0 unless `banking: "five-way"` explicitly gives its
+five frames the ordered pose semantics above. Merely having multiple frames does
+not turn an animation into banking.
 
 **Three-tier naming and resolution:**
 
@@ -495,16 +531,23 @@ the split is not cosmetic, since the grid's frame 0 sits at `x:0, y:0`.
 | `stride < frameW` | `assets.ship.stride <n> must be at least frameW <m>` |
 | `mode` not `"loop"`/`"once"` | `assets.ship.mode must be "loop" or "once"` |
 | `color` not `"tinted"`/`"baked"` | `assets.ship.color must be "tinted" or "baked"` |
+| `banking` not `"five-way"` | `assets.ship.banking must be "five-way"` |
+| five-way bank without 5 frames | `assets.ship.banking "five-way" requires frames 5` |
 
-**`assets.effects`** (per-file strips, §5.6):
+**`assets.effects` / `assets.lasers` / `assets.missiles` /
+`assets.pickups`** (same `PackStrip` grammar, §5.6; messages use the actual
+section name):
 
 | Condition | Message |
 |---|---|
-| `effects` not an object | `assets.effects must be a JSON object` |
+| section not an object | `assets.effects must be a JSON object` |
 | A strip not an object | `assets.effects.<strip> must be a JSON object` |
 | `src` not a string | `assets.effects.<strip>.src must be a string (a path to a PNG)` |
+| `x`/`y` not a non-negative integer | `assets.effects.<strip>.<field> must be a non-negative integer` |
+| `frames`/`frameW`/`frameH`/`stride`/`ticksPerFrame` not a positive integer | `assets.effects.<strip>.<field> must be a positive integer` |
+| `stride < frameW` | `assets.effects.<strip>.stride <n> must be at least frameW <m>` |
 | `mode` not `"loop"`/`"once"` | `assets.effects.<strip>.mode must be "loop" or "once"` |
-| `frames`/`frameW`/`frameH`/`ticksPerFrame` not a positive integer | `assets.effects.<strip>.frames must be a positive integer` (per field) |
+| `color` not `"tinted"`/`"baked"` | `assets.effects.<strip>.color must be "tinted" or "baked"` |
 
 ### 6.4 `sounds`
 
@@ -601,12 +644,18 @@ skips it):
   `pack "<name>": <path>: self-describing bullet sheet is missing floor cell "<cell>" — a strips sheet is the whole bullet atlas and must define every one of the 16 built-in cells (plus any new variants)`
 - A floor cell declared baked (a **warning**, not a rejection — it falls back to tinted):
   `pack "<name>": <path>: floor cell "<cell>" is declared color: "baked" — a floor cell is drawn with the per-instance tint content applies to it, which a baked colour fights; ship baked colour as a qualified variant instead`
-- A bullet strip running off the shared sheet:
-  `pack "<name>": <path>: strip "<strip>" runs to <x+frames*stride>×<y+frameH>, past the <w>×<h> sheet (<frames> frames of <frameW>×<frameH> at <x>,<y>)`
-- An own-file strip (ship bank or fx) the wrong size:
+- A strip running off a shared sheet (the right edge is
+  `x + (frames - 1) × stride + frameW`, not `x + frames × stride`):
+  `pack "<name>": <path>: strip "<strip>" runs to <right>×<y+frameH>, past the <w>×<h> sheet (<frames> frames of <frameW>×<frameH> at <x>,<y>)`
+- An own-file strip (ship bank, or a strip with no explicit placement) the wrong size:
   `pack "<name>": <path>: strip "<strip>" sheet is <w>×<h>, expected <frames·frameW>×<frameH> (<frames> frames of <frameW>×<frameH>)`
 - A strip frame paints past its margin:
-  `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>×<ey>px, over the <frameW-2*PAD>px limit — a frame must clear 2px of margin or it bleeds into the next frame`
+  `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>×<ey>px, over the <frameW-2*PAD>×<frameH-2*PAD>px limit — a frame must clear 2px of margin on both axes or it bleeds into the next frame`
+- A registered laser body paints past its **cross-axis** margin (its +x limit is
+  `frameW`, deliberately):
+  `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>×<ey>px, over the <frameW>×<frameH-2*PAD>px limit — a registered laser body may fill its +x axis, but must clear 2px of cross-axis margin`
+- A registered laser body leaves a longitudinal gap:
+  `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>px on +x, expected full frameW <frameW>px — a registered laser body must meet muzzle/tip and adjacent tiles`
 - A tinted strip is not white:
   `pack "<name>": <path>: strip "<strip>" has mean saturation <n>, over 0.15 — a tinted strip is white and colour is the engine's tint (declare color: "baked" for coloured art)`
 
@@ -687,14 +736,23 @@ Keep them ≤ 16×16.
 
 ## 8. Multiple packs, layering, and the boot report
 
-All discovered packs load, in the order `index.json` lists them (the dev server
-sorts directory names). Layering is **per resource, last wins**: if two packs
-both supply `assets.bullets`, the later one's sheet is used and the override is
+When no explicit query is present and neither `v4` nor local `bulletpack` is discovered, all
+discovered packs load in the order `index.json` lists them (the dev server sorts
+directory names). Layering is **per resource, last wins**: if two packs both
+supply `assets.bullets`, the later one's sheet is used and the override is
 logged. A pack that supplies only sounds and a pack that supplies only a ship
 compose cleanly — each wins the slots it declares.
 
 `?pack=<name>` in the URL narrows to a single pack, ignoring the rest. This is
 how you check one pack in isolation.
+
+This build treats a discovered project-owned `v4` as the default art pack. If it
+is absent, purchaser-local `bulletpack` is the fallback, so the alphabetical
+`example` folder cannot silently replace either art direction on the plain URL.
+An explicit `?pack=<name>` still wins — use `?pack=example` to inspect the
+example and `?pack=bulletpack` to audit the purchased reference. The original
+BulletPack source and its generated pack remain gitignored because purchase
+authorizes use, not redistribution of the source sprite sheets.
 
 Every boot prints a **boot report** to the console — which pack won each slot,
 what overrode what, what failed, and the replay-meta hash. It looks like:

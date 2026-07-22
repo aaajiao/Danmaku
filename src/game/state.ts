@@ -54,6 +54,17 @@ export interface StateView {
   /** Index into `menu`. */
   readonly selected?: number;
   /**
+   * Fixed-tick age of a presentation state.  Used only for deterministic UI
+   * animation (cursor pulse, result coins); it never enters a Run or replay.
+   */
+  readonly age?: number;
+  /**
+   * Character registry name selected by a roster view. A string across the
+   * boundary; the game layer never learns whether it resolves to a sprite,
+   * portrait or neither.
+   */
+  readonly character?: string;
+  /**
    * Icon-and-count rows for a results card (the ending screens' coin tally).
    * `sprite` is a STRING the renderer resolves to a pickup-atlas cell — the same
    * name-across-the-boundary rule `StageSpec.background` follows, so `state.ts`

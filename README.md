@@ -67,6 +67,10 @@ no GL context. `src/architecture.test.ts` enforces it.
   generation guide.
 - [`docs/extending.md`](./docs/extending.md) — adding bullets, patterns, motion
   behaviours, art and 3D content.
+- [`docs/v4-art-direction.md`](./docs/v4-art-direction.md) — the illustrated v4
+  source of truth: Japanese STG negative space, Ghost-layer women, the
+  project-owned projectile/UI package, four unchanged background shaders and
+  BulletPack as a purchaser-local compatibility reference.
 
 ## The one thing to know
 

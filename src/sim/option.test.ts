@@ -190,6 +190,10 @@ describe('layout', () => {
     // One chase step of 2px from the ship, not a pop straight to the slot.
     expect(system.options[0]?.x).toBe(238);
     expect(system.options[0]?.y).toBe(400);
+    expect(system.options[0]?.age).toBe(0);
+
+    system.step(240, 400, false, 1, false, 1, bullets);
+    expect(system.options[0]?.age).toBe(1);
   });
 });
 

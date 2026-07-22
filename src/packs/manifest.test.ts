@@ -467,6 +467,16 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
       expect(accepts(ship({ frames: 5, mode: 'once', color: 'baked' }))).toBe(true);
     });
 
+    test('five-way banking is explicit and requires exactly five poses', () => {
+      expect(accepts(ship({ frames: 5, banking: 'five-way' }))).toBe(true);
+      expect(errorsOf(ship({ frames: 4, banking: 'five-way' }))).toContain(
+        'pack "candy": pack.json: assets.ship.banking "five-way" requires frames 5',
+      );
+      expect(errorsOf(ship({ frames: 5, banking: 'wobble' }))).toContain(
+        'pack "candy": pack.json: assets.ship.banking must be "five-way"',
+      );
+    });
+
     test('contentW/contentH are accepted on a ship strip', () => {
       expect(accepts(ship({ contentW: 30, contentH: 30 }))).toBe(true);
     });
@@ -502,6 +512,77 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
           }),
         ),
       ).toBe(true);
+    });
+
+    test('explicit x/y/stride allow several strips to share one PNG', () => {
+      expect(
+        accepts(
+          fx({
+            burst: {
+              src: 'fx-atlas.png',
+              x: 12,
+              y: 20,
+              stride: 72,
+              frames: 8,
+              frameW: 64,
+              frameH: 64,
+              mode: 'once',
+            },
+            pulse: {
+              src: 'fx-atlas.png',
+              x: 600,
+              y: 4,
+              stride: 40,
+              frames: 4,
+              frameW: 32,
+              frameH: 24,
+              mode: 'loop',
+            },
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    test('shared-strip offsets and stride use the offset/count grammars', () => {
+      const errs = errorsOf(
+        fx({
+          blast: {
+            src: 'fx-atlas.png',
+            x: -1,
+            y: 1.5,
+            stride: 0,
+            frames: 8,
+            frameW: 64,
+            frameH: 64,
+            mode: 'once',
+          },
+        }),
+      );
+      expect(errs).toContain('pack "candy": pack.json: assets.effects.blast.x must be a non-negative integer');
+      expect(errs).toContain('pack "candy": pack.json: assets.effects.blast.y must be a non-negative integer');
+      expect(errs).toContain('pack "candy": pack.json: assets.effects.blast.stride must be a positive integer');
+      expect(errs).toContain(
+        'pack "candy": pack.json: assets.effects.blast.stride 0 must be at least frameW 64',
+      );
+    });
+
+    test('shared-strip stride may not overlap the preceding frame', () => {
+      expect(
+        errorsOf(
+          fx({
+            blast: {
+              src: 'fx-atlas.png',
+              x: 0,
+              y: 0,
+              stride: 60,
+              frames: 8,
+              frameW: 64,
+              frameH: 64,
+              mode: 'once',
+            },
+          }),
+        ),
+      ).toContain('pack "candy": pack.json: assets.effects.blast.stride 60 must be at least frameW 64');
     });
 
     test('contentW/contentH are accepted on an effect strip (shared PackStrip fields)', () => {
@@ -546,7 +627,7 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
     });
   });
 
-  describe('lasers (per-file strips, the effects twin)', () => {
+  describe('lasers (legacy-own-file/shared-source strips, the effects twin)', () => {
     const lz = (strips: Record<string, unknown>) => ({ ...valid(), assets: { lasers: strips } });
 
     test('a valid laser strip passes, baked', () => {
@@ -568,7 +649,7 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
     });
   });
 
-  describe('missiles (per-file body strips, the lasers twin)', () => {
+  describe('missiles (legacy-own-file/shared-source body strips, the lasers twin)', () => {
     const ms = (strips: Record<string, unknown>) => ({ ...valid(), assets: { missiles: strips } });
 
     test('a valid missile body strip passes, baked', () => {

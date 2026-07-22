@@ -83,6 +83,15 @@ export interface Strip {
    */
   displayW?: number;
   displayH?: number;
+  /**
+   * Measured painted bounds inside one native frame. Pack seams retain these
+   * beside `displayW/H` so presentation geometry can prove that transparent
+   * padding has not made a lethal circle/capsule larger than the pixels that
+   * announce it. Laser bodies use `contentH` for their cross-axis correction;
+   * ordinary strips may use both axes for the same collision-visibility guard.
+   */
+  contentW?: number;
+  contentH?: number;
 }
 
 // A pivot field lived here and was never read — SpriteBatch always centres the

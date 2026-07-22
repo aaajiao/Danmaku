@@ -519,6 +519,21 @@ export function displaySize(
 }
 
 /**
+ * Quad height for a native laser body whose frame retains transparent padding
+ * only on the cross axis. `authoredThickness` describes visible beam paint, not
+ * the padded texture box, so expand by `frameH / contentH`. Missing/invalid
+ * metadata is the byte-identical procedural and legacy fallback.
+ */
+export function laserBodyDisplayThickness(
+  authoredThickness: number,
+  frameH: number,
+  contentH: number | undefined,
+): number {
+  if (contentH === undefined || contentH <= 0) return authoredThickness;
+  return authoredThickness * frameH / contentH;
+}
+
+/**
  * `engineContent(N)` for the bullet seam: a floor cell reads its own `CELL_ART`
  * content box; a family variant reads its base cell's (`BULLET_VARIANTS[N]` →
  * `CELL_ART`); a genuinely pack-new name has no engine sibling and yields
@@ -642,6 +657,8 @@ export interface ShipStripInput {
   /** Un-margined painted content bound, px — the Law of Geometry seam input. */
   contentW?: number;
   contentH?: number;
+  /** Explicit frame semantics; absent strips remain locked to frame 0. */
+  banking?: 'five-way';
 }
 
 /**
@@ -718,6 +735,8 @@ async function nativeBulletAtlas(url: string, sheet: BulletSheetInput): Promise<
       ticksPerFrame: s.ticksPerFrame ?? 1,
       mode: s.mode ?? 'once',
       color: s.color ?? 'tinted',
+      contentW: s.contentW,
+      contentH: s.contentH,
       ...disp,
     });
   }
@@ -798,9 +817,9 @@ export async function shipAtlas(url?: string, strip?: ShipStripInput): Promise<A
     const { width, height } = texture.image as { width: number; height: number };
     const atlas = new Atlas(texture, width, height);
     // A native strip bank: the `ship` region is `defineStrip`ed at native size
-    // and frame geometry. The engine draws frame 0 (idle) this round via the
-    // back-compat `strip(name)`→frame-0 path; bank-by-input is deferred to the
-    // input/laser round (no run-relative `viewTick` yet — see the amendment §6).
+    // and frame geometry. Frame semantics stay on `ShipStripInput`, where the
+    // shell can select five-way banking only when the pack explicitly declares
+    // it; every older/arbitrary strip remains frame 0.
     // Law of Geometry: land the ship silhouette at the engine's `SHIP_SIZE` cell.
     // Absent `contentW` (this stage) → `{}` → native size. The ship native branch
     // is itself latent (drawn frame 0 via the back-compat path), so this only
@@ -1311,21 +1330,81 @@ function defineFxStrips(atlas: Atlas): void {
 /**
  * A pack's `assets.effects` strip, resolved: the winning file's URL plus the
  * geometry the manifest declared. The structural twin of the manifest's
- * `PackStrip`, redeclared here so `render/` need not import `packs/`. Each strip
- * is its OWN file (frames laid horizontally, frame 0 leftmost — no x/y), unlike a
- * bullet sheet's packed strips, which is why fx are composited from many files.
+ * `PackStrip`, redeclared here so `render/` need not import `packs/`. Legacy
+ * inputs are one tightly packed file per strip; explicit x/y/stride may instead
+ * crop many independently named strips out of one shared source PNG.
  */
-export interface EffectStripInput {
-  url: string;
+export interface PackedStripSource {
+  /** Frame 0 origin on the source PNG; both default to 0. */
+  x?: number;
+  y?: number;
+  /** Source pixels between frame origins; defaults to `frameW`. */
+  stride?: number;
   frames: number;
   frameW: number;
   frameH: number;
+}
+
+export interface EffectStripInput extends PackedStripSource {
+  url: string;
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
   /** Un-margined painted content bound, px — the Law of Geometry seam input. */
   contentW?: number;
   contentH?: number;
+}
+
+/** PackStrip's one colour default, shared by all four composite surfaces. */
+export function packedStripColor(color?: StripColor): StripColor {
+  return color ?? 'tinted';
+}
+
+/** A source placement retained by a composited output row. */
+interface PackRowSource {
+  x: number;
+  y: number;
+  stride: number;
+}
+
+/**
+ * Blit one source strip into a tightly packed destination row. The nine-argument
+ * `drawImage` is intentional: drawing the whole source image would leak every
+ * neighbouring strip when several winner slots share one PNG.
+ */
+export function blitPackedStripFrames(
+  ctx: Pick<CanvasRenderingContext2D, 'drawImage'>,
+  image: CanvasImageSource,
+  strip: PackedStripSource,
+  destinationY: number,
+): void {
+  const sourceX = strip.x ?? 0;
+  const sourceY = strip.y ?? 0;
+  const sourceStride = strip.stride ?? strip.frameW;
+  for (let frame = 0; frame < strip.frames; frame++) {
+    ctx.drawImage(
+      image,
+      sourceX + frame * sourceStride,
+      sourceY,
+      strip.frameW,
+      strip.frameH,
+      frame * strip.frameW,
+      destinationY,
+      strip.frameW,
+      strip.frameH,
+    );
+  }
+}
+
+/** A composite-local source cache: shared rows decode once, then sources can GC. */
+type PackedStripImages = Map<string, Promise<CanvasImageSource>>;
+
+function packedStripImage(url: string, images: PackedStripImages): Promise<CanvasImageSource> {
+  const cached = images.get(url);
+  if (cached !== undefined) return cached;
+  const loaded = loadTexture(url).then((texture) => texture.image as CanvasImageSource);
+  images.set(url, loaded);
+  return loaded;
 }
 
 /**
@@ -1337,9 +1416,9 @@ export interface EffectStripInput {
  *   `pulse` at their native sizes.
  * - `effectAtlas(url)` — one combined `FX_SHEET_W`×`FX_SHEET_H` sheet loaded and
  *   dimension-checked (the direct-import seam), naming both figures on a mismatch.
- * - `effectAtlas(undefined, packStrips)` — a pack's per-file `assets.effects`
- *   reskin. Because each pack strip is its OWN file but the fx atlas is one texture
- *   / one batch (the same single-texture rule bullets follow), the strips are
+ * - `effectAtlas(undefined, packStrips)` — a pack's `assets.effects` reskin.
+ *   Source strips may be own-file or share a placed PNG; the fx atlas is one
+ *   texture / one batch (the same single-texture rule bullets follow), so they are
  *   COMPOSITED onto one shared canvas: a floor name the pack reskins takes the
  *   pack's native (baked, animated) pixels, a floor name it leaves alone is
  *   painted procedurally, and any pack-new name is blitted too. So `burst`,
@@ -1379,34 +1458,36 @@ interface FxRow {
   /** A procedural painter (floor strip left un-reskinned), else a loaded image. */
   paint?: StripDraw;
   image?: CanvasImageSource;
+  source?: PackRowSource;
   /** Law of Geometry display size, filled only for a reskinned floor row. */
   disp?: { displayW?: number; displayH?: number };
 }
 
-/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
-async function packFxRow(name: string, s: EffectStripInput): Promise<FxRow> {
-  const texture = await loadTexture(s.url);
+/** Resolve a pack strip's source placement to a tightly packed output row. */
+async function packFxRow(name: string, s: EffectStripInput, images: PackedStripImages): Promise<FxRow> {
   return {
     name,
     frameW: s.frameW,
     frameH: s.frameH,
     frames: s.frames,
-    stride: s.frameW, // a per-file strip lays its frames at frameW spacing
+    stride: s.frameW, // output rows are repacked tightly regardless of source stride
     ticksPerFrame: s.ticksPerFrame ?? 1,
     mode: s.mode ?? 'once',
-    color: s.color ?? 'tinted',
-    image: texture.image as CanvasImageSource,
+    color: packedStripColor(s.color),
+    image: await packedStripImage(s.url, images),
+    source: { x: s.x ?? 0, y: s.y ?? 0, stride: s.stride ?? s.frameW },
   };
 }
 
 /**
- * Composite a pack's per-file `assets.effects` strips onto one shared fx texture,
+ * Composite a pack's `assets.effects` strips onto one shared fx texture,
  * so the fx atlas stays a single texture / single batch. Floor names the pack did
  * not reskin are painted procedurally; the pack's files are blitted at their
  * native size; every strip lands on its own row, frames laid horizontally.
  */
 async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): Promise<Atlas> {
   const rows: FxRow[] = [];
+  const images: PackedStripImages = new Map();
 
   // Floor names first (procedural unless the pack reskinned them), in the floor's
   // own order, so `burst`/`burst.big`/`pulse` always resolve on the result.
@@ -1415,7 +1496,7 @@ async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): 
     if (over) {
       // Law of Geometry: land the pack's painted content at the floor strip's
       // engine content (its per-frame union). Absent `contentW` → `{}` → native.
-      const row = await packFxRow(name, over);
+      const row = await packFxRow(name, over, images);
       row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
       rows.push(row);
     } else {
@@ -1438,7 +1519,7 @@ async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): 
   for (const name of Object.keys(packStrips)) {
     if (name in FX_STRIPS) continue;
     const s = packStrips[name];
-    if (s !== undefined) rows.push(await packFxRow(name, s));
+    if (s !== undefined) rows.push(await packFxRow(name, s, images));
   }
 
   // Lay every strip on its own row; sheet width is the widest row.
@@ -1455,8 +1536,20 @@ async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): 
   const { el, ctx } = canvas(sheetW, sheetH);
   rows.forEach((row, i) => {
     const y = rowY[i] ?? 0;
-    if (row.image) {
-      ctx.drawImage(row.image, 0, y);
+    if (row.image && row.source) {
+      blitPackedStripFrames(
+        ctx,
+        row.image,
+        {
+          x: row.source.x,
+          y: row.source.y,
+          stride: row.source.stride,
+          frames: row.frames,
+          frameW: row.frameW,
+          frameH: row.frameH,
+        },
+        y,
+      );
     } else if (row.paint) {
       for (let f = 0; f < row.frames; f++) {
         row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
@@ -1681,21 +1774,18 @@ export function createLaserAtlas(): Atlas {
 
 /**
  * A pack's `assets.lasers` strip, resolved: the winning file's URL plus the
- * geometry the manifest declared. The structural twin of the fx `EffectStripInput`
- * (one file per strip, frames laid horizontally, frame 0 leftmost — no x/y),
- * redeclared here so `render/` need not import `packs/`. Baked native art, so
- * `color` defaults `'baked'` — the reskin path, the saturation gate skipped.
+ * geometry the manifest declared. The structural twin of the fx
+ * `EffectStripInput` (legacy own-file or explicitly placed on a shared PNG),
+ * redeclared here so `render/` need not import `packs/`. `color` defaults
+ * `'tinted'`, matching PackStrip validation; baked native art opts in explicitly.
  */
-export interface LaserStripInput {
+export interface LaserStripInput extends PackedStripSource {
   url: string;
-  frames: number;
-  frameW: number;
-  frameH: number;
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
-  /** Un-margined painted content bound, px — the Law of Geometry seam input
-   *  (consumed only by the CAP; the body is excluded, thickness+length driven). */
+  /** Un-margined painted content bound, px — caps use both axes for their
+   *  display size; bodies carry `contentH` through to correct padded thickness. */
   contentW?: number;
   contentH?: number;
 }
@@ -1709,7 +1799,7 @@ export interface LaserStripInput {
  *   and dimension-checked, the direct-import seam, naming both figures on a
  *   mismatch (the point `bulletAtlas`/`effectAtlas` make: a wrong-sized sheet
  *   silently repoints every strip at a crop of the wrong shape).
- * - `laserAtlas(undefined, packStrips)` — a pack's per-file `assets.lasers`
+ * - `laserAtlas(undefined, packStrips)` — a pack's `assets.lasers`
  *   reskin, composited onto one shared texture (one batch is one texture): a
  *   strip the pack reskins takes its baked pixels, a strip it leaves alone is
  *   painted procedurally, and any pack-new name is blitted too — so every base
@@ -1746,13 +1836,15 @@ interface LaserRow {
   color: StripColor;
   paint?: StripDraw;
   image?: CanvasImageSource;
+  source?: PackRowSource;
   /** Law of Geometry display size, filled only for a reskinned CAP row. */
   disp?: { displayW?: number; displayH?: number };
+  /** Native painted height, retained for BODY cross-axis compensation. */
+  contentH?: number;
 }
 
-/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
-async function packLaserRow(name: string, s: LaserStripInput): Promise<LaserRow> {
-  const texture = await loadTexture(s.url);
+/** Resolve a pack strip's source placement to a tightly packed output row. */
+async function packLaserRow(name: string, s: LaserStripInput, images: PackedStripImages): Promise<LaserRow> {
   return {
     name,
     frameW: s.frameW,
@@ -1761,29 +1853,33 @@ async function packLaserRow(name: string, s: LaserStripInput): Promise<LaserRow>
     stride: s.frameW,
     ticksPerFrame: s.ticksPerFrame ?? 1,
     mode: s.mode ?? 'loop',
-    color: s.color ?? 'baked',
-    image: texture.image as CanvasImageSource,
+    color: packedStripColor(s.color),
+    contentH: s.contentH,
+    image: await packedStripImage(s.url, images),
+    source: { x: s.x ?? 0, y: s.y ?? 0, stride: s.stride ?? s.frameW },
   };
 }
 
 /**
- * Composite a pack's per-file `assets.lasers` strips onto one shared laser
+ * Composite a pack's `assets.lasers` strips onto one shared laser
  * texture, so the laser atlas stays a single texture / two batches. Floor names
  * the pack did not reskin are painted procedurally; the pack's files are blitted
  * at their native size; every strip lands on its own row, frames horizontal.
  */
 async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Promise<Atlas> {
   const rows: LaserRow[] = [];
+  const images: PackedStripImages = new Map();
 
   // Floor names first (procedural unless reskinned), in the floor's own order,
   // so every base skin's body/cap always resolves on the result.
   for (const [name, s] of Object.entries(LASER_STRIPS)) {
     const over = packStrips[name];
     if (over) {
-      // Law of Geometry: the CAP adopts a display size (its per-frame union); the
-      // BODY is EXCLUDED — it already obeys the invariant (skin.thickness + sim
-      // length never let native pixels reach the quad). Absent `contentW` → native.
-      const row = await packLaserRow(name, over);
+      // Law of Geometry: the CAP adopts a display size from its per-frame union.
+      // A BODY retains its cross-axis pad and carries `contentH` on the Strip;
+      // main expands the quad so the PAINT, not the padded frame, reaches the
+      // skin's authored thickness. Absent metadata remains native-size.
+      const row = await packLaserRow(name, over, images);
       if (s.role === 'cap') {
         row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
       }
@@ -1807,7 +1903,7 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
   for (const name of Object.keys(packStrips)) {
     if (name in LASER_STRIPS) continue;
     const s = packStrips[name];
-    if (s !== undefined) rows.push(await packLaserRow(name, s));
+    if (s !== undefined) rows.push(await packLaserRow(name, s, images));
   }
 
   const rowY: number[] = [];
@@ -1823,8 +1919,20 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
   const { el, ctx } = canvas(sheetW, sheetH);
   rows.forEach((row, i) => {
     const y = rowY[i] ?? 0;
-    if (row.image) {
-      ctx.drawImage(row.image, 0, y);
+    if (row.image && row.source) {
+      blitPackedStripFrames(
+        ctx,
+        row.image,
+        {
+          x: row.source.x,
+          y: row.source.y,
+          stride: row.source.stride,
+          frames: row.frames,
+          frameW: row.frameW,
+          frameH: row.frameH,
+        },
+        y,
+      );
     } else if (row.paint) {
       for (let f = 0; f < row.frames; f++) {
         row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
@@ -1853,6 +1961,7 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
       ticksPerFrame: row.ticksPerFrame,
       mode: row.mode,
       color: row.color,
+      contentH: row.contentH,
       ...(row.disp ?? {}),
     });
   });
@@ -1874,8 +1983,8 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
  * This floor is the never-blocked half: a placeholder body for every strip a
  * base missile spec names, so the game draws a homing writ with zero assets, and
  * a BulletPack reskin later swaps the pixels through `missileAtlas(url)` — the
- * `url` branch is here now, the pack-per-file `assets.missiles` composite is the
- * import round's (design §g.5).
+ * `url` branch is here now; the legacy-own-file/shared-source
+ * `assets.missiles` composite is the import round's (design §g.5).
  *
  * Every strip is `tinted` (rule 9): a warm boss missile is coloured by the
  * content tint until baked pixels load. Bodies are painted **nose-EAST (+x)**
@@ -2149,16 +2258,13 @@ export function createMissileAtlas(): Atlas {
 
 /**
  * A pack's `assets.missiles` strip, resolved: the winning file's URL plus the
- * geometry the manifest declared. The structural twin of the laser `LaserStripInput`
- * (one file per strip, frames laid horizontally, frame 0 leftmost — no x/y),
- * redeclared here so `render/` need not import `packs/`. Baked native art, so
- * `color` defaults `'baked'` — the reskin path, the saturation gate skipped.
+ * geometry the manifest declared. The structural twin of the laser
+ * `LaserStripInput` (legacy own-file or explicitly placed on a shared PNG),
+ * redeclared here so `render/` need not import `packs/`. `color` defaults
+ * `'tinted'`, matching PackStrip validation; baked native art opts in explicitly.
  */
-export interface MissileStripInput {
+export interface MissileStripInput extends PackedStripSource {
   url: string;
-  frames: number;
-  frameW: number;
-  frameH: number;
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
@@ -2176,7 +2282,7 @@ export interface MissileStripInput {
  *   loaded and dimension-checked (the direct-import seam), naming both figures on
  *   a mismatch (the point `bulletAtlas`/`laserAtlas` make: a wrong-sized sheet
  *   silently repoints every strip at a crop of the wrong shape).
- * - `missileAtlas(undefined, packStrips)` — a pack's per-file `assets.missiles`
+ * - `missileAtlas(undefined, packStrips)` — a pack's `assets.missiles`
  *   reskin, composited onto one shared texture (one batch is one texture): a body
  *   strip the pack reskins takes its baked pixels, a strip it leaves alone is
  *   painted procedurally, and any pack-new name is blitted too — so every base
@@ -2214,13 +2320,16 @@ interface MissileRow {
   color: StripColor;
   paint?: StripDraw;
   image?: CanvasImageSource;
+  source?: PackRowSource;
   /** Law of Geometry display size, filled only for a reskinned floor row. */
   disp?: { displayW?: number; displayH?: number };
+  /** Measured native paint, retained for the collision-visibility guard. */
+  contentW?: number;
+  contentH?: number;
 }
 
-/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
-async function packMissileRow(name: string, s: MissileStripInput): Promise<MissileRow> {
-  const texture = await loadTexture(s.url);
+/** Resolve a pack strip's source placement to a tightly packed output row. */
+async function packMissileRow(name: string, s: MissileStripInput, images: PackedStripImages): Promise<MissileRow> {
   return {
     name,
     frameW: s.frameW,
@@ -2229,13 +2338,16 @@ async function packMissileRow(name: string, s: MissileStripInput): Promise<Missi
     stride: s.frameW,
     ticksPerFrame: s.ticksPerFrame ?? 1,
     mode: s.mode ?? 'loop',
-    color: s.color ?? 'baked',
-    image: texture.image as CanvasImageSource,
+    color: packedStripColor(s.color),
+    contentW: s.contentW,
+    contentH: s.contentH,
+    image: await packedStripImage(s.url, images),
+    source: { x: s.x ?? 0, y: s.y ?? 0, stride: s.stride ?? s.frameW },
   };
 }
 
 /**
- * Composite a pack's per-file `assets.missiles` strips onto one shared missile
+ * Composite a pack's `assets.missiles` strips onto one shared missile
  * texture, so the missile atlas stays a single texture / single batch. Floor names
  * the pack did not reskin are painted procedurally; the pack's files are blitted
  * at their native size; every strip lands on its own row, frames horizontal — the
@@ -2243,6 +2355,7 @@ async function packMissileRow(name: string, s: MissileStripInput): Promise<Missi
  */
 async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>): Promise<Atlas> {
   const rows: MissileRow[] = [];
+  const images: PackedStripImages = new Map();
 
   // Floor names first (procedural unless reskinned), in the floor's own order,
   // so every base missile body always resolves on the result.
@@ -2251,7 +2364,7 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
     if (over) {
       // Law of Geometry: land the pack's painted body at the floor body's engine
       // content (its per-frame union). Absent `contentW` → `{}` → native size.
-      const row = await packMissileRow(name, over);
+      const row = await packMissileRow(name, over, images);
       row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
       rows.push(row);
     } else {
@@ -2273,7 +2386,7 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
   for (const name of Object.keys(packStrips)) {
     if (name in MISSILE_STRIPS) continue;
     const s = packStrips[name];
-    if (s !== undefined) rows.push(await packMissileRow(name, s));
+    if (s !== undefined) rows.push(await packMissileRow(name, s, images));
   }
 
   const rowY: number[] = [];
@@ -2289,8 +2402,20 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
   const { el, ctx } = canvas(sheetW, sheetH);
   rows.forEach((row, i) => {
     const y = rowY[i] ?? 0;
-    if (row.image) {
-      ctx.drawImage(row.image, 0, y);
+    if (row.image && row.source) {
+      blitPackedStripFrames(
+        ctx,
+        row.image,
+        {
+          x: row.source.x,
+          y: row.source.y,
+          stride: row.source.stride,
+          frames: row.frames,
+          frameW: row.frameW,
+          frameH: row.frameH,
+        },
+        y,
+      );
     } else if (row.paint) {
       for (let f = 0; f < row.frames; f++) {
         row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
@@ -2319,6 +2444,8 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
       ticksPerFrame: row.ticksPerFrame,
       mode: row.mode,
       color: row.color,
+      contentW: row.contentW,
+      contentH: row.contentH,
       ...(row.disp ?? {}),
     });
   });
@@ -2340,8 +2467,9 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
  * This floor is the never-blocked half: a placeholder coin/gem/bar for every
  * skin a base item names, so the game draws a shining drop with zero assets, and
  * a BulletPack reskin later swaps the pixels through
- * `pickupAtlas(undefined, packStrips)` — the pack-per-file `assets.pickups`
- * composite is the import round's, symmetric to `assets.missiles`.
+ * `pickupAtlas(undefined, packStrips)` — the legacy-own-file/shared-source
+ * `assets.pickups` composite is the import round's, symmetric to
+ * `assets.missiles`.
  *
  * Every strip is `tinted` (rule 9): a gold coin is coloured by the content tint
  * until baked pixels load, so one greyscale sheet serves every denomination and
@@ -2571,16 +2699,13 @@ export function createPickupAtlas(): Atlas {
 /**
  * A pack's `assets.pickups` strip, resolved: the winning file's URL plus the
  * geometry the manifest declared. The structural twin of the missile
- * `MissileStripInput` (one file per strip, frames laid horizontally, frame 0
- * leftmost — no x/y), redeclared here so `render/` need not import `packs/`.
- * Baked native art, so `color` defaults `'baked'` — the reskin path, the
- * saturation gate skipped.
+ * `MissileStripInput` (legacy own-file or explicitly placed on a shared PNG),
+ * redeclared here so `render/` need not import `packs/`.
+ * `color` defaults `'tinted'`, matching PackStrip validation; baked native art
+ * opts in explicitly and skips the saturation gate.
  */
-export interface PickupStripInput {
+export interface PickupStripInput extends PackedStripSource {
   url: string;
-  frames: number;
-  frameW: number;
-  frameH: number;
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
@@ -2598,7 +2723,7 @@ export interface PickupStripInput {
  *   loaded and dimension-checked (the direct-import seam), naming both figures on
  *   a mismatch (the point `bulletAtlas`/`missileAtlas` make: a wrong-sized sheet
  *   silently repoints every strip at a crop of the wrong shape).
- * - `pickupAtlas(undefined, packStrips)` — a pack's per-file `assets.pickups`
+ * - `pickupAtlas(undefined, packStrips)` — a pack's `assets.pickups`
  *   reskin, composited onto one shared texture (one batch is one texture): a coin
  *   strip the pack reskins takes its baked pixels, a strip it leaves alone is
  *   painted procedurally, and any pack-new name is blitted too — so every base
@@ -2636,13 +2761,13 @@ interface PickupRow {
   color: StripColor;
   paint?: StripDraw;
   image?: CanvasImageSource;
+  source?: PackRowSource;
   /** Law of Geometry display size, filled only for a reskinned floor row. */
   disp?: { displayW?: number; displayH?: number };
 }
 
-/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
-async function packPickupRow(name: string, s: PickupStripInput): Promise<PickupRow> {
-  const texture = await loadTexture(s.url);
+/** Resolve a pack strip's source placement to a tightly packed output row. */
+async function packPickupRow(name: string, s: PickupStripInput, images: PackedStripImages): Promise<PickupRow> {
   return {
     name,
     frameW: s.frameW,
@@ -2651,13 +2776,14 @@ async function packPickupRow(name: string, s: PickupStripInput): Promise<PickupR
     stride: s.frameW,
     ticksPerFrame: s.ticksPerFrame ?? 1,
     mode: s.mode ?? 'loop',
-    color: s.color ?? 'baked',
-    image: texture.image as CanvasImageSource,
+    color: packedStripColor(s.color),
+    image: await packedStripImage(s.url, images),
+    source: { x: s.x ?? 0, y: s.y ?? 0, stride: s.stride ?? s.frameW },
   };
 }
 
 /**
- * Composite a pack's per-file `assets.pickups` strips onto one shared pickup
+ * Composite a pack's `assets.pickups` strips onto one shared pickup
  * texture, so the pickup atlas stays a single texture / single batch. Floor names
  * the pack did not reskin are painted procedurally; the pack's files are blitted
  * at their native size; every strip lands on its own row, frames horizontal — the
@@ -2665,6 +2791,7 @@ async function packPickupRow(name: string, s: PickupStripInput): Promise<PickupR
  */
 async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): Promise<Atlas> {
   const rows: PickupRow[] = [];
+  const images: PackedStripImages = new Map();
 
   // Floor names first (procedural unless reskinned), in the floor's own order,
   // so every base pickup skin always resolves on the result.
@@ -2674,7 +2801,7 @@ async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): 
       // Law of Geometry: land the pack's painted coin/gem/bar at the floor strip's
       // engine content (its per-frame union — face-on is the peak). Absent
       // `contentW` → `{}` → native size, so this stage is byte-identical.
-      const row = await packPickupRow(name, over);
+      const row = await packPickupRow(name, over, images);
       row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
       rows.push(row);
     } else {
@@ -2696,7 +2823,7 @@ async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): 
   for (const name of Object.keys(packStrips)) {
     if (name in PICKUP_STRIPS) continue;
     const s = packStrips[name];
-    if (s !== undefined) rows.push(await packPickupRow(name, s));
+    if (s !== undefined) rows.push(await packPickupRow(name, s, images));
   }
 
   const rowY: number[] = [];
@@ -2712,8 +2839,20 @@ async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): 
   const { el, ctx } = canvas(sheetW, sheetH);
   rows.forEach((row, i) => {
     const y = rowY[i] ?? 0;
-    if (row.image) {
-      ctx.drawImage(row.image, 0, y);
+    if (row.image && row.source) {
+      blitPackedStripFrames(
+        ctx,
+        row.image,
+        {
+          x: row.source.x,
+          y: row.source.y,
+          stride: row.source.stride,
+          frames: row.frames,
+          frameW: row.frameW,
+          frameH: row.frameH,
+        },
+        y,
+      );
     } else if (row.paint) {
       for (let f = 0; f < row.frames; f++) {
         row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);

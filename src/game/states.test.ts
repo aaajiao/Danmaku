@@ -492,6 +492,7 @@ describe('screens', () => {
     const view = select.view();
     expect(view.menu?.length).toBe(characterNames().length);
     expect(view.menu).toContain(getCharacter(PILOT).label);
+    expect(view.character).toBe(characterNames()[0]);
   });
 
   test('the cursor wraps in both directions', () => {

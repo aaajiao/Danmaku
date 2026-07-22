@@ -497,13 +497,17 @@ describe('lifetime', () => {
 
     bombs.fire(name, 0, 0);
     expect(bombs.remaining).toBe(3);
+    expect(bombs.age).toBe(0);
     bombs.step(bullets, enemies, rng());
     expect(bombs.remaining).toBe(2);
+    expect(bombs.age).toBe(1);
     bombs.step(bullets, enemies, rng());
     expect(bombs.remaining).toBe(1);
+    expect(bombs.age).toBe(2);
     bombs.step(bullets, enemies, rng());
     expect(bombs.remaining).toBe(0);
     expect(bombs.active).toBe(false);
+    expect(bombs.age).toBe(0);
   });
 
   test('stepping an idle system does nothing', () => {

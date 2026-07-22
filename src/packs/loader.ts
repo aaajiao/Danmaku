@@ -43,6 +43,7 @@ import {
   BULLET_ROWS,
   MAX_CELL_EXTENT,
   FX_PAD,
+  LASER_BODY_CELLS,
   type BulletSheetInput,
   type BulletStripInput,
   type EffectStripInput,
@@ -85,7 +86,7 @@ export interface LoadedPacks {
   /** Winning native ship strip bank, if a pack shipped the object form. */
   shipStrip?: ShipStripInput;
   /**
-   * Winning per-file `assets.effects` strips (name → resolved URL + geometry), if
+   * Winning `assets.effects` strips (name → resolved URL + source geometry), if
    * any pack shipped one. `main.ts` hands these to `effectAtlas(undefined, …)`,
    * which composites them onto the single fx texture — a floor name a pack reskins
    * (`burst`/`burst.big`/`pulse`) takes its native pixels, the rest stay
@@ -93,7 +94,7 @@ export interface LoadedPacks {
    */
   effectStrips?: Record<string, EffectStripInput>;
   /**
-   * Winning per-file `assets.lasers` strips (name → resolved URL + geometry), if
+   * Winning `assets.lasers` strips (name → resolved URL + source geometry), if
    * any pack shipped one. Structurally identical to `effectStrips`; `main.ts`
    * hands these to `laserAtlas(undefined, …)`, which composites them onto the
    * single laser texture — a body/cap strip a pack reskins takes its native baked
@@ -101,7 +102,7 @@ export interface LoadedPacks {
    */
   laserStrips?: Record<string, LaserStripInput>;
   /**
-   * Winning per-file `assets.missiles` strips (name → resolved URL + geometry), if
+   * Winning `assets.missiles` strips (name → resolved URL + source geometry), if
    * any pack shipped one. Structurally identical to `laserStrips`; `main.ts` hands
    * these to `missileAtlas(undefined, …)`, which composites them onto the single
    * missile texture — a body strip a pack reskins takes its native baked pixels,
@@ -109,7 +110,7 @@ export interface LoadedPacks {
    */
   missileStrips?: Record<string, MissileStripInput>;
   /**
-   * Winning per-file `assets.pickups` strips (name → resolved URL + geometry), if
+   * Winning `assets.pickups` strips (name → resolved URL + source geometry), if
    * any pack shipped one. Structurally identical to `missileStrips`; `main.ts` hands
    * these to `pickupAtlas(undefined, …)`, which composites them onto the single
    * pickup texture — a coin/gem/bar strip a pack reskins takes its native baked
@@ -233,6 +234,18 @@ const BULLET_ALPHA_PAINTED = 16;
  */
 const BULLET_SATURATION_MAX = 0.15;
 
+/**
+ * Laser bodies are the one registered strip role whose +x edges must be painted:
+ * a stretched body must meet muzzle/tip, and a tiled body must meet its neighbour.
+ * Keep the exemption name-led and closed; caps, effects, missiles and pack-new
+ * laser names retain the ordinary two-axis margin gate.
+ */
+const LASER_BODY_SET = new Set<string>(LASER_BODY_CELLS);
+
+export function laserBodyAllowsLongAxisFill(strip: string): boolean {
+  return LASER_BODY_SET.has(strip);
+}
+
 /** Opacity a pixel needs before it counts toward a cell's saturation mean. */
 const SATURATION_ALPHA_FLOOR = 128;
 
@@ -241,12 +254,12 @@ const HUD_ICON_MAX = 16;
 
 /**
  * The two sheet slots, which lead the boot-report ordering. The full canonical
- * order files are fetched and hashed in — bullets, ship, sounds in
- * `SOUND_NAMES` order, then hud, then music, then portraits, both in
- * manifest-declared order — is fixed by the call order of the `gather*`
- * functions, so the recorded hash is stable. Music and portrait names are
- * dynamic (a pack invents them), so they cannot live in this fixed list; the
- * report appends them separately, sorted.
+ * first-URL order files are fetched and hashed in — bullets, ship, effects,
+ * lasers, missiles, pickups, sounds in `SOUND_NAMES` order, hud, music, then
+ * portraits (keyed strip/music/portrait sections in manifest order) — is fixed
+ * by the call order of the `gather*` functions. A repeated URL occupies only its
+ * first position. Music and portrait names are dynamic (a pack invents them),
+ * so they cannot live in this fixed list; the report appends them sorted.
  */
 const RESOURCE_ORDER = ['assets.bullets', 'assets.ship'] as const;
 
@@ -269,6 +282,13 @@ function reasonsOf(error: unknown): string[] {
   return [String(error)];
 }
 
+/** Project-owned v4 art wins the plain URL; the purchaser-local reference is fallback. */
+export function implicitArtPack(names: readonly string[]): string | null {
+  if (names.includes('v4')) return 'v4';
+  if (names.includes('bulletpack')) return 'bulletpack';
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Discovery                                                           */
 /* ------------------------------------------------------------------ */
@@ -289,13 +309,25 @@ export async function loadPacks(): Promise<LoadedPacks> {
     return NONE;
   }
 
-  const only = packParam();
+  // The project-owned v4 pack is the art direction of this build. A purchaser-
+  // local BulletPack remains the compatibility/audit fallback when v4 is absent,
+  // never a sample layered under an alphabetically later demo. An explicit
+  // ?pack= still wins; without either art pack discovery keeps its ordinary
+  // multi-pack behaviour.
+  const requested = packParam();
+  const only = requested ?? implicitArtPack(names);
   if (only !== null) names = names.filter((name) => name === only);
   if (names.length === 0) {
     // Either genuinely no packs, or `?pack=` named one that is not on disk. The
     // first is identical to today; the second is worth surfacing, so the report
     // still runs when the query is present.
-    report({ winners: new Map(), overrides: [], loaded: [], failures: [], only });
+    report({
+      winners: new Map(),
+      overrides: [],
+      loaded: [],
+      failures: [],
+      surfaceRequested: requested !== null,
+    });
     return NONE;
   }
 
@@ -359,7 +391,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     }
   }
 
-  report({ winners, overrides, loaded, failures, only });
+  report({ winners, overrides, loaded, failures, surfaceRequested: requested !== null });
 
   const soundUrls: Record<string, string> = {};
   for (const sound of SOUND_NAMES) {
@@ -367,7 +399,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     if (url !== undefined) soundUrls[sound] = url;
   }
 
-  // The per-file fx strips that won their slot, keyed by bare strip name for the
+  // The fx strips that won their slot, keyed by bare strip name for the
   // composite in `main.ts`. Insertion order is index order (last-wins is already
   // resolved in `winners`), stable enough — the fx texture is not hashed.
   const effectStrips: Record<string, EffectStripInput> = {};
@@ -378,7 +410,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     effectStrips[slot.slice('assets.effects.'.length)] = { url: winner.url, ...geo };
   }
 
-  // The per-file laser strips that won their slot, the same shape as the fx ones.
+  // The laser strips that won their slot, the same shape as the fx ones.
   const laserStrips: Record<string, LaserStripInput> = {};
   for (const [slot, winner] of winners) {
     if (!slot.startsWith('assets.lasers.')) continue;
@@ -387,7 +419,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     laserStrips[slot.slice('assets.lasers.'.length)] = { url: winner.url, ...geo };
   }
 
-  // The per-file missile body strips that won their slot, the same shape again.
+  // The missile body strips that won their slot, the same shape again.
   const missileStrips: Record<string, MissileStripInput> = {};
   for (const [slot, winner] of winners) {
     if (!slot.startsWith('assets.missiles.')) continue;
@@ -396,7 +428,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     missileStrips[slot.slice('assets.missiles.'.length)] = { url: winner.url, ...geo };
   }
 
-  // The per-file pickup body strips that won their slot, the same shape again.
+  // The pickup body strips that won their slot, the same shape again.
   const pickupStrips: Record<string, PickupStripInput> = {};
   for (const [slot, winner] of winners) {
     if (!slot.startsWith('assets.pickups.')) continue;
@@ -471,44 +503,56 @@ interface Resource {
   bulletStrips?: BulletSheetInput;
   /** A native ship strip bank (the object form of `assets.ship`). */
   shipStrip?: ShipStripInput;
-  /** A per-file `assets.effects` strip's geometry, paired with `url` above. */
+  /** One `assets.effects` strip's source geometry, paired with `url` above. */
   effectStrip?: {
+    x?: number;
+    y?: number;
     frames: number;
     frameW: number;
     frameH: number;
+    stride?: number;
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
     contentW?: number;
     contentH?: number;
   };
-  /** A per-file `assets.lasers` strip's geometry, paired with `url` above. */
+  /** One `assets.lasers` strip's source geometry, paired with `url` above. */
   laserStrip?: {
+    x?: number;
+    y?: number;
     frames: number;
     frameW: number;
     frameH: number;
+    stride?: number;
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
     contentW?: number;
     contentH?: number;
   };
-  /** A per-file `assets.missiles` strip's geometry, paired with `url` above. */
+  /** One `assets.missiles` strip's source geometry, paired with `url` above. */
   missileStrip?: {
+    x?: number;
+    y?: number;
     frames: number;
     frameW: number;
     frameH: number;
+    stride?: number;
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
     contentW?: number;
     contentH?: number;
   };
-  /** A per-file `assets.pickups` strip's geometry, paired with `url` above. */
+  /** One `assets.pickups` strip's source geometry, paired with `url` above. */
   pickupStrip?: {
+    x?: number;
+    y?: number;
     frames: number;
     frameW: number;
     frameH: number;
+    stride?: number;
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
@@ -554,6 +598,53 @@ interface OnePack {
 }
 
 /**
+ * One pack's file cache. A manifest may map many independently winning strips
+ * onto one shared PNG, so a URL is fetched, decoded and appended to the pack
+ * hash exactly once. The first declaration in canonical gather order owns the
+ * byte position; later declarations still run their own geometry checks and
+ * still create their own winner slots.
+ */
+class PackFiles {
+  readonly orderedBytes: Uint8Array[] = [];
+
+  private readonly bytesByUrl = new Map<string, Promise<Uint8Array>>();
+  private readonly imagesByUrl = new Map<string, Promise<HTMLImageElement>>();
+  private readonly durationsByUrl = new Map<string, Promise<number | undefined>>();
+
+  bytes(url: string): Promise<Uint8Array> {
+    const cached = this.bytesByUrl.get(url);
+    if (cached !== undefined) return cached;
+
+    const loaded = fetchBytes(url).then((bytes) => {
+      this.orderedBytes.push(bytes);
+      return bytes;
+    });
+    this.bytesByUrl.set(url, loaded);
+    return loaded;
+  }
+
+  image(url: string): Promise<HTMLImageElement> {
+    const cached = this.imagesByUrl.get(url);
+    if (cached !== undefined) return cached;
+
+    // Gate image decode on the byte fetch. Besides keeping a failed URL to one
+    // request, this preserves the canonical first-seen hash order.
+    const loaded = this.bytes(url).then(() => loadImage(url));
+    this.imagesByUrl.set(url, loaded);
+    return loaded;
+  }
+
+  duration(url: string): Promise<number | undefined> {
+    const cached = this.durationsByUrl.get(url);
+    if (cached !== undefined) return cached;
+
+    const loaded = this.bytes(url).then((bytes) => measureDuration(bytes));
+    this.durationsByUrl.set(url, loaded);
+    return loaded;
+  }
+}
+
+/**
  * Validate one pack, register its content, and fetch every resource it
  * declares, all-or-nothing.
  *
@@ -583,20 +674,20 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
   const manifest = validation.manifest;
 
   const slots = new Map<string, Resource>();
-  const orderedBytes: Uint8Array[] = [];
+  const files = new PackFiles();
   const reasons: string[] = [];
   const musicRegs: MusicRegistration[] = [];
   const portraitRegs: PortraitRegistration[] = [];
 
-  await gatherAssets(name, manifest, slots, orderedBytes, reasons);
-  await gatherSounds(name, manifest, slots, orderedBytes, reasons);
-  await gatherHud(name, manifest, slots, orderedBytes, reasons);
-  await gatherMusic(name, manifest, slots, orderedBytes, reasons, musicRegs);
-  await gatherPortraits(name, manifest, slots, orderedBytes, reasons, portraitRegs);
+  await gatherAssets(name, manifest, slots, files, reasons);
+  await gatherSounds(name, manifest, slots, files, reasons);
+  await gatherHud(name, manifest, slots, files, reasons);
+  await gatherMusic(name, manifest, slots, files, reasons, musicRegs);
+  await gatherPortraits(name, manifest, slots, files, reasons, portraitRegs);
 
   if (reasons.length > 0) throw new PackError(reasons);
 
-  const hash = await hashPack(manifestBytes, orderedBytes);
+  const hash = await hashPack(manifestBytes, files.orderedBytes);
 
   // The pack's own identity, which every campaign it contributes records into
   // strict replay meta. A run only carries a pack's identity when it entered
@@ -703,7 +794,7 @@ async function gatherAssets(
   name: string,
   manifest: PackManifest,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   const assets = manifest.assets;
@@ -712,29 +803,29 @@ async function gatherAssets(
   if (typeof assets.bullets === 'string') {
     const url = fileUrl(name, assets.bullets);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
+      await files.bytes(url);
+      const image = await files.image(url);
       checkBulletSheet(name, assets.bullets, image, reasons);
       slots.set('assets.bullets', { url });
     } catch (error) {
       reasons.push(`pack "${name}": ${assets.bullets}: ${(error as Error).message}`);
     }
   } else if (assets.bullets !== undefined) {
-    await gatherNativeBulletSheet(name, assets.bullets, slots, orderedBytes, reasons);
+    await gatherNativeBulletSheet(name, assets.bullets, slots, files, reasons);
   }
 
   if (typeof assets.ship === 'string') {
     const url = fileUrl(name, assets.ship);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
+      await files.bytes(url);
+      const image = await files.image(url);
       checkShipSheet(name, assets.ship, image, reasons);
       slots.set('assets.ship', { url });
     } catch (error) {
       reasons.push(`pack "${name}": ${assets.ship}: ${(error as Error).message}`);
     }
   } else if (assets.ship !== undefined) {
-    await gatherNativeShip(name, assets.ship, slots, orderedBytes, reasons);
+    await gatherNativeShip(name, assets.ship, slots, files, reasons);
   }
 
   // A value, not a file: it rides no bytes and orders after the sheets it tunes.
@@ -742,35 +833,32 @@ async function gatherAssets(
     slots.set('assets.filter', { value: assets.filter });
   }
 
-  // `assets.effects`: per-file animation strips, warn-only reskin material.
-  // Each strip is fetched (its bytes join the hash) and machine-checked against
-  // its own declared geometry; the pixels are not assembled into the runtime fx
-  // atlas this round (the procedural floor draws), the first real consumer being
-  // the import round — the same deferral the amendment records for native
-  // bullet/ship pixels.
+  // `assets.effects`: animation strips, warn-only reskin material. Several strip
+  // slots may share a source URL; each keeps its own geometry and winner while
+  // the source bytes/image/hash entry are cached once.
   if (assets.effects !== undefined) {
-    await gatherEffectStrips(name, assets.effects, slots, orderedBytes, reasons);
+    await gatherEffectStrips(name, assets.effects, slots, files, reasons);
   }
 
-  // `assets.lasers`: per-file laser body/cap strips, warn-only reskin material —
-  // the same treatment as `assets.effects`, composited onto the laser texture by
-  // `main.ts` via `laserAtlas(undefined, …)`. Fetched, hashed and gated here.
+  // `assets.lasers`: legacy-own-file/shared-source body/cap strips, with the same
+  // treatment as `assets.effects`; composited onto the laser texture by `main.ts`
+  // via `laserAtlas(undefined, …)`. Each winner is gated here.
   if (assets.lasers !== undefined) {
-    await gatherLaserStrips(name, assets.lasers, slots, orderedBytes, reasons);
+    await gatherLaserStrips(name, assets.lasers, slots, files, reasons);
   }
 
-  // `assets.missiles`: per-file missile body strips, warn-only reskin material —
-  // the same treatment as `assets.lasers`, composited onto the missile texture by
-  // `main.ts` via `missileAtlas(undefined, …)`. Fetched, hashed and gated here.
+  // `assets.missiles`: legacy-own-file/shared-source body strips, with the same
+  // treatment as `assets.lasers`; composited onto the missile texture by `main.ts`
+  // via `missileAtlas(undefined, …)`. Each winner is gated here.
   if (assets.missiles !== undefined) {
-    await gatherMissileStrips(name, assets.missiles, slots, orderedBytes, reasons);
+    await gatherMissileStrips(name, assets.missiles, slots, files, reasons);
   }
 
-  // `assets.pickups`: per-file coin/gem/bar body strips, warn-only reskin material
-  // — the same treatment as `assets.missiles`, composited onto the pickup texture
-  // by `main.ts` via `pickupAtlas(undefined, …)`. Fetched, hashed and gated here.
+  // `assets.pickups`: legacy-own-file/shared-source coin/gem/bar strips, with the
+  // same treatment as `assets.missiles`; composited onto the pickup texture by
+  // `main.ts` via `pickupAtlas(undefined, …)`. Each winner is gated here.
   if (assets.pickups !== undefined) {
-    await gatherPickupStrips(name, assets.pickups, slots, orderedBytes, reasons);
+    await gatherPickupStrips(name, assets.pickups, slots, files, reasons);
   }
 }
 
@@ -786,13 +874,13 @@ async function gatherNativeBulletSheet(
   name: string,
   sheet: PackBulletSheet,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   const url = fileUrl(name, sheet.sheet);
   try {
-    orderedBytes.push(await fetchBytes(url));
-    const image = await loadImage(url);
+    await files.bytes(url);
+    const image = await files.image(url);
     checkNativeBulletSheet(name, sheet.sheet, sheet.strips, image, reasons);
     slots.set('assets.bullets', { url, bulletStrips: resolveBulletSheet(sheet) });
   } catch (error) {
@@ -826,13 +914,13 @@ async function gatherNativeShip(
   name: string,
   ship: PackShipStrip,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   const url = fileUrl(name, ship.src);
   try {
-    orderedBytes.push(await fetchBytes(url));
-    const image = await loadImage(url);
+    await files.bytes(url);
+    const image = await files.image(url);
     checkStripSheet(name, ship.src, 'ship', toStrip(ship), image, reasons);
     slots.set('assets.ship', {
       url,
@@ -844,21 +932,22 @@ async function gatherNativeShip(
         ticksPerFrame: ship.ticksPerFrame,
         mode: ship.mode,
         color: ship.color,
-        contentW: ship.contentW,
-        contentH: ship.contentH,
-      },
+          contentW: ship.contentW,
+          contentH: ship.contentH,
+          banking: ship.banking,
+        },
     });
   } catch (error) {
     reasons.push(`pack "${name}": ${ship.src}: ${(error as Error).message}`);
   }
 }
 
-/** `assets.effects`: per-file animation strips, each fetched, hashed and gated. */
+/** `assets.effects`: animation strips, each winner gated; shared URLs load once. */
 async function gatherEffectStrips(
   name: string,
   effects: Record<string, PackStrip>,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   // Manifest-declared order, so the hash is stable for a given manifest.
@@ -867,18 +956,21 @@ async function gatherEffectStrips(
     if (spec === undefined) continue;
     const url = fileUrl(name, spec.src);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
-      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      await files.bytes(url);
+      const image = await files.image(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons, spec);
       // Carry the declared geometry alongside the URL: `main.ts` composites these
-      // per-file strips onto the single fx texture (`effectAtlas`), so it needs
+      // strips onto the single fx texture (`effectAtlas`), so it needs
       // each strip's frame layout, not just where the pixels live.
       slots.set(`assets.effects.${strip}`, {
         url,
         effectStrip: {
+          x: spec.x,
+          y: spec.y,
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,
+          stride: spec.stride,
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
@@ -893,7 +985,7 @@ async function gatherEffectStrips(
 }
 
 /**
- * `assets.lasers`: per-file laser strips, each fetched, hashed and gated — the
+ * `assets.lasers`: laser strips, each winner gated — the
  * structural twin of `gatherEffectStrips`. The geometry is carried alongside the
  * URL so `main.ts` can composite each strip onto the one laser texture
  * (`laserAtlas`), a body/cap strip a pack reskins taking its baked pixels and the
@@ -903,7 +995,7 @@ async function gatherLaserStrips(
   name: string,
   lasers: Record<string, PackStrip>,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   for (const strip of Object.keys(lasers)) {
@@ -911,15 +1003,27 @@ async function gatherLaserStrips(
     if (spec === undefined) continue;
     const url = fileUrl(name, spec.src);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
-      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      await files.bytes(url);
+      const image = await files.image(url);
+      checkStripSheet(
+        name,
+        spec.src,
+        strip,
+        toStrip(spec),
+        image,
+        reasons,
+        spec,
+        laserBodyAllowsLongAxisFill(strip),
+      );
       slots.set(`assets.lasers.${strip}`, {
         url,
         laserStrip: {
+          x: spec.x,
+          y: spec.y,
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,
+          stride: spec.stride,
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
@@ -934,8 +1038,8 @@ async function gatherLaserStrips(
 }
 
 /**
- * `assets.missiles`: per-file missile body strips, each fetched, hashed and
- * gated — the structural twin of `gatherLaserStrips`. The geometry is carried
+ * `assets.missiles`: missile body strips, each winner gated — the structural
+ * twin of `gatherLaserStrips`. The geometry is carried
  * alongside the URL so `main.ts` can composite each strip onto the one missile
  * texture (`missileAtlas`), a body strip a pack reskins taking its baked pixels
  * and the rest staying procedural.
@@ -944,7 +1048,7 @@ async function gatherMissileStrips(
   name: string,
   missiles: Record<string, PackStrip>,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   for (const strip of Object.keys(missiles)) {
@@ -952,15 +1056,18 @@ async function gatherMissileStrips(
     if (spec === undefined) continue;
     const url = fileUrl(name, spec.src);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
-      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      await files.bytes(url);
+      const image = await files.image(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons, spec);
       slots.set(`assets.missiles.${strip}`, {
         url,
         missileStrip: {
+          x: spec.x,
+          y: spec.y,
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,
+          stride: spec.stride,
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
@@ -975,8 +1082,8 @@ async function gatherMissileStrips(
 }
 
 /**
- * `assets.pickups`: per-file coin/gem/bar body strips, each fetched, hashed and
- * gated — the structural twin of `gatherMissileStrips`. The geometry is carried
+ * `assets.pickups`: coin/gem/bar body strips, each winner gated — the structural
+ * twin of `gatherMissileStrips`. The geometry is carried
  * alongside the URL so `main.ts` can composite each strip onto the one pickup
  * texture (`pickupAtlas`), a coin/gem/bar strip a pack reskins taking its baked
  * pixels and the rest staying procedural.
@@ -985,7 +1092,7 @@ async function gatherPickupStrips(
   name: string,
   pickups: Record<string, PackStrip>,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   for (const strip of Object.keys(pickups)) {
@@ -993,15 +1100,18 @@ async function gatherPickupStrips(
     if (spec === undefined) continue;
     const url = fileUrl(name, spec.src);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
-      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      await files.bytes(url);
+      const image = await files.image(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons, spec);
       slots.set(`assets.pickups.${strip}`, {
         url,
         pickupStrip: {
+          x: spec.x,
+          y: spec.y,
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,
+          stride: spec.stride,
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
@@ -1019,7 +1129,7 @@ async function gatherSounds(
   name: string,
   manifest: PackManifest,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   const sounds = manifest.sounds;
@@ -1031,7 +1141,7 @@ async function gatherSounds(
     if (path === undefined) continue;
     const url = fileUrl(name, path);
     try {
-      orderedBytes.push(await fetchBytes(url));
+      await files.bytes(url);
       slots.set(`sounds.${sound}`, { url });
     } catch (error) {
       reasons.push(`pack "${name}": ${path}: ${(error as Error).message}`);
@@ -1043,7 +1153,7 @@ async function gatherHud(
   name: string,
   manifest: PackManifest,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
 ): Promise<void> {
   const hud = manifest.hud;
@@ -1054,8 +1164,8 @@ async function gatherHud(
     if (path === undefined) continue;
     const url = fileUrl(name, path);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
+      await files.bytes(url);
+      const image = await files.image(url);
       checkHudIcon(name, path, image, reasons);
       slots.set(`hud.${slot}`, { url, image });
     } catch (error) {
@@ -1096,7 +1206,7 @@ async function gatherMusic(
   name: string,
   manifest: PackManifest,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
   registrations: MusicRegistration[],
 ): Promise<void> {
@@ -1110,18 +1220,15 @@ async function gatherMusic(
     const entry = music[track];
     if (entry === undefined) continue;
     const url = fileUrl(name, entry.file);
-    let bytes: Uint8Array;
     try {
-      bytes = await fetchBytes(url);
+      await files.bytes(url);
     } catch (error) {
       reasons.push(`pack "${name}": ${entry.file}: ${(error as Error).message}`);
       continue;
     }
-    orderedBytes.push(bytes);
-
     // The one check that needs the decoded track. Soft — see the header.
     if (entry.loopEnd !== undefined) {
-      const duration = await measureDuration(bytes);
+      const duration = await files.duration(url);
       if (duration !== undefined && entry.loopEnd > duration) {
         reasons.push(
           `pack "${name}": ${entry.file}: loopEnd ${entry.loopEnd}s is past the track's ` +
@@ -1198,7 +1305,7 @@ async function gatherPortraits(
   name: string,
   manifest: PackManifest,
   slots: Map<string, Resource>,
-  orderedBytes: Uint8Array[],
+  files: PackFiles,
   reasons: string[],
   registrations: PortraitRegistration[],
 ): Promise<void> {
@@ -1211,8 +1318,8 @@ async function gatherPortraits(
     if (path === undefined) continue;
     const url = fileUrl(name, path);
     try {
-      orderedBytes.push(await fetchBytes(url));
-      const image = await loadImage(url);
+      await files.bytes(url);
+      const image = await files.image(url);
       checkPortrait(name, path, image, reasons);
       const registered = `${name}/${portrait}`;
       registrations.push({ name: registered, image });
@@ -1337,6 +1444,21 @@ export interface MeasuredStrip {
   color: 'tinted' | 'baked';
 }
 
+/**
+ * Exclusive source boundary of a horizontal strip. The final frame begins at
+ * `(frames - 1) * stride`; only its own `frameW` extends past that origin.
+ */
+export function stripSourceEnd(
+  strip: Pick<MeasuredStrip, 'frameW' | 'frameH' | 'frames' | 'stride'>,
+  x0 = 0,
+  y0 = 0,
+): { x: number; y: number } {
+  return {
+    x: x0 + (strip.frames - 1) * strip.stride + strip.frameW,
+    y: y0 + strip.frameH,
+  };
+}
+
 /** Normalize a manifest strip (bullet, ship or effect) to a `MeasuredStrip`. */
 function toStrip(s: {
   frameW: number;
@@ -1372,8 +1494,10 @@ export function measureStripFrames(
   x0: number,
   y0: number,
   reasons: string[],
+  allowLongAxisFill = false,
 ): void {
-  const limit = strip.frameW - 2 * FX_PAD;
+  const limitX = allowLongAxisFill ? strip.frameW : strip.frameW - 2 * FX_PAD;
+  const limitY = strip.frameH - 2 * FX_PAD;
   for (let f = 0; f < strip.frames; f++) {
     const fx0 = x0 + f * strip.stride;
     let minX = Infinity;
@@ -1401,10 +1525,19 @@ export function measureStripFrames(
     if (maxX >= minX) {
       const ex = maxX - minX + 1;
       const ey = maxY - minY + 1;
-      if (Math.max(ex, ey) > limit) {
+      if (allowLongAxisFill && ex !== strip.frameW) {
+        reasons.push(
+          `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}px on +x, ` +
+            `expected full frameW ${strip.frameW}px — a registered laser body must meet muzzle/tip and adjacent tiles`,
+        );
+      }
+      if (ex > limitX || ey > limitY) {
+        const seamRule = allowLongAxisFill
+          ? 'a registered laser body may fill its +x axis, but must clear 2px of cross-axis margin'
+          : 'a frame must clear 2px of margin on each axis or it bleeds into the next frame';
         reasons.push(
           `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}×${ey}px, ` +
-            `over the ${limit}px limit — a frame must clear 2px of margin or it bleeds into the next frame`,
+            `over the ${limitX}×${limitY}px limit — ${seamRule}`,
         );
       }
     }
@@ -1421,10 +1554,10 @@ export function measureStripFrames(
 }
 
 /**
- * An own-file strip (a ship bank or an fx strip): the whole PNG is its frames
- * laid out horizontally, so its dimensions must be exactly `frames·frameW ×
- * frameH`. On a match, every frame is measured for the seam and (if tinted) the
- * saturation gate.
+ * Validate an own-file strip or an explicitly placed strip on a shared PNG.
+ * Legacy PackStrip declarations omit placement and retain the exact whole-file
+ * check. An explicit x/y/stride switches to bounds-checking, so several winner
+ * slots may crop different rows/columns out of one decoded source image.
  */
 function checkStripSheet(
   name: string,
@@ -1433,20 +1566,47 @@ function checkStripSheet(
   strip: MeasuredStrip,
   image: HTMLImageElement,
   reasons: string[],
+  placement?: { x?: number; y?: number; stride?: number },
+  allowLongAxisFill = false,
 ): void {
   const w = image.naturalWidth;
   const h = image.naturalHeight;
-  const expectedW = strip.frames * strip.frameW;
-  if (w !== expectedW || h !== strip.frameH) {
+  const explicitlyPlaced =
+    placement !== undefined &&
+    (placement.x !== undefined || placement.y !== undefined || placement.stride !== undefined);
+  const x0 = placement?.x ?? 0;
+  const y0 = placement?.y ?? 0;
+  const end = stripSourceEnd(strip, x0, y0);
+
+  if (explicitlyPlaced) {
+    if (end.x > w || end.y > h) {
+      reasons.push(
+        `pack "${name}": ${path}: strip "${stripName}" runs to ${end.x}×${end.y}, ` +
+          `past the ${w}×${h} sheet (${strip.frames} frames of ${strip.frameW}×${strip.frameH} at ${x0},${y0})`,
+      );
+      return;
+    }
+  } else if (w !== end.x || h !== end.y) {
     reasons.push(
       `pack "${name}": ${path}: strip "${stripName}" sheet is ${w}×${h}, ` +
-        `expected ${expectedW}×${strip.frameH} (${strip.frames} frames of ${strip.frameW}×${strip.frameH})`,
+        `expected ${end.x}×${end.y} (${strip.frames} frames of ${strip.frameW}×${strip.frameH})`,
     );
     return;
   }
   const data = pixels(image, w, h);
   if (data === undefined) return; // no 2D context — cannot measure, do not reject
-  measureStripFrames(name, path, stripName, strip, data, w, 0, 0, reasons);
+  measureStripFrames(
+    name,
+    path,
+    stripName,
+    strip,
+    data,
+    w,
+    x0,
+    y0,
+    reasons,
+    allowLongAxisFill,
+  );
 }
 
 /**
@@ -1495,8 +1655,7 @@ function checkNativeBulletSheet(
     // is then rejected rather than shipped to mud the campaign; an actually-white
     // baked-tagged cell passes untouched.
     const strip = toStrip(floor.has(stripName) ? { ...raw, color: 'tinted' } : raw);
-    const runsToX = raw.x + strip.frames * strip.stride;
-    const runsToY = raw.y + strip.frameH;
+    const { x: runsToX, y: runsToY } = stripSourceEnd(strip, raw.x, raw.y);
     if (runsToX > w || runsToY > h) {
       reasons.push(
         `pack "${name}": ${path}: strip "${stripName}" runs to ${runsToX}×${runsToY}, ` +
@@ -1576,15 +1735,26 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+/** One decoded image may back many strips; read its full RGBA plane only once. */
+const PIXELS_BY_IMAGE = new WeakMap<HTMLImageElement, { data: Uint8ClampedArray | undefined }>();
+
 /** RGBA pixels of an image via a scratch canvas, or undefined with no context. */
 function pixels(image: HTMLImageElement, width: number, height: number): Uint8ClampedArray | undefined {
+  const cached = PIXELS_BY_IMAGE.get(image);
+  if (cached !== undefined) return cached.data;
+
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return undefined;
+  if (!ctx) {
+    PIXELS_BY_IMAGE.set(image, { data: undefined });
+    return undefined;
+  }
   ctx.drawImage(image, 0, 0);
-  return ctx.getImageData(0, 0, width, height).data;
+  const data = ctx.getImageData(0, 0, width, height).data;
+  PIXELS_BY_IMAGE.set(image, { data });
+  return data;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1603,9 +1773,10 @@ function report(state: {
   overrides: string[];
   loaded: LoadedRecord[];
   failures: { name: string; reasons: string[] }[];
-  only: string | null;
+  /** True only for an explicit `?pack=` audit, never for the implicit v4 default. */
+  surfaceRequested: boolean;
 }): void {
-  const { winners, overrides, loaded, failures, only } = state;
+  const { winners, overrides, loaded, failures, surfaceRequested } = state;
   const lines: string[] = ['packs: boot report'];
 
   const order = slotOrder();
@@ -1615,7 +1786,8 @@ function report(state: {
   const musicSlots = [...winners.keys()].filter((slot) => slot.startsWith('music.')).sort();
   const portraitSlots = [...winners.keys()].filter((slot) => slot.startsWith('portrait.')).sort();
   const active = [...order, ...musicSlots, ...portraitSlots].filter((slot) => winners.has(slot));
-  if (active.length === 0) {
+  const stripLines = stripWinnerLines(winners);
+  if (active.length === 0 && stripLines.length === 0) {
     lines.push('  (no pack resources active — running on placeholders)');
   } else {
     for (const slot of active) {
@@ -1624,6 +1796,7 @@ function report(state: {
       const detail = winner.value ?? winner.url ?? '';
       lines.push(`  ${slot}: ${winner.source}${detail ? `  (${detail})` : ''}`);
     }
+    lines.push(...stripLines);
   }
 
   for (const line of overrides) lines.push(`  override: ${line}`);
@@ -1652,7 +1825,35 @@ function report(state: {
   if (failures.length > 0) console.warn(text);
   else console.log(text);
 
-  if (only !== null || failures.length > 0) surface(text);
+  if (shouldSurfacePackReport(surfaceRequested, failures.length)) surface(text);
+}
+
+/** Keep the plain v4 title clean while preserving explicit audits and failures. */
+export function shouldSurfacePackReport(explicitPackQuery: boolean, failureCount: number): boolean {
+  return explicitPackQuery || failureCount > 0;
+}
+
+/**
+ * The four strip pools can carry dozens of independently winning slots. Report
+ * them by pool and source rather than hiding them (the old fixed slot list did)
+ * or printing one line per sprite. Per-strip winner resolution is unchanged;
+ * this is only a compact view over the resolved map.
+ */
+function stripWinnerLines(winners: Map<string, Winner>): string[] {
+  const lines: string[] = [];
+  for (const section of ['effects', 'lasers', 'missiles', 'pickups'] as const) {
+    const prefix = `assets.${section}.`;
+    const counts = new Map<string, number>();
+    for (const [slot, winner] of winners) {
+      if (!slot.startsWith(prefix)) continue;
+      counts.set(winner.source, (counts.get(winner.source) ?? 0) + 1);
+    }
+    for (const source of [...counts.keys()].sort()) {
+      const count = counts.get(source) ?? 0;
+      lines.push(`  assets.${section}: ${source} (${count} strip winner${count === 1 ? '' : 's'})`);
+    }
+  }
+  return lines;
 }
 
 /** Every slot a pack can win, in report order. Sounds follow `SOUND_NAMES`. */

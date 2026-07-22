@@ -257,6 +257,13 @@ export class BombSystem {
     return this.#remaining;
   }
 
+  /** Fixed ticks elapsed in the active bomb, for its presentation strip. */
+  get age(): number {
+    const spec = this.#spec;
+    if (spec === undefined) return 0;
+    return Math.max(0, Math.floor(spec.duration) - this.#remaining);
+  }
+
   get x(): number {
     return this.#x;
   }

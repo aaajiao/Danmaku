@@ -5,6 +5,10 @@ registry: you write a file, register a named thing, and import it.
 
 Read [`CLAUDE.md`](../CLAUDE.md) first — the hard rules there are not style
 preferences, and §16 of this document lists the ones you can break silently.
+Base-campaign character or stage art must also follow
+[`v4-art-direction.md`](./v4-art-direction.md); its Ghost three-layer body,
+negative-space hierarchy and retained-shader rules are the current visual source
+of truth, not optional examples.
 
 | You want to add | Call | In |
 |---|---|---|

@@ -45,19 +45,29 @@ export const SOUND_NAMES = [
 export type SoundName = (typeof SOUND_NAMES)[number];
 
 /**
- * One animation strip in `assets.effects`: a per-file sheet of frames laid out
- * horizontally, frame 0 leftmost. Self-describing (graft B): the strip carries
- * its own geometry, so the engine never fixes a global frame count or size and
- * the import round adds a new animation by declaring one, not by editing a table.
- * Presentation — warn-only reskin material, exactly like the bullet sheet.
+ * One animation strip in `assets.effects` / `lasers` / `missiles` / `pickups`.
+ * The legacy form is still one file per strip: omit `x`, `y` and `stride`, and
+ * frame 0 is the file origin with tightly packed horizontal frames. Explicit
+ * placement lets several strips point at the same shared PNG instead: frame 0
+ * starts at `x,y` and later frames advance by `stride` pixels.
+ *
+ * Self-describing (graft B): the strip carries its own geometry, so the engine
+ * never fixes a global frame count or size and an import adds an animation by
+ * declaring one, not by editing a table. Presentation — warn-only reskin
+ * material, exactly like the bullet sheet.
  */
 export interface PackStrip {
-  /** Sheet path, frames laid horizontally, frame 0 leftmost. */
+  /** Source PNG. More than one strip may name the same path. */
   src: string;
+  /** Frame 0 origin on the source PNG. Both default 0 (legacy per-file form). */
+  x?: number;
+  y?: number;
   /** Frame count, a positive integer. */
   frames: number;
   frameW: number;
   frameH: number;
+  /** Pixels between frame origins. Default `frameW` (legacy tightly packed form). */
+  stride?: number;
   /** Whole ticks per frame (rule 1). Default 1. */
   ticksPerFrame?: number;
   mode: 'loop' | 'once';
@@ -118,6 +128,8 @@ export interface PackShipStrip {
    *  (additive/optional; absent → native `frameW/H`). See `PackStrip.contentW`. */
   contentW?: number;
   contentH?: number;
+  /** Optional deterministic pose semantics. Exactly five ordered bank poses. */
+  banking?: 'five-way';
 }
 
 export interface PackAssets {
@@ -130,44 +142,47 @@ export interface PackAssets {
   bullets?: string | PackBulletSheet;
   /**
    * The ship art. Either the legacy string (a 64×64 `ship` region — UNCHANGED)
-   * OR a native strip bank object drawn at frame 0 this round.
+   * OR a native strip bank object. It draws frame 0 unless it explicitly
+   * declares the five-way banking pose contract.
    */
   ship?: string | PackShipStrip;
   /** Sampling for the sheets. Default `nearest`, matching `loadTexture`. */
   filter?: 'nearest' | 'linear';
   /**
-   * Per-file animation strips: a map of strip name → `PackStrip`. Warn-only
-   * reskin material — the pixels of a floor-name reskin or a new strip; the
-   * effect SPEC that names a strip is content, the pixels are not.
+   * Animation strips: a map of strip name → `PackStrip`. A legacy entry owns its
+   * file; placed entries may share `src`. Warn-only reskin material — the pixels
+   * of a floor-name reskin or a new strip; the effect SPEC that names a strip is
+   * content, the pixels are not.
    */
   effects?: Record<string, PackStrip>;
   /**
-   * Per-file LASER strips: a map of laser-strip name (a body like `beam.warm` or
-   * a cap like `cap.yellow`, `src/render/laser-skin.ts`) → `PackStrip`. Structurally
-   * identical to `effects` — one PNG per strip, frames laid horizontally — and
-   * warn-only presentation for the same reason: a beam names its SKIN (content),
-   * the pixels the skin wears are not. The laser system's own strips ride the
-   * laser atlas (a third sheet), so they are a separate section from `effects`.
+   * LASER strips: a map of laser-strip name (a body like `beam.warm` or a cap
+   * like `cap.yellow`, `src/render/laser-skin.ts`) → `PackStrip`. Structurally
+   * identical to `effects` — legacy own-file or explicitly placed on a shared
+   * source — and warn-only presentation for the same reason: a beam names its
+   * SKIN (content), the pixels the skin wears are not. The laser system's own
+   * strips ride the laser atlas (a third sheet), so they are a separate section
+   * from `effects`.
    */
   lasers?: Record<string, PackStrip>;
   /**
-   * Per-file MISSILE body strips: a map of missile-body name (`missile.0` …
-   * `missile.11`, `missile.massive`, `src/render/procedural.ts`) → `PackStrip`.
-   * Structurally identical to `effects` and `lasers` — one PNG per strip, frames
-   * laid horizontally — and warn-only presentation for the same reason: a bullet
-   * names its missile body (content), the pixels the body wears are not. The
-   * missile bodies ride the missile atlas (a fourth sheet), so they are a separate
-   * section from `lasers`.
+   * MISSILE body strips: a map of missile-body name (`missile.0` … `missile.11`,
+   * `missile.massive`, `src/render/procedural.ts`) → `PackStrip`. Structurally
+   * identical to `effects` and `lasers` — legacy own-file or explicitly placed
+   * on a shared source — and warn-only presentation for the same reason: a
+   * bullet names its missile body (content), the pixels the body wears are not.
+   * The missile bodies ride the missile atlas (a fourth sheet), so they are a
+   * separate section from `lasers`.
    */
   missiles?: Record<string, PackStrip>;
   /**
-   * Per-file PICKUP body strips: a map of pickup-skin name (`pickup.coin.silver`,
+   * PICKUP body strips: a map of pickup-skin name (`pickup.coin.silver`,
    * `pickup.coin.gold`, `pickup.gem.*`, `pickup.bar`, `src/render/procedural.ts`)
-   * → `PackStrip`. Structurally identical to `effects`, `lasers` and `missiles` —
-   * one PNG per strip, frames laid horizontally — and warn-only presentation for
-   * the same reason: an item names its pickup skin (content), the pixels the coin
-   * or gem wears are not. The pickup skins ride the pickup atlas (a fifth sheet),
-   * so they are a separate section from `missiles`.
+   * → `PackStrip`. Structurally identical to `effects`, `lasers` and `missiles`:
+   * legacy own-file or explicitly placed on a shared source. It is warn-only
+   * presentation for the same reason: an item names its pickup skin (content),
+   * the pixels the coin or gem wears are not. The pickup skins ride the pickup
+   * atlas (a fifth sheet), so they are a separate section from `missiles`.
    */
   pickups?: Record<string, PackStrip>;
 }
@@ -718,13 +733,17 @@ const SHIP_STRIP_FIELDS = [
   'color',
   'contentW',
   'contentH',
+  'banking',
 ] as const;
 /** The fields of one `assets.effects` strip (`PackStrip`). */
 const EFFECT_STRIP_FIELDS = [
   'src',
+  'x',
+  'y',
   'frames',
   'frameW',
   'frameH',
+  'stride',
   'ticksPerFrame',
   'mode',
   'color',
@@ -1246,6 +1265,12 @@ function validateShipStrip(ship: Record<string, unknown>, prefix: string, errors
   stripCount(ship, 'contentH', where, prefix, errors, false);
   stripStride(ship, where, prefix, errors);
   stripEnums(ship, where, prefix, errors, false);
+  if ('banking' in ship && ship.banking !== undefined && ship.banking !== 'five-way') {
+    errors.push(`${prefix}${where}.banking must be "five-way"`);
+  }
+  if (ship.banking === 'five-way' && ship.frames !== 5) {
+    errors.push(`${prefix}${where}.banking "five-way" requires frames 5`);
+  }
   for (const field of Object.keys(ship)) {
     if ((SHIP_STRIP_FIELDS as readonly string[]).includes(field)) continue;
     errors.push(unknownField(`${prefix}${where}: `, field, SHIP_STRIP_FIELDS));
@@ -1259,8 +1284,8 @@ function validateEffectStrips(effects: unknown, prefix: string, errors: string[]
 
 /**
  * `assets.lasers` — the laser body/cap strips. Structurally identical to
- * `assets.effects` (one PNG per strip, the `PackStrip` shape), so it runs the
- * same per-strip validation, only the section name differs in the messages.
+ * `assets.effects` (the same legacy-own-file/shared-source `PackStrip` shape),
+ * so it runs the same per-strip validation; only the section name differs.
  */
 function validateLaserStrips(lasers: unknown, prefix: string, errors: string[]): void {
   validatePackStripMap(lasers, 'lasers', prefix, errors);
@@ -1268,9 +1293,8 @@ function validateLaserStrips(lasers: unknown, prefix: string, errors: string[]):
 
 /**
  * `assets.missiles` — the missile body strips. Structurally identical to
- * `assets.effects` and `assets.lasers` (one PNG per strip, the `PackStrip` shape),
- * so it runs the same per-strip validation, only the section name differs in the
- * messages.
+ * `assets.effects` and `assets.lasers` (the same `PackStrip` source-placement
+ * shape), so it runs the same per-strip validation; only the section name differs.
  */
 function validateMissileStrips(missiles: unknown, prefix: string, errors: string[]): void {
   validatePackStripMap(missiles, 'missiles', prefix, errors);
@@ -1278,9 +1302,9 @@ function validateMissileStrips(missiles: unknown, prefix: string, errors: string
 
 /**
  * `assets.pickups` — the coin/gem/bar body strips. Structurally identical to
- * `assets.effects`, `assets.lasers` and `assets.missiles` (one PNG per strip, the
- * `PackStrip` shape), so it runs the same per-strip validation, only the section
- * name differs in the messages.
+ * `assets.effects`, `assets.lasers` and `assets.missiles` (the same `PackStrip`
+ * source-placement shape), so it runs the same per-strip validation; only the
+ * section name differs in the messages.
  */
 function validatePickupStrips(pickups: unknown, prefix: string, errors: string[]): void {
   validatePackStripMap(pickups, 'pickups', prefix, errors);
@@ -1313,12 +1337,16 @@ function validatePackStripMap(
       errors.push(`${prefix}${where}.src must be a string (a path to a PNG)`);
     }
     // The two golden effect strings from design §5, verbatim.
+    stripOffset(strip, 'x', where, prefix, errors);
+    stripOffset(strip, 'y', where, prefix, errors);
     stripCount(strip, 'frames', where, prefix, errors, true);
     stripCount(strip, 'frameW', where, prefix, errors, true);
     stripCount(strip, 'frameH', where, prefix, errors, true);
+    stripCount(strip, 'stride', where, prefix, errors, false);
     stripCount(strip, 'ticksPerFrame', where, prefix, errors, false);
     stripCount(strip, 'contentW', where, prefix, errors, false);
     stripCount(strip, 'contentH', where, prefix, errors, false);
+    stripStride(strip, where, prefix, errors);
     stripEnums(strip, where, prefix, errors, true);
     for (const field of Object.keys(strip)) {
       if ((EFFECT_STRIP_FIELDS as readonly string[]).includes(field)) continue;
