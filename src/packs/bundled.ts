@@ -44,7 +44,7 @@ import '../content';
 import '../render/backgrounds';
 import { backgroundNames } from '../render/background';
 import { portraitNames } from '../render/portrait';
-import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
+import { BULLET_CELLS, BULLET_VARIANT_CELLS, SHIP_CELLS } from '../render/procedural';
 
 import { injectPack, type InjectContext } from './inject';
 import { validateManifest, type PackManifest } from './manifest';
@@ -74,7 +74,11 @@ if ('errors' in validation) {
 // `render`. Built here (this module may import `render`, like `loader.ts`), so
 // injection stays free of that boundary.
 const context: InjectContext = {
-  sprites: [...BULLET_CELLS],
+  // Floor cells ∪ the per-family variant names the base campaign fires (both
+  // resolvable procedurally — the floor aliases each variant to its base cell), so
+  // the bundled base pack's specs naming a variant validate. Same set `loader.ts`
+  // builds for a fetched pack.
+  sprites: [...BULLET_CELLS, ...BULLET_VARIANT_CELLS],
   shipSprites: [...SHIP_CELLS],
   scenes: backgroundNames(),
   portraits: portraitNames(),

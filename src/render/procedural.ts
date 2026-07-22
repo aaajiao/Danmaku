@@ -279,6 +279,103 @@ export const CELL_ART: Record<BulletCell, CellArt> = {
   mote: orbCell(3),
 };
 
+/* ------------------------------------------------------------------ */
+/* Per-family bullet variants — the deliberate curtain vocabulary     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The named bullets the base campaign fires, one per enemy/boss family and per
+ * player weapon — the vocabulary a pack (BulletPack) reskins so each family gets
+ * its own art instead of every `orb.small` sharing one cell at twenty-seven hues.
+ *
+ * A variant is `<baseCell>.<family>`: the prefix is one of the 16 `BULLET_CELLS`
+ * and names the **alias target**, the suffix is the firing family/role. It is NOT
+ * a floor cell (`BULLET_CELLS` is the sixteen and never grows — the 8×2 grid and
+ * `procedural.test.ts`'s capacity check stay exactly as they are). Instead every
+ * atlas the engine builds ALIASES each variant to its base cell's frame-0 region,
+ * so:
+ *
+ * - **Zero-pack / legacy-grid play** draws the variant as its base shape (white),
+ *   and the base content carries the family tint — so the never-blocked floor
+ *   holds and the picture is byte-identical to before this vocabulary existed.
+ * - **A native pack sheet** may define the SAME bare variant name with baked
+ *   native art; `nativeBulletAtlas` keeps the pack's strip and aliases only the
+ *   variants the pack did not cover. A variant is not one of the sixteen shared
+ *   floor cells, so a pack may bake colour into it without fighting the tint the
+ *   base campaign uses to colour-code the shared cells (amendment §1.5 / §Naming
+ *   tier 3, but reached bare because the base game is the unqualified consumer).
+ *
+ * A sprite name is content, the pixels it resolves to are presentation: the sim
+ * reads `radius`, never a cell, so naming a variant moves no trace. That is why
+ * the base-pack port to this vocabulary is replay-neutral.
+ */
+export const BULLET_VARIANTS: Record<string, BulletCell> = {
+  /* -- stage-1 enemies + sentinel -- */
+  'orb.small.chaff': 'orb.small', // ENEMY_SHOT — stage-1/2 plain shot
+  'scale.heavy': 'scale', // HEAVY_SHOT — turret ring
+  'scale.shard': 'scale', // SHARD — sentinel approach/vigil
+  'petal.corolla': 'petal', // PETAL — sentinel "Tidal Corolla"
+  'needle.vigil': 'needle', // NEEDLE — sentinel "Vigil Unbroken"
+
+  /* -- stage-2 enemies + warden/magistrate -- */
+  'orb.small.spark': 'orb.small', // SPARK — stage-2 wavering shot
+  'kunai.seeker': 'kunai', // SEEKER — hunter / magistrate
+  'needle.lance': 'needle', // LANCE — lash beam
+  'needle.column': 'needle', // COLUMN — warden / magistrate beam
+  'petal.ember': 'petal', // EMBER — censer / magistrate mill
+  'scale.shell': 'scale', // SHELL — bastion / warden / magistrate
+
+  /* -- stage-3 enemies + chancellor -- */
+  'orb.small.writ': 'orb.small', // WRIT — stage-3/4 aimed shot
+  'orb.medium.slab': 'orb.medium', // SLAB — stele wall
+  'needle.subpoena': 'needle', // SUBPOENA — summons homing
+  'spark.levy': 'spark', // LEVY — assessor / chancellor / notary spiral
+  'orb.medium.decree': 'orb.medium', // DECREE — chancellor / regent ring
+  'halo.seal': 'halo', // SEAL — chancellor "Wax and Witness"
+
+  /* -- stage-4 enemies + regent -- */
+  'needle.picket': 'needle', // PICKET — usher herd
+  'orb.medium.bulwark': 'orb.medium', // BULWARK — marshal wall
+  'halo.signet': 'halo', // SIGNET — notary stamp
+  'halo.crown': 'halo', // CROWN_CW — regent "Corolla Regnant" inner
+  'halo.diadem': 'halo', // CROWN_CCW — regent "Corolla Regnant" outer
+  'needle.warrant': 'needle', // WARRANT — regent "Attainder" seeker
+  'orb.medium.lattice': 'orb.medium', // LATTICE — regent "Portcullis"
+
+  /* -- player weapons (shots and options) -- */
+  'glow.small.bolt': 'glow.small', // GUN_BOLT — spread
+  'needle.pin': 'needle', // GUN_NEEDLE — needle
+  'scale.tracker': 'scale', // GUN_SEEKER — homing
+  'glow.small.beam': 'glow.small', // GUN_BEAM — laser
+  'glow.small.spray': 'glow.small', // SCATTER_PELLET — maw scatter
+  'orb.small.satellite': 'orb.small', // OPT_STD_SHOT — standard option
+  'scale.satellite': 'scale', // OPT_SEEKER_SHOT — seeker option
+  'orb.small.battery': 'orb.small', // OPT_PICKET_SHOT — picket option
+  'orb.small.clinch': 'orb.small', // CLINCH_SHOT — clinch option
+};
+
+/**
+ * The variant names as a flat list — the base campaign's sprite-name surface the
+ * injector validates content against, `BULLET_CELLS`'s companion. Both `bundled.ts`
+ * and `loader.ts` add these to `InjectContext.sprites` so a base (or guest) spec
+ * naming a variant resolves.
+ */
+export const BULLET_VARIANT_CELLS = Object.keys(BULLET_VARIANTS) as readonly string[];
+
+/**
+ * Alias every variant not already present on `atlas` to its base cell's frame-0
+ * region, so a variant name always resolves whatever built the atlas (procedural
+ * floor, legacy grid, or a native pack sheet that covered only some variants). The
+ * base cells are defined before this runs on every path, so `atlas.get(base)` is
+ * safe. A variant the pack DID define keeps its own (possibly animated, baked)
+ * strip — `has` guards it.
+ */
+function defineVariantAliases(atlas: Atlas): void {
+  for (const [variant, base] of Object.entries(BULLET_VARIANTS)) {
+    if (!atlas.has(variant)) atlas.define(variant, atlas.get(base));
+  }
+}
+
 /**
  * Render the bullet sheet into a texture.
  *
@@ -316,6 +413,7 @@ export function createBulletAtlas(): Atlas {
 
   const atlas = new Atlas(texture, width, height, BULLET_GRID);
   atlas.defineGrid([...BULLET_CELLS]);
+  defineVariantAliases(atlas); // every family variant draws as its base shape
   return atlas;
 }
 
@@ -420,6 +518,7 @@ export async function bulletAtlas(url?: string, strips?: BulletSheetInput): Prom
     );
   }
   atlas.defineGrid([...BULLET_CELLS]);
+  defineVariantAliases(atlas); // family variants alias the grid's base cells
   return atlas;
 }
 
@@ -456,6 +555,10 @@ async function nativeBulletAtlas(url: string, sheet: BulletSheetInput): Promise<
       color: s.color ?? 'tinted',
     });
   }
+  // Any family variant the pack did not ship its own strip for falls back to its
+  // base cell (covered above) — so the base campaign's variant names all resolve
+  // even against a sheet that only reskinned the sixteen floor cells.
+  defineVariantAliases(atlas);
   return atlas;
 }
 
@@ -760,14 +863,48 @@ function defineFxStrips(atlas: Atlas): void {
 }
 
 /**
- * The fx sheet, generated or loaded — symmetric to `bulletAtlas(url?)`.
- * `undefined` generates the procedural floor; a URL loads one combined fx sheet
- * of the `FX_SHEET_W`×`FX_SHEET_H` layout and dimension-checks it, naming both
- * figures on a mismatch (a wrong-sized sheet otherwise repoints every strip at a
- * crop). A pack's per-file `assets.effects` reskin is a separate, warn-only path
- * (see docs/packs.md); this is the direct-import seam for a single combined sheet.
+ * A pack's `assets.effects` strip, resolved: the winning file's URL plus the
+ * geometry the manifest declared. The structural twin of the manifest's
+ * `PackStrip`, redeclared here so `render/` need not import `packs/`. Each strip
+ * is its OWN file (frames laid horizontally, frame 0 leftmost — no x/y), unlike a
+ * bullet sheet's packed strips, which is why fx are composited from many files.
  */
-export async function effectAtlas(url?: string): Promise<Atlas> {
+export interface EffectStripInput {
+  url: string;
+  frames: number;
+  frameW: number;
+  frameH: number;
+  ticksPerFrame?: number;
+  mode?: StripMode;
+  color?: StripColor;
+}
+
+/**
+ * The fx sheet, generated, loaded, or composited from a pack — symmetric to
+ * `bulletAtlas(url?, strips?)`.
+ *
+ * Three forms, one atlas:
+ * - `effectAtlas()` — the procedural fx floor (rule 9): `burst`, `burst.big`,
+ *   `pulse` at their native sizes.
+ * - `effectAtlas(url)` — one combined `FX_SHEET_W`×`FX_SHEET_H` sheet loaded and
+ *   dimension-checked (the direct-import seam), naming both figures on a mismatch.
+ * - `effectAtlas(undefined, packStrips)` — a pack's per-file `assets.effects`
+ *   reskin. Because each pack strip is its OWN file but the fx atlas is one texture
+ *   / one batch (the same single-texture rule bullets follow), the strips are
+ *   COMPOSITED onto one shared canvas: a floor name the pack reskins takes the
+ *   pack's native (baked, animated) pixels, a floor name it leaves alone is
+ *   painted procedurally, and any pack-new name is blitted too. So `burst`,
+ *   `burst.big` and `pulse` always resolve on the returned atlas (`fxAtlas.has`
+ *   stays true), procedural when absent from the pack. Warn-only reskin material:
+ *   the loader already fetched and gated these files.
+ */
+export async function effectAtlas(
+  url?: string,
+  packStrips?: Record<string, EffectStripInput>,
+): Promise<Atlas> {
+  if (packStrips !== undefined && Object.keys(packStrips).length > 0) {
+    return nativeEffectAtlas(packStrips);
+  }
   if (url === undefined) return createEffectAtlas();
 
   const atlas = await loadAtlas(url);
@@ -777,5 +914,123 @@ export async function effectAtlas(url?: string): Promise<Atlas> {
     );
   }
   defineFxStrips(atlas);
+  return atlas;
+}
+
+/** One row of the composited fx sheet: either a procedural painter or a blit. */
+interface FxRow {
+  name: string;
+  frameW: number;
+  frameH: number;
+  frames: number;
+  stride: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  /** A procedural painter (floor strip left un-reskinned), else a loaded image. */
+  paint?: StripDraw;
+  image?: CanvasImageSource;
+}
+
+/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
+async function packFxRow(name: string, s: EffectStripInput): Promise<FxRow> {
+  const texture = await loadTexture(s.url);
+  return {
+    name,
+    frameW: s.frameW,
+    frameH: s.frameH,
+    frames: s.frames,
+    stride: s.frameW, // a per-file strip lays its frames at frameW spacing
+    ticksPerFrame: s.ticksPerFrame ?? 1,
+    mode: s.mode ?? 'once',
+    color: s.color ?? 'tinted',
+    image: texture.image as CanvasImageSource,
+  };
+}
+
+/**
+ * Composite a pack's per-file `assets.effects` strips onto one shared fx texture,
+ * so the fx atlas stays a single texture / single batch. Floor names the pack did
+ * not reskin are painted procedurally; the pack's files are blitted at their
+ * native size; every strip lands on its own row, frames laid horizontally.
+ */
+async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): Promise<Atlas> {
+  const rows: FxRow[] = [];
+
+  // Floor names first (procedural unless the pack reskinned them), in the floor's
+  // own order, so `burst`/`burst.big`/`pulse` always resolve on the result.
+  for (const [name, s] of Object.entries(FX_STRIPS)) {
+    const over = packStrips[name];
+    if (over) {
+      rows.push(await packFxRow(name, over));
+    } else {
+      rows.push({
+        name,
+        frameW: s.frameW,
+        frameH: s.frameH,
+        frames: s.frames,
+        stride: s.stride,
+        ticksPerFrame: s.ticksPerFrame,
+        mode: s.mode,
+        color: s.color,
+        paint: s.draw,
+      });
+    }
+  }
+  // Pack-new fx names (not a floor strip): a content effect spec that names one
+  // resolves; the base game draws only the floor names, so these are unreached
+  // presentation until a content pack fires them.
+  for (const name of Object.keys(packStrips)) {
+    if (name in FX_STRIPS) continue;
+    const s = packStrips[name];
+    if (s !== undefined) rows.push(await packFxRow(name, s));
+  }
+
+  // Lay every strip on its own row; sheet width is the widest row.
+  const rowY: number[] = [];
+  let sheetW = 1;
+  let sheetH = 0;
+  for (const row of rows) {
+    rowY.push(sheetH);
+    sheetW = Math.max(sheetW, row.frames * row.stride);
+    sheetH += row.frameH;
+  }
+  sheetH = Math.max(1, sheetH);
+
+  const { el, ctx } = canvas(sheetW, sheetH);
+  rows.forEach((row, i) => {
+    const y = rowY[i] ?? 0;
+    if (row.image) {
+      ctx.drawImage(row.image, 0, y);
+    } else if (row.paint) {
+      for (let f = 0; f < row.frames; f++) {
+        row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
+      }
+    }
+  });
+
+  const texture = new THREE.CanvasTexture(el);
+  // Native baked fx art is pixel art; nearest keeps it crisp (loadTexture's floor).
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, sheetW, sheetH);
+  rows.forEach((row, i) => {
+    atlas.defineStrip(row.name, {
+      x: 0,
+      y: rowY[i] ?? 0,
+      frameW: row.frameW,
+      frameH: row.frameH,
+      frames: row.frames,
+      stride: row.stride,
+      ticksPerFrame: row.ticksPerFrame,
+      mode: row.mode,
+      color: row.color,
+    });
+  });
   return atlas;
 }

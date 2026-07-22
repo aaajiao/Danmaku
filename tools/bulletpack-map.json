@@ -1,28 +1,59 @@
 {
-  "$comment": "Mapping from the third-party BulletPack folder onto this engine's art surfaces, consumed by tools/import-bulletpack.ts. Every path is relative to the BulletPack root (argv[2], default /Users/aaajiao/Downloads/BulletPack). Per entry: src=file, frames=strip frame count (1 = single), frame=which frame, crop={x,y,w,h} sub-rect (applied after slicing the frame), rotate=degrees clockwise to bring a directional shape to +x/east (rule 7), whiten=convert to white-luminance so the engine's per-instance tint recolours it (tinted surfaces only; the ship keeps its shading), trim=crop to the alpha bounding box, threshold=alpha floor for trim/measure, targetExtent=fit the longer painted axis to this many px then centre in the cell (keeps every cell inside MAX_CELL_EXTENT=28 with 2px margin). Directional cells (kunai, scale, shard, needle, petal) end pointing +x.",
-  "bullets": {
-    "orb.small":  { "src": "Bullet Pack/Bullet Pack/Tiny_Bullet_CianBermuda_strip4.png", "frames": 4, "frame": 0, "whiten": true, "trim": true, "targetExtent": 11 },
-    "orb.medium": { "src": "Bullet Pack/Missiles/Missiles_Exp_Mid_strip9.png", "frames": 9, "frame": 0, "whiten": true, "trim": true, "targetExtent": 16 },
-    "orb.large":  { "src": "Bullet Pack/Missiles/Missiles_Exp_Big_strip8.png", "frames": 8, "frame": 0, "whiten": true, "trim": true, "targetExtent": 26 },
-    "ring":       { "src": "Bullet Pack/Missiles/Missiles_Exp_Mid_strip9.png", "frames": 9, "frame": 5, "whiten": true, "trim": true, "targetExtent": 26 },
-    "kunai":      { "src": "Bullet Pack/Missiles/Missile1_strip5.png", "frames": 5, "frame": 0, "rotate": 90, "whiten": true, "trim": true, "targetExtent": 26 },
-    "scale":      { "src": "Bullet Pack/Bullet Pack/Gradius_Alt.png", "frames": 1, "frame": 0, "crop": { "x": 1, "y": 0, "w": 16, "h": 8 }, "whiten": true, "trim": true, "targetExtent": 20 },
-    "star":       { "src": "Bullet Pack/Misc/Yellow_Gem_strip9-sheet.png", "frames": 9, "frame": 0, "whiten": true, "trim": true, "targetExtent": 24 },
-    "shard":      { "src": "Bullet Pack/Bullet Pack/Medium_gradius.png", "frames": 1, "frame": 0, "whiten": true, "trim": true, "targetExtent": 26 },
-    "glow.small": { "src": "Bullet Pack/Missiles/Missiles_Exp_Tiny_strip11.png", "frames": 11, "frame": 4, "whiten": true, "trim": true, "targetExtent": 14 },
-    "glow.medium":{ "src": "Bullet Pack/Missiles/Missiles_Exp_Big_strip8.png", "frames": 8, "frame": 2, "whiten": true, "trim": true, "targetExtent": 22 },
-    "glow.large": { "src": "Bullet Pack/Explosions/New_Player_Explosion_strip38.png", "frames": 38, "frame": 2, "whiten": true, "trim": true, "targetExtent": 27 },
-    "halo":       { "src": "Bullet Pack/Bullet Pack/Rings.png", "frames": 1, "frame": 0, "crop": { "x": 0, "y": 0, "w": 13, "h": 13 }, "whiten": true, "trim": true, "targetExtent": 26 },
-    "needle":     { "src": "Bullet Pack/Bullet Pack/Lines_purple.png", "frames": 1, "frame": 0, "crop": { "x": 1, "y": 0, "w": 13, "h": 4 }, "whiten": true, "trim": true, "targetExtent": 28 },
-    "petal":      { "src": "Bullet Pack/Bullet Pack/medium_flamy.png", "frames": 1, "frame": 0, "crop": { "x": 0, "y": 0, "w": 6, "h": 19 }, "rotate": 90, "whiten": true, "trim": true, "targetExtent": 22 },
-    "spark":      { "src": "Bullet Pack/Player Bullets/P1_Bullet_Hit.png", "frames": 1, "frame": 0, "crop": { "x": 57, "y": 0, "w": 13, "h": 13 }, "whiten": true, "trim": true, "targetExtent": 20 },
-    "mote":       { "src": "Bullet Pack/Player Ship/ThrusterParticle0_strip6.png", "frames": 6, "frame": 0, "whiten": true, "trim": true, "targetExtent": 6 }
+  "$comment": "Mapping from the third-party BulletPack folder onto this engine's NATIVE strip surfaces, consumed by tools/import-bulletpack.ts. Every path is relative to the BulletPack root (argv[2], default ~/Downloads/BulletPack). This round targets the self-describing native format (design-native-format-amendment §Importer): the importer emits assets.bullets = { sheet, strips } (one packed PNG, every strip placed with x/y/frameW/frameH/frames/stride/color) plus assets.effects (one PNG per explosion strip). There is NO ship entry — player/enemy/boss 形象 are out of scope by user directive (2026-07-22); the ship seam stays engine machinery. Metadata is EXPLICIT per strip (never a filename-suffix parser — 47% of BulletPack files carry no parseable _stripN and several wide files are choice-sheets of unrelated designs, e.g. Medium_Pink_Purple and P1_Hyper_Bullet, resolved here by an explicit crop / frame count).",
+  "$grammar": "The base four-stage campaign is the UNQUALIFIED consumer of the pack's baked colour (src/render/procedural.ts BULLET_VARIANTS): it fires 33 tint-free variant names of the form <baseCell>.<family> (e.g. orb.medium.decree, needle.column, glow.small.bolt), and nativeBulletAtlas keeps a pack strip named by one of those names over the floor-cell alias. So a baked design REACHES the four-stage game the moment its strip is keyed by the name that family fires — no companion content pack needed. THREE tiers (amendment §Naming, as evolved by BULLET_VARIANTS): (1) FLOOR — the 16 built-in BULLET_CELLS: whitened to luminance (rgb→255, alpha kept) so the base campaign's per-instance hue tint still colour-codes the shared cells, declared color:'tinted', animation frames PRESERVED, each fit to a per-cell coherent size (NOT the retired uniform 28px regrid). (2) VARIANTS — enemy/boss fired names / (3) SHOTS — player weapon+option fired names: the coloured native art declared color:'baked' at PIXEL-EXACT native size (no whiten, no resample; only lossless crop / 90° rotation). Because base content fires all 33 variant names TINT-FREE, baking one colour per name is safe — the identity-white default tint multiplies through unchanged. COVERAGE IS PARTIAL AND DELIBERATE: a fired name is covered here only when a BulletPack design fits its orientation and size — directional families (needle/kunai/scale + player shots, orientToHeading) take elongated line/shot art rotated to +x (rule 7); radial families take compact round/oval art whose native size stays near a bullet's (≤~45px). The 11 fired names left uncovered keep aliasing to their reskinned floor cell (a proper BulletPack shape at a coherent size), and BulletPack's oversized beams (massive/streak/long lines) and its surplus per-level player shots have no bullet-sized home this round — they stage in extra/ for the laser and weapon rounds. EFFECTS — only the two explosions that reskin a death-site floor name (burst, burst.big) ship; the other six explosion strips reach no emit site (firing a pack-only fx name would crash the never-blocked floor), so they stage until a death/bomb tier fires them.",
+  "floor": {
+    "orb.small":  { "src": "Bullet Pack/Bullet Pack/Tiny_Bullet_CianBermuda_strip4.png", "strip": 4, "mode": "loop", "ticksPerFrame": 4, "fit": 10 },
+    "orb.medium": { "src": "Bullet Pack/Bullet Pack/Pink_medium.png", "fit": 16 },
+    "orb.large":  { "src": "Bullet Pack/Bullet Pack/Big_Blue_Cian.png", "fit": 26 },
+    "ring":       { "src": "Bullet Pack/Bullet Pack/Rings.png", "crop": { "x": 26, "y": 0, "w": 13, "h": 13 }, "fit": 24 },
+    "kunai":      { "src": "Bullet Pack/Bullet Pack/Medium_Gradius2.png", "fit": 26 },
+    "scale":      { "src": "Bullet Pack/Bullet Pack/Gradius_Alt.png", "crop": { "x": 1, "y": 0, "w": 16, "h": 8 }, "fit": 20 },
+    "star":       { "src": "Bullet Pack/Bullet Pack/Bullet_Spiky_Bulky_strip7.png", "strip": 7, "mode": "loop", "ticksPerFrame": 3, "fit": 22 },
+    "shard":      { "src": "Bullet Pack/Bullet Pack/Medium_gradius.png", "fit": 26 },
+    "glow.small": { "src": "Bullet Pack/Bullet Pack/Tiny_purple.png", "fit": 14 },
+    "glow.medium":{ "src": "Bullet Pack/Bullet Pack/Medium_Blue_Cian.png", "fit": 22 },
+    "glow.large": { "src": "Bullet Pack/Bullet Pack/Big_Yellow_Cian.png", "fit": 28 },
+    "halo":       { "src": "Bullet Pack/Bullet Pack/Rings.png", "crop": { "x": 0, "y": 0, "w": 13, "h": 13 }, "fit": 26 },
+    "needle":     { "src": "Bullet Pack/Bullet Pack/Lines_purple.png", "fit": 28 },
+    "petal":      { "src": "Bullet Pack/Bullet Pack/medium_flamy.png", "fit": 20 },
+    "spark":      { "src": "Bullet Pack/Player Bullets/P1_Bullet_Hit.png", "crop": { "x": 57, "y": 0, "w": 13, "h": 13 }, "fit": 20 },
+    "mote":       { "src": "Bullet Pack/Bullet Pack/Tiny_Pink.png", "fit": 6 }
   },
-  "ship": {
-    "src": "Bullet Pack/Player Ship/PlayerShip_strip5.png", "frames": 5, "frame": 2, "whiten": false, "trim": true, "targetExtent": 58, "hitbox": true
+  "$variants": "Enemy/boss fired names (src/render/procedural.ts BULLET_VARIANTS). Directional families set orientToHeading in base content, so their art is elongated and points +x; radial families keep native orientation. Each name here is one a real four-stage playthrough fires, so the baked design reaches play.",
+  "variants": {
+    "needle.vigil":       { "src": "Bullet Pack/Bullet Pack/Lines_Thicker_Green.png", "note": "sentinel 'Vigil Unbroken' beam — directional green line (+x)" },
+    "needle.subpoena":    { "src": "Bullet Pack/Bullet Pack/Lines_yellow.png", "note": "stage-3 summons homing — directional yellow line (+x)" },
+    "needle.picket":      { "src": "Bullet Pack/Bullet Pack/Lines_tiny_Green.png", "note": "usher herd — directional green dash (+x)" },
+    "needle.warrant":     { "src": "Bullet Pack/Bullet Pack/Lines_purple_squary.png", "note": "regent 'Attainder' seeker — directional purple dash (+x)" },
+    "scale.shard":        { "src": "Bullet Pack/Bullet Pack/Lines_tiny_Bermuda.png", "note": "sentinel approach/vigil — directional teal dash (+x)" },
+    "kunai.seeker":       { "src": "Bullet Pack/Bullet Pack/Tiny_Gradius.png", "note": "hunter/magistrate blade — directional steel gradius (+x)" },
+    "orb.medium.slab":    { "src": "Bullet Pack/Bullet Pack/Big_Purple.png", "note": "stele wall — radial purple oval" },
+    "orb.medium.decree":  { "src": "Bullet Pack/Bullet Pack/Medium_purple_blue_Oval.png", "note": "chancellor/regent ring — radial purple-blue oval" },
+    "orb.medium.bulwark": { "src": "Bullet Pack/Bullet Pack/Bermuda_Medium.png", "note": "marshal wall — radial teal oval" },
+    "orb.medium.lattice": { "src": "Bullet Pack/Bullet Pack/Medium_Big_Yellow_Red.png", "note": "regent 'Portcullis' — radial amber oval" },
+    "petal.corolla":      { "src": "Bullet Pack/Bullet Pack/Pink_msh.png", "note": "sentinel 'Tidal Corolla' — radial pink blob" },
+    "petal.ember":        { "src": "Bullet Pack/Bullet Pack/Medium_tiny_Yellow_Red.png", "note": "censer/magistrate mill — radial ember bullet" },
+    "spark.levy":         { "src": "Bullet Pack/Bullet Pack/Tiny_Orange_Yellow_magenta.png", "note": "assessor/chancellor/notary spiral — radial orange spark" },
+    "orb.small.writ":     { "src": "Bullet Pack/Bullet Pack/Medium_Pink_Purple.png", "crop": { "x": 2, "y": 2, "w": 13, "h": 13 }, "note": "stage-3/4 aimed shot (most-fired) — one 13px round design cropped from a 306×17 choice-sheet" }
   },
-  "hud": {
-    "life": { "src": "Bullet Pack/Misc/Pink_Gem_strip9.png", "frames": 9, "frame": 0, "whiten": true, "trim": true, "targetExtent": 14 },
-    "bomb": { "src": "Bullet Pack/Misc/Gold_coin_strip6.png", "frames": 6, "frame": 0, "whiten": true, "trim": true, "targetExtent": 14 }
+  "$shots": "Player weapon and option fired names (BULLET_VARIANTS player section). Directional shots are drawn nose-up in BulletPack and rotated 90° to +x (rule 7) so orientToHeading points them along the firing heading; the radial spread bolt and the option shots keep native orientation.",
+  "shots": {
+    "glow.small.bolt":     { "src": "Bullet Pack/Bullet Pack/Bullet_Spiky_Thinier_strip7.png", "strip": 7, "mode": "loop", "ticksPerFrame": 3, "note": "GUN_BOLT spread — radial animated amber spiky ball" },
+    "needle.pin":          { "src": "Bullet Pack/Player Bullets/P1_Bullet_Pink.png", "rotate": 90, "note": "GUN_NEEDLE — directional pink needle (+x)" },
+    "glow.small.beam":     { "src": "Bullet Pack/Player Bullets/P1 Bullet Stream.png", "note": "GUN_BEAM laser — cyan stream" },
+    "scale.tracker":       { "src": "Bullet Pack/Player Bullets/P1 Bullet _Thinier_BermudaGreen.png", "rotate": 90, "note": "GUN_SEEKER homing — directional green shot (+x)" },
+    "scale.satellite":     { "src": "Bullet Pack/Player Bullets/P1 Bullet_Yellow_Thinier.png", "rotate": 90, "note": "OPT_SEEKER_SHOT — directional yellow shot (+x)" },
+    "orb.small.satellite": { "src": "Bullet Pack/Bullet Pack/Bullet_tiny_green.png", "note": "OPT_STD_SHOT — radial green pellet" },
+    "orb.small.battery":   { "src": "Bullet Pack/Bullet Pack/Green_msh.png", "note": "OPT_PICKET_SHOT — radial green blob" },
+    "orb.small.clinch":    { "src": "Bullet Pack/Bullet Pack/Tr.png", "note": "CLINCH_SHOT — radial greenish-grey pellet (filename 'Tr' uncrackable)" }
+  },
+  "variantsDuplicate": {
+    "$comment": "Files that are byte-for-byte duplicates of a consumed source; represented by the named variant, not packed twice.",
+    "Bullet Pack/Bullet Pack/Bermuda_Medium copy.png": "orb.medium.bulwark (identical to Bermuda_Medium.png)"
+  },
+  "$effects": "Only names a real death site fires ship as pack effects. `burst` (enemy death) and `burst.big` (boss/player death) RESKIN procedural fx-floor names the base campaign already emits (src/game/run.ts; effectAtlas composites a reskinned floor name from the pack's native pixels — src/render/procedural.ts nativeEffectAtlas). The base effect's `life` is fixed (burst 24, burst.big 36 ticks; src/sim/effects.ts), so ticksPerFrame lands the animation near that window. The other six explosion strips are NOT mapped: firing a pack-only fx name from a base death site would crash the never-blocked floor (main.ts:608 throws on an unresolved sprite), so they have no consumer until a death/bomb tier with its own procedural floor is added. They stage in extra/explosions/ and are counted staged, not consumed.",
+  "effects": {
+    "burst":     { "src": "Bullet Pack/Explosions/Mid_smallexp_strip14.png", "strip": 14, "mode": "once", "ticksPerFrame": 2, "note": "RESKIN of the enemy-death flash (base effect 'burst', life 24)" },
+    "burst.big": { "src": "Bullet Pack/Explosions/New_wave_Strip10.png", "strip": 10, "mode": "once", "ticksPerFrame": 3, "note": "RESKIN of the boss/player-death flash (base effect 'burst.big', life 36): expanding shockwave" }
   }
 }

@@ -178,10 +178,12 @@ const bulletAtlas = await makeBulletAtlas(packs.bulletsUrl ?? BULLET_SHEET, pack
 const shipAtlas = await makeShipAtlas(packs.shipUrl, packs.shipStrip);
 
 // The animation-strip fx floor (rule 9): a second texture carrying the bursts
-// and the item pulse at their native sizes. Procedural unless a combined fx
-// sheet is dropped in directly; a pack's per-file `assets.effects` reskin is a
-// separate, warn-only path that falls back here.
-const fxAtlas = await makeEffectAtlas();
+// and the item pulse at their native sizes. Procedural when no pack ships fx;
+// when a pack's per-file `assets.effects` strips win, they are composited onto
+// this single texture (a reskinned floor name takes its native pixels, the rest
+// stay procedural), so `burst`/`burst.big`/`pulse` always resolve. Warn-only:
+// the loader already fetched and gated the files.
+const fxAtlas = await makeEffectAtlas(undefined, packs.effectStrips);
 
 // A pack may ask for linear sampling (smooth art); the default `nearest`
 // matches `loadTexture`, so only the opt-in needs applying. The placeholder

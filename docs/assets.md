@@ -929,23 +929,79 @@ at all. So the four templates the art kit (`bun run art:kit`) emits cover every
 paintable surface the game has.
 
 Importing a third-party art set makes visible a second set of categories the
-engine has real art for but **cannot receive today**. The reference import,
-`tools/import-bulletpack.ts`, curates one frame per bullet cell out of such a
-set and stages everything it does not consume under
-`packs/<pack>/extra/<category>/`, with a machine-readable `extra/extras.json`
-manifest (per file: dimensions, strip frame count, an orientation guess and a
-suggested future consumer). These are recorded here as **format expectations**,
-not as templates — a template slot that looks consumable but is not is exactly
-what the reachability doctrine (CLAUDE.md, *Registration is not reachability*)
-forbids. A template for one of these belongs in the kit **only after** the
-engine round that gives it a consumer lands.
+engine has real art for. Some it now **receives natively** (bullets and
+explosions, once the animation-strip and native-format rounds landed); the rest
+still have **no consumer today** and are staged, not consumed.
+
+### The reference importer — `tools/import-bulletpack.ts`
+
+It produces a **native self-describing strip** pack (not the retired
+whiten-and-regrid-to-a-32px-grid it once did, which took frame 0 of any
+animation and flattened every source into one cell size). Driven by explicit
+per-strip metadata in `tools/bulletpack-map.json` — never a filename-suffix
+parser, because a wide file is as often a *choice-sheet of unrelated designs*
+(`Medium_Pink_Purple`, 18 repeated 13px designs; `P1_Hyper_Bullet`, two) as it is
+a real animation — it emits:
+
+- **`bullets.png` + `assets.bullets: { sheet, strips }`** (§3.1's object form): the
+  16 built-in cells as **`tinted`** native strips — whitened to luminance so the
+  base campaign's per-instance tint still colour-codes the curtain, animation
+  frames kept, each **fit to a coherent per-cell size** so the reskin stays
+  readable (a per-cell fit, *not* the retired uniform regrid that dropped
+  animation and one-size-flattened all sixteen) — **plus** the coloured designs
+  as **`baked`** native strips **keyed by the names the base four-stage campaign
+  already fires** (`src/render/procedural.ts` `BULLET_VARIANTS` — `orb.medium.decree`,
+  `needle.pin`, …), **pixel-exact** (no whiten, no resample; only lossless crop and
+  90° rotation to bring directional art to +x, rule 7 §1.3).
+
+  **A baked strip only reaches real play if its name is one content fires.** The
+  base game *is* the unqualified consumer: `nativeBulletAtlas` keeps a pack strip
+  named `orb.medium.decree` over the floor-cell alias, so that chancellor bullet
+  draws the baked design the moment the pack loads — no companion content pack.
+  A baked strip keyed by a name **no** spec fires (the old `oval.teal`-style
+  vocabulary) is **dead presentation**: it packs onto the sheet and never draws.
+  So the importer maps a baked design **onto a `BULLET_VARIANTS` name**, and only
+  where orientation and bullet size fit — directional families (`needle`/`kunai`/
+  `scale`, player shots) take elongated art rotated to +x, radial families take
+  compact art whose native size stays near a bullet's. Coverage is deliberately
+  **partial** (22 of 33 fired names this round); an uncovered name keeps aliasing
+  to its reskinned floor cell, and BulletPack's oversized beams and surplus shots
+  have no bullet-sized home yet, so they **stage** (§ Categories with no consumer).
+- **one PNG per explosion + `assets.effects`** (§3.5's strip form): native colour
+  and animation, each frame re-padded with a transparent margin so it clears the
+  inter-frame seam gate. **Only the two named after fx floor strips a death site
+  fires ship** — **`burst`** (enemy death) and **`burst.big`** (boss/player death)
+  — so they reskin those flashes the moment the pack loads. A pack-only fx name has
+  no emit site, and firing one from a base death site would throw on the
+  never-blocked floor (`main.ts` resolves the sprite against the fx/bullet atlas,
+  which lacks it), so the other explosion strips **stage** until a death/bomb tier
+  with its own procedural floor is added — dead presentation otherwise, same rule
+  as a baked bullet keyed by an unfired name.
+
+Its in-tool self-check (`assertNativeBulletSheet` / `assertEffectStrip`)
+replicates the loader's browser-only measured gates headless — floor-cell
+coverage, per-strip bounds, the per-frame seam (`frameW − 2·FX_PAD`), and mean
+saturation on tinted strips — so a bad sheet fails in the tool before a browser
+loads it. Everything it does not consume is staged under
+`packs/<pack>/extra/<category>/` with a machine-readable `extra/extras.json`
+(per file: dimensions, strip frame count, an orientation guess and a suggested
+future consumer). The **ship is deliberately not imported** (player/enemy/boss
+形象 are out of scope by user directive), and the coins/gems **HUD** icons wait
+for the pickup round — those seams stay engine machinery.
+
+### Categories with no consumer today (staged, not templated)
+
+Recorded as **format expectations**, not kit templates — a template slot that
+looks consumable but is not is exactly what the reachability doctrine (CLAUDE.md,
+*Registration is not reachability*) forbids. A template for one of these belongs
+in the kit **only after** the engine round that gives it a consumer lands.
 
 | Category | Format expectation | Why no consumer today |
 |---|---|---|
 | **Laser body + hit-cap** | Vertical beam segments meant to **tile** along a beam's length (`strip3`–`strip12`, 13–32px/frame), plus separate 3-frame impact caps. | `LaserSpec` exists (`src/sim/bullet.ts`), but a laser renders as **one 32×32 cell stretched** along the beam (`src/main.ts`) — there is no tiled-beam renderer and no separate cap sprite. |
-| **Per-frame animation strips** | Horizontal strips of 2–41 frames. | The engine has **no frame playback anywhere** (`frameIndex`/`animFrame` do not exist); every animated strip collapses to one representative frame. |
 | **Missiles as entities** | 5-frame banking-pose sprites (turn, not loop) with an exhaust trail. | The closest mechanism is a `homing` behaviour on an ordinary single-cell bullet, continuously rotated by `orientToHeading` — no discrete poses, no exhaust. |
-| **Thruster / engine trails** | Continuous trail strips (`strip2`–`strip6`, 4–6px/frame). | The six `defineEffect` entries have no continuous-trail analogue. |
+| **Coins / gems (pickups)** | Looping spin strips (`strip6`–`strip9`). | `ItemSpec.sprite` names a bullet cell; a dedicated animated pickup skin is the pickup-variety round, not yet landed. |
+| **Thruster / engine trails** | Continuous trail strips (`strip2`–`strip6`, 4–6px/frame). | No continuous-trail effect exists, and the player 形象 (ship + its trails) is out of scope by user directive. |
 | **Bomb visual** | Large nova / shockwave strips (up to 41 frames). | `BombSpec` carries no sprite surface; a bomb expresses only through the existing particle/effect system. |
 | **Dedicated option sprite** | A distinct twin-pod satellite sprite. | `OptionSpec.sprite` names a **bullet cell** — options share the bullet namespace and have no sprite identity of their own. |
 

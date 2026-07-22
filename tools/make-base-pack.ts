@@ -57,26 +57,26 @@ import { validateManifest, type PackContent, type PackManifest } from '../src/pa
 
 /** Stage-1's plain shot. */
 const ENEMY_SHOT = {
-  style: { sprite: 'orb.small', r: 1, g: 0.45, b: 0.75 },
+  style: { sprite: 'orb.small.chaff', r: 1, g: 0.45, b: 0.75 },
   radius: 3,
   motion: { r: 2.4, theta: 90 },
 };
 
 /** Stage-1's heavier turret shot. */
 const HEAVY_SHOT = {
-  style: { sprite: 'scale', r: 0.55, g: 0.85, b: 1, orientToHeading: true },
+  style: { sprite: 'scale.heavy', r: 0.55, g: 0.85, b: 1, orientToHeading: true },
   radius: 4,
   motion: { r: 1.8, theta: 90 },
 };
 
 const SHARD = {
-  style: { sprite: 'scale', r: 0.6, g: 0.85, b: 1, orientToHeading: true },
+  style: { sprite: 'scale.shard', r: 0.6, g: 0.85, b: 1, orientToHeading: true },
   radius: 4,
   motion: { r: 2.2, theta: 90 },
 };
 
 const PETAL = {
-  style: { sprite: 'petal', r: 1, g: 0.55, b: 0.8 },
+  style: { sprite: 'petal.corolla', r: 1, g: 0.55, b: 0.8 },
   radius: 4,
   // Thrown out fast and braked to a crawl, so the ring hangs in the air long
   // enough to be read before the next one lands on top of it.
@@ -84,7 +84,7 @@ const PETAL = {
 };
 
 const NEEDLE = {
-  style: { sprite: 'needle', r: 1, g: 0.9, b: 0.5, orientToHeading: true, additive: true },
+  style: { sprite: 'needle.vigil', r: 1, g: 0.9, b: 0.5, orientToHeading: true, additive: true },
   // Half the painted thickness, with the length carried by `blade` — the shape
   // the sprite has always drawn.
   radius: 2,
@@ -99,7 +99,7 @@ const NEEDLE = {
  * deviation telescopes back to zero and the bullet leaves on its fired heading.
  */
 const SPARK = {
-  style: { sprite: 'orb.small', r: 1, g: 0.72, b: 0.42 },
+  style: { sprite: 'orb.small.spark', r: 1, g: 0.72, b: 0.42 },
   radius: 3,
   motion: {
     r: 2.3,
@@ -116,7 +116,7 @@ const SPARK = {
  * corrects, so the dodge is *when* you move, not whether.
  */
 const SEEKER = {
-  style: { sprite: 'kunai', r: 0.55, g: 1, b: 0.82, orientToHeading: true },
+  style: { sprite: 'kunai.seeker', r: 0.55, g: 1, b: 0.82, orientToHeading: true },
   // A capsule, because the art is a blade: `kunai` paints 26x6, so the lethal
   // shape is a 26px segment of half-thickness 3.
   radius: 3,
@@ -136,7 +136,7 @@ const SEEKER = {
  */
 const LANCE = {
   style: {
-    sprite: 'needle', r: 1, g: 0.45, b: 0.6,
+    sprite: 'needle.lance', r: 1, g: 0.45, b: 0.6,
     width: 7, height: 7, additive: true, orientToHeading: true,
   },
   radius: 4,
@@ -148,7 +148,7 @@ const LANCE = {
 /** The boss's beam: slower to draw, longer lived, so a ring of them is a room. */
 const COLUMN = {
   style: {
-    sprite: 'needle', r: 0.7, g: 0.6, b: 1,
+    sprite: 'needle.column', r: 0.7, g: 0.6, b: 1,
     width: 9, height: 9, additive: true, orientToHeading: true,
   },
   radius: 5,
@@ -167,7 +167,7 @@ const EMBER_CENTRE_X = 240;
 const EMBER_CENTRE_Y = 190;
 
 const EMBER = {
-  style: { sprite: 'petal', r: 1, g: 0.85, b: 0.5 },
+  style: { sprite: 'petal.ember', r: 1, g: 0.85, b: 0.5 },
   radius: 3,
   motion: {
     r: 1.6,
@@ -189,7 +189,7 @@ const EMBER = {
  * of it leaves at once — the dodge is authored during the hang.
  */
 const SHELL = {
-  style: { sprite: 'scale', r: 0.7, g: 0.82, b: 1, orientToHeading: true },
+  style: { sprite: 'scale.shell', r: 0.7, g: 0.82, b: 1, orientToHeading: true },
   radius: 4,
   motion: {
     r: 0.4,
@@ -207,7 +207,7 @@ const SHELL = {
  * "keep moving, it aims at you" pressure is a single readable colour.
  */
 const WRIT = {
-  style: { sprite: 'orb.small', r: 0.95, g: 0.82, b: 0.6 },
+  style: { sprite: 'orb.small.writ', r: 0.95, g: 0.82, b: 0.6 },
   radius: 5,
   motion: { r: 2.6, theta: 90 },
 };
@@ -220,7 +220,7 @@ const WRIT = {
  * and there would be no lattice to thread.
  */
 const SLAB = {
-  style: { sprite: 'orb.medium', r: 0.55, g: 0.78, b: 0.68 },
+  style: { sprite: 'orb.medium.slab', r: 0.55, g: 0.78, b: 0.68 },
   radius: 7,
   motion: { r: 1.5, theta: 90 },
 };
@@ -234,7 +234,7 @@ const SLAB = {
  * one homes and carries no blade.)
  */
 const SUBPOENA = {
-  style: { sprite: 'needle', r: 0.95, g: 0.82, b: 0.5, orientToHeading: true, additive: true },
+  style: { sprite: 'needle.subpoena', r: 0.95, g: 0.82, b: 0.5, orientToHeading: true, additive: true },
   radius: 5,
   motion: {
     r: 3,
@@ -246,14 +246,14 @@ const SUBPOENA = {
 
 /** The levy. Every spiral in the stage is built from these — additive spark, mid speed. */
 const LEVY = {
-  style: { sprite: 'spark', r: 0.85, g: 0.75, b: 0.7, additive: true },
+  style: { sprite: 'spark.levy', r: 0.85, g: 0.75, b: 0.7, additive: true },
   radius: 5,
   motion: { r: 2.3, theta: 90 },
 };
 
 /** The decree. The boss's ring bullet: a plain medium orb, a hair slower than a writ, so a dense ring reads as a wall rather than a blur. */
 const DECREE = {
-  style: { sprite: 'orb.medium', r: 0.95, g: 0.82, b: 0.5 },
+  style: { sprite: 'orb.medium.decree', r: 0.95, g: 0.82, b: 0.5 },
   radius: 6,
   motion: { r: 2.2, theta: 90 },
 };
@@ -275,7 +275,7 @@ const SEAL_CENTRE_X = 240;
 const SEAL_CENTRE_Y = 96;
 
 const SEAL = {
-  style: { sprite: 'halo', r: 0.95, g: 0.82, b: 0.5, additive: true },
+  style: { sprite: 'halo.seal', r: 0.95, g: 0.82, b: 0.5, additive: true },
   radius: 8,
   motion: {
     r: 2,
@@ -311,7 +311,7 @@ const SEAL = {
  * shape the short capsule the needle art draws.
  */
 const PICKET = {
-  style: { sprite: 'needle', r: 1, g: 0.86, b: 0.5, orientToHeading: true, additive: true },
+  style: { sprite: 'needle.picket', r: 1, g: 0.86, b: 0.5, orientToHeading: true, additive: true },
   radius: 3,
   motion: { r: 3.2, theta: 90 },
   blade: { length: 22 },
@@ -325,7 +325,7 @@ const PICKET = {
  * arrived and there would be no wall to thread.
  */
 const BULWARK = {
-  style: { sprite: 'orb.medium', r: 0.9, g: 0.78, b: 0.5 },
+  style: { sprite: 'orb.medium.bulwark', r: 0.9, g: 0.78, b: 0.5 },
   radius: 6,
   motion: { r: 1.4, theta: 90 },
 };
@@ -339,7 +339,7 @@ const BULWARK = {
  * killed.
  */
 const SIGNET = {
-  style: { sprite: 'halo', r: 0.95, g: 0.82, b: 0.5, additive: true },
+  style: { sprite: 'halo.signet', r: 0.95, g: 0.82, b: 0.5, additive: true },
   radius: 7,
   motion: { r: 2, theta: 90 },
 };
@@ -358,7 +358,7 @@ const CROWN_CENTRE_X = 240;
 const CROWN_CENTRE_Y = 96;
 
 const CROWN_CW = {
-  style: { sprite: 'halo', r: 0.98, g: 0.85, b: 0.55, additive: true },
+  style: { sprite: 'halo.crown', r: 0.98, g: 0.85, b: 0.55, additive: true },
   radius: 7,
   motion: {
     r: 2,
@@ -375,7 +375,7 @@ const CROWN_CW = {
 };
 
 const CROWN_CCW = {
-  style: { sprite: 'halo', r: 0.98, g: 0.72, b: 0.42, additive: true },
+  style: { sprite: 'halo.diadem', r: 0.98, g: 0.72, b: 0.42, additive: true },
   radius: 7,
   motion: {
     r: 2,
@@ -399,7 +399,7 @@ const CROWN_CCW = {
  * single read (magistrate's seekers and beam-walls at once).
  */
 const WARRANT = {
-  style: { sprite: 'needle', r: 0.98, g: 0.82, b: 0.5, orientToHeading: true, additive: true },
+  style: { sprite: 'needle.warrant', r: 0.98, g: 0.82, b: 0.5, orientToHeading: true, additive: true },
   radius: 4,
   blade: { length: 24 },
   motion: {
@@ -417,7 +417,7 @@ const WARRANT = {
  * picket, recapped as the graze card).
  */
 const LATTICE = {
-  style: { sprite: 'orb.medium', r: 0.95, g: 0.82, b: 0.5 },
+  style: { sprite: 'orb.medium.lattice', r: 0.95, g: 0.82, b: 0.5 },
   radius: 6,
   motion: { r: 1.6, theta: 90 },
 };
@@ -2345,7 +2345,7 @@ const FORWARD = 270;
  * trades single-target rate for two lanes at once, a decision made with position.
  */
 const GUN_BOLT = {
-  style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 },
+  style: { sprite: 'glow.small.bolt', r: 0.7, g: 0.95, b: 1 },
   radius: 4,
   motion: { r: 9, theta: FORWARD },
   damage: 1,
@@ -2357,7 +2357,7 @@ const GUN_BOLT = {
  * makes the lethal shape the capsule the art already draws.
  */
 const GUN_NEEDLE = {
-  style: { sprite: 'needle', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
+  style: { sprite: 'needle.pin', r: 1, g: 0.85, b: 0.6, orientToHeading: true },
   radius: 2,
   motion: { r: 11, theta: FORWARD },
   damage: 2,
@@ -2371,7 +2371,7 @@ const GUN_NEEDLE = {
  * bullet that cannot miss is slower in the air and comes out at half the cadence.
  */
 const GUN_SEEKER = {
-  style: { sprite: 'scale', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
+  style: { sprite: 'scale.tracker', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
   radius: 5,
   motion: { r: 7, theta: FORWARD, behaviour: 'homing' },
   damage: 1,
@@ -2388,7 +2388,7 @@ const GUN_SEEKER = {
  * one emitter at every tier, so the nesting invariant holds by construction.
  */
 const GUN_BEAM = {
-  style: { sprite: 'glow.small', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
+  style: { sprite: 'glow.small.beam', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
   radius: 3,
   motion: { r: 0, theta: FORWARD },
   damage: 1,
@@ -2404,7 +2404,7 @@ const GUN_BEAM = {
  * it from `spread`'s cool bolt with no new art.
  */
 const SCATTER_PELLET = {
-  style: { sprite: 'glow.small', r: 1, g: 0.55, b: 0.3, additive: true },
+  style: { sprite: 'glow.small.spray', r: 1, g: 0.55, b: 0.3, additive: true },
   radius: 8,
   motion: { r: 8, theta: FORWARD },
   damage: 1,
@@ -2547,21 +2547,21 @@ const shots: PackContent['shots'] = {
 
 /** Option fire is weaker per bullet than the ship's own — options multiply shot count. */
 const OPT_STD_SHOT = {
-  style: { sprite: 'orb.small', r: 0.75, g: 0.9, b: 1, additive: true },
+  style: { sprite: 'orb.small.satellite', r: 0.75, g: 0.9, b: 1, additive: true },
   radius: 4,
   motion: { r: 11, theta: FORWARD },
   damage: 1,
 };
 
 const OPT_SEEKER_SHOT = {
-  style: { sprite: 'scale', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
+  style: { sprite: 'scale.satellite', r: 1, g: 0.8, b: 0.5, additive: true, orientToHeading: true },
   radius: 5,
   motion: { r: 9, theta: FORWARD },
   damage: 1,
 };
 
 const OPT_PICKET_SHOT = {
-  style: { sprite: 'orb.small', r: 0.7, g: 0.9, b: 1, additive: true },
+  style: { sprite: 'orb.small.battery', r: 0.7, g: 0.9, b: 1, additive: true },
   radius: 4,
   motion: { r: 11, theta: FORWARD },
   damage: 1,
@@ -2607,7 +2607,7 @@ const PICKET_OUTER = [
  * damage sneaks out to a distant boss. Ember tint to match MAW's spray.
  */
 const CLINCH_SHOT = {
-  style: { sprite: 'orb.small', r: 1, g: 0.55, b: 0.3, additive: true },
+  style: { sprite: 'orb.small.clinch', r: 1, g: 0.55, b: 0.3, additive: true },
   radius: 9,
   motion: { r: 9, theta: FORWARD },
   damage: 1,

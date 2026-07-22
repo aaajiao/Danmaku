@@ -54,10 +54,17 @@ import { bossNames, getBossSpec } from '../sim/boss';
 import { enemyNames, getEnemySpec } from '../sim/enemy';
 import { getItemSpec, itemNames } from '../sim/item';
 import { getOptionSpec, optionNames } from '../sim/option';
-import { BULLET_CELLS } from './procedural';
+import { BULLET_CELLS, BULLET_VARIANT_CELLS } from './procedural';
 
-/** The names a bullet-atlas draw may reference. Content uses no other region. */
-const CELLS = new Set<string>(BULLET_CELLS);
+/**
+ * The names a bullet-atlas draw may reference: the sixteen floor cells AND the
+ * per-family variant names the base campaign fires. Both resolve on every atlas
+ * the engine builds — the procedural floor, the legacy grid and a native pack
+ * sheet all alias each variant to its base cell (`defineVariantAliases`) — so a
+ * variant is as resolvable as a floor cell, which is exactly what this test
+ * asserts and what the injector's sprite gate validates content against.
+ */
+const CELLS = new Set<string>([...BULLET_CELLS, ...BULLET_VARIANT_CELLS]);
 
 /** Registered by a test rather than by the game. */
 const isFixture = (name: string): boolean =>

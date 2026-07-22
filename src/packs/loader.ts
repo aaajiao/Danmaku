@@ -34,6 +34,7 @@ import { backgroundNames } from '../render/background';
 import { definePortrait, hasPortrait, portraitNames, PORTRAIT_SIZE } from '../render/portrait';
 import {
   BULLET_CELLS,
+  BULLET_VARIANT_CELLS,
   SHIP_CELLS,
   BULLET_COLUMNS,
   BULLET_GRID,
@@ -42,6 +43,7 @@ import {
   FX_PAD,
   type BulletSheetInput,
   type BulletStripInput,
+  type EffectStripInput,
   type ShipStripInput,
 } from '../render/procedural';
 import type { PackBulletSheet, PackBulletStrip, PackShipStrip, PackStrip } from './manifest';
@@ -77,6 +79,14 @@ export interface LoadedPacks {
   shipUrl?: string;
   /** Winning native ship strip bank, if a pack shipped the object form. */
   shipStrip?: ShipStripInput;
+  /**
+   * Winning per-file `assets.effects` strips (name → resolved URL + geometry), if
+   * any pack shipped one. `main.ts` hands these to `effectAtlas(undefined, …)`,
+   * which composites them onto the single fx texture — a floor name a pack reskins
+   * (`burst`/`burst.big`/`pulse`) takes its native pixels, the rest stay
+   * procedural. Absent means the procedural fx floor is in force.
+   */
+  effectStrips?: Record<string, EffectStripInput>;
   /** Texture sampling for both sheets. `nearest` matches `loadTexture`. */
   filter: 'nearest' | 'linear';
   /** Registered-sound name → winning URL. Fed through `defineSound`'s url branch. */
@@ -271,7 +281,11 @@ export async function loadPacks(): Promise<LoadedPacks> {
   // the registered backgrounds, already imported by the time this runs (see
   // `main.ts`'s boot-order comment).
   const injectContext: InjectContext = {
-    sprites: [...BULLET_CELLS],
+    // Floor cells ∪ the base campaign's per-family variant names (both are always
+    // resolvable — the procedural floor aliases every variant to its base cell),
+    // so a spec naming a variant loads. A pack's own declared native strips are
+    // added per-pack below (`packContext`).
+    sprites: [...BULLET_CELLS, ...BULLET_VARIANT_CELLS],
     shipSprites: [...SHIP_CELLS],
     scenes: backgroundNames(),
     // Built-in portrait names a boss `dialogue` speaker may resolve against; a
@@ -316,12 +330,24 @@ export async function loadPacks(): Promise<LoadedPacks> {
     if (url !== undefined) soundUrls[sound] = url;
   }
 
+  // The per-file fx strips that won their slot, keyed by bare strip name for the
+  // composite in `main.ts`. Insertion order is index order (last-wins is already
+  // resolved in `winners`), stable enough — the fx texture is not hashed.
+  const effectStrips: Record<string, EffectStripInput> = {};
+  for (const [slot, winner] of winners) {
+    if (!slot.startsWith('assets.effects.')) continue;
+    const geo = winner.effectStrip;
+    if (winner.url === undefined || geo === undefined) continue;
+    effectStrips[slot.slice('assets.effects.'.length)] = { url: winner.url, ...geo };
+  }
+
   return {
     bulletsUrl: winners.get('assets.bullets')?.url,
     bulletsStrips: winners.get('assets.bullets')?.bulletStrips,
     shipUrl: winners.get('assets.ship')?.url,
     shipStrip: winners.get('assets.ship')?.shipStrip,
     filter: (winners.get('assets.filter')?.value as 'nearest' | 'linear') ?? 'nearest',
+    effectStrips: Object.keys(effectStrips).length > 0 ? effectStrips : undefined,
     soundUrls,
     hudIcons: {
       life: winners.get('hud.life')?.image,
@@ -378,6 +404,15 @@ interface Resource {
   bulletStrips?: BulletSheetInput;
   /** A native ship strip bank (the object form of `assets.ship`). */
   shipStrip?: ShipStripInput;
+  /** A per-file `assets.effects` strip's geometry, paired with `url` above. */
+  effectStrip?: {
+    frames: number;
+    frameW: number;
+    frameH: number;
+    ticksPerFrame?: number;
+    mode: 'loop' | 'once';
+    color?: 'tinted' | 'baked';
+  };
 }
 
 interface Winner extends Resource {
@@ -708,7 +743,20 @@ async function gatherEffectStrips(
       orderedBytes.push(await fetchBytes(url));
       const image = await loadImage(url);
       checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
-      slots.set(`assets.effects.${strip}`, { url });
+      // Carry the declared geometry alongside the URL: `main.ts` composites these
+      // per-file strips onto the single fx texture (`effectAtlas`), so it needs
+      // each strip's frame layout, not just where the pixels live.
+      slots.set(`assets.effects.${strip}`, {
+        url,
+        effectStrip: {
+          frames: spec.frames,
+          frameW: spec.frameW,
+          frameH: spec.frameH,
+          ticksPerFrame: spec.ticksPerFrame,
+          mode: spec.mode,
+          color: spec.color,
+        },
+      });
     } catch (error) {
       reasons.push(`pack "${name}": ${spec.src}: ${(error as Error).message}`);
     }
