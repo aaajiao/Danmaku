@@ -47,6 +47,7 @@ import {
   type BulletStripInput,
   type EffectStripInput,
   type LaserStripInput,
+  type MissileStripInput,
   type ShipStripInput,
 } from '../render/procedural';
 import type { PackBulletSheet, PackBulletStrip, PackShipStrip, PackStrip } from './manifest';
@@ -98,6 +99,14 @@ export interface LoadedPacks {
    * pixels, the rest stay procedural. Absent means the procedural laser floor.
    */
   laserStrips?: Record<string, LaserStripInput>;
+  /**
+   * Winning per-file `assets.missiles` strips (name → resolved URL + geometry), if
+   * any pack shipped one. Structurally identical to `laserStrips`; `main.ts` hands
+   * these to `missileAtlas(undefined, …)`, which composites them onto the single
+   * missile texture — a body strip a pack reskins takes its native baked pixels,
+   * the rest stay procedural. Absent means the procedural missile floor.
+   */
+  missileStrips?: Record<string, MissileStripInput>;
   /** Texture sampling for both sheets. `nearest` matches `loadTexture`. */
   filter: 'nearest' | 'linear';
   /** Registered-sound name → winning URL. Fed through `defineSound`'s url branch. */
@@ -369,6 +378,15 @@ export async function loadPacks(): Promise<LoadedPacks> {
     laserStrips[slot.slice('assets.lasers.'.length)] = { url: winner.url, ...geo };
   }
 
+  // The per-file missile body strips that won their slot, the same shape again.
+  const missileStrips: Record<string, MissileStripInput> = {};
+  for (const [slot, winner] of winners) {
+    if (!slot.startsWith('assets.missiles.')) continue;
+    const geo = winner.missileStrip;
+    if (winner.url === undefined || geo === undefined) continue;
+    missileStrips[slot.slice('assets.missiles.'.length)] = { url: winner.url, ...geo };
+  }
+
   return {
     bulletsUrl: winners.get('assets.bullets')?.url,
     bulletsStrips: winners.get('assets.bullets')?.bulletStrips,
@@ -377,6 +395,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     filter: (winners.get('assets.filter')?.value as 'nearest' | 'linear') ?? 'nearest',
     effectStrips: Object.keys(effectStrips).length > 0 ? effectStrips : undefined,
     laserStrips: Object.keys(laserStrips).length > 0 ? laserStrips : undefined,
+    missileStrips: Object.keys(missileStrips).length > 0 ? missileStrips : undefined,
     soundUrls,
     hudIcons: {
       life: winners.get('hud.life')?.image,
@@ -444,6 +463,15 @@ interface Resource {
   };
   /** A per-file `assets.lasers` strip's geometry, paired with `url` above. */
   laserStrip?: {
+    frames: number;
+    frameW: number;
+    frameH: number;
+    ticksPerFrame?: number;
+    mode: 'loop' | 'once';
+    color?: 'tinted' | 'baked';
+  };
+  /** A per-file `assets.missiles` strip's geometry, paired with `url` above. */
+  missileStrip?: {
     frames: number;
     frameW: number;
     frameH: number;
@@ -694,6 +722,13 @@ async function gatherAssets(
   if (assets.lasers !== undefined) {
     await gatherLaserStrips(name, assets.lasers, slots, orderedBytes, reasons);
   }
+
+  // `assets.missiles`: per-file missile body strips, warn-only reskin material —
+  // the same treatment as `assets.lasers`, composited onto the missile texture by
+  // `main.ts` via `missileAtlas(undefined, …)`. Fetched, hashed and gated here.
+  if (assets.missiles !== undefined) {
+    await gatherMissileStrips(name, assets.missiles, slots, orderedBytes, reasons);
+  }
 }
 
 /**
@@ -833,6 +868,45 @@ async function gatherLaserStrips(
       slots.set(`assets.lasers.${strip}`, {
         url,
         laserStrip: {
+          frames: spec.frames,
+          frameW: spec.frameW,
+          frameH: spec.frameH,
+          ticksPerFrame: spec.ticksPerFrame,
+          mode: spec.mode,
+          color: spec.color,
+        },
+      });
+    } catch (error) {
+      reasons.push(`pack "${name}": ${spec.src}: ${(error as Error).message}`);
+    }
+  }
+}
+
+/**
+ * `assets.missiles`: per-file missile body strips, each fetched, hashed and
+ * gated — the structural twin of `gatherLaserStrips`. The geometry is carried
+ * alongside the URL so `main.ts` can composite each strip onto the one missile
+ * texture (`missileAtlas`), a body strip a pack reskins taking its baked pixels
+ * and the rest staying procedural.
+ */
+async function gatherMissileStrips(
+  name: string,
+  missiles: Record<string, PackStrip>,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+): Promise<void> {
+  for (const strip of Object.keys(missiles)) {
+    const spec = missiles[strip];
+    if (spec === undefined) continue;
+    const url = fileUrl(name, spec.src);
+    try {
+      orderedBytes.push(await fetchBytes(url));
+      const image = await loadImage(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      slots.set(`assets.missiles.${strip}`, {
+        url,
+        missileStrip: {
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,

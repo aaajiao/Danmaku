@@ -199,10 +199,12 @@ const laserAtlas = await makeLaserAtlas(undefined, packs.laserStrips);
 
 // The missile sheet: a fourth texture carrying the animated missile bodies a
 // base spec names (`b.missile` routes here, not by cell name). Procedural floor
-// (rule 9) this round — the BulletPack `assets.missiles` reskin is the import
-// round's (design §g.5), so no pack branch is threaded yet. All missiles are
-// enemy this round, so one batch on one texture suffices.
-const missileAtlas = await makeMissileAtlas();
+// (rule 9) unless a pack ships `assets.missiles`, in which case its baked strips
+// composite onto this one texture exactly as fx and lasers do — a body a pack
+// reskins takes its native baked pixels, the rest stay procedural — without the
+// sim ever learning a missile has a skin. All missiles are enemy this round, so
+// one batch on one texture suffices.
+const missileAtlas = await makeMissileAtlas(undefined, packs.missileStrips);
 
 // Every registered skin's body and cap must resolve on the laser atlas, or a
 // beam that names it draws nothing — throw at boot rather than in the draw loop
@@ -713,13 +715,20 @@ function drawRun(run: Run): void {
     // its native `frameW/frameH` flow in as the default draw size (amendment §2).
     const s = spriteAtlas.strip(b.style.sprite);
     const frame = spriteAtlas.frameOf(s, stripFrame(s, b.age));
+    // A baked missile body carries its own colour, so the tint stays white and it
+    // shows unmultiplied; the tinted procedural floor takes the content tint, so a
+    // missile is warm-coded by its spec until real pixels load (the strips colour
+    // law the laser branch above obeys, applied here to the missile surface only —
+    // the bullet atlas keeps its established behaviour, its baked variants being
+    // fired tint-free). An ordinary bullet stays byte-identical to before.
+    const bodyBaked = onMissile && s.color === 'baked';
     drawBatch.draw(b.x, b.y, frame, {
       rotation: b.angle,
       width: b.style.width ?? s.frameW,
       height: b.style.height ?? s.frameH,
-      r: b.style.r,
-      g: b.style.g,
-      b: b.style.b,
+      r: bodyBaked ? 1 : b.style.r,
+      g: bodyBaked ? 1 : b.style.g,
+      b: bodyBaked ? 1 : b.style.b,
       a: b.style.a,
     });
   }

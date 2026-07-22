@@ -132,6 +132,16 @@ export interface PackAssets {
    * laser atlas (a third sheet), so they are a separate section from `effects`.
    */
   lasers?: Record<string, PackStrip>;
+  /**
+   * Per-file MISSILE body strips: a map of missile-body name (`missile.0` …
+   * `missile.11`, `missile.massive`, `src/render/procedural.ts`) → `PackStrip`.
+   * Structurally identical to `effects` and `lasers` — one PNG per strip, frames
+   * laid horizontally — and warn-only presentation for the same reason: a bullet
+   * names its missile body (content), the pixels the body wears are not. The
+   * missile bodies ride the missile atlas (a fourth sheet), so they are a separate
+   * section from `lasers`.
+   */
+  missiles?: Record<string, PackStrip>;
 }
 
 export type PackSounds = Partial<Record<SoundName, string>>;
@@ -653,7 +663,7 @@ const TOP_FIELDS = [
  */
 const RESERVED_TOP = ['backgrounds'] as const;
 
-const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects', 'lasers'] as const;
+const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects', 'lasers', 'missiles'] as const;
 /** The fields of one native bullet strip (`PackBulletStrip`). x/y are offsets. */
 const BULLET_STRIP_FIELDS = [
   'x',
@@ -1074,6 +1084,10 @@ function validateAssets(assets: unknown, prefix: string, errors: string[]): void
     validateLaserStrips(assets.lasers, prefix, errors);
   }
 
+  if ('missiles' in assets && assets.missiles !== undefined) {
+    validateMissileStrips(assets.missiles, prefix, errors);
+  }
+
   for (const key of Object.keys(assets)) {
     if ((ASSET_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(prefix, key, ASSET_FIELDS));
@@ -1211,14 +1225,24 @@ function validateLaserStrips(lasers: unknown, prefix: string, errors: string[]):
 }
 
 /**
- * The shared `Record<string, PackStrip>` validation behind `assets.effects` and
- * `assets.lasers`. Factored out so the two sections cannot drift; the section
- * name is the only thing that varies, so the effect strings the compatibility
- * contract pins (`assets.effects.…`) are byte-identical to before.
+ * `assets.missiles` — the missile body strips. Structurally identical to
+ * `assets.effects` and `assets.lasers` (one PNG per strip, the `PackStrip` shape),
+ * so it runs the same per-strip validation, only the section name differs in the
+ * messages.
+ */
+function validateMissileStrips(missiles: unknown, prefix: string, errors: string[]): void {
+  validatePackStripMap(missiles, 'missiles', prefix, errors);
+}
+
+/**
+ * The shared `Record<string, PackStrip>` validation behind `assets.effects`,
+ * `assets.lasers` and `assets.missiles`. Factored out so the sections cannot
+ * drift; the section name is the only thing that varies, so the effect strings the
+ * compatibility contract pins (`assets.effects.…`) are byte-identical to before.
  */
 function validatePackStripMap(
   strips: unknown,
-  section: 'effects' | 'lasers',
+  section: 'effects' | 'lasers' | 'missiles',
   prefix: string,
   errors: string[],
 ): void {

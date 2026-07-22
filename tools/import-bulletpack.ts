@@ -293,6 +293,10 @@ interface Map {
   /** Laser body/cap strips → `assets.lasers` (baked, rotated +x). Keys are laser
    *  strip names (`beam.warm`, `cap.yellow`, `src/render/laser-skin.ts`). */
   lasers: Record<string, StripMap>;
+  /** Missile body strips → `assets.missiles` (baked, rotated +x). Keys are missile
+   *  body names (`missile.0` … `missile.11`, `missile.massive`,
+   *  `src/render/procedural.ts`). Same oriented per-file shape as a laser. */
+  missiles: Record<string, StripMap>;
   variantsDuplicate?: Record<string, string>;
 }
 
@@ -446,18 +450,20 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
 }
 
 /**
- * One LASER strip (`assets.lasers`): the same per-file, one-PNG-per-strip shape
- * as an effect, with two laser specifics.
+ * One ORIENTED per-file strip — a LASER body/cap (`assets.lasers`) or a MISSILE
+ * body (`assets.missiles`): the same per-file, one-PNG-per-strip shape as an
+ * effect, with two specifics that both surfaces share.
  *
  *  - **+x rotation, once at import (rule 7).** The BulletPack laser art is drawn
- *    long-axis-VERTICAL (the beam runs up the frame). Oriented sprites in this
- *    engine run +x, so each frame is rotated 90° here — NOT with a runtime UV
- *    transpose — so the beam renderer reuses the one convention (length along
- *    local +x, rotate by heading) with no baked offset. Post-rotation `frameW`
- *    is the on-beam extent and `frameH` the thickness.
+ *    long-axis-VERTICAL (the beam runs up the frame) and the missile art nose-UP;
+ *    oriented sprites in this engine run +x, so each frame is rotated 90° here —
+ *    NOT with a runtime UV transpose — so the renderer reuses the one convention
+ *    (length along local +x, rotate by heading) with no baked offset. Post-rotation
+ *    `frameW` is the on-axis extent (beam length / missile nose-to-tail) and
+ *    `frameH` the thickness.
  *  - **Rectangular, not squared.** `buildEffectStrip` squares each frame (an
- *    explosion is radial); a beam is long and thin, so its frame keeps the beam's
- *    own aspect — `frameW` from the length axis, `frameH` from the thickness.
+ *    explosion is radial); a beam or a missile is long and thin, so its frame keeps
+ *    its own aspect — `frameW` from the length axis, `frameH` from the thickness.
  *
  * Baked native colour (no whiten, the `color: 'baked'` reskin path, saturation
  * gate skipped), content unioned across frames and re-padded by `MARGIN` so the
@@ -635,8 +641,8 @@ function orientationGuess(cat: string, file: string): string {
 
 function suggestedConsumer(cat: string, file: string): string {
   if (cat === 'lasers') return 'laser skin body/cap on the laser atlas (assets.lasers) — src/render/laser-skin.ts; a base-campaign beam fires it';
-  if (cat === 'missiles' && file.startsWith('Missiles_Exp')) return 'sprite-animation effect (missile impact)';
-  if (cat === 'missiles') return 'missile entity (banking-frame sprite + exhaust) — needs a sprite-animation + entity round';
+  if (cat === 'missiles' && file.startsWith('Missiles_Exp')) return 'missile detonation fx reskin (assets.effects: missile.pop.tiny|mid|big) — src/render/procedural.ts; a base-campaign missile fires it';
+  if (cat === 'missiles') return 'missile body on the missile atlas (assets.missiles) — src/render/procedural.ts; a base-campaign firer launches it';
   if (cat === 'player-ship' && /Thruster/i.test(file)) return 'exhaust / engine-trail effect (deferred: player 形象 out of scope)';
   if (cat === 'player-ship' && /Bomb/i.test(file)) return 'bomb visual (BombSpec carries no sprite surface yet)';
   if (cat === 'player-ship' && /Option/i.test(file)) return 'dedicated option sprite (OptionSpec currently names a bullet cell)';
@@ -648,7 +654,7 @@ function suggestedConsumer(cat: string, file: string): string {
 /* ------------------------------------------------------------------ */
 /* README (provenance)                                                  */
 /* ------------------------------------------------------------------ */
-function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; lasers: number }): string {
+function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; lasers: number; missiles: number }): string {
   return `# bulletpack — imported native-strip reskin (provenance)
 
 **Generated** by \`bun tools/import-bulletpack.ts\`. Do not hand-edit; edit
@@ -673,6 +679,10 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
   animation, frames re-padded for the seam gate).
 - **${counts.lasers}** laser strips as \`assets.lasers\` (8 body + 3 cap, baked
   native colour, each frame rotated 90° to +x — the laser system's beam skins).
+- **${counts.missiles}** missile body strips as \`assets.missiles\` (12 \`strip5\` +
+  1 \`strip17\`, baked native colour, each frame rotated 90° to +x — the missile
+  atlas bodies a base spec names). The 3 detonation tiers ride \`assets.effects\`
+  (\`missile.pop.tiny|mid|big\`), reskinning the fx-floor names a missile fires.
 - **${counts.consumed}** source files curated in total (see
   \`tools/bulletpack-map.json\` for the exact frame/rotate/fit per strip).
 
@@ -696,10 +706,11 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 ## Completeness
 
 - **${counts.staged}** files this round does not use are copied verbatim under
-  \`extra/<category>/\` (missiles, coins/gems, surplus player shots, oversized
-  beams, and the explosions no death site fires yet), staged for their own future
-  rounds. The 11 \`Lasers/\` files left this pile in the laser round — they are now
-  consumed as \`assets.lasers\`.
+  \`extra/<category>/\` (coins/gems, surplus player shots, oversized beams, and the
+  explosions no death site fires yet), staged for their own future rounds. The 11
+  \`Lasers/\` files left this pile in the laser round — they are now consumed as
+  \`assets.lasers\`. The 16 \`Missiles/\` files left it in the import round — 13
+  bodies as \`assets.missiles\` and 3 detonation tiers as \`assets.effects\`.
 - **${counts.skipped}** pure-junk files (\`.DS_Store\`, author \`.txt\` notes) are
   counted in the total but not listed — they left the ledger by user directive.
 - Every one of the **${counts.total}** files in the folder is accounted for
@@ -776,6 +787,21 @@ function main(): void {
     log.push(`assembled ${file} (${lzSheet.w}×${lzSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — laser seam self-check PASSED`);
   }
 
+  /* --- missiles (one own-file baked body strip per missile, rotated +x) --- */
+  // The missile bodies are the same ORIENTED per-file strip a laser body is
+  // (long, thin, nose/beam along +x), so they build through the same
+  // `buildLaserStrip` and pass the same per-file seam gate — `assets.missiles`
+  // composites onto the fourth (missile) texture in `main.ts`, symmetric to lasers.
+  const missilesManifest: Record<string, EmittedEffect> = {};
+  for (const [name, m] of Object.entries(map.missiles)) {
+    const { sheet: msSheet, meta, file } = buildLaserStrip(root, name, m);
+    assertEffectStrip(name, msSheet, meta); // same per-file strip gate as effects/lasers
+    writeVerified(join(outDir, file), msSheet);
+    missilesManifest[name] = meta;
+    noteConsumed(m.src, name);
+    log.push(`assembled ${file} (${msSheet.w}×${msSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — missile seam self-check PASSED`);
+  }
+
   /* --- manifest --- */
   const manifest = {
     format: 1,
@@ -783,12 +809,13 @@ function main(): void {
     version: '2.0.0',
     author: 'Unknown — third-party BulletPack, source unconfirmed (see README.md)',
     license: 'UNCONFIRMED — no LICENSE file in source; not for distribution until provenance is verified (CLAUDE.md rule 9; see README.md)',
-    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion effects, and baked laser body/cap strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
+    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion + missile-detonation effects, baked laser body/cap strips, and baked missile body strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
     assets: {
       bullets: { sheet: 'bullets.png', strips },
       filter: 'nearest' as const,
       effects: effectsManifest,
       lasers: lasersManifest,
+      missiles: missilesManifest,
     },
   };
   const result = validateManifest(manifest, 'bulletpack');
@@ -871,8 +898,8 @@ function main(): void {
     generatedBy: 'tools/import-bulletpack.ts',
     license: 'UNCONFIRMED — no LICENSE file in source folder',
     dispositions: {
-      consumed: 'packed into the pack (bullets.png, an effect PNG, or a laser strip PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, or a fired laser skin body/cap (assets.lasers). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
-      staged: 'copied verbatim to extra/<category>/ for a future round (missiles, coins/gems, surplus player shots, oversized beams, unreached explosions). No consumer this round. (Lasers left this list in the laser round, 2026-07-22 — all 11 are now consumed.)',
+      consumed: 'packed into the pack (bullets.png, an effect PNG, a laser strip PNG, or a missile body PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, a fired laser skin body/cap (assets.lasers), or a fired missile body (assets.missiles). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
+      staged: 'copied verbatim to extra/<category>/ for a future round (coins/gems, surplus player shots, oversized beams, unreached explosions). No consumer this round. (Lasers left this list in the laser round, 2026-07-22 — all 11 are now consumed. Missiles left it in the import round — all 16 are now consumed: 13 bodies as assets.missiles + 3 detonation tiers as assets.effects missile.pop.*.)',
       skipped: 'pure junk not tracked in files[] (.DS_Store, author .txt notes). Counted in total, not listed.',
     },
     totals: { total, consumed, staged, skipped },
@@ -887,6 +914,7 @@ function main(): void {
     consumed, staged, skipped, total,
     strips: entries.length, effects: Object.keys(effectsManifest).length,
     lasers: Object.keys(lasersManifest).length,
+    missiles: Object.keys(missilesManifest).length,
   }));
 
   /* --- report --- */

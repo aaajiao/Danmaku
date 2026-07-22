@@ -1765,19 +1765,45 @@ export function createMissileAtlas(): Atlas {
 }
 
 /**
- * The missile sheet, generated or loaded — symmetric to `laserAtlas(url?)`.
+ * A pack's `assets.missiles` strip, resolved: the winning file's URL plus the
+ * geometry the manifest declared. The structural twin of the laser `LaserStripInput`
+ * (one file per strip, frames laid horizontally, frame 0 leftmost — no x/y),
+ * redeclared here so `render/` need not import `packs/`. Baked native art, so
+ * `color` defaults `'baked'` — the reskin path, the saturation gate skipped.
+ */
+export interface MissileStripInput {
+  url: string;
+  frames: number;
+  frameW: number;
+  frameH: number;
+  ticksPerFrame?: number;
+  mode?: StripMode;
+  color?: StripColor;
+}
+
+/**
+ * The missile sheet, generated, loaded, or composited from a pack — symmetric to
+ * `laserAtlas(url?, packStrips?)`.
  *
  * - `missileAtlas()` — the procedural body floor (rule 9).
  * - `missileAtlas(url)` — one combined `MISSILE_SHEET_W`×`MISSILE_SHEET_H` sheet
  *   loaded and dimension-checked (the direct-import seam), naming both figures on
  *   a mismatch (the point `bulletAtlas`/`laserAtlas` make: a wrong-sized sheet
  *   silently repoints every strip at a crop of the wrong shape).
- *
- * The pack-per-file `assets.missiles` composite branch is deferred to the
- * BulletPack import round (design §g.5), which is the round that supplies the
- * coloured missile pixels — exactly as `laserAtlas` reserved its own composite.
+ * - `missileAtlas(undefined, packStrips)` — a pack's per-file `assets.missiles`
+ *   reskin, composited onto one shared texture (one batch is one texture): a body
+ *   strip the pack reskins takes its baked pixels, a strip it leaves alone is
+ *   painted procedurally, and any pack-new name is blitted too — so every base
+ *   missile body always resolves. This is the branch the BulletPack import round
+ *   supplies the coloured missile pixels to (design §g.5).
  */
-export async function missileAtlas(url?: string): Promise<Atlas> {
+export async function missileAtlas(
+  url?: string,
+  packStrips?: Record<string, MissileStripInput>,
+): Promise<Atlas> {
+  if (packStrips !== undefined && Object.keys(packStrips).length > 0) {
+    return nativeMissileAtlas(packStrips);
+  }
   if (url === undefined) return createMissileAtlas();
 
   const atlas = await loadAtlas(url);
@@ -1787,5 +1813,121 @@ export async function missileAtlas(url?: string): Promise<Atlas> {
     );
   }
   defineMissileStrips(atlas);
+  return atlas;
+}
+
+/** One row of the composited missile sheet: either a procedural painter or a blit. */
+interface MissileRow {
+  name: string;
+  frameW: number;
+  frameH: number;
+  frames: number;
+  stride: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  paint?: StripDraw;
+  image?: CanvasImageSource;
+}
+
+/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
+async function packMissileRow(name: string, s: MissileStripInput): Promise<MissileRow> {
+  const texture = await loadTexture(s.url);
+  return {
+    name,
+    frameW: s.frameW,
+    frameH: s.frameH,
+    frames: s.frames,
+    stride: s.frameW,
+    ticksPerFrame: s.ticksPerFrame ?? 1,
+    mode: s.mode ?? 'loop',
+    color: s.color ?? 'baked',
+    image: texture.image as CanvasImageSource,
+  };
+}
+
+/**
+ * Composite a pack's per-file `assets.missiles` strips onto one shared missile
+ * texture, so the missile atlas stays a single texture / single batch. Floor names
+ * the pack did not reskin are painted procedurally; the pack's files are blitted
+ * at their native size; every strip lands on its own row, frames horizontal — the
+ * fx/laser discipline, one more time.
+ */
+async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>): Promise<Atlas> {
+  const rows: MissileRow[] = [];
+
+  // Floor names first (procedural unless reskinned), in the floor's own order,
+  // so every base missile body always resolves on the result.
+  for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+    const over = packStrips[name];
+    if (over) {
+      rows.push(await packMissileRow(name, over));
+    } else {
+      rows.push({
+        name,
+        frameW: s.frameW,
+        frameH: s.frameH,
+        frames: s.frames,
+        stride: s.stride,
+        ticksPerFrame: s.ticksPerFrame,
+        mode: s.mode,
+        color: s.color,
+        paint: s.draw,
+      });
+    }
+  }
+  // Pack-new missile names (not a floor strip): a content pack that fires one
+  // resolves; the base game draws only the floor names.
+  for (const name of Object.keys(packStrips)) {
+    if (name in MISSILE_STRIPS) continue;
+    const s = packStrips[name];
+    if (s !== undefined) rows.push(await packMissileRow(name, s));
+  }
+
+  const rowY: number[] = [];
+  let sheetW = 1;
+  let sheetH = 0;
+  for (const row of rows) {
+    rowY.push(sheetH);
+    sheetW = Math.max(sheetW, row.frames * row.stride);
+    sheetH += row.frameH;
+  }
+  sheetH = Math.max(1, sheetH);
+
+  const { el, ctx } = canvas(sheetW, sheetH);
+  rows.forEach((row, i) => {
+    const y = rowY[i] ?? 0;
+    if (row.image) {
+      ctx.drawImage(row.image, 0, y);
+    } else if (row.paint) {
+      for (let f = 0; f < row.frames; f++) {
+        row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
+      }
+    }
+  });
+
+  const texture = new THREE.CanvasTexture(el);
+  // Native baked missile art is pixel art; nearest keeps it crisp (loadTexture's floor).
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, sheetW, sheetH);
+  rows.forEach((row, i) => {
+    atlas.defineStrip(row.name, {
+      x: 0,
+      y: rowY[i] ?? 0,
+      frameW: row.frameW,
+      frameH: row.frameH,
+      frames: row.frames,
+      stride: row.stride,
+      ticksPerFrame: row.ticksPerFrame,
+      mode: row.mode,
+      color: row.color,
+    });
+  });
   return atlas;
 }

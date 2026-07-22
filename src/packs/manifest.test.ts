@@ -515,6 +515,65 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
       );
     });
   });
+
+  describe('lasers (per-file strips, the effects twin)', () => {
+    const lz = (strips: Record<string, unknown>) => ({ ...valid(), assets: { lasers: strips } });
+
+    test('a valid laser strip passes, baked', () => {
+      expect(
+        accepts(lz({ 'beam.warm': { src: 'warm.png', frames: 3, frameW: 20, frameH: 6, mode: 'loop', color: 'baked' } })),
+      ).toBe(true);
+    });
+
+    test('a missing src, a non-object strip, and a non-object section are caught', () => {
+      expect(errorsOf(lz({ 'beam.warm': { frames: 3, frameW: 20, frameH: 6, mode: 'loop' } }))).toContain(
+        'pack "candy": pack.json: assets.lasers.beam.warm.src must be a string (a path to a PNG)',
+      );
+      expect(errorsOf(lz({ 'beam.warm': 3 }))).toContain(
+        'pack "candy": pack.json: assets.lasers.beam.warm must be a JSON object',
+      );
+      expect(errorsOf({ ...valid(), assets: { lasers: 'x' } })).toContain(
+        'pack "candy": pack.json: assets.lasers must be a JSON object',
+      );
+    });
+  });
+
+  describe('missiles (per-file body strips, the lasers twin)', () => {
+    const ms = (strips: Record<string, unknown>) => ({ ...valid(), assets: { missiles: strips } });
+
+    test('a valid missile body strip passes, baked', () => {
+      expect(
+        accepts(ms({ 'missile.0': { src: 'm0.png', frames: 5, frameW: 27, frameH: 15, mode: 'loop', color: 'baked' } })),
+      ).toBe(true);
+    });
+
+    test('mode must be "loop" or "once" (a golden string)', () => {
+      expect(errorsOf(ms({ 'missile.0': { src: 'm0.png', frames: 5, frameW: 27, frameH: 15, mode: 'hold' } }))).toContain(
+        'pack "candy": pack.json: assets.missiles.missile.0.mode must be "loop" or "once"',
+      );
+    });
+
+    test('frames must be a positive integer (a golden string)', () => {
+      expect(errorsOf(ms({ 'missile.0': { src: 'm0.png', frames: 0, frameW: 27, frameH: 15, mode: 'loop' } }))).toContain(
+        'pack "candy": pack.json: assets.missiles.missile.0.frames must be a positive integer',
+      );
+    });
+
+    test('a missing src and a non-object strip are caught', () => {
+      expect(errorsOf(ms({ 'missile.0': { frames: 5, frameW: 27, frameH: 15, mode: 'loop' } }))).toContain(
+        'pack "candy": pack.json: assets.missiles.missile.0.src must be a string (a path to a PNG)',
+      );
+      expect(errorsOf(ms({ 'missile.0': 3 }))).toContain(
+        'pack "candy": pack.json: assets.missiles.missile.0 must be a JSON object',
+      );
+    });
+
+    test('missiles itself must be an object', () => {
+      expect(errorsOf({ ...valid(), assets: { missiles: 'x' } })).toContain(
+        'pack "candy": pack.json: assets.missiles must be a JSON object',
+      );
+    });
+  });
 });
 
 describe('sounds', () => {
