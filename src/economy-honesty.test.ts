@@ -12,9 +12,7 @@
  * and (ii) any shifted extend-crossing tick, because chunkier value arrivals (and
  * faster gem/bar `magnetSpeed`) reshape the score-accrual curve. Since every boss's
  * aggregate is conserved, endpoint totals are unchanged and every pilot earns the
- * SAME count of extends for that art-only round. The later spatial-pattern round
- * intentionally moved the first anchor after measurement changed the flailing
- * floor; this file is where both claims are measured rather than asserted.
+ * SAME count of extends; `EXTEND_SCORES` does not move. This file is where that is
  * measured rather than asserted, in two halves.
  *
  * ## Part 1 — the conservation is arithmetic, and it is re-derived, not typed
@@ -41,8 +39,7 @@
  * game as it now ships: a single boss spell card pays 200,000-1,000,000, and those
  * card bonuses, not the ~40,500 of drop spoils, are the economy. A clean full clear
  * finishes near 4,700,000 and crosses all three anchors inside stage 1; a flailing
- * clear now finishes near 104,000 after the spatial-pattern revision and crosses
- * none. So the measured, pinned counts are
+ * clear finishes near 48,000 and crosses none. So the measured, pinned counts are
  * **clean 3 / flailing 0**, not the design's 2 / 0 — and the invariant that matters
  * (the redenomination does not CHANGE either count) is what this file proves. It was
  * proven directly during implementation: the same two pilots, run against the
@@ -50,9 +47,10 @@
  * post-redenomination content earn 3 / 0 on 4,729,340 / 47,880 — the sub-percent
  * score drift is exactly the declared sim-stream residue, and it moves no threshold.
  *
- * The `EXTEND_SCORES` comment carries the corrected figures. The spatial-pattern
- * revision recalibrated only the first anchor from 100,000 to 120,000, preserving
- * the measured clean 3 / flailing 0 gradient.
+ * The `EXTEND_SCORES` comment carries the corrected figures; the recalibration of
+ * the anchors to the four-stage curve is a scoring-economy round of its own and is
+ * deliberately out of scope here — this round conserves the drop table, it does not
+ * retune the score gate.
  *
  * Like `balance`/`base-content.golden`, driving whole runs advances the global
  * sim/fx streams, and bun runs test files one at a time; restore what was found so
@@ -274,21 +272,21 @@ function playCampaign(makePilot: Pilot): CampaignResult {
 }
 
 describe('the extends do not inflate (measured on the real campaign)', () => {
-  // Three ascending anchors: [120_000, 300_000, 600_000]. The pins below name "3"
+  // Three ascending anchors: [100_000, 300_000, 600_000]. The pins below name "3"
   // and "0" as counts, so this keeps them honest if the array is ever resized.
   test('there are three extend anchors', () => {
     expect(EXTEND_SCORES.length).toBe(3);
   });
 
-  test('a flailing full clear captures nothing and earns no extend', () => {
+  test('a flailing full clear captures nothing and earns no extend (< 100,000)', () => {
     const flail = playCampaign(flailingPilot);
     expect(flail.stagesCleared).toBe(4);
     // Non-vacuous both ways: a real four-stage run (well above a stalled zero), and
     // below the first anchor so it earns no extend. The generous band brackets the
-    // deterministic floor with room for the declared sim-divergence residue while
+    // deterministic ~48,000 with room for the declared sim-divergence residue while
     // still proving the floor never reaches the score gate.
-    expect(`flail ${flail.score} below ${EXTEND_SCORES[0]}: ${flail.score > 20_000 && flail.score < EXTEND_SCORES[0]!}`)
-      .toBe(`flail ${flail.score} below ${EXTEND_SCORES[0]}: true`);
+    expect(`flail ${flail.score} in (20000,100000): ${flail.score > 20_000 && flail.score < EXTEND_SCORES[0]!}`)
+      .toBe(`flail ${flail.score} in (20000,100000): true`);
     expect(flail.extends).toBe(0);
   });
 

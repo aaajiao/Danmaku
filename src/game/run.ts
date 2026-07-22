@@ -44,7 +44,7 @@ import { Random } from '../core/random';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec, type DialogueLine } from '../sim/boss';
-import { bulletHitsCircle, BulletSystem, type Bullet } from '../sim/bullet';
+import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
@@ -406,23 +406,6 @@ const BOSS_ENTRY_Y = -60;
 /** The impact spark a player shot throws on the boss — the same modest `spark`-sprite burst trash enemies use, small and short for the seal's darkest zone. */
 const BOSS_HIT_SPARK = 'hit';
 
-const BOSS_MATERIAL_HIT: Readonly<Record<string, string>> = {
-  sentinel: 'hit.surface',
-  warden: 'hit.skeleton',
-  magistrate: 'hit.mycelium',
-  chancellor: 'hit.surface',
-  regent: 'hit.heart',
-};
-
-function weaponImpactEffect(bullet: Bullet): string {
-  if (bullet.laser !== undefined) return 'impact.beam';
-  const sprite = bullet.style.sprite;
-  if (sprite.includes('needle') || sprite.includes('pin')) return 'impact.needle';
-  if (sprite.includes('scale') || sprite.includes('tracker') || sprite.includes('chase')) return 'impact.tracker';
-  if (sprite.includes('spray') || sprite.includes('clinch')) return 'impact.scatter';
-  return 'impact.bolt';
-}
-
 /**
  * What a death costs, and how much of it is left on the floor.
  *
@@ -476,17 +459,17 @@ const COIN_SILVER_MAX = getItemSpec('score').value;
  * figures this comment once carried (547,000 clean / 52,000 flailing, "both stages",
  * "ten cards") predate stages 3-4 and the card-bonus economy that came with them: a
  * single boss card now pays 200,000-1,000,000, so a clean full clear finishes near
- * 4,700,000 and crosses all three thresholds inside stage 1, while the spatial-pattern
- * revision moved a flailing clear to about 104,000. The first anchor was therefore
- * recalibrated from 100,000 to 120,000 so it still crosses none. The three anchors are
+ * 4,700,000 and crosses all three thresholds inside stage 1, while a flailing clear
+ * that captures nothing finishes near 48,000 and crosses none. The three anchors are
  * therefore comfortably saturated by a capturing player and comfortably out of reach
  * of one who is not — the gradient the extend is for still holds, even though the
  * top anchor is no longer "above a clean clear". Recalibrating the anchors to the
- * pickup-variety round did not touch the anchors — it redenominates the drop table while
+ * four-stage curve is a scoring-economy change and its own round; the pickup-variety
+ * round deliberately does not touch it — it redenominates the drop table while
  * holding every boss's score AGGREGATE exactly invariant, so the count of extends a
  * given pilot earns is unchanged (proven in `economy-honesty.test.ts`).
  */
-export const EXTEND_SCORES: readonly number[] = [120_000, 300_000, 600_000];
+export const EXTEND_SCORES: readonly number[] = [100_000, 300_000, 600_000];
 
 /**
  * The shower a defeated boss drops when its own `BossSpec.spoils` is unset.
@@ -888,7 +871,6 @@ export class Run {
 
         const killed = this.enemies.damage(enemy, b.damage);
         if (!killed && enemy.spec.onHit) this.effects.emit(enemy.spec.onHit, b.x, b.y);
-        this.effects.emit(weaponImpactEffect(b), b.x, b.y);
         this.#emit({ type: 'shot-hit', x: b.x, y: b.y, name: enemy.name });
 
         // A piercing beam keeps going and keeps damaging; anything else is
@@ -911,17 +893,12 @@ export class Run {
       if (boss === undefined || boss.entering) continue;
       if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
 
-      const phaseCleared = this.boss.damage(b.damage);
+      this.boss.damage(b.damage);
       // Mirror the enemy path (which emits `enemy.spec.onHit`): a boss hit was
       // the only landing in the game that threw no spark. Drawn from the `fx`
       // stream inside `EffectSystem.emit`, never `sim`, so the determinism
       // contract and the golden traces are untouched by construction (rule 2).
       this.effects.emit(BOSS_HIT_SPARK, b.x, b.y);
-      this.effects.emit(BOSS_MATERIAL_HIT[boss.name] ?? 'hit.surface', b.x, b.y);
-      this.effects.emit(weaponImpactEffect(b), b.x, b.y);
-      if (!phaseCleared && boss.phaseHpFraction <= 0.125) {
-        this.effects.emit('hit.heart', boss.x, boss.y);
-      }
       this.#emit({ type: 'boss-hit', x: b.x, y: b.y, name: boss.name });
       if (!b.pierce) this.bullets.despawn(b);
     }

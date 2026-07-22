@@ -270,55 +270,6 @@ defineSprite('hit', 'spark', {
   additive: true,
 });
 
-// V4 material hits: the target's body answers separately from the weapon spark.
-// They remain generic registered effects so a content pack may opt into the same
-// surface/skeleton/mycelium/heart vocabulary without importing edition code.
-defineSprite('hit.surface', 'ring', {
-  count: 3, speed: { min: 0.4, max: 1.2 }, life: { min: 8, max: 13 },
-  drag: 0.9, scale: { from: 0.65, to: 0.15 }, alpha: { from: 0.8, to: 0 },
-  tint: { r: 0.62, g: 0.9, b: 1 }, additive: true,
-});
-defineSprite('hit.skeleton', 'needle', {
-  count: { min: 3, max: 5 }, speed: { min: 1.8, max: 3.8 }, life: { min: 7, max: 12 },
-  spread: 110, drag: 0.88, scale: { from: 0.7, to: 0.1 }, alpha: { from: 1, to: 0 },
-  tint: { r: 1, g: 0.96, b: 0.82 }, additive: true,
-});
-defineSprite('hit.mycelium', 'spark', {
-  count: { min: 5, max: 8 }, speed: { min: 0.5, max: 2.2 }, life: { min: 12, max: 20 },
-  spread: 150, drag: 0.94, spin: 0.08, scale: { from: 0.45, to: 0.08 }, alpha: { from: 0.85, to: 0 },
-  tint: { r: 0.66, g: 1, b: 0.8 }, additive: true,
-});
-defineSprite('hit.heart', 'glow.small', {
-  count: { min: 2, max: 4 }, speed: { min: 0.3, max: 1.4 }, life: { min: 8, max: 14 },
-  drag: 0.9, scale: { from: 1.1, to: 0.12 }, alpha: { from: 1, to: 0 },
-  tint: { r: 1, g: 0.42, b: 0.62 }, additive: true,
-});
-
-defineSprite('impact.bolt', 'spark', {
-  count: 2, speed: { min: 1, max: 2.2 }, life: { min: 4, max: 7 }, drag: 0.84,
-  scale: { from: 0.42, to: 0.08 }, alpha: { from: 0.9, to: 0 },
-  tint: { r: 0.62, g: 0.9, b: 1 }, additive: true,
-});
-defineSprite('impact.needle', 'needle', {
-  count: 2, speed: { min: 1.8, max: 3 }, life: { min: 4, max: 8 }, spread: 36,
-  drag: 0.82, scale: { from: 0.5, to: 0.08 }, alpha: { from: 1, to: 0 },
-  tint: { r: 1, g: 0.8, b: 0.5 }, additive: true,
-});
-defineSprite('impact.tracker', 'star', {
-  count: 2, speed: { min: 0.5, max: 1.5 }, life: { min: 7, max: 11 }, spin: 0.18,
-  scale: { from: 0.52, to: 0.08 }, alpha: { from: 0.9, to: 0 },
-  tint: { r: 0.7, g: 1, b: 0.6 }, additive: true,
-});
-defineSprite('impact.beam', 'glow.small', {
-  count: 1, speed: 0, life: 4, scale: { from: 0.75, to: 0.2 }, alpha: { from: 0.65, to: 0 },
-  tint: { r: 0.72, g: 0.7, b: 1 }, additive: true,
-});
-defineSprite('impact.scatter', 'glow.medium', {
-  count: 1, speed: { min: 0.2, max: 0.8 }, life: { min: 5, max: 9 },
-  scale: { from: 0.8, to: 0.12 }, alpha: { from: 0.9, to: 0 },
-  tint: { r: 1, g: 0.48, b: 0.25 }, additive: true,
-});
-
 // Graze is feedback on a near miss, so it fires along the bullet's heading and
 // stays cool-toned — it must never be mistaken for taking damage.
 defineSprite('graze', 'needle', {

@@ -59,7 +59,7 @@ describe('v4 edition composition', () => {
   });
 
   test('preserves the replay-neutral campaign identity', () => {
-    expect(CONTENT_FINGERPRINT).toBe('a0f4455ce9d8');
+    expect(CONTENT_FINGERPRINT).toBe('919d306d8f6a');
   });
 
   test('keeps the historical import facades live without a second registration', async () => {

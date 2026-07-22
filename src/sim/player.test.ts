@@ -359,29 +359,6 @@ describe('firing', () => {
     expect(bullets.bullets.map((b) => b.vector.theta)).toEqual([260, 270, 280]);
   });
 
-  test('focus may select a distinct bullet, muzzle layout and cadence', () => {
-    const focusSpec: BulletSpec = {
-      style: { sprite: 'needle' }, radius: 2, motion: { r: 15, theta: 270 },
-    };
-    const player = makePlayer({
-      shots: [{
-        spec: SHOT_SPEC,
-        offsets: [{ x: -10, y: -8 }, { x: 10, y: -8 }],
-        period: 6,
-        focusSpec,
-        focusOffsets: [{ x: 0, y: -14 }],
-        focusPeriod: 4,
-      }],
-    });
-    const bullets = makeBullets();
-    player.step(Button.Shot | Button.Slow, bullets, 4);
-    expect(bullets.count).toBe(1);
-    expect(bullets.bullets[0]?.style.sprite).toBe('needle');
-    expect(bullets.bullets[0]?.vector.r).toBe(15);
-    expect(bullets.bullets[0]?.x).toBe(240);
-    expect(bullets.bullets[0]?.y).toBe(386);
-  });
-
   test('power picks the shot table entry, changing both spread and rate', () => {
     const bullets = makeBullets();
 
