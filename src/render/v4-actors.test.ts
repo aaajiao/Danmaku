@@ -5,6 +5,7 @@ import {
   V4_PLAYER_ACTORS,
   v4BossPoseFrame,
   v4EnemyIdleFrame,
+  v4EnemyPoseFrame,
   v4PlayerBankFrame,
 } from './v4-actors';
 
@@ -47,12 +48,32 @@ describe('v4 actor ledger', () => {
     expect(v4PlayerBankFrame(1, 400)).toBe(4);
   });
 
-  test('minor enemies breathe on two frames while bosses expose phase gestures', () => {
+  test('minor enemies breathe, attack and recover from actual volley age', () => {
     expect([0, 8, 16, 24].map(v4EnemyIdleFrame)).toEqual([0, 1, 0, 1]);
-    expect(v4BossPoseFrame(true, 3, 100)).toBe(0);
-    expect(v4BossPoseFrame(false, 0, 0)).toBe(1);
-    expect(v4BossPoseFrame(false, 3, 0)).toBe(4);
-    expect(v4BossPoseFrame(false, 3, 12)).toBe(0);
-    expect(v4BossPoseFrame(false, 3, 36)).toBe(4);
+    expect(v4EnemyPoseFrame(8, undefined)).toBe(1);
+    expect(v4EnemyPoseFrame(8, 0)).toBe(2);
+    expect(v4EnemyPoseFrame(8, 3)).toBe(2);
+    expect(v4EnemyPoseFrame(8, 4)).toBe(3);
+    expect(v4EnemyPoseFrame(8, 7)).toBe(3);
+    expect(v4EnemyPoseFrame(8, 8)).toBe(1);
+  });
+
+  test('boss poses stage fixed-tick phase and actual-fire facts semantically', () => {
+    const facts = {
+      entering: false,
+      phaseTicks: 30,
+      ticksSinceFire: undefined,
+      phaseHpFraction: 1,
+      phaseTimeFraction: 1,
+    };
+    expect(v4BossPoseFrame({ ...facts, entering: true })).toBe(0);
+    expect(v4BossPoseFrame({ ...facts, phaseTicks: 0 })).toBe(1);
+    expect(v4BossPoseFrame({ ...facts, ticksSinceFire: 0 })).toBe(2);
+    expect(v4BossPoseFrame({ ...facts, ticksSinceFire: 3 })).toBe(2);
+    expect(v4BossPoseFrame({ ...facts, ticksSinceFire: 4 })).toBe(3);
+    expect(v4BossPoseFrame({ ...facts, ticksSinceFire: 11 })).toBe(3);
+    expect(v4BossPoseFrame({ ...facts, phaseHpFraction: 0.125 })).toBe(4);
+    expect(v4BossPoseFrame({ ...facts, phaseTimeFraction: 0.1 })).toBe(4);
+    expect(v4BossPoseFrame({ ...facts, ticksSinceFire: 12 })).toBe(0);
   });
 });

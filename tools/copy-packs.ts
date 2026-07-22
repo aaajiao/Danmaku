@@ -17,7 +17,8 @@
 // silently — so a licence that clears later is the only thing needed to ship it.
 
 import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { Dirent } from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 const PACKS_DIR = new URL("../packs/", import.meta.url).pathname;
 const DIST_PACKS_DIR = new URL("../dist/packs/", import.meta.url).pathname;
@@ -31,6 +32,40 @@ export interface StagePacksResult {
 /** True when a pack's declared licence forbids distribution until cleared. */
 function isUnconfirmed(license: unknown): boolean {
   return typeof license === "string" && license.trimStart().startsWith("UNCONFIRMED");
+}
+
+function isPlatformMetadataName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower === ".ds_store"
+    || lower.startsWith("._")
+    || lower === ".appledouble"
+    || lower === "thumbs.db"
+    || lower === "desktop.ini"
+    || lower === "__macosx";
+}
+
+/** OS/editor metadata is never a runtime pack resource and must not ship. */
+function shouldStagePackEntry(source: string): boolean {
+  const name = basename(source);
+  return !name.startsWith(".") && !isPlatformMetadataName(name);
+}
+
+/** Remove stale metadata that an incremental build may have left anywhere in dist/. */
+export async function cleanPublishMetadata(root: string): Promise<void> {
+  let entries: Dirent[];
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const path = join(root, entry.name);
+    if (isPlatformMetadataName(entry.name)) {
+      await rm(path, { recursive: true, force: true });
+    } else if (entry.isDirectory()) {
+      await cleanPublishMetadata(path);
+    }
+  }
 }
 
 /**
@@ -82,12 +117,16 @@ export async function stagePacks(
   // `dist/` is disposable build output. Clear this exact child even when the
   // source directory disappeared, so no previously staged pack can be deployed.
   await rm(distPacksDir, { recursive: true, force: true });
+  await cleanPublishMetadata(dirname(distPacksDir));
   if (!hasPacks) return { hasPacks: false, ship: [], skipped: [] };
 
   const { ship, skipped } = await surveyPacks(packsDir);
   await mkdir(distPacksDir, { recursive: true });
   for (const name of ship) {
-    await cp(join(packsDir, name), join(distPacksDir, name), { recursive: true });
+    await cp(join(packsDir, name), join(distPacksDir, name), {
+      recursive: true,
+      filter: shouldStagePackEntry,
+    });
   }
   await writeFile(
     join(distPacksDir, "index.json"),

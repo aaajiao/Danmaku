@@ -931,14 +931,15 @@
       "mode": "loop",
       "color": "baked",
       "contentW": 59,
-      "contentH": 36
+      "contentH": 36,
+      "banking": "five-way"
     },
     "filter": "nearest",
     "effects": {
       "burst": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 0,
+        "x": 1080,
+        "y": 96,
         "frames": 8,
         "frameW": 64,
         "frameH": 64,
@@ -952,7 +953,7 @@
       "burst.big": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 64,
+        "y": 0,
         "frames": 12,
         "frameW": 96,
         "frameH": 96,
@@ -965,8 +966,8 @@
       },
       "missile.pop.tiny": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 160,
+        "x": 1592,
+        "y": 96,
         "frames": 11,
         "frameW": 36,
         "frameH": 28,
@@ -979,8 +980,8 @@
       },
       "missile.pop.mid": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 188,
+        "x": 1988,
+        "y": 96,
         "frames": 9,
         "frameW": 36,
         "frameH": 28,
@@ -993,8 +994,8 @@
       },
       "missile.pop.big": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 216,
+        "x": 1440,
+        "y": 232,
         "frames": 8,
         "frameW": 36,
         "frameH": 28,
@@ -1008,7 +1009,7 @@
       "boom.elite": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 244,
+        "y": 280,
         "frames": 28,
         "frameW": 48,
         "frameH": 48,
@@ -1022,7 +1023,7 @@
       "boom.elite.spray": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 292,
+        "y": 328,
         "frames": 39,
         "frameW": 44,
         "frameH": 44,
@@ -1036,7 +1037,7 @@
       "boom.boss.back": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 336,
+        "y": 96,
         "frames": 15,
         "frameW": 72,
         "frameH": 72,
@@ -1049,8 +1050,8 @@
       },
       "boom.boss.top": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 408,
+        "x": 1152,
+        "y": 0,
         "frames": 16,
         "frameW": 72,
         "frameH": 72,
@@ -1064,7 +1065,7 @@
       "boom.player": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 480,
+        "y": 168,
         "frames": 38,
         "frameW": 64,
         "frameH": 64,
@@ -1077,8 +1078,8 @@
       },
       "debris": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 544,
+        "x": 2200,
+        "y": 232,
         "frames": 12,
         "frameW": 8,
         "frameH": 8,
@@ -1091,8 +1092,8 @@
       },
       "player.option": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 552,
+        "x": 1728,
+        "y": 232,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1105,8 +1106,8 @@
       },
       "player.thruster.up": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 576,
+        "x": 2312,
+        "y": 96,
         "frames": 4,
         "frameW": 20,
         "frameH": 28,
@@ -1119,8 +1120,8 @@
       },
       "player.thruster.cruise": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 604,
+        "x": 1824,
+        "y": 232,
         "frames": 4,
         "frameW": 20,
         "frameH": 24,
@@ -1133,8 +1134,8 @@
       },
       "player.thruster.down": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 628,
+        "x": 1976,
+        "y": 232,
         "frames": 4,
         "frameW": 20,
         "frameH": 20,
@@ -1147,8 +1148,8 @@
       },
       "player.thruster.particle.0": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 648,
+        "x": 2056,
+        "y": 232,
         "frames": 6,
         "frameW": 12,
         "frameH": 16,
@@ -1161,8 +1162,8 @@
       },
       "player.thruster.particle.1": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 664,
+        "x": 2128,
+        "y": 232,
         "frames": 6,
         "frameW": 12,
         "frameH": 16,
@@ -1175,8 +1176,8 @@
       },
       "player.bomb.missile": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 680,
+        "x": 2304,
+        "y": 0,
         "frames": 8,
         "frameW": 16,
         "frameH": 28,
@@ -1189,8 +1190,8 @@
       },
       "player.bomb.projectile": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 708,
+        "x": 1904,
+        "y": 232,
         "frames": 6,
         "frameW": 12,
         "frameH": 24,
@@ -1204,7 +1205,7 @@
       "player.bomb.field": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 732,
+        "y": 232,
         "frames": 30,
         "frameW": 48,
         "frameH": 48,
@@ -1220,7 +1221,7 @@
       "beam.v3": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 0,
+        "y": 204,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1234,7 +1235,7 @@
       "beam.slim": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 24,
+        "y": 156,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1248,7 +1249,7 @@
       "beam.heavy": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 48,
+        "y": 132,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1262,7 +1263,7 @@
       "beam.blue": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 72,
+        "y": 84,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1276,7 +1277,7 @@
       "beam.cyan": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 96,
+        "y": 108,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1290,7 +1291,7 @@
       "beam.warm": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 120,
+        "y": 252,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1304,7 +1305,7 @@
       "beam.stream": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 144,
+        "y": 180,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1318,7 +1319,7 @@
       "beam.v3.stream": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 168,
+        "y": 228,
         "frames": 4,
         "frameW": 48,
         "frameH": 24,
@@ -1332,7 +1333,7 @@
       "cap.v3": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 192,
+        "y": 28,
         "frames": 4,
         "frameW": 28,
         "frameH": 28,
@@ -1346,7 +1347,7 @@
       "cap.green": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 220,
+        "y": 0,
         "frames": 4,
         "frameW": 28,
         "frameH": 28,
@@ -1360,7 +1361,7 @@
       "cap.yellow": {
         "src": "lasers/lasers.png",
         "x": 0,
-        "y": 248,
+        "y": 56,
         "frames": 4,
         "frameW": 28,
         "frameH": 28,
@@ -1376,7 +1377,7 @@
       "missile.0": {
         "src": "missiles/missiles.png",
         "x": 0,
-        "y": 0,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1389,8 +1390,8 @@
       },
       "missile.1": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 16,
+        "x": 160,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1403,8 +1404,8 @@
       },
       "missile.2": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 32,
+        "x": 640,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1417,7 +1418,7 @@
       },
       "missile.3": {
         "src": "missiles/missiles.png",
-        "x": 0,
+        "x": 800,
         "y": 48,
         "frames": 5,
         "frameW": 32,
@@ -1431,8 +1432,8 @@
       },
       "missile.4": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 64,
+        "x": 960,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1445,8 +1446,8 @@
       },
       "missile.5": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 80,
+        "x": 1120,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1460,7 +1461,7 @@
       "missile.6": {
         "src": "missiles/missiles.png",
         "x": 0,
-        "y": 96,
+        "y": 64,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1473,8 +1474,8 @@
       },
       "missile.7": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 112,
+        "x": 160,
+        "y": 64,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1487,8 +1488,8 @@
       },
       "missile.8": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 128,
+        "x": 320,
+        "y": 64,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1501,8 +1502,8 @@
       },
       "missile.9": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 144,
+        "x": 480,
+        "y": 64,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1515,8 +1516,8 @@
       },
       "missile.10": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 160,
+        "x": 320,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1529,8 +1530,8 @@
       },
       "missile.11": {
         "src": "missiles/missiles.png",
-        "x": 0,
-        "y": 176,
+        "x": 480,
+        "y": 48,
         "frames": 5,
         "frameW": 32,
         "frameH": 16,
@@ -1544,7 +1545,7 @@
       "missile.massive": {
         "src": "missiles/missiles.png",
         "x": 0,
-        "y": 192,
+        "y": 0,
         "frames": 17,
         "frameW": 80,
         "frameH": 48,
@@ -1560,7 +1561,7 @@
       "pickup.coin.silver": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 0,
+        "y": 144,
         "frames": 6,
         "frameW": 24,
         "frameH": 24,
@@ -1574,7 +1575,7 @@
       "pickup.coin.gold": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 24,
+        "y": 120,
         "frames": 6,
         "frameW": 24,
         "frameH": 24,
@@ -1588,7 +1589,7 @@
       "pickup.gem.green": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 48,
+        "y": 24,
         "frames": 9,
         "frameW": 24,
         "frameH": 24,
@@ -1602,7 +1603,7 @@
       "pickup.gem.yellow": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 72,
+        "y": 96,
         "frames": 9,
         "frameW": 24,
         "frameH": 24,
@@ -1616,7 +1617,7 @@
       "pickup.gem.cyan": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 96,
+        "y": 0,
         "frames": 9,
         "frameW": 24,
         "frameH": 24,
@@ -1630,7 +1631,7 @@
       "pickup.gem.pink": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 120,
+        "y": 48,
         "frames": 9,
         "frameW": 24,
         "frameH": 24,
@@ -1644,7 +1645,7 @@
       "pickup.gem.purple": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 144,
+        "y": 72,
         "frames": 9,
         "frameW": 24,
         "frameH": 24,
@@ -1658,7 +1659,7 @@
       "pickup.bar": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 168,
+        "y": 216,
         "frames": 9,
         "frameW": 28,
         "frameH": 20,
@@ -1672,7 +1673,7 @@
       "pickup.tally.coin.gold": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 188,
+        "y": 168,
         "frames": 6,
         "frameW": 24,
         "frameH": 24,
@@ -1686,7 +1687,7 @@
       "pickup.tally.coin.silver": {
         "src": "pickups/pickups.png",
         "x": 0,
-        "y": 212,
+        "y": 192,
         "frames": 6,
         "frameW": 24,
         "frameH": 24,

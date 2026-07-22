@@ -41,6 +41,7 @@ import {
   bulletExtentClass,
   paletteForEffect,
   paletteForProjectile,
+  projectileFaction,
   type V4ProjectileOwner,
 } from './make-v4-pack';
 
@@ -320,8 +321,44 @@ describe('generated output and exact manifest', () => {
     expect(Object.keys(assets.lasers ?? {})).toEqual([...LASER_STRIP_CELLS]);
     expect(Object.keys(assets.missiles ?? {})).toEqual([...MISSILE_STRIP_CELLS]);
     expect(Object.keys(assets.pickups ?? {})).toEqual([...PICKUP_STRIP_CELLS]);
-    expect((assets.ship as { frames?: number }).frames).toBe(5);
+    const shipAsset = assets.ship;
+    if (shipAsset === undefined || typeof shipAsset === 'string') throw new Error('v4 ship must be native');
+    expect(shipAsset.frames).toBe(5);
+    expect(shipAsset.banking).toBe('five-way');
     expect(build.manifest.hud).toEqual({ life: 'hud/life.png', bomb: 'hud/bomb.png' });
+  });
+
+  test('multi-strip atlases use deterministic non-overlapping shelf packing', () => {
+    let savedAtlases = 0;
+    for (const [relative, specs, strips] of [
+      ['effects/effects.png', V4_EFFECT_SPECS, assets.effects ?? {}],
+      ['lasers/lasers.png', V4_LASER_SPECS, assets.lasers ?? {}],
+      ['missiles/missiles.png', V4_MISSILE_SPECS, assets.missiles ?? {}],
+      ['pickups/pickups.png', V4_PICKUP_SPECS, assets.pickups ?? {}],
+    ] as const) {
+      const image = png(relative);
+      const entries = Object.entries(strips);
+      for (let i = 0; i < entries.length; i++) {
+        const [aName, a] = entries[i]!;
+        for (let j = i + 1; j < entries.length; j++) {
+          const [bName, b] = entries[j]!;
+          const aWidth = a.frameW * (a.frames ?? 1);
+          const bWidth = b.frameW * (b.frames ?? 1);
+          const overlaps =
+            (a.x ?? 0) < (b.x ?? 0) + bWidth
+            && (a.x ?? 0) + aWidth > (b.x ?? 0)
+            && (a.y ?? 0) < (b.y ?? 0) + b.frameH
+            && (a.y ?? 0) + a.frameH > (b.y ?? 0);
+          expect(overlaps, `${relative}: ${aName} overlaps ${bName}`).toBe(false);
+        }
+      }
+      const linearHeight = specs.reduce((sum, spec) => sum + spec.frameH, 0);
+      expect(image.height, `${relative} must never exceed one-strip-per-row packing`).toBeLessThanOrEqual(
+        linearHeight,
+      );
+      if (image.height < linearHeight) savedAtlases++;
+    }
+    expect(savedAtlases).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -359,6 +396,19 @@ describe('runtime consumer ownership', () => {
     expect(V4_PROJECTILE_OWNERS['beam.cyan']).toEqual(['player.spire', 'boss.magistrate']);
   });
 
+  test('presentation faction comes from runtime owners, including explicitly shared resources', () => {
+    expect(projectileFaction('glow.small.bolt')).toBe('player');
+    expect(projectileFaction('orb.small.chaff')).toBe('hostile');
+    expect(projectileFaction('beam.cyan')).toBe('shared');
+    expect(projectileFaction('orb.small')).toBe('neutral');
+
+    const semanticBullets = V4_BULLET_NAMES.filter((name) => !(BULLET_CELLS as readonly string[]).includes(name));
+    expect(semanticBullets.filter((name) => projectileFaction(name) === 'player')).toHaveLength(19);
+    expect(semanticBullets.filter((name) => projectileFaction(name) === 'hostile')).toHaveLength(35);
+    expect(semanticBullets.filter((name) => projectileFaction(name) === 'neutral')).toEqual([]);
+    expect(semanticBullets.filter((name) => projectileFaction(name) === 'shared')).toEqual([]);
+  });
+
   test('single-owner names use that person; shared names declare a neutral multi-lineage', () => {
     for (const [name, owners] of Object.entries(V4_PROJECTILE_OWNERS)) {
       const palette = paletteForProjectile(name);
@@ -376,6 +426,25 @@ describe('runtime consumer ownership', () => {
 
 describe('bullet geometry and colour', () => {
   const sheet = png(bullets.sheet);
+
+  const eastKeylineOffset: Readonly<Record<string, number>> = {
+    'orb.small': 5,
+    'orb.medium': 9,
+    'orb.large': 13,
+    ring: 13,
+    halo: 13,
+    'glow.small': 6,
+    'glow.medium': 10,
+    'glow.large': 13,
+    kunai: 11,
+    scale: 9,
+    shard: 12,
+    needle: 12,
+    petal: 9,
+    star: 13,
+    spark: 10,
+    mote: 4,
+  };
 
   test('every declared frame is nonempty, animated, padded and content-exact', () => {
     for (const [name, strip] of Object.entries(bullets.strips)) {
@@ -433,6 +502,48 @@ describe('bullet geometry and colour', () => {
         }
       }
       if (!(BULLET_CELLS as readonly string[]).includes(name)) expect(chromatic, name).toBe(true);
+    }
+  });
+
+  test('hostile bullets have a solid threat core and bone keyline; player keylines stay chromatic', () => {
+    for (const [name, strip] of Object.entries(bullets.strips)) {
+      const faction = projectileFaction(name);
+      if (faction === 'neutral') continue;
+      expect(['player', 'hostile'], name).toContain(faction);
+
+      const p = paletteForProjectile(name);
+      const base = baseBulletName(name);
+      const keylineOffset = eastKeylineOffset[base];
+      if (keylineOffset === undefined) throw new Error(`missing keyline probe for ${base}`);
+
+      for (let frame = 0; frame < (strip.frames ?? 1); frame++) {
+        const frameX = strip.x + frame * (strip.stride ?? strip.frameW);
+        const cx = frameX + Math.floor(strip.frameW / 2);
+        const cy = strip.y + Math.floor(strip.frameH / 2);
+        const diagonalX = base === 'spark' && frame % 2 === 1
+          ? Math.round((keylineOffset * 6) / 8)
+          : 0;
+        const diagonalY = base === 'spark' && frame % 2 === 1
+          ? Math.round((-keylineOffset * 6) / 8)
+          : 0;
+        const keyline = diagonalX > 0
+          ? rgbaAt(sheet, cx + diagonalX, cy + diagonalY)
+          : rgbaAt(sheet, cx + keylineOffset, cy);
+
+        if (faction === 'player') {
+          expect(keyline, `${name} frame ${frame} player keyline`).toEqual([
+            p.surface[0], p.surface[1], p.surface[2], 255,
+          ]);
+          expect(keyline.slice(0, 3), `${name} frame ${frame} faction contrast`).not.toEqual(p.bone.slice(0, 3));
+          continue;
+        }
+
+        expect(keyline, `${name} frame ${frame} hostile keyline`).toEqual(p.bone);
+        expect(rgbaAt(sheet, cx, cy), `${name} frame ${frame} identity centre`).toEqual(p.heart);
+        for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
+          expect(rgbaAt(sheet, cx + dx, cy + dy), `${name} frame ${frame} bone core`).toEqual(p.bone);
+        }
+      }
     }
   });
 
@@ -598,11 +709,12 @@ describe('ship and HUD', () => {
     expect(containsRgb(image, [p.heart[0], p.heart[1], p.heart[2]])).toBe(true);
   });
 
-  test('five heart-wing banks are distinct, nonempty and padded', () => {
+  test('five heart-wing banks declare their semantics and are distinct, nonempty and padded', () => {
     const shipAsset = assets.ship;
     if (shipAsset === undefined || typeof shipAsset === 'string') throw new Error('v4 ship must be native');
     const image = png(shipAsset.src);
     const frames = stripFrames(image, shipAsset);
+    expect(shipAsset.banking).toBe('five-way');
     expect(frames).toHaveLength(5);
     frames.forEach((frame) => {
       expect(frame.painted).toBeGreaterThan(0);

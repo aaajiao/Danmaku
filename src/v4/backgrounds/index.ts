@@ -49,6 +49,7 @@ import './sable';
 import './signal-decay';
 import './signet';
 import './stratum';
+import './structure';
 import './surge';
 import './umbra';
 import './undertow';

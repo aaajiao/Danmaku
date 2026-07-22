@@ -55,12 +55,11 @@ const SHIPPED = [
 ];
 
 /**
- * Runtime shader-source baseline captured immediately before the scenes moved
- * into `src/v4`. Both the authored body and the fully assembled renderer shader
- * are pinned: import paths may move, but no GLSL formula, exposure constant,
- * shared wrapper or scene scroll rate may drift with the ownership migration.
+ * Reviewed runtime shader-source baseline. Both the authored body and the fully
+ * assembled renderer shader are pinned: shader, exposure, wrapper or scroll-rate
+ * changes must be intentional and update the corresponding exact digest.
  */
-const MIGRATION_BASELINE: Readonly<
+const REVIEWED_BASELINE: Readonly<
   Record<string, { scrollSpeed: number; bodySha256: string; assembledSha256: string }>
 > = {
   cordon: { scrollSpeed: 0.6, bodySha256: '795be3f0c6c7318b6da0f2b64d66574cb62e920286413b826f1ab53e2d8c8e9e', assembledSha256: '144e222f8ead0b60e6ef53cf650731ee4989555ea2c0b37228a71b4b1a46f51c' },
@@ -71,7 +70,7 @@ const MIGRATION_BASELINE: Readonly<
   regnum: { scrollSpeed: 0.8, bodySha256: 'ae43c4e5d32cc111f78426d55f7bf9704d9b4d966f304d8cf760a03318a9991d', assembledSha256: '91de63327f62b6ea0d7f30864d96ab9927e73c3a701a4b390c508cdcce525d87' },
   sable: { scrollSpeed: 0.6, bodySha256: '5f57acb79a06a5172971b77cb24731259da1e1b613dc7b2d1c1751c333c8fb85', assembledSha256: '34de21aa85627244dc17609de4140942782c7ab8a4590afcf68a32830fb1bc91' },
   'signal-decay': { scrollSpeed: 1, bodySha256: '57cec81deacc1586104562c13b9720c8992bfce512c9886d14f428b3a9b610a0', assembledSha256: '5ad40b9a823580ebd78255033507197060060fa4b843ba89499ba269ee2f824e' },
-  signet: { scrollSpeed: 0.8, bodySha256: 'e1445a53cfa94d6a7335c50d51955e4a49cefe142d0e277a60cfd35e65924a6d', assembledSha256: 'e456dccec77d0569a09e0221bf36f05b1b086dbdff209b7c3edb40447fcd7eb6' },
+  signet: { scrollSpeed: 0.8, bodySha256: 'f4c19ffa0394eb28fe80791a6a4b7d967c17503f54e0ab397979178a04579d35', assembledSha256: 'fcf9308f5692bc30b95a277713fb0805f5232152352a9cc00be64a957b0de36c' },
   stratum: { scrollSpeed: 0.7, bodySha256: '4ff07b30137f8b6bfbffcc8ca9bc1197f952cfb6215867e06646b37c1fdea331', assembledSha256: 'dbc66dde2d205cc6d8c576ce29041c593d996e678121b980667f08e5f368799d' },
   surge: { scrollSpeed: 1.4, bodySha256: '6aac92dbeeed439368cbc2029adebcb67ec421ab79abf3f2b0b652c4eb28a920', assembledSha256: 'ee320ff4f8eea42e6b84fdf2654998929ff42bdf60e93d1c50cb27ce854e1936' },
   umbra: { scrollSpeed: 1.1, bodySha256: 'fe7c65d38275a41193e99ce2059990c7689b47589d491d475d7d54e46bb2606a', assembledSha256: 'b5f23c7321ff63d37fd2477f1a5e99df4097771a8aa3b02ea56ea97861107f36' },
@@ -90,9 +89,9 @@ describe('the shipped scenes', () => {
     expect(spec.scrollSpeed).toBeGreaterThan(0);
   });
 
-  test('the v4 ownership move changed no shader body, assembled source or scroll rate', () => {
+  test('scene bodies, assembled sources and scroll rates match reviewed baselines', () => {
     const actual = Object.fromEntries(
-      Object.keys(MIGRATION_BASELINE).sort().map((name) => {
+      Object.keys(REVIEWED_BASELINE).sort().map((name) => {
         const spec = getBackgroundSpec(name);
         return [
           name,
@@ -106,7 +105,7 @@ describe('the shipped scenes', () => {
         ];
       }),
     );
-    expect(actual).toEqual(MIGRATION_BASELINE);
+    expect(actual).toEqual(REVIEWED_BASELINE);
   });
 
   // The no-repeat ruling ("不要重复"), as structure: one reference, one scene.

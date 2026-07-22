@@ -8,7 +8,9 @@
  */
 
 export const V4_UI_ATLAS_WIDTH = 1024;
-export const V4_UI_ATLAS_HEIGHT = 512;
+// The lowest named cell ends at y=240. Keep one 16px packing gutter while
+// dropping 256 rows of permanent transparency from the former 512px sheet.
+export const V4_UI_ATLAS_HEIGHT = 256;
 
 export interface V4UiCell {
   readonly x: number;

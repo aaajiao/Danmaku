@@ -25,6 +25,13 @@ import { FIELD, getCharacter, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
 import { Background } from './render/background';
 import {
+  ACTOR_PAD_CELL,
+  ACTOR_PAD_RENDER_ORDER,
+  actorPadLayout,
+  createActorPadAtlas,
+  type ActorPadRole,
+} from './render/actor-pad';
+import {
   bulletAtlas as makeBulletAtlas,
   shipAtlas as makeShipAtlas,
   effectAtlas as makeEffectAtlas,
@@ -40,6 +47,7 @@ import { getLaserSkin, laserSkinNames } from './render/laser-skin';
 import { stripFrame } from './render/strip';
 import type { Atlas } from './render/atlas';
 import { PostProcessing } from './render/post';
+import { focusIndicatorLayout } from './render/focus-indicator';
 import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
@@ -49,9 +57,11 @@ import {
   V4_PLAYER_ACTORS,
   loadV4ActorAtlases,
   v4BossPoseFrame,
-  v4EnemyIdleFrame,
+  v4EnemyPoseFrame,
   v4PlayerBankFrame,
 } from './render/v4-actors';
+import { v4PortraitSource, v4PortraitSpec } from './render/v4-portrait';
+import { V4StageStructure } from './v4/backgrounds/structure';
 import {
   V4_CHARACTER_UI,
   V4_DIFFICULTY_UI,
@@ -143,6 +153,7 @@ const MUSIC_PAUSE_LEVEL = 0.22;
  * Stages name their own (`expanse`, `undertow`) and the tick loop reconciles.
  */
 const background = new Background(stage, 'drift');
+const stageStructure = new V4StageStructure(stage, 'drift');
 
 /**
  * Discover and validate resource packs before anything reads their assets.
@@ -238,6 +249,10 @@ const pickupAtlas = await makePickupAtlas(undefined, packs.pickupStrips);
 const v4Actors = await loadV4ActorAtlases();
 // Original engine-owned UI, independent of whichever projectile pack is live.
 const v4Ui = await loadV4UiAtlas();
+// One deterministic near-black cell, instanced once per visible v4 woman.  Its
+// two batches sit immediately below the enemy and player actor tiers; it never
+// becomes a full-screen grade and never competes with a bullet texture.
+const actorPadAtlas = createActorPadAtlas();
 
 // Every registered skin's body and cap must resolve on the laser atlas, or a
 // beam that names it draws nothing — throw at boot rather than in the draw loop
@@ -286,10 +301,18 @@ if (packs.filter === 'linear') {
 
 /** One batch per layer and blend mode; each is a single instanced draw call. */
 const batches = {
+  actorEnemyPads: new SpriteBatch(actorPadAtlas, {
+    capacity: 264,
+    renderOrder: ACTOR_PAD_RENDER_ORDER.enemy,
+  }),
   enemies: new SpriteBatch(bulletAtlas, { capacity: 256, renderOrder: Layer.Enemies }),
   actorEnemies: new SpriteBatch(v4Actors.enemies, { capacity: 256, renderOrder: Layer.Enemies + 1 }),
   actorBosses: new SpriteBatch(v4Actors.bosses, { capacity: 8, renderOrder: Layer.Enemies + 2 }),
   items: new SpriteBatch(bulletAtlas, { capacity: 512, renderOrder: Layer.Items }),
+  actorPlayerPads: new SpriteBatch(actorPadAtlas, {
+    capacity: 4,
+    renderOrder: ACTOR_PAD_RENDER_ORDER.player,
+  }),
   player: new SpriteBatch(shipAtlas, { capacity: 8, renderOrder: Layer.Player }),
   actorPlayer: new SpriteBatch(v4Actors.players, { capacity: 4, renderOrder: Layer.Player + 2 }),
   options: new SpriteBatch(bulletAtlas, { capacity: 32, renderOrder: Layer.Player, }),
@@ -389,6 +412,10 @@ const batches = {
   }),
 };
 
+// 199: behind every enemy/Boss body; 398: behind thruster (399), ship (400)
+// and actor (402). Enemy bullets begin at 600, so both local pads remain below
+// every danger surface (explicit render order, CLAUDE.md rule 5).
+stage.add(batches.actorEnemyPads.mesh, ACTOR_PAD_RENDER_ORDER.enemy);
 stage.add(batches.enemies.mesh, 'Enemies');
 stage.add(batches.actorEnemies.mesh, 'Enemies', 1);
 stage.add(batches.actorBosses.mesh, 'Enemies', 2);
@@ -396,6 +423,7 @@ stage.add(batches.itemGlow.mesh, 'Items');
 stage.add(batches.items.mesh, 'Items', 1);
 stage.add(batches.pickups.mesh, 'Items', 1);
 stage.add(batches.beamBodies.mesh, 'Beams');
+stage.add(batches.actorPlayerPads.mesh, ACTOR_PAD_RENDER_ORDER.player);
 stage.add(batches.player.mesh, 'Player');
 stage.add(batches.actorPlayer.mesh, 'Player', 2);
 stage.add(batches.playerFx.mesh, 'Player', -1);
@@ -550,6 +578,7 @@ const loop = new Loop({
 
     machine.tick(buttons);
     background.step();
+    stageStructure.step();
     for (let i = grazeUiPulses.length - 1; i >= 0; i--) {
       const pulse = grazeUiPulses[i]!;
       pulse.age++;
@@ -633,6 +662,7 @@ const loop = new Loop({
     // longer matches and cannot be restarted by the next tick's check.
     if (scene !== undefined && scene !== background.name) {
       background.transitionTo(scene, SCENE_FADE_TICKS);
+      stageStructure.transitionTo(scene, SCENE_FADE_TICKS);
     }
 
     // The same reconcile for music. A title screen (no run) wants the menu
@@ -783,6 +813,23 @@ function drawPose(
   });
 }
 
+/** Draw one bounded normal-blend darkness plate immediately behind a v4 actor. */
+function drawActorPad(
+  batch: SpriteBatch,
+  role: ActorPadRole,
+  x: number,
+  y: number,
+  actorSize: number,
+  alphaScale = 1,
+): void {
+  const pad = actorPadLayout(role, actorSize);
+  batch.draw(x, y, ACTOR_PAD_CELL, {
+    width: pad.width,
+    height: pad.height,
+    a: pad.alpha * alphaScale,
+  });
+}
+
 /**
  * Resolve the instance tint for one named strip.
  *
@@ -811,17 +858,19 @@ function drawRun(run: Run): void {
     const actor = V4_ENEMY_ACTORS[e.name];
     if (actor !== undefined) {
       // Women are the positive form; their projectile vocabulary remains on the
-      // selected art pack, project-owned v4 by default. Only the two breathing frames loop until the simulation
-      // exposes an honest fire cue for attack/recover. Never rotate a person by
+      // selected art pack, project-owned v4 by default. The two breathing frames
+      // yield to attack/recover only after the sim reports a successful volley.
+      // Never rotate a person by
       // her movement angle: the authored front three-quarter silhouette is part
       // of the safe-space grammar.
+      drawActorPad(batches.actorEnemyPads, 'enemy', e.x, e.y, actor.size);
       drawPose(
         batches.actorEnemies,
         v4Actors.enemies,
         e.x,
         e.y,
         actor.strip,
-        v4EnemyIdleFrame(e.age),
+        v4EnemyPoseFrame(e.age, e.ticksSinceFire),
         { width: actor.size, height: actor.size, r: 0.86, g: 0.86, b: 0.86 },
       );
       continue;
@@ -849,19 +898,26 @@ function drawRun(run: Run): void {
     // texels (bloom then makes the pop visible) and desaturates a coloured boss
     // toward white. Kept modest: the boss sits in the darkest zone of the seal.
     const boost = boss.hitFlashFraction * BOSS_HIT_FLASH_BOOST;
-    // Same routing as an enemy, clocked off `boss.age`: a 1-frame boss cell (all
-    // five base bosses today) draws frame 0, a future multi-frame boss cell cycles.
-    // Size stays spec-driven; the hit-flash boost rides the tint as before.
+    // The v4 five-pose strip reads phase opening, actual volleys and remaining
+    // phase health/time. It never infers or schedules an attack. Size stays
+    // spec-driven; the hit-flash boost rides the tint as before.
     const actor = V4_BOSS_ACTORS[boss.name];
     if (actor !== undefined) {
       const base = 0.86 + boost;
+      drawActorPad(batches.actorEnemyPads, 'boss', boss.x, boss.y, actor.size);
       drawPose(
         batches.actorBosses,
         v4Actors.bosses,
         boss.x,
         boss.y,
         actor.strip,
-        v4BossPoseFrame(boss.entering, boss.phaseIndex, boss.phaseTicks),
+        v4BossPoseFrame({
+          entering: boss.entering,
+          phaseTicks: boss.phaseTicks,
+          ticksSinceFire: boss.ticksSinceFire,
+          phaseHpFraction: boss.phaseHpFraction,
+          phaseTimeFraction: boss.phaseTimeFraction,
+        }),
         { width: actor.size, height: actor.size, r: base, g: base, b: base },
       );
     } else {
@@ -1160,6 +1216,18 @@ function drawRun(run: Run): void {
     const shipFrame = packs.shipStrip?.banking === 'five-way' ? bankFrame : 0;
     const actor = V4_PLAYER_ACTORS[run.characterName];
     if (actor !== undefined) {
+      // Keep the local darkness present through the invulnerability blink so
+      // the player's location never disappears into scene texture. It softens
+      // with the actor, but unlike the actor never drops to a near-invisible
+      // frame.
+      drawActorPad(
+        batches.actorPlayerPads,
+        'player',
+        player.x,
+        player.y,
+        actor.size,
+        blink ? 0.72 : 1,
+      );
       // A pack ship remains visible as the heroine's compact back wing/core
       // rather than impersonating the protagonist. It is pack-owned, so a
       // zero-pack run simply omits this optional under-layer.
@@ -1262,33 +1330,50 @@ function drawGrazeFeedback(run: Run): void {
   }
 }
 
+/**
+ * Draw the focused lethal centre after all WebGL and gameplay feedback.
+ *
+ * The outer authored ring is deliberately restrained.  A near-black keyline
+ * then occludes any additive respawn/bomb light directly under the real core,
+ * and the final white disc uses `player.radius` unchanged — a 2.5px hit point
+ * remains 2.5px rather than becoming the whole 32px ornament.
+ */
+function drawFocusIndicator(run: Run): void {
+  if (!run.player.alive || !run.player.focused) return;
+  const { x, y, radius } = run.player;
+  const indicator = focusIndicatorLayout(x, y, radius, run.tickCount);
+  surface.save();
+  drawV4Ui(surface, v4Ui, 'ui.focus.ring', indicator.ringX, indicator.ringY, {
+    width: indicator.ringSize,
+    height: indicator.ringSize,
+    rotation: indicator.ringRotation,
+    alpha: indicator.ringAlpha,
+  });
+
+  surface.shadowBlur = 0;
+  surface.fillStyle = 'rgba(2,5,10,0.96)';
+  surface.beginPath();
+  surface.arc(x, y, indicator.keylineRadius, 0, Math.PI * 2);
+  surface.fill();
+
+  surface.fillStyle = '#f5fbff';
+  surface.beginPath();
+  surface.arc(x, y, indicator.coreRadius, 0, Math.PI * 2);
+  surface.fill();
+  surface.restore();
+}
+
 function drawOverlay(run: Run | undefined): void {
   surface.clearRect(0, 0, overlay.width, overlay.height);
-
-  if (run?.player.alive && run.player.focused) {
-    // Japanese STG contract: the heroine's painted body is deliberately much
-    // larger than the lethal centre. The hit point is overlay/UI, never baked
-    // into an actor pose, and appears only while focus is held.
-    const { x, y, radius: hitRadius } = run.player;
-    surface.save();
-    // The authored outer ring rotates from the run's fixed tick only.  The
-    // lethal core is still geometry read straight from `player.radius`.
-    drawV4Ui(surface, v4Ui, 'ui.focus.ring', x - 16, y - 16, {
-      rotation: (run.tickCount % 120) * (Math.PI / 60),
-      alpha: 0.92,
-    });
-    surface.fillStyle = '#f5fbff';
-    surface.shadowColor = 'rgba(190,224,255,0.85)';
-    surface.shadowBlur = 4;
-    surface.beginPath();
-    surface.arc(x, y, hitRadius, 0, Math.PI * 2);
-    surface.fill();
-    surface.restore();
-  }
 
   if (run !== undefined) drawGrazeFeedback(run);
 
   drawHud(run);
+
+  // Highest gameplay indicator: over WebGL FX, graze arcs and the in-field HUD.
+  // Dialogue and modal state panels still composite afterward, because they
+  // intentionally suspend/cover play rather than competing inside it.
+  if (run !== undefined) drawFocusIndicator(run);
 
   // A pre-boss exchange is drawn over the field the player is still flying. It
   // sits above the HUD and below any menu (a pause taken mid-exchange composites
@@ -1765,25 +1850,23 @@ function drawV4Portrait(
   const player = speaker === 'player' ? V4_PLAYER_ACTORS[characterName] : undefined;
   const boss = V4_BOSS_ACTORS[speaker];
   const actor = player ?? boss;
-  if (actor === undefined) return false;
+  const portrait = v4PortraitSpec(speaker, characterName);
+  if (actor === undefined || portrait === undefined) return false;
 
   const atlas = player === undefined ? v4Actors.bosses : v4Actors.players;
-  const pose = player === undefined ? 0 : 2;
-  const frame = atlas.frameOf(atlas.strip(actor.strip), pose);
-  // A portrait needs the face, heart and hands rather than an 88px full-body
-  // thumbnail. Both actor sheets have a stable square pivot, so the same
-  // deterministic upper-centre crop works for every character.
-  const crop = Math.round(frame.w * 0.72);
-  const sourceX = frame.x + Math.floor((frame.w - crop) / 2);
-  const sourceY = frame.y + Math.round(frame.h * 0.05);
+  const frame = atlas.frameOf(atlas.strip(actor.strip), portrait.pose);
+  // Each built-in woman owns a close framing anchor. Players use their neutral
+  // pose; bosses use the authored cast gesture, so the 88px box now carries the
+  // face, heart and hands rather than a near-full-body thumbnail.
+  const source = v4PortraitSource(frame, portrait);
   surface.save();
   surface.imageSmoothingEnabled = false;
   surface.drawImage(
     atlas.texture.image as CanvasImageSource,
-    sourceX,
-    sourceY,
-    crop,
-    crop,
+    source.x,
+    source.y,
+    source.w,
+    source.h,
     x,
     y,
     size,

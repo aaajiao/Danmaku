@@ -154,24 +154,45 @@ export function v4PlayerBankFrame(intent: -1 | 0 | 1, heldTicks: number): number
   return heldTicks <= 3 ? 3 : 4;
 }
 
-/** Only the two breathing frames loop until the simulation exposes fire cues. */
+/** The two breathing frames used whenever no recent attack needs staging. */
 export function v4EnemyIdleFrame(age: number): number {
   return Math.floor(Math.max(0, age) / 8) % 2;
 }
 
 /**
- * A boss rests in frame 0 and reveals one of four gestures per phase.
+ * Map an enemy's actual successful volley onto its authored attack strip.
  *
- * The gesture appears for the phase opening and then alternates slowly with
- * rest.  It visualises an existing phase index; it never schedules a pattern.
+ * Frames 2/3 are attack/recover. `ticksSinceFire` is simulation-owned and only
+ * advances after a volley really entered the bullet pool, so a saturated pool
+ * cannot fabricate an attack pose. The pose never feeds back into simulation.
+ */
+export function v4EnemyPoseFrame(age: number, ticksSinceFire: number | undefined): number {
+  if (ticksSinceFire === undefined || ticksSinceFire > 7) return v4EnemyIdleFrame(age);
+  return ticksSinceFire <= 3 ? 2 : 3;
+}
+
+export interface V4BossPoseFacts {
+  readonly entering: boolean;
+  readonly phaseTicks: number;
+  readonly ticksSinceFire: number | undefined;
+  readonly phaseHpFraction: number;
+  readonly phaseTimeFraction: number;
+}
+
+/**
+ * Select the five authored boss poses by meaning, never by phase-number modulo.
+ *
+ * The opening is a short prepare punctuation, a successful volley drives
+ * cast/expand, and the final health/time eighth drives close. Every input is an
+ * existing fixed-tick simulation fact and this function schedules no gameplay.
  */
 export function v4BossPoseFrame(
-  entering: boolean,
-  phaseIndex: number,
-  phaseTicks: number,
+  facts: V4BossPoseFacts,
 ): number {
-  if (entering) return 0;
-  const gesture = 1 + Math.abs(phaseIndex % 4);
-  if (phaseTicks < 12) return gesture;
-  return Math.floor((phaseTicks - 12) / 24) % 2 === 0 ? 0 : gesture;
+  if (facts.entering) return 0;
+  if (facts.phaseTicks < 4) return 1;
+  if (facts.ticksSinceFire !== undefined && facts.ticksSinceFire <= 3) return 2;
+  if (facts.phaseHpFraction <= 0.125 || facts.phaseTimeFraction <= 0.125) return 4;
+  if (facts.ticksSinceFire !== undefined && facts.ticksSinceFire <= 11) return 3;
+  return 0;
 }

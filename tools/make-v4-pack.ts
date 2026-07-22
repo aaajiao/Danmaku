@@ -434,6 +434,20 @@ function invertOwners(): Readonly<Record<string, readonly V4ProjectileOwner[]>> 
 
 export const V4_PROJECTILE_OWNERS = invertOwners();
 
+export type V4ProjectileFaction = 'neutral' | 'player' | 'hostile' | 'shared';
+
+/** Presentation faction is derived from the authored runtime owners, never from
+ * a sprite-name convention. Shared player/hostile resources remain explicitly
+ * shared instead of being made to look safe or dangerous by accident. */
+export function projectileFaction(name: string): V4ProjectileFaction {
+  const owners = V4_PROJECTILE_OWNERS[name] ?? [];
+  if (owners.length === 0) return 'neutral';
+  const hasPlayer = owners.some((owner) => owner.startsWith('player.'));
+  const hasHostile = owners.some((owner) => !owner.startsWith('player.'));
+  if (hasPlayer && hasHostile) return 'shared';
+  return hasPlayer ? 'player' : 'hostile';
+}
+
 /**
  * A baked shared strip cannot change colour per firer.  It therefore carries a
  * visible lineage: first owner's surface, second owner's mycelium, final owner's
@@ -459,6 +473,15 @@ export function paletteForProjectile(name: string): Palette {
   if (owners === undefined || owners.length === 0) return NEUTRAL;
   if (owners.length === 1) return V4_OWNER_PALETTES[owners[0]!]!;
   return sharedLineagePalette(owners);
+}
+
+/** Hostile silhouettes use a solid bone-white keyline; friendly silhouettes
+ * use a solid owner-colour keyline. Neutral registry floors keep their original
+ * painter colour, so tintable fallback cells retain their authored geometry. */
+function bulletKeyline(p: Palette, faction: V4ProjectileFaction, fallback: Rgba): Rgba {
+  if (faction === 'hostile') return p.bone;
+  if (faction === 'player') return [p.surface[0], p.surface[1], p.surface[2], 255];
+  return fallback;
 }
 
 export function baseBulletName(name: string): string {
@@ -565,6 +588,7 @@ function drawRoundBullet(
   p: Palette,
   hollow: boolean,
   layer: V4AnatomyLayer,
+  faction: V4ProjectileFaction,
 ): void {
   const reach = Math.max(2, radius - 2);
   const d = DIR8[(frame * 2) % DIR8.length]!;
@@ -572,14 +596,16 @@ function drawRoundBullet(
   switch (layer) {
     case 'surface': {
       if (!hollow) disc(image, cx, cy, radius - 1, [p.surface[0], p.surface[1], p.surface[2], 54]);
-      ring(image, cx, cy, radius, hollow ? 2 : 1, p.surface);
+      ring(image, cx, cy, radius, hollow ? 2 : 1, bulletKeyline(p, faction, p.surface));
       if (hollow && radius >= 7) ring(image, cx, cy, Math.max(2, radius - 4), 1, [p.surface[0], p.surface[1], p.surface[2], 128]);
       // One travelling seam makes a membrane animate without filling its void.
       disc(image, cx + Math.round((d[0] * reach) / 8), cy + Math.round((d[1] * reach) / 8), 1, p.bone);
       break;
     }
     case 'skeleton':
-      ring(image, cx, cy, radius, 1, [p.surface[0], p.surface[1], p.surface[2], 130]);
+      ring(image, cx, cy, radius, 1, bulletKeyline(
+        p, faction, [p.surface[0], p.surface[1], p.surface[2], 130],
+      ));
       line(image,
         cx + Math.round((d[0] * reach) / 8), cy + Math.round((d[1] * reach) / 8),
         cx + Math.round((opposite[0] * reach) / 8), cy + Math.round((opposite[1] * reach) / 8), p.bone);
@@ -587,7 +613,9 @@ function drawRoundBullet(
       heart(image, cx, cy, 1, p.heart);
       break;
     case 'mycelium': {
-      ring(image, cx, cy, radius, 1, [p.surface[0], p.surface[1], p.surface[2], 110]);
+      ring(image, cx, cy, radius, 1, bulletKeyline(
+        p, faction, [p.surface[0], p.surface[1], p.surface[2], 110],
+      ));
       for (let branch = 0; branch < 3; branch++) {
         const end = DIR8[(frame + branch * 3) % DIR8.length]!;
         const ex = cx + Math.round((end[0] * reach) / 8);
@@ -599,10 +627,22 @@ function drawRoundBullet(
       break;
     }
     case 'heart': {
-      ring(image, cx, cy, radius, 1, [p.surface[0], p.surface[1], p.surface[2], 150]);
+      ring(image, cx, cy, radius, 1, bulletKeyline(
+        p, faction, [p.surface[0], p.surface[1], p.surface[2], 150],
+      ));
       ring(image, cx, cy, Math.max(2, radius - 3), 1, p.mycelium);
       const pulse = radius >= 8 && frame % 2 === 1 ? 2 : 1;
       heart(image, cx, cy, pulse, frame % 3 === 2 ? p.bone : p.heart);
+      if (faction === 'hostile') {
+        // The stable threat core overwrites centre animation, so hostile heart
+        // rounds carry their motion on a small orbiting identity node instead.
+        over(
+          image,
+          cx + Math.round((d[0] * reach) / 8),
+          cy + Math.round((d[1] * reach) / 8),
+          p.mycelium,
+        );
+      }
       break;
     }
   }
@@ -617,6 +657,7 @@ function drawDirectionalBullet(
   frame: number,
   p: Palette,
   layer: V4AnatomyLayer,
+  faction: V4ProjectileFaction,
   petalShape = false,
 ): void {
   const tail = cx - halfL;
@@ -629,7 +670,8 @@ function drawDirectionalBullet(
   for (let i = 0; i < points.length; i++) {
     const a = points[i]!;
     const b = points[(i + 1) % points.length]!;
-    line(image, a[0], a[1], b[0], b[1], layer === 'skeleton' ? p.bone : p.surface);
+    const fallback = layer === 'skeleton' ? p.bone : p.surface;
+    line(image, a[0], a[1], b[0], b[1], bulletKeyline(p, faction, fallback));
   }
   const branch = frame % 2 === 0 ? 1 : -1;
   switch (layer) {
@@ -666,6 +708,7 @@ function drawCrystalBullet(
   frame: number,
   p: Palette,
   layer: V4AnatomyLayer,
+  faction: V4ProjectileFaction,
   points = 4,
 ): void {
   const step = points === 5 ? 1 : 2;
@@ -677,7 +720,9 @@ function drawCrystalBullet(
     const color = layer === 'skeleton' ? p.bone
       : layer === 'mycelium' ? p.mycelium
         : i % 4 === 0 ? p.surface : [p.surface[0], p.surface[1], p.surface[2], 120] as const;
-    if (layer !== 'heart' || i % 2 === 0) line(image, cx, cy, ex, ey, color);
+    if (layer !== 'heart' || i % 2 === 0) {
+      line(image, cx, cy, ex, ey, bulletKeyline(p, faction, color));
+    }
   }
   if (layer === 'surface') ring(image, cx, cy, Math.max(2, Math.floor(radius / 2)), 1, p.surface);
   if (layer === 'mycelium') {
@@ -687,34 +732,52 @@ function drawCrystalBullet(
   heart(image, cx, cy, layer === 'heart' && frame % 2 === 1 ? 2 : 1, p.heart);
 }
 
+/** Every hostile baked bullet ends on the same five-pixel threat mark: four
+ * fully opaque bone-white pixels around one fully opaque identity-colour pixel.
+ * It sits inside existing bounds, so presentation improves without changing
+ * projectile size, collision semantics or directional heading. */
+function drawHostileThreatCore(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  p: Palette,
+  faction: V4ProjectileFaction,
+): void {
+  if (faction !== 'hostile') return;
+  disc(image, cx, cy, 1, p.bone);
+  over(image, cx, cy, p.heart);
+}
+
 function drawBulletFrame(image: Bitmap, x: number, y: number, name: string, frame: number): void {
   const cx = x + 16;
   const cy = y + 16;
   const base = baseBulletName(name);
   const p = paletteForProjectile(name);
   const layer = bulletAnatomyLayer(name);
+  const faction = projectileFaction(name);
   switch (base) {
-    case 'orb.small': drawRoundBullet(image, cx, cy, 5, frame, p, false, layer); break;
-    case 'orb.medium': drawRoundBullet(image, cx, cy, 9, frame, p, false, layer); break;
-    case 'orb.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer); break;
-    case 'ring': drawRoundBullet(image, cx, cy, 13, frame, p, true, layer); break;
+    case 'orb.small': drawRoundBullet(image, cx, cy, 5, frame, p, false, layer, faction); break;
+    case 'orb.medium': drawRoundBullet(image, cx, cy, 9, frame, p, false, layer, faction); break;
+    case 'orb.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer, faction); break;
+    case 'ring': drawRoundBullet(image, cx, cy, 13, frame, p, true, layer, faction); break;
     case 'halo':
-      drawRoundBullet(image, cx, cy, 13, frame, p, true, layer);
+      drawRoundBullet(image, cx, cy, 13, frame, p, true, layer, faction);
       ring(image, cx, cy, 8, 1, p.mycelium);
       break;
-    case 'glow.small': drawRoundBullet(image, cx, cy, 6, frame, p, false, layer); break;
-    case 'glow.medium': drawRoundBullet(image, cx, cy, 10, frame, p, false, layer); break;
-    case 'glow.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer); break;
-    case 'kunai': drawDirectionalBullet(image, cx, cy, 11, 4, frame, p, layer); break;
-    case 'scale': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, true); break;
-    case 'shard': drawDirectionalBullet(image, cx, cy, 12, 3, frame, p, layer); break;
-    case 'needle': drawDirectionalBullet(image, cx, cy, 12, 2, frame, p, layer); break;
-    case 'petal': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, true); break;
-    case 'star': drawCrystalBullet(image, cx, cy, 13, frame, p, layer, 5); break;
-    case 'spark': drawCrystalBullet(image, cx, cy, 10, frame, p, layer); break;
-    case 'mote': drawRoundBullet(image, cx, cy, 4, frame, p, false, layer); break;
+    case 'glow.small': drawRoundBullet(image, cx, cy, 6, frame, p, false, layer, faction); break;
+    case 'glow.medium': drawRoundBullet(image, cx, cy, 10, frame, p, false, layer, faction); break;
+    case 'glow.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer, faction); break;
+    case 'kunai': drawDirectionalBullet(image, cx, cy, 11, 4, frame, p, layer, faction); break;
+    case 'scale': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, faction, true); break;
+    case 'shard': drawDirectionalBullet(image, cx, cy, 12, 3, frame, p, layer, faction); break;
+    case 'needle': drawDirectionalBullet(image, cx, cy, 12, 2, frame, p, layer, faction); break;
+    case 'petal': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, faction, true); break;
+    case 'star': drawCrystalBullet(image, cx, cy, 13, frame, p, layer, faction, 5); break;
+    case 'spark': drawCrystalBullet(image, cx, cy, 10, frame, p, layer, faction); break;
+    case 'mote': drawRoundBullet(image, cx, cy, 4, frame, p, false, layer, faction); break;
     default: throw new Error(`no v4 bullet painter for "${base}"`);
   }
+  drawHostileThreatCore(image, cx, cy, p, faction);
 }
 
 /** Five variants are registry floors but are not named by the current base JSON. */
@@ -941,17 +1004,43 @@ function buildRows(specs: readonly RowSpec[], draw: (image: Bitmap, x: number, y
     return { ...spec, bitmap: row, bounds: unionBounds(frameBounds) };
   });
   const width = Math.max(...rows.map((row) => row.bitmap.width));
-  const height = rows.reduce((sum, row) => sum + row.frameH, 0);
+
+  // Keep every animation strip horizontally contiguous, but place shorter
+  // strips beside one another instead of uploading a full-width transparent
+  // row for each entry. Height/width/name form a stable ordering, and the
+  // first-fit shelves have no RNG or platform-dependent object enumeration.
+  const ordered = [...rows].sort((a, b) =>
+    b.frameH - a.frameH
+    || b.bitmap.width - a.bitmap.width
+    || a.name.localeCompare(b.name),
+  );
+  const shelves: { y: number; height: number; usedWidth: number }[] = [];
+  const placements = new Map<string, { x: number; y: number }>();
+  let height = 0;
+  for (const row of ordered) {
+    let shelf = shelves.find((candidate) =>
+      row.frameH <= candidate.height && candidate.usedWidth + row.bitmap.width <= width,
+    );
+    if (shelf === undefined) {
+      shelf = { y: height, height: row.frameH, usedWidth: 0 };
+      shelves.push(shelf);
+      height += row.frameH;
+    }
+    placements.set(row.name, { x: shelf.usedWidth, y: shelf.y });
+    shelf.usedWidth += row.bitmap.width;
+  }
+
   const atlas = bitmap(width, height);
   const strips: Record<string, PackStrip> = {};
-  let y = 0;
   for (const row of rows) {
-    copyBitmap(row.bitmap, atlas, 0, y);
+    const placement = placements.get(row.name);
+    if (placement === undefined) throw new Error(`missing atlas placement for ${row.name}`);
+    copyBitmap(row.bitmap, atlas, placement.x, placement.y);
     const size = boundsSize(row.bounds);
     strips[row.name] = {
       src,
-      x: 0,
-      y,
+      x: placement.x,
+      y: placement.y,
       frames: row.frames,
       frameW: row.frameW,
       frameH: row.frameH,
@@ -962,7 +1051,6 @@ function buildRows(specs: readonly RowSpec[], draw: (image: Bitmap, x: number, y
       contentW: size.width,
       contentH: size.height,
     };
-    y += row.frameH;
   }
   return { bitmap: atlas, strips };
 }
@@ -1198,6 +1286,10 @@ spines, branching mycelium and a warm heart core — redrawn at STG-native sizes
 | Five-bank heart-wing core | 1 strip / 5 frames | \`player/ship.png\` |
 | HUD life / bomb | 2 | \`hud/*.png\` |
 
+Every animation strip remains horizontally contiguous. Multi-strip sheets use
+a deterministic first-fit shelf layout, avoiding transparent full-width rows
+without changing frame order, names or sampling geometry.
+
 The procedural \`pulse\` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native
 effect surfaces. Five registry variants currently unused by base content
@@ -1233,6 +1325,11 @@ Names that alias the same engine floor can therefore carry different alpha
 silhouettes. For example \`orb.small.chaff\`, \`orb.small.battery\`,
 \`orb.small.spark\` and \`orb.small.beacon\` are surface/skeleton/mycelium/heart,
 not four colour swaps of one orb.
+
+Hostile bullets carry an opaque bone-white keyline and a five-pixel threat core;
+player bullets keep an opaque identity-colour keyline. This faction grammar is
+independent of the semantic anatomy above and remains readable against every
+stage palette.
 
 All oriented bullet and missile art points east (+x), matching CLAUDE.md rule 7.
 Small bullets paint 6–14px, medium bullets 16–22px, large bullets 24–28px;
@@ -1285,6 +1382,7 @@ export function buildV4Pack(): V4PackBuild {
         color: 'baked',
         contentW: ship.contentW,
         contentH: ship.contentH,
+        banking: 'five-way',
       },
       filter: 'nearest',
       effects: effects.strips,

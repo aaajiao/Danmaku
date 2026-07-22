@@ -133,6 +133,29 @@ export class Enemy {
    */
   entered = false;
 
+  /** Presentation fact: this enemy added at least one bullet on its latest tick. */
+  readonly #fire = { thisTick: false, lastTick: -1 };
+
+  get firedThisTick(): boolean {
+    return this.#fire.thisTick;
+  }
+
+  /**
+   * The enemy-local `age` at the start of its latest tick that actually added
+   * a bullet, or undefined before its first successful volley.
+   */
+  get lastFireTick(): number | undefined {
+    return this.#fire.lastTick < 0 ? undefined : this.#fire.lastTick;
+  }
+
+  /** Completed quiet ticks since the latest actual volley. */
+  get ticksSinceFire(): number | undefined {
+    const last = this.lastFireTick;
+    if (last === undefined) return undefined;
+    const quiet = this.age - last - 1;
+    return quiet > 0 ? quiet : 0;
+  }
+
   /**
    * One slot per spec pattern, in declaration order. Undefined means the slot
    * is not running, which covers both "not started yet" and "finished";
@@ -146,6 +169,8 @@ export class Enemy {
     this.age = 0;
     this.hasTimeline = false;
     this.entered = false;
+    this.#fire.thisTick = false;
+    this.#fire.lastTick = -1;
     this.#emitters.length = 0;
     this.#retired.length = 0;
   }
@@ -160,6 +185,8 @@ export class Enemy {
     this.angle = 0;
     this.alive = true;
     this.entered = false;
+    this.#fire.thisTick = false;
+    this.#fire.lastTick = -1;
 
     this.vector.init(spec.motion ?? {}, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -190,8 +217,11 @@ export class Enemy {
     rng: Random,
     difficulty: Difficulty = DEFAULT_DIFFICULTY,
   ): void {
+    this.#fire.thisTick = false;
     const patterns = this.spec.patterns;
     if (patterns === undefined) return;
+
+    const before = bullets.count;
 
     for (let i = 0; i < patterns.length; i++) {
       const slot = patterns[i];
@@ -224,6 +254,13 @@ export class Enemy {
         this.#emitters[i] = undefined;
         this.#retired[i] = true;
       }
+    }
+
+    // Count only bullets that entered the system. An emitter whose spawn was
+    // refused at the pool ceiling did not produce a visible attack.
+    if (bullets.count > before) {
+      this.#fire.thisTick = true;
+      this.#fire.lastTick = this.age;
     }
   }
 }

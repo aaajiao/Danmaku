@@ -535,6 +535,71 @@ describe('patterns', () => {
   });
 });
 
+describe('fire presentation facts', () => {
+  test('records actual phase volleys, quiet ticks, and continuous fire', () => {
+    const { system, bullets } = makeSystem();
+    const boss = system.spawn('test.firing', 240, 120, rng()) as Boss;
+
+    expect(boss.firedThisTick).toBe(false);
+    expect(boss.lastFireTick).toBeUndefined();
+    expect(boss.ticksSinceFire).toBeUndefined();
+
+    for (let tick = 0; tick < 3; tick++) {
+      system.step(240, 460, rng());
+      expect(boss.firedThisTick).toBe(true);
+      expect(boss.lastFireTick).toBe(tick);
+      expect(boss.ticksSinceFire).toBe(0);
+    }
+    expect(bullets.count).toBe(3);
+
+    system.step(240, 460, rng());
+    expect(boss.firedThisTick).toBe(false);
+    expect(boss.lastFireTick).toBe(2);
+    expect(boss.ticksSinceFire).toBe(1);
+    system.step(240, 460, rng());
+    expect(boss.ticksSinceFire).toBe(2);
+
+    system.step(240, 460, rng());
+    expect(bullets.count).toBe(4);
+    expect(boss.firedThisTick).toBe(true);
+    expect(boss.lastFireTick).toBe(5);
+    expect(boss.ticksSinceFire).toBe(0);
+  });
+
+  test('a new phase and a new fight clear the previous fire facts', () => {
+    const { system } = makeSystem();
+    const boss = system.spawn('test.firing', 240, 120, rng()) as Boss;
+    system.step(240, 460, rng());
+    expect(boss.firedThisTick).toBe(true);
+
+    expect(system.damage(1_000_000)).toBe(true);
+    expect(boss.phaseIndex).toBe(1);
+    expect(boss.phaseTicks).toBe(0);
+    expect(boss.firedThisTick).toBe(false);
+    expect(boss.lastFireTick).toBeUndefined();
+    expect(boss.ticksSinceFire).toBeUndefined();
+
+    system.clear();
+    const next = system.spawn('test.firing', 240, 120, rng()) as Boss;
+    expect(next).toBe(boss);
+    expect(next.firedThisTick).toBe(false);
+    expect(next.lastFireTick).toBeUndefined();
+  });
+
+  test('a refused bullet spawn is not reported as actual fire', () => {
+    const bullets = new BulletSystem({ bounds: FIELD, initial: 1, max: 1 });
+    expect(bullets.spawn(10, 10, TEST_SHOT, 'player', rng())).toBeDefined();
+    const system = new BossSystem({ bounds: FIELD, bullets });
+    const boss = system.spawn('test.firing', 240, 120, rng()) as Boss;
+
+    system.step(240, 460, rng());
+    expect(bullets.count).toBe(1);
+    expect(bullets.droppedSpawns).toBe(1);
+    expect(boss.firedThisTick).toBe(false);
+    expect(boss.lastFireTick).toBeUndefined();
+  });
+});
+
 /* ------------------------------------------------------------------ */
 /* Movement                                                            */
 /* ------------------------------------------------------------------ */

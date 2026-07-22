@@ -309,6 +309,29 @@ export class Boss {
    */
   hitFlash = 0;
 
+  /** Presentation fact: this boss added at least one bullet on its latest tick. */
+  readonly #fire = { thisTick: false, lastTick: -1 };
+
+  get firedThisTick(): boolean {
+    return this.#fire.thisTick;
+  }
+
+  /**
+   * The current phase's `phaseTicks` value at the start of the latest tick that
+   * actually added a bullet, or undefined before this phase's first volley.
+   */
+  get lastFireTick(): number | undefined {
+    return this.#fire.lastTick < 0 ? undefined : this.#fire.lastTick;
+  }
+
+  /** Completed quiet phase ticks since the latest actual volley. */
+  get ticksSinceFire(): number | undefined {
+    const last = this.lastFireTick;
+    if (last === undefined) return undefined;
+    const quiet = this.phaseTicks - last - 1;
+    return quiet > 0 ? quiet : 0;
+  }
+
   /** Whether the current phase supplied a timeline. Read by the system's step. */
   hasTimeline = false;
 
@@ -387,6 +410,8 @@ export class Boss {
     this.phaseTicks = 0;
     this.hasTimeline = false;
     this.hitFlash = 0;
+    this.#fire.thisTick = false;
+    this.#fire.lastTick = -1;
     // `notePlayerDeath`/`notePlayerBomb` write this without checking `alive`,
     // so a death after the fight ended leaves it false. `spawn` sets it too,
     // but a cleared boss is readable before the next one arrives and must not
@@ -408,6 +433,8 @@ export class Boss {
     this.alive = true;
     this.clean = true;
     this.hitFlash = 0;
+    this.#fire.thisTick = false;
+    this.#fire.lastTick = -1;
     this.#difficulty = difficulty;
     // `defineBoss` guarantees at least one active phase per tier, so index 0 of
     // the list exists; the `?? 0` only quiets the index-access type.
@@ -487,6 +514,8 @@ export class Boss {
     // the next card; clearing it here stops that flash from ghosting onto a fresh
     // card the player has not yet touched.
     this.hitFlash = 0;
+    this.#fire.thisTick = false;
+    this.#fire.lastTick = -1;
 
     const phase = this.phase;
     this.hp = phase.hp;
@@ -516,7 +545,9 @@ export class Boss {
     targetY: number,
     rng: Random,
   ): void {
+    this.#fire.thisTick = false;
     const patterns = this.phase.patterns;
+    const before = bullets.count;
 
     for (let i = 0; i < patterns.length; i++) {
       const slot = patterns[i];
@@ -549,6 +580,13 @@ export class Boss {
         this.#emitters[i] = undefined;
         this.#retired[i] = true;
       }
+    }
+
+    // A full bullet pool records a refused spawn, not an attack pose. This is
+    // write-only presentation bookkeeping and feeds no pattern or motion state.
+    if (bullets.count > before) {
+      this.#fire.thisTick = true;
+      this.#fire.lastTick = this.phaseTicks;
     }
   }
 }

@@ -463,6 +463,80 @@ describe('patterns', () => {
   });
 });
 
+describe('fire presentation facts', () => {
+  test('records only actual volleys and derives quiet age without changing cadence', () => {
+    const { system, bullets } = makeSystem();
+    const enemy = system.spawn('test.gunner', 240, 240, rng()) as Enemy;
+
+    expect(enemy.firedThisTick).toBe(false);
+    expect(enemy.lastFireTick).toBeUndefined();
+    expect(enemy.ticksSinceFire).toBeUndefined();
+
+    stepTimes(system, 5);
+    expect(enemy.age).toBe(5);
+    expect(enemy.firedThisTick).toBe(false);
+    expect(enemy.lastFireTick).toBeUndefined();
+
+    system.step(240, 460, rng());
+    expect(bullets.count).toBe(4);
+    expect(enemy.age).toBe(6);
+    expect(enemy.firedThisTick).toBe(true);
+    expect(enemy.lastFireTick).toBe(5);
+    expect(enemy.ticksSinceFire).toBe(0);
+
+    system.step(240, 460, rng());
+    expect(bullets.count).toBe(4);
+    expect(enemy.firedThisTick).toBe(false);
+    expect(enemy.lastFireTick).toBe(5);
+    expect(enemy.ticksSinceFire).toBe(1);
+
+    stepTimes(system, 8);
+    expect(enemy.ticksSinceFire).toBe(9);
+    system.step(240, 460, rng());
+    expect(bullets.count).toBe(8);
+    expect(enemy.firedThisTick).toBe(true);
+    expect(enemy.lastFireTick).toBe(15);
+    expect(enemy.ticksSinceFire).toBe(0);
+  });
+
+  test('continuous fire refreshes the tick, while a refused spawn does not', () => {
+    const { system } = makeSystem();
+    const enemy = system.spawn('test.always', 240, 240, rng()) as Enemy;
+
+    system.step(240, 460, rng());
+    expect(enemy.firedThisTick).toBe(true);
+    expect(enemy.lastFireTick).toBe(0);
+    system.step(240, 460, rng());
+    expect(enemy.firedThisTick).toBe(true);
+    expect(enemy.lastFireTick).toBe(1);
+    expect(enemy.ticksSinceFire).toBe(0);
+
+    const full = new BulletSystem({ bounds: FIELD, initial: 1, max: 1 });
+    expect(full.spawn(10, 10, TEST_SHOT, 'player', rng())).toBeDefined();
+    const capped = makeSystem({ bullets: full }).system;
+    const blocked = capped.spawn('test.always', 240, 240, rng()) as Enemy;
+    capped.step(240, 460, rng());
+    expect(full.count).toBe(1);
+    expect(full.droppedSpawns).toBe(1);
+    expect(blocked.firedThisTick).toBe(false);
+    expect(blocked.lastFireTick).toBeUndefined();
+  });
+
+  test('pool reuse clears the previous life fire facts', () => {
+    const { system } = makeSystem({ initial: 1, max: 1 });
+    const first = system.spawn('test.always', 240, 240, rng()) as Enemy;
+    system.step(240, 460, rng());
+    expect(first.firedThisTick).toBe(true);
+
+    system.damage(first, 999);
+    const second = system.spawn('test.sitter', 240, 240, rng()) as Enemy;
+    expect(second).toBe(first);
+    expect(second.firedThisTick).toBe(false);
+    expect(second.lastFireTick).toBeUndefined();
+    expect(second.ticksSinceFire).toBeUndefined();
+  });
+});
+
 describe('damage and deaths', () => {
   test('damage below the hp total does not kill', () => {
     const { system } = makeSystem();

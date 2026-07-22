@@ -52,6 +52,8 @@ describe('built-in dialogue keeps the v4 character identity', () => {
   test('player and bosses use their Ghost actor art before the generic portrait fallback', () => {
     expect(mainSource).toContain("speaker === 'player' ? V4_PLAYER_ACTORS[characterName]");
     expect(mainSource).toContain('const boss = V4_BOSS_ACTORS[speaker]');
+    expect(mainSource).toContain('v4PortraitSpec(speaker, characterName)');
+    expect(mainSource).toContain('v4PortraitSource(frame, portrait)');
     expect(mainSource).toContain('if (!drawV4Portrait(line.speaker, characterName');
     expect(mainSource).toContain('portraitImage(line.speaker)');
   });
@@ -59,11 +61,13 @@ describe('built-in dialogue keeps the v4 character identity', () => {
 
 describe('the Japanese STG hit point is presentation, not body geometry', () => {
   test('focus exposes the configured lethal centre on the overlay', () => {
-    expect(mainSource).toContain('run?.player.alive && run.player.focused');
-    expect(mainSource).toContain('radius: hitRadius');
-    expect(mainSource).toContain('surface.arc(x, y, hitRadius');
+    expect(mainSource).toContain('if (!run.player.alive || !run.player.focused) return');
+    expect(mainSource).toContain('focusIndicatorLayout(x, y, radius, run.tickCount)');
+    expect(mainSource).toContain('surface.arc(x, y, indicator.keylineRadius');
+    expect(mainSource).toContain('surface.arc(x, y, indicator.coreRadius');
+    expect(mainSource).toContain("surface.fillStyle = 'rgba(2,5,10,0.96)'");
     expect(mainSource).toContain("drawV4Ui(surface, v4Ui, 'ui.focus.ring'");
-    expect(mainSource).toContain('(run.tickCount % 120)');
+    expect(mainSource).toContain('drawFocusIndicator(run)');
   });
 
   test('v4 dialogue portraits keep nearest-neighbour pixel edges', () => {
@@ -78,6 +82,33 @@ describe('the Japanese STG hit point is presentation, not body geometry', () => 
   test('only a ship that declares five-way semantics follows player banking', () => {
     expect(mainSource).toContain("packs.shipStrip?.banking === 'five-way' ? bankFrame : 0");
     expect(mainSource).toContain('ship.sprite, shipFrame');
+  });
+});
+
+describe('v4 women carry bounded local contrast rather than a full-screen grade', () => {
+  test('enemy, boss and player pads follow actor positions below their body tiers', () => {
+    expect(mainSource).toContain('ACTOR_PAD_RENDER_ORDER.enemy');
+    expect(mainSource).toContain('ACTOR_PAD_RENDER_ORDER.player');
+    expect(mainSource).toContain("drawActorPad(batches.actorEnemyPads, 'enemy', e.x, e.y, actor.size)");
+    expect(mainSource).toContain("drawActorPad(batches.actorEnemyPads, 'boss', boss.x, boss.y, actor.size)");
+    expect(mainSource).toContain('batches.actorPlayerPads');
+    expect(mainSource).not.toContain('actorPadAtlas.texture.repeat');
+  });
+
+  test('authored attack poses read successful fixed-tick volley facts', () => {
+    expect(mainSource).toContain('v4EnemyPoseFrame(e.age, e.ticksSinceFire)');
+    expect(mainSource).toContain('ticksSinceFire: boss.ticksSinceFire');
+    expect(mainSource).toContain('phaseHpFraction: boss.phaseHpFraction');
+    expect(mainSource).toContain('phaseTimeFraction: boss.phaseTimeFraction');
+    expect(mainSource).not.toContain('v4BossPoseFrame(boss.entering, boss.phaseIndex');
+  });
+});
+
+describe('campaign architecture follows the same scene transition clock', () => {
+  test('the sparse structure steps and cross-fades beside the authored background', () => {
+    expect(mainSource).toContain("new V4StageStructure(stage, 'drift')");
+    expect(mainSource).toContain('background.step();\n    stageStructure.step();');
+    expect(mainSource).toContain('background.transitionTo(scene, SCENE_FADE_TICKS);\n      stageStructure.transitionTo(scene, SCENE_FADE_TICKS);');
   });
 });
 

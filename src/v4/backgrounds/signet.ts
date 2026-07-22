@@ -1,5 +1,5 @@
 /**
- * `signet` — sentinel's fight (the stage-1 boss). A NEAR-IDENTICAL port of
+ * `signet` — sentinel's fight (the stage-1 boss). A readability-graded port of
  * pbakaus/radiant `liquid-gold` (MIT), and its ONLY home.
  *
  * ## One reference, one scene
@@ -12,10 +12,11 @@
  *
  * `signet` renders the basis at the NEUTRAL variant set — no hue grade (tint
  * `vec3(1)`), no extra fill / saturation / station-calm — so it reads as
- * `liquid-gold` said plainly. The bullet-band grade below (broadened speculars,
- * coarsened ripple) is what the readability contract requires, so `signet` is the
- * reference FIELD at neutral params — the closest the contract allows to the
- * original — not a pixel-identical copy of it.
+ * `liquid-gold` said plainly. The bullet-band grade below (no micro-octave,
+ * broadened speculars, coarsened ripple, quieter lower playfield) is what the
+ * readability contract requires, so `signet` is the reference FIELD at neutral
+ * params — the closest the contract allows to the original — not a pixel-identical
+ * copy of it.
  *
  * ## The reference's defining image
  *
@@ -44,6 +45,10 @@
  *   - y-down 0..1 uv -> the reference's centred, y-up, min-axis-normalised coords
  *     (`(gl_FragCoord - res*0.5)/min(res)`), reconstructed from uv + aspect so the
  *     feature scale relative to the short axis matches the reference exactly.
+ *   - Readability: the sixth FBM octave (about 5px on the 480px short axis) is
+ *     removed. The remaining molten field starts around 10px and is progressively
+ *     normal-flattened in the lower player activity band; bright specular, tension
+ *     and ripple terms are attenuated there without changing the broad gold flow.
  *   - Variant seam: the palette, exposure, fill, saturation and a boss-station calm
  *     are parameters of `goldScene`. The seam was cut for a shared gold family that
  *     the no-repeat ruling then dissolved; it is kept because it is the honest
@@ -57,24 +62,25 @@
  * step below the stages, a calmer field for the fight, but the ported material's
  * native richness, not the retired peak~0.1 ceiling.
  *
- * Two knobs keep bright detail out of the bullet band (16-30px), both in
+ * Three grades keep bright detail out of the bullet band (16-30px), all in
  * `GOLD_GLSL` and labelled there:
- *   1. SPECULAR EXPONENTS broadened (ref 120/80/200 -> 26/18/34) and weighted down:
+ *   1. The sixth FBM octave is removed: its ~5px cells were below the smallest
+ *      hostile silhouette and produced busy, high-frequency normal texture.
+ *   2. SPECULAR EXPONENTS broadened (ref 120/80/200 -> 26/18/34) and weighted down:
  *      a tight `pow()` glint on the molten normals would drop a bullet-sized bright
  *      dot; a broad highlight is coarser than any bullet.
- *   2. The FINE RIPPLE highlight coarsened (`noise(uv*15)` -> `*6.5`, ~32px ->
- *      ~74px cells) and kept faint, so its bright specks can never counterfeit a
- *      bullet.
- * The domain-warp FBM keeps its bullet-band octave, but it only textures a broad
- * colour ramp (low local contrast); every BRIGHT term is graded coarse. Per-tick
- * luminance step is small (slow flow, `t` ~0.4/s) — coherent motion, no strobing.
+ *   3. The FINE RIPPLE highlight is coarsened (`noise(uv*15)` -> `*6.5`, ~32px ->
+ *      ~74px cells) and kept faint. In the lower activity band, the normal is
+ *      flattened and all three bright-detail terms are reduced to 35%.
+ * Per-tick luminance step is small (slow flow, `t` ~0.4/s) — coherent motion, no
+ * strobing.
  *
  * ## Hue — gold
  *
  * The reference gold, hue-ungraded: R > G > B off the palette.
  *
- * liquid-gold by pbakaus/radiant, MIT. Ported near-identically; our clock, y-down
- * projection, exposure and the variant seam are the only departures.
+ * liquid-gold by pbakaus/radiant, MIT. Adapted with a fixed-tick clock, y-down
+ * projection, exposure, variant seam and the readability grades documented above.
  */
 
 import { defineBackground } from '../../render/background';
@@ -107,13 +113,14 @@ const GOLD_GLSL = /* glsl */ `
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
-  /* FBM with viscosity-controlled octave decay (u_viscosity baked in). */
+  /* READABILITY GRADE 1 — five octaves keep the broad molten structure while
+     dropping the sixth octave's ~5px cells on the 480px short axis. */
   float lgFbm(vec2 p, float t) {
     float val = 0.0;
     float amp = 0.5;
     float freq = 1.0;
     float decay = 0.45 + LG_VISC * 0.2;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 5; i++) {
       val += amp * lgNoise(p * freq + t);
       freq *= 2.0 + LG_VISC * 0.3;
       amp *= decay;
@@ -186,6 +193,13 @@ const GOLD_GLSL = /* glsl */ `
     float meta   = lgMeta(ruv, t);
     vec3  normal = lgNormal(ruv * 2.0, t, field);
 
+    /* READABILITY GRADE 2 — y is down, so this progressively calms the lower
+       player activity band. Broad field colour survives; small normal contrast
+       and bright linework do not compete with bullets near the ship. */
+    float playerBandCalm = smoothstep(0.55, 0.88, uv.y);
+    float detailGain = 1.0 - playerBandCalm * 0.65;
+    normal = normalize(mix(normal, vec3(0.0, 0.0, 1.0), playerBandCalm * 0.45));
+
     vec3 viewDir   = vec3(0.0, 0.0, 1.0);
     vec3 lightDir1 = normalize(vec3(0.4, 0.5, 0.9));
     vec3 lightDir2 = normalize(vec3(-0.6, -0.3, 0.7));
@@ -241,13 +255,13 @@ const GOLD_GLSL = /* glsl */ `
     vec3 envRefl = mix(vec3(0.12, 0.07, 0.02), vec3(0.45, 0.30, 0.12), reflUv.y);
     envRefl = mix(envRefl, vec3(0.7, 0.55, 0.25), smoothstep(0.6, 1.0, reflUv.y));
 
-    vec3 col = diffuse * 0.4 + specular * fres + envRefl * fres * 0.5;
+    vec3 col = diffuse * 0.4 + specular * fres * detailGain + envRefl * fres * 0.5;
     col += baseColor * 0.12;   /* warm ambient fill */
 
     /* Surface-tension lines where metaballs meet — low frequency, kept. */
     float metaGrad = abs(meta - 3.5);
     float tensionLine = smoothstep(0.5, 0.0, metaGrad) * 0.3;
-    col += goldBright * tensionLine;
+    col += goldBright * tensionLine * detailGain;
 
     /* BULLET-BAND KNOB 2 — the fine ripple sheen. The reference's noise(uv*15)
        lands its bright specks near 32px (dead in the bullet band); coarsened to
@@ -256,7 +270,7 @@ const GOLD_GLSL = /* glsl */ `
     float ripple = lgNoise(ruv * 6.5 + t * 2.0);
     ripple = ripple * ripple;
     float rippleHighlight = smoothstep(0.6, 0.9, ripple) * 0.06;
-    col += whiteHot * rippleHighlight * fres;
+    col += whiteHot * rippleHighlight * fres * detailGain;
 
     /* Radial vignette + central pool. fill raises the floor (less dark rest) and
        widens the pool for regnum's fuller field; signet/cordon keep the reference

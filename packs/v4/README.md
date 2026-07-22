@@ -18,6 +18,10 @@ spines, branching mycelium and a warm heart core — redrawn at STG-native sizes
 | Five-bank heart-wing core | 1 strip / 5 frames | `player/ship.png` |
 | HUD life / bomb | 2 | `hud/*.png` |
 
+Every animation strip remains horizontally contiguous. Multi-strip sheets use
+a deterministic first-fit shelf layout, avoiding transparent full-width rows
+without changing frame order, names or sampling geometry.
+
 The procedural `pulse` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native
 effect surfaces. Five registry variants currently unused by base content
@@ -53,6 +57,11 @@ Names that alias the same engine floor can therefore carry different alpha
 silhouettes. For example `orb.small.chaff`, `orb.small.battery`,
 `orb.small.spark` and `orb.small.beacon` are surface/skeleton/mycelium/heart,
 not four colour swaps of one orb.
+
+Hostile bullets carry an opaque bone-white keyline and a five-pixel threat core;
+player bullets keep an opaque identity-colour keyline. This faction grammar is
+independent of the semantic anatomy above and remains readable against every
+stage palette.
 
 All oriented bullet and missile art points east (+x), matching CLAUDE.md rule 7.
 Small bullets paint 6–14px, medium bullets 16–22px, large bullets 24–28px;
