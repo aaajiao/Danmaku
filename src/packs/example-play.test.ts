@@ -49,6 +49,7 @@ import '../sim/item'; // built-in items; content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { Button } from '../core/input';
 import { backgroundNames } from '../render/background';
+import { laserSkinNames } from '../render/laser-skin';
 import { portraitNames } from '../render/portrait';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getStage } from '../content/stage';
@@ -80,7 +81,7 @@ const PACK_CHARACTER = 'example/raider';
 const PACKS_DATA = 'example@deadbeef01ab';
 
 /** The render name sets the browser loader would hand the injector. */
-const CTX_NAMES = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames(), portraits: portraitNames() };
+const CTX_NAMES = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], laserSprites: laserSkinNames(), scenes: backgroundNames(), portraits: portraitNames() };
 
 /** Validate and inject the committed pack once (idempotent per pack name). */
 function injectExample(): { campaigns: Campaign[]; characterPacks: CharacterPack[] } {

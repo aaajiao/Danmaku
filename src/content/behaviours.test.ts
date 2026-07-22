@@ -378,9 +378,145 @@ describe('orbit', () => {
   });
 });
 
+describe('beam-sweep', () => {
+  // A beam is aimed once (through `aimed-fan`, which sets `theta`), then held
+  // through its telegraph, then swept. So every case fixes `w: 0` — the spec's
+  // contract — and reads the heading, which is the whole state this behaviour
+  // touches. `hold` is the telegraph the aimed heading survives; only after it
+  // does the wedge open.
+
+  test('holds the aimed heading through the telegraph, then sweeps from it', () => {
+    // `aimed-fan` would leave a bullet pointed here; the sweep must not touch it
+    // until the telegraph is spent. This is exactly what `w` cannot do — `w`
+    // would have turned the beam on every one of these first 20 ticks.
+    const AIM = 137;
+    const samples = fly(
+      { r: 2, theta: AIM, w: 0, behaviour: 'beam-sweep', options: { hold: 20, rate: 3, duration: 60, arc: 0 } },
+      30,
+    );
+    for (let i = 0; i < 20; i++) expect(at(samples, i).theta).toBe(AIM);
+    expect(at(samples, 20).theta).toBeCloseTo(AIM + 3); // first sweep tick
+    expect(at(samples, 21).theta).toBeCloseTo(AIM + 6);
+    expect(at(samples, 29).theta).toBeCloseTo(AIM + 3 * 10); // ten sweep ticks in
+  });
+
+  test('sweeps in the direction of rate, and the other way when it is negative', () => {
+    const east = fly(
+      { r: 0, theta: 90, w: 0, behaviour: 'beam-sweep', options: { hold: 3, rate: 4, duration: 20, arc: 0 } },
+      8,
+    );
+    const west = fly(
+      { r: 0, theta: 90, w: 0, behaviour: 'beam-sweep', options: { hold: 3, rate: -4, duration: 20, arc: 0 } },
+      8,
+    );
+    for (let i = 0; i < 3; i++) {
+      expect(at(east, i).theta).toBe(90);
+      expect(at(west, i).theta).toBe(90);
+    }
+    expect(at(east, 3).theta).toBeCloseTo(94);
+    expect(at(west, 3).theta).toBeCloseTo(86);
+    expect(at(east, 7).theta).toBeCloseTo(90 + 4 * 5); // five sweep ticks
+    expect(at(west, 7).theta).toBeCloseTo(90 - 4 * 5);
+  });
+
+  test('the wedge is measured from the sweep start, not from spawn', () => {
+    // If the bound read `age` instead of `age - hold`, a beam held past `arc`
+    // ticks would halt the instant the window opened and never sweep at all.
+    const samples = fly(
+      { r: 0, theta: 0, w: 0, behaviour: 'beam-sweep', options: { hold: 10, rate: 2, duration: 100, arc: 10 } },
+      30,
+    );
+    for (let i = 0; i < 10; i++) expect(at(samples, i).theta).toBe(0); // held
+    expect(at(samples, 14).theta).toBeCloseTo(10); // five sweep ticks reach the 10° wedge
+    for (let i = 15; i < 30; i++) expect(at(samples, i).theta).toBeCloseTo(10); // halted, held
+  });
+
+  test('the arc bound halts within one step of the wedge, never short of it', () => {
+    // 3°/tick against a 10° wedge cannot land on it exactly. The rule is to halt
+    // on the first tick whose prior swing has reached the bound, so the total
+    // overshoots to the next multiple (12°) rather than stopping short at 9°.
+    const samples = fly(
+      { r: 0, theta: 0, w: 0, behaviour: 'beam-sweep', options: { rate: 3, duration: 100, arc: 10 } },
+      30,
+    );
+    const total = at(samples, 29).theta;
+    expect(total).toBeGreaterThanOrEqual(10);
+    expect(total).toBeLessThan(10 + 3);
+    expect(total).toBeCloseTo(12);
+    for (let i = 4; i < 30; i++) expect(at(samples, i).theta).toBeCloseTo(12);
+  });
+
+  test('arc: 0 sweeps the whole window, then holds the heading and flies straight', () => {
+    const samples = fly(
+      { r: 3, theta: 0, w: 0, behaviour: 'beam-sweep', options: { hold: 0, rate: 2, duration: 15, arc: 0 } },
+      25,
+    );
+    expect(at(samples, 14).theta).toBeCloseTo(30); // fifteen ticks, 2° each
+    for (let i = 15; i < 25; i++) expect(at(samples, i).theta).toBeCloseTo(30); // window closed
+
+    // Released, it flies straight: with the heading pinned the position steps
+    // are equal. A behaviour that kept nudging `theta` would fail this.
+    const dx1 = at(samples, 20).x - at(samples, 19).x;
+    const dy1 = at(samples, 20).y - at(samples, 19).y;
+    const dx2 = at(samples, 21).x - at(samples, 20).x;
+    const dy2 = at(samples, 21).y - at(samples, 20).y;
+    expect(dx2).toBeCloseTo(dx1, 10);
+    expect(dy2).toBeCloseTo(dy1, 10);
+  });
+
+  test('draws no RNG, so attaching it perturbs no stream', () => {
+    // The property the whole module rests on (CLAUDE.md rule 2): a behaviour
+    // that drew would displace every later sim draw the moment it was attached.
+    // The generator cursor must be exactly where a single prior draw left it.
+    const rng = new Random(11);
+    const before = rng.random();
+
+    const vector = new MoveVector();
+    vector.init(
+      { r: 2, theta: 40, w: 0, behaviour: 'beam-sweep', options: { hold: 5, rate: 2, duration: 30, arc: 60 } },
+      rng,
+    );
+    const context: MotionContext = { age: 0, x: 0, y: 0, targetX: 0, targetY: 0 };
+    for (let tick = 0; tick < 50; tick++) {
+      context.age = tick;
+      vector.step(context, rng);
+      context.x += vector.moveX();
+      context.y += vector.moveY();
+    }
+
+    const control = new Random(11);
+    control.random();
+    expect(rng.random()).toBe(control.random());
+    expect(before).toBe(new Random(11).random());
+  });
+
+  test('the same params reproduce the whole sweep tick for tick', () => {
+    const params: MotionParams = {
+      r: 2,
+      theta: 40,
+      w: 0,
+      behaviour: 'beam-sweep',
+      options: { hold: 8, rate: 1.5, duration: 50, arc: 45 },
+    };
+    const a = fly(params, 80);
+    const b = fly(params, 80);
+    for (let i = 0; i < 80; i++) {
+      expect(at(a, i).theta).toBe(at(b, i).theta);
+      expect(at(a, i).x).toBe(at(b, i).x);
+      expect(at(a, i).y).toBe(at(b, i).y);
+    }
+  });
+
+  // The `hold == warmup` / `w == 0` couplings are pinned over the REAL base-pack
+  // beam-sweep specs in `src/reachability.test.ts` (root), not here: this file is
+  // `src/content/`, and the pack boundary is total — content may not import
+  // `src/packs`, even the base-pack JSON as data (architecture.test.ts). So the
+  // data-scan coupling lives where the beam reachability collectors do.
+});
+
 describe('registration', () => {
   test('every behaviour this module provides is reachable by name', () => {
-    for (const name of ['homing', 'waver', 'accelerate-to', 'orbit']) {
+    for (const name of ['homing', 'waver', 'accelerate-to', 'orbit', 'beam-sweep']) {
       expect(() => new MoveVector().init({ behaviour: name })).not.toThrow();
     }
   });

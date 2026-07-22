@@ -41,6 +41,7 @@ import type {
 const CTX = {
   sprites: ['orb.large', 'ring', 'halo', 'shard'],
   shipSprites: ['ship'],
+  laserSprites: ['beam.v3'],
   scenes: ['expanse', 'undertow'],
   // A fixed built-in portrait set — a dialogue speaker resolves against these ∪
   // the pack's own `portraits`. Kept small and stable so the "unknown portrait"

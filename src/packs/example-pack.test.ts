@@ -23,6 +23,7 @@ import '../packs/bundled'; // built-in patterns/behaviours (via content) + the b
 import '../sim/item'; // built-in items (power, score, …); content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { backgroundNames } from '../render/background';
+import { laserSkinNames } from '../render/laser-skin';
 import { portraitNames } from '../render/portrait';
 import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getEnemySpec, hasEnemy } from '../sim/enemy';
@@ -53,7 +54,7 @@ function readManifest(): unknown {
  * boundary permits `render`), so the injection this test proves is the one that
  * runs for real rather than a hand-kept copy of the valid names.
  */
-const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], scenes: backgroundNames(), portraits: portraitNames() };
+const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], laserSprites: laserSkinNames(), scenes: backgroundNames(), portraits: portraitNames() };
 
 /** Validate the committed manifest and hand back the accepted `PackManifest`. */
 function acceptedManifest(): PackManifest {

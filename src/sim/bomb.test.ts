@@ -7,7 +7,7 @@ import {
   getBombSpec,
   type BombSpec,
 } from './bomb';
-import { BulletSystem, type BulletSpec, type FieldBounds } from './bullet';
+import { BulletSystem, type Bullet, type BulletSpec, type FieldBounds } from './bullet';
 import { defineEnemy, EnemySystem } from './enemy';
 
 const FIELD: FieldBounds = { width: 480, height: 480, margin: 32 };
@@ -415,6 +415,78 @@ describe('clearing', () => {
     // Documented behaviour, asserted so a future change to the buffering has
     // to update the contract rather than quietly break a caller that holds on.
     expect(first.length).toBe(0);
+  });
+});
+
+/**
+ * A radius bomb catches a beam by its *shape*, not a circle at its muzzle.
+ *
+ * A field-clear already catches on-field beams (a planted beam's muzzle is
+ * on-field), but a radius bomb — the point-blank `lance` kind — used to test the
+ * muzzle only, so a beam crossing the blast with its muzzle elsewhere survived a
+ * panic-bomb and stayed on screen looking lethal while the player had invuln.
+ * The fix is scoped to the radius path; the field-rect path stays muzzle-based.
+ */
+describe('clearing beams by shape', () => {
+  const beamSpec = (laser: BulletSpec['laser']): BulletSpec =>
+    makeBulletSpec({ radius: 2, motion: { r: 0, theta: 0 }, laser }); // +x from the muzzle
+
+  test('a radius bomb clears a beam crossing the blast though its muzzle is far', () => {
+    const { bullets, enemies, bombs } = makeField();
+    const name = defineTestBomb({ duration: 5, radius: 40 });
+    // Muzzle (100, 240), length 200 → body passes the blast centre (240, 240);
+    // the muzzle sits 140px off, outside the 40px radius.
+    bullets.spawn(100, 240, beamSpec({ length: 200 }), 'enemy', rng());
+
+    bombs.fire(name, 240, 240);
+    bombs.step(bullets, enemies, rng());
+
+    expect(bullets.count).toBe(0);
+  });
+
+  test('a radius bomb also wipes a telegraphing beam — a clear takes incoming threats too', () => {
+    const { bullets, enemies, bombs } = makeField();
+    const name = defineTestBomb({ duration: 5, radius: 40 });
+    // Still warming, so it cannot yet kill — but a screen-clear removes it all
+    // the same. This is why the clear uses the ungated shape test.
+    const beam = bullets.spawn(
+      100,
+      240,
+      beamSpec({ length: 200, warmup: 60 }),
+      'enemy',
+      rng(),
+    ) as Bullet;
+    expect(beam.lethal).toBe(false);
+
+    bombs.fire(name, 240, 240);
+    bombs.step(bullets, enemies, rng());
+
+    expect(bullets.count).toBe(0);
+  });
+
+  test('the field-rect bomb path is unchanged — it still reads the muzzle only', () => {
+    // Muzzle off the left edge, body running well onto the field. A radius bomb
+    // would now catch the body; a field-rect bomb (no radius) deliberately does
+    // not — the fix touches the radius path alone.
+    const { bullets, enemies, bombs } = makeField();
+    const name = defineTestBomb({ duration: 5 }); // no radius → whole-field rect
+    bullets.spawn(-100, 240, beamSpec({ length: 400 }), 'enemy', rng());
+
+    bombs.fire(name, 240, 240);
+    bombs.step(bullets, enemies, rng());
+
+    expect(bullets.count).toBe(1); // muzzle off-field → the rect leaves it
+  });
+
+  test('damageAt (the boss path) stays a point query, untouched by the clear change', () => {
+    const { bombs } = makeField();
+    const name = defineTestBomb({ duration: 5, damagePerTick: 7, radius: 40 });
+
+    bombs.fire(name, 240, 240);
+    // A boss at the blast centre still owes the per-tick damage; one outside
+    // pays nothing. `#clearBullets` changed; `damageAt` did not.
+    expect(bombs.damageAt(240, 240, 5)).toBe(7);
+    expect(bombs.damageAt(400, 240, 5)).toBe(0);
   });
 });
 

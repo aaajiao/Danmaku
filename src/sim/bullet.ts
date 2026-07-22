@@ -59,6 +59,25 @@ export interface LaserSpec {
   maxLength?: number;
   /** Ticks spent fading in before it becomes lethal — the telegraph. */
   warmup?: number;
+  /**
+   * Ticks the beam is drawn-but-harmless *after* it stops being lethal, before
+   * `life` ends — the decay, the mirror of `warmup`. A beam that visibly fades
+   * must stop killing *before* it vanishes; a beam that looked withdrawn but
+   * still killed would be the telegraph's dishonesty run backwards.
+   *
+   * Measured from the fixed end (`life`), so it applies **only to a
+   * `life`-limited beam**: an until-offscreen beam (`life` 0 or omitted) has no
+   * fixed end to count a cooldown back from and stays lethal to expiry. The
+   * window is derived each tick from `age`/`life`/`cooldown` — all already on
+   * the bullet — so `reset()` and the LIFO-pool leak it guards are untouched,
+   * the same reasoning `warmup` uses (an elapsed count, not stored state).
+   *
+   * Omitting it (or `0`) is byte-identical to a beam with no decay: the beam
+   * expires at `age >= life` (the offscreen-cull check) on the same tick the
+   * zero-width window would first fire, so `lethal` is never observed false on
+   * a beam still in the live list. See `#growLaser`.
+   */
+  cooldown?: number;
 }
 
 export interface BulletSpec {
@@ -390,12 +409,13 @@ export class BulletSystem {
   }
 
   /**
-   * Extend the beam and retire its telegraph.
+   * Extend the beam and set its lethal window — telegraph → active → decay.
    *
    * Read against `age`, which `step` has already incremented, so `warmup: 4`
    * means four ticks in which the beam is on screen and harmless. An elapsed
    * count rather than a countdown: a countdown is state that has to survive
-   * pooling, and `age` is already reset for us.
+   * pooling, and `age` is already reset for us — and `cooldown` rides the same
+   * property, derived from `age`/`life` rather than stored.
    */
   #growLaser(b: Bullet): void {
     const laser = b.laser;
@@ -408,7 +428,20 @@ export class BulletSystem {
       b.length = max !== undefined && length > max ? max : length;
     }
 
-    b.lethal = b.age >= (laser.warmup ?? 0);
+    const warmup = laser.warmup ?? 0;
+    const cooldown = laser.cooldown ?? 0;
+    // Decay is anchored to the fixed end, so it exists only for a life-limited
+    // beam — and only when a decay was actually asked for. The `cooldown > 0`
+    // guard is what makes an undeclared cooldown *literally* byte-identical:
+    // without it, a zero-width window `[life, life)` would still flip `lethal`
+    // false on the very tick `age` reaches `life`, and though the offscreen cull
+    // removes the beam that same tick, the internal flag differs from today's.
+    // `b.life > 0` mirrors the cull's own precondition (`b.life > 0 && b.age >=
+    // b.life`): an until-offscreen beam has no fixed end to decay from.
+    const decaying = cooldown > 0 && b.life > 0 && b.age >= b.life - cooldown;
+    // Harmless in *both* the telegraph and the decay: a beam that looks like it
+    // is fading must not still kill. Honesty at the sim level, not render alpha.
+    b.lethal = b.age >= warmup && !decaying;
   }
 
   #bounceOffWalls(b: Bullet): void {
@@ -518,24 +551,26 @@ export class BulletSystem {
 }
 
 /**
- * Exact phase of the hit test: the bullet's real shape against a circle.
+ * The bullet's real geometric shape against a circle — **telegraph-agnostic**.
  *
  * A laser tested as a circle at its stored position is a laser the player can
  * stand inside — the muzzle is one end of it, not its middle, so a point
  * anywhere along a 300px beam reads as 300px away from the thing that is
- * killing it.
+ * killing it. This answers "does the shape overlap", nothing about whether the
+ * shape is *allowed* to hit — that gate (`lethal`) belongs to the callers that
+ * care about danger (`bulletHitsCircle`), not to the ones that care about
+ * presence (a screen-clear bomb wipes a telegraphing beam too).
+ *
+ * Split out of `bulletHitsCircle` so the shape and the gate are separately
+ * reusable; the gated form below is byte-identical to every call it ever
+ * served, and the ungated form is what graze and the radius bomb reach for.
  */
-export function bulletHitsCircle(
+export function bulletShapeOverlaps(
   b: Bullet,
   x: number,
   y: number,
   radius: number,
 ): boolean {
-  // Drawn but harmless. Gated here rather than at the call sites so that every
-  // present and future collision path inherits the telegraph, instead of each
-  // one having to remember it (the argument rule 8 makes about `alive`).
-  if (!b.lethal) return false;
-
   if (b.laser !== undefined) {
     const theta = b.vector.theta;
     const tipX = b.x + b.length * cosDeg(theta);
@@ -560,6 +595,25 @@ export function bulletHitsCircle(
   }
 
   return circlesOverlap(x, y, radius, b.x, b.y, b.radius);
+}
+
+/**
+ * Exact phase of the hit test: the bullet's real shape against a circle, gated
+ * by the telegraph.
+ *
+ * Drawn but harmless during warmup and decay, so a non-lethal beam registers no
+ * hit. Gated here rather than at the call sites so that every present and future
+ * *danger* path inherits the telegraph, instead of each one having to remember
+ * it (the argument rule 8 makes about `alive`).
+ */
+export function bulletHitsCircle(
+  b: Bullet,
+  x: number,
+  y: number,
+  radius: number,
+): boolean {
+  if (!b.lethal) return false;
+  return bulletShapeOverlaps(b, x, y, radius);
 }
 
 /** How far from `b.x`/`b.y` this bullet's lethal shape can reach. */

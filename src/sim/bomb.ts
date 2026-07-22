@@ -24,6 +24,7 @@
  */
 
 import { sim, type Random } from '../core/random';
+import { bulletShapeOverlaps } from './bullet';
 import type { BulletSystem, FieldBounds } from './bullet';
 import { circlesOverlap } from './collision';
 import type { EnemySystem } from './enemy';
@@ -165,7 +166,20 @@ export class BombSystem {
       // Player shot is not caught. Eating your own bullets would make bombing
       // during a boss cost damage, which is the opposite of the intent.
       if (b.faction !== 'enemy') continue;
-      if (!this.#inRange(b.x, b.y, b.radius, spec)) continue;
+
+      // A radius bomb is a blast that catches whatever *shape* it overlaps: a
+      // beam whose body crosses the blast but whose muzzle sits far away must
+      // clear, or a panic-bomb leaves an on-screen beam looking lethal while
+      // the player has invuln. `bulletShapeOverlaps`, not `bulletHitsCircle`,
+      // so a screen-clear also wipes *telegraphing* beams — a bomb clears
+      // incoming threats, not only the ones already able to kill. The
+      // field-rect bomb keeps the muzzle test: its rect already reaches every
+      // on-field muzzle, and a planted beam's muzzle is on-field.
+      const caught =
+        spec.radius !== undefined
+          ? bulletShapeOverlaps(b, this.#x, this.#y, spec.radius)
+          : this.#inRange(b.x, b.y, b.radius, spec);
+      if (!caught) continue;
 
       // Recorded before the despawn: the pool hands this slot straight back
       // out, and its position is overwritten by the next spawn.

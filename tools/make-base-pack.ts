@@ -133,10 +133,18 @@ const SEEKER = {
  * The beam. `r: 0`, so the muzzle stays put and the bullet is purely its own
  * length. Growth and warmup are matched so the beam finishes drawing itself out
  * almost exactly the tick it becomes lethal; `life: 64` leaves 36 lethal ticks.
+ *
+ * `sprite` names a laser SKIN (`beam.v3`, `render/laser-skin.ts`), not a bullet
+ * cell: a beam is drawn as a tiled/stretched body strip plus a tip cap, resolved
+ * in the shell by name exactly as a stage names its scene. The name is the whole
+ * reskin — the render layer resolves it to a body/cap on the laser atlas, and a
+ * BulletPack laser strip replaces the pixels without the sim ever changing. The
+ * `r/g/b` tint still colours the procedural floor until baked pixels load; the
+ * beam is rose (`lash`'s colour) on the floor and its own art once reskinned.
  */
 const LANCE = {
   style: {
-    sprite: 'needle.lance', r: 1, g: 0.45, b: 0.6,
+    sprite: 'beam.v3', r: 1, g: 0.45, b: 0.6,
     width: 7, height: 7, additive: true, orientToHeading: true,
   },
   radius: 4,
@@ -145,7 +153,15 @@ const LANCE = {
   life: 64,
 };
 
-/** The boss's beam: slower to draw, longer lived, so a ring of them is a room. */
+/**
+ * The boss's beam: slower to draw, longer lived, so a ring of them is a room.
+ * One sim spec, three skins — the same beam wears a different laser skin per boss
+ * so all three whole-beam BulletPack strips find a reachable firer (`beam.heavy`
+ * warden, `beam.blue`/`beam.cyan` magistrate; the consumption map in the laser
+ * round design §d). The variants override only `style` (sprite + floor tint),
+ * which is presentation and never enters the golden trace, so the three fire the
+ * byte-identical beam and differ only in what they are painted with.
+ */
 const COLUMN = {
   style: {
     sprite: 'needle.column', r: 0.7, g: 0.6, b: 1,
@@ -155,6 +171,107 @@ const COLUMN = {
   motion: { r: 0, theta: 90 },
   laser: { length: 24, growth: 14, maxLength: 620, warmup: 44 },
   life: 108,
+};
+/** warden's picket beam — the heavy green whole-beam strip (`beam.heavy`). */
+const COLUMN_HEAVY = {
+  ...COLUMN,
+  style: { ...COLUMN.style, sprite: 'beam.heavy', r: 0.55, g: 1, b: 0.72 },
+};
+/** magistrate's colonnade beam — the blue whole-beam strip (`beam.blue`). */
+const COLUMN_BLUE = {
+  ...COLUMN,
+  style: { ...COLUMN.style, sprite: 'beam.blue', r: 0.55, g: 0.72, b: 1 },
+};
+/** magistrate's assize beam — the cyan whole-beam strip (`beam.cyan`), shared with `spire`'s `GUN_BEAM`. */
+const COLUMN_CYAN = {
+  ...COLUMN,
+  style: { ...COLUMN.style, sprite: 'beam.cyan', r: 0.55, g: 1, b: 1 },
+};
+
+/**
+ * The swept beam — the ONE thing the laser round's new DSL verb makes sayable,
+ * fired by the `ray` trash enemy (below) and so reached early and robustly in a
+ * real playthrough rather than only inside a deep boss card (laser round design
+ * §b.5, graft #3). It is aimed at the player through `aimed-fan`, holds that
+ * heading through the whole telegraph, and only then rakes an arc: `beam-sweep`
+ * adds `rate` deg/tick inside `[hold, hold+duration)`, the swing capped by `arc`.
+ *
+ * Two couplings the behaviour depends on, both stated here in the data:
+ *  - `motion.w = 0` — `w` integrates from tick 0, so any `w` would sweep the beam
+ *    DURING its own telegraph. The swing must come only from `beam-sweep`.
+ *  - `options.hold === laser.warmup` — the sweep begins the instant the telegraph
+ *    becomes lethal. `behaviours.test.ts` pins this over every base-pack sweep.
+ * `cooldown` gives the beam an honest decay tail: it stops killing before it
+ * visually retracts, so a fading beam never scores a kill.
+ */
+const RAY_BEAM = {
+  style: {
+    sprite: 'beam.slim', r: 0.5, g: 1, b: 0.66,
+    width: 7, height: 7, additive: true, orientToHeading: true,
+  },
+  radius: 4,
+  motion: {
+    r: 0, theta: 90, w: 0,
+    behaviour: 'beam-sweep',
+    options: { hold: 30, rate: 1.6, duration: 120, arc: 60 },
+  },
+  laser: { length: 30, growth: 30, maxLength: 560, warmup: 30, cooldown: 18 },
+  life: 190,
+};
+
+/**
+ * chancellor's rake — the swept-beam showcase (laser round design §b.4). One
+ * heavy warm beam, aimed at the player then raked across a 90° wedge about its
+ * fixed muzzle. Same `beam-sweep` couplings as `RAY_BEAM`: `w = 0`, and
+ * `hold` (34) `== warmup` (34), so the sweep opens the instant the telegraph
+ * turns lethal. `cooldown: 22` is a long honest decay tail — the rake stops
+ * killing well before it finishes retracting, so a fading beam never scores.
+ */
+const RAKE = {
+  style: {
+    sprite: 'beam.warm', r: 1, g: 0.78, b: 0.42,
+    width: 11, height: 11, additive: true, orientToHeading: true,
+  },
+  radius: 6,
+  motion: {
+    r: 0, theta: 90, w: 0,
+    behaviour: 'beam-sweep',
+    options: { hold: 34, rate: 1.4, duration: 150, arc: 90 },
+  },
+  laser: { length: 30, growth: 40, maxLength: 640, warmup: 34, cooldown: 22 },
+  life: 260,
+};
+
+/**
+ * chancellor's stream wall — the wide vertical curtain (`beam.v3.stream`). Short
+ * repeating beams fired as a rotating ring, a wall of streams that blinks on and
+ * off behind the rake. No sweep; plain planted beams with a short decay tail.
+ */
+const STREAM_WALL = {
+  style: {
+    sprite: 'beam.v3.stream', r: 0.7, g: 0.62, b: 1,
+    width: 9, height: 9, additive: true, orientToHeading: true,
+  },
+  radius: 5,
+  motion: { r: 0, theta: 90 },
+  laser: { length: 26, growth: 60, maxLength: 520, warmup: 30, cooldown: 16 },
+  life: 96,
+};
+
+/**
+ * chancellor's curtain stream — a light aimed spread of streams beneath the rake
+ * (`beam.stream`), so the swept lane is one threat to read among a soft curtain
+ * rather than the whole field.
+ */
+const STREAM = {
+  style: {
+    sprite: 'beam.stream', r: 0.6, g: 1, b: 0.68,
+    width: 7, height: 7, additive: true, orientToHeading: true,
+  },
+  radius: 4,
+  motion: { r: 0, theta: 90 },
+  laser: { length: 22, growth: 50, maxLength: 460, warmup: 26, cooldown: 14 },
+  life: 84,
 };
 
 /**
@@ -862,6 +979,48 @@ const enemies: PackContent['enemies'] = {
     onDeath: 'explosion',
   },
 
+  /**
+   * The ray — stage-3's swept-beam platform, and the laser round's reach
+   * guarantee for the new `beam-sweep` verb (design §b.5). It dives in, plants
+   * itself (a beam whose muzzle moves is unreadable), telegraphs a beam aimed at
+   * the player, then rakes it across a 60° wedge — aim, hold, sweep. It leaves
+   * upward under its own power, so like `stele` it is a wall only for the few
+   * seconds it holds. Because the swept lane is the whole threat, the tier moves
+   * the beam count in ones, not fistfuls: one on Easy/Normal, a pair on
+   * Hard/Lunatic. `RAY_BEAM` sets `w = 0` and `hold == warmup`, the two couplings
+   * `beam-sweep` needs (see the spec).
+   */
+  ray: {
+    sprite: 'star',
+    hp: 50,
+    radius: 12,
+    tint: { r: 0.5, g: 0.9, b: 0.62 },
+    timeline: [
+      { count: 0, motion: { r: 3, theta: 90 } },
+      { count: 30, motion: { r: 0 } },
+      { count: 210, motion: { r: 3.2, theta: 270 } },
+    ],
+    patterns: [
+      {
+        pattern: 'aimed-fan',
+        options: { spec: RAY_BEAM, count: 1, spread: 0, period: 150 },
+        startAt: 40,
+        stopAt: 170,
+        // A swept beam is a lethal moving line, so its count moves in ones.
+        difficulty: {
+          easy: { period: 190 },
+          hard: { count: 2, spread: 34 },
+          lunatic: { count: 2, spread: 42, period: 130 },
+        },
+      },
+    ],
+    despawnMargin: 80,
+    spoils: [['power', 2]],
+    scoreValue: 500,
+    onHit: 'hit',
+    onDeath: 'explosion',
+  },
+
   /* ---- stage-4 cast ---- */
 
   /*
@@ -1279,7 +1438,7 @@ const bosses: PackContent['bosses'] = {
           // Four beams at 90°, rotating 21° a volley, so the safe wedges walk.
           {
             pattern: 'ring',
-            options: { spec: COLUMN, count: 4, period: 120, rotation: 21 },
+            options: { spec: COLUMN_HEAVY, count: 4, period: 120, rotation: 21 },
             difficulty: {
               easy: { count: 3 },
               hard: { count: 5 },
@@ -1456,7 +1615,7 @@ const bosses: PackContent['bosses'] = {
           // so exactly one set is live at a time and the room reconfigures.
           {
             pattern: 'ring',
-            options: { spec: COLUMN, count: 6, period: 132, rotation: 17 },
+            options: { spec: COLUMN_BLUE, count: 6, period: 132, rotation: 17 },
             difficulty: {
               easy: { count: 4 },
               hard: { count: 7 },
@@ -1514,7 +1673,7 @@ const bosses: PackContent['bosses'] = {
           // mill in it, and the beams are the thing that must stay readable.
           {
             pattern: 'ring',
-            options: { spec: COLUMN, count: 4, period: 150, rotation: 26 },
+            options: { spec: COLUMN_CYAN, count: 4, period: 150, rotation: 26 },
             startAt: 120,
             difficulty: {
               easy: { count: 3 },
@@ -1540,16 +1699,20 @@ const bosses: PackContent['bosses'] = {
   /**
    * The stage-3 boss, and the mid-game peak — the chancellor who keeps the seal.
    * The magistrate ended with the player's "Then I appeal"; this is where the
-   * appeal is heard, and filed. Five phases, escalating 7/12/13/14/17 seconds —
-   * heavier than the magistrate's four — and the law of every one of them is the
-   * stage's thesis: hold a *moving* lane. So the tiers change the rate you must
-   * move to keep the lane (aim speed, wall tightness, ring density), never whether
-   * the lane exists. A Lunatic curtain is denser and never solid.
+   * appeal is heard, and filed. Six phases (Normal fights five; the sixth is
+   * Lunatic-only), escalating 7/12/13/15/14/17 seconds — heavier than the
+   * magistrate's four — and the law of every one of them is the stage's thesis:
+   * hold a *moving* lane. So the tiers change the rate you must move to keep the
+   * lane (aim speed, wall tightness, ring density, sweep rate), never whether the
+   * lane exists. A Lunatic curtain is denser and never solid.
    *
-   * Two of the cards demonstrate composition-over-a-new-pattern, which is the
-   * "prefer composing the four before a fifth" resolution the round required:
-   * phase 2 lays `spiral` over `aimed-fan`, phase 3 lays `ring` over the `orbit`
-   * behaviour. No new pattern and no new behaviour is authored this round.
+   * Three of the cards demonstrate composition-over-a-new-pattern, the "prefer
+   * composing the four before a fifth" resolution the round required: phase 2
+   * lays `spiral` over `aimed-fan`, phase 3 lays `ring` over the `orbit`
+   * behaviour, and phase 4 ("Sweeping Assay") lays a swept beam over a stream wall
+   * and a curtain — the laser round's showcase card. No new *pattern* is authored;
+   * the laser round adds exactly one new *behaviour* (`beam-sweep`), which this
+   * card and the `ray` trash enemy fire.
    */
   chancellor: {
     sprite: 'halo',
@@ -1687,6 +1850,64 @@ const bosses: PackContent['bosses'] = {
               easy: { count: 2, period: 80 },
               hard: { count: 4, period: 54 },
               lunatic: { count: 5, period: 48 },
+            },
+          },
+        ],
+      },
+      {
+        // THE BEAM CARD — the laser round's showcase (design §b.4). One warm beam,
+        // aimed then raked across a 90° wedge (`beam-sweep`, the round's one new
+        // verb), is the lane you read; a wide `beam.v3.stream` wall blinks behind
+        // it and a light `beam.stream` curtain falls beneath, so all three of
+        // chancellor's stream/warm beams fire in one card while the rake stays the
+        // readable threat. Composition, not a new pattern: `aimed-fan` + `ring` +
+        // `aimed-fan`, laser specs in the slots. Sized in seconds via `hpSeconds`,
+        // measured against REFERENCE_DPS like every other card (balance.test.ts).
+        name: 'Beam Sign "Sweeping Assay"',
+        hpSeconds: 15,
+        isSpell: true,
+        bonus: 400000,
+        // 'sable' — chancellor's OWN darkened seal, not magistrate's 'intaglio':
+        // the campaign holds one scene per boss (design §E), so a beam card here
+        // stays under chancellor's scene, and it names a scene that already exists
+        // (render/backgrounds/sable.ts) — no new shader.
+        background: 'sable',
+        // Stationary. A beam's telegraph is a promise about where the line will be,
+        // and a moving muzzle breaks it — the same law 'Picket Line' and
+        // 'Colonnade' obey.
+        motion: { r: 0, theta: 90 },
+        patterns: [
+          // The rake: one beam aimed at the player, holding through the telegraph,
+          // then sweeping. A pair on the higher tiers, so the count moves in ones.
+          {
+            pattern: 'aimed-fan',
+            options: { spec: RAKE, count: 1, spread: 0, period: 300 },
+            difficulty: {
+              hard: { count: 2, spread: 60 },
+              lunatic: { count: 2, spread: 76, period: 260 },
+            },
+          },
+          // The wall of streams behind the rake: a rotating ring that reconfigures.
+          {
+            pattern: 'ring',
+            options: { spec: STREAM_WALL, count: 5, period: 120, rotation: 12 },
+            startAt: 40,
+            difficulty: {
+              easy: { count: 3 },
+              hard: { count: 7 },
+              lunatic: { count: 9, rotation: 16 },
+            },
+          },
+          // A light curtain of streams under the rake, aimed so the lane below the
+          // sweep is never a free rest.
+          {
+            pattern: 'aimed-fan',
+            options: { spec: STREAM, count: 3, spread: 42, period: 150 },
+            startAt: 90,
+            difficulty: {
+              easy: { count: 2, period: 180 },
+              hard: { count: 4, spread: 48, period: 130 },
+              lunatic: { count: 5, spread: 54, period: 120 },
             },
           },
         ],
@@ -2226,11 +2447,18 @@ const stages: PackContent['stages'] = {
          meter right before the squeeze. */
       { at: 1040, enemy: 'clerk', x: RIGHT, y: ENTRY_Y, count: 3, interval: 36 },
 
+      /* First swept beam, deliberately alone in the quiet after the bar — the new
+         verb taught against a near-empty field the way stage-2 taught its first
+         beam: a ray plants at centre, telegraphs an aimed line, then rakes it. */
+      { at: 1060, enemy: 'ray', x: CENTRE, y: ENTRY_Y },
+
       /* Pre-boss squeeze (hardest stretch #2) — assessor heavies drop spirals
          while clerk pairs aim: spiral (punishes standing) + aimed-fan (punishes
-         fleeing) = the combination climax before the boss states it as a card. */
+         fleeing) = the combination climax before the boss states it as a card. A
+         ray pair rakes across it, the swept lane laid over the isotropic one. */
       { at: 1180, enemy: 'assessor', x: 160, y: HEAVY_ENTRY_Y },
       { at: 1180, enemy: 'assessor', x: 320, y: HEAVY_ENTRY_Y },
+      { at: 1240, enemy: 'ray', x: 140, y: ENTRY_Y, count: 2, interval: 34, stepX: 200 },
       { at: 1260, enemy: 'clerk', x: LEFT, y: ENTRY_Y, count: 2, interval: 30 },
       { at: 1280, enemy: 'clerk', x: RIGHT, y: ENTRY_Y, count: 2, interval: 30 },
       { at: 1400, enemy: 'assessor', x: CENTRE, y: HEAVY_ENTRY_Y },
@@ -2388,7 +2616,12 @@ const GUN_SEEKER = {
  * one emitter at every tier, so the nesting invariant holds by construction.
  */
 const GUN_BEAM = {
-  style: { sprite: 'glow.small.beam', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
+  // `beam.cyan` — the player's beam wears the cyan whole-beam laser skin, shared
+  // with magistrate's `COLUMN_CYAN` (baked colour, and `faction` is a bullet
+  // field not a skin field, so one skin serves both a player and an enemy beam).
+  // This retires the old `glow.small.beam` bullet-cell name; its stale entry in
+  // `tools/bulletpack-map.json` is repointed in the same round (design §F).
+  style: { sprite: 'beam.cyan', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
   radius: 3,
   motion: { r: 0, theta: FORWARD },
   damage: 1,

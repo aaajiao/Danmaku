@@ -45,6 +45,7 @@ import '../render/backgrounds';
 import { backgroundNames } from '../render/background';
 import { portraitNames } from '../render/portrait';
 import { BULLET_CELLS, BULLET_VARIANT_CELLS, SHIP_CELLS } from '../render/procedural';
+import { laserSkinNames } from '../render/laser-skin';
 
 import { injectPack, type InjectContext } from './inject';
 import { validateManifest, type PackManifest } from './manifest';
@@ -80,6 +81,10 @@ const context: InjectContext = {
   // builds for a fetched pack.
   sprites: [...BULLET_CELLS, ...BULLET_VARIANT_CELLS],
   shipSprites: [...SHIP_CELLS],
+  // The beam skins a laser bullet may wear — the third sprite pool (laser atlas),
+  // resolved through the render-side registry the same way `scenes`/`portraits`
+  // are. `LANCE`/`COLUMN`/`RAKE`/`RAY_BEAM` and the player's `GUN_BEAM` name these.
+  laserSprites: laserSkinNames(),
   scenes: backgroundNames(),
   portraits: portraitNames(),
 };

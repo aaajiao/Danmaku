@@ -143,6 +143,16 @@ export interface InjectContext {
    * enemies wearing `ship`. Validated against the set that actually draws.
    */
   shipSprites: readonly string[];
+  /**
+   * Laser-skin names (`src/render/laser-skin.ts`) — the only sprites a beam may
+   * wear, because a laser is drawn by the beam batch from the laser atlas, a
+   * THIRD sheet distinct from the bullet and ship sheets. A bullet spec carrying a
+   * `laser` field names one of these, not a bullet cell, so it is validated
+   * against this pool for the same reason a character is validated against
+   * `shipSprites`: the set that actually draws it. Supplied by the caller, which
+   * (unlike this module) may import `render`.
+   */
+  laserSprites: readonly string[];
   /** Registered background scene names. */
   scenes: readonly string[];
   /**
@@ -424,6 +434,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
   const builtinStages = new Set(stageNames());
   const sprites = new Set(context.sprites);
   const shipSprites = new Set(context.shipSprites);
+  const laserSprites = new Set(context.laserSprites);
   const scenes = new Set(context.scenes);
   const packEnemies = new Set(enemyKeys);
   const packStages = new Set(stageKeys);
@@ -454,6 +465,12 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
     isRecord(spec) && isRecord(spec.style) && typeof spec.style.sprite === 'string'
       ? spec.style.sprite
       : undefined;
+  // A bullet carrying a `laser` field names a laser SKIN, drawn by the beam batch
+  // from the laser atlas — a separate namespace from the bullet-sheet cells. So a
+  // laser's sprite validates against `laserSprites`, exactly as a character
+  // validates against `shipSprites`. Every non-laser bullet stays on `sprites`.
+  const spritePool = (spec: unknown): Set<string> =>
+    isRecord(spec) && isRecord(spec.laser) ? laserSprites : sprites;
   const bulletBehaviours = (spec: unknown): (string | undefined)[] => {
     if (!isRecord(spec)) return [];
     const timeline = Array.isArray(spec.timeline) ? spec.timeline : [];
@@ -486,9 +503,10 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
       // `startAt` fell due mid-run.
       const spec = slot.options?.spec;
       const sprite = bulletSprite(spec);
-      if (sprite !== undefined && !sprites.has(sprite)) {
+      const pool = spritePool(spec);
+      if (sprite !== undefined && !pool.has(sprite)) {
         problems.push(
-          `pack "${pack}": ${where} pattern "${slot.pattern}" fires unknown sprite "${sprite}" — known sprites: ${list(sprites)}`,
+          `pack "${pack}": ${where} pattern "${slot.pattern}" fires unknown sprite "${sprite}" — known sprites: ${list(pool)}`,
         );
       }
       for (const behaviour of bulletBehaviours(spec)) {
@@ -597,9 +615,10 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
         }
         const spec = slot.options?.spec;
         const sprite = bulletSprite(spec);
-        if (sprite !== undefined && !sprites.has(sprite)) {
+        const pool = spritePool(spec);
+        if (sprite !== undefined && !pool.has(sprite)) {
           problems.push(
-            `pack "${pack}": ${cw} pattern "${slot.pattern}" fires unknown sprite "${sprite}" — known sprites: ${list(sprites)}`,
+            `pack "${pack}": ${cw} pattern "${slot.pattern}" fires unknown sprite "${sprite}" — known sprites: ${list(pool)}`,
           );
         }
         for (const behaviour of bulletBehaviours(spec)) {
@@ -691,9 +710,10 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
     shot.levels.forEach((level, i) => {
       const lw = `${where} level ${i}`;
       const sprite = bulletSprite(level.spec);
-      if (sprite !== undefined && !sprites.has(sprite)) {
+      const pool = spritePool(level.spec);
+      if (sprite !== undefined && !pool.has(sprite)) {
         problems.push(
-          `pack "${pack}": ${lw} uses unknown sprite "${sprite}" — known sprites: ${list(sprites)}`,
+          `pack "${pack}": ${lw} uses unknown sprite "${sprite}" — known sprites: ${list(pool)}`,
         );
       }
       for (const behaviour of bulletBehaviours(level.spec)) {
@@ -716,9 +736,10 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
       );
     }
     const shotSprite = bulletSprite(opt.shot);
-    if (shotSprite !== undefined && !sprites.has(shotSprite)) {
+    const shotPool = spritePool(opt.shot);
+    if (shotSprite !== undefined && !shotPool.has(shotSprite)) {
       problems.push(
-        `pack "${pack}": ${where} fires unknown sprite "${shotSprite}" — known sprites: ${list(sprites)}`,
+        `pack "${pack}": ${where} fires unknown sprite "${shotSprite}" — known sprites: ${list(shotPool)}`,
       );
     }
     for (const behaviour of bulletBehaviours(opt.shot)) {

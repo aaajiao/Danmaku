@@ -123,6 +123,15 @@ export interface PackAssets {
    * effect SPEC that names a strip is content, the pixels are not.
    */
   effects?: Record<string, PackStrip>;
+  /**
+   * Per-file LASER strips: a map of laser-strip name (a body like `beam.warm` or
+   * a cap like `cap.yellow`, `src/render/laser-skin.ts`) → `PackStrip`. Structurally
+   * identical to `effects` — one PNG per strip, frames laid horizontally — and
+   * warn-only presentation for the same reason: a beam names its SKIN (content),
+   * the pixels the skin wears are not. The laser system's own strips ride the
+   * laser atlas (a third sheet), so they are a separate section from `effects`.
+   */
+  lasers?: Record<string, PackStrip>;
 }
 
 export type PackSounds = Partial<Record<SoundName, string>>;
@@ -644,7 +653,7 @@ const TOP_FIELDS = [
  */
 const RESERVED_TOP = ['backgrounds'] as const;
 
-const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects'] as const;
+const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects', 'lasers'] as const;
 /** The fields of one native bullet strip (`PackBulletStrip`). x/y are offsets. */
 const BULLET_STRIP_FIELDS = [
   'x',
@@ -1061,6 +1070,10 @@ function validateAssets(assets: unknown, prefix: string, errors: string[]): void
     validateEffectStrips(assets.effects, prefix, errors);
   }
 
+  if ('lasers' in assets && assets.lasers !== undefined) {
+    validateLaserStrips(assets.lasers, prefix, errors);
+  }
+
   for (const key of Object.keys(assets)) {
     if ((ASSET_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(prefix, key, ASSET_FIELDS));
@@ -1185,12 +1198,36 @@ function validateShipStrip(ship: Record<string, unknown>, prefix: string, errors
 
 /** `assets.effects`: a map of strip name → `PackStrip`. */
 function validateEffectStrips(effects: unknown, prefix: string, errors: string[]): void {
-  if (!isRecord(effects)) {
-    errors.push(`${prefix}assets.effects must be a JSON object`);
+  validatePackStripMap(effects, 'effects', prefix, errors);
+}
+
+/**
+ * `assets.lasers` — the laser body/cap strips. Structurally identical to
+ * `assets.effects` (one PNG per strip, the `PackStrip` shape), so it runs the
+ * same per-strip validation, only the section name differs in the messages.
+ */
+function validateLaserStrips(lasers: unknown, prefix: string, errors: string[]): void {
+  validatePackStripMap(lasers, 'lasers', prefix, errors);
+}
+
+/**
+ * The shared `Record<string, PackStrip>` validation behind `assets.effects` and
+ * `assets.lasers`. Factored out so the two sections cannot drift; the section
+ * name is the only thing that varies, so the effect strings the compatibility
+ * contract pins (`assets.effects.…`) are byte-identical to before.
+ */
+function validatePackStripMap(
+  strips: unknown,
+  section: 'effects' | 'lasers',
+  prefix: string,
+  errors: string[],
+): void {
+  if (!isRecord(strips)) {
+    errors.push(`${prefix}assets.${section} must be a JSON object`);
     return;
   }
-  for (const [key, strip] of Object.entries(effects)) {
-    const where = `assets.effects.${key}`;
+  for (const [key, strip] of Object.entries(strips)) {
+    const where = `assets.${section}.${key}`;
     if (!isRecord(strip)) {
       errors.push(`${prefix}${where} must be a JSON object`);
       continue;

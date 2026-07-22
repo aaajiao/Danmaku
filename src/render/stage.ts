@@ -26,6 +26,13 @@ export const Layer = {
   BackgroundProps: 100,
   Enemies: 200,
   Items: 300,
+  // Beam bodies: a wide, dim additive lane UNDER the player ship and under every
+  // bullet layer, so the player always sees their own ship and hitbox and bullets
+  // (1.0-white + bloom) win the contrast fight (the Rendering doctrine, CLAUDE.md
+  // rule 5). Beam CAPS are a small tip flash and draw at the Effects tier instead,
+  // above bullets, as an impact indicator. Spaced so it slots in without
+  // renumbering — a new Layer is a data change, never a resequence.
+  Beams: 350,
   Player: 400,
   PlayerShots: 500,
   EnemyShots: 600,

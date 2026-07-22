@@ -151,6 +151,24 @@ function petal(ctx: Ctx, cx: number, cy: number, radius: number): void {
 }
 
 /**
+ * A laser body glow band, painted **east-native** (rule 7 — an oriented sprite
+ * runs +x, and the beam renderer stretches/tiles along local +x). The glow is
+ * uniform along the on-beam (x) axis and fades cross-axis (y), so a tiled body
+ * butts against its neighbour with no seam: the frame is painted edge to edge on
+ * x precisely because a tiling body reaches its on-beam frame edges by design,
+ * and it is a 1-frame strip, so there is no animation frame beside it to bleed
+ * into. Cross-axis it clears the seam pad, where the next strip's row *does* sit.
+ */
+function laserBody(ctx: Ctx, cx: number, cy: number, frameW: number, coreH: number): void {
+  const g = ctx.createLinearGradient(0, cy - coreH / 2, 0, cy + coreH / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - frameW / 2, cy - coreH / 2, frameW, coreH);
+}
+
+/**
  * Largest painted extent a 32px cell may contain.
  *
  * `Atlas.uv` applies no half-texel inset, so the outermost fragment column of a
@@ -1011,6 +1029,360 @@ async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): 
 
   const texture = new THREE.CanvasTexture(el);
   // Native baked fx art is pixel art; nearest keeps it crisp (loadTexture's floor).
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, sheetW, sheetH);
+  rows.forEach((row, i) => {
+    atlas.defineStrip(row.name, {
+      x: 0,
+      y: rowY[i] ?? 0,
+      frameW: row.frameW,
+      frameH: row.frameH,
+      frames: row.frames,
+      stride: row.stride,
+      ticksPerFrame: row.ticksPerFrame,
+      mode: row.mode,
+      color: row.color,
+    });
+  });
+  return atlas;
+}
+
+/* ------------------------------------------------------------------ */
+/* The laser body + cap floor (rule 9)                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A laser draws as a two-element composite — a **body** strip stretched or tiled
+ * from muzzle to tip, and a **cap** flash at the tip while it can kill — resolved
+ * through the render-side skin registry (`render/laser-skin.ts`). This floor is
+ * the never-blocked half of that: a placeholder body and cap for every strip a
+ * base skin names, so the game draws a beam with zero assets, and a BulletPack
+ * reskin later swaps the pixels through `laserAtlas(url, strips)` without the sim
+ * ever learning a beam has an anatomy.
+ *
+ * Like the fx floor, every strip is `tinted` (rule 9): the colour is the content
+ * tint, so `LANCE` stays pink and a warm boss beam stays warm until baked pixels
+ * load, at which point the skin drives the tint to white so baked colour shows
+ * unmultiplied (the shell decides, `main.ts`).
+ */
+export type LaserRole = 'body' | 'cap';
+
+export interface LaserStripGeo {
+  role: LaserRole;
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  /** Px between frame origins; equals `frameW` (frames laid horizontally). */
+  stride: number;
+  /** Painted box of frame `f`, px, re-derived from the painter's own dimensions. */
+  frameExtent: (frame: number) => { w: number; h: number };
+  draw: StripDraw;
+}
+
+// Body geometry. `coreH < frameH − 2·FX_PAD` clears the cross-axis seam pad; the
+// on-beam extent reaches the full `frameW` for seamless tiling (a 1-frame strip,
+// so no animation neighbour to bleed into — the on-beam axis is exempt from the
+// pad by construction, asserted per-role in `procedural.test.ts`).
+const LASER_BODY_W = 48;
+const LASER_BODY_H = 24;
+const LASER_BODY_CORE = 16;
+
+// Cap geometry: a small radial tip flash that flickers (a 3-frame loop) while the
+// beam persists — no one-shot bookkeeping (rule 8). Both axes clear the pad.
+const LASER_CAP_W = 28;
+const LASER_CAP_H = 28;
+const LASER_CAP_RADII = [9, 11, 9] as const;
+
+function bodyStrip(): LaserStripGeo {
+  return {
+    role: 'body',
+    frameW: LASER_BODY_W,
+    frameH: LASER_BODY_H,
+    frames: 1,
+    ticksPerFrame: 1,
+    mode: 'once',
+    color: 'tinted',
+    stride: LASER_BODY_W,
+    frameExtent: () => ({ w: LASER_BODY_W, h: LASER_BODY_CORE }),
+    draw: (ctx, _f, cx, cy) => laserBody(ctx, cx, cy, LASER_BODY_W, LASER_BODY_CORE),
+  };
+}
+
+function capStrip(): LaserStripGeo {
+  return {
+    role: 'cap',
+    frameW: LASER_CAP_W,
+    frameH: LASER_CAP_H,
+    frames: LASER_CAP_RADII.length,
+    ticksPerFrame: 3,
+    mode: 'loop',
+    color: 'tinted',
+    stride: LASER_CAP_W,
+    frameExtent: (f) => {
+      const r = LASER_CAP_RADII[f] ?? LASER_CAP_RADII[0];
+      return { w: r * 2, h: r * 2 };
+    },
+    draw: (ctx, f, cx, cy) => orb(ctx, cx, cy, LASER_CAP_RADII[f] ?? LASER_CAP_RADII[0], 0.3),
+  };
+}
+
+/**
+ * The 11 laser strips — 8 bodies + 3 caps — mirroring the 11 BulletPack laser
+ * files a reskin supplies. The names are the atlas ledger the base skins in
+ * `render/laser-skin.ts` reference; `laser-skin.test.ts` cross-checks that every
+ * skin's `body`/`cap` is one of these and that all 11 are named.
+ */
+export const LASER_STRIPS: Record<string, LaserStripGeo> = {
+  'beam.v3': bodyStrip(),
+  'beam.slim': bodyStrip(),
+  'beam.heavy': bodyStrip(),
+  'beam.blue': bodyStrip(),
+  'beam.cyan': bodyStrip(),
+  'beam.warm': bodyStrip(),
+  'beam.stream': bodyStrip(),
+  'beam.v3.stream': bodyStrip(),
+  'cap.v3': capStrip(),
+  'cap.green': capStrip(),
+  'cap.yellow': capStrip(),
+};
+
+/** Every laser strip name, `BULLET_CELLS`'s companion for the laser sheet. */
+export const LASER_STRIP_CELLS = Object.keys(LASER_STRIPS) as readonly string[];
+
+/** The body strip names (8) and cap strip names (3), for the skin-ledger test. */
+export const LASER_BODY_CELLS = Object.entries(LASER_STRIPS)
+  .filter(([, s]) => s.role === 'body')
+  .map(([name]) => name) as readonly string[];
+export const LASER_CAP_CELLS = Object.entries(LASER_STRIPS)
+  .filter(([, s]) => s.role === 'cap')
+  .map(([name]) => name) as readonly string[];
+
+/**
+ * Where each strip sits on the shared laser sheet: one strip per row, frames
+ * laid horizontally, sheet width the widest row. Derived from the table so the
+ * layout and the dimensions cannot drift (the fx sheet's discipline).
+ */
+function laserLayout(): {
+  positions: Record<string, { x: number; y: number }>;
+  width: number;
+  height: number;
+} {
+  const positions: Record<string, { x: number; y: number }> = {};
+  let width = 1;
+  let y = 0;
+  for (const [name, s] of Object.entries(LASER_STRIPS)) {
+    positions[name] = { x: 0, y };
+    width = Math.max(width, s.frames * s.stride);
+    y += s.frameH;
+  }
+  return { positions, width, height: Math.max(1, y) };
+}
+
+export const LASER_SHEET = laserLayout();
+export const LASER_SHEET_W = LASER_SHEET.width;
+export const LASER_SHEET_H = LASER_SHEET.height;
+
+/** Wire every `LASER_STRIPS` name onto `atlas` as a `Strip`. Shared by both branches. */
+function defineLaserStrips(atlas: Atlas): void {
+  for (const [name, s] of Object.entries(LASER_STRIPS)) {
+    const p = LASER_SHEET.positions[name]!;
+    atlas.defineStrip(name, {
+      x: p.x,
+      y: p.y,
+      frameW: s.frameW,
+      frameH: s.frameH,
+      frames: s.frames,
+      stride: s.stride,
+      ticksPerFrame: s.ticksPerFrame,
+      mode: s.mode,
+      color: s.color,
+    });
+  }
+}
+
+/**
+ * Render the procedural laser sheet: every `LASER_STRIPS` strip's frames laid
+ * out on one shared canvas, each on its own row. White + tint, like the fx sheet
+ * (the colour of a beam is the content's tint), so one greyscale sheet serves
+ * every beam colour and the saturation gate holds.
+ */
+export function createLaserAtlas(): Atlas {
+  const { positions, width, height } = LASER_SHEET;
+  const { el, ctx } = canvas(width, height);
+
+  for (const [name, s] of Object.entries(LASER_STRIPS)) {
+    const p = positions[name]!;
+    for (let f = 0; f < s.frames; f++) {
+      const cx = p.x + f * s.stride + s.frameW / 2;
+      const cy = p.y + s.frameH / 2;
+      s.draw(ctx, f, cx, cy);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(el);
+  texture.magFilter = THREE.LinearFilter; // generated art is smooth, not pixel art
+  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, width, height);
+  defineLaserStrips(atlas);
+  return atlas;
+}
+
+/**
+ * A pack's `assets.lasers` strip, resolved: the winning file's URL plus the
+ * geometry the manifest declared. The structural twin of the fx `EffectStripInput`
+ * (one file per strip, frames laid horizontally, frame 0 leftmost — no x/y),
+ * redeclared here so `render/` need not import `packs/`. Baked native art, so
+ * `color` defaults `'baked'` — the reskin path, the saturation gate skipped.
+ */
+export interface LaserStripInput {
+  url: string;
+  frames: number;
+  frameW: number;
+  frameH: number;
+  ticksPerFrame?: number;
+  mode?: StripMode;
+  color?: StripColor;
+}
+
+/**
+ * The laser sheet, generated, loaded, or composited from a pack — symmetric to
+ * `effectAtlas(url?, packStrips?)`.
+ *
+ * - `laserAtlas()` — the procedural body+cap floor (rule 9).
+ * - `laserAtlas(url)` — one combined `LASER_SHEET_W`×`LASER_SHEET_H` sheet loaded
+ *   and dimension-checked, the direct-import seam, naming both figures on a
+ *   mismatch (the point `bulletAtlas`/`effectAtlas` make: a wrong-sized sheet
+ *   silently repoints every strip at a crop of the wrong shape).
+ * - `laserAtlas(undefined, packStrips)` — a pack's per-file `assets.lasers`
+ *   reskin, composited onto one shared texture (one batch is one texture): a
+ *   strip the pack reskins takes its baked pixels, a strip it leaves alone is
+ *   painted procedurally, and any pack-new name is blitted too — so every base
+ *   skin's body/cap always resolves.
+ */
+export async function laserAtlas(
+  url?: string,
+  packStrips?: Record<string, LaserStripInput>,
+): Promise<Atlas> {
+  if (packStrips !== undefined && Object.keys(packStrips).length > 0) {
+    return nativeLaserAtlas(packStrips);
+  }
+  if (url === undefined) return createLaserAtlas();
+
+  const atlas = await loadAtlas(url);
+  if (atlas.width !== LASER_SHEET_W || atlas.height !== LASER_SHEET_H) {
+    throw new Error(
+      `laser sheet "${url}" is ${atlas.width}×${atlas.height}, expected ${LASER_SHEET_W}×${LASER_SHEET_H}`,
+    );
+  }
+  defineLaserStrips(atlas);
+  return atlas;
+}
+
+/** One row of the composited laser sheet: either a procedural painter or a blit. */
+interface LaserRow {
+  name: string;
+  frameW: number;
+  frameH: number;
+  frames: number;
+  stride: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  paint?: StripDraw;
+  image?: CanvasImageSource;
+}
+
+/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
+async function packLaserRow(name: string, s: LaserStripInput): Promise<LaserRow> {
+  const texture = await loadTexture(s.url);
+  return {
+    name,
+    frameW: s.frameW,
+    frameH: s.frameH,
+    frames: s.frames,
+    stride: s.frameW,
+    ticksPerFrame: s.ticksPerFrame ?? 1,
+    mode: s.mode ?? 'loop',
+    color: s.color ?? 'baked',
+    image: texture.image as CanvasImageSource,
+  };
+}
+
+/**
+ * Composite a pack's per-file `assets.lasers` strips onto one shared laser
+ * texture, so the laser atlas stays a single texture / two batches. Floor names
+ * the pack did not reskin are painted procedurally; the pack's files are blitted
+ * at their native size; every strip lands on its own row, frames horizontal.
+ */
+async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Promise<Atlas> {
+  const rows: LaserRow[] = [];
+
+  // Floor names first (procedural unless reskinned), in the floor's own order,
+  // so every base skin's body/cap always resolves on the result.
+  for (const [name, s] of Object.entries(LASER_STRIPS)) {
+    const over = packStrips[name];
+    if (over) {
+      rows.push(await packLaserRow(name, over));
+    } else {
+      rows.push({
+        name,
+        frameW: s.frameW,
+        frameH: s.frameH,
+        frames: s.frames,
+        stride: s.stride,
+        ticksPerFrame: s.ticksPerFrame,
+        mode: s.mode,
+        color: s.color,
+        paint: s.draw,
+      });
+    }
+  }
+  // Pack-new laser names (not a floor strip): a content pack that fires one
+  // resolves; the base game draws only the floor names.
+  for (const name of Object.keys(packStrips)) {
+    if (name in LASER_STRIPS) continue;
+    const s = packStrips[name];
+    if (s !== undefined) rows.push(await packLaserRow(name, s));
+  }
+
+  const rowY: number[] = [];
+  let sheetW = 1;
+  let sheetH = 0;
+  for (const row of rows) {
+    rowY.push(sheetH);
+    sheetW = Math.max(sheetW, row.frames * row.stride);
+    sheetH += row.frameH;
+  }
+  sheetH = Math.max(1, sheetH);
+
+  const { el, ctx } = canvas(sheetW, sheetH);
+  rows.forEach((row, i) => {
+    const y = rowY[i] ?? 0;
+    if (row.image) {
+      ctx.drawImage(row.image, 0, y);
+    } else if (row.paint) {
+      for (let f = 0; f < row.frames; f++) {
+        row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
+      }
+    }
+  });
+
+  const texture = new THREE.CanvasTexture(el);
+  // Native baked laser art is pixel art; nearest keeps it crisp (loadTexture's floor).
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;

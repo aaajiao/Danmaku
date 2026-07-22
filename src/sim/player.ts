@@ -15,8 +15,8 @@
  */
 
 import { Button, type Buttons } from '../core/input';
+import { bulletHitsCircle } from './bullet';
 import type { Bullet, BulletSpec, BulletSystem } from './bullet';
-import { circlesOverlap } from './collision';
 
 export interface ShotSpec {
   spec: BulletSpec;
@@ -278,9 +278,16 @@ export class Player {
     let counted = 0;
     for (const bullet of bullets.bullets) {
       if (bullet.faction !== 'enemy' || !bullet.alive) continue;
-      if (
-        !circlesOverlap(this.x, this.y, this.grazeRadius, bullet.x, bullet.y, bullet.radius)
-      ) {
+      // The graze circle against the bullet's real *shape*, not a circle at its
+      // muzzle. You can die to a beam's body but the old test could only graze
+      // its muzzle — the exact asymmetry `collision.ts` rails against, one
+      // method over: a near-miss of a segment you never touch is unscored.
+      // `bulletHitsCircle` gates on `lethal`, which is correct here — a
+      // near-miss of a *telegraph* is not a near-miss of danger. For a point
+      // bullet it reduces to `circlesOverlap(this.x, this.y, grazeRadius,
+      // bullet.x, bullet.y, bullet.radius)`, so point-bullet graze is
+      // byte-identical; only beams and blades gain body-graze.
+      if (!bulletHitsCircle(bullet, this.x, this.y, this.grazeRadius)) {
         continue;
       }
       current.set(bullet, bullet.generation);

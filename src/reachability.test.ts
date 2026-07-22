@@ -65,6 +65,11 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 
 import './packs/bundled';
+// The base-pack DATA, walked by the beam-sweep coupling test below. Read as data
+// here (root/composition layer) because `src/content` may not import `src/packs`
+// at all — the pack boundary is total (architecture.test.ts) — so the invariant
+// is pinned where the beam reachability collectors already live.
+import basePack from './packs/base-pack.json';
 import { Button } from './core/input';
 import { fx, sim } from './core/random';
 import {
@@ -83,6 +88,12 @@ import { itemNames } from './sim/item';
 import { getOptionSpec, optionNames } from './sim/option';
 import { getStage, stageNames } from './content/stage';
 import { getShot, shotNames } from './content/shots';
+import type { Bullet } from './sim/bullet';
+// The composed game's laser-skin registry (render-side). This file is the shell's
+// layer — it already imports `render`-adjacent registries the way `main.ts` does —
+// so it reads the skin names as the source of truth for the "every body reached"
+// gate below, rather than hard-coding the eight.
+import { laserSkinNames } from './render/laser-skin';
 import { EVENT_SOUNDS, SHELL_CUES } from './game/cues';
 import { StateMachine } from './game/state';
 import { TitleState, type GameContext } from './game/states';
@@ -160,6 +171,26 @@ interface Coverage {
   enemies: Set<string>;
   /** The tier each run in this coverage was actually flown on, via `run.difficulty`. */
   difficulties: Set<string>;
+  /**
+   * Laser skins (`b.style.sprite`) a real run actually put on the field — the
+   * reachability half of "all 11 consumed": every registered body skin must be
+   * fired by reachable content (caps are render-only, proven by
+   * `render/laser-skin.test.ts`, not here). Collected off `run.bullets.bullets`.
+   */
+  beamSkins: Set<string>;
+  /** A beam was observed in its telegraph window (`age < warmup`, harmless-but-drawn). */
+  beamTelegraphed: boolean;
+  /** A beam was observed lethal — the segment hit-test path ran on a real beam. */
+  beamLethal: boolean;
+  /** A beam was observed in its decay window (`age ≥ life − cooldown`, harmless again). */
+  beamDecaying: boolean;
+  /**
+   * `beam-sweep` actually turned a lethal beam: its `theta` moved between ticks
+   * while `w === 0` (the vector integrates no turn), so the swing came from the
+   * behaviour and not from `w`. Proves the round's one new verb RAN, not merely
+   * registered.
+   */
+  beamSwept: boolean;
   maxPower: number;
   maxOptions: number;
   ticks: number;
@@ -234,10 +265,20 @@ function playThroughGame(
     shots: new Set(),
     enemies: new Set(),
     difficulties: new Set(),
+    beamSkins: new Set(),
+    beamTelegraphed: false,
+    beamLethal: false,
+    beamDecaying: false,
+    beamSwept: false,
     maxPower: 0,
     maxOptions: 0,
     ticks: 0,
   };
+
+  // Per-beam heading at the end of the previous tick, keyed by (bullet, generation)
+  // so a pooled slot reused for a new beam does not inherit the old one's angle —
+  // the `beam-sweep` detector below compares against it to see a lethal beam turn.
+  const priorTheta = new Map<Bullet, { generation: number; theta: number }>();
 
   let confirm = 0;
   let descended = 0;
@@ -390,6 +431,35 @@ function playThroughGame(
       for (const particle of run.effects.particles) cover.effects.add(particle.spec.sprite);
       for (const event of run.drainEvents()) cover.events.add(event.type);
 
+      // Beams. A laser is a `Bullet` carrying a `LaserSpec`, so it lives in the
+      // same array as every other bullet and is read here off the live field, the
+      // way effects/items are. The five facts a real run must show — which skins
+      // fired, that telegraph→lethal→decay all ran, and that `beam-sweep` turned a
+      // lethal beam — are collected in one pass (design §e.2).
+      for (const b of run.bullets.bullets) {
+        if (b.laser === undefined) continue;
+        cover.beamSkins.add(b.style.sprite);
+        const warmup = b.laser.warmup ?? 0;
+        const cooldown = b.laser.cooldown ?? 0;
+        const theta = b.vector.theta;
+        if (b.lethal) {
+          cover.beamLethal = true;
+          // A lethal beam whose heading moved since last tick while the vector is
+          // integrating no turn (`w === 0`) can only have been swept by the
+          // behaviour — the proof `beam-sweep` actually ran. Keyed by generation so
+          // a reused pool slot never counts a stale heading as a sweep.
+          const prior = priorTheta.get(b);
+          if (b.vector.w === 0 && prior !== undefined && prior.generation === b.generation && prior.theta !== theta) {
+            cover.beamSwept = true;
+          }
+        } else if (b.age < warmup) {
+          cover.beamTelegraphed = true;
+        } else if (b.life > 0 && b.age >= b.life - cooldown) {
+          cover.beamDecaying = true;
+        }
+        priorTheta.set(b, { generation: b.generation, theta });
+      }
+
       if (run.player.power > cover.maxPower) cover.maxPower = run.player.power;
       const active = run.options.options.filter((o) => o.active).length;
       if (active > cover.maxOptions) cover.maxOptions = active;
@@ -439,6 +509,11 @@ const COVER: Coverage = {
   shots: union(RUNS, (c) => c.shots),
   enemies: union(RUNS, (c) => c.enemies),
   difficulties: union(RUNS, (c) => c.difficulties),
+  beamSkins: union(RUNS, (c) => c.beamSkins),
+  beamTelegraphed: RUNS.some((c) => c.beamTelegraphed),
+  beamLethal: RUNS.some((c) => c.beamLethal),
+  beamDecaying: RUNS.some((c) => c.beamDecaying),
+  beamSwept: RUNS.some((c) => c.beamSwept),
   maxPower: Math.max(...RUNS.map((c) => c.maxPower)),
   maxOptions: Math.max(...RUNS.map((c) => c.maxOptions)),
   ticks: Math.max(...RUNS.map((c) => c.ticks)),
@@ -704,6 +779,43 @@ describe('a real playthrough reaches', () => {
     }
   });
 
+  test('every registered laser body skin, fired by reachable content', () => {
+    // The reachability half of "all 11 laser files consumed": every registered
+    // skin (`render/laser-skin.ts`) is put on the field by a real playthrough —
+    // `LANCE`→beam.v3, the three `COLUMN` boss variants, `RAY_BEAM`→beam.slim,
+    // the `chancellor` card's three stream/warm beams, and the player's
+    // `GUN_BEAM`→beam.cyan. A skin nothing fires is dead presentation, the exact
+    // failure this file exists for. Caps are render-only and proven by
+    // `render/laser-skin.test.ts`, not here (design §d). Unioned with the Lunatic
+    // run so a skin fired only on a gated card would still count.
+    const fired = new Set<string>([...COVER.beamSkins, ...LUNATIC.beamSkins]);
+    for (const skin of laserSkinNames()) {
+      expect(`${skin} fired: ${fired.has(skin)}`).toBe(`${skin} fired: true`);
+    }
+  });
+
+  test('the beam lifecycle — telegraph, lethal and decay all run in a real fight', () => {
+    // The mandate's "fire, telegraph, hit-test", plus the decay phase the laser
+    // round added: a beam is harmless while warming, kills once lethal, and turns
+    // harmless again before it visually retracts. All three observed off live
+    // beams, unioned with the Lunatic run.
+    const telegraphed = COVER.beamTelegraphed || LUNATIC.beamTelegraphed;
+    const lethal = COVER.beamLethal || LUNATIC.beamLethal;
+    const decaying = COVER.beamDecaying || LUNATIC.beamDecaying;
+    expect(`telegraphed=${telegraphed} lethal=${lethal} decaying=${decaying}`).toBe(
+      'telegraphed=true lethal=true decaying=true',
+    );
+  });
+
+  test('beam-sweep turned a lethal beam — the new verb ran, not merely registered', () => {
+    // Registration proves `beam-sweep` resolves; this proves a real fight swept a
+    // beam with it (a lethal laser whose theta moved while `w === 0`). `ray` fires
+    // it as stage-3 trash and `chancellor`'s 'Sweeping Assay' card fires it too, so
+    // it is reached robustly, not only at a deep boss card (design §b.5).
+    const swept = COVER.beamSwept || LUNATIC.beamSwept;
+    expect(`beam-sweep ran: ${swept}`).toBe('beam-sweep ran: true');
+  });
+
   test('the top power tier, and therefore every weapon and option tier', () => {
     // The failure: `addPower` clamped to `shots.length - 1` = 0, so power never
     // rose, no option ever deployed, and the whole `defineShot` registry was
@@ -809,6 +921,44 @@ describe('a real playthrough reaches', () => {
     // spec field; detonating is a code path, and `#resolveBombDamage` dealt
     // zero damage for the life of the project without either being noticed.
     expect([...COVER.bombsFired].sort()).toEqual(content(bombNames()).sort());
+  });
+});
+
+describe('the base pack couples its swept beams honestly', () => {
+  // Not a playthrough — a scan of the base-pack DATA, pinning the two couplings
+  // `beam-sweep` depends on the way `balance.test.ts` measures the damage model
+  // from real content rather than trusting a typed constant (design graft #6):
+  //
+  //  - `options.hold === laser.warmup`. The sweep begins at `vector.age === hold`
+  //    and the beam turns lethal at `b.age === warmup`; for a single-segment beam
+  //    the two clocks advance together, so `hold !== warmup` would sweep before it
+  //    can kill or kill before it sweeps — a silent, drift-prone seam.
+  //  - `motion.w === 0`. A nonzero `w` integrates from tick 0 and would sweep the
+  //    beam DURING its own telegraph, the exact thing `beam-sweep` exists to avoid.
+  //
+  // Every `beam-sweep` spec the campaign ships is found by a generic tree walk, so
+  // a sweep authored on any future enemy, boss card, shot or option is caught
+  // without this test being touched.
+  const sweeps = collectBeamSweeps(basePack);
+
+  test('the scan actually found the base pack’s swept beams', () => {
+    // `ray`'s RAY_BEAM and `chancellor`'s RAKE, at least — a vacuous scan (a
+    // renamed behaviour, a moved spec) would pass the loop below on nothing.
+    expect(sweeps.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('every beam-sweep spec sets hold == warmup', () => {
+    for (const s of sweeps) {
+      expect(`${s.where}: hold=${s.hold} warmup=${s.warmup}`).toBe(
+        `${s.where}: hold=${s.warmup} warmup=${s.warmup}`,
+      );
+    }
+  });
+
+  test('every beam-sweep spec sets w == 0', () => {
+    for (const s of sweeps) {
+      expect(`${s.where}: w=${s.w}`).toBe(`${s.where}: w=0`);
+    }
   });
 });
 
@@ -947,3 +1097,37 @@ describe('the probe itself is honest', () => {
       .toBe(false);
   });
 });
+
+/** One base-pack bullet spec that steers with `beam-sweep`, and its couplings. */
+interface BeamSweep {
+  where: string;
+  hold: unknown;
+  warmup: unknown;
+  w: unknown;
+}
+
+/**
+ * Every object in the base-pack tree whose `motion.behaviour` is `beam-sweep`,
+ * with the two coupled values pulled out (`options.hold`/`laser.warmup` and
+ * `motion.w`). A generic walk over the raw JSON, so a sweep authored on any
+ * enemy, boss card, shot or option in future is caught with no change here.
+ */
+function collectBeamSweeps(node: unknown, path = 'base-pack'): BeamSweep[] {
+  const out: BeamSweep[] = [];
+  if (Array.isArray(node)) {
+    node.forEach((v, i) => out.push(...collectBeamSweeps(v, `${path}[${i}]`)));
+    return out;
+  }
+  if (node !== null && typeof node === 'object') {
+    const rec = node as Record<string, unknown>;
+    const motion = rec.motion as Record<string, unknown> | undefined;
+    if (motion !== undefined && motion.behaviour === 'beam-sweep') {
+      const options = (motion.options ?? {}) as Record<string, unknown>;
+      const laser = (rec.laser ?? {}) as Record<string, unknown>;
+      out.push({ where: path, hold: options.hold, warmup: laser.warmup, w: motion.w });
+    }
+    for (const [k, v] of Object.entries(rec)) out.push(...collectBeamSweeps(v, `${path}.${k}`));
+    return out;
+  }
+  return out;
+}

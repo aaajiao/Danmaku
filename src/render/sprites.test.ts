@@ -54,6 +54,7 @@ import { bossNames, getBossSpec } from '../sim/boss';
 import { enemyNames, getEnemySpec } from '../sim/enemy';
 import { getItemSpec, itemNames } from '../sim/item';
 import { getOptionSpec, optionNames } from '../sim/option';
+import { laserSkinNames } from './laser-skin';
 import { BULLET_CELLS, BULLET_VARIANT_CELLS } from './procedural';
 
 /**
@@ -66,6 +67,15 @@ import { BULLET_CELLS, BULLET_VARIANT_CELLS } from './procedural';
  */
 const CELLS = new Set<string>([...BULLET_CELLS, ...BULLET_VARIANT_CELLS]);
 
+/**
+ * The names a beam may wear: the laser SKINS (`laser-skin.ts`), a third pool
+ * distinct from the bullet cells because a laser draws from the laser atlas via
+ * the beam batch, not the bullet atlas. A bullet spec carrying a `laser` field
+ * names one of these, so it is checked against this set rather than `CELLS` —
+ * exactly the split the injector's sprite gate makes (`packs/inject.ts`).
+ */
+const LASER_SKINS = new Set<string>(laserSkinNames());
+
 /** Registered by a test rather than by the game. */
 const isFixture = (name: string): boolean =>
   name.startsWith('test') || name.startsWith('probe.') || name.startsWith('balance.') ||
@@ -73,36 +83,53 @@ const isFixture = (name: string): boolean =>
 
 const content = (names: readonly string[]): string[] => names.filter((n) => !isFixture(n));
 
-/** A `{ where, sprite }` for every statically declared bullet-atlas sprite. */
-function declaredSprites(): { where: string; sprite: string }[] {
-  const out: { where: string; sprite: string }[] = [];
+/**
+ * A `{ where, sprite, laser }` for every statically declared bullet sprite.
+ * `laser` marks a spec that carries a `LaserSpec` (the player's `laser` shot),
+ * whose sprite names a laser skin rather than a bullet cell — resolved against a
+ * different pool below.
+ */
+function declaredSprites(): { where: string; sprite: string; laser: boolean }[] {
+  const out: { where: string; sprite: string; laser: boolean }[] = [];
 
   for (const name of content(enemyNames())) {
-    out.push({ where: `enemy ${name}`, sprite: getEnemySpec(name).sprite });
+    out.push({ where: `enemy ${name}`, sprite: getEnemySpec(name).sprite, laser: false });
   }
   for (const name of content(bossNames())) {
-    out.push({ where: `boss ${name}`, sprite: getBossSpec(name).sprite });
+    out.push({ where: `boss ${name}`, sprite: getBossSpec(name).sprite, laser: false });
   }
   for (const name of content(itemNames())) {
-    out.push({ where: `item ${name}`, sprite: getItemSpec(name).sprite });
+    out.push({ where: `item ${name}`, sprite: getItemSpec(name).sprite, laser: false });
   }
   for (const name of content(optionNames())) {
     const spec = getOptionSpec(name);
-    out.push({ where: `option ${name}`, sprite: spec.sprite });
-    out.push({ where: `option ${name} shot`, sprite: spec.shot.style.sprite });
+    out.push({ where: `option ${name}`, sprite: spec.sprite, laser: false });
+    out.push({
+      where: `option ${name} shot`,
+      sprite: spec.shot.style.sprite,
+      laser: spec.shot.laser !== undefined,
+    });
   }
   for (const name of content(shotNames())) {
     getShot(name).levels.forEach((level, tier) => {
-      out.push({ where: `shot ${name} tier ${tier}`, sprite: level.spec.style.sprite });
+      out.push({
+        where: `shot ${name} tier ${tier}`,
+        sprite: level.spec.style.sprite,
+        laser: level.spec.laser !== undefined,
+      });
     });
   }
 
   return out;
 }
 
+/** A declared sprite resolves against its own pool: a laser to a skin, else a cell. */
+const resolves = (d: { sprite: string; laser: boolean }): boolean =>
+  d.laser ? LASER_SKINS.has(d.sprite) : CELLS.has(d.sprite);
+
 describe('every declared sprite resolves to an atlas cell', () => {
   test('nothing names a cell the sheet does not contain', () => {
-    const broken = declaredSprites().filter((d) => !CELLS.has(d.sprite));
+    const broken = declaredSprites().filter((d) => !resolves(d));
     expect(broken).toEqual([]);
   });
 
@@ -110,8 +137,19 @@ describe('every declared sprite resolves to an atlas cell', () => {
     // The project's standard: a check nobody has seen reject anything is not
     // evidence. `orb.smal` is one keystroke from a real cell and resolves to
     // nothing, which is the whole failure this file exists to catch.
-    const withTypo = [...declaredSprites(), { where: 'synthetic', sprite: 'orb.smal' }];
-    const broken = withTypo.filter((d) => !CELLS.has(d.sprite));
-    expect(broken).toEqual([{ where: 'synthetic', sprite: 'orb.smal' }]);
+    const withTypo = [...declaredSprites(), { where: 'synthetic', sprite: 'orb.smal', laser: false }];
+    const broken = withTypo.filter((d) => !resolves(d));
+    expect(broken).toEqual([{ where: 'synthetic', sprite: 'orb.smal', laser: false }]);
+  });
+
+  test('the laser pool is real, and a laser naming a bullet cell is caught', () => {
+    // A beam validates against the skin registry, not the bullet cells: the
+    // player's `laser` shot wears `beam.cyan`, which is a skin, not a cell — so
+    // checking it against `CELLS` would wrongly reject it, and checking a laser
+    // against `LASER_SKINS` is what makes it pass. Prove the pool is populated and
+    // that the split actually discriminates.
+    expect(LASER_SKINS.size).toBeGreaterThan(0);
+    const laserNamingCell = { sprite: 'orb.small', laser: true };
+    expect(resolves(laserNamingCell)).toBe(false); // a laser cannot wear a bullet cell
   });
 });

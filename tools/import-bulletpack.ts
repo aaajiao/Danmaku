@@ -290,6 +290,9 @@ interface Map {
   variants: Record<string, StripMap>;
   shots: Record<string, StripMap>;
   effects: Record<string, EffectMap>;
+  /** Laser body/cap strips → `assets.lasers` (baked, rotated +x). Keys are laser
+   *  strip names (`beam.warm`, `cap.yellow`, `src/render/laser-skin.ts`). */
+  lasers: Record<string, StripMap>;
   variantsDuplicate?: Record<string, string>;
 }
 
@@ -442,6 +445,68 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
   return { sheet, meta, file };
 }
 
+/**
+ * One LASER strip (`assets.lasers`): the same per-file, one-PNG-per-strip shape
+ * as an effect, with two laser specifics.
+ *
+ *  - **+x rotation, once at import (rule 7).** The BulletPack laser art is drawn
+ *    long-axis-VERTICAL (the beam runs up the frame). Oriented sprites in this
+ *    engine run +x, so each frame is rotated 90° here — NOT with a runtime UV
+ *    transpose — so the beam renderer reuses the one convention (length along
+ *    local +x, rotate by heading) with no baked offset. Post-rotation `frameW`
+ *    is the on-beam extent and `frameH` the thickness.
+ *  - **Rectangular, not squared.** `buildEffectStrip` squares each frame (an
+ *    explosion is radial); a beam is long and thin, so its frame keeps the beam's
+ *    own aspect — `frameW` from the length axis, `frameH` from the thickness.
+ *
+ * Baked native colour (no whiten, the `color: 'baked'` reskin path, saturation
+ * gate skipped), content unioned across frames and re-padded by `MARGIN` so the
+ * loader's `frameW − 2·FX_PAD` seam gate has headroom, exactly as effects do.
+ */
+function buildLaserStrip(root: string, name: string, m: StripMap): { sheet: Img; meta: EmittedEffect; file: string } {
+  const whole = fromDecoded(decodePng(new Uint8Array(readFileSync(join(root, m.src)))));
+  const n = m.strip && m.strip > 1 ? m.strip : 1;
+  const srcFrameW = Math.floor(whole.w / n);
+  const raw: Img[] = [];
+  for (let f = 0; f < n; f++) {
+    let fr = crop(whole, f * srcFrameW, 0, srcFrameW, whole.h);
+    if (m.rotate) fr = rotate(fr, m.rotate); // bring the beam to +x (rule 7)
+    raw.push(fr);
+  }
+
+  // Union content box across all frames (shared crop window), so inter-frame
+  // motion is preserved rather than re-centred per frame — the effect discipline.
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const fr of raw) {
+    const box = alphaBox(fr, BULLET_ALPHA_PAINTED);
+    if (!box) continue;
+    if (box.x < minX) minX = box.x;
+    if (box.y < minY) minY = box.y;
+    if (box.x + box.w - 1 > maxX) maxX = box.x + box.w - 1;
+    if (box.y + box.h - 1 > maxY) maxY = box.y + box.h - 1;
+  }
+  const w0 = raw[0]?.w ?? srcFrameW;
+  const h0 = raw[0]?.h ?? whole.h;
+  if (maxX < minX) { minX = 0; minY = 0; maxX = w0 - 1; maxY = h0 - 1; }
+  const uW = maxX - minX + 1;
+  const uH = maxY - minY + 1;
+  const frameW = uW + 2 * MARGIN; // length axis (kept long — no squaring)
+  const frameH = uH + 2 * MARGIN; // thickness axis
+
+  const sheet = blank(n * frameW, frameH);
+  raw.forEach((fr, f) => {
+    const cropped = crop(fr, minX, minY, uW, uH);
+    const ox = f * frameW + Math.round((frameW - uW) / 2);
+    const oy = Math.round((frameH - uH) / 2);
+    blit(sheet, cropped, ox, oy); // baked: native colour, no whiten
+  });
+
+  const file = `${name}.png`;
+  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, mode: m.mode ?? 'loop', color: 'baked' };
+  if ((m.ticksPerFrame ?? 1) !== 1) meta.ticksPerFrame = m.ticksPerFrame;
+  return { sheet, meta, file };
+}
+
 /* ------------------------------------------------------------------ */
 /* Self-validation replicating the loader's browser-only measured gates.*/
 /* ------------------------------------------------------------------ */
@@ -562,14 +627,14 @@ function framesFromName(file: string): number {
 function orientationGuess(cat: string, file: string): string {
   if (cat === 'player-bullets') return 'up (-y)';
   if (cat === 'missiles') return file.startsWith('Missiles_Exp') ? 'radial' : 'up (-y), banking';
-  if (cat === 'lasers') return 'vertical beam (tiled along length)';
+  if (cat === 'lasers') return 'vertical beam → rotated 90° to +x on import (rule 7)';
   if (cat === 'enemy-bullets' && /Lines/i.test(file)) return 'horizontal (+x)';
   if (cat === 'player-ship' && /Thruster/i.test(file)) return 'up (-y) exhaust';
   return 'radial / none';
 }
 
 function suggestedConsumer(cat: string, file: string): string {
-  if (cat === 'lasers') return 'laser system (src/sim/bullet.ts LaserSpec) — tiled beam body + separate hit-cap; needs a tiled-beam renderer';
+  if (cat === 'lasers') return 'laser skin body/cap on the laser atlas (assets.lasers) — src/render/laser-skin.ts; a base-campaign beam fires it';
   if (cat === 'missiles' && file.startsWith('Missiles_Exp')) return 'sprite-animation effect (missile impact)';
   if (cat === 'missiles') return 'missile entity (banking-frame sprite + exhaust) — needs a sprite-animation + entity round';
   if (cat === 'player-ship' && /Thruster/i.test(file)) return 'exhaust / engine-trail effect (deferred: player 形象 out of scope)';
@@ -583,7 +648,7 @@ function suggestedConsumer(cat: string, file: string): string {
 /* ------------------------------------------------------------------ */
 /* README (provenance)                                                  */
 /* ------------------------------------------------------------------ */
-function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number }): string {
+function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; lasers: number }): string {
   return `# bulletpack — imported native-strip reskin (provenance)
 
 **Generated** by \`bun tools/import-bulletpack.ts\`. Do not hand-edit; edit
@@ -606,6 +671,8 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
   variants and player shot skins at native size/colour.
 - **${counts.effects}** explosion strips as \`assets.effects\` (native colour +
   animation, frames re-padded for the seam gate).
+- **${counts.lasers}** laser strips as \`assets.lasers\` (8 body + 3 cap, baked
+  native colour, each frame rotated 90° to +x — the laser system's beam skins).
 - **${counts.consumed}** source files curated in total (see
   \`tools/bulletpack-map.json\` for the exact frame/rotate/fit per strip).
 
@@ -629,9 +696,10 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 ## Completeness
 
 - **${counts.staged}** files this round does not use are copied verbatim under
-  \`extra/<category>/\` (lasers, missiles, coins/gems, surplus player shots,
-  oversized beams, and the explosions no death site fires yet), staged for their
-  own future rounds.
+  \`extra/<category>/\` (missiles, coins/gems, surplus player shots, oversized
+  beams, and the explosions no death site fires yet), staged for their own future
+  rounds. The 11 \`Lasers/\` files left this pile in the laser round — they are now
+  consumed as \`assets.lasers\`.
 - **${counts.skipped}** pure-junk files (\`.DS_Store\`, author \`.txt\` notes) are
   counted in the total but not listed — they left the ledger by user directive.
 - Every one of the **${counts.total}** files in the folder is accounted for
@@ -697,6 +765,17 @@ function main(): void {
     log.push(`assembled ${file} (${fxSheet.w}×${fxSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — seam self-check PASSED`);
   }
 
+  /* --- lasers (one own-file baked strip per body/cap, rotated +x) --- */
+  const lasersManifest: Record<string, EmittedEffect> = {};
+  for (const [name, m] of Object.entries(map.lasers)) {
+    const { sheet: lzSheet, meta, file } = buildLaserStrip(root, name, m);
+    assertEffectStrip(name, lzSheet, meta); // same per-file strip gate as effects
+    writeVerified(join(outDir, file), lzSheet);
+    lasersManifest[name] = meta;
+    noteConsumed(m.src, name);
+    log.push(`assembled ${file} (${lzSheet.w}×${lzSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — laser seam self-check PASSED`);
+  }
+
   /* --- manifest --- */
   const manifest = {
     format: 1,
@@ -704,11 +783,12 @@ function main(): void {
     version: '2.0.0',
     author: 'Unknown — third-party BulletPack, source unconfirmed (see README.md)',
     license: 'UNCONFIRMED — no LICENSE file in source; not for distribution until provenance is verified (CLAUDE.md rule 9; see README.md)',
-    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins) and animated explosion effects. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
+    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion effects, and baked laser body/cap strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
     assets: {
       bullets: { sheet: 'bullets.png', strips },
       filter: 'nearest' as const,
       effects: effectsManifest,
+      lasers: lasersManifest,
     },
   };
   const result = validateManifest(manifest, 'bulletpack');
@@ -791,8 +871,8 @@ function main(): void {
     generatedBy: 'tools/import-bulletpack.ts',
     license: 'UNCONFIRMED — no LICENSE file in source folder',
     dispositions: {
-      consumed: 'packed into the pack (bullets.png or an effect PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, or a fired effect. Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
-      staged: 'copied verbatim to extra/<category>/ for a future round (lasers, missiles, coins/gems, surplus player shots, oversized beams, unreached explosions). No consumer this round.',
+      consumed: 'packed into the pack (bullets.png, an effect PNG, or a laser strip PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, or a fired laser skin body/cap (assets.lasers). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
+      staged: 'copied verbatim to extra/<category>/ for a future round (missiles, coins/gems, surplus player shots, oversized beams, unreached explosions). No consumer this round. (Lasers left this list in the laser round, 2026-07-22 — all 11 are now consumed.)',
       skipped: 'pure junk not tracked in files[] (.DS_Store, author .txt notes). Counted in total, not listed.',
     },
     totals: { total, consumed, staged, skipped },
@@ -806,6 +886,7 @@ function main(): void {
   writeFileSync(join(outDir, 'README.md'), buildReadme(root, notes, {
     consumed, staged, skipped, total,
     strips: entries.length, effects: Object.keys(effectsManifest).length,
+    lasers: Object.keys(lasersManifest).length,
   }));
 
   /* --- report --- */

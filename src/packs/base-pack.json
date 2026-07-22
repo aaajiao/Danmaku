@@ -371,7 +371,7 @@
             "options": {
               "spec": {
                 "style": {
-                  "sprite": "needle.lance",
+                  "sprite": "beam.v3",
                   "r": 1,
                   "g": 0.45,
                   "b": 0.6,
@@ -1010,6 +1010,107 @@
           [
             "bomb",
             1
+          ]
+        ],
+        "scoreValue": 500,
+        "onHit": "hit",
+        "onDeath": "explosion"
+      },
+      "ray": {
+        "sprite": "star",
+        "hp": 50,
+        "radius": 12,
+        "tint": {
+          "r": 0.5,
+          "g": 0.9,
+          "b": 0.62
+        },
+        "timeline": [
+          {
+            "count": 0,
+            "motion": {
+              "r": 3,
+              "theta": 90
+            }
+          },
+          {
+            "count": 30,
+            "motion": {
+              "r": 0
+            }
+          },
+          {
+            "count": 210,
+            "motion": {
+              "r": 3.2,
+              "theta": 270
+            }
+          }
+        ],
+        "patterns": [
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "beam.slim",
+                  "r": 0.5,
+                  "g": 1,
+                  "b": 0.66,
+                  "width": 7,
+                  "height": 7,
+                  "additive": true,
+                  "orientToHeading": true
+                },
+                "radius": 4,
+                "motion": {
+                  "r": 0,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "beam-sweep",
+                  "options": {
+                    "hold": 30,
+                    "rate": 1.6,
+                    "duration": 120,
+                    "arc": 60
+                  }
+                },
+                "laser": {
+                  "length": 30,
+                  "growth": 30,
+                  "maxLength": 560,
+                  "warmup": 30,
+                  "cooldown": 18
+                },
+                "life": 190
+              },
+              "count": 1,
+              "spread": 0,
+              "period": 150
+            },
+            "startAt": 40,
+            "stopAt": 170,
+            "difficulty": {
+              "easy": {
+                "period": 190
+              },
+              "hard": {
+                "count": 2,
+                "spread": 34
+              },
+              "lunatic": {
+                "count": 2,
+                "spread": 42,
+                "period": 130
+              }
+            }
+          }
+        ],
+        "despawnMargin": 80,
+        "spoils": [
+          [
+            "power",
+            2
           ]
         ],
         "scoreValue": 500,
@@ -1995,10 +2096,10 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "needle.column",
-                      "r": 0.7,
-                      "g": 0.6,
-                      "b": 1,
+                      "sprite": "beam.heavy",
+                      "r": 0.55,
+                      "g": 1,
+                      "b": 0.72,
                       "width": 9,
                       "height": 9,
                       "additive": true,
@@ -2512,9 +2613,9 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "needle.column",
-                      "r": 0.7,
-                      "g": 0.6,
+                      "sprite": "beam.blue",
+                      "r": 0.55,
+                      "g": 0.72,
                       "b": 1,
                       "width": 9,
                       "height": 9,
@@ -2705,9 +2806,9 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "needle.column",
-                      "r": 0.7,
-                      "g": 0.6,
+                      "sprite": "beam.cyan",
+                      "r": 0.55,
+                      "g": 1,
                       "b": 1,
                       "width": 9,
                       "height": 9,
@@ -3143,6 +3244,167 @@
                   "lunatic": {
                     "count": 5,
                     "period": 48
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Beam Sign \"Sweeping Assay\"",
+            "hpSeconds": 15,
+            "isSpell": true,
+            "bonus": 400000,
+            "background": "sable",
+            "motion": {
+              "r": 0,
+              "theta": 90
+            },
+            "patterns": [
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "beam.warm",
+                      "r": 1,
+                      "g": 0.78,
+                      "b": 0.42,
+                      "width": 11,
+                      "height": 11,
+                      "additive": true,
+                      "orientToHeading": true
+                    },
+                    "radius": 6,
+                    "motion": {
+                      "r": 0,
+                      "theta": 90,
+                      "w": 0,
+                      "behaviour": "beam-sweep",
+                      "options": {
+                        "hold": 34,
+                        "rate": 1.4,
+                        "duration": 150,
+                        "arc": 90
+                      }
+                    },
+                    "laser": {
+                      "length": 30,
+                      "growth": 40,
+                      "maxLength": 640,
+                      "warmup": 34,
+                      "cooldown": 22
+                    },
+                    "life": 260
+                  },
+                  "count": 1,
+                  "spread": 0,
+                  "period": 300
+                },
+                "difficulty": {
+                  "hard": {
+                    "count": 2,
+                    "spread": 60
+                  },
+                  "lunatic": {
+                    "count": 2,
+                    "spread": 76,
+                    "period": 260
+                  }
+                }
+              },
+              {
+                "pattern": "ring",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "beam.v3.stream",
+                      "r": 0.7,
+                      "g": 0.62,
+                      "b": 1,
+                      "width": 9,
+                      "height": 9,
+                      "additive": true,
+                      "orientToHeading": true
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 0,
+                      "theta": 90
+                    },
+                    "laser": {
+                      "length": 26,
+                      "growth": 60,
+                      "maxLength": 520,
+                      "warmup": 30,
+                      "cooldown": 16
+                    },
+                    "life": 96
+                  },
+                  "count": 5,
+                  "period": 120,
+                  "rotation": 12
+                },
+                "startAt": 40,
+                "difficulty": {
+                  "easy": {
+                    "count": 3
+                  },
+                  "hard": {
+                    "count": 7
+                  },
+                  "lunatic": {
+                    "count": 9,
+                    "rotation": 16
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "beam.stream",
+                      "r": 0.6,
+                      "g": 1,
+                      "b": 0.68,
+                      "width": 7,
+                      "height": 7,
+                      "additive": true,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "motion": {
+                      "r": 0,
+                      "theta": 90
+                    },
+                    "laser": {
+                      "length": 22,
+                      "growth": 50,
+                      "maxLength": 460,
+                      "warmup": 26,
+                      "cooldown": 14
+                    },
+                    "life": 84
+                  },
+                  "count": 3,
+                  "spread": 42,
+                  "period": 150
+                },
+                "startAt": 90,
+                "difficulty": {
+                  "easy": {
+                    "count": 2,
+                    "period": 180
+                  },
+                  "hard": {
+                    "count": 4,
+                    "spread": 48,
+                    "period": 130
+                  },
+                  "lunatic": {
+                    "count": 5,
+                    "spread": 54,
+                    "period": 120
                   }
                 }
               }
@@ -4399,6 +4661,12 @@
             "interval": 36
           },
           {
+            "at": 1060,
+            "enemy": "ray",
+            "x": 240,
+            "y": -24
+          },
+          {
             "at": 1180,
             "enemy": "assessor",
             "x": 160,
@@ -4409,6 +4677,15 @@
             "enemy": "assessor",
             "x": 320,
             "y": -60
+          },
+          {
+            "at": 1240,
+            "enemy": "ray",
+            "x": 140,
+            "y": -24,
+            "count": 2,
+            "interval": 34,
+            "stepX": 200
           },
           {
             "at": 1260,
@@ -5082,7 +5359,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.beam",
+                "sprite": "beam.cyan",
                 "r": 0.85,
                 "g": 0.7,
                 "b": 1,
@@ -5115,7 +5392,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.beam",
+                "sprite": "beam.cyan",
                 "r": 0.85,
                 "g": 0.7,
                 "b": 1,
@@ -5148,7 +5425,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.beam",
+                "sprite": "beam.cyan",
                 "r": 0.85,
                 "g": 0.7,
                 "b": 1,
@@ -5181,7 +5458,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.beam",
+                "sprite": "beam.cyan",
                 "r": 0.85,
                 "g": 0.7,
                 "b": 1,

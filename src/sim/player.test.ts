@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { Button } from '../core/input';
 import { Random, sim } from '../core/random';
-import { BulletSystem, type Bullet, type BulletSpec, type FieldBounds } from './bullet';
+import {
+  BulletSystem,
+  type Bullet,
+  type BulletSpec,
+  type FieldBounds,
+  type LaserSpec,
+} from './bullet';
+import { circlesOverlap } from './collision';
 import { Player, type PlayerConfig, type ShotSpec } from './player';
 
 const FIELD: FieldBounds = { width: 480, height: 480, margin: 32 };
@@ -673,6 +680,52 @@ describe('graze', () => {
     expect(spawned).toBeGreaterThan(20);
     // Every bullet passes through the circle exactly once on its way down.
     expect(player.graze).toBe(spawned);
+  });
+});
+
+/**
+ * Graze now tests the bullet's real shape, not a circle at its muzzle. You can
+ * die to a beam's body but the old muzzle-only graze could never score it — the
+ * exact asymmetry `collision.ts` rails against, one method over. Point-bullet
+ * graze is byte-identical (the whole `graze` block above still passes); only
+ * beams and blades gain body-graze.
+ */
+describe('graze against a beam body (the asymmetry fix)', () => {
+  const beamSpec = (laser: LaserSpec): BulletSpec => ({
+    style: { sprite: 'needle' },
+    radius: 2,
+    motion: { r: 0, theta: 0 }, // +x, so the body runs east from the muzzle
+    laser,
+  });
+
+  test('a lethal beam body inside the graze ring counts, though its muzzle is far', () => {
+    const player = makePlayer(); // at (240, 400), grazeRadius 20
+    const bullets = makeBullets();
+    // Muzzle at (100, 410), pointing +x, length 200 → the body passes (240,410),
+    // 10px below the ship: inside the graze ring (20+2), outside the lethal
+    // hitbox. The muzzle alone sits 140px away, well outside the ring.
+    const beam = bullets.spawn(100, 410, beamSpec({ length: 200 }), 'enemy', new Random(1)) as Bullet;
+    expect(beam.lethal).toBe(true);
+    expect(
+      circlesOverlap(240, 400, player.grazeRadius, beam.x, beam.y, beam.radius),
+    ).toBe(false); // the old muzzle test would have missed it
+    expect(player.checkGraze(bullets)).toBe(1);
+  });
+
+  test('a warming beam grazes nobody — a near-miss of a telegraph is not danger', () => {
+    const player = makePlayer();
+    const bullets = makeBullets();
+    bullets.spawn(100, 410, beamSpec({ length: 200, warmup: 30 }), 'enemy', new Random(1));
+    expect(player.checkGraze(bullets)).toBe(0);
+  });
+
+  test('the beam body grazes once, then not again while it lingers', () => {
+    const player = makePlayer();
+    const bullets = makeBullets();
+    bullets.spawn(100, 410, beamSpec({ length: 200 }), 'enemy', new Random(1));
+    expect(player.checkGraze(bullets)).toBe(1);
+    for (let i = 0; i < 10; i++) expect(player.checkGraze(bullets)).toBe(0);
+    expect(player.graze).toBe(1);
   });
 });
 

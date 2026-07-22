@@ -31,6 +31,7 @@
 
 import { defineMusic, musicNames, type MusicSpec } from '../audio/music';
 import { backgroundNames } from '../render/background';
+import { laserSkinNames } from '../render/laser-skin';
 import { definePortrait, hasPortrait, portraitNames, PORTRAIT_SIZE } from '../render/portrait';
 import {
   BULLET_CELLS,
@@ -44,6 +45,7 @@ import {
   type BulletSheetInput,
   type BulletStripInput,
   type EffectStripInput,
+  type LaserStripInput,
   type ShipStripInput,
 } from '../render/procedural';
 import type { PackBulletSheet, PackBulletStrip, PackShipStrip, PackStrip } from './manifest';
@@ -87,6 +89,14 @@ export interface LoadedPacks {
    * procedural. Absent means the procedural fx floor is in force.
    */
   effectStrips?: Record<string, EffectStripInput>;
+  /**
+   * Winning per-file `assets.lasers` strips (name → resolved URL + geometry), if
+   * any pack shipped one. Structurally identical to `effectStrips`; `main.ts`
+   * hands these to `laserAtlas(undefined, …)`, which composites them onto the
+   * single laser texture — a body/cap strip a pack reskins takes its native baked
+   * pixels, the rest stay procedural. Absent means the procedural laser floor.
+   */
+  laserStrips?: Record<string, LaserStripInput>;
   /** Texture sampling for both sheets. `nearest` matches `loadTexture`. */
   filter: 'nearest' | 'linear';
   /** Registered-sound name → winning URL. Fed through `defineSound`'s url branch. */
@@ -287,6 +297,10 @@ export async function loadPacks(): Promise<LoadedPacks> {
     // added per-pack below (`packContext`).
     sprites: [...BULLET_CELLS, ...BULLET_VARIANT_CELLS],
     shipSprites: [...SHIP_CELLS],
+    // The beam skins a laser bullet may wear (the third sprite pool, laser atlas).
+    // A guest content pack may author a beam card naming one of these built-in
+    // skins — it may not DEFINE a skin (engine code), the pack boundary.
+    laserSprites: laserSkinNames(),
     scenes: backgroundNames(),
     // Built-in portrait names a boss `dialogue` speaker may resolve against; a
     // pack's own `portraits` section extends this set pack-first inside injection.
@@ -341,6 +355,15 @@ export async function loadPacks(): Promise<LoadedPacks> {
     effectStrips[slot.slice('assets.effects.'.length)] = { url: winner.url, ...geo };
   }
 
+  // The per-file laser strips that won their slot, the same shape as the fx ones.
+  const laserStrips: Record<string, LaserStripInput> = {};
+  for (const [slot, winner] of winners) {
+    if (!slot.startsWith('assets.lasers.')) continue;
+    const geo = winner.laserStrip;
+    if (winner.url === undefined || geo === undefined) continue;
+    laserStrips[slot.slice('assets.lasers.'.length)] = { url: winner.url, ...geo };
+  }
+
   return {
     bulletsUrl: winners.get('assets.bullets')?.url,
     bulletsStrips: winners.get('assets.bullets')?.bulletStrips,
@@ -348,6 +371,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     shipStrip: winners.get('assets.ship')?.shipStrip,
     filter: (winners.get('assets.filter')?.value as 'nearest' | 'linear') ?? 'nearest',
     effectStrips: Object.keys(effectStrips).length > 0 ? effectStrips : undefined,
+    laserStrips: Object.keys(laserStrips).length > 0 ? laserStrips : undefined,
     soundUrls,
     hudIcons: {
       life: winners.get('hud.life')?.image,
@@ -406,6 +430,15 @@ interface Resource {
   shipStrip?: ShipStripInput;
   /** A per-file `assets.effects` strip's geometry, paired with `url` above. */
   effectStrip?: {
+    frames: number;
+    frameW: number;
+    frameH: number;
+    ticksPerFrame?: number;
+    mode: 'loop' | 'once';
+    color?: 'tinted' | 'baked';
+  };
+  /** A per-file `assets.lasers` strip's geometry, paired with `url` above. */
+  laserStrip?: {
     frames: number;
     frameW: number;
     frameH: number;
@@ -649,6 +682,13 @@ async function gatherAssets(
   if (assets.effects !== undefined) {
     await gatherEffectStrips(name, assets.effects, slots, orderedBytes, reasons);
   }
+
+  // `assets.lasers`: per-file laser body/cap strips, warn-only reskin material —
+  // the same treatment as `assets.effects`, composited onto the laser texture by
+  // `main.ts` via `laserAtlas(undefined, …)`. Fetched, hashed and gated here.
+  if (assets.lasers !== undefined) {
+    await gatherLaserStrips(name, assets.lasers, slots, orderedBytes, reasons);
+  }
 }
 
 /**
@@ -749,6 +789,45 @@ async function gatherEffectStrips(
       slots.set(`assets.effects.${strip}`, {
         url,
         effectStrip: {
+          frames: spec.frames,
+          frameW: spec.frameW,
+          frameH: spec.frameH,
+          ticksPerFrame: spec.ticksPerFrame,
+          mode: spec.mode,
+          color: spec.color,
+        },
+      });
+    } catch (error) {
+      reasons.push(`pack "${name}": ${spec.src}: ${(error as Error).message}`);
+    }
+  }
+}
+
+/**
+ * `assets.lasers`: per-file laser strips, each fetched, hashed and gated — the
+ * structural twin of `gatherEffectStrips`. The geometry is carried alongside the
+ * URL so `main.ts` can composite each strip onto the one laser texture
+ * (`laserAtlas`), a body/cap strip a pack reskins taking its baked pixels and the
+ * rest staying procedural.
+ */
+async function gatherLaserStrips(
+  name: string,
+  lasers: Record<string, PackStrip>,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+): Promise<void> {
+  for (const strip of Object.keys(lasers)) {
+    const spec = lasers[strip];
+    if (spec === undefined) continue;
+    const url = fileUrl(name, spec.src);
+    try {
+      orderedBytes.push(await fetchBytes(url));
+      const image = await loadImage(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      slots.set(`assets.lasers.${strip}`, {
+        url,
+        laserStrip: {
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,

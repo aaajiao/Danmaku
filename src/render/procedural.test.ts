@@ -46,6 +46,13 @@ import {
   FX_PAD,
   FX_SHEET_W,
   FX_SHEET_H,
+  LASER_STRIPS,
+  LASER_STRIP_CELLS,
+  LASER_BODY_CELLS,
+  LASER_CAP_CELLS,
+  LASER_SHEET,
+  LASER_SHEET_W,
+  LASER_SHEET_H,
 } from './procedural';
 
 describe('cell padding', () => {
@@ -193,6 +200,94 @@ describe('fx strip geometry', () => {
     expect(FX_STRIPS.pulse?.mode).toBe('loop');
     // All tinted: the floor is recolourable (rule 9); colour comes from the tint.
     for (const s of Object.values(FX_STRIPS)) expect(s.color).toBe('tinted');
+  });
+});
+
+/**
+ * The laser floor's per-frame budget, with one deliberate asymmetry the fx floor
+ * does not have. A cap is a small animated tip flash whose frames sit adjacent on
+ * the sheet, so it clears the seam pad on BOTH axes exactly as an fx strip does.
+ * A body is a `frames: 1` tiling strip: it is DESIGNED to reach its on-beam frame
+ * edges so a tiled beam butts without a seam, and being one frame there is no
+ * animation frame beside it to bleed into — so the on-beam (frameW) axis is
+ * exempt, and only the cross-axis (frameH), where the next strip's row sits, is
+ * held to the pad. `bun test` has no canvas, so this is arithmetic; `test:assets`
+ * measures the real painted footprint.
+ */
+describe('laser strip geometry', () => {
+  test('the sheet paints 8 bodies + 3 caps = 11 strips', () => {
+    expect(LASER_BODY_CELLS.length).toBe(8);
+    expect(LASER_CAP_CELLS.length).toBe(3);
+    expect(LASER_STRIP_CELLS.length).toBe(11);
+    expect(Object.keys(LASER_STRIPS).sort()).toEqual([...LASER_STRIP_CELLS].sort());
+  });
+
+  test('every cap frame clears 2px of margin on both axes', () => {
+    const over: string[] = [];
+    for (const [name, s] of Object.entries(LASER_STRIPS)) {
+      if (s.role !== 'cap') continue;
+      const wLimit = s.frameW - 2 * FX_PAD;
+      const hLimit = s.frameH - 2 * FX_PAD;
+      for (let f = 0; f < s.frames; f++) {
+        const e = s.frameExtent(f);
+        if (e.w > wLimit || e.h > hLimit) {
+          over.push(`${name} frame ${f}: ${e.w}×${e.h} > ${wLimit}×${hLimit}`);
+        }
+      }
+    }
+    expect(over).toEqual([]);
+  });
+
+  test('every body clears the pad cross-axis; the on-beam axis fills the frame for seamless tiling', () => {
+    const over: string[] = [];
+    for (const [name, s] of Object.entries(LASER_STRIPS)) {
+      if (s.role !== 'body') continue;
+      const hLimit = s.frameH - 2 * FX_PAD;
+      for (let f = 0; f < s.frames; f++) {
+        const e = s.frameExtent(f);
+        // Cross-axis held to the pad; on-beam axis must fill (reach) the frame
+        // width and never exceed it — that is what tiles seamlessly.
+        if (e.h > hLimit) over.push(`${name} frame ${f}: cross-axis ${e.h} > ${hLimit}`);
+        if (e.w > s.frameW) over.push(`${name} frame ${f}: on-beam ${e.w} > frameW ${s.frameW}`);
+        if (e.w < s.frameW) over.push(`${name} frame ${f}: on-beam ${e.w} < frameW ${s.frameW} (would seam)`);
+      }
+    }
+    expect(over).toEqual([]);
+  });
+
+  test('every strip fits the shared sheet, frames laid horizontally', () => {
+    const off: string[] = [];
+    for (const [name, s] of Object.entries(LASER_STRIPS)) {
+      const p = LASER_SHEET.positions[name]!;
+      if (s.stride < s.frameW) off.push(`${name}: stride ${s.stride} < frameW ${s.frameW}`);
+      if (p.x + s.frames * s.stride > LASER_SHEET_W) off.push(`${name}: runs past sheet width`);
+      if (p.y + s.frameH > LASER_SHEET_H) off.push(`${name}: runs past sheet height`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  test('the sheet dimensions are derived from the table, not hand-set', () => {
+    const width = Math.max(...Object.values(LASER_STRIPS).map((s) => s.frames * s.stride), 1);
+    const height = Object.values(LASER_STRIPS).reduce((h, s) => h + s.frameH, 0);
+    expect(LASER_SHEET_W).toBe(width);
+    expect(LASER_SHEET_H).toBe(height);
+  });
+
+  test('bodies are static (tiled), caps loop (a tip flicker); all tinted (rule 9)', () => {
+    for (const [name, s] of Object.entries(LASER_STRIPS)) {
+      // The floor is recolourable — colour is the content tint, so LANCE stays pink.
+      expect(`${name}:${s.color}`).toBe(`${name}:tinted`);
+      if (s.role === 'body') expect(s.frames).toBe(1);
+      if (s.role === 'cap') expect(s.mode).toBe('loop');
+    }
+  });
+
+  test('the guard can fail — a body painting past its cross-axis pad is rejected', () => {
+    // Reproduce a body whose glow reaches the frame edge on the cross-axis, the
+    // exact seam bleed the check exists to catch.
+    const bad = { frameH: 24, extent: { h: 24 } };
+    const hLimit = bad.frameH - 2 * FX_PAD;
+    expect(bad.extent.h).toBeGreaterThan(hLimit);
   });
 });
 

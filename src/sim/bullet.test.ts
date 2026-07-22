@@ -4,10 +4,12 @@ import {
   Bullet,
   bulletHitsCircle,
   bulletReach,
+  bulletShapeOverlaps,
   BulletSystem,
   type BulletSpec,
   type BulletSystemOptions,
   type FieldBounds,
+  type LaserSpec,
 } from './bullet';
 import { circlesOverlap } from './collision';
 import { defineBehaviour, type MotionContext, type MotionSegment } from './motion';
@@ -1352,6 +1354,93 @@ describe('lasers', () => {
     });
   });
 
+  describe('decay (cooldown)', () => {
+    // The lethal flag at each age from spawn to the last on-field tick.
+    // Index === age; the run stops the tick the beam is culled (age === life),
+    // so the last recorded index is life − 1.
+    const lethalByAge = (spec: BulletSpec): boolean[] => {
+      const system = makeSystem({ initial: 1, max: 1 });
+      const bullet = system.spawn(100, 100, spec, 'enemy', rng()) as Bullet;
+      const seen: boolean[] = [bullet.lethal]; // age 0
+      while (system.count > 0) {
+        system.step(0, 0, rng());
+        if (system.count > 0) seen.push(bullet.lethal);
+      }
+      return seen;
+    };
+
+    test('lethal spans exactly [warmup, life − cooldown) — telegraph then decay', () => {
+      // warmup 3, cooldown 4, life 20: harmless 0..2, lethal 3..15, harmless
+      // 16..19, then culled at age 20. The decay window is the telegraph's
+      // mirror at the far end.
+      const seen = lethalByAge({ ...beam({ warmup: 3, cooldown: 4 }), life: 20 });
+      expect(seen.length).toBe(20);
+      for (let age = 0; age < 20; age++) {
+        expect(seen[age]).toBe(age >= 3 && age < 16);
+      }
+    });
+
+    test('a decaying beam is still drawn but kills nothing', () => {
+      const system = makeSystem();
+      // No warmup, cooldown 5, life 12 → decay window is age ∈ [7, 12).
+      system.spawn(100, 100, { ...beam({ length: 200, cooldown: 5 }), life: 12 }, 'enemy', rng());
+
+      // Active early: the body kills.
+      expect(system.hitTest(200, 100, 1, 'enemy')).toBeDefined();
+
+      stepTimes(system, 8); // age 8, inside the decay window
+      expect(system.count).toBe(1); // still on the field
+      const b = system.bullets[0] as Bullet;
+      expect(b.lethal).toBe(false); // but withdrawn
+      expect(system.hitTest(200, 100, 1, 'enemy')).toBeUndefined();
+    });
+
+    test('a beam with no cooldown stays lethal to the tick it expires (byte-identical)', () => {
+      // The guard the cooldown=0 trace-neutrality claim rests on: without it a
+      // zero-width decay window would flip lethal false on the expiry tick.
+      const system = makeSystem({ initial: 1, max: 1 });
+      const b = system.spawn(100, 100, { ...beam({ warmup: 2 }), life: 6 }, 'enemy', rng()) as Bullet;
+      stepTimes(system, 5); // age 5 — the last on-field tick
+      expect(system.count).toBe(1);
+      expect(b.lethal).toBe(true);
+    });
+
+    test('cooldown is ignored on an until-offscreen beam — it has no fixed end', () => {
+      // `life` 0 means "until offscreen"; there is no end to measure a cooldown
+      // back from, so a stationary beam stays lethal indefinitely.
+      const system = makeSystem();
+      const b = system.spawn(100, 100, beam({ cooldown: 10 }), 'enemy', rng()) as Bullet;
+      stepTimes(system, 40);
+      expect(b.lethal).toBe(true);
+      expect(system.hitTest(180, 100, 1, 'enemy')).toBe(b);
+    });
+
+    test('a decaying beam draws no randomness of its own', () => {
+      // The decay window is a subtraction and a comparison on the tick count —
+      // the same arithmetic class as growth and warmup — so a field of decaying
+      // beams must leave the stream exactly where a field of orbs would.
+      const consume = (withLaser: boolean): unknown => {
+        const r = rng(88);
+        const system = makeSystem();
+        for (let tick = 0; tick < 40; tick++) {
+          system.spawn(
+            240,
+            240,
+            withLaser
+              ? { ...makeSpec({ motion: { r: 0, theta: 0 }, laser: { length: 50, warmup: 3, cooldown: 4 } }), life: 20 }
+              : makeSpec({ motion: { r: 0, theta: 0 } }),
+            'enemy',
+            r,
+          );
+          system.step(240, 400, r);
+          system.hitTest(300, 240, 4, 'enemy');
+        }
+        return r.getState();
+      };
+      expect(consume(true)).toEqual(consume(false));
+    });
+  });
+
   describe('pooling', () => {
     test('an ordinary bullet reusing a beam slot comes back a point', () => {
       const system = makeSystem({ initial: 1, max: 1 });
@@ -1989,6 +2078,72 @@ describe('bullet shapes', () => {
     // the exact test below it never runs — a miss that looks like a clean dodge.
     expect(bulletReach(make(NEEDLE, 270))).toBe(15);
     expect(bulletReach(make({ ...NEEDLE, radius: 3, blade: undefined }, 270))).toBe(3);
+  });
+});
+
+/**
+ * The shape test, split from the telegraph gate.
+ *
+ * `bulletShapeOverlaps` answers "does the geometry overlap" and nothing about
+ * whether the shape is *allowed* to hit; `bulletHitsCircle` is that same shape
+ * behind the `lethal` gate. The split is what lets a screen-clear bomb wipe a
+ * telegraphing beam (presence) while collision still respects the telegraph
+ * (danger). The two must agree exactly whenever the bullet is lethal, and only
+ * then.
+ */
+describe('bulletShapeOverlaps: shape without the telegraph gate', () => {
+  const bounds: FieldBounds = { width: 480, height: 480, margin: 48 };
+  const spawnBeam = (
+    laser: LaserSpec,
+    extra: Partial<BulletSpec> = {},
+  ): { system: BulletSystem; b: Bullet } => {
+    const system = new BulletSystem({ bounds, initial: 4 });
+    const b = system.spawn(
+      240,
+      240,
+      makeSpec({ radius: 2, motion: { r: 0, theta: 0 }, laser, ...extra }),
+      'enemy',
+      new Random(1),
+    ) as Bullet;
+    return { system, b };
+  };
+
+  test('a warming beam overlaps its body, but the gated test refuses it', () => {
+    const { b } = spawnBeam({ length: 100, warmup: 30 });
+    // Mid-body at (300, 240), well past the muzzle circle at (240, 240).
+    expect(b.lethal).toBe(false);
+    expect(bulletShapeOverlaps(b, 300, 240, 1)).toBe(true); // the shape is there
+    expect(bulletHitsCircle(b, 300, 240, 1)).toBe(false); // but harmless
+  });
+
+  test('a decaying beam overlaps its body, but the gated test refuses it', () => {
+    const { system, b } = spawnBeam({ length: 100, cooldown: 5 }, { life: 12 });
+    for (let i = 0; i < 8; i++) system.step(0, 0, new Random(2)); // age 8, decaying
+    expect(b.lethal).toBe(false);
+    expect(bulletShapeOverlaps(b, 300, 240, 1)).toBe(true);
+    expect(bulletHitsCircle(b, 300, 240, 1)).toBe(false);
+  });
+
+  test('for a lethal bullet the gated and ungated tests agree exactly', () => {
+    const { b } = spawnBeam({ length: 100 }); // lethal at spawn
+    const probes: readonly [number, number][] = [
+      [300, 240], // on-body
+      [240, 240], // at the muzzle
+      [400, 240], // past the tip
+      [300, 260], // beside the body
+    ];
+    for (const [x, y] of probes) {
+      expect(bulletShapeOverlaps(b, x, y, 3)).toBe(bulletHitsCircle(b, x, y, 3));
+    }
+  });
+
+  test('for a point bullet the shape test is the plain muzzle circle', () => {
+    const system = new BulletSystem({ bounds, initial: 2 });
+    const b = system.spawn(240, 240, makeSpec({ radius: 4 }), 'enemy', new Random(1)) as Bullet;
+    expect(bulletShapeOverlaps(b, 246, 240, 2)).toBe(
+      circlesOverlap(246, 240, 2, b.x, b.y, b.radius),
+    );
+    expect(bulletShapeOverlaps(b, 300, 240, 2)).toBe(false);
   });
 });
 

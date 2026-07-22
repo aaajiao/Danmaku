@@ -218,6 +218,55 @@ defineBehaviour('orbit', (vector: MoveVector, context: MotionContext) => {
   vector.r = Math.sqrt(stepX * stepX + stepY * stepY);
 });
 
+/**
+ * Hold the aimed heading through the telegraph, then sweep it — the laser verb.
+ *
+ * A beam is a promise about where a line will be. If it turns while it is still
+ * a warning the promise is void, so `theta` is left exactly as fired — through
+ * `aimed-fan`, which sets the heading at the player — for `hold` ticks. Only
+ * then does the wedge open: `rate` degrees are added per tick inside a finite
+ * window, and the total swing is capped by `arc`. This is *aim → then sweep*,
+ * the one shape the polar model cannot already say.
+ *
+ * Two things it depends on, both from the spec, not from here:
+ *
+ * - Set `hold` to the laser's `warmup` so the sweep begins the instant the
+ *   telegraph becomes lethal. For a single-segment beam `vector.age` and the
+ *   bullet's `age` (which drives `warmup`/`lethal`) advance together, so the two
+ *   clocks line up; the coupling is pinned by a test where the content lives.
+ * - The spec MUST set `motion.w = 0`. `w` integrates from tick 0 (`step()`
+ *   adds it before the behaviour runs), so it would sweep the beam *during* its
+ *   own telegraph — exactly what this avoids — and a `timeline` cannot stand in,
+ *   because re-initialising a segment resets `theta` and forgets the aimed
+ *   heading. With no other writer to `theta` in the window, the once-per-tick
+ *   `theta += rate` is a pure, order-independent function of `vector.age`: as
+ *   replay-robust as an absolute sinusoid, and it keeps the aim the absolute
+ *   form throws away.
+ *
+ * Options: `hold` (ticks the aim is held before the sweep, default 0), `rate`
+ * (deg/tick, signed; default 2), `duration` (ticks of turning after `hold`,
+ * default 90), `arc` (max total degrees swept, 0 = unbounded). No RNG; the only
+ * `Math` is `abs`, which the spec fixes exactly, so this is rule-3-clean.
+ */
+defineBehaviour('beam-sweep', (vector: MoveVector) => {
+  const options = vector.options;
+  const hold = option(options, 'hold', 0);
+  const duration = option(options, 'duration', 90);
+  if (!inWindow(vector.age, hold, duration)) return;
+
+  const rate = option(options, 'rate', 2);
+  const arc = option(options, 'arc', 0);
+  // A fixed wedge: once the beam has swept `arc` degrees it stops, even if the
+  // window still has ticks left. `age - hold` is the ticks since the sweep
+  // began, so `|rate| * (age - hold)` is the magnitude already turned. The test
+  // is on what has accumulated *before* this tick's step, so the swing halts on
+  // the first tick that would carry it to or past the bound — landing within one
+  // `rate` of `arc`, never short of it.
+  if (arc > 0 && Math.abs(rate) * (vector.age - hold) >= arc) return;
+
+  vector.theta += rate;
+});
+
 /** Smoothstep on [0, 1], clamped. Polynomial, so exactly reproducible. */
 function smoothstep(t: number): number {
   const x = Math.min(1, Math.max(0, t));

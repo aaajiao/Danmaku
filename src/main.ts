@@ -38,7 +38,10 @@ import {
   bulletAtlas as makeBulletAtlas,
   shipAtlas as makeShipAtlas,
   effectAtlas as makeEffectAtlas,
+  laserAtlas as makeLaserAtlas,
 } from './render/procedural';
+import { beamLayout } from './render/beam';
+import { getLaserSkin, laserSkinNames } from './render/laser-skin';
 import { stripFrame } from './render/strip';
 import { PostProcessing } from './render/post';
 import { portraitImage, tintFor } from './render/portrait';
@@ -185,6 +188,27 @@ const shipAtlas = await makeShipAtlas(packs.shipUrl, packs.shipStrip);
 // the loader already fetched and gated the files.
 const fxAtlas = await makeEffectAtlas(undefined, packs.effectStrips);
 
+// The laser sheet: a third texture carrying the beam body + tip-cap strips a
+// skin names (`render/laser-skin.ts`). Procedural floor (rule 9) unless a pack
+// ships `assets.lasers`, in which case its baked strips composite onto this one
+// texture exactly as fx does — a body/cap a pack reskins takes its native pixels,
+// the rest stay procedural — without the sim ever learning a beam has a body and
+// a cap.
+const laserAtlas = await makeLaserAtlas(undefined, packs.laserStrips);
+
+// Every registered skin's body and cap must resolve on the laser atlas, or a
+// beam that names it draws nothing — throw at boot rather than in the draw loop
+// the first frame the beam is fired. This is the "all named strips exist" gate
+// the procedural floor is built to satisfy (a pack reskin keeps every floor name).
+for (const name of laserSkinNames()) {
+  const skin = getLaserSkin(name)!;
+  for (const strip of [skin.body, skin.cap]) {
+    if (!laserAtlas.has(strip)) {
+      throw new Error(`laser skin "${name}" names strip "${strip}", absent from the laser atlas`);
+    }
+  }
+}
+
 // A pack may ask for linear sampling (smooth art); the default `nearest`
 // matches `loadTexture`, so only the opt-in needs applying. The placeholder
 // generators already choose their own filter, and a pack that supplied no
@@ -232,17 +256,39 @@ const batches = {
     blending: 'additive',
     renderOrder: Layer.Items,
   }),
+  // Beam bodies on the laser sheet: a wide dim additive lane under the ship and
+  // bullets (Layer.Beams). Baked colour means no per-instance tint distinguishes
+  // factions, so a player beam and an enemy beam share this batch — they differ
+  // by skin, not tint.
+  beamBodies: new SpriteBatch(laserAtlas, {
+    capacity: 1024,
+    blending: 'additive',
+    renderOrder: Layer.Beams,
+  }),
+  // Beam tip caps: a small localized impact flash at the Effects tier, above
+  // bullets — an indicator, not a field-filling structure, so it does not
+  // counterfeit a bullet.
+  beamCaps: new SpriteBatch(laserAtlas, {
+    capacity: 256,
+    blending: 'additive',
+    renderOrder: Layer.Effects,
+  }),
 };
 
 stage.add(batches.enemies.mesh, 'Enemies');
 stage.add(batches.itemGlow.mesh, 'Items');
 stage.add(batches.items.mesh, 'Items', 1);
+stage.add(batches.beamBodies.mesh, 'Beams');
 stage.add(batches.player.mesh, 'Player');
 stage.add(batches.options.mesh, 'Player', 1);
 stage.add(batches.playerShots.mesh, 'PlayerShots');
 stage.add(batches.enemyShots.mesh, 'EnemyShots');
 stage.add(batches.bursts.mesh, 'Bursts');
 stage.add(batches.effects.mesh, 'Effects');
+// Caps at the Effects tier but one step above the small-particle effects batch,
+// so the tip flash reads over both bullets and sparks (a deterministic order,
+// not a reliance on equal-renderOrder tie-breaking).
+stage.add(batches.beamCaps.mesh, 'Effects', 1);
 
 /**
  * Bloom is on by default, and that is a product decision rather than a default
@@ -546,15 +592,74 @@ function drawRun(run: Run): void {
     const batch = b.faction === 'player' ? batches.playerShots : batches.enemyShots;
 
     // A beam is a line, and its stored position is the **muzzle** — one end,
-    // not the middle. Drawn as an ordinary centred quad it collapses to a stub
-    // pinned to the emitter: `LaserSpec`'s own header says a renderer "must
-    // therefore offset it by half the length", and this loop never did. The
-    // result was a fully lethal 600px hitbox represented on screen by a few
-    // pixels of sprite, which is the one thing a bullet-hell game may not do.
-    //
-    // The quad is stretched along +x and rotated by the heading, because that
-    // is the direction a rotating sprite points (CLAUDE.md, rule 7).
+    // not the middle. It draws as a two-element composite: a body strip stretched
+    // or tiled from the muzzle to the tip, and a cap flash at the tip while it can
+    // kill. The anatomy lives behind a skin name resolved here (the sim named a
+    // string, `render/laser-skin.ts`); a beam whose sprite names no skin falls
+    // back to the legacy stretched quad below, byte-identical to before.
     if (b.laser !== undefined && b.length > 0) {
+      const skin = getLaserSkin(b.style.sprite);
+      if (skin !== undefined) {
+        const bodyStrip = laserAtlas.strip(skin.body);
+        const capStrip = laserAtlas.strip(skin.cap);
+        // Frame clock is `b.age` — run-relative, tick-only, reproduced by a replay
+        // (the strips clock law; `strip.test.ts` asserts every shell stripFrame
+        // call reads a `.age`). Never `loop.count`, never a wall clock.
+        const bodyUV = laserAtlas.uv(laserAtlas.frameOf(bodyStrip, stripFrame(bodyStrip, b.age)));
+        const capUV = laserAtlas.uv(laserAtlas.frameOf(capStrip, stripFrame(capStrip, b.age)));
+        const layout = beamLayout({
+          muzzleX: b.x,
+          muzzleY: b.y,
+          angle: b.angle,
+          length: b.length,
+          fit: skin.fit,
+          thickness: skin.thickness,
+          // Default the tile length to the body strip's own frame width, so the
+          // procedural floor and a native reskin each tile at their native cell.
+          tileLength: skin.tileLength ?? bodyStrip.frameW,
+          bodyUV,
+          cap: { uv: capUV, width: capStrip.frameW, height: capStrip.frameH },
+          age: b.age,
+          warmup: b.laser.warmup ?? 0,
+          life: b.life,
+          cooldown: b.laser.cooldown ?? 0,
+          baseAlpha: b.style.a ?? 1,
+        });
+        // Baked art carries its own colour (tint stays white so it shows
+        // unmultiplied); the tinted procedural floor takes the content tint, so a
+        // beam is coloured by its spec until real pixels load (the strips colour
+        // law) — the shell is the only place that knows both halves.
+        const bodyBaked = bodyStrip.color === 'baked';
+        for (const q of layout.body) {
+          batches.beamBodies.draw(q.x, q.y, q.uv, {
+            rotation: q.rotation,
+            width: q.width,
+            height: q.height,
+            r: bodyBaked ? 1 : b.style.r,
+            g: bodyBaked ? 1 : b.style.g,
+            b: bodyBaked ? 1 : b.style.b,
+            a: q.alpha,
+          });
+        }
+        if (layout.cap !== undefined) {
+          const capBaked = capStrip.color === 'baked';
+          const q = layout.cap;
+          batches.beamCaps.draw(q.x, q.y, q.uv, {
+            rotation: q.rotation,
+            width: q.width,
+            height: q.height,
+            r: capBaked ? 1 : b.style.r,
+            g: capBaked ? 1 : b.style.g,
+            b: capBaked ? 1 : b.style.b,
+            a: q.alpha,
+          });
+        }
+        continue;
+      }
+
+      // Legacy fallback: the stretched quad, centred on the beam's midpoint (its
+      // stored x/y is the muzzle, one end) and stretched +x, rotated by the
+      // heading (rule 7). Faded while it is only a telegraph, solid once lethal.
       const half = b.length / 2;
       batch.draw(
         b.x + half * Math.cos(b.angle),
@@ -567,9 +672,6 @@ function drawRun(run: Run): void {
           r: b.style.r,
           g: b.style.g,
           b: b.style.b,
-          // Faded while it is still only a telegraph, solid once it can kill.
-          // The warmup is already the difference between a readable pattern and
-          // a coin flip; showing it costs one multiply.
           a: (b.style.a ?? 1) * (b.lethal ? 1 : 0.45),
         },
       );

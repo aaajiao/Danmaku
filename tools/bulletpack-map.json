@@ -36,16 +36,29 @@
     "spark.levy":         { "src": "Bullet Pack/Bullet Pack/Tiny_Orange_Yellow_magenta.png", "note": "assessor/chancellor/notary spiral — radial orange spark" },
     "orb.small.writ":     { "src": "Bullet Pack/Bullet Pack/Medium_Pink_Purple.png", "crop": { "x": 2, "y": 2, "w": 13, "h": 13 }, "note": "stage-3/4 aimed shot (most-fired) — one 13px round design cropped from a 306×17 choice-sheet" }
   },
-  "$shots": "Player weapon and option fired names (BULLET_VARIANTS player section). Directional shots are drawn nose-up in BulletPack and rotated 90° to +x (rule 7) so orientToHeading points them along the firing heading; the radial spread bolt and the option shots keep native orientation.",
+  "$shots": "Player weapon and option fired names (BULLET_VARIANTS player section). Directional shots are drawn nose-up in BulletPack and rotated 90° to +x (rule 7) so orientToHeading points them along the firing heading; the radial spread bolt and the option shots keep native orientation. NOTE (laser round, 2026-07-22): GUN_BEAM no longer fires the bullet-cell name 'glow.small.beam' — the player's beam now wears the laser SKIN 'beam.cyan' (assets.lasers, backed by laser_cian_strip10), so its old backing file 'P1 Bullet Stream.png' is unmapped here and STAGES for the later player-weapon round. The 'glow.small.beam' variant alias survives in procedural.ts but is fired by nothing.",
   "shots": {
     "glow.small.bolt":     { "src": "Bullet Pack/Bullet Pack/Bullet_Spiky_Thinier_strip7.png", "strip": 7, "mode": "loop", "ticksPerFrame": 3, "note": "GUN_BOLT spread — radial animated amber spiky ball" },
     "needle.pin":          { "src": "Bullet Pack/Player Bullets/P1_Bullet_Pink.png", "rotate": 90, "note": "GUN_NEEDLE — directional pink needle (+x)" },
-    "glow.small.beam":     { "src": "Bullet Pack/Player Bullets/P1 Bullet Stream.png", "note": "GUN_BEAM laser — cyan stream" },
     "scale.tracker":       { "src": "Bullet Pack/Player Bullets/P1 Bullet _Thinier_BermudaGreen.png", "rotate": 90, "note": "GUN_SEEKER homing — directional green shot (+x)" },
     "scale.satellite":     { "src": "Bullet Pack/Player Bullets/P1 Bullet_Yellow_Thinier.png", "rotate": 90, "note": "OPT_SEEKER_SHOT — directional yellow shot (+x)" },
     "orb.small.satellite": { "src": "Bullet Pack/Bullet Pack/Bullet_tiny_green.png", "note": "OPT_STD_SHOT — radial green pellet" },
     "orb.small.battery":   { "src": "Bullet Pack/Bullet Pack/Green_msh.png", "note": "OPT_PICKET_SHOT — radial green blob" },
     "orb.small.clinch":    { "src": "Bullet Pack/Bullet Pack/Tr.png", "note": "CLINCH_SHOT — radial greenish-grey pellet (filename 'Tr' uncrackable)" }
+  },
+  "$lasers": "LASER body/cap strips → assets.lasers (laser round, 2026-07-22). Keyed by laser-strip name (src/render/laser-skin.ts): 8 body strips (each named by exactly one skin) + 3 cap strips (each shared by ≥1 skin), all 11 BulletPack Lasers/ files. Emitted BAKED (color 'baked', no whiten — the coloured art the artist drew, saturation gate skipped) as one PNG per strip, each frame rotated 90° to +x on import (rule 7 — the source beams run long-axis-vertical; the renderer then uses the one convention, length along +x, no runtime transpose). The base campaign FIRES all 8 body skins (LANCE→beam.v3, warden/magistrate COLUMN→beam.heavy/blue/cyan, ray→beam.slim, chancellor→beam.warm/stream/v3.stream, player GUN_BEAM→beam.cyan), so a baked strip reaches real play the moment it is keyed by the skin's body/cap name — no companion content pack needed.",
+  "lasers": {
+    "beam.v3":        { "src": "Lasers/laserv3_strip6.png",            "strip": 6,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "LANCE / lash beam body — whole-beam v3 (stretch)" },
+    "beam.slim":      { "src": "Lasers/Laser_green_slim_strip3t.png",  "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 4, "note": "ray swept beam body — slim green tileable (the beam-sweep hero)" },
+    "beam.heavy":     { "src": "Lasers/laser_green_big_strip12t.png",  "strip": 12, "rotate": 90, "mode": "loop", "ticksPerFrame": 2, "note": "warden 'Picket Line' beam body — heavy green tileable" },
+    "beam.blue":      { "src": "Lasers/laser_blue_strip9.png",         "strip": 9,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "magistrate 'Colonnade' beam body — whole-beam blue (stretch)" },
+    "beam.cyan":      { "src": "Lasers/laser_cian_strip10.png",        "strip": 10, "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "magistrate 'Assize' + player GUN_BEAM body — whole-beam cyan (stretch)" },
+    "beam.warm":      { "src": "Lasers/laser_red_strip3.png",          "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "chancellor 'Sweeping Assay' rake body — warm red tileable" },
+    "beam.stream":    { "src": "Lasers/laser_green_stream_strip3.png", "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "chancellor curtain stream body — green tileable" },
+    "beam.v3.stream": { "src": "Lasers/laserv3_stream_strip3.png",     "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "chancellor stream wall body — v3 tileable" },
+    "cap.green":      { "src": "Lasers/laser_green_Hit_strip3.png",    "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "green hit-cap — beam.slim/heavy/stream tip flash" },
+    "cap.yellow":     { "src": "Lasers/laser_yellow_Hit_strip3.png",   "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "yellow hit-cap — beam.warm tip flash" },
+    "cap.v3":         { "src": "Lasers/laserv3_hit_strip3.png",        "strip": 3,  "rotate": 90, "mode": "loop", "ticksPerFrame": 3, "note": "v3 hit-cap — beam.v3/blue/cyan/v3.stream tip flash" }
   },
   "variantsDuplicate": {
     "$comment": "Files that are byte-for-byte duplicates of a consumed source; represented by the named variant, not packed twice.",

@@ -49,6 +49,9 @@ import {
   BULLET_GRID,
   BULLET_ROWS,
   createBulletAtlas,
+  createLaserAtlas,
+  FX_PAD,
+  LASER_STRIPS,
   MAX_CELL_EXTENT,
 } from '../../src/render/procedural';
 import { Audio, defineSound, soundNames } from '../../src/audio';
@@ -996,6 +999,126 @@ if (!sheetCtx) {
       violated.margin < MIN_MARGIN,
       `deliberately filled halo measures ${violated.w}x${violated.h}, margin ${violated.margin}px, below the ${MIN_MARGIN}px floor`,
     );
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The generated laser sheet: body tiling and cap seams, measured       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The procedural laser floor, measured on a real framebuffer — the one thing
+ * `procedural.test.ts` cannot do (`bun test` has no canvas). Two properties the
+ * arithmetic there only declares:
+ *
+ * - a **cap** frame keeps 2px of transparent margin on both axes, so its
+ *   animation frames do not bleed into one another under linear sampling — the
+ *   same seam law the bullet cells obey;
+ * - a **body** frame reaches its on-beam frame edges (margin 0 on that axis)
+ *   precisely so a tiled beam butts without a seam, while clearing the pad on the
+ *   cross-axis where the next strip's row sits.
+ *
+ * A body reaching its on-beam edges is the *opposite* of the bullet-cell rule,
+ * and that is deliberate: it is a 1-frame strip, so nothing sits beside it on
+ * that axis to bleed into, and the reach is what makes it tile.
+ */
+section('generated laser sheet — body tiling and cap seams, measured');
+
+const LASER_PAD = FX_PAD;
+const laserAtlas = createLaserAtlas();
+const laserSheet = laserAtlas.texture.image as HTMLCanvasElement;
+const laserCtx = laserSheet.getContext('2d');
+
+if (!laserCtx) {
+  check('the generated laser sheet is readable', false, 'no 2D context on the laser atlas canvas');
+} else {
+  const bodyTight: string[] = [];
+  const bodyNotFilling: string[] = [];
+  const capTight: string[] = [];
+
+  for (const [name, geo] of Object.entries(LASER_STRIPS)) {
+    const s = laserAtlas.strip(name);
+    for (let f = 0; f < s.frames; f++) {
+      const rect = laserAtlas.frameOf(s, f);
+      const p = paintedIn(laserCtx, rect);
+      if (!Number.isFinite(p.margin)) continue; // an empty frame has nothing to bleed
+      if (geo.role === 'cap') {
+        if (p.margin < LASER_PAD) capTight.push(`${name} frame ${f}: margin ${p.margin}px`);
+      } else {
+        // Cross-axis (vertical) margin must clear the pad; the on-beam (horizontal)
+        // extent must reach the frame edges so tiles butt seamlessly.
+        const { data } = laserCtx.getImageData(rect.x, rect.y, rect.w, rect.h);
+        let minX = rect.w;
+        let maxX = -1;
+        let minY = rect.h;
+        let maxY = -1;
+        for (let y = 0; y < rect.h; y++) {
+          for (let x = 0; x < rect.w; x++) {
+            if (data[(y * rect.w + x) * 4 + 3] === 0) continue;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+        const topMargin = minY;
+        const bottomMargin = rect.h - 1 - maxY;
+        const crossMargin = Math.min(topMargin, bottomMargin);
+        const reachesEdges = minX === 0 && maxX === rect.w - 1;
+        lines.push(
+          `  ${name.padEnd(15)} body ${p.w}x${p.h}  cross-margin ${crossMargin}px  ` +
+            `fills-on-beam ${reachesEdges}`,
+        );
+        if (crossMargin < LASER_PAD) bodyTight.push(`${name}: cross-margin ${crossMargin}px`);
+        if (!reachesEdges) bodyNotFilling.push(`${name}: on-beam ${minX}..${maxX} of ${rect.w}`);
+      }
+    }
+  }
+
+  check(
+    'every laser body fills its frame on the on-beam axis (seamless tiling)',
+    bodyNotFilling.length === 0,
+    bodyNotFilling.length === 0
+      ? 'every body reaches both on-beam edges, so tiles butt without a seam'
+      : bodyNotFilling.join('; '),
+  );
+
+  check(
+    'every laser body clears the cross-axis pad',
+    bodyTight.length === 0,
+    bodyTight.length === 0
+      ? `every body keeps ${LASER_PAD}px cross-axis margin`
+      : bodyTight.join('; '),
+  );
+
+  check(
+    'every laser cap keeps its transparent margin on both axes',
+    capTight.length === 0,
+    capTight.length === 0
+      ? `every cap frame clears ${LASER_PAD}px on both axes`
+      : capTight.join('; '),
+  );
+
+  // Mutation proof: fill a cap frame edge to edge and confirm the same
+  // measurement rejects it — a check only ever seen green is not evidence.
+  const capName = Object.entries(LASER_STRIPS).find(([, g]) => g.role === 'cap')?.[0];
+  if (capName) {
+    const capRect = laserAtlas.frameOf(laserAtlas.strip(capName), 0);
+    const scratch = document.createElement('canvas');
+    scratch.width = laserSheet.width;
+    scratch.height = laserSheet.height;
+    const scratchCtx = scratch.getContext('2d');
+    if (scratchCtx) {
+      scratchCtx.drawImage(laserSheet, 0, 0);
+      scratchCtx.fillStyle = 'rgba(255,255,255,1)';
+      scratchCtx.fillRect(capRect.x, capRect.y, capRect.w, capRect.h);
+      const violated = paintedIn(scratchCtx, capRect);
+      check(
+        'the laser cap margin check can fail — a frame painted edge to edge is rejected',
+        violated.margin < LASER_PAD,
+        `deliberately filled ${capName} measures ${violated.w}x${violated.h}, margin ${violated.margin}px, below ${LASER_PAD}px`,
+      );
+    }
   }
 }
 
