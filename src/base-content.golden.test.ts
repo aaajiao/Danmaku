@@ -119,6 +119,12 @@ function canonical(value: unknown, path: string): unknown {
  */
 function committedText(name: string, produce: () => string): { committed: string; wrote: boolean } {
   const url = new URL(name, FIXTURE_DIR);
+  if (process.env['UPDATE_BASE_CONTENT_GOLDENS'] === '1') {
+    mkdirSync(FIXTURE_DIR, { recursive: true });
+    const text = produce();
+    writeFileSync(url, text);
+    return { committed: text, wrote: false };
+  }
   if (existsSync(url)) {
     return { committed: readFileSync(url, 'utf8'), wrote: false };
   }

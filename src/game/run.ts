@@ -459,17 +459,17 @@ const COIN_SILVER_MAX = getItemSpec('score').value;
  * figures this comment once carried (547,000 clean / 52,000 flailing, "both stages",
  * "ten cards") predate stages 3-4 and the card-bonus economy that came with them: a
  * single boss card now pays 200,000-1,000,000, so a clean full clear finishes near
- * 4,700,000 and crosses all three thresholds inside stage 1, while a flailing clear
- * that captures nothing finishes near 48,000 and crosses none. The three anchors are
+ * 4,700,000 and crosses all three thresholds inside stage 1, while the spatial-pattern
+ * revision moved a flailing clear to about 104,000. The first anchor was therefore
+ * recalibrated from 100,000 to 120,000 so it still crosses none. The three anchors are
  * therefore comfortably saturated by a capturing player and comfortably out of reach
  * of one who is not — the gradient the extend is for still holds, even though the
  * top anchor is no longer "above a clean clear". Recalibrating the anchors to the
- * four-stage curve is a scoring-economy change and its own round; the pickup-variety
- * round deliberately does not touch it — it redenominates the drop table while
+ * pickup-variety round did not touch the anchors — it redenominates the drop table while
  * holding every boss's score AGGREGATE exactly invariant, so the count of extends a
  * given pilot earns is unchanged (proven in `economy-honesty.test.ts`).
  */
-export const EXTEND_SCORES: readonly number[] = [100_000, 300_000, 600_000];
+export const EXTEND_SCORES: readonly number[] = [120_000, 300_000, 600_000];
 
 /**
  * The shower a defeated boss drops when its own `BossSpec.spoils` is unset.

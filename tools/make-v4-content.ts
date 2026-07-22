@@ -750,8 +750,8 @@ const enemies: PackContent['enemies'] = {
     // player is readable before it starts shooting.
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: ENEMY_SHOT, count: 3, spread: 24, period: 50 },
+        pattern: 'alternating-fan',
+        options: { spec: ENEMY_SHOT, count: 3, spread: 20, period: 50, swing: 12 },
         startAt: 30,
         // The opening's chaff, and so the stage's difficulty axis before any
         // boss: Easy thins the fan and slows it, Lunatic widens and quickens it.
@@ -781,14 +781,14 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'spiral',
-        options: { spec: ENEMY_SHOT, arms: 2, step: 17, period: 5 },
+        pattern: 'weave',
+        options: { spec: ENEMY_SHOT, pairs: 1, step: 17, amplitude: 34, period: 5 },
         startAt: 40,
         stopAt: 90,
         difficulty: {
-          easy: { arms: 1, period: 7 },
-          hard: { arms: 3, period: 4 },
-          lunatic: { arms: 4, period: 4 },
+          easy: { pairs: 1, amplitude: 26, period: 7 },
+          hard: { pairs: 2, amplitude: 38, period: 4 },
+          lunatic: { pairs: 2, amplitude: 46, period: 4 },
         },
       },
       // One lazy homing writ between its arcs — the second place (after turret)
@@ -1016,8 +1016,8 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 0.5, theta: 90 },
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: EMBER_PYRE, count: 10, period: 84, rotation: 13 },
+        pattern: 'gap-ring',
+        options: { spec: EMBER_PYRE, count: 10, period: 84, rotation: 13, gap: 54 },
         startAt: 24,
         // Easy leaves the gathered ring threadable, Lunatic packs it.
         difficulty: {
@@ -1143,8 +1143,8 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: SLAB, count: 18, period: 40, rotation: 5 },
+        pattern: 'gap-ring',
+        options: { spec: SLAB, count: 18, period: 40, rotation: 5, gap: 36 },
         startAt: 55,
         stopAt: 220,
         difficulty: {
@@ -1351,14 +1351,14 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: BULWARK, count: 20, period: 44, rotation: 6 },
+        pattern: 'lane-wall',
+        options: { spec: BULWARK, columns: 9, gapColumn: 4, shift: 1, speed: 1.8, period: 44 },
         startAt: 60,
         stopAt: 240,
         difficulty: {
-          easy: { count: 16, period: 56, rotation: 4 },
-          hard: { count: 24, period: 38, rotation: 8 },
-          lunatic: { count: 28, period: 34, rotation: 9 },
+          easy: { columns: 7, period: 56, shift: 1 },
+          hard: { columns: 11, period: 38, shift: 2 },
+          lunatic: { columns: 13, period: 34, shift: 2 },
         },
       },
       // A homing execution salvo behind the ring-wall — the writ that follows once
@@ -1417,8 +1417,8 @@ const enemies: PackContent['enemies'] = {
         // signet rings before the notary leaves, whose gap turns by `rotation`
         // between volleys. Lunatic turns it faster. (There is no death-trigger, so
         // this is a late `startAt`, not literally on death — see SIGNET.)
-        pattern: 'ring',
-        options: { spec: SIGNET, count: 18, period: 46, rotation: 5 },
+        pattern: 'gap-ring',
+        options: { spec: SIGNET, count: 18, period: 46, rotation: 5, gap: 34 },
         startAt: 170,
         stopAt: 250,
         difficulty: {
@@ -1544,8 +1544,8 @@ const bosses: PackContent['bosses'] = {
           // Two counter-rotating rings. Their offsets drift apart at different
           // rates, so the safe gaps sweep instead of standing still.
           {
-            pattern: 'ring',
-            options: { spec: PETAL, count: 18, period: 42, rotation: 9 },
+            pattern: 'gap-ring',
+            options: { spec: PETAL, count: 18, period: 42, rotation: 9, gap: 44 },
             difficulty: {
               easy: { count: 12 },
               hard: { count: 22, period: 36 },
@@ -1553,8 +1553,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: PETAL, count: 18, period: 42, rotation: -14 },
+            pattern: 'gap-ring',
+            options: { spec: PETAL, count: 18, period: 42, rotation: -14, gap: 44 },
             startAt: 21,
             difficulty: {
               easy: { count: 12 },
@@ -1731,8 +1731,8 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           // Four beams at 90°, rotating 21° a volley, so the safe wedges walk.
           {
-            pattern: 'ring',
-            options: { spec: COLUMN_HEAVY, count: 4, period: 120, rotation: 21 },
+            pattern: 'gap-ring',
+            options: { spec: COLUMN_HEAVY, count: 4, period: 120, rotation: 21, gap: 70 },
             difficulty: {
               easy: { count: 3 },
               hard: { count: 5 },
@@ -1876,8 +1876,8 @@ const bosses: PackContent['bosses'] = {
           // A ring of seekers: every bullet flies straight for 18 ticks and then
           // all of them turn inward together.
           {
-            pattern: 'ring',
-            options: { spec: SEEKER_ESCROW, count: 14, period: 78, rotation: 13 },
+            pattern: 'gap-ring',
+            options: { spec: SEEKER_ESCROW, count: 14, period: 78, rotation: 13, gap: 38 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 18, period: 68 },
@@ -2147,8 +2147,8 @@ const bosses: PackContent['bosses'] = {
         background: 'sable',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: SEAL_WITNESS, count: 16, period: 80, rotation: 0 },
+            pattern: 'gap-ring',
+            options: { spec: SEAL_WITNESS, count: 16, period: 80, rotation: 0, gap: 42 },
             difficulty: {
               easy: { count: 12 },
               hard: { count: 20 },
@@ -2438,21 +2438,21 @@ const bosses: PackContent['bosses'] = {
         background: 'regnum',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: LATTICE_TENURE, count: 16, period: 54, rotation: 3 },
+            pattern: 'lane-wall',
+            options: { spec: LATTICE_TENURE, columns: 9, gapColumn: 3, shift: 1, speed: 1.6, period: 54 },
             difficulty: {
-              easy: { count: 12, period: 66 },
-              hard: { count: 20, period: 46 },
-              lunatic: { count: 22, period: 42 },
+              easy: { columns: 7, period: 66 },
+              hard: { columns: 11, period: 46, shift: 2 },
+              lunatic: { columns: 13, period: 42, shift: 2 },
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: LATTICE, count: 16, period: 54, rotation: -2 },
+            pattern: 'lane-wall',
+            options: { spec: LATTICE, columns: 9, gapColumn: 5, shift: -1, speed: 1.6, period: 54 },
             difficulty: {
-              easy: { count: 12, period: 66 },
-              hard: { count: 20, period: 46 },
-              lunatic: { count: 22, period: 42 },
+              easy: { columns: 7, period: 66 },
+              hard: { columns: 11, period: 46, shift: -2 },
+              lunatic: { columns: 13, period: 42, shift: -2 },
             },
           },
         ],

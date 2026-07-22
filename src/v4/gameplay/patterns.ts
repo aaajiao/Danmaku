@@ -8,10 +8,20 @@
  */
 
 import type { BulletSpec } from '../../sim/bullet';
+import { sinDeg } from '../../core/trig';
 import { aimAngle, definePattern, fan, ring } from '../../content/pattern-registry';
 
 /** Stable public vocabulary used by v4 campaign data and guest packs. */
-export const V4_PATTERN_NAMES = ['ring', 'spiral', 'aimed-fan', 'spray'] as const;
+export const V4_PATTERN_NAMES = [
+  'ring',
+  'spiral',
+  'aimed-fan',
+  'spray',
+  'alternating-fan',
+  'gap-ring',
+  'weave',
+  'lane-wall',
+] as const;
 
 /**
  * `spec` is the one option with no sensible default — there is no bullet
@@ -54,6 +64,150 @@ definePattern({
       if (duration > 0 && context.age >= duration) return false;
       if (context.age % period !== 0) return true;
       ring(context, spec, count, volley * rotation);
+      volley++;
+      return true;
+    };
+  },
+});
+
+interface AlternatingFanOptions extends AimedOptions {
+  /** Degrees the whole fan steps left/right around the player bearing. */
+  swing?: number;
+}
+
+/** A readable left/right gesture: consecutive volleys never occupy the same lanes. */
+definePattern({
+  name: 'alternating-fan',
+  description: 'Aimed fan whose centre alternates around the player bearing.',
+  create(options?: Readonly<Partial<AlternatingFanOptions>>) {
+    const spec = requireSpec(options, 'alternating-fan');
+    const count = options?.count ?? 5;
+    const spread = options?.spread ?? 32;
+    const period = options?.period ?? 48;
+    const swing = options?.swing ?? 14;
+    const duration = options?.duration ?? 0;
+    let side = -1;
+    return (context) => {
+      if (duration > 0 && context.age >= duration) return false;
+      if (context.age % period !== 0) return true;
+      fan(context, spec, count, aimAngle(context) + side * swing, spread);
+      side = side === -1 ? 1 : -1;
+      return true;
+    };
+  },
+});
+
+interface GapRingOptions extends RingOptions {
+  /** Width of the safe opening, centred toward the player when each volley fires. */
+  gap?: number;
+}
+
+/** A ring with authored negative space, rather than density pretending to be design. */
+definePattern({
+  name: 'gap-ring',
+  description: 'Rotating ring with a player-facing safe opening.',
+  create(options?: Readonly<Partial<GapRingOptions>>) {
+    const spec = requireSpec(options, 'gap-ring');
+    const count = options?.count ?? 24;
+    const period = options?.period ?? 72;
+    const rotation = options?.rotation ?? 9;
+    const gap = options?.gap ?? 42;
+    const duration = options?.duration ?? 0;
+    let volley = 0;
+    return (context) => {
+      if (duration > 0 && context.age >= duration) return false;
+      if (context.age % period !== 0) return true;
+      const safe = aimAngle(context);
+      const step = 360 / count;
+      for (let i = 0; i < count; i++) {
+        const theta = volley * rotation + i * step;
+        const delta = ((theta - safe + 540) % 360) - 180;
+        if (Math.abs(delta) < gap / 2) continue;
+        const bullet = context.bullets.spawn(context.x, context.y, spec, context.faction, context.rng);
+        if (!bullet) break;
+        bullet.vector.theta = theta;
+      }
+      volley++;
+      return true;
+    };
+  },
+});
+
+interface WeaveOptions {
+  spec: BulletSpec;
+  period?: number;
+  step?: number;
+  amplitude?: number;
+  pairs?: number;
+  duration?: number;
+}
+
+/** Two mirrored threads cross repeatedly and leave a moving diamond of empty space. */
+definePattern({
+  name: 'weave',
+  description: 'Mirrored crossing threads with a moving central opening.',
+  create(options?: Readonly<Partial<WeaveOptions>>) {
+    const spec = requireSpec(options, 'weave');
+    const period = options?.period ?? 4;
+    const step = options?.step ?? 13;
+    const amplitude = options?.amplitude ?? 38;
+    const pairs = options?.pairs ?? 1;
+    const duration = options?.duration ?? 0;
+    let phase = 0;
+    return (context) => {
+      if (duration > 0 && context.age >= duration) return false;
+      if (context.age % period !== 0) return true;
+      const centre = aimAngle(context);
+      for (let i = 0; i < pairs; i++) {
+        const offset = sinDeg(phase + i * (180 / pairs)) * amplitude;
+        for (const sign of [-1, 1] as const) {
+          const bullet = context.bullets.spawn(context.x, context.y, spec, context.faction, context.rng);
+          if (!bullet) return true;
+          bullet.vector.theta = centre + sign * offset;
+        }
+      }
+      phase += step;
+      return true;
+    };
+  },
+});
+
+interface LaneWallOptions {
+  spec: BulletSpec;
+  period?: number;
+  columns?: number;
+  gapColumn?: number;
+  speed?: number;
+  shift?: number;
+  duration?: number;
+}
+
+/** A full-width advancing wall whose authored gap migrates between volleys. */
+definePattern({
+  name: 'lane-wall',
+  description: 'Horizontal bullet wall with a migrating safe lane.',
+  create(options?: Readonly<Partial<LaneWallOptions>>) {
+    const spec = requireSpec(options, 'lane-wall');
+    const period = options?.period ?? 72;
+    const columns = Math.max(3, Math.floor(options?.columns ?? 9));
+    const initialGap = Math.floor(options?.gapColumn ?? Math.floor(columns / 2));
+    const shift = Math.floor(options?.shift ?? 1);
+    const speed = options?.speed ?? 2;
+    const duration = options?.duration ?? 0;
+    let volley = 0;
+    return (context) => {
+      if (duration > 0 && context.age >= duration) return false;
+      if (context.age % period !== 0) return true;
+      const width = 480;
+      const gap = ((initialGap + volley * shift) % columns + columns) % columns;
+      for (let i = 0; i < columns; i++) {
+        if (i === gap) continue;
+        const x = ((i + 0.5) / columns) * width;
+        const bullet = context.bullets.spawn(x, context.y, spec, context.faction, context.rng);
+        if (!bullet) break;
+        bullet.vector.r = speed;
+        bullet.vector.theta = 90;
+      }
       volley++;
       return true;
     };

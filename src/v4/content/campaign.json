@@ -31,7 +31,7 @@
         },
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -47,8 +47,9 @@
                 }
               },
               "count": 3,
-              "spread": 24,
-              "period": 50
+              "spread": 20,
+              "period": 50,
+              "swing": 12
             },
             "startAt": 30,
             "difficulty": {
@@ -114,7 +115,7 @@
         ],
         "patterns": [
           {
-            "pattern": "spiral",
+            "pattern": "weave",
             "options": {
               "spec": {
                 "style": {
@@ -129,23 +130,27 @@
                   "theta": 90
                 }
               },
-              "arms": 2,
+              "pairs": 1,
               "step": 17,
+              "amplitude": 34,
               "period": 5
             },
             "startAt": 40,
             "stopAt": 90,
             "difficulty": {
               "easy": {
-                "arms": 1,
+                "pairs": 1,
+                "amplitude": 26,
                 "period": 7
               },
               "hard": {
-                "arms": 3,
+                "pairs": 2,
+                "amplitude": 38,
                 "period": 4
               },
               "lunatic": {
-                "arms": 4,
+                "pairs": 2,
+                "amplitude": 46,
                 "period": 4
               }
             }
@@ -717,7 +722,7 @@
         },
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -742,7 +747,8 @@
               },
               "count": 10,
               "period": 84,
-              "rotation": 13
+              "rotation": 13,
+              "gap": 54
             },
             "startAt": 24,
             "difficulty": {
@@ -1020,7 +1026,7 @@
         ],
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -1037,7 +1043,8 @@
               },
               "count": 18,
               "period": 40,
-              "rotation": 5
+              "rotation": 5,
+              "gap": 36
             },
             "startAt": 55,
             "stopAt": 220,
@@ -1505,7 +1512,7 @@
         ],
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "lane-wall",
             "options": {
               "spec": {
                 "style": {
@@ -1520,27 +1527,29 @@
                   "theta": 90
                 }
               },
-              "count": 20,
-              "period": 44,
-              "rotation": 6
+              "columns": 9,
+              "gapColumn": 4,
+              "shift": 1,
+              "speed": 1.8,
+              "period": 44
             },
             "startAt": 60,
             "stopAt": 240,
             "difficulty": {
               "easy": {
-                "count": 16,
+                "columns": 7,
                 "period": 56,
-                "rotation": 4
+                "shift": 1
               },
               "hard": {
-                "count": 24,
+                "columns": 11,
                 "period": 38,
-                "rotation": 8
+                "shift": 2
               },
               "lunatic": {
-                "count": 28,
+                "columns": 13,
                 "period": 34,
-                "rotation": 9
+                "shift": 2
               }
             }
           },
@@ -1666,7 +1675,7 @@
             }
           },
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -1684,7 +1693,8 @@
               },
               "count": 18,
               "period": 46,
-              "rotation": 5
+              "rotation": 5,
+              "gap": 34
             },
             "startAt": 170,
             "stopAt": 250,
@@ -1896,7 +1906,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -1917,7 +1927,8 @@
                   },
                   "count": 18,
                   "period": 42,
-                  "rotation": 9
+                  "rotation": 9,
+                  "gap": 44
                 },
                 "difficulty": {
                   "easy": {
@@ -1934,7 +1945,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -1955,7 +1966,8 @@
                   },
                   "count": 18,
                   "period": 42,
-                  "rotation": -14
+                  "rotation": -14,
+                  "gap": 44
                 },
                 "startAt": 21,
                 "difficulty": {
@@ -2453,7 +2465,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2481,7 +2493,8 @@
                   },
                   "count": 4,
                   "period": 120,
-                  "rotation": 21
+                  "rotation": 21,
+                  "gap": 70
                 },
                 "difficulty": {
                   "easy": {
@@ -2876,7 +2889,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2903,7 +2916,8 @@
                   },
                   "count": 14,
                   "period": 78,
-                  "rotation": 13
+                  "rotation": 13,
+                  "gap": 38
                 },
                 "difficulty": {
                   "easy": {
@@ -3590,7 +3604,7 @@
             "background": "sable",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3616,7 +3630,8 @@
                   },
                   "count": 16,
                   "period": 80,
-                  "rotation": 0
+                  "rotation": 0,
+                  "gap": 42
                 },
                 "difficulty": {
                   "easy": {
@@ -4320,7 +4335,7 @@
             "background": "regnum",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "lane-wall",
                 "options": {
                   "spec": {
                     "style": {
@@ -4335,27 +4350,31 @@
                       "theta": 90
                     }
                   },
-                  "count": 16,
-                  "period": 54,
-                  "rotation": 3
+                  "columns": 9,
+                  "gapColumn": 3,
+                  "shift": 1,
+                  "speed": 1.6,
+                  "period": 54
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 12,
+                    "columns": 7,
                     "period": 66
                   },
                   "hard": {
-                    "count": 20,
-                    "period": 46
+                    "columns": 11,
+                    "period": 46,
+                    "shift": 2
                   },
                   "lunatic": {
-                    "count": 22,
-                    "period": 42
+                    "columns": 13,
+                    "period": 42,
+                    "shift": 2
                   }
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "lane-wall",
                 "options": {
                   "spec": {
                     "style": {
@@ -4370,22 +4389,26 @@
                       "theta": 90
                     }
                   },
-                  "count": 16,
-                  "period": 54,
-                  "rotation": -2
+                  "columns": 9,
+                  "gapColumn": 5,
+                  "shift": -1,
+                  "speed": 1.6,
+                  "period": 54
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 12,
+                    "columns": 7,
                     "period": 66
                   },
                   "hard": {
-                    "count": 20,
-                    "period": 46
+                    "columns": 11,
+                    "period": 46,
+                    "shift": -2
                   },
                   "lunatic": {
-                    "count": 22,
-                    "period": 42
+                    "columns": 13,
+                    "period": 42,
+                    "shift": -2
                   }
                 }
               }
