@@ -327,6 +327,47 @@ describe('the missile detonation tiers exist on the fx sheet', () => {
 });
 
 /**
+ * The death-explosion tiers (战役扩容轮). Six floors the death sites fire — the
+ * elite pair, the layered boss pair, the player blast, and the debris ember. The
+ * geometry (seam pad, sheet fit) is checked by the table-iterating suites above;
+ * this pins their identity: they exist, their playback is right, their frame
+ * counts match the BulletPack Exp files so the import lands frame-for-frame, and
+ * the boss BACK plate is the loop-free `once` occluder (routed under by the effect
+ * spec's `additive: false`, asserted in the effects/main draw split, not here).
+ */
+describe('the death-explosion tiers exist on the fx sheet', () => {
+  test('the five once booms are once strips, tinted, matching the Exp frame counts', () => {
+    const once: Record<string, number> = {
+      'boom.elite': 28, // New_expmid_strip28
+      'boom.elite.spray': 39, // New_Mid_Exp_particles_strip39
+      'boom.boss.back': 15, // Exp_Back_strip15
+      'boom.boss.top': 16, // Exp_Top_strip16
+      'boom.player': 38, // New_Player_Explosion_strip38
+    };
+    for (const [name, frames] of Object.entries(once)) {
+      const s = FX_STRIPS[name];
+      expect(s).toBeDefined();
+      expect(s!.mode).toBe('once');
+      expect(s!.color).toBe('tinted');
+      expect(s!.frames).toBe(frames);
+    }
+  });
+
+  test('debris is a 12-frame loop authored at 8×8 (the 2×2 source upscales at import)', () => {
+    // A 2px frame cannot self-pad (`frameW − 2·FX_PAD` is negative), so the floor
+    // is paintable-sized and the importer NEAREST-upscales the 2×2 source 4× —
+    // the seam gate stays untouched. `loop`, so it carries no life===stripLength.
+    const s = FX_STRIPS.debris;
+    expect(s).toBeDefined();
+    expect(s!.mode).toBe('loop');
+    expect(s!.frames).toBe(12); // Versatile_Particles_2x2_strip12
+    expect(s!.frameW).toBe(8);
+    expect(s!.frameH).toBe(8);
+    expect(s!.color).toBe('tinted');
+  });
+});
+
+/**
  * The missile body floor — 13 animated strips on their own sheet, symmetric to
  * the laser floor. Frames are laid horizontally per row; the per-frame budget is
  * the same seam law (`frameW − 2·FX_PAD` / `frameH − 2·FX_PAD`), re-derived from

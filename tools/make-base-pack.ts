@@ -707,6 +707,34 @@ const EDICT = {
   motion: { r: 1, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.1, delay: 24, duration: 80 } },
 };
 
+/* ---- enemy/boss GEM-COLOUR re-skins (战役扩容轮) ----
+ * Each re-skins ONE fired sub-pattern of a boss (or elite) toward its gem
+ * identity — sentinel green, warden yellow, magistrate cyan, chancellor pink,
+ * regent purple; turret/bastion elite warm. Every one is the base spec with ONLY
+ * `style.sprite` changed: radius, motion, blade and count are untouched, so the
+ * sim reads identical numbers and the golden replay trace does NOT move (the sim
+ * reads `radius`, never the cell). One sub-pattern is swapped per skin, so the
+ * base bullet keeps firing its other sub-patterns — the curtain GROWS a gem hue
+ * rather than losing its old skin. The BulletPack multi-hue sheets are sliced to
+ * these names by explicit crop in `tools/bulletpack-map.json`; size-honesty (a
+ * skin's painted extent ≈ 2·radius of the bullet it lands on) is enforced by that
+ * placement, re-checked on `bun run test:density` (no automated honesty test). */
+const SHARD_TITHE = { ...SHARD, style: { ...SHARD.style, sprite: 'needle.tithe' } };
+const ENEMY_BEACON = { ...ENEMY_SHOT, style: { ...ENEMY_SHOT.style, sprite: 'orb.small.beacon' } };
+const SEEKER_LIEN = { ...SEEKER, style: { ...SEEKER.style, sprite: 'needle.lien' } };
+const SPARK_FEE = { ...SPARK, style: { ...SPARK.style, sprite: 'orb.small.fee' } };
+const EMBER_PYRE = { ...EMBER, style: { ...EMBER.style, sprite: 'petal.pyre' } };
+const SHELL_ASSAY = { ...SHELL, style: { ...SHELL.style, sprite: 'orb.small.assay' } };
+const SEEKER_ESCROW = { ...SEEKER, style: { ...SEEKER.style, sprite: 'scale.escrow' } };
+const WRIT_BRIEF = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.brief' } };
+const DECREE_LEDGER = { ...DECREE, style: { ...DECREE.style, sprite: 'orb.medium.ledger' } };
+const SEAL_WITNESS = { ...SEAL, style: { ...SEAL.style, sprite: 'halo.witness' } };
+const LEVY_DOCKET = { ...LEVY, style: { ...LEVY.style, sprite: 'spark.docket' } };
+const LEVY_DUTY = { ...LEVY, style: { ...LEVY.style, sprite: 'spark.duty' } };
+const LATTICE_TENURE = { ...LATTICE, style: { ...LATTICE.style, sprite: 'orb.medium.tenure' } };
+const DECREE_MANDAMUS = { ...DECREE, style: { ...DECREE.style, sprite: 'orb.medium.mandamus' } };
+const CROWN_MANDAMUS = { ...CROWN_CW, style: { ...CROWN_CW.style, sprite: 'halo.mandamus' } };
+
 /* ================================================================== */
 /* Enemies                                                            */
 /* ================================================================== */
@@ -806,7 +834,7 @@ const enemies: PackContent['enemies'] = {
       },
       {
         pattern: 'spray',
-        options: { spec: ENEMY_SHOT, count: 2, period: 24, spread: 50 },
+        options: { spec: ENEMY_BEACON, count: 2, period: 24, spread: 50 },
         startAt: 120,
         difficulty: {
           easy: { count: 1, period: 32 },
@@ -991,7 +1019,7 @@ const enemies: PackContent['enemies'] = {
     patterns: [
       {
         pattern: 'ring',
-        options: { spec: EMBER, count: 10, period: 84, rotation: 13 },
+        options: { spec: EMBER_PYRE, count: 10, period: 84, rotation: 13 },
         startAt: 24,
         // Easy leaves the gathered ring threadable, Lunatic packs it.
         difficulty: {
@@ -1024,7 +1052,7 @@ const enemies: PackContent['enemies'] = {
     patterns: [
       {
         pattern: 'ring',
-        options: { spec: SHELL, count: 14, period: 84, rotation: 12 },
+        options: { spec: SHELL_ASSAY, count: 14, period: 84, rotation: 12 },
         startAt: 30,
         // Stage-2's densest trash pattern. Easy opens the hanging ring, Lunatic
         // closes it.
@@ -1202,7 +1230,7 @@ const enemies: PackContent['enemies'] = {
     patterns: [
       {
         pattern: 'spiral',
-        options: { spec: LEVY, arms: 3, step: 9, period: 3 },
+        options: { spec: LEVY_DUTY, arms: 3, step: 9, period: 3 },
         startAt: 50,
         stopAt: 250,
         difficulty: {
@@ -1619,7 +1647,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
           { pattern: 'ring', options: { spec: PETAL, count: 24, period: 66, rotation: 15 }, startAt: 40 },
-          { pattern: 'aimed-fan', options: { spec: SHARD, count: 7, spread: 44, period: 60 }, startAt: 90 },
+          { pattern: 'aimed-fan', options: { spec: SHARD_TITHE, count: 7, spread: 44, period: 60 }, startAt: 90 },
         ],
       },
     ],
@@ -1664,7 +1692,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'aimed-fan',
-            options: { spec: SPARK, count: 5, spread: 32, period: 46 },
+            options: { spec: SPARK_FEE, count: 5, spread: 32, period: 46 },
             difficulty: {
               easy: { count: 3, period: 58 },
               hard: { count: 7, spread: 38, period: 40 },
@@ -1716,7 +1744,7 @@ const bosses: PackContent['bosses'] = {
           // Seekers between beams: standing in a wedge must not be free.
           {
             pattern: 'aimed-fan',
-            options: { spec: SEEKER, count: 3, spread: 28, period: 84 },
+            options: { spec: SEEKER_LIEN, count: 3, spread: 28, period: 84 },
             startAt: 60,
             difficulty: {
               easy: { count: 1 },
@@ -1851,7 +1879,7 @@ const bosses: PackContent['bosses'] = {
           // all of them turn inward together.
           {
             pattern: 'ring',
-            options: { spec: SEEKER, count: 14, period: 78, rotation: 13 },
+            options: { spec: SEEKER_ESCROW, count: 14, period: 78, rotation: 13 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 18, period: 68 },
@@ -2058,7 +2086,7 @@ const bosses: PackContent['bosses'] = {
           },
           {
             pattern: 'ring',
-            options: { spec: DECREE, count: 12, period: 72, rotation: 6 },
+            options: { spec: DECREE_LEDGER, count: 12, period: 72, rotation: 6 },
             difficulty: {
               easy: { count: 10, period: 84 },
               hard: { count: 14, period: 60 },
@@ -2087,7 +2115,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'spiral',
-            options: { spec: LEVY, arms: 3, step: 9, period: 3 },
+            options: { spec: LEVY_DOCKET, arms: 3, step: 9, period: 3 },
             difficulty: {
               easy: { arms: 2, step: 7 },
               hard: { arms: 4, step: 10 },
@@ -2122,7 +2150,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'ring',
-            options: { spec: SEAL, count: 16, period: 80, rotation: 0 },
+            options: { spec: SEAL_WITNESS, count: 16, period: 80, rotation: 0 },
             difficulty: {
               easy: { count: 12 },
               hard: { count: 20 },
@@ -2131,7 +2159,7 @@ const bosses: PackContent['bosses'] = {
           },
           {
             pattern: 'aimed-fan',
-            options: { spec: WRIT, count: 3, spread: 20, period: 64 },
+            options: { spec: WRIT_BRIEF, count: 3, spread: 20, period: 64 },
             difficulty: {
               easy: { count: 2, period: 80 },
               hard: { count: 4, period: 54 },
@@ -2380,7 +2408,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'ring',
-            options: { spec: CROWN_CW, count: 12, period: 90, rotation: 4 },
+            options: { spec: CROWN_MANDAMUS, count: 12, period: 90, rotation: 4 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 15 },
@@ -2413,7 +2441,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'ring',
-            options: { spec: LATTICE, count: 16, period: 54, rotation: 3 },
+            options: { spec: LATTICE_TENURE, count: 16, period: 54, rotation: 3 },
             difficulty: {
               easy: { count: 12, period: 66 },
               hard: { count: 20, period: 46 },
@@ -2489,7 +2517,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'ring',
-            options: { spec: DECREE, count: 18, period: 52, rotation: 6 },
+            options: { spec: DECREE_MANDAMUS, count: 18, period: 52, rotation: 6 },
             difficulty: {
               easy: { count: 12, period: 64 },
               hard: { count: 22, period: 46 },
@@ -2963,6 +2991,31 @@ const SCATTER_PELLET = {
   life: 18,
 };
 
+/* ---- player per-tier shot SKINS (战役扩容轮) ----
+ * A shot that names a different sprite per power tier grows visibly as the run
+ * climbs (`Player.#shot()` indexes `levels[floor(power)]`). Each of these is the
+ * base spec with ONLY `style.sprite` changed — radius, damage, motion, blade and
+ * life are byte-identical, so the sim reads the same numbers and the golden replay
+ * trace does NOT move (a sprite is presentation; the sim never reads a cell). The
+ * names floor a growing ladder in `procedural.ts` and bake the BulletPack Cian /
+ * Pink / misc art in `tools/bulletpack-map.json`. NO existing skin is displaced:
+ * every t0 keeps its backer, and these fill only the tiers that were duplicate or
+ * an aliased floor. Player draw-size is presentation, not a fairness surface (the
+ * player does not dodge its own bullets), so `bolt.hyper` may read big — its 48px
+ * native art is only capped by `style.width/height` to stay tasteful, not honest.
+ */
+const BOLT_T1 = { ...GUN_BOLT, style: { ...GUN_BOLT.style, sprite: 'glow.medium.bolt' } };
+const BOLT_T2 = { ...GUN_BOLT, style: { ...GUN_BOLT.style, sprite: 'glow.large.bolt' } };
+const BOLT_HYPER = { ...GUN_BOLT, style: { ...GUN_BOLT.style, sprite: 'bolt.hyper', width: 30, height: 18 } };
+const NEEDLE_T1 = { ...GUN_NEEDLE, style: { ...GUN_NEEDLE.style, sprite: 'needle.pin.t0' } };
+const NEEDLE_T2 = { ...GUN_NEEDLE, style: { ...GUN_NEEDLE.style, sprite: 'needle.pin.t1' } };
+const NEEDLE_T3 = { ...GUN_NEEDLE, style: { ...GUN_NEEDLE.style, sprite: 'needle.pin.t2' } };
+const SEEKER_T2 = { ...GUN_SEEKER, style: { ...GUN_SEEKER.style, sprite: 'scale.chase' } };
+const SEEKER_T3 = { ...GUN_SEEKER, style: { ...GUN_SEEKER.style, sprite: 'scale.chase.hi' } };
+const SPRAY_T1 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 'glow.small.spray.t1' } };
+const SPRAY_T2 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 'glow.small.spray.t2' } };
+const SPRAY_T3 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 'glow.small.spray.t3' } };
+
 // `scatter`'s two muzzle roles. CENTRAL bolts fire dead-ahead and carry every
 // measured single-target hit; CHEEK pairs fan wide enough to miss a point target
 // at 100px (past the 12+8 tolerance) — pure coverage, ~0 measured DPS. The free
@@ -3021,19 +3074,19 @@ const shots: PackContent['shots'] = {
     description: 'parallel bolts that fan wider with each power tier',
     levels: [
       { spec: GUN_BOLT, offsets: fan([]), period: 5 },
-      { spec: GUN_BOLT, offsets: fan([7]), period: 5 },
-      { spec: GUN_BOLT, offsets: fan([7, 15]), period: 4 },
+      { spec: BOLT_T1, offsets: fan([7]), period: 5 },
+      { spec: BOLT_T2, offsets: fan([7, 15]), period: 4 },
       // 7 and 15 again, not re-spaced: a different muzzle set can be a worse one.
-      { spec: GUN_BOLT, offsets: fan([7, 15, 26]), period: 4 },
+      { spec: BOLT_HYPER, offsets: fan([7, 15, 26]), period: 4 },
     ],
   },
   needle: {
     description: 'parallel needles; concentration instead of coverage',
     levels: [
       { spec: GUN_NEEDLE, offsets: rake(0), period: 6 },
-      { spec: GUN_NEEDLE, offsets: rake(1), period: 6 },
-      { spec: GUN_NEEDLE, offsets: rake(2), period: 6 },
-      { spec: GUN_NEEDLE, offsets: rake(3), period: 6 },
+      { spec: NEEDLE_T1, offsets: rake(1), period: 6 },
+      { spec: NEEDLE_T2, offsets: rake(2), period: 6 },
+      { spec: NEEDLE_T3, offsets: rake(3), period: 6 },
     ],
   },
   homing: {
@@ -3049,7 +3102,7 @@ const shots: PackContent['shots'] = {
         period: 9,
       },
       {
-        spec: GUN_SEEKER,
+        spec: SEEKER_T2,
         offsets: [
           { x: -7, y: -10, angle: FORWARD },
           { x: 7, y: -10, angle: FORWARD },
@@ -3058,7 +3111,7 @@ const shots: PackContent['shots'] = {
         period: 8,
       },
       {
-        spec: GUN_SEEKER,
+        spec: SEEKER_T3,
         offsets: [
           { x: -10, y: -8, angle: FORWARD - 6 },
           { x: -4, y: -12, angle: FORWARD },
@@ -3088,9 +3141,9 @@ const shots: PackContent['shots'] = {
     description: 'point-blank ember spray that evaporates past the pocket',
     levels: [
       { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR], period: 6 },
-      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6 },
-      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5 },
-      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4 },
+      { spec: SPRAY_T1, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6 },
+      { spec: SPRAY_T2, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5 },
+      { spec: SPRAY_T3, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4 },
     ],
   },
 };

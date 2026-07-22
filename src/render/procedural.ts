@@ -361,8 +361,8 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'orb.medium.lattice': 'orb.medium', // LATTICE — regent "Portcullis"
 
   /* -- player weapons (shots and options) -- */
-  'glow.small.bolt': 'glow.small', // GUN_BOLT — spread
-  'needle.pin': 'needle', // GUN_NEEDLE — needle
+  'glow.small.bolt': 'glow.small', // GUN_BOLT — spread t0
+  'needle.pin': 'needle', // GUN_NEEDLE — needle (legacy single skin)
   'scale.tracker': 'scale', // GUN_SEEKER — homing
   'glow.small.beam': 'glow.small', // GUN_BEAM — laser
   'glow.small.spray': 'glow.small', // SCATTER_PELLET — maw scatter
@@ -370,6 +370,57 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'scale.satellite': 'scale', // OPT_SEEKER_SHOT — seeker option
   'orb.small.battery': 'orb.small', // OPT_PICKET_SHOT — picket option
   'orb.small.clinch': 'orb.small', // CLINCH_SHOT — clinch option
+
+  /* -- player shot-skins BY POWER TIER (战役扩容轮) --
+   * The `Player.#shot()` seam already indexes `levels[floor(power)]`, so a shot
+   * that names a different sprite per level grows visibly as the run powers up —
+   * presentation only, every number byte-identical. The floor aliases a growing
+   * glow/needle ladder so a power-up reads even with zero packs loaded; the
+   * BulletPack Cian/Pink `lvl0/1/2` strips bake the real per-tier art onto these
+   * names. `bolt.hyper` is the shared "maxed" skin for both bullet weapons at
+   * their top tier, reached by the top-power-tier assertion (reachability.test).
+   * These floors are laid now; the base-pack strings that name them are Stage 2
+   * content — until then they are floored-but-unfired, exactly the rule-9 floor
+   * that exists before content names it. */
+  'glow.medium.bolt': 'glow.medium', // spread t1 (Cian lvl0)
+  'glow.large.bolt': 'glow.large', // spread t2 (Cian lvl1)
+  'needle.pin.t0': 'needle', // needle t1 (Pink lvl0)
+  'needle.pin.t1': 'needle', // needle t2 (Pink lvl1)
+  'needle.pin.t2': 'needle', // needle t3 (Pink lvl2)
+  'bolt.hyper': 'glow.large', // spread t3 maxed (P1_Hyper_Bullet)
+  'scale.chase': 'scale', // homing t2 (P1 Bullet_BermudaGreen — green, hound-coded)
+  'scale.chase.hi': 'scale', // homing t3 (P1_Bullet_Alt2 — the big tracker)
+  'glow.small.spray.t1': 'glow.small', // scatter t1 (P1 Bullet_Yellow)
+  'glow.small.spray.t2': 'glow.small', // scatter t2 (p1_Bullet_Alt)
+  'glow.small.spray.t3': 'glow.small', // scatter t3 (New_P1Bullet_Cian_lvl2)
+
+  /* -- enemy/boss GEM-COLOUR re-skins BY BOSS IDENTITY (战役扩容轮) --
+   * Each names a colour-coded curtain a boss (or elite) already fires: the sim
+   * reads `radius`, never the cell, so re-skinning a fired bullet to its boss's
+   * gem hue moves no trace (sentinel green, warden yellow, magistrate cyan,
+   * chancellor pink, regent purple; elites turret/bastion warm). The base cell
+   * (prefix) is chosen so the zero-pack floor size already reads at the fired
+   * radius — draw-size ≈ hitbox honesty (design §a); a Massive-family skin lands
+   * only on a slice whose painted extent ≈ 2·radius, so no re-skin oversells or
+   * undersells threat. The BulletPack multi-hue sheets are sliced into these
+   * enumerated names by explicit per-cell crop in the importer map, never by
+   * filename parsing. Re-check on `bun run test:density` if a skin or radius
+   * changes — the honesty is enforced by placement, not an automated test. */
+  'needle.tithe': 'needle', // sentinel SHARD re-skin — green line (Green_line_alt)
+  'orb.small.beacon': 'orb.small', // turret shot re-skin (elite) — warm orb (Big_Yellow_Orange_Red)
+  'needle.lien': 'needle', // warden SEEKER re-skin — yellow line (Lines_ovaly_Yellow_Orange)
+  'orb.small.fee': 'orb.small', // warden SPARK re-skin — yellow orb (Tiny_Yellow_Cian)
+  'petal.pyre': 'petal', // censer EMBER re-skin — lava bloom (Medium_lava)
+  'orb.small.assay': 'orb.small', // bastion SHELL re-skin (elite) — warm orb (Massive_Red_Orange_Yellow)
+  'scale.escrow': 'scale', // magistrate SEEKER re-skin — cyan dart (Tiny_Blue_cian)
+  'orb.small.brief': 'orb.small', // chancellor WRIT re-skin — pink orb (Medium_tiny_Pink_Yellow)
+  'orb.medium.ledger': 'orb.medium', // chancellor DECREE re-skin — pink orb, r6 (Pink_Medium_Big)
+  'halo.witness': 'halo', // chancellor SEAL re-skin — pink seal, r8 (Pink_Medium_Big 2nd slice)
+  'spark.docket': 'spark', // chancellor LEVY re-skin — pink spark (Medium_tiny_Pink_Puple_Yellow)
+  'spark.duty': 'spark', // assessor LEVY re-skin — warm spark (Medium_tiny_Yell_Orng_Magenta)
+  'orb.medium.tenure': 'orb.medium', // regent LATTICE re-skin — purple orb (Medium_tiny_Yellow_Purple)
+  'orb.medium.mandamus': 'orb.medium', // regent DECREE re-skin — purple orb, r6 (Massive_purple_yellow)
+  'halo.mandamus': 'halo', // regent CROWN re-skin — purple seal, r7 (Massive_purple_yellow)
 };
 
 /**
@@ -816,6 +867,166 @@ function popStrip(
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* The death-explosion tier floors (战役扩容轮, rule 9)                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A death-tier explosion floor — a bright core and an expanding ring, both
+ * fading, the `burst`/`missile.pop` shape sized per tier. `frameExtent`
+ * re-derives its box from the SAME growth the painter uses (the `CELL_ART`
+ * discipline, per frame), and the radii are capped so the last (widest) frame
+ * clears `min(frameW, frameH) − 2·FX_PAD`. `once`, so the single `count:1,
+ * speed:0` particle that plays it dies as its last frame finishes when its
+ * `life === stripLength` (rule 8) — measured by `strip.test.ts`. Tinted (rule 9):
+ * the warm colour is the effect spec's, so the floor stays recolourable.
+ */
+function explosionStrip(opts: {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  sheetY: number;
+  coreFrom: number;
+  coreTo: number;
+  ringFrom: number;
+  ringTo: number;
+  ringThick: number;
+}): FxStrip {
+  const { frames, coreFrom, coreTo, ringFrom, ringTo, ringThick } = opts;
+  const at = (from: number, to: number, f: number): number =>
+    from + (to - from) * (frames <= 1 ? 0 : f / (frames - 1));
+  return {
+    frameW: opts.frameW,
+    frameH: opts.frameH,
+    frames,
+    ticksPerFrame: opts.ticksPerFrame,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: opts.sheetY,
+    stride: opts.frameW,
+    frameExtent: (f) => {
+      const e = Math.max(at(coreFrom, coreTo, f) * 2, (at(ringFrom, ringTo, f) + ringThick / 2) * 2);
+      return { w: e, h: e };
+    },
+    draw: (ctx, f, cx, cy) => {
+      const t = frames <= 1 ? 0 : f / (frames - 1);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * (1 - 0.5 * t);
+      ring(ctx, cx, cy, at(ringFrom, ringTo, f), ringThick);
+      ctx.globalAlpha = 1 - 0.75 * t;
+      orb(ctx, cx, cy, at(coreFrom, coreTo, f), 0.5);
+      ctx.restore();
+    },
+  };
+}
+
+/**
+ * The boss blast's occluding BACK PLATE floor — a soft billow that grows and
+ * fades, NOT a ring: it draws normal-blend (the effect spec sets
+ * `additive: false`) under the bright core, so it reads as smoke *behind* the
+ * flash. Tinted dark-warm by the effect spec, a white billow becomes a dark
+ * occluding disc. `frameExtent` is the billow's own diameter. `once`.
+ */
+function plateStrip(opts: {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  sheetY: number;
+  billowFrom: number;
+  billowTo: number;
+}): FxStrip {
+  const { frames, billowFrom, billowTo } = opts;
+  const at = (f: number): number =>
+    billowFrom + (billowTo - billowFrom) * (frames <= 1 ? 0 : f / (frames - 1));
+  return {
+    frameW: opts.frameW,
+    frameH: opts.frameH,
+    frames,
+    ticksPerFrame: opts.ticksPerFrame,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: opts.sheetY,
+    stride: opts.frameW,
+    frameExtent: (f) => ({ w: at(f) * 2, h: at(f) * 2 }),
+    draw: (ctx, f, cx, cy) => {
+      const t = frames <= 1 ? 0 : f / (frames - 1);
+      ctx.save();
+      // Opaque early (occludes), thinning as it dissipates — a billow, not a flash.
+      ctx.globalAlpha = 0.9 * (1 - 0.7 * t);
+      orb(ctx, cx, cy, at(f), 0.7);
+      ctx.restore();
+    },
+  };
+}
+
+/**
+ * The elite SPRAY floor — a scatter of small motes flung outward on a growing
+ * ring, the mid-tier's second layer. One particle plays the whole spray as an
+ * animated strip; the motes' outward reach is `frameExtent`. `once`.
+ */
+function sprayStrip(opts: {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  sheetY: number;
+  motes: number;
+  reachTo: number;
+  moteR: number;
+}): FxStrip {
+  const { frames, motes, reachTo, moteR } = opts;
+  const reach = (f: number): number => reachTo * (frames <= 1 ? 0 : f / (frames - 1));
+  return {
+    frameW: opts.frameW,
+    frameH: opts.frameH,
+    frames,
+    ticksPerFrame: opts.ticksPerFrame,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: opts.sheetY,
+    stride: opts.frameW,
+    frameExtent: (f) => {
+      const e = (reach(f) + moteR) * 2;
+      return { w: e, h: e };
+    },
+    draw: (ctx, f, cx, cy) => {
+      const t = frames <= 1 ? 0 : f / (frames - 1);
+      const r = reach(f);
+      ctx.save();
+      ctx.globalAlpha = 1 - 0.85 * t;
+      for (let i = 0; i < motes; i++) {
+        const a = (i / motes) * Math.PI * 2;
+        orb(ctx, cx + Math.cos(a) * r, cy + Math.sin(a) * r, moteR, 0.35);
+      }
+      ctx.restore();
+    },
+  };
+}
+
+/**
+ * The debris floor — a small looping ember, scattered `count > 1` from a boss or
+ * player death and animated off each particle's own run-relative `p.age` (the
+ * one genuinely new fx draw this round, design §a; fx-stream, order-independent
+ * w.r.t. the sim, so harmless). Authored at **8×8**, not the source art's 2×2:
+ * a 2px frame cannot self-pad (`frameW − 2·FX_PAD` is negative), so the floor is
+ * paintable-sized and the art-kit importer NEAREST-upscales the 2×2 source 4× at
+ * bake time (design §c) — the seam gate stays untouched. `loop`, so no
+ * `life === stripLength` coupling; the ember fades on its particle's alpha.
+ */
+const DEBRIS_FRAME = 8;
+const DEBRIS_FRAMES = 12;
+function debrisRadius(f: number): number {
+  // A tiny twinkle: 1 → 2 → 1 over the loop, always clearing the 4px pad budget.
+  const half = DEBRIS_FRAMES / 2;
+  const tri = f <= half ? f / half : (DEBRIS_FRAMES - f) / half;
+  return 1 + 1 * tri;
+}
+
 export const FX_STRIPS: Record<string, FxStrip> = {
   burst: {
     frameW: 64,
@@ -893,6 +1104,45 @@ export const FX_STRIPS: Record<string, FxStrip> = {
   'missile.pop.tiny': popStrip(11, 2, 6, 9, 192),
   'missile.pop.mid': popStrip(9, 2, 7, 10, 220),
   'missile.pop.big': popStrip(8, 3, 9, 10, 248),
+  // The death-explosion tiers (战役扩容轮), on their own rows below the missile
+  // pops (next free sheetY = 276). Frame counts match the BulletPack `Exp` files
+  // a reskin drops in (New_expmid 28, New_Mid_Exp_particles 39, Exp_Back 15,
+  // Exp_Top 16, New_Player_Explosion 38, Versatile_Particles_2x2 12) so the
+  // import round's pixels land frame-for-frame. All tinted (rule 9); the layered
+  // boss pair is `boom.boss.back` (normal-blend plate) + `boom.boss.top`.
+  'boom.elite': explosionStrip({
+    frameW: 48, frameH: 48, frames: 28, ticksPerFrame: 1, sheetY: 276,
+    coreFrom: 5, coreTo: 14, ringFrom: 6, ringTo: 19, ringThick: 3,
+  }),
+  'boom.elite.spray': sprayStrip({
+    frameW: 44, frameH: 44, frames: 39, ticksPerFrame: 1, sheetY: 324,
+    motes: 8, reachTo: 15, moteR: 4,
+  }),
+  'boom.boss.back': plateStrip({
+    frameW: 72, frameH: 72, frames: 15, ticksPerFrame: 3, sheetY: 368,
+    billowFrom: 10, billowTo: 32,
+  }),
+  'boom.boss.top': explosionStrip({
+    frameW: 72, frameH: 72, frames: 16, ticksPerFrame: 3, sheetY: 440,
+    coreFrom: 8, coreTo: 22, ringFrom: 8, ringTo: 30, ringThick: 4,
+  }),
+  'boom.player': explosionStrip({
+    frameW: 64, frameH: 64, frames: 38, ticksPerFrame: 2, sheetY: 512,
+    coreFrom: 6, coreTo: 20, ringFrom: 6, ringTo: 26, ringThick: 4,
+  }),
+  debris: {
+    frameW: DEBRIS_FRAME,
+    frameH: DEBRIS_FRAME,
+    frames: DEBRIS_FRAMES,
+    ticksPerFrame: 2,
+    mode: 'loop',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: 576,
+    stride: DEBRIS_FRAME,
+    frameExtent: (f) => ({ w: debrisRadius(f) * 2, h: debrisRadius(f) * 2 }),
+    draw: (ctx, f, cx, cy) => orb(ctx, cx, cy, debrisRadius(f), 0.3),
+  },
 };
 
 /** The names the fx floor guarantees, mirroring `BULLET_CELLS` for the fx sheet. */
@@ -2068,13 +2318,21 @@ function pickupGeo(
 }
 
 /**
- * The 8 pickup strips — 2 coins (6-frame disc) + 5 gems (9-frame facet) + 1 bar
- * (9-frame ingot) — mirroring the 8 BulletPack Misc coin/gem/bar files a reskin
- * supplies. Frame sizes track the native art (per `docs/assets.md`), so a baked
- * pack strip lands on the same name. `procedural.test.ts` holds every frame
- * against the seam pad; the reachability collectors assert each is dropped once a
- * base item names it (the content round). Colour is boss identity, authored per
- * item as a tint — the five gems share one facet floor and differ only by hue.
+ * The 10 pickup strips — 2 field coins + 5 gems + 1 bar (the dropped money
+ * tiers), plus 2 results-card TALLY coins (战役扩容轮) — mirroring the BulletPack
+ * Misc coin/gem/bar files a reskin supplies. Frame sizes track the native art
+ * (per `docs/assets.md`), so a baked pack strip lands on the same name.
+ * `procedural.test.ts` holds every frame against the seam pad; the reachability
+ * collectors assert each dropped tier is collected once a base item names it (the
+ * content round). Colour is boss identity, authored per item as a tint — the five
+ * gems share one facet floor and differ only by hue.
+ *
+ * The two `pickup.tally.coin.*` strips are NOT field drops: they are the shadowed
+ * twins (`Gold_coin_strip6`/`Silver_coin_strip6`) barred from the field by the
+ * no-baked-shadow policy, given their honest lit home on the ALL CLEAR results
+ * card, where an implied light makes a baked shadow correct. No item names them —
+ * the ending-screen coin tally does (design §coins) — so they are drawn-not-dropped
+ * and proven by `test:assets`, not a drop-reachability collector.
  */
 export const PICKUP_STRIPS: Record<string, PickupStripGeo> = {
   'pickup.coin.silver': pickupGeo(18, 10, 6, 3, pickupDisc),
@@ -2085,6 +2343,8 @@ export const PICKUP_STRIPS: Record<string, PickupStripGeo> = {
   'pickup.gem.pink': pickupGeo(15, 15, 9, 3, pickupFacet),
   'pickup.gem.purple': pickupGeo(15, 15, 9, 3, pickupFacet),
   'pickup.bar': pickupGeo(19, 12, 9, 3, pickupIngot),
+  'pickup.tally.coin.gold': pickupGeo(18, 12, 6, 3, pickupDisc),
+  'pickup.tally.coin.silver': pickupGeo(18, 10, 6, 3, pickupDisc),
 };
 
 /** Every pickup strip name, `BULLET_CELLS`'s companion for the pickup sheet. */

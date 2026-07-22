@@ -661,6 +661,16 @@ export class PauseState extends MenuState {
 /* Endings                                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The pickup-atlas cells the results-card coin tally names — the gold and silver
+ * TALLY twins (shadow-correct on a lit card, unlike a field drop). Strings the
+ * shell resolves; `states.ts` names them exactly as it names a `scene`, and never
+ * imports the renderer. Kept as constants so the two sites that could drift (here
+ * and `procedural.ts`'s `pickup.tally.coin.*` floor) read the same name.
+ */
+const TALLY_COIN_GOLD = 'pickup.tally.coin.gold';
+const TALLY_COIN_SILVER = 'pickup.tally.coin.silver';
+
 abstract class EndingState extends MenuState {
   protected readonly playing: PlayingState;
 
@@ -702,6 +712,20 @@ abstract class EndingState extends MenuState {
     }
     return lines;
   }
+
+  /**
+   * The run's loot as a two-coin tally for the results card (战役扩容轮). Both
+   * denominations are always present so the renderer's coin names always resolve,
+   * even at zero. `sprite` is a string the shell maps to a pickup-atlas cell — the
+   * game never learns the coins are drawn (the `background`/`scene` boundary).
+   */
+  protected coinTally(): readonly { readonly sprite: string; readonly count: number }[] {
+    const coins = this.playing.run.coins;
+    return [
+      { sprite: TALLY_COIN_GOLD, count: coins.gold },
+      { sprite: TALLY_COIN_SILVER, count: coins.silver },
+    ];
+  }
 }
 
 export class GameOverState extends EndingState {
@@ -726,6 +750,7 @@ export class GameOverState extends EndingState {
       kind: 'game-over',
       title: 'GAME OVER',
       lines: this.scoreLines(),
+      tally: this.coinTally(),
       menu: this.entries,
       selected: this.selected,
     };
@@ -784,6 +809,7 @@ export class ClearedState extends EndingState {
       kind: 'cleared',
       title: this.#hasNext ? 'STAGE CLEAR' : 'ALL CLEAR',
       lines: this.scoreLines(),
+      tally: this.coinTally(),
       menu: this.entries,
       selected: this.selected,
     };

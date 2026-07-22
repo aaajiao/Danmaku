@@ -109,13 +109,27 @@ describe('the effect/strip life coupling (measured, not typed)', () => {
     );
   });
 
-  test('burst, burst.big and the three missile.pop tiers are covered by this guard', () => {
-    // The 导弹轮 tiers join burst/burst.big: each is a count:1, speed:0 particle on
-    // a `once` fx strip, so its `life` must equal its strip's `stripLength` or the
-    // airburst freeze-then-lingers (or dies mid-animation) — the same coupling,
-    // now measured over the missile detonations the content stage fires.
+  test('burst, burst.big, the missile.pop tiers and the death-explosion tiers are covered by this guard', () => {
+    // The 导弹轮 tiers and the 战役扩容轮 death-explosion tiers join burst/burst.big:
+    // each is a count:1, speed:0 particle on a `once` fx strip, so its `life` must
+    // equal its strip's `stripLength` or the flash freeze-then-lingers (or dies
+    // mid-animation) — the same coupling, now measured over the missile detonations
+    // and the elite/boss/player booms the death sites fire. `debris` is NOT here:
+    // it is a `loop`, `count > 1` ember, so a loop-never-finishes strip carries no
+    // `life === stripLength` coupling.
     expect(singleShotStripEffects.sort()).toEqual(
-      ['burst', 'burst.big', 'missile.pop.big', 'missile.pop.mid', 'missile.pop.tiny'].sort(),
+      [
+        'boom.boss.back',
+        'boom.boss.top',
+        'boom.elite',
+        'boom.elite.spray',
+        'boom.player',
+        'burst',
+        'burst.big',
+        'missile.pop.big',
+        'missile.pop.mid',
+        'missile.pop.tiny',
+      ].sort(),
     );
   });
 

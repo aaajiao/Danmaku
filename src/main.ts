@@ -300,6 +300,17 @@ const batches = {
     blending: 'additive',
     renderOrder: Layer.Bursts,
   }),
+  // The boss blast's occluding BACK PLATE: the same fx sheet as `bursts` (one
+  // texture), a SECOND batch bound to it with NORMAL blending at Layer.BurstsBack,
+  // just under Bursts. A batch is one texture and one blend, so a plate that must
+  // read as a dark billow *under* the bright additive core needs its own batch —
+  // additive can only add light, never occlude. The draw loop routes a particle
+  // here by `p.spec.additive === false` (only `boom.boss.back`), not a name set.
+  burstsBack: new SpriteBatch(fxAtlas, {
+    capacity: 64,
+    blending: 'normal',
+    renderOrder: Layer.BurstsBack,
+  }),
   // The looping pickup glow, also on the fx sheet, at the Items layer.
   itemGlow: new SpriteBatch(fxAtlas, {
     capacity: 512,
@@ -346,6 +357,7 @@ stage.add(batches.options.mesh, 'Player', 1);
 stage.add(batches.playerShots.mesh, 'PlayerShots');
 stage.add(batches.enemyShots.mesh, 'EnemyShots');
 stage.add(batches.missiles.mesh, 'Missiles');
+stage.add(batches.burstsBack.mesh, 'BurstsBack');
 stage.add(batches.bursts.mesh, 'Bursts');
 stage.add(batches.effects.mesh, 'Effects');
 // Caps at the Effects tier but one step above the small-particle effects batch,
@@ -809,7 +821,15 @@ function drawRun(run: Run): void {
     // never a wall clock or the interpolation alpha.
     const onFx = fxAtlas.has(p.spec.sprite);
     const atlas = onFx ? fxAtlas : bulletAtlas;
-    const batch = onFx ? batches.bursts : batches.effects;
+    // Route by which atlas owns the sprite, then — on the fx sheet — by blend: a
+    // non-additive fx (only the boss blast's `boom.boss.back` plate) draws through
+    // the normal-blend `burstsBack` batch UNDER the additive core; every other fx
+    // stays additive. The split is read from the spec, not a hardcoded name set.
+    const batch = onFx
+      ? p.spec.additive === false
+        ? batches.burstsBack
+        : batches.bursts
+      : batches.effects;
     const s = atlas.strip(p.spec.sprite);
     const frame = atlas.frameOf(s, stripFrame(s, p.age));
     batch.draw(p.x, p.y, frame, {
@@ -1021,7 +1041,14 @@ function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
   surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, 30, 36);
 }
 
-function drawView(view: { kind: string; title?: string; lines?: readonly string[]; menu?: readonly string[]; selected?: number }): void {
+function drawView(view: {
+  kind: string;
+  title?: string;
+  lines?: readonly string[];
+  menu?: readonly string[];
+  selected?: number;
+  tally?: readonly { readonly sprite: string; readonly count: number }[];
+}): void {
   const cx = FIELD_W / 2;
   // Upper third of the 3:4 frame: high enough that a menu never sits where
   // the player's ship idles, low enough not to collide with the boss bar.
@@ -1044,6 +1071,12 @@ function drawView(view: { kind: string; title?: string; lines?: readonly string[
     y += 20;
   }
 
+  if (view.tally && view.tally.length > 0) {
+    y += 4;
+    drawCoinTally(view.tally, cx, y);
+    y += 24;
+  }
+
   y += 12;
   (view.menu ?? []).forEach((entry, i) => {
     const active = i === view.selected;
@@ -1053,6 +1086,52 @@ function drawView(view: { kind: string; title?: string; lines?: readonly string[
   });
 
   surface.textAlign = 'left';
+}
+
+/**
+ * The results-card coin tally (战役扩容轮) — a gold and a silver coin with the
+ * run's counts beside them, centred as one group under the score lines. The state
+ * hands a `{ sprite, count }[]` across the boundary (`states.ts` never learns the
+ * coins are drawn); the SHELL owns presentation, so it maps each sprite name to a
+ * coin colour here.
+ *
+ * The coin is drawn as a lit disc glyph on the 2D overlay — the honest home for
+ * the shadowed coin twins the field bars (a lit UI surface where an implied light
+ * makes a coin's sheen correct). The `pickup.tally.coin.*` names still resolve on
+ * the pickup atlas (the never-blocked floor), so a BulletPack can bake real coin
+ * art there and `test:assets` proves those pixels; the glyph is the zero-pack
+ * floor for this card until a draw path blits the atlas cell.
+ */
+const TALLY_COIN_R = 6;
+function tallyCoinColor(sprite: string): string {
+  return sprite.includes('gold') ? '#e6c24a' : '#c6ccd6';
+}
+
+function drawCoinTally(
+  tally: readonly { readonly sprite: string; readonly count: number }[],
+  cx: number,
+  baselineY: number,
+): void {
+  surface.font = '12px monospace';
+  surface.textAlign = 'left';
+  const iconW = TALLY_COIN_R * 2 + 5;
+  const gap = 18;
+  const labels = tally.map((t) => `${t.count}`);
+  const widths = tally.map((_, i) => iconW + surface.measureText(labels[i] ?? '').width);
+  const total = widths.reduce((a, b) => a + b, 0) + gap * Math.max(0, tally.length - 1);
+
+  let x = cx - total / 2;
+  tally.forEach((entry, i) => {
+    surface.fillStyle = tallyCoinColor(entry.sprite);
+    surface.beginPath();
+    surface.arc(x + TALLY_COIN_R, baselineY - 4, TALLY_COIN_R, 0, Math.PI * 2);
+    surface.fill();
+    surface.fillStyle = '#8a8a8a';
+    surface.fillText(labels[i] ?? '', x + iconW, baselineY);
+    x += (widths[i] ?? 0) + gap;
+  });
+
+  surface.textAlign = 'center';
 }
 
 /**

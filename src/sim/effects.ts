@@ -405,3 +405,93 @@ defineEffect('missile.pop.big', {
   tint: { r: 1, g: 0.5, b: 0.26 },
   additive: true,
 });
+
+/**
+ * The death-explosion tiers (战役扩容轮) — the fx a death emits, selected by tier
+ * in `game/deathfx.ts` and fired at the three death sites in `run.ts`. Each is a
+ * single `count:1, speed:0` particle on a `once` fx strip (`FX_STRIPS`), dying as
+ * its last frame finishes because `life === stripLength` (rule 8 — no completion
+ * flag; measured, not typed, by `render/strip.test.ts` like `burst`/`burst.big`),
+ * EXCEPT `debris`, which scatters `count > 1` on a `loop` ember. They live here —
+ * engine code, not pack data — because a death site names one by string and
+ * `effects.emit` throws on an unknown name (the never-blocked floor, rule 9), and
+ * because their sprites are fx-sheet strips, so they use `defineEffect` directly
+ * rather than the atlas-typed `defineSprite`. Warm-graded by threat.
+ *
+ * `boom.boss.back` is the ONLY `additive: false` effect: it is the occluding back
+ * plate of the layered boss blast, a dark-warm billow that draws normal-blend at
+ * `Layer.BurstsBack` UNDER the bright additive core — `main.ts` routes it there by
+ * `spec.additive === false`, not by a hardcoded name.
+ */
+defineEffect('boom.elite', {
+  sprite: 'boom.elite',
+  count: 1,
+  speed: 0,
+  life: 28, // stripLength = 28 frames × 1 tick; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.7, b: 0.36 },
+  additive: true,
+});
+
+defineEffect('boom.elite.spray', {
+  sprite: 'boom.elite.spray',
+  count: 1,
+  speed: 0,
+  life: 39, // stripLength = 39 frames × 1 tick; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.82, b: 0.5 },
+  additive: true,
+});
+
+defineEffect('boom.boss.back', {
+  sprite: 'boom.boss.back',
+  count: 1,
+  speed: 0,
+  life: 45, // stripLength = 15 frames × 3 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  // A dark-warm smoke, so the white billow floor reads as an occluding plate.
+  tint: { r: 0.32, g: 0.18, b: 0.12 },
+  additive: false,
+});
+
+defineEffect('boom.boss.top', {
+  sprite: 'boom.boss.top',
+  count: 1,
+  speed: 0,
+  life: 48, // stripLength = 16 frames × 3 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.62, b: 0.3 },
+  additive: true,
+});
+
+defineEffect('boom.player', {
+  sprite: 'boom.player',
+  count: 1,
+  speed: 0,
+  life: 76, // stripLength = 38 frames × 2 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  // Cooler and whiter than an enemy blast — the pilot's own death reads apart.
+  tint: { r: 0.9, g: 0.85, b: 1 },
+  additive: true,
+});
+
+/**
+ * `debris` — the ember scatter thrown off a boss or player death, the round's one
+ * genuinely new fx draw (`count > 1`, design §a): fx-stream and order-independent
+ * w.r.t. the sim, so harmless. Each ember animates the `debris` `loop` strip off
+ * its OWN run-relative `p.age` (rule 1's analogue), fading on its particle alpha —
+ * no `life === stripLength` coupling, because a loop never finishes.
+ */
+defineEffect('debris', {
+  sprite: 'debris',
+  count: { min: 8, max: 14 },
+  speed: { min: 1, max: 4.5 },
+  life: { min: 24, max: 44 },
+  drag: 0.92,
+  gravity: 0.03,
+  scale: { from: 1.2, to: 0.5 },
+  alpha: { from: 1, to: 0 },
+  spin: 0.1,
+  tint: { r: 1, g: 0.7, b: 0.4 },
+  additive: true,
+});

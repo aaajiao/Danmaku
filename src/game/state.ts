@@ -53,6 +53,13 @@ export interface StateView {
   readonly menu?: readonly string[];
   /** Index into `menu`. */
   readonly selected?: number;
+  /**
+   * Icon-and-count rows for a results card (the ending screens' coin tally).
+   * `sprite` is a STRING the renderer resolves to a pickup-atlas cell — the same
+   * name-across-the-boundary rule `StageSpec.background` follows, so `state.ts`
+   * never learns the coins are drawn from an atlas.
+   */
+  readonly tally?: readonly { readonly sprite: string; readonly count: number }[];
   /** The live simulation, if this state owns one. Typed loosely on purpose:
    *  `state.ts` must not depend on `run.ts`, or the two cannot be read apart. */
   readonly run?: unknown;

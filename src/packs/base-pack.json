@@ -256,7 +256,7 @@
             "options": {
               "spec": {
                 "style": {
-                  "sprite": "orb.small.chaff",
+                  "sprite": "orb.small.beacon",
                   "r": 1,
                   "g": 0.45,
                   "b": 0.75
@@ -721,7 +721,7 @@
             "options": {
               "spec": {
                 "style": {
-                  "sprite": "petal.ember",
+                  "sprite": "petal.pyre",
                   "r": 1,
                   "g": 0.85,
                   "b": 0.5
@@ -792,7 +792,7 @@
             "options": {
               "spec": {
                 "style": {
-                  "sprite": "scale.shell",
+                  "sprite": "orb.small.assay",
                   "r": 0.7,
                   "g": 0.82,
                   "b": 1,
@@ -1248,7 +1248,7 @@
             "options": {
               "spec": {
                 "style": {
-                  "sprite": "spark.levy",
+                  "sprite": "spark.duty",
                   "r": 0.85,
                   "g": 0.75,
                   "b": 0.7,
@@ -2225,7 +2225,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "scale.shard",
+                      "sprite": "needle.tithe",
                       "r": 0.6,
                       "g": 0.85,
                       "b": 1,
@@ -2323,7 +2323,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.spark",
+                      "sprite": "orb.small.fee",
                       "r": 1,
                       "g": 0.72,
                       "b": 0.42
@@ -2501,7 +2501,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "kunai.seeker",
+                      "sprite": "needle.lien",
                       "r": 0.55,
                       "g": 1,
                       "b": 0.82,
@@ -2880,7 +2880,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "kunai.seeker",
+                      "sprite": "scale.escrow",
                       "r": 0.55,
                       "g": 1,
                       "b": 0.82,
@@ -3447,7 +3447,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.medium.decree",
+                      "sprite": "orb.medium.ledger",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5
@@ -3511,7 +3511,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "spark.levy",
+                      "sprite": "spark.docket",
                       "r": 0.85,
                       "g": 0.75,
                       "b": 0.7,
@@ -3594,7 +3594,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "halo.seal",
+                      "sprite": "halo.witness",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5,
@@ -3635,7 +3635,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.brief",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4233,7 +4233,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "halo.crown",
+                      "sprite": "halo.mandamus",
                       "r": 0.98,
                       "g": 0.85,
                       "b": 0.55,
@@ -4324,7 +4324,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.medium.lattice",
+                      "sprite": "orb.medium.tenure",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5
@@ -4532,7 +4532,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.medium.decree",
+                      "sprite": "orb.medium.mandamus",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5
@@ -5403,7 +5403,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.bolt",
+                "sprite": "glow.medium.bolt",
                 "r": 0.7,
                 "g": 0.95,
                 "b": 1
@@ -5442,7 +5442,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.bolt",
+                "sprite": "glow.large.bolt",
                 "r": 0.7,
                 "g": 0.95,
                 "b": 1
@@ -5491,10 +5491,12 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.bolt",
+                "sprite": "bolt.hyper",
                 "r": 0.7,
                 "g": 0.95,
-                "b": 1
+                "b": 1,
+                "width": 30,
+                "height": 18
               },
               "radius": 4,
               "motion": {
@@ -5583,7 +5585,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "needle.pin",
+                "sprite": "needle.pin.t0",
                 "r": 1,
                 "g": 0.85,
                 "b": 0.6,
@@ -5621,7 +5623,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "needle.pin",
+                "sprite": "needle.pin.t1",
                 "r": 1,
                 "g": 0.85,
                 "b": 0.6,
@@ -5669,7 +5671,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "needle.pin",
+                "sprite": "needle.pin.t2",
                 "r": 1,
                 "g": 0.85,
                 "b": 0.6,
@@ -5791,7 +5793,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "scale.tracker",
+                "sprite": "scale.chase",
                 "r": 1,
                 "g": 0.8,
                 "b": 0.5,
@@ -5828,7 +5830,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "scale.tracker",
+                "sprite": "scale.chase.hi",
                 "r": 1,
                 "g": 0.8,
                 "b": 0.5,
@@ -6043,7 +6045,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.spray",
+                "sprite": "glow.small.spray.t1",
                 "r": 1,
                 "g": 0.55,
                 "b": 0.3,
@@ -6089,7 +6091,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.spray",
+                "sprite": "glow.small.spray.t2",
                 "r": 1,
                 "g": 0.55,
                 "b": 0.3,
@@ -6145,7 +6147,7 @@
           {
             "spec": {
               "style": {
-                "sprite": "glow.small.spray",
+                "sprite": "glow.small.spray.t3",
                 "r": 1,
                 "g": 0.55,
                 "b": 0.3,

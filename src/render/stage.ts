@@ -43,6 +43,15 @@ export const Layer = {
   // renumbering (CLAUDE.md rule 5); a new Layer is a data change, never a
   // resequence.
   Missiles: 620,
+  // The boss blast's occluding BACK PLATE (`boom.boss.back`): a normal-blend
+  // smoke billow drawn UNDER the bright additive core, so it reads as darkness
+  // *behind* the flash — which additive light, only ever adding, cannot do. Its
+  // own fx-sheet batch (a batch is one texture and one blend), slotted between
+  // Missiles (620) and Bursts (650) with room on both sides (CLAUDE.md rule 5).
+  // If `bun run dev` shows the art was authored additive, this plate collapses
+  // into the Bursts batch and this constant goes inert (a documented later
+  // cleanup) — the two-slot occluding stack is the binding default (design §c).
+  BurstsBack: 640,
   // Frame-animated bursts (the fx sheet's own additive batch) sit just under
   // the small-particle Effects layer: an explosion flash reads behind the
   // sparks thrown off the same kill. Spaced so it slots in without renumbering

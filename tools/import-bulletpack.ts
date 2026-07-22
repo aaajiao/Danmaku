@@ -226,6 +226,26 @@ function resize(img: Img, dw: number, dh: number): Img {
   return out;
 }
 
+/**
+ * Integer nearest-neighbour upscale by `n`× — lifts a sub-`FX_PAD` source (the
+ * 2×2 `Versatile_Particles` debris; a 2px frame's `frameW − 2·FX_PAD` is negative)
+ * to a paintable frame WITHOUT introducing a new colour or blurring a pixel, a
+ * documented import transform (design §c). Baked art only; every output texel is a
+ * copy of a source texel, so the `color:'baked'` pixels stay exact. The seam gate
+ * itself is untouched — the art is enlarged before it reaches the gate.
+ */
+function nearestUpscale(img: Img, n: number): Img {
+  if (n <= 1) return img;
+  const out = blank(img.w * n, img.h * n);
+  for (let y = 0; y < img.h; y++) {
+    for (let x = 0; x < img.w; x++) {
+      const [r, g, b, a] = px(img, x, y);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) setPx(out, x * n + dx, y * n + dy, r, g, b, a);
+    }
+  }
+  return out;
+}
+
 /** Fit the longer painted axis to `target` px (up or down), preserving aspect. */
 function fitTo(img: Img, target: number): Img {
   const m = Math.max(img.w, img.h);
@@ -274,6 +294,7 @@ interface StripMap {
   crop?: { x: number; y: number; w: number; h: number };
   rotate?: number; // clockwise degrees to bring directional art to +x (rule 7)
   fit?: number; // FLOOR only: fit the longer painted axis to this many px
+  nearest?: number; // integer nearest-neighbour upscale (sub-FX_PAD art, design §c)
   mode?: 'loop' | 'once';
   ticksPerFrame?: number;
   note?: string;
@@ -281,6 +302,7 @@ interface StripMap {
 interface EffectMap {
   src: string;
   strip: number;
+  nearest?: number; // integer nearest-neighbour upscale (sub-FX_PAD art, design §c)
   mode?: 'loop' | 'once';
   ticksPerFrame?: number;
   note?: string;
@@ -319,6 +341,7 @@ function loadFrames(root: string, m: StripMap, whitenFit: boolean): Img[] {
     let img = n > 1 ? frameOf(whole, n, f) : whole;
     if (m.crop) img = crop(img, m.crop.x, m.crop.y, m.crop.w, m.crop.h);
     if (m.rotate) img = rotate(img, m.rotate);
+    if (m.nearest) img = nearestUpscale(img, m.nearest);
     img = trimAlpha(img, BULLET_ALPHA_PAINTED);
     if (whitenFit && m.fit) img = fitTo(img, m.fit);
     if (whitenFit) img = whiten(img);
@@ -420,7 +443,14 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
   const n = m.strip;
   const fw = Math.floor(whole.w / n);
   const raw: Img[] = [];
-  for (let f = 0; f < n; f++) raw.push(crop(whole, f * fw, 0, fw, whole.h));
+  for (let f = 0; f < n; f++) {
+    // A sub-`FX_PAD` source (the 2×2 debris) is nearest-upscaled to a paintable
+    // frame BEFORE the union box / seam gate see it (design §c). Radial art only,
+    // so no rotate here — the effect discipline.
+    let fr = crop(whole, f * fw, 0, fw, whole.h);
+    if (m.nearest) fr = nearestUpscale(fr, m.nearest);
+    raw.push(fr);
+  }
 
   // Union content box across all frames (local coords), so every frame shares
   // one crop window — inter-frame motion is preserved, not re-centred per frame.
@@ -433,7 +463,9 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
     if (box.x + box.w - 1 > maxX) maxX = box.x + box.w - 1;
     if (box.y + box.h - 1 > maxY) maxY = box.y + box.h - 1;
   }
-  if (maxX < minX) { minX = 0; minY = 0; maxX = fw - 1; maxY = whole.h - 1; }
+  const efw = raw[0]?.w ?? fw;
+  const efh = raw[0]?.h ?? whole.h;
+  if (maxX < minX) { minX = 0; minY = 0; maxX = efw - 1; maxY = efh - 1; }
   const uW = maxX - minX + 1;
   const uH = maxY - minY + 1;
   const side = Math.max(uW, uH);
@@ -653,11 +685,11 @@ function suggestedConsumer(cat: string, file: string): string {
   if (cat === 'player-ship' && /Option/i.test(file)) return 'dedicated option sprite (OptionSpec currently names a bullet cell)';
   if (cat === 'player-ship') return 'player 形象 — out of scope by user directive (2026-07-22)';
   // The two SHADOWED coin twins (Gold_coin_strip6, Silver_coin_strip6 — _strip6 and
-  // NOT NoShadow) are deliberately unmapped: the uniform no-baked-shadow policy
-  // (a light-background shadow reads as a grey smudge on the dark curtain; the
-  // itemGlow halo already supplies lift). Pack-author alternate skins, deferred.
+  // NOT NoShadow) leave the staged pile in 战役扩容轮: their baked shadow is wrong on
+  // the dark FIELD (the no-baked-shadow policy that deferred them) but correct on the
+  // lit ALL CLEAR / GAME OVER results card, so they consume as pickup.tally.coin.*.
   if (cat === 'misc' && /_strip6\.png$/i.test(file) && !/noshadow/i.test(file)) {
-    return 'DEFERRED shadow twin (pickup-variety round §g.1) — uniform no-baked-shadow policy; the NoShadow coin ships, this alternate stages';
+    return 'results-card coin tally (assets.pickups: pickup.tally.coin.gold/silver) — the shadowed twin on the lit ending card, where a cast shadow is correct';
   }
   if (cat === 'misc') return 'item skin (animated pickup) — pickup-variety round (8 coin/gem/bar strips consumed as assets.pickups)';
   return 'unclassified';
@@ -760,6 +792,11 @@ function main(): void {
   const noteConsumed = (src: string, name: string) => {
     const a = consumedSrc.get(src) ?? []; a.push(name); consumedSrc.set(src, a);
   };
+  // A map section may carry `$`-prefixed doc keys inline (a `$grammar`/`$gem-reskins`
+  // note beside the strips it explains); they are commentary, not strips, so every
+  // strip loop skips them — the same discipline `variantsDuplicate` already applies.
+  const mapStrips = <T,>(o: Record<string, T>): [string, T][] =>
+    Object.entries(o).filter(([k]) => !k.startsWith('$'));
 
   /* --- assemble bullet strips (floor + variants + shots) --- */
   const entries: StripEntry[] = [];
@@ -769,11 +806,11 @@ function main(): void {
     entries.push({ name: cell, frames: loadFrames(root, m, true), color: 'tinted', mode: m.mode ?? 'once', ticksPerFrame: m.ticksPerFrame ?? 1 });
     noteConsumed(m.src, cell);
   }
-  for (const [name, m] of Object.entries(map.variants)) {
+  for (const [name, m] of mapStrips(map.variants)) {
     entries.push({ name, frames: loadFrames(root, m, false), color: 'baked', mode: m.mode ?? 'once', ticksPerFrame: m.ticksPerFrame ?? 1 });
     noteConsumed(m.src, name);
   }
-  for (const [name, m] of Object.entries(map.shots)) {
+  for (const [name, m] of mapStrips(map.shots)) {
     entries.push({ name, frames: loadFrames(root, m, false), color: 'baked', mode: m.mode ?? 'once', ticksPerFrame: m.ticksPerFrame ?? 1 });
     noteConsumed(m.src, name);
   }
@@ -785,7 +822,7 @@ function main(): void {
 
   /* --- effects (one own-file strip per explosion) --- */
   const effectsManifest: Record<string, EmittedEffect> = {};
-  for (const [name, m] of Object.entries(map.effects)) {
+  for (const [name, m] of mapStrips(map.effects)) {
     const { sheet: fxSheet, meta, file } = buildEffectStrip(root, name, m);
     assertEffectStrip(name, fxSheet, meta);
     writeVerified(join(outDir, file), fxSheet);
@@ -796,7 +833,7 @@ function main(): void {
 
   /* --- lasers (one own-file baked strip per body/cap, rotated +x) --- */
   const lasersManifest: Record<string, EmittedEffect> = {};
-  for (const [name, m] of Object.entries(map.lasers)) {
+  for (const [name, m] of mapStrips(map.lasers)) {
     const { sheet: lzSheet, meta, file } = buildLaserStrip(root, name, m);
     assertEffectStrip(name, lzSheet, meta); // same per-file strip gate as effects
     writeVerified(join(outDir, file), lzSheet);
@@ -811,7 +848,7 @@ function main(): void {
   // `buildLaserStrip` and pass the same per-file seam gate — `assets.missiles`
   // composites onto the fourth (missile) texture in `main.ts`, symmetric to lasers.
   const missilesManifest: Record<string, EmittedEffect> = {};
-  for (const [name, m] of Object.entries(map.missiles)) {
+  for (const [name, m] of mapStrips(map.missiles)) {
     const { sheet: msSheet, meta, file } = buildLaserStrip(root, name, m);
     assertEffectStrip(name, msSheet, meta); // same per-file strip gate as effects/lasers
     writeVerified(join(outDir, file), msSheet);
@@ -827,7 +864,7 @@ function main(): void {
   // texture in `main.ts`, symmetric to missiles/lasers/effects. The Silver suffix
   // trap is handled in the MAP (`strip: 6` hand-declared), not here.
   const pickupsManifest: Record<string, EmittedEffect> = {};
-  for (const [name, m] of Object.entries(map.pickups)) {
+  for (const [name, m] of mapStrips(map.pickups)) {
     const { sheet: pkSheet, meta, file } = buildEffectStrip(root, name, m);
     assertEffectStrip(name, pkSheet, meta); // same per-file strip gate as effects/lasers/missiles
     writeVerified(join(outDir, file), pkSheet);
@@ -934,7 +971,7 @@ function main(): void {
     license: 'UNCONFIRMED — no LICENSE file in source folder',
     dispositions: {
       consumed: 'packed into the pack (bullets.png, an effect PNG, a laser strip PNG, a missile body PNG, or a pickup coin/gem/bar PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, a fired laser skin body/cap (assets.lasers), a fired missile body (assets.missiles), or a dropped pickup skin (assets.pickups). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
-      staged: 'copied verbatim to extra/<category>/ for a future round (surplus player shots, oversized beams, unreached explosions, shadowed coin twins). No consumer this round. (Lasers left this list in the laser round, 2026-07-22 — all 11 are now consumed. Missiles left it in the import round — all 16 are now consumed: 13 bodies as assets.missiles + 3 detonation tiers as assets.effects missile.pop.*. Coins/gems left it in the pickup-variety round — 8 of the 10 Misc/ files are now consumed as assets.pickups; the 2 shadowed coin twins remain staged under the uniform no-baked-shadow policy.)',
+      staged: 'copied verbatim to extra/<category>/ for a future round. As of 战役扩容轮 (2026-07-22) the ONLY staged files are the 10 player-ship 形象 (ships, thrusters, bombs, options) — deferred by user directive. Every enemy-bullet, player-bullet, explosion and coin is now consumed: the 13 enemy families gem-coloured per boss (BULLET_VARIANTS re-skins), the 12 player shots as per-tier skins, the 6 explosions as the death-tier ladder (assets.effects boom.*/debris), and the 2 shadowed coin twins as the results-card tally (assets.pickups pickup.tally.coin.*). (Lasers left the pile in the laser round — 11 consumed as assets.lasers. Missiles in the import round — 16 as assets.missiles + missile.pop.*. Coins/gems in the pickup round — 8 as assets.pickups.)',
       skipped: 'pure junk not tracked in files[] (.DS_Store, author .txt notes). Counted in total, not listed.',
     },
     totals: { total, consumed, staged, skipped },

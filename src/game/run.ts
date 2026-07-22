@@ -48,7 +48,7 @@ import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
-import { ItemSystem, type Spoils } from '../sim/item';
+import { getItemSpec, ItemSystem, type Spoils } from '../sim/item';
 import { OptionSystem } from '../sim/option';
 import { Player, type PlayerConfig } from '../sim/player';
 import {
@@ -56,6 +56,7 @@ import {
   ReplayPlayback,
   ReplayRecorder,
 } from '../sim/replay';
+import { TIER_BOOMS, enemyDeathTier } from './deathfx';
 
 /* ------------------------------------------------------------------ */
 /* Characters                                                          */
@@ -417,6 +418,28 @@ const DEATH_POWER_LOSS = 1;
 const DEATH_POWER_ITEMS = 8;
 
 /**
+ * The run's collected loot, tallied for the results card into two coin
+ * denominations. Two counts, not a rich per-item breakdown: the ending screen
+ * shows a gold and a silver coin with a number beside each, the whole-screen
+ * arcade grammar (`decisions §coins`). The names are strings across the boundary
+ * — `src/game` never learns the coins are drawn from the pickup atlas.
+ */
+export interface CoinTally {
+  gold: number;
+  silver: number;
+}
+
+/**
+ * The value at or below which a collected `score` pickup counts as *silver*, and
+ * above which it counts as *gold*, on the results-card tally. Read from the item
+ * registry (`getItemSpec('score').value`, the base silver chip) rather than typed
+ * as a literal, so a retuned score table moves the split with it and no magic
+ * number drifts away from the thing it describes (the balance doctrine). Gold is
+ * every richer score drop — the gold coin, the gems, the jackpot bar.
+ */
+const COIN_SILVER_MAX = getItemSpec('score').value;
+
+/**
  * Score thresholds that drop an extra life, ascending.
  *
  * The `life` item is fully implemented — registered, tinted, magnetised,
@@ -513,6 +536,13 @@ export class Run {
   #dialoguePrev = 0;
   /** How many `EXTEND_SCORES` thresholds this run has already paid out. */
   #extends = 0;
+
+  /**
+   * The run's coin tally for the results card — gold and silver counts derived
+   * from collected `score`-kind pickups (no new sim state: this is a game-layer
+   * count, never read by the golden fingerprint, so it moves no trace).
+   */
+  #coins: CoinTally = { gold: 0, silver: 0 };
 
   #events: RunEvent[] = [];
   #spare: RunEvent[] = [];
@@ -652,6 +682,14 @@ export class Run {
     player.power = carry.power;
     player.graze = carry.graze;
     player.deathCount = carry.deathCount;
+  }
+
+  /**
+   * The run's coin tally for the results card, a copy so a reader cannot mutate
+   * the live counters. Gold and silver counts of collected score-kind loot.
+   */
+  get coins(): CoinTally {
+    return { gold: this.#coins.gold, silver: this.#coins.silver };
   }
 
   /** What this run would hand the stage after it. See `RunConfig.carry`. */
@@ -900,9 +938,14 @@ export class Run {
   #resolveDeaths(rng: Random): void {
     for (const death of this.enemies.drainDeaths()) {
       if (death.spec.onDeath) this.effects.emit(death.spec.onDeath, death.x, death.y);
-      // The frame-animated hero flash on every kill, regardless of a pack's own
-      // `onDeath` scatter. fx-stream (rule 2), so it never moves the trace.
-      this.effects.emit('burst', death.x, death.y);
+      // The death-tier flash, on top of the pack's own `onDeath` scatter: trash
+      // keeps the single `burst` floor flash, an elite (authored `onDeath:
+      // 'death.big'`) blooms the layered mid-tier booms. The tier is the site's
+      // discriminator — `enemyDeathTier` never runs on a boss. fx-stream (rule 2),
+      // so routing a heavier death moves no `sim` draw and never touches the trace.
+      for (const boom of TIER_BOOMS[enemyDeathTier(death.spec)]) {
+        this.effects.emit(boom, death.x, death.y);
+      }
       this.#award(death.spec.scoreValue ?? 0);
 
       for (const [name, count] of death.spec.spoils ?? []) {
@@ -942,6 +985,11 @@ export class Run {
           break;
         case 'score':
           this.#award(value);
+          // Bucket the chip onto the results-card coin tally. Silver is the base
+          // score denomination; every richer score drop (gold coin, gems, bar) is
+          // gold. fx/ui only — no sim state, no trace (design §coins).
+          if (value > COIN_SILVER_MAX) this.#coins.gold++;
+          else this.#coins.silver++;
           break;
         case 'life':
           this.player.lives += value;
@@ -1078,9 +1126,13 @@ export class Run {
     const powerBefore = player.power;
     player.kill();
     this.boss.notePlayerDeath();
-    this.effects.emit('death.big', player.x, player.y);
-    // The frame-animated flash augments the scatter above (fx-stream, rule 2).
-    this.effects.emit('burst.big', player.x, player.y);
+    // The player's own explosion — its own tier, not the boss stack: the pilot's
+    // detonation (`boom.player`) and embers. The `death.big` scatter that used to
+    // fire here still reaches play through every boss's `onDeath` (site below), so
+    // nothing is retired. fx-stream (rule 2), trace-neutral.
+    for (const boom of TIER_BOOMS.player) {
+      this.effects.emit(boom, player.x, player.y);
+    }
     this.#emit({ type: 'player-death', x: player.x, y: player.y });
 
     // Dying costs power, and scatters some of it back where the ship fell.
@@ -1165,8 +1217,13 @@ export class Run {
             this.#bossDefeated = true;
           }
           if (event.boss.spec.onDeath) this.effects.emit(event.boss.spec.onDeath, x, y);
-          // The frame-animated boss flash on every boss kill (fx-stream, rule 2).
-          this.effects.emit('burst.big', x, y);
+          // The layered boss blast on every boss kill: an occluding back plate
+          // (`boom.boss.back`, normal-blend, drawn UNDER at Layer.BurstsBack), the
+          // retasked `burst.big` bright core, a top flash, and debris embers — in
+          // draw order (design §c). fx-stream (rule 2), so it never moves the trace.
+          for (const boom of TIER_BOOMS.boss) {
+            this.effects.emit(boom, x, y);
+          }
           for (const [name, count] of event.boss.spec.spoils ?? DEFAULT_BOSS_SPOILS) {
             this.items.burst(name, x, y, count, rng);
           }
@@ -1556,6 +1613,8 @@ export class Run {
     this.#dialogue = undefined;
     this.#dialoguePrev = 0;
     this.#extends = 0;
+    this.#coins.gold = 0;
+    this.#coins.silver = 0;
     this.#events.length = 0;
     this.#spare.length = 0;
   }
