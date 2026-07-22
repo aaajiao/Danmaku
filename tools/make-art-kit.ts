@@ -51,6 +51,10 @@ import {
   CELL_ART,
   SHIP_SIZE,
   SHIP_CELLS,
+  FX_STRIPS,
+  FX_PAD,
+  FX_SHEET_W,
+  FX_SHEET_H,
 } from '../src/render/procedural';
 import { PORTRAIT_SIZE, portraitNames, tintFor } from '../src/render/portrait';
 import { ColourType, encodePng, parsePng, type PngHeader } from './png';
@@ -374,6 +378,43 @@ function bulletSheet(S: number, nameLabels: boolean): Img {
     text(img, label, x0 + margin + S, y0 + margin + S, px, LABEL_COL, 0.9);
   });
 
+  return img;
+}
+
+/* ================================================================== */
+/* Animation-strip fx template — the FX_STRIPS floor, per-frame boxes.  */
+/* ================================================================== */
+
+/**
+ * The fx sheet the strip format ships (`FX_STRIPS`, `src/render/procedural.ts`):
+ * every strip on its own row, its frames laid out horizontally, each frame boxed
+ * with its 2px safe margin and labelled by index. Driven by the same table the
+ * engine paints from, so the template cannot drift from what the game loads. The
+ * ghost silhouettes are the engine's own procedural paint (they need a canvas the
+ * raster tool lacks); the per-frame *geometry* — the seam budget an artist must
+ * clear — is what this template carries, and `procedural.test.ts` asserts it.
+ */
+function fxStripsSheet(S: number): Img {
+  const img = image(FX_SHEET_W * S, FX_SHEET_H * S);
+  const t = Math.max(1, S);
+  const margin = FX_PAD * S;
+
+  for (const [name, s] of Object.entries(FX_STRIPS)) {
+    for (let f = 0; f < s.frames; f++) {
+      const x0 = (s.sheetX + f * s.stride) * S;
+      const y0 = s.sheetY * S;
+      const fw = s.frameW * S;
+      const fh = s.frameH * S;
+      // Frame boundary and the safe edge (the per-frame seam budget).
+      frame(img, x0, y0, fw, fh, t, GUIDE_EDGE, 0.6);
+      frame(img, x0 + margin, y0 + margin, fw - margin * 2, fh - margin * 2, t, GUIDE_SAFE, 0.5);
+      const label = f === 0 ? `${name} 0` : String(f);
+      const avail = fw - margin * 2 - 2 * S;
+      let px = Math.max(1, Math.floor(S / 2));
+      while (px > 1 && textWidth(label, px) > avail) px--;
+      text(img, label, x0 + margin + S, y0 + margin + S, px, LABEL_COL, 0.9);
+    }
+  }
   return img;
 }
 
@@ -879,6 +920,12 @@ function main(): void {
   write('bullets-template.png', encode(bulletsExact), bulletsExact.w, bulletsExact.h);
   const bullets8x = bulletSheet(8, true);
   write('bullets-paint-8x.png', encode(bullets8x), bullets8x.w, bullets8x.h);
+
+  // Animation-strip fx floor: exact per-frame box template + 8× painting canvas.
+  const fxExact = fxStripsSheet(1);
+  write('effects-template.png', encode(fxExact), fxExact.w, fxExact.h);
+  const fx8x = fxStripsSheet(8);
+  write('effects-paint-8x.png', encode(fx8x), fx8x.w, fx8x.h);
 
   // Ship: exact + 8× + the seven-character roster reference.
   const shipExact = shipTemplate(1, 'SHIP');

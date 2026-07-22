@@ -29,6 +29,11 @@ export const Layer = {
   Player: 400,
   PlayerShots: 500,
   EnemyShots: 600,
+  // Frame-animated bursts (the fx sheet's own additive batch) sit just under
+  // the small-particle Effects layer: an explosion flash reads behind the
+  // sparks thrown off the same kill. Spaced so it slots in without renumbering
+  // (CLAUDE.md rule 5); a new Layer is a data change, never a resequence.
+  Bursts: 650,
   Effects: 700,
   Foreground: 800,
   Overlay: 900,

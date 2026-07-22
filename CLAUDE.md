@@ -284,7 +284,7 @@ engine. Every extension point is a registry:
 | Dialogue portraits | `definePortrait` | `src/render/portrait.ts` |
 | Sounds | `defineSound` | `src/audio/index.ts` |
 | Music tracks | `defineMusic` | `src/audio/music.ts` |
-| Sprite regions | `Atlas.define` / `defineGrid` | `src/render/atlas.ts` |
+| Sprite regions (and animation strips) | `Atlas.define` / `defineGrid` / `defineStrip` | `src/render/atlas.ts` |
 | Render layers | `Layer` constants | `src/render/stage.ts` |
 | Asset packs (reskins + content) | drop a folder in `packs/` | `docs/packs.md` |
 
@@ -420,9 +420,27 @@ One `SpriteBatch` per layer and blend mode; each is a single instanced draw call
 Position, rotation, scale, UV rect and tint are per-instance attributes, so
 rotation happens on the GPU and only instance buffers move per frame.
 
-**Bullets are white; colour is a per-instance tint.** One sheet serves every
-colour in the game. Upstream baked each bullet colour into its own cell and never
-used its per-vertex colour channel as a tint at all.
+**A sprite carries colour one of two ways, and the batch draws both identically.**
+The procedural floor and every shared bullet cell are *white + per-instance tint*:
+one greyscale shape recoloured by the shader's `texel * tint` multiply, so the
+floor sheet serves every colour and stays small, and the base campaign
+colour-codes a curtain by tinting the same cell many hues — the honest,
+recolourable rule-9 mode. A loaded pack may instead **bake** colour into the
+pixels of a *named variant* strip and declare `color: 'baked'`; its tint then
+defaults to identity white and the multiply becomes a *modulation* — a sub-1
+channel tones or fades, a >1 channel (the boss hit-flash) lifts toward the clamp —
+rather than the colour source. Either way one texture is one instanced draw call —
+the batching story is unchanged; what changed is that "white" is the floor's
+**mode**, not a law every sheet obeys, and that baked colour lives in a variant
+named by content, not tinted onto a shared floor cell. Upstream baked each bullet
+colour into its own cell **and** never used its tint channel at all; we keep both
+paths and let the art choose which.
+
+Native art is horizontal **animation strips** — a static cell is the degenerate
+`frames: 1`, one vocabulary, no second format (`Atlas` stores every entry as a
+`Strip`; frame selection is a pure tick-clocked function in `src/render/strip.ts`
+that reads a run-relative entity `.age`, never a wall clock or `loop.count`). See
+`docs/assets.md` §"Animation strips" and `docs/packs.md`.
 
 Upstream was already well batched (~17 draw calls a frame regardless of bullet
 count), so draw-call count was never the performance argument. Its real costs were

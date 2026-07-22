@@ -34,7 +34,12 @@ import type { Replay } from './sim/replay';
 import { FIELD, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
 import { Background } from './render/background';
-import { bulletAtlas as makeBulletAtlas, shipAtlas as makeShipAtlas } from './render/procedural';
+import {
+  bulletAtlas as makeBulletAtlas,
+  shipAtlas as makeShipAtlas,
+  effectAtlas as makeEffectAtlas,
+} from './render/procedural';
+import { stripFrame } from './render/strip';
 import { PostProcessing } from './render/post';
 import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
@@ -162,8 +167,21 @@ for (const [name, url] of Object.entries(packs.soundUrls)) {
  */
 const BULLET_SHEET: string | undefined = undefined;
 
-const bulletAtlas = await makeBulletAtlas(packs.bulletsUrl ?? BULLET_SHEET);
-const shipAtlas = await makeShipAtlas(packs.shipUrl);
+// A native pack sheet arrives as a self-describing strip object (native size,
+// native frames, tinted floor cells or baked variants); a legacy pack still
+// arrives as a plain URL. The shell picks the branch by which shape the loader
+// resolved. Either way the result is ONE `bulletAtlas` and ONE batch per layer:
+// bullets stay single-texture / single-batch, so no per-bullet routing enters
+// the hot path (amendment §1.5). Native baked pixel art wants nearest sampling,
+// which `loadTexture` already gives a loaded sheet (linear stays opt-in below).
+const bulletAtlas = await makeBulletAtlas(packs.bulletsUrl ?? BULLET_SHEET, packs.bulletsStrips);
+const shipAtlas = await makeShipAtlas(packs.shipUrl, packs.shipStrip);
+
+// The animation-strip fx floor (rule 9): a second texture carrying the bursts
+// and the item pulse at their native sizes. Procedural unless a combined fx
+// sheet is dropped in directly; a pack's per-file `assets.effects` reskin is a
+// separate, warn-only path that falls back here.
+const fxAtlas = await makeEffectAtlas();
 
 // A pack may ask for linear sampling (smooth art); the default `nearest`
 // matches `loadTexture`, so only the opt-in needs applying. The placeholder
@@ -197,14 +215,31 @@ const batches = {
     blending: 'additive',
     renderOrder: Layer.Effects,
   }),
+  // The frame-animated bursts live on the fx sheet, so they need their own
+  // batch bound to that texture (a batch is one texture — this is the binding,
+  // not a preference, and it reuses the whole instanced-draw machinery). Its own
+  // layer, just under Effects, so the flash reads behind the sparks.
+  bursts: new SpriteBatch(fxAtlas, {
+    capacity: 512,
+    blending: 'additive',
+    renderOrder: Layer.Bursts,
+  }),
+  // The looping pickup glow, also on the fx sheet, at the Items layer.
+  itemGlow: new SpriteBatch(fxAtlas, {
+    capacity: 512,
+    blending: 'additive',
+    renderOrder: Layer.Items,
+  }),
 };
 
 stage.add(batches.enemies.mesh, 'Enemies');
-stage.add(batches.items.mesh, 'Items');
+stage.add(batches.itemGlow.mesh, 'Items');
+stage.add(batches.items.mesh, 'Items', 1);
 stage.add(batches.player.mesh, 'Player');
 stage.add(batches.options.mesh, 'Player', 1);
 stage.add(batches.playerShots.mesh, 'PlayerShots');
 stage.add(batches.enemyShots.mesh, 'EnemyShots');
+stage.add(batches.bursts.mesh, 'Bursts');
 stage.add(batches.effects.mesh, 'Effects');
 
 /**
@@ -482,6 +517,21 @@ function drawRun(run: Run): void {
   }
 
   for (const item of run.items.items) {
+    // A looping glow behind every pickup — the run-relative-loop proof consumer.
+    // `pulse` is a `mode: 'loop'` strip on the fx sheet, and its frame is clocked
+    // off `item.age` (run-relative, starts at 0 at spawn, reproduced by a replay)
+    // — NEVER `loop.count`, whose program-global phase would desync the loop
+    // across replays watched at different session offsets (the grafted clock law).
+    const glow = fxAtlas.strip('pulse');
+    const glowFrame = fxAtlas.frameOf(glow, stripFrame(glow, item.age));
+    batches.itemGlow.draw(item.x, item.y, glowFrame, {
+      width: glow.frameW,
+      height: glow.frameH,
+      r: item.spec.tint?.r,
+      g: item.spec.tint?.g,
+      b: item.spec.tint?.b,
+      a: 0.5,
+    });
     batches.items.draw(item.x, item.y, item.spec.sprite, {
       rotation: item.angle,
       r: item.spec.tint?.r,
@@ -524,10 +574,17 @@ function drawRun(run: Run): void {
       continue;
     }
 
-    batch.draw(b.x, b.y, b.style.sprite, {
+    // Select the frame off `b.age` — run-relative, tick-only, reproduced by a
+    // replay. For the base game every bullet strip is `frames: 1` at 32px, so
+    // `stripFrame` returns 0 and the width/height default to 32: byte-identical
+    // to before. Only a native pack sheet animates or resizes a bullet, and its
+    // native `frameW/frameH` flow in as the default draw size (amendment §2).
+    const s = bulletAtlas.strip(b.style.sprite);
+    const frame = bulletAtlas.frameOf(s, stripFrame(s, b.age));
+    batch.draw(b.x, b.y, frame, {
       rotation: b.angle,
-      width: b.style.width,
-      height: b.style.height,
+      width: b.style.width ?? s.frameW,
+      height: b.style.height ?? s.frameH,
       r: b.style.r,
       g: b.style.g,
       b: b.style.b,
@@ -536,10 +593,22 @@ function drawRun(run: Run): void {
   }
 
   for (const p of run.effects.particles) {
-    batches.effects.draw(p.x, p.y, p.spec.sprite, {
+    // Route by which atlas owns the sprite (the "shell knows both halves"
+    // pattern): a burst strip lives on the fx sheet and draws through the fx
+    // batch; every existing small particle stays on the bullet atlas and the
+    // effects batch, byte-identical (its `frameW === 32`, so the size below is
+    // the old `32 * p.scale`). The frame is selected off `p.age` — a
+    // run-relative, tick-only clock the replay reproduces (rule 1's analogue),
+    // never a wall clock or the interpolation alpha.
+    const onFx = fxAtlas.has(p.spec.sprite);
+    const atlas = onFx ? fxAtlas : bulletAtlas;
+    const batch = onFx ? batches.bursts : batches.effects;
+    const s = atlas.strip(p.spec.sprite);
+    const frame = atlas.frameOf(s, stripFrame(s, p.age));
+    batch.draw(p.x, p.y, frame, {
       rotation: p.angle,
-      width: 32 * p.scale,
-      height: 32 * p.scale,
+      width: s.frameW * p.scale,
+      height: s.frameH * p.scale,
       r: p.spec.tint?.r,
       g: p.spec.tint?.g,
       b: p.spec.tint?.b,

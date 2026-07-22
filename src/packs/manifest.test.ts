@@ -362,6 +362,161 @@ describe('assets', () => {
   });
 });
 
+/** True when a manifest passes validation (no errors) — for the accept cases. */
+function accepts(raw: unknown): boolean {
+  return 'manifest' in validateManifest(raw, 'candy');
+}
+
+describe('assets: native strip object forms (additive, zero breakage)', () => {
+  test('the legacy string forms are still valid', () => {
+    expect(accepts({ ...valid(), assets: { bullets: 'b.png', ship: 's.png' } })).toBe(true);
+  });
+
+  test('a number (neither string nor object) still fires the verbatim strings', () => {
+    // The compatibility-contract branch, kept exactly for the neither case.
+    expect(errorsOf({ ...valid(), assets: { bullets: 3 } })).toContain(
+      'pack "candy": pack.json: assets.bullets must be a string (a path to a PNG)',
+    );
+    expect(errorsOf({ ...valid(), assets: { ship: 3 } })).toContain(
+      'pack "candy": pack.json: assets.ship must be a string (a path to a PNG)',
+    );
+  });
+
+  describe('bullets object form', () => {
+    const sheet = (strips: Record<string, unknown>) => ({
+      ...valid(),
+      assets: { bullets: { sheet: 'b.png', strips } },
+    });
+
+    test('a minimal native strip is valid — x:0/y:0 are legal (the sheet origin)', () => {
+      expect(accepts(sheet({ 'orb.small': { x: 0, y: 0, frameW: 8, frameH: 8 } }))).toBe(true);
+    });
+
+    test('an animated baked variant is valid', () => {
+      expect(
+        accepts(
+          sheet({
+            'msh.green': { x: 0, y: 0, frameW: 13, frameH: 13, frames: 4, mode: 'once', color: 'baked' },
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    test('frameW:0 is rejected — a size is a positive integer', () => {
+      expect(errorsOf(sheet({ foo: { x: 0, y: 0, frameW: 0, frameH: 8 } }))).toContain(
+        'pack "candy": pack.json: assets.bullets.strips."foo".frameW must be a positive integer',
+      );
+    });
+
+    test('frames:0 is rejected — a count is a positive integer', () => {
+      expect(errorsOf(sheet({ foo: { x: 0, y: 0, frameW: 8, frameH: 8, frames: 0 } }))).toContain(
+        'pack "candy": pack.json: assets.bullets.strips."foo".frames must be a positive integer',
+      );
+    });
+
+    test('a negative x offset is rejected — an offset is non-negative', () => {
+      expect(errorsOf(sheet({ foo: { x: -1, y: 0, frameW: 8, frameH: 8 } }))).toContain(
+        'pack "candy": pack.json: assets.bullets.strips."foo".x must be a non-negative integer',
+      );
+    });
+
+    test('stride < frameW is rejected', () => {
+      expect(errorsOf(sheet({ foo: { x: 0, y: 0, frameW: 8, frameH: 8, stride: 6 } }))).toContain(
+        'pack "candy": pack.json: assets.bullets.strips."foo".stride 6 must be at least frameW 8',
+      );
+    });
+
+    test('a bad mode and a bad color are named', () => {
+      const errs = errorsOf(sheet({ foo: { x: 0, y: 0, frameW: 8, frameH: 8, mode: 'wobble', color: 'purple' } }));
+      expect(errs).toContain('pack "candy": pack.json: assets.bullets.strips."foo".mode must be "loop" or "once"');
+      expect(errs).toContain('pack "candy": pack.json: assets.bullets.strips."foo".color must be "tinted" or "baked"');
+    });
+
+    test('a non-string sheet, a non-object strips map, and a stray field are caught', () => {
+      expect(errorsOf({ ...valid(), assets: { bullets: { sheet: 3, strips: {} } } })).toContain(
+        'pack "candy": pack.json: assets.bullets.sheet must be a string (a path to the shared PNG)',
+      );
+      expect(errorsOf({ ...valid(), assets: { bullets: { sheet: 'b.png', strips: 'x' } } })).toContain(
+        'pack "candy": pack.json: assets.bullets.strips must be a JSON object of name → strip',
+      );
+      expect(errorsOf(sheet({ foo: 3 }))).toContain(
+        'pack "candy": pack.json: assets.bullets.strips."foo" must be a JSON object',
+      );
+    });
+  });
+
+  describe('ship object form', () => {
+    const ship = (over: Record<string, unknown>) => ({
+      ...valid(),
+      assets: { ship: { src: 's.png', frameW: 40, frameH: 40, ...over } },
+    });
+
+    test('a native ship strip bank is valid', () => {
+      expect(accepts(ship({ frames: 5, mode: 'once', color: 'baked' }))).toBe(true);
+    });
+
+    test('a missing src fires the family string', () => {
+      expect(errorsOf({ ...valid(), assets: { ship: { frameW: 40, frameH: 40 } } })).toContain(
+        'pack "candy": pack.json: assets.ship.src must be a string (a path to a PNG)',
+      );
+    });
+
+    test('frameW:0, stride < frameW, and a bad mode are named', () => {
+      expect(errorsOf(ship({ frameW: 0 }))).toContain(
+        'pack "candy": pack.json: assets.ship.frameW must be a positive integer',
+      );
+      expect(errorsOf(ship({ stride: 10 }))).toContain(
+        'pack "candy": pack.json: assets.ship.stride 10 must be at least frameW 40',
+      );
+      expect(errorsOf(ship({ mode: 'wobble' }))).toContain(
+        'pack "candy": pack.json: assets.ship.mode must be "loop" or "once"',
+      );
+    });
+  });
+
+  describe('effects (animation strips)', () => {
+    const fx = (strips: Record<string, unknown>) => ({ ...valid(), assets: { effects: strips } });
+
+    test('a valid effect strip passes, tinted or baked', () => {
+      expect(
+        accepts(
+          fx({
+            blast: { src: 'blast.png', frames: 8, frameW: 64, frameH: 64, mode: 'once' },
+            fire: { src: 'fire.png', frames: 6, frameW: 48, frameH: 48, mode: 'loop', color: 'baked' },
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    test('mode must be "loop" or "once" (a golden string)', () => {
+      expect(errorsOf(fx({ blast: { src: 'b.png', frames: 8, frameW: 64, frameH: 64, mode: 'hold' } }))).toContain(
+        'pack "candy": pack.json: assets.effects.blast.mode must be "loop" or "once"',
+      );
+    });
+
+    test('frames must be a positive integer (a golden string)', () => {
+      expect(errorsOf(fx({ blast: { src: 'b.png', frames: 0, frameW: 64, frameH: 64, mode: 'once' } }))).toContain(
+        'pack "candy": pack.json: assets.effects.blast.frames must be a positive integer',
+      );
+    });
+
+    test('a missing src and a non-object strip are caught', () => {
+      expect(errorsOf(fx({ blast: { frames: 8, frameW: 64, frameH: 64, mode: 'once' } }))).toContain(
+        'pack "candy": pack.json: assets.effects.blast.src must be a string (a path to a PNG)',
+      );
+      expect(errorsOf(fx({ blast: 3 }))).toContain(
+        'pack "candy": pack.json: assets.effects.blast must be a JSON object',
+      );
+    });
+
+    test('effects itself must be an object', () => {
+      expect(errorsOf({ ...valid(), assets: { effects: 'x' } })).toContain(
+        'pack "candy": pack.json: assets.effects must be a JSON object',
+      );
+    });
+  });
+});
+
 describe('sounds', () => {
   test('not an object', () => {
     expect(errorsOf({ ...valid(), sounds: 'boom' })).toContain(

@@ -44,13 +44,85 @@ export const SOUND_NAMES = [
 
 export type SoundName = (typeof SOUND_NAMES)[number];
 
+/**
+ * One animation strip in `assets.effects`: a per-file sheet of frames laid out
+ * horizontally, frame 0 leftmost. Self-describing (graft B): the strip carries
+ * its own geometry, so the engine never fixes a global frame count or size and
+ * the import round adds a new animation by declaring one, not by editing a table.
+ * Presentation — warn-only reskin material, exactly like the bullet sheet.
+ */
+export interface PackStrip {
+  /** Sheet path, frames laid horizontally, frame 0 leftmost. */
+  src: string;
+  /** Frame count, a positive integer. */
+  frames: number;
+  frameW: number;
+  frameH: number;
+  /** Whole ticks per frame (rule 1). Default 1. */
+  ticksPerFrame?: number;
+  mode: 'loop' | 'once';
+  /** Default `'tinted'` (white + engine tint); `'baked'` for coloured art. */
+  color?: 'tinted' | 'baked';
+}
+
+/**
+ * One native bullet strip on a self-describing shared sheet. Frame 0 sits at
+ * `x,y` (offsets, NON-NEGATIVE — 0 is the sheet origin, where the legacy grid's
+ * frame 0 sits); the rest are counts/sizes (positive). Because bullets stay one
+ * texture / one batch, every native strip is packed onto ONE sheet with explicit
+ * placement — the legacy 256×64 grid is the degenerate case.
+ */
+export interface PackBulletStrip {
+  x: number;
+  y: number;
+  frameW: number;
+  frameH: number;
+  frames?: number;
+  stride?: number;
+  ticksPerFrame?: number;
+  mode?: 'loop' | 'once';
+  color?: 'tinted' | 'baked';
+}
+
+/** The object form of `assets.bullets`: one shared PNG, every strip packed onto it. */
+export interface PackBulletSheet {
+  sheet: string;
+  strips: Record<string, PackBulletStrip>;
+}
+
+/** The object form of `assets.ship`: a native strip bank in one PNG (no x/y). */
+export interface PackShipStrip {
+  src: string;
+  frameW: number;
+  frameH: number;
+  frames?: number;
+  stride?: number;
+  ticksPerFrame?: number;
+  mode?: 'loop' | 'once';
+  color?: 'tinted' | 'baked';
+}
+
 export interface PackAssets {
-  /** 256×64 sheet, 8×2 cells of 32×32. Dimensions are checked in the loader. */
-  bullets?: string;
-  /** 64×64, one `ship` region. Dimensions are checked in the loader. */
-  ship?: string;
-  /** Sampling for both sheets. Default `nearest`, matching `loadTexture`. */
+  /**
+   * The bullet art. Either the legacy string (a 256×64 grid PNG, 8×2 cells of
+   * 32×32 — UNCHANGED, still valid) OR a self-describing object of native strips
+   * (native size and animation, the whole bullet atlas). Dimensions and per-frame
+   * geometry are machine-checked in the loader.
+   */
+  bullets?: string | PackBulletSheet;
+  /**
+   * The ship art. Either the legacy string (a 64×64 `ship` region — UNCHANGED)
+   * OR a native strip bank object drawn at frame 0 this round.
+   */
+  ship?: string | PackShipStrip;
+  /** Sampling for the sheets. Default `nearest`, matching `loadTexture`. */
   filter?: 'nearest' | 'linear';
+  /**
+   * Per-file animation strips: a map of strip name → `PackStrip`. Warn-only
+   * reskin material — the pixels of a floor-name reskin or a new strip; the
+   * effect SPEC that names a strip is content, the pixels are not.
+   */
+  effects?: Record<string, PackStrip>;
 }
 
 export type PackSounds = Partial<Record<SoundName, string>>;
@@ -572,7 +644,40 @@ const TOP_FIELDS = [
  */
 const RESERVED_TOP = ['backgrounds'] as const;
 
-const ASSET_FIELDS = ['bullets', 'ship', 'filter'] as const;
+const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects'] as const;
+/** The fields of one native bullet strip (`PackBulletStrip`). x/y are offsets. */
+const BULLET_STRIP_FIELDS = [
+  'x',
+  'y',
+  'frameW',
+  'frameH',
+  'frames',
+  'stride',
+  'ticksPerFrame',
+  'mode',
+  'color',
+] as const;
+/** The fields of a native ship strip bank (`PackShipStrip`) — no x/y (one file). */
+const SHIP_STRIP_FIELDS = [
+  'src',
+  'frameW',
+  'frameH',
+  'frames',
+  'stride',
+  'ticksPerFrame',
+  'mode',
+  'color',
+] as const;
+/** The fields of one `assets.effects` strip (`PackStrip`). */
+const EFFECT_STRIP_FIELDS = [
+  'src',
+  'frames',
+  'frameW',
+  'frameH',
+  'ticksPerFrame',
+  'mode',
+  'color',
+] as const;
 const MUSIC_TRACK_FIELDS = ['file', 'loopStart', 'loopEnd', 'volume'] as const;
 const HUD_FIELDS = ['life', 'bomb'] as const;
 /** Hud resources a later format will carry; refused by name today. */
@@ -923,18 +1028,186 @@ function validateAssets(assets: unknown, prefix: string, errors: string[]): void
     errors.push(`${prefix}assets must be a JSON object`);
     return;
   }
-  if ('bullets' in assets && typeof assets.bullets !== 'string') {
-    errors.push(`${prefix}assets.bullets must be a string (a path to a PNG)`);
+
+  // Either the legacy string (unchanged, still valid) or the new self-describing
+  // object. The verbatim "must be a string" error is KEPT for the neither case
+  // (e.g. a number) — a compatibility-contract string asserted in manifest.test;
+  // the object form is a new legal branch with new strings.
+  if ('bullets' in assets) {
+    if (typeof assets.bullets === 'string') {
+      // legacy grid — ok
+    } else if (isRecord(assets.bullets)) {
+      validateBulletSheet(assets.bullets, prefix, errors);
+    } else {
+      errors.push(`${prefix}assets.bullets must be a string (a path to a PNG)`);
+    }
   }
-  if ('ship' in assets && typeof assets.ship !== 'string') {
-    errors.push(`${prefix}assets.ship must be a string (a path to a PNG)`);
+
+  if ('ship' in assets) {
+    if (typeof assets.ship === 'string') {
+      // legacy 64×64 — ok
+    } else if (isRecord(assets.ship)) {
+      validateShipStrip(assets.ship, prefix, errors);
+    } else {
+      errors.push(`${prefix}assets.ship must be a string (a path to a PNG)`);
+    }
   }
+
   if ('filter' in assets && assets.filter !== 'nearest' && assets.filter !== 'linear') {
     errors.push(`${prefix}assets.filter must be "nearest" or "linear"`);
   }
+
+  if ('effects' in assets && assets.effects !== undefined) {
+    validateEffectStrips(assets.effects, prefix, errors);
+  }
+
   for (const key of Object.keys(assets)) {
     if ((ASSET_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(prefix, key, ASSET_FIELDS));
+  }
+}
+
+/** A non-negative integer field (an x/y offset — 0 is the sheet origin). */
+function stripOffset(
+  raw: Record<string, unknown>,
+  field: string,
+  where: string,
+  prefix: string,
+  errors: string[],
+): void {
+  const v = raw[field];
+  if (v === undefined) return;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) {
+    errors.push(`${prefix}${where}.${field} must be a non-negative integer`);
+  }
+}
+
+/** A positive integer field (a size or count — 0 is never legal). */
+function stripCount(
+  raw: Record<string, unknown>,
+  field: string,
+  where: string,
+  prefix: string,
+  errors: string[],
+  required: boolean,
+): void {
+  const v = raw[field];
+  if (v === undefined) {
+    if (required) errors.push(`${prefix}${where}.${field} must be a positive integer`);
+    return;
+  }
+  if (typeof v !== 'number' || !Number.isInteger(v) || v <= 0) {
+    errors.push(`${prefix}${where}.${field} must be a positive integer`);
+  }
+}
+
+/** `mode` / `color` enum fields, shared by every strip surface. */
+function stripEnums(
+  raw: Record<string, unknown>,
+  where: string,
+  prefix: string,
+  errors: string[],
+  modeRequired: boolean,
+): void {
+  if (modeRequired ? 'mode' in raw : 'mode' in raw && raw.mode !== undefined) {
+    if (raw.mode !== 'loop' && raw.mode !== 'once') {
+      errors.push(`${prefix}${where}.mode must be "loop" or "once"`);
+    }
+  } else if (modeRequired) {
+    errors.push(`${prefix}${where}.mode must be "loop" or "once"`);
+  }
+  if ('color' in raw && raw.color !== undefined && raw.color !== 'tinted' && raw.color !== 'baked') {
+    errors.push(`${prefix}${where}.color must be "tinted" or "baked"`);
+  }
+}
+
+/** `stride >= frameW`, when both are present and numbers. */
+function stripStride(raw: Record<string, unknown>, where: string, prefix: string, errors: string[]): void {
+  const { stride, frameW } = raw;
+  if (typeof stride === 'number' && typeof frameW === 'number' && stride < frameW) {
+    errors.push(`${prefix}${where}.stride ${stride} must be at least frameW ${frameW}`);
+  }
+}
+
+/** The object form of `assets.bullets`: `{ sheet, strips }`, every strip native. */
+function validateBulletSheet(sheet: Record<string, unknown>, prefix: string, errors: string[]): void {
+  if (typeof sheet.sheet !== 'string') {
+    errors.push(`${prefix}assets.bullets.sheet must be a string (a path to the shared PNG)`);
+  }
+  if (!('strips' in sheet) || !isRecord(sheet.strips)) {
+    errors.push(`${prefix}assets.bullets.strips must be a JSON object of name → strip`);
+  } else {
+    for (const [key, strip] of Object.entries(sheet.strips)) {
+      const where = `assets.bullets.strips."${key}"`;
+      if (!isRecord(strip)) {
+        errors.push(`${prefix}${where} must be a JSON object`);
+        continue;
+      }
+      stripOffset(strip, 'x', where, prefix, errors);
+      stripOffset(strip, 'y', where, prefix, errors);
+      stripCount(strip, 'frameW', where, prefix, errors, true);
+      stripCount(strip, 'frameH', where, prefix, errors, true);
+      stripCount(strip, 'frames', where, prefix, errors, false);
+      stripCount(strip, 'stride', where, prefix, errors, false);
+      stripCount(strip, 'ticksPerFrame', where, prefix, errors, false);
+      stripStride(strip, where, prefix, errors);
+      stripEnums(strip, where, prefix, errors, false);
+      for (const field of Object.keys(strip)) {
+        if ((BULLET_STRIP_FIELDS as readonly string[]).includes(field)) continue;
+        errors.push(unknownField(`${prefix}${where}: `, field, BULLET_STRIP_FIELDS));
+      }
+    }
+  }
+  for (const field of Object.keys(sheet)) {
+    if (field === 'sheet' || field === 'strips') continue;
+    errors.push(unknownField(`${prefix}assets.bullets: `, field, ['sheet', 'strips']));
+  }
+}
+
+/** The object form of `assets.ship`: a native strip bank in one file. */
+function validateShipStrip(ship: Record<string, unknown>, prefix: string, errors: string[]): void {
+  const where = 'assets.ship';
+  if (typeof ship.src !== 'string') {
+    errors.push(`${prefix}assets.ship.src must be a string (a path to a PNG)`);
+  }
+  stripCount(ship, 'frameW', where, prefix, errors, true);
+  stripCount(ship, 'frameH', where, prefix, errors, true);
+  stripCount(ship, 'frames', where, prefix, errors, false);
+  stripCount(ship, 'stride', where, prefix, errors, false);
+  stripCount(ship, 'ticksPerFrame', where, prefix, errors, false);
+  stripStride(ship, where, prefix, errors);
+  stripEnums(ship, where, prefix, errors, false);
+  for (const field of Object.keys(ship)) {
+    if ((SHIP_STRIP_FIELDS as readonly string[]).includes(field)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, field, SHIP_STRIP_FIELDS));
+  }
+}
+
+/** `assets.effects`: a map of strip name → `PackStrip`. */
+function validateEffectStrips(effects: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(effects)) {
+    errors.push(`${prefix}assets.effects must be a JSON object`);
+    return;
+  }
+  for (const [key, strip] of Object.entries(effects)) {
+    const where = `assets.effects.${key}`;
+    if (!isRecord(strip)) {
+      errors.push(`${prefix}${where} must be a JSON object`);
+      continue;
+    }
+    if (typeof strip.src !== 'string') {
+      errors.push(`${prefix}${where}.src must be a string (a path to a PNG)`);
+    }
+    // The two golden effect strings from design §5, verbatim.
+    stripCount(strip, 'frames', where, prefix, errors, true);
+    stripCount(strip, 'frameW', where, prefix, errors, true);
+    stripCount(strip, 'frameH', where, prefix, errors, true);
+    stripCount(strip, 'ticksPerFrame', where, prefix, errors, false);
+    stripEnums(strip, where, prefix, errors, true);
+    for (const field of Object.keys(strip)) {
+      if ((EFFECT_STRIP_FIELDS as readonly string[]).includes(field)) continue;
+      errors.push(unknownField(`${prefix}${where}: `, field, EFFECT_STRIP_FIELDS));
+    }
   }
 }
 

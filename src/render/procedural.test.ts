@@ -42,6 +42,10 @@ import {
   BULLET_ROWS,
   CELL_ART,
   MAX_CELL_EXTENT,
+  FX_STRIPS,
+  FX_PAD,
+  FX_SHEET_W,
+  FX_SHEET_H,
 } from './procedural';
 
 describe('cell padding', () => {
@@ -135,6 +139,63 @@ describe('the guard can fail', () => {
  * from the bitmap, and the measurement lives in `test/visual/asset-loading.ts`,
  * which prints all sixteen.
  */
+/**
+ * The fx floor's per-frame budget — the seam law of `MAX_CELL_EXTENT`, now
+ * applied at every frame boundary of every animation strip. Each strip's
+ * `frameExtent(f)` re-derives the painted box from the SAME radii its painter
+ * uses (the `CELL_ART` discipline, per frame), so a drift between the declared
+ * budget and the paint is a failure here rather than a seam bleed on screen.
+ * `bun test` has no canvas, so this is arithmetic; `test:assets` measures the
+ * real painted footprint on a framebuffer.
+ */
+describe('fx strip geometry', () => {
+  test('every frame of every strip clears 2px of margin on both axes', () => {
+    const over: string[] = [];
+    for (const [name, s] of Object.entries(FX_STRIPS)) {
+      const limit = s.frameW - 2 * FX_PAD;
+      const hLimit = s.frameH - 2 * FX_PAD;
+      for (let f = 0; f < s.frames; f++) {
+        const e = s.frameExtent(f);
+        if (e.w > limit || e.h > hLimit) {
+          over.push(`${name} frame ${f}: ${e.w}×${e.h} > ${limit}×${hLimit}`);
+        }
+      }
+    }
+    expect(over).toEqual([]);
+  });
+
+  test('every strip fits within the shared sheet, frames laid horizontally', () => {
+    const off: string[] = [];
+    for (const [name, s] of Object.entries(FX_STRIPS)) {
+      if (s.stride < s.frameW) off.push(`${name}: stride ${s.stride} < frameW ${s.frameW}`);
+      if (s.sheetX + s.frames * s.stride > FX_SHEET_W) {
+        off.push(`${name}: runs past sheet width ${FX_SHEET_W}`);
+      }
+      if (s.sheetY + s.frameH > FX_SHEET_H) {
+        off.push(`${name}: runs past sheet height ${FX_SHEET_H}`);
+      }
+    }
+    expect(off).toEqual([]);
+  });
+
+  test('the sheet dimensions are derived from the table, not hand-set', () => {
+    const w = Math.max(...Object.values(FX_STRIPS).map((s) => s.sheetX + s.frames * s.stride));
+    const h = Math.max(...Object.values(FX_STRIPS).map((s) => s.sheetY + s.frameH));
+    expect(FX_SHEET_W).toBe(w);
+    expect(FX_SHEET_H).toBe(h);
+  });
+
+  test('the round-one strips exist with their declared playback', () => {
+    // The reachable consumers: two once bursts (enemy/boss/player death) and one
+    // looping pulse (item spin). A change to the set is a change to what draws.
+    expect(FX_STRIPS.burst?.mode).toBe('once');
+    expect(FX_STRIPS['burst.big']?.mode).toBe('once');
+    expect(FX_STRIPS.pulse?.mode).toBe('loop');
+    // All tinted: the floor is recolourable (rule 9); colour comes from the tint.
+    for (const s of Object.values(FX_STRIPS)) expect(s.color).toBe('tinted');
+  });
+});
+
 describe('declared geometry', () => {
   test('a blade paints half its control width', () => {
     expect(CELL_ART.kunai.w).toBe(26);

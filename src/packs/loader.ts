@@ -39,7 +39,12 @@ import {
   BULLET_GRID,
   BULLET_ROWS,
   MAX_CELL_EXTENT,
+  FX_PAD,
+  type BulletSheetInput,
+  type BulletStripInput,
+  type ShipStripInput,
 } from '../render/procedural';
+import type { PackBulletSheet, PackBulletStrip, PackShipStrip, PackStrip } from './manifest';
 import { injectPack, PackInjectError, type InjectContext, type InjectResult } from './inject';
 import {
   hashPack,
@@ -61,8 +66,17 @@ import {
 export interface LoadedPacks {
   /** Winning bullet sheet URL, if any pack supplied one. */
   bulletsUrl?: string;
+  /**
+   * Winning self-describing native bullet sheet, if a pack shipped the object
+   * form. Present alongside `bulletsUrl` (the resolved sheet URL); `main.ts`
+   * hands both to `bulletAtlas(url, strips)` so the whole bullet atlas is native
+   * strips. Absent means the legacy grid (or the procedural floor) is in force.
+   */
+  bulletsStrips?: BulletSheetInput;
   /** Winning ship sheet URL, if any pack supplied one. */
   shipUrl?: string;
+  /** Winning native ship strip bank, if a pack shipped the object form. */
+  shipStrip?: ShipStripInput;
   /** Texture sampling for both sheets. `nearest` matches `loadTexture`. */
   filter: 'nearest' | 'linear';
   /** Registered-sound name → winning URL. Fed through `defineSound`'s url branch. */
@@ -173,7 +187,9 @@ const BULLET_ALPHA_PAINTED = 16;
 /**
  * Largest mean saturation a bullet cell's opaque body may carry. Bullets are
  * white and colour is the engine's per-instance tint (see `Rendering` in
- * CLAUDE.md), so a coloured sheet is a mistake the tint would then double. Pure
+ * CLAUDE.md), so a coloured sheet is a mistake **for a tinted strip** the tint
+ * would then double. A `baked` variant declares its colour and skips this gate —
+ * the single line that lets a pack's coloured native art import losslessly. Pure
  * white or grey art — including its antialiased edges — measures ~0.
  */
 const BULLET_SATURATION_MAX = 0.15;
@@ -302,7 +318,9 @@ export async function loadPacks(): Promise<LoadedPacks> {
 
   return {
     bulletsUrl: winners.get('assets.bullets')?.url,
+    bulletsStrips: winners.get('assets.bullets')?.bulletStrips,
     shipUrl: winners.get('assets.ship')?.url,
+    shipStrip: winners.get('assets.ship')?.shipStrip,
     filter: (winners.get('assets.filter')?.value as 'nearest' | 'linear') ?? 'nearest',
     soundUrls,
     hudIcons: {
@@ -356,6 +374,10 @@ interface Resource {
   value?: string;
   /** A decoded hud icon, kept so `drawHud` need not decode it again. */
   image?: HTMLImageElement;
+  /** A self-describing native bullet sheet (the object form of `assets.bullets`). */
+  bulletStrips?: BulletSheetInput;
+  /** A native ship strip bank (the object form of `assets.ship`). */
+  shipStrip?: ShipStripInput;
 }
 
 interface Winner extends Resource {
@@ -451,11 +473,27 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
   // name, a dead stage) is a `PackInjectError`; re-throw it as a `PackError` so
   // it reports like every other rejection. Idempotent per pack name, so a second
   // boot-time load of the same directory is a no-op.
+  // Expand the sprite-name set this pack's content resolves against to
+  // floor cells ∪ this pack's own declared native strip names (amendment
+  // §Naming): a self-describing `assets.bullets` sheet may add pack-new variant
+  // names (e.g. `msh.green`) that its own enemy/boss/shot specs reference bare,
+  // and the runtime atlas registers them bare from the native sheet. A pack
+  // loads all-or-nothing across assets AND injection, so the sheet and the
+  // content that names its variants arrive together or the pack is skipped whole.
+  const declared =
+    manifest.assets !== undefined && typeof manifest.assets.bullets === 'object'
+      ? Object.keys(manifest.assets.bullets.strips)
+      : [];
+  const packContext: InjectContext =
+    declared.length > 0
+      ? { ...injectContext, sprites: [...injectContext.sprites, ...declared] }
+      : injectContext;
+
   let campaigns: LoadedCampaign[] = [];
   let characterPacks: LoadedCharacterPack[] = [];
   try {
     ({ campaigns, characterPacks } = attachIdentity(
-      injectPack(manifest, injectContext),
+      injectPack(manifest, packContext),
       packsData,
     ));
   } catch (error) {
@@ -534,7 +572,7 @@ async function gatherAssets(
   const assets = manifest.assets;
   if (assets === undefined) return;
 
-  if (assets.bullets !== undefined) {
+  if (typeof assets.bullets === 'string') {
     const url = fileUrl(name, assets.bullets);
     try {
       orderedBytes.push(await fetchBytes(url));
@@ -544,9 +582,11 @@ async function gatherAssets(
     } catch (error) {
       reasons.push(`pack "${name}": ${assets.bullets}: ${(error as Error).message}`);
     }
+  } else if (assets.bullets !== undefined) {
+    await gatherNativeBulletSheet(name, assets.bullets, slots, orderedBytes, reasons);
   }
 
-  if (assets.ship !== undefined) {
+  if (typeof assets.ship === 'string') {
     const url = fileUrl(name, assets.ship);
     try {
       orderedBytes.push(await fetchBytes(url));
@@ -556,11 +596,122 @@ async function gatherAssets(
     } catch (error) {
       reasons.push(`pack "${name}": ${assets.ship}: ${(error as Error).message}`);
     }
+  } else if (assets.ship !== undefined) {
+    await gatherNativeShip(name, assets.ship, slots, orderedBytes, reasons);
   }
 
   // A value, not a file: it rides no bytes and orders after the sheets it tunes.
   if (assets.filter !== undefined) {
     slots.set('assets.filter', { value: assets.filter });
+  }
+
+  // `assets.effects`: per-file animation strips, warn-only reskin material.
+  // Each strip is fetched (its bytes join the hash) and machine-checked against
+  // its own declared geometry; the pixels are not assembled into the runtime fx
+  // atlas this round (the procedural floor draws), the first real consumer being
+  // the import round — the same deferral the amendment records for native
+  // bullet/ship pixels.
+  if (assets.effects !== undefined) {
+    await gatherEffectStrips(name, assets.effects, slots, orderedBytes, reasons);
+  }
+}
+
+/**
+ * The object form of `assets.bullets`: one shared sheet, every strip on it. The
+ * sheet is fetched, and each strip machine-checked over the loaded pixels —
+ * coverage of all 16 floor cells, a baked floor cell WARNS (and falls back to
+ * tinted treatment, it is not a rejection), per-strip bounds and inter-frame
+ * seam for every strip, and mean-saturation only for a `tinted` strip. The
+ * whole native sheet stays warn-only reskin material.
+ */
+async function gatherNativeBulletSheet(
+  name: string,
+  sheet: PackBulletSheet,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+): Promise<void> {
+  const url = fileUrl(name, sheet.sheet);
+  try {
+    orderedBytes.push(await fetchBytes(url));
+    const image = await loadImage(url);
+    checkNativeBulletSheet(name, sheet.sheet, sheet.strips, image, reasons);
+    slots.set('assets.bullets', { url, bulletStrips: resolveBulletSheet(sheet) });
+  } catch (error) {
+    reasons.push(`pack "${name}": ${sheet.sheet}: ${(error as Error).message}`);
+  }
+}
+
+/** Copy a manifest bullet sheet into the render-side `BulletSheetInput` shape. */
+function resolveBulletSheet(sheet: PackBulletSheet): BulletSheetInput {
+  const strips: Record<string, BulletStripInput> = {};
+  for (const [key, s] of Object.entries(sheet.strips)) {
+    strips[key] = {
+      x: s.x,
+      y: s.y,
+      frameW: s.frameW,
+      frameH: s.frameH,
+      frames: s.frames,
+      stride: s.stride,
+      ticksPerFrame: s.ticksPerFrame,
+      mode: s.mode,
+      color: s.color,
+    };
+  }
+  return { sheet: sheet.sheet, strips };
+}
+
+/** The object form of `assets.ship`: a native strip bank drawn at frame 0. */
+async function gatherNativeShip(
+  name: string,
+  ship: PackShipStrip,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+): Promise<void> {
+  const url = fileUrl(name, ship.src);
+  try {
+    orderedBytes.push(await fetchBytes(url));
+    const image = await loadImage(url);
+    checkStripSheet(name, ship.src, 'ship', toStrip(ship), image, reasons);
+    slots.set('assets.ship', {
+      url,
+      shipStrip: {
+        frameW: ship.frameW,
+        frameH: ship.frameH,
+        frames: ship.frames,
+        stride: ship.stride,
+        ticksPerFrame: ship.ticksPerFrame,
+        mode: ship.mode,
+        color: ship.color,
+      },
+    });
+  } catch (error) {
+    reasons.push(`pack "${name}": ${ship.src}: ${(error as Error).message}`);
+  }
+}
+
+/** `assets.effects`: per-file animation strips, each fetched, hashed and gated. */
+async function gatherEffectStrips(
+  name: string,
+  effects: Record<string, PackStrip>,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+): Promise<void> {
+  // Manifest-declared order, so the hash is stable for a given manifest.
+  for (const strip of Object.keys(effects)) {
+    const spec = effects[strip];
+    if (spec === undefined) continue;
+    const url = fileUrl(name, spec.src);
+    try {
+      orderedBytes.push(await fetchBytes(url));
+      const image = await loadImage(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      slots.set(`assets.effects.${strip}`, { url });
+    } catch (error) {
+      reasons.push(`pack "${name}": ${spec.src}: ${(error as Error).message}`);
+    }
   }
 }
 
@@ -871,6 +1022,192 @@ function checkBulletSheet(
       }
     }
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Native animation-strip gates (self-describing sheets)              */
+/* ------------------------------------------------------------------ */
+
+/** The measured geometry of a strip, defaults applied — the shape the gates read. */
+export interface MeasuredStrip {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  stride: number;
+  color: 'tinted' | 'baked';
+}
+
+/** Normalize a manifest strip (bullet, ship or effect) to a `MeasuredStrip`. */
+function toStrip(s: {
+  frameW: number;
+  frameH: number;
+  frames?: number;
+  stride?: number;
+  color?: 'tinted' | 'baked';
+}): MeasuredStrip {
+  return {
+    frameW: s.frameW,
+    frameH: s.frameH,
+    frames: s.frames ?? 1,
+    stride: s.stride ?? s.frameW,
+    color: s.color ?? 'tinted',
+  };
+}
+
+/**
+ * The per-frame seam + saturation measurement shared by every strip surface.
+ * `x0,y0` is frame 0's origin on the sheet the pixels came from; frames walk
+ * right by `stride`. Emits the inter-frame seam string (a frame's painted extent
+ * over `frameW − 2·FX_PAD`, the same class `MAX_CELL_EXTENT` catches, now per
+ * frame) and — only for a `tinted` strip — the mean-saturation string. A `baked`
+ * strip skips saturation: it declares its colour and imports losslessly.
+ */
+export function measureStripFrames(
+  name: string,
+  path: string,
+  stripName: string,
+  strip: MeasuredStrip,
+  data: Uint8ClampedArray,
+  sheetW: number,
+  x0: number,
+  y0: number,
+  reasons: string[],
+): void {
+  const limit = strip.frameW - 2 * FX_PAD;
+  for (let f = 0; f < strip.frames; f++) {
+    const fx0 = x0 + f * strip.stride;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    let satSum = 0;
+    let satCount = 0;
+    for (let y = y0; y < y0 + strip.frameH; y++) {
+      for (let x = fx0; x < fx0 + strip.frameW; x++) {
+        const i = (y * sheetW + x) * 4;
+        const a = data[i + 3] as number;
+        if (a >= BULLET_ALPHA_PAINTED) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+        if (a >= SATURATION_ALPHA_FLOOR) {
+          satSum += saturation(data[i] as number, data[i + 1] as number, data[i + 2] as number);
+          satCount++;
+        }
+      }
+    }
+    if (maxX >= minX) {
+      const ex = maxX - minX + 1;
+      const ey = maxY - minY + 1;
+      if (Math.max(ex, ey) > limit) {
+        reasons.push(
+          `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}×${ey}px, ` +
+            `over the ${limit}px limit — a frame must clear 2px of margin or it bleeds into the next frame`,
+        );
+      }
+    }
+    if (strip.color === 'tinted' && satCount > 0) {
+      const mean = satSum / satCount;
+      if (mean > BULLET_SATURATION_MAX) {
+        reasons.push(
+          `pack "${name}": ${path}: strip "${stripName}" has mean saturation ${mean.toFixed(2)}, ` +
+            `over ${BULLET_SATURATION_MAX} — a tinted strip is white and colour is the engine's tint (declare color: "baked" for coloured art)`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * An own-file strip (a ship bank or an fx strip): the whole PNG is its frames
+ * laid out horizontally, so its dimensions must be exactly `frames·frameW ×
+ * frameH`. On a match, every frame is measured for the seam and (if tinted) the
+ * saturation gate.
+ */
+function checkStripSheet(
+  name: string,
+  path: string,
+  stripName: string,
+  strip: MeasuredStrip,
+  image: HTMLImageElement,
+  reasons: string[],
+): void {
+  const w = image.naturalWidth;
+  const h = image.naturalHeight;
+  const expectedW = strip.frames * strip.frameW;
+  if (w !== expectedW || h !== strip.frameH) {
+    reasons.push(
+      `pack "${name}": ${path}: strip "${stripName}" sheet is ${w}×${h}, ` +
+        `expected ${expectedW}×${strip.frameH} (${strip.frames} frames of ${strip.frameW}×${strip.frameH})`,
+    );
+    return;
+  }
+  const data = pixels(image, w, h);
+  if (data === undefined) return; // no 2D context — cannot measure, do not reject
+  measureStripFrames(name, path, stripName, strip, data, w, 0, 0, reasons);
+}
+
+/**
+ * A self-describing native bullet sheet — the whole bullet atlas on one shared
+ * PNG. It must cover every floor cell (a strips sheet replaces the atlas
+ * wholesale); a floor cell declared `baked` WARNS and falls back to tinted
+ * treatment (it never silently muds a tint-coded campaign — amendment §1.5), so
+ * that is a console warning, not a rejection. Each strip is then bounds-checked
+ * against the sheet and measured per frame for the seam and (if tinted) the
+ * saturation gate.
+ */
+function checkNativeBulletSheet(
+  name: string,
+  path: string,
+  strips: Record<string, PackBulletStrip>,
+  image: HTMLImageElement,
+  reasons: string[],
+): void {
+  const floor = new Set<string>(BULLET_CELLS as readonly string[]);
+  for (const cell of BULLET_CELLS) {
+    if (!(cell in strips)) {
+      reasons.push(
+        `pack "${name}": ${path}: self-describing bullet sheet is missing floor cell "${cell}" — ` +
+          `a strips sheet is the whole bullet atlas and must define every one of the ${BULLET_CELLS.length} built-in cells (plus any new variants)`,
+      );
+    }
+  }
+
+  const w = image.naturalWidth;
+  const h = image.naturalHeight;
+  const data = pixels(image, w, h);
+
+  for (const [stripName, raw] of Object.entries(strips)) {
+    if (floor.has(stripName) && (raw.color ?? 'tinted') === 'baked') {
+      // A warning, not a rejection — the sheet loads and the strip falls back to
+      // tinted-white treatment so a baked floor cell cannot mud the campaign.
+      console.warn(
+        `pack "${name}": ${path}: floor cell "${stripName}" is declared color: "baked" — ` +
+          `a floor cell is drawn with the per-instance tint content applies to it, which a baked colour fights; ship baked colour as a qualified variant instead`,
+      );
+    }
+    // A floor cell is always drawn with the per-instance tint content applies to
+    // it, so it is measured as tinted regardless of what it declared: that is the
+    // "falls back to tinted treatment" the warning above promises. Forcing tinted
+    // here is what makes the saturation gate run — a genuinely coloured floor cell
+    // is then rejected rather than shipped to mud the campaign; an actually-white
+    // baked-tagged cell passes untouched.
+    const strip = toStrip(floor.has(stripName) ? { ...raw, color: 'tinted' } : raw);
+    const runsToX = raw.x + strip.frames * strip.stride;
+    const runsToY = raw.y + strip.frameH;
+    if (runsToX > w || runsToY > h) {
+      reasons.push(
+        `pack "${name}": ${path}: strip "${stripName}" runs to ${runsToX}×${runsToY}, ` +
+          `past the ${w}×${h} sheet (${strip.frames} frames of ${strip.frameW}×${strip.frameH} at ${raw.x},${raw.y})`,
+      );
+      continue;
+    }
+    if (data !== undefined) {
+      measureStripFrames(name, path, stripName, strip, data, w, raw.x, raw.y, reasons);
+    }
+  }
 }
 
 /**

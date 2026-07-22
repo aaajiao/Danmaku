@@ -37,6 +37,20 @@ new art.
 Reserve real colour for art that is genuinely one thing: character portraits,
 backgrounds, UI illustration.
 
+**White + tint is the *floor's* mode, not a law every sheet obeys.** The
+procedural placeholder and every *shared* bullet cell are white-and-tinted,
+because the base campaign colour-codes a curtain by tinting one cell many hues
+(e.g. `orb.small` appears at pink, orange and more). A loaded pack may instead
+ship native strips (see §1.4): its **floor-cell** strips stay `tinted` (native
+size and animation, still tint-coded), and it may **bake** colour into the pixels
+of a *named variant* strip declared `color: 'baked'`, which its own content names
+tint-free. Baked colour lives only in a named variant — **never** on a shared
+floor cell, which would mud or collapse the hues content tints onto it. On a
+baked sprite the per-instance tint is a *modulation* (identity-white by default;
+a sub-1 channel tones or fades, the boss hit-flash's >1 lifts toward the clamp
+and BRIGHTENS), not the colour source. See `docs/packs.md` and the Rendering
+doctrine in CLAUDE.md.
+
 **And the colour that does survive is display-referred.** `loadTexture` sets
 `colorSpace = NoColorSpace` (`src/render/atlas.ts:166`), and so does every
 generated texture (`src/render/procedural.ts:304`). Nothing decodes sRGB to
@@ -149,6 +163,56 @@ Draw those shapes **pointing right**, along the positive x axis.
 Non-rotating art — orbs, rings, motes — is symmetric enough not to care, and
 should stay visually upright.
 
+### 1.4 Animation strips — the native art format
+
+Horizontal animation strips are the engine's native art format, and a static
+image is the degenerate case. Four points are law:
+
+1. **A strip is horizontal frames, frame 0 leftmost.** Frame width = row-width ÷
+   N. The filename suffix `_stripN` names N; a static image is `_strip1` (or no
+   suffix = one frame). One vocabulary, no second format — the `Atlas` stores
+   every entry as a `Strip`, and a plain cell is `frames: 1` (`src/render/atlas.ts`).
+
+2. **Per-frame padding is the seam law, per frame.** Each frame's painted extent
+   (both axes) clears `frameW − 2·PAD` / `frameH − 2·PAD`, PAD = 2 — the
+   generalization of `MAX_CELL_EXTENT` (§1.2), now evaluated at every frame
+   boundary. Additionally `x + frames·stride ≤ sheetWidth`, `y + frameH ≤
+   sheetHeight`, and `stride ≥ frameW`. The procedural fx floor's per-frame boxes
+   are asserted against this in `src/render/procedural.test.ts` (`FX_STRIPS`).
+
+3. **The art declares playback:** frame count, frame size, `ticksPerFrame`,
+   `mode` (`loop`/`once`), `color` (`tinted`/`baked`) and orientation. Frames
+   advance on a **run-relative tick clock** — an entity's own `.age`, reproduced
+   bit-for-bit by a replay — never a wall clock and never `loop.count`
+   (`src/render/strip.ts`). Directional strips point +x (§1.3); radial strips
+   (explosions) have no orientation.
+
+4. **`color: 'tinted'` obeys the white+tint saturation gate; `color: 'baked'` is
+   exempt** — the deliberate, documented divergence for coloured explosions and
+   fire (§1.1). A baked strip still passes the dimension and inter-frame seam
+   gates; only the saturation gate is skipped.
+
+**A native sprite's visible body should stay proportional to its spec `radius`.**
+The hitbox is spec data read by the sim every tick (`BulletSpec.radius`, etc.);
+the strip's `frameW/frameH` never feed it — the sim cannot read a sprite size
+(`sim/` may not import `render/`). So a 6px baked orb and a 32px floor orb with
+the same `radius` collide identically, which is what makes a native reskin
+replay-safe. Keeping the visible body near the radius is a readability courtesy,
+not a gate.
+
+The round-one procedural fx floor (`FX_STRIPS` in `src/render/procedural.ts`)
+paints three strips, all `tinted`, per-frame painted footprint under the
+`frameW − 4` budget:
+
+| Strip | frame | frames × ticks | mode | painted ≤ | look |
+|---|---|---|---|---|---|
+| `burst` | 64×64 | 8 × 3 | once | 60 | enemy-death flash — orb core, expanding ring |
+| `burst.big` | 96×96 | 12 × 3 | once | 92 | boss/player death — core + two rings |
+| `pulse` | 32×32 | 6 × 4 | loop | 28 | pickup glow, core ratio breathing 0.2→0.6→0.2 |
+
+The measured per-frame numbers ship in `test:assets`; the sheet is
+`FX_SHEET_W`×`FX_SHEET_H` (derived from the table, never hand-set).
+
 ---
 
 ## 2. Coordinate space and canvas
@@ -198,6 +262,15 @@ All sixteen cells are in use by something. Sixteen 32×32 cells carry
 essentially the whole visual vocabulary of the game — the player ship is the
 only art outside them — which is why these cells deserve far more attention than
 a 256 × 64 PNG suggests.
+
+The 256×64 grid is the **floor and the legacy-string contract** — unchanged. A
+pack may instead ship the self-describing object form (`assets.bullets: { sheet,
+strips }`) and give each of the sixteen floor names a native `tinted` strip at
+native size and animation (§1.4), plus its own `baked` named variants. That is
+one shared sheet, one texture, one batch — the hot path stays a single
+`strip(name)` lookup. The format and its loader gates are in `docs/packs.md`;
+`assets.ship` gains the same object form (§3.2), a native strip bank drawn at
+frame 0 this round.
 
 The engine generates the sheet at runtime today — `createBulletAtlas`,
 `src/render/procedural.ts:286-311` — and that generator **is** the reference
@@ -520,6 +593,16 @@ declared at `src/sim/effects.ts:251-323`:
 | `pickup` | `star` | `(1, 0.88, 0.45)` | additive |
 | `muzzle` | `glow.small` | `(0.8, 0.9, 1)` | additive |
 | `death.big` | `glow.large` | `(1, 0.55, 0.3)` | additive |
+| `burst` | `burst` (fx sheet) | `(1, 0.72, 0.38)` | additive |
+| `burst.big` | `burst.big` (fx sheet) | `(1, 0.55, 0.3)` | additive |
+
+The last two are **frame-animated** — a single particle whose sprite is a
+one-shot strip on the separate fx sheet (§1.4), not a bullet cell. They augment
+the scatter above (scatter = sparks thrown off; the strip = the hero flash), fire
+on every enemy kill (`burst`) and boss/player death (`burst.big`), and their
+`life` equals the strip's `stripLength` so the particle dies exactly as its last
+frame finishes. A pack reskins them (or adds its own) through `assets.effects`
+(`docs/packs.md`); absent one, the procedural `FX_STRIPS` floor draws.
 
 So the old claim — that effects are out of an artist's reach — is wrong.
 **Redrawing `glow.medium` redraws every explosion in the game.** The effects

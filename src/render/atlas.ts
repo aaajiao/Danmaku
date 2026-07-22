@@ -21,6 +21,57 @@ export interface Region {
   h: number;
 }
 
+/**
+ * How a strip's frames advance. Declared by the ART, never by content: a
+ * one-shot plays once and holds its last frame (an explosion), a loop wraps
+ * forever (a breathing pickup glow). Ignored when `frames === 1`.
+ */
+export type StripMode = 'once' | 'loop';
+
+/**
+ * Where a strip's colour lives.
+ *
+ * - `'tinted'` — the pixels are white and colour is the per-instance tint,
+ *   the bullet law. The saturation gate applies (a coloured tinted sheet is a
+ *   mistake the tint would double). Bullet cells, the procedural fx floor, the
+ *   ship and every shared floor cell are tinted.
+ * - `'baked'` — colour lives in the pixels (a coloured explosion, a shaded
+ *   ship). The saturation gate is SKIPPED; the tint becomes a modulation
+ *   (`texel * tint`), identity-white by default. This is the loss-free import
+ *   path for coloured native art, and it is only ever a NAMED variant, never a
+ *   floor-cell reskin (a floor cell is shared and tint-coded — see docs/packs.md).
+ */
+export type StripColor = 'tinted' | 'baked';
+
+/**
+ * A strip is what a cell always was, generalized on one axis: a named atlas
+ * entry that resolves to *frame 0's rect plus how to walk right for the rest*.
+ * A static cell is the degenerate `frames: 1`. There is one vocabulary — the
+ * `Atlas` stores every entry as a `Strip` — and a plain region is a 1-frame
+ * strip, so every existing draw site is byte-identical (`get`/`uvOf` return
+ * frame 0). Frame selection is a pure, integer, tick-clocked function that
+ * lives in `render/strip.ts`; nothing in the engine fixes a global frame count
+ * or size, so each strip carries its own geometry (self-describing).
+ */
+export interface Strip {
+  /** Frame 0's top-left on the sheet, px. */
+  x: number;
+  y: number;
+  /** One frame's size, px — free of the 32px bullet grid. */
+  frameW: number;
+  frameH: number;
+  /** Frame count; `>= 1`, and `1` is a static cell. */
+  frames: number;
+  /** Px between successive frame origins; `>= frameW`, default `frameW`. */
+  stride: number;
+  /** Ticks each frame is held; ignored when `frames === 1`. */
+  ticksPerFrame: number;
+  /** Playback; ignored when `frames === 1`. Declared by the art. */
+  mode: StripMode;
+  /** Colour mode; default `'tinted'`. */
+  color: StripColor;
+}
+
 // A pivot field lived here and was never read — SpriteBatch always centres the
 // quad, and rotation happens about that centre in the vertex shader. Adding one
 // means widening an instance attribute to carry the offset and applying it
@@ -47,7 +98,7 @@ export class Atlas {
   readonly width: number;
   readonly height: number;
 
-  readonly #regions = new Map<string, Region>();
+  readonly #strips = new Map<string, Strip>();
   readonly #grid: GridSpec | undefined;
   readonly #cols: number;
 
@@ -61,9 +112,42 @@ export class Atlas {
       : 1;
   }
 
-  /** Name a region so content can reference art without knowing coordinates. */
+  /**
+   * Name a region so content can reference art without knowing coordinates.
+   * Stored as a 1-frame tinted strip — the degenerate case of the one
+   * vocabulary, so `get`/`uvOf` on it are byte-identical to a plain region.
+   */
   define(name: string, region: Region): this {
-    this.#regions.set(name, region);
+    this.#strips.set(name, {
+      x: region.x,
+      y: region.y,
+      frameW: region.w,
+      frameH: region.h,
+      frames: 1,
+      stride: region.w,
+      ticksPerFrame: 1,
+      mode: 'once',
+      color: 'tinted',
+    });
+    return this;
+  }
+
+  /**
+   * Name a multi-frame strip. The superset surface `define`/`defineGrid` sit
+   * under: an animated or native-sized entry the atlas that owns the pixels
+   * describes for itself. `stride` defaults to `frameW`, `color` to `'tinted'`.
+   * Content references a strip by name exactly as it does a static cell; frames
+   * exist only in the view layer (`render/strip.ts`), never in the sim.
+   */
+  defineStrip(
+    name: string,
+    s: Omit<Strip, 'stride' | 'color'> & { stride?: number; color?: StripColor },
+  ): this {
+    this.#strips.set(name, {
+      ...s,
+      stride: s.stride ?? s.frameW,
+      color: s.color ?? 'tinted',
+    });
     return this;
   }
 
@@ -93,18 +177,32 @@ export class Atlas {
     };
   }
 
+  /** Back-compat: a region is frame 0 of the strip the name resolves to. */
   get(name: string): Region {
-    const region = this.#regions.get(name);
-    if (!region) throw new Error(`atlas region "${name}" is not defined`);
-    return region;
+    const s = this.#strips.get(name);
+    if (!s) throw new Error(`atlas region "${name}" is not defined`);
+    return this.frameOf(s, 0);
+  }
+
+  /** The full strip an entity clocks its frames off. */
+  strip(name: string): Strip {
+    const s = this.#strips.get(name);
+    if (!s) throw new Error(`atlas strip "${name}" is not defined`);
+    return s;
+  }
+
+  /** The rect of one frame. `frames <= 1` always yields frame 0; the clamp is a net. */
+  frameOf(s: Strip, frame: number): Region {
+    const f = s.frames <= 1 ? 0 : Math.max(0, Math.min(s.frames - 1, frame | 0));
+    return { x: s.x + f * s.stride, y: s.y, w: s.frameW, h: s.frameH };
   }
 
   has(name: string): boolean {
-    return this.#regions.has(name);
+    return this.#strips.has(name);
   }
 
   get names(): readonly string[] {
-    return [...this.#regions.keys()];
+    return [...this.#strips.keys()];
   }
 
   /** Convert a region to normalized UVs. */

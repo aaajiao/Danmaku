@@ -22,10 +22,19 @@
  * Bullets are drawn **white** and tinted per-instance by the shader. One
  * greyscale shape therefore serves every colour in the game, which is why the
  * sheet is small and why the art spec asks for luminance, not colour.
+ *
+ * That white+tint rule describes **this procedural floor**, not every sheet the
+ * engine can draw. A loaded pack may instead ship native strips: `tinted` floor
+ * cells keep the recolourable law, and a pack may **bake** colour into the
+ * pixels of a *named variant* strip (`color: 'baked'`) that content references
+ * tint-free. The floor stays tinted white — the honest, recolourable rule-9
+ * placeholder — and the baked path lives in `bulletAtlas(url, strips)` / a
+ * `Strip.color` of `'baked'`. See docs/packs.md and the Rendering doctrine in
+ * CLAUDE.md.
  */
 
 import * as THREE from 'three';
-import { Atlas, loadAtlas, type GridSpec } from './atlas';
+import { Atlas, loadAtlas, loadTexture, type GridSpec, type StripColor, type StripMode } from './atlas';
 
 /** Every generated sheet uses this grid. The real art set must match it. */
 export const BULLET_GRID: GridSpec = { cellW: 32, cellH: 32 };
@@ -342,7 +351,62 @@ export function createBulletAtlas(): Atlas {
  * the `BulletCell` type that `sim/effects.ts` imports — and `tools/` and the
  * visual pages read it as well. Real art replaces the pixels, not the module.
  */
-export async function bulletAtlas(url?: string): Promise<Atlas> {
+/**
+ * A native bullet strip on a self-describing sheet — the structural twin of the
+ * pack manifest's `PackBulletStrip`, redeclared here so `render/` need not import
+ * `packs/`. Frame 0 sits at `x,y`; `frames` walk right by `stride`.
+ */
+export interface BulletStripInput {
+  x: number;
+  y: number;
+  frameW: number;
+  frameH: number;
+  frames?: number;
+  stride?: number;
+  ticksPerFrame?: number;
+  mode?: StripMode;
+  color?: StripColor;
+}
+
+/** A whole self-describing bullet atlas: one shared PNG, every strip on it. */
+export interface BulletSheetInput {
+  sheet: string;
+  strips: Record<string, BulletStripInput>;
+}
+
+/** A native ship strip bank — one PNG, frame 0 leftmost (no x/y). */
+export interface ShipStripInput {
+  frameW: number;
+  frameH: number;
+  frames?: number;
+  stride?: number;
+  ticksPerFrame?: number;
+  mode?: StripMode;
+  color?: StripColor;
+}
+
+/**
+ * The bullet sheet, generated or loaded — **the seam real art arrives through**.
+ *
+ * Three forms, one atlas:
+ * - `bulletAtlas()` — the procedural white+tint floor (rule 9).
+ * - `bulletAtlas(url)` — a legacy 256×64 grid PNG, dimension-checked, the 16
+ *   cells named by `defineGrid`. Byte-identical draw to the floor.
+ * - `bulletAtlas(url, strips)` — a self-describing native sheet: every strip is
+ *   `defineStrip`ed at its native size/animation. Because bullets stay single
+ *   texture / single batch (500+ a tick), a native sheet REPLACES the whole
+ *   bullet atlas, so it must cover all 16 floor cells (asserted); it MAY add
+ *   pack-new variant names. No per-bullet routing enters the hot path — the
+ *   shell keeps one `bulletAtlas` and one `strip(name)` lookup whichever form
+ *   built it. See docs/packs.md and the amendment's §1.4/§1.5.
+ *
+ * The `url === undefined` and legacy-grid branches are byte-identical to before.
+ */
+export async function bulletAtlas(url?: string, strips?: BulletSheetInput): Promise<Atlas> {
+  if (strips !== undefined) {
+    if (url === undefined) throw new Error('a self-describing bullet sheet needs a sheet URL');
+    return nativeBulletAtlas(url, strips);
+  }
   if (url === undefined) return createBulletAtlas();
 
   const atlas = await loadAtlas(url, BULLET_GRID);
@@ -356,6 +420,42 @@ export async function bulletAtlas(url?: string): Promise<Atlas> {
     );
   }
   atlas.defineGrid([...BULLET_CELLS]);
+  return atlas;
+}
+
+/**
+ * Build the wholesale native bullet atlas: load the shared sheet, assert every
+ * floor cell is covered, then `defineStrip` each entry (floor cells and pack-new
+ * variants alike). The per-strip bounds / seam / saturation checks are the
+ * loader's, measured on a real canvas (`packs/loader.ts`); this only wires the
+ * geometry the manifest already shape-validated.
+ */
+async function nativeBulletAtlas(url: string, sheet: BulletSheetInput): Promise<Atlas> {
+  const texture = await loadTexture(url);
+  const { width, height } = texture.image as { width: number; height: number };
+  const atlas = new Atlas(texture, width, height);
+
+  const missing = BULLET_CELLS.filter((cell) => !(cell in sheet.strips));
+  if (missing.length > 0) {
+    throw new Error(
+      `native bullet sheet "${url}" is missing floor cell(s) ${missing.join(', ')} — ` +
+        `a strips sheet is the whole bullet atlas and must define every one of the ${BULLET_CELLS.length} built-in cells`,
+    );
+  }
+
+  for (const [name, s] of Object.entries(sheet.strips)) {
+    atlas.defineStrip(name, {
+      x: s.x,
+      y: s.y,
+      frameW: s.frameW,
+      frameH: s.frameH,
+      frames: s.frames ?? 1,
+      stride: s.stride ?? s.frameW,
+      ticksPerFrame: s.ticksPerFrame ?? 1,
+      mode: s.mode ?? 'once',
+      color: s.color ?? 'tinted',
+    });
+  }
   return atlas;
 }
 
@@ -422,7 +522,30 @@ export function createShipAtlas(): Atlas {
  * linear at the call site (a pack declares `assets.filter`), which is why this
  * does not re-decide the filter the way the two placeholder generators do.
  */
-export async function shipAtlas(url?: string): Promise<Atlas> {
+export async function shipAtlas(url?: string, strip?: ShipStripInput): Promise<Atlas> {
+  if (strip !== undefined) {
+    if (url === undefined) throw new Error('a native ship strip needs a URL');
+    const texture = await loadTexture(url);
+    const { width, height } = texture.image as { width: number; height: number };
+    const atlas = new Atlas(texture, width, height);
+    // A native strip bank: the `ship` region is `defineStrip`ed at native size
+    // and frame geometry. The engine draws frame 0 (idle) this round via the
+    // back-compat `strip(name)`→frame-0 path; bank-by-input is deferred to the
+    // input/laser round (no run-relative `viewTick` yet — see the amendment §6).
+    atlas.defineStrip(SHIP_CELLS[0], {
+      x: 0,
+      y: 0,
+      frameW: strip.frameW,
+      frameH: strip.frameH,
+      frames: strip.frames ?? 1,
+      stride: strip.stride ?? strip.frameW,
+      ticksPerFrame: strip.ticksPerFrame ?? 1,
+      mode: strip.mode ?? 'once',
+      color: strip.color ?? 'tinted',
+    });
+    return atlas;
+  }
+
   if (url === undefined) return createShipAtlas();
 
   const atlas = await loadAtlas(url);
@@ -433,5 +556,226 @@ export async function shipAtlas(url?: string): Promise<Atlas> {
     );
   }
   atlas.define(SHIP_CELLS[0], { x: 0, y: 0, w: atlas.width, h: atlas.height });
+  return atlas;
+}
+
+/* ------------------------------------------------------------------ */
+/* The animation-strip fx floor (rule 9)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Per-frame transparent margin inside an fx frame, each side — the seam law
+ * generalized to a strip (identical to the bullet grid's 2px). A frame's
+ * painted extent must clear `frameW − 2·FX_PAD` / `frameH − 2·FX_PAD` or it
+ * bleeds into the next frame under linear sampling. `procedural.test.ts` holds
+ * every `FX_STRIPS` frame against this the way it holds `CELL_ART`.
+ */
+export const FX_PAD = 2;
+
+type StripDraw = (ctx: Ctx, frame: number, cx: number, cy: number) => void;
+
+/**
+ * One procedural fx strip: its geometry, its place on the shared fx sheet, and
+ * how to paint each frame. `frameExtent` re-derives the painted box from the
+ * SAME arguments the painter uses (the `CELL_ART` discipline, now per frame), so
+ * a drift between the declared budget and the paint is a test failure, not a
+ * silent seam bleed. All strips are `tinted`: the orange of an explosion comes
+ * from the effect spec's tint, so the floor stays recolourable (rule 9).
+ */
+export interface FxStrip {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  /** Frame 0 origin on the shared fx sheet, px. */
+  sheetX: number;
+  sheetY: number;
+  /** Px between frame origins; equals `frameW` (frames laid out horizontally). */
+  stride: number;
+  /** Painted bounding box of frame `f`, px, from the painter's own radii. */
+  frameExtent: (frame: number) => { w: number; h: number };
+  draw: StripDraw;
+}
+
+// --- burst: an enemy-death flash. Bright core grows then fades; a ring expands.
+const BURST_FRAMES = 8;
+function burstCore(f: number): number {
+  return 7 + 11 * (f / (BURST_FRAMES - 1));
+}
+function burstRing(f: number): number {
+  return 8 + 18 * (f / (BURST_FRAMES - 1));
+}
+const BURST_RING_THICK = 3;
+
+// --- burst.big: boss/player death. As burst plus a second offset ring.
+const BIG_FRAMES = 12;
+function bigCore(f: number): number {
+  return 10 + 16 * (f / (BIG_FRAMES - 1));
+}
+function bigRing1(f: number): number {
+  return 10 + 30 * (f / (BIG_FRAMES - 1));
+}
+function bigRing2(f: number): number {
+  return 6 + 22 * (f / (BIG_FRAMES - 1));
+}
+const BIG_RING1_THICK = 4;
+const BIG_RING2_THICK = 3;
+const BIG_RING2_OFFSET = 4;
+
+// --- pulse: a looping pickup glow whose core ratio breathes 0.2 → 0.6 → 0.2.
+const PULSE_FRAMES = 6;
+const PULSE_RADIUS = 13;
+function pulseRatio(f: number): number {
+  const half = PULSE_FRAMES / 2;
+  const tri = f <= half ? f / half : (PULSE_FRAMES - f) / half;
+  return 0.2 + 0.4 * tri;
+}
+
+export const FX_STRIPS: Record<string, FxStrip> = {
+  burst: {
+    frameW: 64,
+    frameH: 64,
+    frames: BURST_FRAMES,
+    ticksPerFrame: 3,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: 0,
+    stride: 64,
+    frameExtent: (f) => {
+      const e = Math.max(burstCore(f) * 2, (burstRing(f) + BURST_RING_THICK / 2) * 2);
+      return { w: e, h: e };
+    },
+    draw: (ctx, f, cx, cy) => {
+      const t = f / (BURST_FRAMES - 1);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * (1 - 0.4 * t);
+      ring(ctx, cx, cy, burstRing(f), BURST_RING_THICK);
+      ctx.globalAlpha = 1 - 0.7 * t;
+      orb(ctx, cx, cy, burstCore(f), 0.5);
+      ctx.restore();
+    },
+  },
+  'burst.big': {
+    frameW: 96,
+    frameH: 96,
+    frames: BIG_FRAMES,
+    ticksPerFrame: 3,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: 64,
+    stride: 96,
+    frameExtent: (f) => {
+      const e = Math.max(
+        bigCore(f) * 2,
+        (bigRing1(f) + BIG_RING1_THICK / 2) * 2,
+        (BIG_RING2_OFFSET + bigRing2(f) + BIG_RING2_THICK / 2) * 2,
+      );
+      return { w: e, h: e };
+    },
+    draw: (ctx, f, cx, cy) => {
+      const t = f / (BIG_FRAMES - 1);
+      ctx.save();
+      ctx.globalAlpha = 0.6 * (1 - 0.5 * t);
+      ring(ctx, cx + BIG_RING2_OFFSET, cy - BIG_RING2_OFFSET, bigRing2(f), BIG_RING2_THICK);
+      ctx.globalAlpha = 0.85 * (1 - 0.4 * t);
+      ring(ctx, cx, cy, bigRing1(f), BIG_RING1_THICK);
+      ctx.globalAlpha = 1 - 0.7 * t;
+      orb(ctx, cx, cy, bigCore(f), 0.5);
+      ctx.restore();
+    },
+  },
+  pulse: {
+    frameW: 32,
+    frameH: 32,
+    frames: PULSE_FRAMES,
+    ticksPerFrame: 4,
+    mode: 'loop',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY: 160,
+    stride: 32,
+    frameExtent: () => ({ w: PULSE_RADIUS * 2, h: PULSE_RADIUS * 2 }),
+    draw: (ctx, f, cx, cy) => {
+      orb(ctx, cx, cy, PULSE_RADIUS, pulseRatio(f));
+    },
+  },
+};
+
+/** The names the fx floor guarantees, mirroring `BULLET_CELLS` for the fx sheet. */
+export const FX_CELLS = Object.keys(FX_STRIPS) as readonly string[];
+
+/** Shared fx-sheet dimensions, derived from the table so the two cannot drift. */
+export const FX_SHEET_W = Math.max(...Object.values(FX_STRIPS).map((s) => s.sheetX + s.frames * s.stride));
+export const FX_SHEET_H = Math.max(...Object.values(FX_STRIPS).map((s) => s.sheetY + s.frameH));
+
+/**
+ * Render the fx sheet: every `FX_STRIPS` strip's frames laid out horizontally
+ * on one shared canvas, each on its own row. White + tint like the bullet sheet
+ * (the orange of a burst is the effect spec's tint), so one greyscale sheet
+ * serves every colour and the saturation gate holds.
+ */
+export function createEffectAtlas(): Atlas {
+  const { el, ctx } = canvas(FX_SHEET_W, FX_SHEET_H);
+
+  for (const s of Object.values(FX_STRIPS)) {
+    for (let f = 0; f < s.frames; f++) {
+      const cx = s.sheetX + f * s.stride + s.frameW / 2;
+      const cy = s.sheetY + s.frameH / 2;
+      s.draw(ctx, f, cx, cy);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(el);
+  texture.magFilter = THREE.LinearFilter; // generated art is smooth, not pixel art
+  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, FX_SHEET_W, FX_SHEET_H);
+  defineFxStrips(atlas);
+  return atlas;
+}
+
+/** Wire every `FX_STRIPS` name onto `atlas` as a `Strip`. Shared by both branches. */
+function defineFxStrips(atlas: Atlas): void {
+  for (const [name, s] of Object.entries(FX_STRIPS)) {
+    atlas.defineStrip(name, {
+      x: s.sheetX,
+      y: s.sheetY,
+      frameW: s.frameW,
+      frameH: s.frameH,
+      frames: s.frames,
+      stride: s.stride,
+      ticksPerFrame: s.ticksPerFrame,
+      mode: s.mode,
+      color: s.color,
+    });
+  }
+}
+
+/**
+ * The fx sheet, generated or loaded — symmetric to `bulletAtlas(url?)`.
+ * `undefined` generates the procedural floor; a URL loads one combined fx sheet
+ * of the `FX_SHEET_W`×`FX_SHEET_H` layout and dimension-checks it, naming both
+ * figures on a mismatch (a wrong-sized sheet otherwise repoints every strip at a
+ * crop). A pack's per-file `assets.effects` reskin is a separate, warn-only path
+ * (see docs/packs.md); this is the direct-import seam for a single combined sheet.
+ */
+export async function effectAtlas(url?: string): Promise<Atlas> {
+  if (url === undefined) return createEffectAtlas();
+
+  const atlas = await loadAtlas(url);
+  if (atlas.width !== FX_SHEET_W || atlas.height !== FX_SHEET_H) {
+    throw new Error(
+      `fx sheet "${url}" is ${atlas.width}×${atlas.height}, expected ${FX_SHEET_W}×${FX_SHEET_H}`,
+    );
+  }
+  defineFxStrips(atlas);
   return atlas;
 }

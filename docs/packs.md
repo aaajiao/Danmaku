@@ -266,7 +266,11 @@ not, so these checks live in `loader.ts`, not `manifest.ts`):
   off the real pixels — not the geometry you drew, the *paint*.
 - **Bullet cells must be white** — mean saturation ≤ 0.15. Colour is the
   engine's per-instance tint, so a coloured sheet is a mistake the tint would
-  then double. See §7.1.
+  then double. A **baked** variant strip (below) declares its colour and skips
+  this gate. See §7.1.
+
+`assets.bullets` also accepts a **self-describing object** — native animation
+strips instead of the fixed 256×64 grid, the format is §5.6.
 
 ### 5.2 `assets.ship` — the player sprite
 
@@ -275,11 +279,14 @@ dimensions are machine-checked (64×64). The hitbox marker a ship should carry �
 small bright disc marking the lethal centre, far smaller than the silhouette — is
 a readability property no single-pixel test measures reliably, so it is **judged
 by eye** on the visual pages and in `bun run dev`, not asserted with a fabricated
-threshold. Draw it anyway; §7.3 says how.
+threshold. Draw it anyway; §7.3 says how. Like `assets.bullets`, `assets.ship`
+also accepts the native strip object form (§5.6), a bank drawn at frame 0 this
+round.
 
 `assets.filter` — `"nearest"` (default) or `"linear"` — sets texture sampling for
-**both** sheets. Hard-edged pixel art wants `"nearest"`; smooth, gradient-shaded
-art wants `"linear"`. The default matches `loadTexture`'s own behaviour.
+the sheets. Hard-edged pixel art wants `"nearest"`; smooth, gradient-shaded art
+wants `"linear"`. Native baked pixel art wants `"nearest"` (the default a loaded
+sheet already gets). The default matches `loadTexture`'s own behaviour.
 
 ### 5.3 `sounds.<name>` — a replaced sound
 
@@ -343,6 +350,64 @@ Three things bind it:
   placeholder — the same "always degrades to a placeholder" floor as every other
   resource.
 
+### 5.6 Native animation strips — `assets.effects`, and the object forms
+
+Horizontal animation strips are the engine's native art format (`docs/assets.md`
+§1.4). Three surfaces carry them, and **all three are warn-only reskin material**:
+a mismatched or absent native sheet warns and falls back to the procedural floor,
+exactly as a legacy sheet does. Native art never escalates a run to content — the
+*spec* that names a strip is content, the *pixels* are not. Baked colour lives in
+a named variant, never on a floor cell content tints onto.
+
+**`assets.effects`** — per-file animation strips, a map of strip name → strip.
+Each is its own PNG of frames laid out horizontally, frame 0 leftmost:
+
+```json
+"assets": {
+  "effects": {
+    "burst": { "src": "burst.png", "frames": 8, "frameW": 64, "frameH": 64, "mode": "once" },
+    "spiral": { "src": "spiral.png", "frames": 6, "frameW": 48, "frameH": 48, "mode": "loop", "color": "baked" }
+  }
+}
+```
+
+`frames`, `frameW`, `frameH`, `mode` are required; `ticksPerFrame` (default 1)
+and `color` (default `tinted`) optional. A tinted strip is white and obeys the
+saturation gate; a baked strip declares its colour and skips it.
+
+**`assets.bullets: { sheet, strips }`** — the whole bullet atlas as native strips
+on **one shared PNG** (bullets are the hot path — 500+ a tick through one batch,
+so one texture). Each strip is placed with explicit `x/y` (offsets, non-negative
+— 0 is the sheet origin, where the legacy grid's frame 0 sits) plus
+`frameW/frameH` (positive) and the optional `frames`/`stride`/`ticksPerFrame`/
+`mode`/`color`. A self-describing sheet **replaces the atlas wholesale**, so it
+must define a strip for every one of the sixteen floor cells; it may add pack-new
+variant names.
+
+**`assets.ship: { src, frameW, frameH, … }`** — a native strip bank in one file
+(no `x/y`), drawn at frame 0 this round (bank-by-input is a later round).
+
+**Three-tier naming and resolution:**
+
+1. **Floor cell — bare name.** One of the sixteen `BULLET_CELLS`. Always
+   resolvable (the procedural floor guarantees it; a self-describing sheet must
+   too). Floor-cell strips are `tinted` so the tint content applies still
+   colour-codes the curtain.
+2. **Reskin of a floor cell — bare name, `tinted`, warn-only, last-wins.** Native
+   (possibly animated) pixels for a bare floor name. Declaring `baked` on a floor
+   name **warns** and falls back to tinted treatment — a baked floor cell would
+   mud or collapse the hues content tints onto the shared cell.
+3. **Pack-new variant — qualified `<pack>/<name>`, the only home for `baked`.** A
+   `strips` entry keyed by a NEW name (e.g. `msh.green`) registers with the
+   pack's own content, which names it bare (the injector's sprite set expands to
+   floor cells ∪ this pack's declared strip names). A pack loads all-or-nothing,
+   so a variant's pixels and the content that names it arrive together or the
+   pack is skipped whole.
+
+When the active bullet atlas lacks a named sprite (the cross-pack override edge),
+the shell degrades to a floor default (`orb.medium`) with a one-time warning
+rather than crashing the draw — the loader's "everything is soft" doctrine.
+
 ---
 
 ## 6. Every error the loader can return
@@ -397,10 +462,49 @@ refused, naming both the offending capabilities and the implemented set.
 | Condition | Message |
 |---|---|
 | `assets` not an object | `assets must be a JSON object` |
-| `assets.bullets` not a string | `assets.bullets must be a string (a path to a PNG)` |
-| `assets.ship` not a string | `assets.ship must be a string (a path to a PNG)` |
+| `assets.bullets` neither a string nor an object | `assets.bullets must be a string (a path to a PNG)` |
+| `assets.ship` neither a string nor an object | `assets.ship must be a string (a path to a PNG)` |
 | `assets.filter` not `"nearest"`/`"linear"` | `assets.filter must be "nearest" or "linear"` |
-| Unknown key under `assets` | `unknown field "<key>" — did you mean "<nearest>"?` (or, if nothing is within edit distance 2, `unknown field "<key>" — valid fields here: bullets, ship, filter`) |
+| Unknown key under `assets` | `unknown field "<key>" — did you mean "<nearest>"?` (or, if nothing is within edit distance 2, `unknown field "<key>" — valid fields here: bullets, ship, filter, effects`) |
+
+The `assets.bullets`/`assets.ship` "must be a string" strings are **kept
+verbatim** for the neither-string-nor-object case (a number, say); the object
+form is a new legal branch with new strings below. `x`/`y` are offsets
+(non-negative, 0 is the sheet origin); the rest are counts/sizes (positive) —
+the split is not cosmetic, since the grid's frame 0 sits at `x:0, y:0`.
+
+**`assets.bullets` object form** (§5.6):
+
+| Condition | Message |
+|---|---|
+| `sheet` not a string | `assets.bullets.sheet must be a string (a path to the shared PNG)` |
+| `strips` not an object | `assets.bullets.strips must be a JSON object of name → strip` |
+| A strip not an object | `assets.bullets.strips."<strip>" must be a JSON object` |
+| `x`/`y` not a non-negative integer | `assets.bullets.strips."<strip>".<field> must be a non-negative integer` |
+| `frameW`/`frameH`/`frames`/`stride`/`ticksPerFrame` not a positive integer | `assets.bullets.strips."<strip>".<field> must be a positive integer` |
+| `stride < frameW` | `assets.bullets.strips."<strip>".stride <n> must be at least frameW <m>` |
+| `mode` not `"loop"`/`"once"` | `assets.bullets.strips."<strip>".mode must be "loop" or "once"` |
+| `color` not `"tinted"`/`"baked"` | `assets.bullets.strips."<strip>".color must be "tinted" or "baked"` |
+
+**`assets.ship` object form** (same family, `assets.ship.` prefix, no `x/y`):
+
+| Condition | Message |
+|---|---|
+| `src` not a string | `assets.ship.src must be a string (a path to a PNG)` |
+| A size/count not a positive integer | `assets.ship.<field> must be a positive integer` |
+| `stride < frameW` | `assets.ship.stride <n> must be at least frameW <m>` |
+| `mode` not `"loop"`/`"once"` | `assets.ship.mode must be "loop" or "once"` |
+| `color` not `"tinted"`/`"baked"` | `assets.ship.color must be "tinted" or "baked"` |
+
+**`assets.effects`** (per-file strips, §5.6):
+
+| Condition | Message |
+|---|---|
+| `effects` not an object | `assets.effects must be a JSON object` |
+| A strip not an object | `assets.effects.<strip> must be a JSON object` |
+| `src` not a string | `assets.effects.<strip>.src must be a string (a path to a PNG)` |
+| `mode` not `"loop"`/`"once"` | `assets.effects.<strip>.mode must be "loop" or "once"` |
+| `frames`/`frameW`/`frameH`/`ticksPerFrame` not a positive integer | `assets.effects.<strip>.frames must be a positive integer` (per field) |
 
 ### 6.4 `sounds`
 
@@ -488,6 +592,24 @@ rejects the pack whole and names it in the boot report.
   `pack "<name>": <path>: hud icon is <w>×<h>, over the 16×16 limit — it stands in for a glyph, so it is drawn small`
 - Portrait not the fixed size:
   `pack "<name>": <path>: portrait is <w>×<h>, expected 96×96`
+
+Native strip surfaces (§5.6) add these measured strings — the seam gate applies
+to every strip, the saturation gate only to a `tinted` one (a `baked` variant
+skips it):
+
+- A self-describing bullet sheet missing a floor cell:
+  `pack "<name>": <path>: self-describing bullet sheet is missing floor cell "<cell>" — a strips sheet is the whole bullet atlas and must define every one of the 16 built-in cells (plus any new variants)`
+- A floor cell declared baked (a **warning**, not a rejection — it falls back to tinted):
+  `pack "<name>": <path>: floor cell "<cell>" is declared color: "baked" — a floor cell is drawn with the per-instance tint content applies to it, which a baked colour fights; ship baked colour as a qualified variant instead`
+- A bullet strip running off the shared sheet:
+  `pack "<name>": <path>: strip "<strip>" runs to <x+frames*stride>×<y+frameH>, past the <w>×<h> sheet (<frames> frames of <frameW>×<frameH> at <x>,<y>)`
+- An own-file strip (ship bank or fx) the wrong size:
+  `pack "<name>": <path>: strip "<strip>" sheet is <w>×<h>, expected <frames·frameW>×<frameH> (<frames> frames of <frameW>×<frameH>)`
+- A strip frame paints past its margin:
+  `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>×<ey>px, over the <frameW-2*PAD>px limit — a frame must clear 2px of margin or it bleeds into the next frame`
+- A tinted strip is not white:
+  `pack "<name>": <path>: strip "<strip>" has mean saturation <n>, over 0.15 — a tinted strip is white and colour is the engine's tint (declare color: "baked" for coloured art)`
+
 - A named file could not be fetched or decoded:
   `could not be fetched (HTTP <status>)` / `could not be decoded as an image`
   (the `pack.json` manifest is the one exception: a missing manifest reports

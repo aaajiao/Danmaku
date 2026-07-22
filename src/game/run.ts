@@ -879,6 +879,9 @@ export class Run {
   #resolveDeaths(rng: Random): void {
     for (const death of this.enemies.drainDeaths()) {
       if (death.spec.onDeath) this.effects.emit(death.spec.onDeath, death.x, death.y);
+      // The frame-animated hero flash on every kill, regardless of a pack's own
+      // `onDeath` scatter. fx-stream (rule 2), so it never moves the trace.
+      this.effects.emit('burst', death.x, death.y);
       this.#award(death.spec.scoreValue ?? 0);
 
       for (const [name, count] of death.spec.spoils ?? []) {
@@ -1055,6 +1058,8 @@ export class Run {
     player.kill();
     this.boss.notePlayerDeath();
     this.effects.emit('death.big', player.x, player.y);
+    // The frame-animated flash augments the scatter above (fx-stream, rule 2).
+    this.effects.emit('burst.big', player.x, player.y);
     this.#emit({ type: 'player-death', x: player.x, y: player.y });
 
     // Dying costs power, and scatters some of it back where the ship fell.
@@ -1139,6 +1144,8 @@ export class Run {
             this.#bossDefeated = true;
           }
           if (event.boss.spec.onDeath) this.effects.emit(event.boss.spec.onDeath, x, y);
+          // The frame-animated boss flash on every boss kill (fx-stream, rule 2).
+          this.effects.emit('burst.big', x, y);
           for (const [name, count] of event.boss.spec.spoils ?? DEFAULT_BOSS_SPOILS) {
             this.items.burst(name, x, y, count, rng);
           }

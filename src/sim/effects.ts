@@ -321,3 +321,39 @@ defineSprite('death.big', 'glow.large', {
   tint: { r: 1, g: 0.55, b: 0.3 },
   additive: true,
 });
+
+/**
+ * The frame-animated explosions (逐帧爆炸) — a single particle whose sprite is a
+ * one-shot strip on the fx sheet, augmenting the scatter above (scatter = sparks
+ * thrown off; the strip = the hero flash). `sprite` names an fx-atlas strip, not
+ * a `BulletCell`, so these use `defineEffect` directly rather than the
+ * atlas-typed `defineSprite` helper.
+ *
+ * `count: 1, speed: 0` make it a single stationary particle, and `life` is set
+ * to the strip's `stripLength` (`frames × ticksPerFrame`) so the particle dies
+ * exactly as its last frame finishes — no completion flag (CLAUDE.md rule 8), no
+ * freeze-then-linger. That coupling is not typed here (render lives behind the
+ * import boundary, so `stripLength` cannot be imported as a value): it is
+ * MEASURED by `src/render/strip.test.ts`, which re-derives every once effect's
+ * `stripLength` from `FX_STRIPS` and fails if this `life` drifts — the damage
+ * model's "measure, don't type" discipline, applied to frame length.
+ */
+defineEffect('burst', {
+  sprite: 'burst',
+  count: 1,
+  speed: 0,
+  life: 24, // stripLength('burst') = 8 frames × 3 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.72, b: 0.38 },
+  additive: true,
+});
+
+defineEffect('burst.big', {
+  sprite: 'burst.big',
+  count: 1,
+  speed: 0,
+  life: 36, // stripLength('burst.big') = 12 frames × 3 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.55, b: 0.3 },
+  additive: true,
+});
