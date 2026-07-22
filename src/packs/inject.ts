@@ -730,20 +730,24 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
     const where = `shot "${name}"`;
     shot.levels.forEach((level, i) => {
       const lw = `${where} level ${i}`;
-      const sprite = bulletSprite(level.spec);
-      const pool = spritePool(level.spec);
-      if (sprite !== undefined && !pool.has(sprite)) {
-        problems.push(
-          `pack "${pack}": ${lw} uses unknown sprite "${sprite}" — known sprites: ${list(pool)}`,
-        );
-      }
-      for (const behaviour of bulletBehaviours(level.spec)) {
-        if (behaviour !== undefined && !behaviours.has(behaviour)) {
+      const validateShotBullet = (spec: unknown, suffix = ''): void => {
+        const sprite = bulletSprite(spec);
+        const pool = spritePool(spec);
+        if (sprite !== undefined && !pool.has(sprite)) {
           problems.push(
-            `pack "${pack}": ${lw} uses unknown motion behaviour "${behaviour}" — no such behaviour is registered`,
+            `pack "${pack}": ${lw}${suffix} uses unknown sprite "${sprite}" — known sprites: ${list(pool)}`,
           );
         }
-      }
+        for (const behaviour of bulletBehaviours(spec)) {
+          if (behaviour !== undefined && !behaviours.has(behaviour)) {
+            problems.push(
+              `pack "${pack}": ${lw}${suffix} uses unknown motion behaviour "${behaviour}" — no such behaviour is registered`,
+            );
+          }
+        }
+      };
+      validateShotBullet(level.spec);
+      if (level.focused?.spec !== undefined) validateShotBullet(level.focused.spec, ' focused');
     });
   }
 
@@ -1272,13 +1276,17 @@ function toPhasePattern(p: ContentPhasePattern): PhasePattern {
 function toShotType(name: string, s: ContentShot): ShotType {
   const type: ShotType = {
     name,
-    levels: s.levels.map(
-      (l): ShotSpec => ({
+    levels: s.levels.map((l): ShotSpec => {
+      const level: ShotSpec = {
         spec: l.spec as unknown as ShotSpec['spec'],
         offsets: l.offsets as unknown as ShotSpec['offsets'],
         period: l.period,
-      }),
-    ),
+      };
+      // Preserve absent focused data as absent, not an own `undefined` property:
+      // injected legacy content stays structurally identical.
+      if (l.focused !== undefined) level.focused = l.focused as unknown as ShotSpec['focused'];
+      return level;
+    }),
   };
   if (s.description !== undefined) type.description = s.description;
   return type;

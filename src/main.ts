@@ -1160,14 +1160,19 @@ function drawRun(run: Run): void {
     const option = run.options.options[optionIndex];
     if (option === undefined) continue;
     if (!option.active) continue;
-    // Purchased packs may carry a dedicated option strip. `run.tickCount` is an
-    // honest run-relative clock even though Option itself has no age; an index
-    // offset keeps a four-pod formation from flashing in lockstep. Zero-pack
-    // keeps the spec-named bullet cell and its original batch.
-    const usePlayerOption = fxAtlas.has('player.option');
+    // Built-in heroines first claim their own option strip; a pack that supplies
+    // only the historical shared strip still works, and guest characters retain
+    // their declared option sprite. `option.age` is fixed simulation time.
+    const characterOption = `player.option.${run.characterName}`;
+    const playerOption = fxAtlas.has(characterOption)
+      ? characterOption
+      : fxAtlas.has('player.option')
+        ? 'player.option'
+        : undefined;
+    const usePlayerOption = playerOption !== undefined;
     const atlas = usePlayerOption ? fxAtlas : bulletAtlas;
     const batch = usePlayerOption ? batches.optionsFx : batches.options;
-    const sprite = usePlayerOption ? 'player.option' : optionSpec.sprite;
+    const sprite = playerOption ?? optionSpec.sprite;
     const tint = stripTint(atlas, sprite, optionSpec.tint);
     drawStrip(batch, atlas, option.x, option.y, sprite, option.age, {
       // `Option.angle` is DEGREES — its own doc comment says so, and contrasts
@@ -1268,13 +1273,21 @@ function drawRun(run: Run): void {
     }
   }
 
-  // The three pack-provided bomb strips visualize the two existing bombs; their
+  // Specialized pack strips take priority when a bomb registry name claims one.
+  // Their age is fixed simulation time; guest/legacy names retain the two old
+  // visual fallbacks below.
   // elapsed time comes from BombSystem's integer duration/remaining pair. This
   // is view-only: damage, clearing, conversion and invulnerability stay exactly
   // where they were in the fixed-tick simulation.
   if (run.bombs.active) {
     const bomb = run.bombs;
-    if (bomb.name === 'spread' && fxAtlas.has('player.bomb.field')) {
+    const specialized = `player.bomb.${bomb.name}`;
+    if (fxAtlas.has(specialized)) {
+      drawStrip(batches.bombFx, fxAtlas, bomb.x, bomb.y, specialized, bomb.age, {
+        scale: 3.9,
+        a: 0.78,
+      });
+    } else if (bomb.name === 'spread' && fxAtlas.has('player.bomb.field')) {
       drawStrip(batches.bombFx, fxAtlas, bomb.x, bomb.y, 'player.bomb.field', bomb.age, {
         scale: 3.9,
         a: 0.7,

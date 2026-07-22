@@ -859,7 +859,7 @@ describe('boss dialogue — speakers resolve against portraits, pack-first', () 
       manifest(name, {
         enemies: { ember: enemy() },
         characters: {
-          raider: { label: 'R', shot: 'spread', options: 'standard', bomb: 'spread', sprite: 'ship', player: player() },
+          raider: { label: 'R', shot: 'spread', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() },
         },
         bosses: {
           warlord: boss({ dialogueFor: { raider: [{ speaker: 'player', text: 'hi' }] } }),
@@ -1165,6 +1165,7 @@ function fullDataPack(name: string): PackManifest {
             spec: { style: { sprite: 'shard' }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 },
             offsets: [{ x: 0, y: -10, angle: 270 }],
             period: 5,
+            focused: { spec: { style: { sprite: 'ring' }, radius: 3, motion: { r: 8, theta: 270, behaviour: 'homing' } }, period: 3 },
           },
         ],
       },
@@ -1203,6 +1204,10 @@ describe('the data tier registers into the real registries under qualified names
 
     // The shot registry stamps the qualified name onto the type.
     expect(getShot(`${name}/blaster`).name).toBe(`${name}/blaster`);
+    expect(getShot(`${name}/blaster`).levels[0]?.focused).toEqual({
+      spec: { style: { sprite: 'ring' }, radius: 3, motion: { r: 8, theta: 270, behaviour: 'homing' } },
+      period: 3,
+    });
 
     // The character resolves its shot into the levels ladder, its option set and
     // bomb into the qualified names the run resolves later.
@@ -1228,7 +1233,7 @@ describe('the data tier registers into the real registries under qualified names
     injectPack(
       manifest(name, {
         characters: {
-          scout2: { label: 'S2', shot: 'spread', options: 'standard', bomb: 'spread', sprite: 'ship', player: player() },
+          scout2: { label: 'S2', shot: 'spread', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() },
         },
       }),
       CTX,
@@ -1244,16 +1249,34 @@ describe('the data tier — name resolution errors are golden', () => {
     const name = uniqueName();
     expect(problemsOf(manifest(name, {
       shots: { blaster: { levels: [{ spec: { style: { sprite: 'nope' } }, offsets: [], period: 5 }] } },
-      characters: { raider: { label: 'R', shot: 'blaster', options: 'standard', bomb: 'spread', sprite: 'ship', player: player() } },
+      characters: { raider: { label: 'R', shot: 'blaster', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() } },
     }))).toContain(
       `pack "${name}": shot "blaster" level 0 uses unknown sprite "nope" — known sprites: halo, orb.large, ring, shard`,
     );
   });
 
+  test('a focused shot override names sprites and behaviours from the same registries', () => {
+    const name = uniqueName();
+    expect(problemsOf(manifest(name, {
+      shots: {
+        blaster: {
+          levels: [{
+            spec: { style: { sprite: 'shard' } }, offsets: [], period: 5,
+            focused: { spec: { style: { sprite: 'nope' }, motion: { behaviour: 'phantom' } } },
+          }],
+        },
+      },
+      characters: { raider: { label: 'R', shot: 'blaster', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() } },
+    }))).toEqual(expect.arrayContaining([
+      `pack "${name}": shot "blaster" level 0 focused uses unknown sprite "nope" — known sprites: halo, orb.large, ring, shard`,
+      `pack "${name}": shot "blaster" level 0 focused uses unknown motion behaviour "phantom" — no such behaviour is registered`,
+    ]));
+  });
+
   test('a character firing an unknown shot', () => {
     const name = uniqueName();
     expect(problemsOf(manifest(name, {
-      characters: { raider: { label: 'R', shot: 'phantom', options: 'standard', bomb: 'spread', sprite: 'ship', player: player() } },
+      characters: { raider: { label: 'R', shot: 'phantom', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() } },
     }))).toContain(
       `pack "${name}": character "raider" fires unknown shot "phantom" — no such shot in this pack or built in`,
     );
@@ -1266,7 +1289,7 @@ describe('the data tier — name resolution errors are golden', () => {
   test('a character wearing a bullet cell is rejected', () => {
     const name = uniqueName();
     expect(problemsOf(manifest(name, {
-      characters: { raider: { label: 'R', shot: 'spread', options: 'standard', bomb: 'spread', sprite: 'orb.large', player: player() } },
+      characters: { raider: { label: 'R', shot: 'spread', options: 'standard', bomb: 'scout-tide', sprite: 'orb.large', player: player() } },
     }))).toContain(
       `pack "${name}": character "raider" uses unknown ship sprite "orb.large" — characters wear the ship sheet; known ship sprites: ship`,
     );
@@ -1356,7 +1379,7 @@ describe('the data tier — atomic (a bad entry lands none of the pack)', () => 
     const name = uniqueName();
     expect(() => injectPack(manifest(name, {
       shots: { blaster: { levels: [{ spec: { style: { sprite: 'shard' } }, offsets: [], period: 5 }] } },
-      characters: { raider: { label: 'R', shot: 'phantom', options: 'standard', bomb: 'spread', sprite: 'ship', player: player() } },
+      characters: { raider: { label: 'R', shot: 'phantom', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() } },
     }), CTX)).toThrow(PackInjectError);
 
     // The pack's own valid shot never registered — the rejection is whole.

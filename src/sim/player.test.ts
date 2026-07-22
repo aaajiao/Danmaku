@@ -409,6 +409,51 @@ describe('firing', () => {
     expect(bullets.count).toBe(5);
   });
 
+  test('focus falls back field-by-field and may override only the formation', () => {
+    const focusedOffsets = [{ x: -3, y: -14, angle: 265 }, { x: 3, y: -14, angle: 275 }];
+    const player = makePlayer({
+      shots: [{ spec: SHOT_SPEC, offsets: [{ x: 0, y: -10 }], period: 4, focused: { offsets: focusedOffsets } }],
+    });
+    const bullets = makeBullets();
+
+    player.step(Button.Shot | Button.Slow, bullets, 0);
+
+    expect(bullets.count).toBe(2);
+    expect(bullets.bullets.map((b) => [b.x, b.y, b.vector.theta])).toEqual([
+      [237, 386, 265],
+      [243, 386, 275],
+    ]);
+    expect(bullets.bullets.every((b) => b.style === SHOT_SPEC.style)).toBe(true);
+  });
+
+  test('focus may override projectile and cadence without changing base offsets', () => {
+    const focusedSpec: BulletSpec = { ...SHOT_SPEC, damage: 9 };
+    const player = makePlayer({
+      shots: [{ spec: SHOT_SPEC, offsets: [{ x: 0, y: -10 }], period: 6, focused: { spec: focusedSpec, period: 2 } }],
+    });
+    const bullets = makeBullets();
+
+    hold(player, bullets, Button.Shot | Button.Slow, 5);
+
+    expect(bullets.count).toBe(3); // ticks 0, 2, 4; base offset is retained
+    expect(bullets.bullets.every((b) => b.damage === 9 && b.x === 240 && b.y <= 390)).toBe(true);
+  });
+
+  test('focus mode is deterministic and an exhausted pool still drops its focused volley', () => {
+    const focused = { spec: { ...SHOT_SPEC, damage: 3 }, offsets: [{ x: -4, y: -8 }, { x: 4, y: -8 }], period: 0 };
+    const config = { shots: [{ spec: SHOT_SPEC, offsets: [{ x: 0, y: 0 }], period: 6, focused }] };
+    const first = makeBullets();
+    const second = makeBullets();
+    hold(makePlayer(config), first, Button.Shot | Button.Slow, 4);
+    hold(makePlayer(config), second, Button.Shot | Button.Slow, 4);
+    expect(first.bullets.map((b) => [b.x, b.y, b.damage])).toEqual(second.bullets.map((b) => [b.x, b.y, b.damage]));
+
+    const full = new BulletSystem({ bounds: FIELD, initial: 1, max: 1 });
+    expect(() => makePlayer(config).step(Button.Shot | Button.Slow, full, 0)).not.toThrow();
+    expect(full.count).toBe(1);
+    expect(full.droppedSpawns).toBe(1);
+  });
+
   test('an exhausted pool drops the volley instead of throwing', () => {
     const player = makePlayer();
     const bullets = new BulletSystem({ bounds: FIELD, initial: 1, max: 1 });

@@ -312,12 +312,12 @@ describe('generated output and exact manifest', () => {
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);
-    expect(Object.keys(bullets.strips)).toHaveLength(70);
+    expect(Object.keys(bullets.strips)).toHaveLength(72);
 
     const nativeEffects = Object.keys(FX_STRIPS).filter((name) => name !== 'pulse');
     expect(V4_EFFECT_SPECS.slice(0, nativeEffects.length).map((spec) => spec.name)).toEqual(nativeEffects);
     expect(Object.keys(assets.effects ?? {})).toEqual(V4_EFFECT_SPECS.map((spec) => spec.name));
-    expect(Object.keys(assets.effects ?? {})).toHaveLength(20);
+    expect(Object.keys(assets.effects ?? {})).toHaveLength(30);
     expect(Object.keys(assets.lasers ?? {})).toEqual([...LASER_STRIP_CELLS]);
     expect(Object.keys(assets.missiles ?? {})).toEqual([...MISSILE_STRIP_CELLS]);
     expect(Object.keys(assets.pickups ?? {})).toEqual([...PICKUP_STRIP_CELLS]);
@@ -380,7 +380,9 @@ describe('runtime consumer ownership', () => {
   });
 
   test('known player, missile and beam corrections stay attached to their real consumers', () => {
-    expect(V4_PROJECTILE_OWNERS['scale.satellite']).toEqual(['player.lance', 'player.spire']);
+    expect(V4_PROJECTILE_OWNERS['scale.satellite']).toEqual(['player.lance']);
+    expect(V4_PROJECTILE_OWNERS['needle.lance']).toEqual(['player.lance']);
+    expect(V4_PROJECTILE_OWNERS['needle.column']).toEqual(['player.spire']);
     expect(V4_PROJECTILE_OWNERS['orb.small.battery']).toEqual(['player.hound']);
     expect(V4_PROJECTILE_OWNERS['missile.2']).toEqual(['enemy.drifter']);
     expect(V4_PROJECTILE_OWNERS['missile.3']).toEqual(['boss.warden']);
@@ -403,7 +405,7 @@ describe('runtime consumer ownership', () => {
     expect(projectileFaction('orb.small')).toBe('neutral');
 
     const semanticBullets = V4_BULLET_NAMES.filter((name) => !(BULLET_CELLS as readonly string[]).includes(name));
-    expect(semanticBullets.filter((name) => projectileFaction(name) === 'player')).toHaveLength(19);
+    expect(semanticBullets.filter((name) => projectileFaction(name) === 'player')).toHaveLength(21);
     expect(semanticBullets.filter((name) => projectileFaction(name) === 'hostile')).toHaveLength(35);
     expect(semanticBullets.filter((name) => projectileFaction(name) === 'neutral')).toEqual([]);
     expect(semanticBullets.filter((name) => projectileFaction(name) === 'shared')).toEqual([]);
@@ -692,6 +694,26 @@ describe('laser seam contract', () => {
 });
 
 describe('ship and HUD', () => {
+  test('five built-in option and bomb strips are exact, distinct character surfaces', () => {
+    const names = [
+      'scout', 'lance', 'hound', 'spire', 'maw',
+    ] as const;
+    const strips = assets.effects ?? {};
+    const sheet = png('effects/effects.png');
+    const masks = new Set<string>();
+    for (const name of names) {
+      const option = `player.option.${name}`;
+      const bomb = `player.bomb.${name === 'scout' ? 'scout-tide' : name === 'lance' ? 'lance-pierce' : name === 'hound' ? 'hound-pack' : name === 'spire' ? 'spire-field' : 'maw-devour'}`;
+      expect(strips[option]).toBeDefined();
+      expect(strips[bomb]).toBeDefined();
+      expect(paletteForEffect(option)).toBe(V4_OWNER_PALETTES[`player.${name}`]);
+      expect(paletteForEffect(bomb)).toBe(V4_OWNER_PALETTES[`player.${name}`]);
+      masks.add(alphaMaskHash(sheet, strips[option]!));
+      masks.add(alphaMaskHash(sheet, strips[bomb]!));
+    }
+    expect(masks.size).toBe(10);
+  });
+
   test('shared player presentation carries several lineages and no single heroine palette', () => {
     for (const name of ['player.option', 'player.thruster.particle.0', 'player.bomb.field', 'boom.player']) {
       expect(paletteForEffect(name), name).toBe(V4_SHARED_PLAYER_PALETTE);
@@ -769,9 +791,9 @@ describe('base campaign name reachability', () => {
     expect([...used].filter((name) => !reachable.has(name))).toEqual([]);
   });
 
-  test('the 70-name bullet ledger is exactly floors plus currently reached variants', () => {
+  test('the 72-name bullet ledger is exactly floors plus currently reached variants', () => {
     const variants = V4_BULLET_NAMES.filter((name) => name in BULLET_VARIANTS);
     expect(V4_BULLET_NAMES.slice(0, BULLET_CELLS.length)).toEqual([...BULLET_CELLS]);
-    expect(variants).toHaveLength(54);
+    expect(variants).toHaveLength(56);
   });
 });

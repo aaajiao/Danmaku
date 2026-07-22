@@ -42,6 +42,23 @@ describe('every bullet-atlas draw path honours baked colour', () => {
   });
 });
 
+describe('built-in player effects prefer their named visual strips', () => {
+  test('options select character-first while guests and legacy packs retain both fallbacks', () => {
+    expect(mainSource).toContain('const characterOption = `player.option.${run.characterName}`');
+    expect(mainSource).toContain("fxAtlas.has('player.option')");
+    expect(mainSource).toContain('const sprite = playerOption ?? optionSpec.sprite');
+    expect(mainSource).toContain('option.age');
+  });
+
+  test('active bombs select their name-derived strip before spread/lance compatibility art', () => {
+    expect(mainSource).toContain('const specialized = `player.bomb.${bomb.name}`');
+    expect(mainSource).toContain('if (fxAtlas.has(specialized))');
+    expect(mainSource).toContain("else if (bomb.name === 'spread' && fxAtlas.has('player.bomb.field'))");
+    expect(mainSource).toContain("else if (bomb.name === 'lance')");
+    expect(mainSource).toContain('specialized, bomb.age');
+  });
+});
+
 describe('the pickup glow follows the same strip-colour contract', () => {
   test('a baked pulse is identity-white while the procedural floor keeps the item tint', () => {
     expect(mainSource).toContain("const glowTint = stripTint(fxAtlas, 'pulse', item.spec.tint)");

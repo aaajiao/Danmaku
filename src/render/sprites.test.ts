@@ -128,6 +128,13 @@ function declaredSprites(): { where: string; sprite: string; laser: boolean }[] 
         sprite: level.spec.style.sprite,
         laser: level.spec.laser !== undefined,
       });
+      if (level.focused?.spec !== undefined) {
+        out.push({
+          where: `shot ${name} tier ${tier} focused`,
+          sprite: level.focused.spec.style.sprite,
+          laser: level.focused.spec.laser !== undefined,
+        });
+      }
     });
   }
 

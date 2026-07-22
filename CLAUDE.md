@@ -41,8 +41,8 @@ registries and systems stay outside the edition under `src/content/`, `src/sim/`
 
 The built-in campaign — stage-1 through stage-4, their sixteen trash enemies and
 five bosses — is no longer engine TypeScript, and neither is the player side: the
-five characters (scout, lance, hound, spire, maw), their five shots, four option
-sets and two bombs are data too. All of it is `src/v4/content/campaign.json`,
+five characters (scout, lance, hound, spire, maw), their five shots, five option
+sets and five identity bombs are data too. All of it is `src/v4/content/campaign.json`,
 authored by `tools/make-v4-content.ts` and injected through the same
 validate+inject pipeline as any fetched pack by `src/v4/content/index.ts`.
 `src/packs/bundled.ts` is only the compatibility entry for historical imports.

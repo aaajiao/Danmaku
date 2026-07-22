@@ -470,6 +470,12 @@ export interface ContentShotSpec {
   spec: Record<string, unknown>;
   offsets: readonly Record<string, unknown>[];
   period: number;
+  /** Focus-held overrides; each omitted field falls back to this base tier. */
+  focused?: {
+    spec?: Record<string, unknown>;
+    offsets?: readonly Record<string, unknown>[];
+    period?: number;
+  };
 }
 
 /**
@@ -851,7 +857,8 @@ const SPELLCARD_FIELDS = [
   'music',
 ] as const;
 const SHOT_FIELDS = ['levels', 'description'] as const;
-const SHOT_LEVEL_FIELDS = ['spec', 'offsets', 'period'] as const;
+const SHOT_LEVEL_FIELDS = ['spec', 'offsets', 'period', 'focused'] as const;
+const FOCUSED_SHOT_FIELDS = ['spec', 'offsets', 'period'] as const;
 const OPTIONS_FIELDS = ['sprite', 'shot', 'period', 'levels', 'followSpeed', 'tint'] as const;
 const BOMB_FIELDS = [
   'duration',
@@ -2044,9 +2051,27 @@ function validateShotLevel(
   requireField(raw, 'spec', 'object', where, prefix, errors, 'a bullet spec');
   requireField(raw, 'offsets', 'array', where, prefix, errors, 'an array of muzzle offsets');
   requireField(raw, 'period', 'number', where, prefix, errors, 'ticks between volleys');
+  if ('focused' in raw && raw.focused !== undefined) {
+    validateFocusedShot(raw.focused, `${where}.focused`, prefix, errors);
+  }
   for (const key of Object.keys(raw)) {
     if ((SHOT_LEVEL_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(`${prefix}${where}: `, key, SHOT_LEVEL_FIELDS));
+  }
+}
+
+/** The focus override is deliberately closed-world even though all fields are optional. */
+function validateFocusedShot(raw: unknown, where: string, prefix: string, errors: string[]): void {
+  if (!isRecord(raw)) {
+    errors.push(`${prefix}${where} must be a JSON object`);
+    return;
+  }
+  optField(raw, 'spec', 'object', where, prefix, errors);
+  optField(raw, 'offsets', 'array', where, prefix, errors);
+  optField(raw, 'period', 'number', where, prefix, errors);
+  for (const key of Object.keys(raw)) {
+    if ((FOCUSED_SHOT_FIELDS as readonly string[]).includes(key)) continue;
+    errors.push(unknownField(`${prefix}${where}: `, key, FOCUSED_SHOT_FIELDS));
   }
 }
 

@@ -114,6 +114,77 @@ test('every boss has several pattern families and every phase has its own signat
   }
 });
 
+interface PlayerShotTierProbe {
+  spec: Record<string, unknown>;
+  offsets: readonly Record<string, unknown>[];
+  period: number;
+  focused?: {
+    spec?: Record<string, unknown>;
+    offsets?: readonly Record<string, unknown>[];
+    period?: number;
+  };
+}
+
+test('all five player weapons author a distinct focus-held shot at every power tier', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: { shots: Record<string, { levels: PlayerShotTierProbe[] }> };
+  };
+  const shots = Object.entries(pack.content.shots);
+  expect(shots).toHaveLength(5);
+
+  for (const [name, shot] of shots) {
+    expect(shot.levels).toHaveLength(4);
+    let previousFocused: { offsets: readonly Record<string, unknown>[]; period: number } | undefined;
+    for (const [tier, level] of shot.levels.entries()) {
+      expect(level.focused, `${name} tier ${tier}`).toBeDefined();
+      const focused = {
+        spec: level.focused?.spec ?? level.spec,
+        offsets: level.focused?.offsets ?? level.offsets,
+        period: level.focused?.period ?? level.period,
+      };
+      expect(JSON.stringify(focused), `${name} tier ${tier}`).not.toBe(JSON.stringify({
+        spec: level.spec,
+        offsets: level.offsets,
+        period: level.period,
+      }));
+      if (previousFocused !== undefined) {
+        expect(focused.offsets.length).toBeGreaterThanOrEqual(previousFocused.offsets.length);
+        expect(focused.period).toBeLessThanOrEqual(previousFocused.period);
+      }
+      previousFocused = focused;
+    }
+  }
+});
+
+test('the five heroines do not share their shot, option formation, or bomb identity', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: {
+      characters: Record<string, { shot: string; options: string; bomb: string }>;
+      shots: Record<string, unknown>;
+      options: Record<string, unknown>;
+      bombs: Record<string, unknown>;
+    };
+  };
+  const characters = Object.values(pack.content.characters);
+  expect(characters).toHaveLength(5);
+  expect(new Set(characters.map((c) => c.shot)).size).toBe(5);
+  expect(new Set(characters.map((c) => c.options)).size).toBe(5);
+  expect(new Set(characters.map((c) => c.bomb)).size).toBe(5);
+  expect(Object.keys(pack.content.shots)).toHaveLength(5);
+  expect(Object.keys(pack.content.options)).toHaveLength(5);
+  expect(Object.keys(pack.content.bombs)).toHaveLength(5);
+});
+
+test('the five bombs have five distinct gameplay signatures', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: { bombs: Record<string, Record<string, unknown>> };
+  };
+  const bombs = Object.entries(pack.content.bombs);
+  expect(bombs).toHaveLength(5);
+  const signatures = bombs.map(([, spec]) => JSON.stringify(spec));
+  expect(new Set(signatures).size).toBe(5);
+});
+
 test('every stage fields a mid-stage bomb carrier — a wave enemy whose spoils drop a bomb', () => {
   // The drop economy (decisions §B) restores bombs through play: each stage names
   // one trash type whose spoils include `bomb`, chosen so the stage hands back 2-4

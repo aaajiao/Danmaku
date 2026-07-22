@@ -1330,6 +1330,28 @@ describe('content — the new data-tier sections', () => {
       expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
     });
 
+    test('a focused tier accepts independent overrides', () => {
+      const raw = withSection('shots', {
+        spread: {
+          levels: [{
+            ...base.levels[0],
+            focused: { spec: { style: { sprite: 'ring' } }, offsets: [{ x: 0, y: -8 }], period: 3 },
+          }],
+        },
+      });
+      expect(validateManifest(raw, 'candy')).toEqual({ manifest: raw as unknown as PackManifest });
+    });
+
+    test('focused is closed-world and each override has its declared type', () => {
+      const level = base.levels[0];
+      expect(errorsOf(withSection('shots', { spread: { levels: [{ ...level, focused: { cadence: 3 } }] } }))).toContain(
+        'pack "candy": pack.json: content.shots."spread".levels[0].focused: unknown field "cadence" — valid fields here: spec, offsets, period',
+      );
+      expect(errorsOf(withSection('shots', { spread: { levels: [{ ...level, focused: { period: 'fast' } }] } }))).toContain(
+        'pack "candy": pack.json: content.shots."spread".levels[0].focused.period must be a number',
+      );
+    });
+
     test('a shot missing levels', () => {
       expect(errorsOf(withSection('shots', { spread: { description: 'x' } }))).toContain(
         'pack "candy": pack.json: content.shots."spread" is missing required field "levels" — an array of power tiers',

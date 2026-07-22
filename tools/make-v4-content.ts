@@ -2929,7 +2929,7 @@ const stages: PackContent['stages'] = {
 /*                                                                    */
 /* The player side joins the base pack (decisions-round2 §D), the     */
 /* counterpart to the campaign port above. scout/lance/hound/spire/maw, */
-/* their five shots, four option sets and two bombs left engine       */
+/* their five shots, five option sets and five bombs left engine      */
 /* TypeScript (content/shots.ts, sim/option.ts, sim/bomb.ts,          */
 /* game/run.ts); the engine keeps the machinery — the registries, the */
 /* OptionSystem/BombSystem, the nesting-invariant checks — and the    */
@@ -3046,6 +3046,56 @@ const SPRAY_T1 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 
 const SPRAY_T2 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 'glow.small.spray.t2' } };
 const SPRAY_T3 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 'glow.small.spray.t3' } };
 
+/* ---- focus-held projectile identities ----
+ *
+ * Focus is a weapon stance, not just a movement modifier. These retain each
+ * weapon's damage budget while changing its flight language and silhouette:
+ * SCOUT condenses into a white-blue core, LANCE grows a bone-white cutting
+ * spine, HOUND tightens its tracking scales, SPIRE sustains its beam, and MAW
+ * compacts its embers into a heavier-looking close-range knot. The `feedback`
+ * semantics that drive contact FX are added in the weapon-feedback stage; this
+ * round owns firing behaviour only.
+ */
+const SCOUT_FOCUS = {
+  ...GUN_BOLT,
+  style: { ...GUN_BOLT.style, sprite: 'glow.medium.bolt', r: 0.88, g: 1, b: 1, additive: true },
+  motion: { ...GUN_BOLT.motion, r: 10.5 },
+};
+const LANCE_FOCUS = {
+  ...GUN_NEEDLE,
+  style: { ...GUN_NEEDLE.style, sprite: 'needle.lance', r: 1, g: 0.95, b: 0.78, additive: true },
+  blade: { length: 32 },
+};
+const HOUND_FOCUS = {
+  ...GUN_SEEKER,
+  style: { ...GUN_SEEKER.style, sprite: 'scale.chase.hi', r: 1, g: 0.92, b: 0.58 },
+  motion: {
+    ...GUN_SEEKER.motion,
+    r: 8,
+    options: { turnRate: 2.2, delay: 0, duration: 90 },
+  },
+};
+const SPIRE_FOCUS = {
+  ...GUN_BEAM,
+  style: { ...GUN_BEAM.style, r: 0.72, g: 0.9, b: 1, width: 9 },
+  laser: { ...GUN_BEAM.laser, growth: 150 },
+};
+const MAW_FOCUS = {
+  ...SCATTER_PELLET,
+  style: {
+    ...SCATTER_PELLET.style,
+    sprite: 'glow.small.spray.t3',
+    r: 1,
+    g: 0.68,
+    b: 0.34,
+    width: 20,
+    height: 20,
+  },
+  radius: 9,
+  motion: { ...SCATTER_PELLET.motion, r: 7 },
+  life: 22,
+};
+
 // `scatter`'s two muzzle roles. CENTRAL bolts fire dead-ahead and carry every
 // measured single-target hit; CHEEK pairs fan wide enough to miss a point target
 // at 100px (past the 12+8 tolerance) — pure coverage, ~0 measured DPS. The free
@@ -3093,6 +3143,50 @@ function rake(pairs: number): Record<string, unknown>[] {
   return offsets;
 }
 
+/** SCOUT focus: every added pair is retained, but all lanes converge forward. */
+function focusFan(pairs: number): Record<string, unknown>[] {
+  const offsets: Record<string, unknown>[] = [
+    { x: -4, y: -12, angle: FORWARD + 1 },
+    { x: 4, y: -12, angle: FORWARD - 1 },
+  ];
+  for (let i = 1; i <= pairs; i++) {
+    const x = 7 + i * 5;
+    const angle = 1 + i * 2;
+    offsets.push({ x: -x, y: -10 + i, angle: FORWARD + angle });
+    offsets.push({ x, y: -10 + i, angle: FORWARD - angle });
+  }
+  return offsets;
+}
+
+/** LANCE focus: a narrow rake whose outer pins lean into one cutting seam. */
+function focusRake(pairs: number): Record<string, unknown>[] {
+  const offsets: Record<string, unknown>[] = [{ x: 0, y: -14, angle: FORWARD }];
+  for (let i = 1; i <= pairs; i++) {
+    const x = i * 5;
+    offsets.push({ x: -x, y: -13 + i, angle: FORWARD + i });
+    offsets.push({ x, y: -13 + i, angle: FORWARD - i });
+  }
+  return offsets;
+}
+
+/** HOUND focus: vertically nested launch points form one visible lock column. */
+function lockStack(count: number): Record<string, unknown>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    x: i % 2 === 0 ? -2 : 2,
+    y: -10 - i * 4,
+    angle: FORWARD,
+  }));
+}
+
+/** MAW focus: a compact, tier-nested knot instead of the free stance's cheeks. */
+function mawCore(count: number): Record<string, unknown>[] {
+  return Array.from({ length: count }, (_, i) => ({
+    x: i % 2 === 0 ? -3 : 3,
+    y: -10 - Math.floor(i / 2) * 3,
+    angle: FORWARD + (i % 2 === 0 ? 1 : -1),
+  }));
+}
+
 /** `laser`'s single emitter, shared by every tier so nesting is not a claim. */
 const MUZZLE = [{ x: 0, y: -12, angle: FORWARD }];
 
@@ -3101,28 +3195,43 @@ const shots: PackContent['shots'] = {
   // the nesting invariant the engine's `shots.test.ts` enforces for every weapon.
   // It makes "a stronger tier deals less against some geometry" unrepresentable.
   spread: {
-    description: 'parallel bolts that fan wider with each power tier',
+    description: 'loose fan that condenses into a converging focus seam',
     levels: [
-      { spec: GUN_BOLT, offsets: fan([]), period: 5 },
-      { spec: BOLT_T1, offsets: fan([7]), period: 5 },
-      { spec: BOLT_T2, offsets: fan([7, 15]), period: 4 },
+      {
+        spec: GUN_BOLT, offsets: fan([]), period: 5,
+        focused: { spec: SCOUT_FOCUS, offsets: focusFan(0), period: 5 },
+      },
+      {
+        spec: BOLT_T1, offsets: fan([7]), period: 5,
+        focused: { spec: { ...SCOUT_FOCUS, style: { ...SCOUT_FOCUS.style, sprite: 'glow.large.bolt' } }, offsets: focusFan(1), period: 5 },
+      },
+      {
+        spec: BOLT_T2, offsets: fan([7, 15]), period: 4,
+        focused: { spec: { ...SCOUT_FOCUS, style: { ...SCOUT_FOCUS.style, sprite: 'glow.large.bolt' } }, offsets: focusFan(1), period: 5 },
+      },
       // 7 and 15 again, not re-spaced: a different muzzle set can be a worse one.
-      { spec: BOLT_HYPER, offsets: fan([7, 15, 26]), period: 4 },
+      {
+        spec: BOLT_HYPER, offsets: fan([7, 15, 26]), period: 4,
+        focused: { spec: { ...SCOUT_FOCUS, style: { ...SCOUT_FOCUS.style, sprite: 'bolt.hyper', width: 26, height: 16 } }, offsets: focusFan(1), period: 5 },
+      },
     ],
   },
   needle: {
-    description: 'parallel needles; concentration instead of coverage',
+    description: 'parallel pins that lock into one bone-white focus cut',
     levels: [
-      { spec: GUN_NEEDLE, offsets: rake(0), period: 6 },
-      { spec: NEEDLE_T1, offsets: rake(1), period: 6 },
-      { spec: NEEDLE_T2, offsets: rake(2), period: 6 },
-      { spec: NEEDLE_T3, offsets: rake(3), period: 6 },
+      { spec: GUN_NEEDLE, offsets: rake(0), period: 6, focused: { spec: LANCE_FOCUS, offsets: focusRake(0), period: 6 } },
+      { spec: NEEDLE_T1, offsets: rake(1), period: 6, focused: { spec: { ...LANCE_FOCUS, damage: 1 }, offsets: focusRake(1), period: 6 } },
+      { spec: NEEDLE_T2, offsets: rake(2), period: 6, focused: { spec: { ...LANCE_FOCUS, damage: 1 }, offsets: focusRake(2), period: 6 } },
+      { spec: NEEDLE_T3, offsets: rake(3), period: 6, focused: { spec: { ...LANCE_FOCUS, damage: 1 }, offsets: focusRake(3), period: 6 } },
     ],
   },
   homing: {
-    description: 'slow tracking shot; trades rate and speed for never missing',
+    description: 'loose tracking spread that focus stacks into a visible target lock',
     levels: [
-      { spec: GUN_SEEKER, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 9 },
+      {
+        spec: GUN_SEEKER, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 9,
+        focused: { spec: HOUND_FOCUS, offsets: lockStack(1), period: 9 },
+      },
       {
         spec: GUN_SEEKER,
         offsets: [
@@ -3130,6 +3239,7 @@ const shots: PackContent['shots'] = {
           { x: 7, y: -10, angle: FORWARD },
         ],
         period: 9,
+        focused: { spec: HOUND_FOCUS, offsets: lockStack(2), period: 9 },
       },
       {
         spec: SEEKER_T2,
@@ -3139,6 +3249,7 @@ const shots: PackContent['shots'] = {
           { x: 0, y: -14, angle: FORWARD },
         ],
         period: 8,
+        focused: { spec: HOUND_FOCUS, offsets: lockStack(3), period: 8 },
       },
       {
         spec: SEEKER_T3,
@@ -3149,18 +3260,19 @@ const shots: PackContent['shots'] = {
           { x: 10, y: -8, angle: FORWARD + 6 },
         ],
         period: 8,
+        focused: { spec: HOUND_FOCUS, offsets: lockStack(4), period: 8 },
       },
     ],
   },
   laser: {
-    description: 'stationary piercing beam; reach instead of a spread',
+    description: 'pulsed free beam that focus sustains into a planted cutting edge',
     levels: [
       // One muzzle at every tier; the tiers buy duration (life) and reach (growth),
       // going from a strobe to an unbroken beam, never more emitters.
-      { spec: { ...GUN_BEAM, life: 3 }, offsets: MUZZLE, period: 6 },
-      { spec: { ...GUN_BEAM, life: 4 }, offsets: MUZZLE, period: 6 },
-      { spec: { ...GUN_BEAM, life: 5 }, offsets: MUZZLE, period: 6 },
-      { spec: { ...GUN_BEAM, life: 6, laser: { ...GUN_BEAM.laser, growth: 120 } }, offsets: MUZZLE, period: 5 },
+      { spec: { ...GUN_BEAM, life: 3 }, offsets: MUZZLE, period: 6, focused: { spec: { ...SPIRE_FOCUS, life: 5 }, period: 8 } },
+      { spec: { ...GUN_BEAM, life: 4 }, offsets: MUZZLE, period: 6, focused: { spec: { ...SPIRE_FOCUS, life: 6 }, period: 8 } },
+      { spec: { ...GUN_BEAM, life: 5 }, offsets: MUZZLE, period: 6, focused: { spec: { ...SPIRE_FOCUS, life: 7 }, period: 7 } },
+      { spec: { ...GUN_BEAM, life: 6, laser: { ...GUN_BEAM.laser, growth: 120 } }, offsets: MUZZLE, period: 5, focused: { spec: { ...SPIRE_FOCUS, life: 7, laser: { ...SPIRE_FOCUS.laser, growth: 180 } }, period: 7 } },
     ],
   },
   // MAW's gun: the inverse of `laser`. Reach is capped by the pellet's `life`
@@ -3168,12 +3280,12 @@ const shots: PackContent['shots'] = {
   // never range. Central muzzles are a fixed superset (2 then 3), so the nesting
   // invariant holds; the widening cheeks miss a point target on purpose.
   scatter: {
-    description: 'point-blank ember spray that evaporates past the pocket',
+    description: 'loose point-blank fan that focus compacts into a heavy ember knot',
     levels: [
-      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR], period: 6 },
-      { spec: SPRAY_T1, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6 },
-      { spec: SPRAY_T2, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5 },
-      { spec: SPRAY_T3, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4 },
+      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR], period: 6, focused: { spec: MAW_FOCUS, offsets: mawCore(2), period: 6 } },
+      { spec: SPRAY_T1, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6, focused: { spec: MAW_FOCUS, offsets: mawCore(3), period: 6 } },
+      { spec: SPRAY_T2, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5, focused: { spec: MAW_FOCUS, offsets: mawCore(4), period: 5 } },
+      { spec: SPRAY_T3, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4, focused: { spec: MAW_FOCUS, offsets: mawCore(4), period: 4 } },
     ],
   },
 };
@@ -3200,6 +3312,15 @@ const OPT_PICKET_SHOT = {
   radius: 4,
   motion: { r: 11, theta: FORWARD },
   damage: 1,
+};
+
+/** SPIRE's relays echo its vertical grammar with slim, fixed column shots. */
+const OPT_RELAY_SHOT = {
+  style: { sprite: 'needle.column', r: 0.62, g: 0.9, b: 1, additive: true, orientToHeading: true },
+  radius: 2,
+  motion: { r: 10, theta: FORWARD },
+  damage: 1,
+  blade: { length: 22 },
 };
 
 // Each tier keeps the tier below's slots and adds a pair — the option-layout twin
@@ -3234,6 +3355,21 @@ const PICKET_MID = [
 const PICKET_OUTER = [
   { x: -58, y: 18, focusX: -36, focusY: 6, angle: FORWARD },
   { x: 58, y: 18, focusX: 36, focusY: 6, angle: FORWARD },
+];
+
+// SPIRE's paired relay rails stay vertically ordered in both stances. Loose fire
+// occupies separate columns; focus gathers each pair alongside the central beam.
+const RELAY_INNER = [
+  { x: -20, y: -4, focusX: -7, focusY: -18, angle: FORWARD },
+  { x: 20, y: -4, focusX: 7, focusY: -18, angle: FORWARD },
+];
+const RELAY_MID = [
+  { x: -32, y: 8, focusX: -10, focusY: -8, angle: FORWARD },
+  { x: 32, y: 8, focusX: 10, focusY: -8, angle: FORWARD },
+];
+const RELAY_OUTER = [
+  { x: -44, y: 18, focusX: -13, focusY: 2, angle: FORWARD },
+  { x: 44, y: 18, focusX: 13, focusY: 2, angle: FORWARD },
 ];
 
 /**
@@ -3318,6 +3454,21 @@ const options: PackContent['options'] = {
       [...PICKET_NOSE, ...PICKET_INNER, ...PICKET_MID, ...PICKET_OUTER],
     ],
   },
+  // SPIRE alone gets the relay: slow, straight columns whose focus positions
+  // frame the sustained main beam instead of competing with it for the centre.
+  relay: {
+    sprite: 'halo',
+    shot: OPT_RELAY_SHOT,
+    period: 8,
+    followSpeed: 1.1,
+    tint: { r: 0.58, g: 0.88, b: 1 },
+    levels: [
+      [],
+      [...RELAY_INNER],
+      [...RELAY_INNER, ...RELAY_MID],
+      [...RELAY_INNER, ...RELAY_MID, ...RELAY_OUTER],
+    ],
+  },
   // MAW's battery: dead at range like the ship. 0 / 2 / 4 / 6 slots, each tier the
   // pair below plus one. The deliberately slow period (12) holds p3-focused under
   // the max rail; the wide-loose / clinched-focus split is the whole free/focus gap.
@@ -3337,23 +3488,51 @@ const options: PackContent['options'] = {
 };
 
 const bombs: PackContent['bombs'] = {
-  // The default: covers the screen, converts everything it eats, modest damage —
-  // its real payment is the clear.
-  spread: {
+  // SCOUT: a forgiving full-field tide. Its identity is conversion and the
+  // longest escape window, not raw boss damage.
+  'scout-tide': {
     duration: 90,
     invulnTicks: 150,
     damagePerTick: 2,
     convertBullets: true,
-    effect: 'death.big',
+    effect: 'burst.big',
   },
-  // The trade: half the coverage and no conversion, for four times the damage.
-  // Fired point-blank into a boss it is a damage cooldown, not an escape.
-  lance: {
+  // LANCE: a narrow, high-output puncture. It clears no score items, so firing
+  // it is a boss-damage commitment rather than a field-economy button.
+  'lance-pierce': {
     duration: 60,
     invulnTicks: 90,
     damagePerTick: 8,
     radius: 96,
     effect: 'explosion',
+  },
+  // HOUND: the pack circles a medium pocket, converting what it catches. It is
+  // neither SCOUT's whole-screen reset nor LANCE's tiny damage lance.
+  'hound-pack': {
+    duration: 72,
+    invulnTicks: 120,
+    damagePerTick: 3,
+    radius: 180,
+    convertBullets: true,
+    effect: 'burst',
+  },
+  // SPIRE: a long planted field. Whole-screen coverage lasts longest, but the
+  // lack of conversion makes it control rather than score harvest.
+  'spire-field': {
+    duration: 120,
+    invulnTicks: 165,
+    damagePerTick: 2,
+    effect: 'burst.big',
+  },
+  // MAW: a brief close-range devour. The small radius demands aggression; the
+  // high tick damage and conversion reward detonating inside the pattern.
+  'maw-devour': {
+    duration: 45,
+    invulnTicks: 90,
+    damagePerTick: 10,
+    radius: 132,
+    convertBullets: true,
+    effect: 'boom.player',
   },
 };
 
@@ -3372,10 +3551,10 @@ const characters: PackContent['characters'] = {
   scout: {
     label: 'SCOUT',
     sprite: 'ship',
-    blurb: 'even fire, wide bomb',
+    blurb: 'wide fan / focus seam, converting tide',
     shot: 'spread',
     options: 'standard',
-    bomb: 'spread',
+    bomb: 'scout-tide',
     player: {
       x: 240, y: 568, speed: 3.6, focusSpeed: 1.5,
       // Lethal radius against a 40px sprite. That ratio is the genre.
@@ -3386,10 +3565,10 @@ const characters: PackContent['characters'] = {
   lance: {
     label: 'LANCE',
     sprite: 'ship',
-    blurb: 'homing options, focused bomb',
+    blurb: 'bone rake / focus cut, piercing bomb',
     shot: 'needle',
     options: 'seeker',
-    bomb: 'lance',
+    bomb: 'lance-pierce',
     player: {
       x: 240, y: 568, speed: 3.1, focusSpeed: 1.2,
       radius: 2.5, grazeRadius: 24, lives: 2, bombs: 3, invulnTicks: 90,
@@ -3403,10 +3582,10 @@ const characters: PackContent['characters'] = {
   hound: {
     label: 'HOUND',
     sprite: 'ship',
-    blurb: 'self-aiming gun, hand-aimed options',
+    blurb: 'tracking spread / target lock, pack bomb',
     shot: 'homing',
     options: 'picket',
-    bomb: 'spread',
+    bomb: 'hound-pack',
     player: {
       x: 240, y: 568, speed: 2.9, focusSpeed: 1.6,
       radius: 2.5, grazeRadius: 26, lives: 3, bombs: 2, invulnTicks: 90,
@@ -3419,10 +3598,10 @@ const characters: PackContent['characters'] = {
   spire: {
     label: 'SPIRE',
     sprite: 'ship',
-    blurb: 'planted beam, point-blank bomb',
+    blurb: 'pulse / sustained beam, planted field',
     shot: 'laser',
-    options: 'seeker',
-    bomb: 'lance',
+    options: 'relay',
+    bomb: 'spire-field',
     player: {
       x: 240, y: 568, speed: 4.2, focusSpeed: 1,
       radius: 2.5, grazeRadius: 28, lives: 2, bombs: 3, invulnTicks: 90,
@@ -3434,15 +3613,15 @@ const characters: PackContent['characters'] = {
   // snipe from the floor and MAW cannot — it must fly up into the ~140px full-damage
   // pocket, where the pattern is densest, to deal any damage. Largest graze
   // (30) turns that forced proximity into score; most bombs (4) let it spend the
-  // point-blank `lance` and expect refills from drops — but only if it stays close.
+  // point-blank `maw-devour` and expect refills from drops — but only if it stays close.
   // Lives 2: it lives dangerous.
   maw: {
     label: 'MAW',
     sprite: 'ship',
-    blurb: 'point-blank spray, graze-fed',
+    blurb: 'loose spray / ember knot, close devour',
     shot: 'scatter',
     options: 'clinch',
-    bomb: 'lance',
+    bomb: 'maw-devour',
     player: {
       x: 240, y: 568, speed: 3.9, focusSpeed: 1.4,
       radius: 2.5, grazeRadius: 30, lives: 2, bombs: 4, invulnTicks: 90,

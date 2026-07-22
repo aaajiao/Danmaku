@@ -1095,7 +1095,12 @@ meaningful against it.
     "description": "ember bolts that fan wider with each power tier",
     "levels": [
       { "spec": { "…": "a BulletSpec" }, "offsets": [ { "x": 0, "y": -12, "angle": 270 } ], "period": 6 },
-      { "spec": { "…": "a BulletSpec" }, "offsets": [ "… three muzzles …" ], "period": 6 }
+      {
+        "spec": { "…": "a BulletSpec" },
+        "offsets": [ "… three muzzles …" ],
+        "period": 6,
+        "focused": { "offsets": [ "… tight muzzles …" ], "period": 5 }
+      }
     ]
   }
 }
@@ -1103,6 +1108,10 @@ meaningful against it.
 
 `levels` is required (`description` optional); each level is a `ShotSpec` of `spec`
 (a `BulletSpec`), `offsets` (muzzle vectors) and `period` (ticks between volleys).
+An optional `focused` object may override `spec`, `offsets` and/or `period`; every
+omitted field falls back independently to the base tier. Unknown focused fields
+are rejected, and its bullet references pass through the same sprite and motion-
+behaviour validation as the base shot.
 A shot does not name itself — a **character equips it by name** (below), and a
 shot no pack character fires is dead content (§9.4).
 
@@ -1330,6 +1339,7 @@ the same validator):
 | Level missing `spec` | `content.shots."emberbolt".levels[0] is missing required field "spec" — a bullet spec` |
 | Level missing `offsets` | `content.shots."emberbolt".levels[0] is missing required field "offsets" — an array of muzzle offsets` |
 | Level missing `period` | `content.shots."emberbolt".levels[0] is missing required field "period" — ticks between volleys` |
+| Unknown focused field | `content.shots."emberbolt".levels[0].focused: unknown field "cadence" — valid fields here: spec, offsets, period` |
 | Options missing `shot` | `content.options."emberwing" is missing required field "shot" — a bullet spec` |
 | Options missing `levels` | `content.options."emberwing" is missing required field "levels" — slot layouts by power tier` |
 | Bomb missing `damagePerTick` | `content.bombs."firestorm" is missing required field "damagePerTick" — damage per tick in range` |
@@ -1531,8 +1541,8 @@ largest consumer**: stage-1, stage-2, stage-3, stage-4, their sixteen trash enem
 `weaver`, `turret` + `drifter`, `lash`, `hunter`, `censer`, `bastion` + `clerk`,
 `stele`, `summons`, `ray`, `assessor` + `usher`, `marshal`, `notary`), five
 bosses (`sentinel`, `warden`, `magistrate`, `chancellor`, `regent`) **and the whole player side** — the
-five characters (`scout`, `lance`, `hound`, `spire`, `maw`), their five shots, four
-option sets and two bombs — are no longer engine TypeScript.
+five characters (`scout`, `lance`, `hound`, `spire`, `maw`), their five shots, five
+option sets and five identity bombs — are no longer engine TypeScript.
 They are `src/v4/content/campaign.json`, generated from the authoring source
 `tools/make-v4-content.ts` and composed/injected by `src/v4/content/index.ts`
 through this exact pipeline — the same `validateManifest`, the same

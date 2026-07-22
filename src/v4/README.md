@@ -90,7 +90,8 @@ actual firing signatures, and regenerates the eight Normal/Lunatic traces. The
 generated `CONTENT_FINGERPRINT` now hashes campaign JSON together with the exact
 `patterns.ts` and `behaviours.ts` bytes, closing the migration-era hole where
 compiled danmaku could change under an unchanged replay identity. Its current
-value is `6f4bc1ad6a0a`.
+value is `ffcf706d0622`; player focus stances and five identity bombs are part of
+that intentional gameplay revision too.
 
 `campaign.json` still contains the description “stage-1 and stage-2, their cast
 and bosses.” That string is stale historical metadata: the actual edition has

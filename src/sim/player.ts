@@ -18,12 +18,32 @@ import { Button, type Buttons } from '../core/input';
 import { bulletHitsCircle } from './bullet';
 import type { Bullet, BulletSpec, BulletSystem } from './bullet';
 
+/** One muzzle relative to the player. Angles use the motion DSL's degrees. */
+export interface ShotOffset {
+  x: number;
+  y: number;
+  angle?: number;
+}
+
+/**
+ * The focused variant of one shot tier. Every field falls back independently to
+ * the base tier, which lets content change only its formation, cadence, or
+ * projectile without duplicating the other two.
+ */
+export interface FocusedShotSpec {
+  spec?: BulletSpec;
+  offsets?: readonly ShotOffset[];
+  period?: number;
+}
+
 export interface ShotSpec {
   spec: BulletSpec;
   /** Muzzle offsets from the player, px. */
-  offsets: readonly { x: number; y: number; angle?: number }[];
+  offsets: readonly ShotOffset[];
   /** Ticks between volleys. */
   period: number;
+  /** Focus-held overrides; omitted fields retain the unfocused tier value. */
+  focused?: FocusedShotSpec;
 }
 
 export interface PlayerConfig {
@@ -234,14 +254,18 @@ export class Player {
     if (shot === undefined) return;
     // Off the tick, never a float accumulator: an accumulator drifts, and its
     // drift depends on when firing started, so two identical runs diverge.
-    if (shot.period > 0 && tick % shot.period !== 0) return;
+    const focused = this.focused ? shot.focused : undefined;
+    const spec = focused?.spec ?? shot.spec;
+    const offsets = focused?.offsets ?? shot.offsets;
+    const period = focused?.period ?? shot.period;
+    if (period > 0 && tick % period !== 0) return;
 
     this.fired = true;
-    for (const muzzle of shot.offsets) {
+    for (const muzzle of offsets) {
       const bullet = bullets.spawn(
         this.x + muzzle.x,
         this.y + muzzle.y,
-        shot.spec,
+        spec,
         'player',
       );
       // The pool is at its ceiling; drop the rest of the volley rather than

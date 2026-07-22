@@ -1173,7 +1173,7 @@ the player's counters; each hands data to the game layer and stops.
 
 **The base game's own player side is generator-authored, exactly like its
 enemies and stages.** `scout`, `lance`, `hound`, `spire` and `maw` — and the five
-shots, four option sets and two bombs they fly — are no longer inline `define*` calls in
+shots, five option sets and five identity bombs they fly — are no longer inline `define*` calls in
 `src/content/shots.ts`, `src/sim/option.ts`, `src/sim/bomb.ts` or `src/game/run.ts`;
 those files keep only the registries, the systems and the runtime constants they
 read (`FORWARD` and `DEFAULT_FOLLOW_SPEED` stay in `option.ts` — the option system
@@ -1188,8 +1188,8 @@ document the shapes those all share.
 ### `defineShot` — a weapon, by power tier
 
 A `ShotType` is `name`, `levels`, and an optional `description`
-(`src/content/shots.ts:30-35`), where each level is a `ShotSpec` of `spec`,
-`offsets` and `period` (`src/sim/player.ts:21-27`). As with `defineStage`, the
+(`src/content/shots.ts`), where each level is a `ShotSpec` of `spec`, `offsets`
+and `period`, plus an optional `focused` override (`src/sim/player.ts`). As with `defineStage`, the
 key and the `name` field must agree or it throws
 (`src/content/shots.ts:44-49`) — content is referenced by name everywhere, and a
 type whose own name disagreed with its key would report the wrong weapon in every
@@ -1213,7 +1213,15 @@ defineShot('lance', {
   description: 'one heavy column; no spread at any tier',
   levels: [
     { spec: BOLT, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 6 },
-    { spec: BOLT, offsets: [{ x: -5, y: -12, angle: FORWARD }, { x: 5, y: -12, angle: FORWARD }], period: 6 },
+    {
+      spec: BOLT,
+      offsets: [{ x: -5, y: -12, angle: FORWARD }, { x: 5, y: -12, angle: FORWARD }],
+      period: 6,
+      focused: {
+        offsets: [{ x: -2, y: -14, angle: FORWARD }, { x: 2, y: -14, angle: FORWARD }],
+        period: 5,
+      },
+    },
   ],
 });
 ```
@@ -1223,6 +1231,12 @@ defineShot('lance', {
 than the power ceiling keeps its strongest entry rather than disarming the ship.
 Tier 0 is never empty, unlike options, because a ship that cannot shoot until its
 first pickup has no way to earn one (`src/content/shots.ts:11-16`).
+
+While Slow is held, `focused.spec`, `focused.offsets` and `focused.period` each
+override the base field independently; omitted fields fall back to that tier's
+unfocused value. This makes focus a real weapon stance without duplicating an
+entire `BulletSpec`. It remains fixed-tick data: cadence is still
+`tick % period`, and switching stance consumes no RNG.
 
 The shipped `spread` weapon buys **coverage, not damage**: every tier fires the
 same bullet and the upgrade is more of them across a wider arc. A tier that

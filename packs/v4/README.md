@@ -9,9 +9,9 @@ spines, branching mycelium and a warm heart core — redrawn at STG-native sizes
 
 | Surface | Count | File |
 |---|---:|---|
-| Native bullet names (16 neutral floors + 54 current base variants) | 70 | `bullets/bullets.png` |
+| Native bullet names (16 neutral floors + 56 current base variants) | 72 | `bullets/bullets.png` |
 | Native effects | 11 | `effects/effects.png` |
-| Player option / thrust / bomb effects | 9 | `effects/effects.png` |
+| Player option / thrust / bomb effects | 19 | `effects/effects.png` |
 | Laser bodies + caps | 11 | `lasers/lasers.png` |
 | Missile bodies | 13 | `missiles/missiles.png` |
 | Pickups + result-tally coins | 10 | `pickups/pickups.png` |
@@ -24,9 +24,9 @@ without changing frame order, names or sampling geometry.
 
 The procedural `pulse` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native
-effect surfaces. Five registry variants currently unused by base content
-(`needle.lance`, `needle.column`, `halo.seal`, `halo.crown`,
-`glow.small.beam`) likewise retain their procedural aliases. A test walks the
+effect surfaces. Three registry variants currently unused by base content
+(`halo.seal`, `halo.crown`, `glow.small.beam`) likewise retain their
+procedural aliases. A test walks the
 actual base JSON, so a future campaign edit that starts using one must add it to
 this pack before the build turns green.
 
@@ -73,10 +73,10 @@ beams are seamless while their cross-axis still clears padding.
 Missiles retain their gameplay name and collision, but no longer look like
 aircraft weapons: they are porous heart-writs made from a bone axis, open ribs,
 loose hyphae and a pulsing organ. There is no closed hull, fin, nozzle or exhaust
-flame. Shared player option/thrust/bomb/death art and the five-bank back-wing use
-one explicit cyan/magenta/amber multi-player palette rather than falsely wearing
-one heroine's identity. The Bomb HUD is a four-organ casting flower, not a
-crosshair.
+flame. Each built-in heroine owns an option strip and her named spell-card strip;
+the shared option/thrust/legacy-bomb/death fallback surfaces and five-bank
+back-wing use one explicit cyan/magenta/amber multi-player palette instead. The
+Bomb HUD is a four-organ casting flower, not a crosshair.
 
 ## Ownership
 

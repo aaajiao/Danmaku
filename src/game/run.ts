@@ -1684,7 +1684,7 @@ function expectOrWarnMeta(replay: Replay, key: string, expected: string): void {
 /* Starter characters                                                  */
 /* ------------------------------------------------------------------ */
 
-// scout/lance/hound/spire/maw — and the five shots, four option sets and two bombs
+// scout/lance/hound/spire/maw — and the five shots, five option sets and five bombs
 // they fly — moved into the v4 campaign (`tools/make-v4-content.ts` →
 // `src/v4/content/campaign.json`), registering through the inject pipeline like any pack
 // character (decisions-round2 §D). This module keeps only the machinery above:

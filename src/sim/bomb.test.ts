@@ -86,7 +86,7 @@ describe('the registry', () => {
   });
 
   test('a registered bomb is enumerable, so tooling can list it', () => {
-    // The shipped bombs — spread and lance — are no longer defined here; they
+    // The shipped character-identity bombs are no longer defined here; they
     // moved into the bundled base pack (decisions-round2 §D), which a `src/sim`
     // test may not import. Their specs are pinned by the generator drift test
     // (`tools/make-v4-content.test.ts`) and their behaviour by
@@ -422,7 +422,7 @@ describe('clearing', () => {
  * A radius bomb catches a beam by its *shape*, not a circle at its muzzle.
  *
  * A field-clear already catches on-field beams (a planted beam's muzzle is
- * on-field), but a radius bomb — the point-blank `lance` kind — used to test the
+ * on-field), but a radius bomb — the point-blank identity-bomb kind — used to test the
  * muzzle only, so a beam crossing the blast with its muzzle elsewhere survived a
  * panic-bomb and stayed on screen looking lethal while the player had invuln.
  * The fix is scoped to the radius path; the field-rect path stays muzzle-based.

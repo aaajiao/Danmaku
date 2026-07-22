@@ -395,9 +395,9 @@ export const V4_OWNER_PALETTES: Record<V4ProjectileOwner, Palette> = {
  * therefore never appear as `style.sprite` in the v4 campaign JSON. */
 export const V4_OWNER_PROJECTILES: Record<V4ProjectileOwner, readonly string[]> = {
   'player.scout': ['glow.small.bolt', 'glow.medium.bolt', 'glow.large.bolt', 'bolt.hyper', 'orb.small.satellite'],
-  'player.lance': ['needle.pin', 'needle.pin.t0', 'needle.pin.t1', 'needle.pin.t2', 'scale.satellite'],
+  'player.lance': ['needle.pin', 'needle.pin.t0', 'needle.pin.t1', 'needle.pin.t2', 'needle.lance', 'scale.satellite'],
   'player.hound': ['scale.tracker', 'scale.chase', 'scale.chase.hi', 'orb.small.battery'],
-  'player.spire': ['beam.cyan', 'cap.v3', 'scale.satellite'],
+  'player.spire': ['beam.cyan', 'cap.v3', 'needle.column'],
   'player.maw': ['glow.small.spray', 'glow.small.spray.t1', 'glow.small.spray.t2', 'glow.small.spray.t3', 'orb.small.clinch'],
 
   'enemy.grunt': ['orb.small.chaff'],
@@ -780,9 +780,9 @@ function drawBulletFrame(image: Bitmap, x: number, y: number, name: string, fram
   drawHostileThreatCore(image, cx, cy, p, faction);
 }
 
-/** Five variants are registry floors but are not named by the current base JSON. */
+/** Three variants are registry floors but are not named by the current base JSON. */
 export const UNREACHED_BULLET_VARIANTS = new Set([
-  'needle.lance', 'needle.column', 'halo.seal', 'halo.crown', 'glow.small.beam',
+  'halo.seal', 'halo.crown', 'glow.small.beam',
 ]);
 
 export const V4_BULLET_NAMES = [
@@ -824,12 +824,7 @@ function buildBullets(): { bytes: Uint8Array; strips: NonNullable<Extract<NonNul
   return { bytes: encode(image), strips };
 }
 
-/**
- * The loader exposes one ship/option/thruster/bomb strip, not one per heroine.
- * These palettes therefore declare shared presentation honestly: cyan surface,
- * magenta connection and amber heart span the five-player spectrum without
- * pretending the asset belongs to SCOUT, LANCE, or any other one woman.
- */
+/** Shared presentation remains for the ship and legacy fallback strips. */
 export const V4_SHARED_PLAYER_PALETTE = personPalette(
   [103, 194, 224], [221, 91, 190], [255, 190, 72], [242, 247, 250],
 );
@@ -841,6 +836,10 @@ const V4_SHARED_MISSILE_FX_PALETTE = personPalette(
 );
 
 export function paletteForEffect(name: string): Palette {
+  const optionOwner = OPTION_EFFECT_OWNERS[name];
+  if (optionOwner !== undefined) return V4_OWNER_PALETTES[optionOwner];
+  const bombOwner = BOMB_EFFECT_OWNERS[name];
+  if (bombOwner !== undefined) return V4_OWNER_PALETTES[bombOwner];
   if (name.startsWith('player.') || name === 'boom.player') return V4_SHARED_PLAYER_PALETTE;
   if (name.startsWith('missile.pop.')) return V4_SHARED_MISSILE_FX_PALETTE;
   // `debris` serves both player and boss; a single baked strip must remain a
@@ -848,6 +847,22 @@ export function paletteForEffect(name: string): Palette {
   if (name === 'debris') return sharedLineagePalette(['player.maw', 'boss.regent']);
   return V4_SHARED_ENEMY_FX_PALETTE;
 }
+
+const OPTION_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> = {
+  'player.option.scout': 'player.scout',
+  'player.option.lance': 'player.lance',
+  'player.option.hound': 'player.hound',
+  'player.option.spire': 'player.spire',
+  'player.option.maw': 'player.maw',
+};
+
+const BOMB_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> = {
+  'player.bomb.scout-tide': 'player.scout',
+  'player.bomb.lance-pierce': 'player.lance',
+  'player.bomb.hound-pack': 'player.hound',
+  'player.bomb.spire-field': 'player.spire',
+  'player.bomb.maw-devour': 'player.maw',
+};
 
 function drawBurst(image: Bitmap, cx: number, cy: number, frame: number, frames: number, maxRadius: number, p: Palette): void {
   const t = frames <= 1 ? 0 : frame / (frames - 1);
@@ -876,6 +891,39 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
     const d = DIR8[(frame * 2) % DIR8.length]!;
     disc(image, cx + Math.round(d[0] / 2), cy + Math.round(d[1] / 2), 2, p.mycelium);
     heart(image, cx, cy, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.option.scout') {
+    ring(image, cx, cy, 7 + (frame % 3), 1, p.surface);
+    ring(image, cx, cy, 4 + ((frame + 1) % 2), 1, p.mycelium);
+    heart(image, cx, cy, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.option.lance') {
+    line(image, cx, cy - 9, cx, cy + 8, p.bone, 2);
+    line(image, cx - 4 + frame % 3, cy + 5, cx + 4, cy + 5, p.surface);
+    heart(image, cx, cy - 3, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.option.hound') {
+    for (const [dx, dy] of [[-6, 4], [0, -5], [6, 4]] as const) disc(image, cx + dx, cy + dy, 3, p.surface);
+    line(image, cx - 6, cy + 4, cx + 6, cy + 4, p.mycelium);
+    heart(image, cx, cy - 5 + (frame % 2), 1, p.heart);
+    return;
+  }
+  if (spec.name === 'player.option.spire') {
+    convex(image, [[cx, cy - 9], [cx + 7, cy], [cx, cy + 9], [cx - 7, cy]], [p.surface[0], p.surface[1], p.surface[2], 155]);
+    line(image, cx, cy - 8, cx, cy + 8, p.bone);
+    line(image, cx - 5, cy + (frame % 3) - 1, cx + 5, cy + (frame % 3) - 1, p.mycelium);
+    heart(image, cx, cy, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.option.maw') {
+    ring(image, cx, cy, 9, 2, p.surface);
+    disc(image, cx - 3 + frame % 2, cy, 4, [p.shadow[0], p.shadow[1], p.shadow[2], 210]);
+    line(image, cx + 1, cy - 7, cx + 6, cy - 2, p.mycelium);
+    line(image, cx + 1, cy + 7, cx + 6, cy + 2, p.mycelium);
+    heart(image, cx + 3, cy, 1, p.heart);
     return;
   }
   if (spec.name.startsWith('player.thruster.particle.')) {
@@ -909,6 +957,47 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
         cx + Math.round((d[0] * Math.max(4, r - 2)) / 8), cy + Math.round((d[1] * Math.max(4, r - 2)) / 8), p.mycelium);
     }
     heart(image, cx, cy, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.bomb.scout-tide') {
+    const r = 7 + frame % 12;
+    ring(image, cx, cy, r, 2, p.surface);
+    ring(image, cx, cy, Math.max(3, r - 7), 1, p.mycelium);
+    heart(image, cx, cy, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.bomb.lance-pierce') {
+    const lift = frame % 4;
+    convex(image, [[cx, cy - 20], [cx + 7, cy + 12], [cx, cy + 20], [cx - 7, cy + 12]], [p.surface[0], p.surface[1], p.surface[2], 180]);
+    line(image, cx, cy - 20, cx, cy + 18, p.bone, 2);
+    line(image, cx - 6, cy + 11 + lift, cx + 6, cy + 11 + lift, p.mycelium);
+    heart(image, cx, cy - 8, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.bomb.hound-pack') {
+    const sway = frame % 3 - 1;
+    for (const [dx, dy] of [[-14, 9], [0, -11], [14, 9]] as const) {
+      disc(image, cx + dx + sway, cy + dy, 5, p.surface);
+      heart(image, cx + dx + sway, cy + dy, 1, p.heart);
+    }
+    line(image, cx - 12, cy + 7, cx + 12, cy + 7, p.mycelium);
+    return;
+  }
+  if (spec.name === 'player.bomb.spire-field') {
+    const r = 8 + frame % 10;
+    convex(image, [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]], [p.surface[0], p.surface[1], p.surface[2], 145]);
+    line(image, cx, cy - r, cx, cy + r, p.bone);
+    line(image, cx - r, cy, cx + r, cy, p.mycelium);
+    heart(image, cx, cy, 2, p.heart);
+    return;
+  }
+  if (spec.name === 'player.bomb.maw-devour') {
+    const r = 11 + frame % 8;
+    ring(image, cx, cy, r, 3, p.surface);
+    disc(image, cx - 4, cy, r - 6, [p.shadow[0], p.shadow[1], p.shadow[2], 220]);
+    line(image, cx + 2, cy - r + 3, cx + r - 3, cy - 2, p.mycelium, 2);
+    line(image, cx + 2, cy + r - 3, cx + r - 3, cy + 2, p.mycelium, 2);
+    heart(image, cx + 5, cy, 2, p.heart);
     return;
   }
   if (spec.name === 'player.bomb.projectile' || spec.name === 'player.bomb.missile') {
@@ -967,6 +1056,11 @@ const NATIVE_EFFECT_NAMES = [
 
 const PLAYER_EFFECT_SPECS: readonly RowSpec[] = [
   { name: 'player.option', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
+  { name: 'player.option.scout', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
+  { name: 'player.option.lance', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
+  { name: 'player.option.hound', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
+  { name: 'player.option.spire', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
+  { name: 'player.option.maw', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
   { name: 'player.thruster.up', frameW: 20, frameH: 28, frames: 4, ticksPerFrame: 3, mode: 'loop', color: 'baked' },
   { name: 'player.thruster.cruise', frameW: 20, frameH: 24, frames: 4, ticksPerFrame: 3, mode: 'loop', color: 'baked' },
   { name: 'player.thruster.down', frameW: 20, frameH: 20, frames: 4, ticksPerFrame: 3, mode: 'loop', color: 'baked' },
@@ -975,6 +1069,11 @@ const PLAYER_EFFECT_SPECS: readonly RowSpec[] = [
   { name: 'player.bomb.missile', frameW: 16, frameH: 28, frames: 8, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
   { name: 'player.bomb.projectile', frameW: 12, frameH: 24, frames: 6, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
   { name: 'player.bomb.field', frameW: 48, frameH: 48, frames: 30, ticksPerFrame: 3, mode: 'once', color: 'baked' },
+  { name: 'player.bomb.scout-tide', frameW: 48, frameH: 48, frames: 30, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
+  { name: 'player.bomb.lance-pierce', frameW: 24, frameH: 48, frames: 12, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
+  { name: 'player.bomb.hound-pack', frameW: 48, frameH: 40, frames: 12, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
+  { name: 'player.bomb.spire-field', frameW: 48, frameH: 48, frames: 20, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
+  { name: 'player.bomb.maw-devour', frameW: 48, frameH: 48, frames: 16, ticksPerFrame: 2, mode: 'loop', color: 'baked' },
 ];
 
 export const V4_EFFECT_SPECS: readonly RowSpec[] = [
@@ -1277,7 +1376,7 @@ spines, branching mycelium and a warm heart core — redrawn at STG-native sizes
 
 | Surface | Count | File |
 |---|---:|---|
-| Native bullet names (16 neutral floors + 54 current base variants) | ${bulletCount} | \`bullets/bullets.png\` |
+| Native bullet names (16 neutral floors + 56 current base variants) | ${bulletCount} | \`bullets/bullets.png\` |
 | Native effects | ${NATIVE_EFFECT_NAMES.length} | \`effects/effects.png\` |
 | Player option / thrust / bomb effects | ${PLAYER_EFFECT_SPECS.length} | \`effects/effects.png\` |
 | Laser bodies + caps | ${V4_LASER_SPECS.length} | \`lasers/lasers.png\` |
@@ -1292,9 +1391,9 @@ without changing frame order, names or sampling geometry.
 
 The procedural \`pulse\` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native
-effect surfaces. Five registry variants currently unused by base content
-(\`needle.lance\`, \`needle.column\`, \`halo.seal\`, \`halo.crown\`,
-\`glow.small.beam\`) likewise retain their procedural aliases. A test walks the
+effect surfaces. Three registry variants currently unused by base content
+(\`halo.seal\`, \`halo.crown\`, \`glow.small.beam\`) likewise retain their
+procedural aliases. A test walks the
 actual base JSON, so a future campaign edit that starts using one must add it to
 this pack before the build turns green.
 
@@ -1341,10 +1440,10 @@ beams are seamless while their cross-axis still clears padding.
 Missiles retain their gameplay name and collision, but no longer look like
 aircraft weapons: they are porous heart-writs made from a bone axis, open ribs,
 loose hyphae and a pulsing organ. There is no closed hull, fin, nozzle or exhaust
-flame. Shared player option/thrust/bomb/death art and the five-bank back-wing use
-one explicit cyan/magenta/amber multi-player palette rather than falsely wearing
-one heroine's identity. The Bomb HUD is a four-organ casting flower, not a
-crosshair.
+flame. Each built-in heroine owns an option strip and her named spell-card strip;
+the shared option/thrust/legacy-bomb/death fallback surfaces and five-bank
+back-wing use one explicit cyan/magenta/amber multi-player palette instead. The
+Bomb HUD is a four-organ casting flower, not a crosshair.
 
 ## Ownership
 
@@ -1428,7 +1527,7 @@ if (import.meta.main) {
   const assets = build.manifest.assets!;
   const bullets = assets.bullets as Exclude<typeof assets.bullets, string | undefined>;
   console.log(`v4 pack: ${Object.keys(bullets.strips).length} bullets`);
-  console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (11 native + 9 player)`);
+  console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (${NATIVE_EFFECT_NAMES.length} native + ${PLAYER_EFFECT_SPECS.length} player)`);
   console.log(`v4 pack: ${Object.keys(assets.lasers ?? {}).length} lasers, ${Object.keys(assets.missiles ?? {}).length} missiles, ${Object.keys(assets.pickups ?? {}).length} pickups`);
   console.log(`v4 pack: wrote ${build.files.size} files to ${V4_PACK_DIR}`);
 }
