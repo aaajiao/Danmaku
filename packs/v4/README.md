@@ -10,7 +10,7 @@ spines, branching mycelium and a warm heart core — redrawn at STG-native sizes
 | Surface | Count | File |
 |---|---:|---|
 | Native bullet names (16 neutral floors + 56 current base variants) | 72 | `bullets/bullets.png` |
-| Native effects | 11 | `effects/effects.png` |
+| Native effects | 15 | `effects/effects.png` |
 | Player option / thrust / bomb effects | 19 | `effects/effects.png` |
 | Laser bodies + caps | 11 | `lasers/lasers.png` |
 | Missile bodies | 13 | `missiles/missiles.png` |

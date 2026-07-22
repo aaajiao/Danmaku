@@ -46,7 +46,7 @@ import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec, type DialogueLine } from '../sim/boss';
 import { bulletContactPoint, bulletHitsCircle, BulletSystem, type Bullet } from '../sim/bullet';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
-import { EffectSystem } from '../sim/effects';
+import { EffectSystem, type HitMaterial } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
 import { getItemSpec, ItemSystem, type Spoils } from '../sim/item';
 import { OptionSystem } from '../sim/option';
@@ -406,7 +406,6 @@ const TIMEOUT_BONUS_FRACTION = 0.25;
 const BOSS_ENTRY_Y = -60;
 
 const BEAM_IMPACT_PERIOD = 8;
-const BEAM_IMPACT_CELL = 24;
 
 /**
  * What a death costs, and how much of it is left on the floor.
@@ -522,8 +521,8 @@ export class Run {
   #playback: ReplayPlayback | undefined;
 
   #tick = 0;
-  /** Cosmetic cell timers; never read by simulation or replay state. */
-  readonly #beamImpactTicks = new Map<string, number>();
+  /** FX-only per-target timers; never read by simulation or replay state. */
+  readonly #beamFeedbackTicks = new Map<object, number>();
   #outcome: RunOutcome = 'playing';
   #bossSent = false;
   #bossDefeated = false;
@@ -874,10 +873,16 @@ export class Run {
         if (!bulletHitsCircle(b, enemy.x, enemy.y, enemy.spec.radius)) continue;
 
         const contact = bulletContactPoint(b, enemy.x, enemy.y);
+        const feedbackDue = this.#shotFeedbackDue(b, enemy);
         const killed = this.enemies.damage(enemy, b.damage);
-        if (!killed && enemy.spec.onHit) this.effects.emit(enemy.spec.onHit, contact.x, contact.y);
+        if (!killed && enemy.spec.onHit && feedbackDue) {
+          this.effects.emit(enemy.spec.onHit, contact.x, contact.y);
+        }
+        if (!killed && feedbackDue) {
+          this.#emitMaterialHit(enemy.spec.hitMaterial, contact.x, contact.y);
+        }
         this.#emit({ type: 'shot-hit', x: contact.x, y: contact.y, name: enemy.name });
-        this.#emitShotFeedback(b, contact.x, contact.y);
+        if (feedbackDue) this.#emitShotFeedback(b, contact.x, contact.y);
 
         // A piercing beam keeps going and keeps damaging; anything else is
         // spent on the first thing it touches.
@@ -900,29 +905,39 @@ export class Run {
       if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
 
       const contact = bulletContactPoint(b, boss.x, boss.y);
-      this.boss.damage(b.damage);
+      const feedbackDue = this.#shotFeedbackDue(b, boss);
+      const cleared = this.boss.damage(b.damage);
       // Legacy/guest shots did not author a semantic family. Keep the old boss
       // spark for them while authored player shots choose their own language.
-      if (b.feedback === undefined) this.effects.emit('hit', contact.x, contact.y);
-      else this.#emitShotFeedback(b, contact.x, contact.y);
+      if (b.feedback === undefined && feedbackDue) {
+        this.effects.emit('hit', contact.x, contact.y);
+      }
+      else if (feedbackDue) this.#emitShotFeedback(b, contact.x, contact.y);
+      if (!cleared && feedbackDue) {
+        this.#emitMaterialHit(boss.spec.hitMaterial, contact.x, contact.y);
+      }
       this.#emit({ type: 'boss-hit', x: contact.x, y: contact.y, name: boss.name });
       if (!b.pierce) this.bullets.despawn(b);
     }
+  }
+
+  /**
+   * A held beam still damages every tick; only its three cosmetic layers share
+   * this per-target gate. Detect the physical laser too so a legacy/guest beam
+   * cannot reintroduce per-tick sparks merely by omitting the semantic tag.
+   */
+  #shotFeedbackDue(b: Bullet, target: object): boolean {
+    if (b.feedback !== 'beam' && b.laser === undefined) return true;
+    const last = this.#beamFeedbackTicks.get(target);
+    if (last !== undefined && this.#tick - last < BEAM_IMPACT_PERIOD) return false;
+    this.#beamFeedbackTicks.set(target, this.#tick);
+    return true;
   }
 
   /** Cosmetic only: every name resolves in EffectSystem and therefore uses fx RNG. */
   #emitShotFeedback(b: Bullet, x: number, y: number): void {
     const feedback = b.feedback;
     if (feedback === undefined) return;
-    // A beam already has a continuous body/cap. Limit sparks per contact-area,
-    // not globally: separate targets can still read independently, while one
-    // held beam cannot turn every damage tick into a fountain.
-    if (feedback === 'beam') {
-      const cell = `${Math.floor(x / BEAM_IMPACT_CELL)},${Math.floor(y / BEAM_IMPACT_CELL)}`;
-      const last = this.#beamImpactTicks.get(cell);
-      if (last !== undefined && this.#tick - last < BEAM_IMPACT_PERIOD) return;
-      this.#beamImpactTicks.set(cell, this.#tick);
-    }
     const direction = b.vector.theta;
     switch (feedback) {
       case 'needle': this.effects.emit('impact.needle', x, y, direction); break;
@@ -935,6 +950,16 @@ export class Run {
         this.effects.emit('impact.scatter.pause', x, y);
         break;
     }
+  }
+
+  /** Cosmetic-only target material, independently rate-limited from beam damage. */
+  #emitMaterialHit(
+    material: HitMaterial | undefined,
+    x: number,
+    y: number,
+  ): void {
+    if (material === undefined) return;
+    this.effects.emitMaterialHit(material, x, y);
   }
 
   /**
@@ -1620,6 +1645,7 @@ export class Run {
     this.enemies.clear();
     this.items.clear();
     this.effects.clear();
+    this.#beamFeedbackTicks.clear();
     this.boss.clear();
     this.bombs.clear();
     this.options.reset();
@@ -1640,7 +1666,6 @@ export class Run {
     this.bullets.drainMissilePops();
 
     this.#tick = 0;
-    this.#beamImpactTicks.clear();
     this.#outcome = 'playing';
     this.#bossSent = false;
     this.#bossDefeated = false;

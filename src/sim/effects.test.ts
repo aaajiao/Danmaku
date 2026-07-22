@@ -128,6 +128,37 @@ describe('stream isolation', () => {
     system.emit('explosion', 0, 0);
     expect(fx.getState()).not.toEqual(before);
   });
+
+  test('all material profiles consume only fx, never the simulation stream', () => {
+    sim.seed(0xface);
+    const before = sim.getState();
+    const system = makeSystem();
+    for (const material of ['surface', 'skeleton', 'mycelium', 'heart'] as const) {
+      system.emitMaterialHit(material, 120, 80);
+    }
+    expect(sim.getState()).toEqual(before);
+  });
+});
+
+describe('actor material profiles', () => {
+  test('each profile expands to its dedicated FX strip, not the generic hit spark', () => {
+    const system = makeSystem();
+    const seen = new Set<string>();
+    for (const material of ['surface', 'skeleton', 'mycelium', 'heart'] as const) {
+      const start = system.count;
+      system.emitMaterialHit(material, 0, 0);
+      for (const p of system.particles.slice(start)) seen.add(p.spec.sprite);
+    }
+    expect(seen).toEqual(new Set(['material.surface', 'material.skeleton', 'material.mycelium', 'material.heart']));
+  });
+
+  test('heart is a short eight-tick compress/rebound strip carrier', () => {
+    const system = makeSystem();
+    system.emitMaterialHit('heart', 4, 5);
+    const heart = system.particles[0]!;
+    expect(heart.spec.sprite).toBe('material.heart');
+    expect(heart.life).toBe(8);
+  });
 });
 
 describe('emit', () => {

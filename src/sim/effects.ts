@@ -26,6 +26,9 @@ import type { BulletCell } from '../render/procedural';
 /** A scalar, or a range drawn once per particle from the `fx` stream. */
 type Amount = number | { min: number; max: number };
 
+/** The four authored transient materials an actor can expose when struck. */
+export type HitMaterial = 'surface' | 'skeleton' | 'mycelium' | 'heart';
+
 export interface ParticleSpec {
   /** Atlas cell name. */
   sprite: string;
@@ -173,6 +176,20 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * Emit one actor-material response. This is deliberately a composition API,
+   * not a new simulation state: it only expands to registered particles, whose
+   * random draws are structurally confined to the module-level fx stream.
+   */
+  emitMaterialHit(material: HitMaterial, x: number, y: number): void {
+    switch (material) {
+      case 'surface': this.emit('material.surface', x, y); break;
+      case 'skeleton': this.emit('material.skeleton', x, y); break;
+      case 'mycelium': this.emit('material.mycelium', x, y); break;
+      case 'heart': this.emit('material.heart', x, y); break;
+    }
+  }
+
   step(): void {
     let write = 0;
     for (let read = 0; read < this.particles.length; read++) {
@@ -293,6 +310,25 @@ defineSprite('impact.scatter', 'glow.medium', {
 });
 defineSprite('impact.scatter.pause', 'glow.large', {
   count: 1, speed: 0, life: 3, scale: { from: 0.48, to: 0.26 }, alpha: { from: 0.72, to: 0 }, tint: { r: 1, g: 0.76, b: 0.45 }, additive: true,
+});
+
+// Actor material feedback. These use dedicated animated FX strips rather than
+// recolouring the generic hit spark: each profile has its own readable motion.
+defineEffect('material.surface', {
+  sprite: 'material.surface', count: { min: 1, max: 2 }, speed: { min: 0, max: 0.25 }, life: 8,
+  spread: 360, drag: 0.68, scale: { from: 0.72, to: 1.18 }, alpha: { from: 0.8, to: 0 }, tint: { r: 0.62, g: 0.82, b: 1 }, additive: true,
+});
+defineEffect('material.skeleton', {
+  sprite: 'material.skeleton', count: { min: 2, max: 4 }, speed: { min: 0.8, max: 2.1 }, life: 8,
+  spread: 360, drag: 0.82, spin: 0.22, scale: { from: 0.72, to: 0.22 }, alpha: { from: 0.95, to: 0 }, tint: { r: 0.94, g: 0.98, b: 1 }, additive: true,
+});
+defineEffect('material.mycelium', {
+  sprite: 'material.mycelium', count: { min: 2, max: 3 }, speed: { min: 0.65, max: 1.35 }, life: 8,
+  spread: 360, drag: 0.7, scale: { from: 0.78, to: 0.18 }, alpha: { from: 0.9, to: 0 }, tint: { r: 0.82, g: 0.94, b: 1 }, additive: true,
+});
+defineEffect('material.heart', {
+  sprite: 'material.heart', count: 1, speed: 0, life: 8,
+  scale: { from: 0.92, to: 1.08 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.72, b: 0.82 }, additive: true,
 });
 
 // Graze is feedback on a near miss, so it fires along the bullet's heading and

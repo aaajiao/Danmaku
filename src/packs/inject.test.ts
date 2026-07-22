@@ -1123,6 +1123,27 @@ describe('difficulty — tier gates and per-pattern overrides pass through', () 
     expect(spec.patterns?.[0]?.difficulty).toEqual({ easy: { count: 8 }, lunatic: { count: 20 } });
   });
 
+  test('enemy and boss hit materials survive pack injection unchanged', () => {
+    const name = uniqueName();
+    injectPack(
+      manifest(name, {
+        enemies: { ember: enemy({ hitMaterial: 'mycelium' }) },
+        bosses: { warlord: boss({ hitMaterial: 'heart' }) },
+        stages: {
+          gauntlet: {
+            entry: true,
+            boss: 'warlord',
+            waves: [{ at: 0, enemy: 'ember', x: 100, y: -20 }],
+          },
+        },
+      }),
+      CTX,
+    );
+
+    expect(getEnemySpec(`${name}/ember`).hitMaterial).toBe('mycelium');
+    expect(getBossSpec(`${name}/warlord`).hitMaterial).toBe('heart');
+  });
+
   test('a per-tier phase pattern override reaches the registered BossSpec', () => {
     const name = uniqueName();
     injectPack(

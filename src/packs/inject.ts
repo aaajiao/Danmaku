@@ -1217,6 +1217,7 @@ function toBossSpec(
   if (b.width !== undefined) spec.width = b.width;
   if (b.height !== undefined) spec.height = b.height;
   if (b.tint !== undefined) spec.tint = b.tint;
+  if (b.hitMaterial !== undefined) spec.hitMaterial = b.hitMaterial;
   if (b.entry !== undefined) spec.entry = b.entry;
   if (b.onDeath !== undefined) spec.onDeath = refEffect(b.onDeath);
   if (b.music !== undefined) spec.music = refMusic(b.music);

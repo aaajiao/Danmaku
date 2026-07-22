@@ -88,6 +88,28 @@ test('all sixteen enemy roles have a distinct authored danmaku signature', () =>
   expect(seen.size).toBe(entries.length);
 });
 
+test('every shipped actor has a closed hit material and the four profiles are represented', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: { enemies: Record<string, { hitMaterial?: string }>; bosses: Record<string, { hitMaterial?: string }> };
+  };
+  const materials = new Set(['surface', 'skeleton', 'mycelium', 'heart']);
+  const seen = new Set<string>();
+  for (const actor of [...Object.values(pack.content.enemies), ...Object.values(pack.content.bosses)]) {
+    expect(materials.has(actor.hitMaterial ?? '')).toBe(true);
+    seen.add(actor.hitMaterial!);
+  }
+  expect(seen).toEqual(materials);
+  expect(Object.fromEntries(Object.entries(pack.content.bosses).map(([name, actor]) => (
+    [name, actor.hitMaterial]
+  )))).toEqual({
+    sentinel: 'surface',
+    warden: 'skeleton',
+    magistrate: 'mycelium',
+    chancellor: 'surface',
+    regent: 'heart',
+  });
+});
+
 test('every boss has several pattern families and every phase has its own signature', () => {
   const pack = JSON.parse(buildV4ContentJson()) as {
     content: {

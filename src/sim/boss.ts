@@ -38,6 +38,7 @@
 
 import { Emitter, patternNames } from '../content/pattern-registry';
 import { sim, type Random } from '../core/random';
+import type { HitMaterial } from './effects';
 import type { BulletSystem, FieldBounds } from './bullet';
 import {
   activePhaseIndices,
@@ -141,6 +142,8 @@ export interface BossSpec {
   width?: number;
   height?: number;
   tint?: { r?: number; g?: number; b?: number };
+  /** Cosmetic actor-material response on a non-clearing player hit. */
+  hitMaterial?: HitMaterial;
   /**
    * Where it flies to on entry, and how long that takes. Omit for a boss that
    * is simply already there when it spawns.

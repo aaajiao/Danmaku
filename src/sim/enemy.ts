@@ -19,6 +19,7 @@
 import { Emitter } from '../content/pattern-registry';
 import { Pool } from '../core/pool';
 import { sim, type Random } from '../core/random';
+import type { HitMaterial } from './effects';
 import type { BulletSystem, FieldBounds } from './bullet';
 import { circlesOverlap } from './collision';
 import { DEFAULT_DIFFICULTY, mergeOptions, type Difficulty, type DifficultyOverrides } from './difficulty';
@@ -56,6 +57,8 @@ export interface EnemySpec {
   /** Optional motion timeline; segments re-init the vector as they fall due. */
   timeline?: readonly MotionSegment[];
   tint?: { r?: number; g?: number; b?: number };
+  /** Cosmetic actor-material response on a non-lethal player hit. */
+  hitMaterial?: HitMaterial;
   patterns?: readonly EnemyPattern[];
   /**
    * Items this enemy scatters on death, by registry name and count. See

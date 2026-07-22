@@ -906,6 +906,13 @@ describe('content — format-2 sections', () => {
       );
     });
 
+    test('hitMaterial accepts only the closed actor-material vocabulary', () => {
+      expect('manifest' in validateManifest(enemy({ sprite: 'ship', hp: 1, radius: 1, hitMaterial: 'surface' }), 'candy')).toBe(true);
+      expect(errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, hitMaterial: 'chrome' }))).toContain(
+        'pack "candy": pack.json: content.enemies."ember".hitMaterial must be "surface", "skeleton", "mycelium", or "heart"',
+      );
+    });
+
     test('a pattern slot missing its name', () => {
       expect(
         errorsOf(enemy({ sprite: 'ship', hp: 1, radius: 1, patterns: [{ startAt: 0 }] })),
@@ -1126,6 +1133,14 @@ describe('content — format-2 sections', () => {
     test('an unknown boss field suggests the near key', () => {
       expect(errorsOf(boss({ ...base(), sprait: 'x' }))).toContain(
         'pack "candy": pack.json: content.bosses."warlord": unknown field "sprait" — did you mean "sprite"?',
+      );
+    });
+
+    test('a boss uses the same closed hit-material vocabulary as an enemy', () => {
+      expect('manifest' in validateManifest(boss({ ...base(), hitMaterial: 'heart' }), 'candy'))
+        .toBe(true);
+      expect(errorsOf(boss({ ...base(), hitMaterial: 'metal' }))).toContain(
+        'pack "candy": pack.json: content.bosses."warlord".hitMaterial must be "surface", "skeleton", "mycelium", or "heart"',
       );
     });
 

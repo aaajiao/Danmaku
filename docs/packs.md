@@ -878,6 +878,7 @@ only what the pack form adds on top, per kind.
     "hp": 30,
     "radius": 12,
     "tint": { "r": 1, "g": 0.7, "b": 0.3 },
+    "hitMaterial": "surface",
     "motion": { "r": 2.6, "theta": 90 },
     "timeline": [
       { "count": 0,   "motion": { "r": 2.6, "theta": 90 } },
@@ -901,7 +902,9 @@ only what the pack form adds on top, per kind.
 `EnemySpec` field-for-field. `spoils` is the `[name, count]` list `EnemySpec`
 carries, written as JSON arrays. A pattern slot's `spec` is a `BulletSpec` inline
 — its `sprite` is an atlas cell name, its numbers are the same pixels-per-tick the
-rest of the engine uses.
+rest of the engine uses. Optional `hitMaterial` is the closed visual enum
+`surface` / `skeleton` / `mycelium` / `heart`; it selects cosmetic contact FX
+only and never changes damage or collision.
 
 A pattern slot may also carry a **`difficulty`** block — the tier axis as pack
 data, mirroring `EnemyPattern.difficulty` (see `docs/extending.md` §4). `options`
@@ -985,6 +988,7 @@ example (`pyre`, abbreviated):
   "pyre": {
     "sprite": "ring", "radius": 18, "width": 52, "height": 52,
     "tint": { "r": 1, "g": 0.6, "b": 0.3 },
+    "hitMaterial": "heart",
     "entry": { "x": 240, "y": 140, "ticks": 90 },
     "onDeath": "death.big",
     "spoils": [ ["relic", 2], ["score", 3], ["bomb", 1] ],
@@ -1003,7 +1007,8 @@ example (`pyre`, abbreviated):
 `sprite`, `radius` and `phases` are required; a phase (spell card) requires `name`,
 `hpSeconds` and `patterns`. A boss that omits `spoils` falls back to the engine
 default (which includes a `bomb`); declaring the field replaces that default
-wholesale, so a boss meaning to keep the bomb re-declares it — `pyre` does. **Every field matches `BossSpec`/`SpellCard`
+wholesale, so a boss meaning to keep the bomb re-declares it — `pyre` does.
+`hitMaterial` uses the same four-value cosmetic vocabulary as an enemy. **Every field matches `BossSpec`/`SpellCard`
 field-for-field except one: a card declares `hpSeconds` (seconds of health a
 competent player needs to drain) where the engine's `SpellCard` carries `hp`
 (raw).** The injector computes `hp = phaseHp(hpSeconds)`, and an omitted

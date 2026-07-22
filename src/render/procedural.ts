@@ -1156,6 +1156,9 @@ function debrisRadius(f: number): number {
   return 1 + 1 * tri;
 }
 
+const MATERIAL_FRAMES = 8;
+function materialProgress(f: number): number { return f / (MATERIAL_FRAMES - 1); }
+
 export const FX_STRIPS: Record<string, FxStrip> = {
   burst: {
     frameW: 64,
@@ -1225,6 +1228,35 @@ export const FX_STRIPS: Record<string, FxStrip> = {
     draw: (ctx, f, cx, cy) => {
       orb(ctx, cx, cy, PULSE_RADIUS, pulseRatio(f));
     },
+  },
+  // Dedicated actor-material strips. They are not recoloured generic sparks:
+  // surface is a membrane/radial crack, skeleton is a white joint segment,
+  // mycelium visibly breaks then retracts, and heart compresses then rebounds.
+  'material.surface': {
+    frameW: 48, frameH: 48, frames: MATERIAL_FRAMES, ticksPerFrame: 1, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 600, stride: 48,
+    frameExtent: () => ({ w: 42, h: 42 }),
+    draw: (ctx, f, cx, cy) => {
+      const t = materialProgress(f); const r = 7 + 13 * t;
+      ctx.save(); ctx.globalAlpha = 1 - t; ring(ctx, cx, cy, r, 1.4);
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + t * 0.25; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * (r * 0.45), cy + Math.sin(a) * (r * 0.45)); ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.stroke(); }
+      ctx.restore();
+    },
+  },
+  'material.skeleton': {
+    frameW: 24, frameH: 24, frames: MATERIAL_FRAMES, ticksPerFrame: 1, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 648, stride: 24,
+    frameExtent: () => ({ w: 18, h: 8 }),
+    draw: (ctx, f, cx, cy) => { const t = materialProgress(f); ctx.save(); ctx.globalAlpha = 1 - t; ctx.lineWidth = 2; ctx.strokeStyle = 'white'; ctx.beginPath(); ctx.moveTo(cx - 8 + 4 * t, cy); ctx.lineTo(cx + 8 - 4 * t, cy); ctx.stroke(); orb(ctx, cx - 6 + 3 * t, cy, 2); orb(ctx, cx + 6 - 3 * t, cy, 2); ctx.restore(); },
+  },
+  'material.mycelium': {
+    frameW: 32, frameH: 32, frames: MATERIAL_FRAMES, ticksPerFrame: 1, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 672, stride: 32,
+    frameExtent: () => ({ w: 28, h: 12 }),
+    draw: (ctx, f, cx, cy) => { const t = materialProgress(f); const reach = t < 0.45 ? 5 + 20 * t : 14 - 9 * (t - 0.45); ctx.save(); ctx.globalAlpha = 1 - t; ctx.lineWidth = 1; ctx.strokeStyle = 'white'; ctx.beginPath(); ctx.moveTo(cx - 10, cy + 4); ctx.quadraticCurveTo(cx, cy - 7, cx + reach - 10, cy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx - 7, cy - 3); ctx.lineTo(cx + reach - 9, cy + 5); ctx.stroke(); ctx.restore(); },
+  },
+  'material.heart': {
+    frameW: 24, frameH: 24, frames: MATERIAL_FRAMES, ticksPerFrame: 1, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 704, stride: 24,
+    frameExtent: () => ({ w: 16, h: 16 }),
+    draw: (ctx, f, cx, cy) => { const t = materialProgress(f); const squeeze = t < 0.35 ? 1 - t * 0.65 : 0.78 + (t - 0.35) * 0.45; ctx.save(); ctx.scale(1 / squeeze, squeeze); orb(ctx, cx * squeeze, cy / squeeze, 7, 0.25); ctx.restore(); },
   },
   // The three missile detonation tiers, on their own rows below `pulse`. Frame
   // counts match the BulletPack `Exp` files a reskin drops in (tiny carries the

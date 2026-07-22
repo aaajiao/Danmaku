@@ -297,6 +297,7 @@ export interface ContentEnemy {
   motion?: Record<string, unknown>;
   timeline?: readonly Record<string, unknown>[];
   tint?: { r?: number; g?: number; b?: number };
+  hitMaterial?: 'surface' | 'skeleton' | 'mycelium' | 'heart';
   patterns?: readonly ContentEnemyPattern[];
   spoils?: readonly (readonly [name: string, count: number])[];
   scoreValue?: number;
@@ -427,6 +428,7 @@ export interface ContentBoss {
   width?: number;
   height?: number;
   tint?: { r?: number; g?: number; b?: number };
+  hitMaterial?: 'surface' | 'skeleton' | 'mycelium' | 'heart';
   entry?: { x: number; y: number; ticks: number };
   phases: readonly ContentSpellCard[];
   onDeath?: string;
@@ -796,6 +798,7 @@ const ENEMY_FIELDS = [
   'motion',
   'timeline',
   'tint',
+  'hitMaterial',
   'patterns',
   'spoils',
   'scoreValue',
@@ -832,6 +835,7 @@ const BOSS_FIELDS = [
   'width',
   'height',
   'tint',
+  'hitMaterial',
   'entry',
   'phases',
   'onDeath',
@@ -1622,6 +1626,7 @@ function validateEnemy(
   optField(raw, 'scoreValue', 'number', where, prefix, errors);
   optField(raw, 'despawnMargin', 'number', where, prefix, errors);
   optField(raw, 'onHit', 'string', where, prefix, errors);
+  validateHitMaterial(raw, where, prefix, errors);
   optField(raw, 'onDeath', 'string', where, prefix, errors);
   optField(raw, 'motion', 'object', where, prefix, errors);
   optField(raw, 'tint', 'object', where, prefix, errors);
@@ -1642,6 +1647,14 @@ function validateEnemy(
   for (const key of Object.keys(raw)) {
     if ((ENEMY_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(`${prefix}${where}: `, key, ENEMY_FIELDS));
+  }
+}
+
+/** Closed visual vocabulary: packs may choose an authored material, not invent one. */
+function validateHitMaterial(raw: Record<string, unknown>, where: string, prefix: string, errors: string[]): void {
+  if (!('hitMaterial' in raw) || raw.hitMaterial === undefined) return;
+  if (raw.hitMaterial !== 'surface' && raw.hitMaterial !== 'skeleton' && raw.hitMaterial !== 'mycelium' && raw.hitMaterial !== 'heart') {
+    errors.push(`${prefix}${where}.hitMaterial must be "surface", "skeleton", "mycelium", or "heart"`);
   }
 }
 
@@ -1869,6 +1882,7 @@ function validateBoss(
   optField(raw, 'height', 'number', where, prefix, errors);
   optField(raw, 'tint', 'object', where, prefix, errors);
   optField(raw, 'onDeath', 'string', where, prefix, errors);
+  validateHitMaterial(raw, where, prefix, errors);
   optField(raw, 'music', 'string', where, prefix, errors);
 
   if ('entry' in raw && raw.entry !== undefined) {

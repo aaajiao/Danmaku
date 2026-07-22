@@ -3643,6 +3643,29 @@ const characters: PackContent['characters'] = {
 /* Manifest assembly                                                  */
 /* ================================================================== */
 
+// Every shipped actor opts into one closed material response. This is visual
+// content only; collision, HP and the pattern sequence stay byte-for-byte rules.
+const ENEMY_HIT_MATERIALS = {
+  grunt: 'surface', weaver: 'mycelium', turret: 'skeleton', drifter: 'heart',
+  lash: 'mycelium', hunter: 'skeleton', censer: 'heart', bastion: 'surface',
+  clerk: 'skeleton', stele: 'surface', summons: 'mycelium', assessor: 'heart',
+  ray: 'surface', usher: 'mycelium', marshal: 'skeleton', notary: 'heart',
+} as const;
+const BOSS_HIT_MATERIALS = {
+  sentinel: 'surface', warden: 'skeleton', magistrate: 'mycelium', chancellor: 'surface', regent: 'heart',
+} as const;
+
+for (const [name, hitMaterial] of Object.entries(ENEMY_HIT_MATERIALS)) {
+  const enemy = enemies[name];
+  if (enemy === undefined) throw new Error(`missing v4 enemy "${name}" for hit material`);
+  enemy.hitMaterial = hitMaterial;
+}
+for (const [name, hitMaterial] of Object.entries(BOSS_HIT_MATERIALS)) {
+  const boss = bosses[name];
+  if (boss === undefined) throw new Error(`missing v4 boss "${name}" for hit material`);
+  boss.hitMaterial = hitMaterial;
+}
+
 const CONTENT: PackContent = { enemies, bosses, stages, shots, options, bombs, characters };
 
 /**

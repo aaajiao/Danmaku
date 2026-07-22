@@ -78,7 +78,8 @@
         ],
         "scoreValue": 100,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "surface"
       },
       "weaver": {
         "sprite": "ring",
@@ -202,7 +203,8 @@
         ],
         "scoreValue": 300,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "mycelium"
       },
       "turret": {
         "sprite": "halo",
@@ -344,7 +346,8 @@
         ],
         "scoreValue": 1000,
         "onHit": "hit",
-        "onDeath": "death.big"
+        "onDeath": "death.big",
+        "hitMaterial": "skeleton"
       },
       "drifter": {
         "sprite": "orb.medium",
@@ -444,7 +447,8 @@
         ],
         "scoreValue": 100,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "heart"
       },
       "lash": {
         "sprite": "ring",
@@ -575,7 +579,8 @@
         ],
         "scoreValue": 400,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "mycelium"
       },
       "hunter": {
         "sprite": "star",
@@ -708,7 +713,8 @@
         ],
         "scoreValue": 400,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "skeleton"
       },
       "censer": {
         "sprite": "halo",
@@ -780,7 +786,8 @@
         ],
         "scoreValue": 1000,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "heart"
       },
       "bastion": {
         "sprite": "shard",
@@ -904,7 +911,8 @@
         ],
         "scoreValue": 1500,
         "onHit": "hit",
-        "onDeath": "death.big"
+        "onDeath": "death.big",
+        "hitMaterial": "surface"
       },
       "clerk": {
         "sprite": "orb.small",
@@ -1005,7 +1013,8 @@
         ],
         "scoreValue": 100,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "skeleton"
       },
       "stele": {
         "sprite": "scale",
@@ -1121,7 +1130,8 @@
         ],
         "scoreValue": 350,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "surface"
       },
       "summons": {
         "sprite": "needle",
@@ -1231,7 +1241,8 @@
         ],
         "scoreValue": 200,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "mycelium"
       },
       "assessor": {
         "sprite": "halo",
@@ -1322,7 +1333,8 @@
         ],
         "scoreValue": 500,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "heart"
       },
       "ray": {
         "sprite": "star",
@@ -1424,7 +1436,8 @@
         ],
         "scoreValue": 500,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "surface"
       },
       "usher": {
         "sprite": "needle",
@@ -1494,7 +1507,8 @@
         ],
         "scoreValue": 100,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "mycelium"
       },
       "marshal": {
         "sprite": "scale",
@@ -1621,7 +1635,8 @@
         ],
         "scoreValue": 350,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "skeleton"
       },
       "notary": {
         "sprite": "halo",
@@ -1751,7 +1766,8 @@
         ],
         "scoreValue": 500,
         "onHit": "hit",
-        "onDeath": "explosion"
+        "onDeath": "explosion",
+        "hitMaterial": "heart"
       }
     },
     "bosses": {
@@ -2283,7 +2299,8 @@
               }
             ]
           }
-        ]
+        ],
+        "hitMaterial": "surface"
       },
       "warden": {
         "sprite": "ring",
@@ -2694,7 +2711,8 @@
               }
             ]
           }
-        ]
+        ],
+        "hitMaterial": "skeleton"
       },
       "magistrate": {
         "sprite": "halo",
@@ -3362,7 +3380,8 @@
               }
             ]
           }
-        ]
+        ],
+        "hitMaterial": "mycelium"
       },
       "chancellor": {
         "sprite": "halo",
@@ -4099,7 +4118,8 @@
               }
             ]
           }
-        ]
+        ],
+        "hitMaterial": "surface"
       },
       "regent": {
         "sprite": "halo",
@@ -4799,7 +4819,8 @@
               }
             ]
           }
-        ]
+        ],
+        "hitMaterial": "heart"
       }
     },
     "stages": {

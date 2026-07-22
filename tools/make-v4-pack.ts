@@ -1042,6 +1042,28 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
     heart(image, cx, cy, 1, p.heart);
     return;
   }
+  if (spec.name === 'material.surface') {
+    const t = frame / Math.max(1, spec.frames - 1);
+    const r = Math.max(2, Math.round(3 + 16 * t));
+    ring(image, cx, cy, r, 1, p.surface);
+    for (let i = 0; i < 4; i++) { const d = DIR8[(i * 2 + frame) % DIR8.length]!; line(image, cx, cy, cx + Math.round((d[0] * r) / 8), cy + Math.round((d[1] * r) / 8), p.surface, 1); }
+    return;
+  }
+  if (spec.name === 'material.skeleton') {
+    const t = frame / Math.max(1, spec.frames - 1);
+    line(image, cx - 7 + Math.round(3 * t), cy, cx + 7 - Math.round(3 * t), cy, p.bone, 2);
+    disc(image, cx - 6 + Math.round(3 * t), cy, 2, p.bone); disc(image, cx + 6 - Math.round(3 * t), cy, 2, p.bone);
+    return;
+  }
+  if (spec.name === 'material.mycelium') {
+    const t = frame / Math.max(1, spec.frames - 1); const reach = t < 0.5 ? 4 + Math.round(maxR * t) : Math.max(3, 12 - Math.round(12 * (t - 0.5)));
+    line(image, cx - 8, cy + 3, cx + reach - 8, cy - 3, p.mycelium, 1); line(image, cx - 6, cy - 3, cx + reach - 7, cy + 4, p.mycelium, 1);
+    return;
+  }
+  if (spec.name === 'material.heart') {
+    const t = frame / Math.max(1, spec.frames - 1); const r = t < 0.4 ? Math.max(2, 4 - Math.round(4 * t)) : 3 + Math.round(2 * (t - 0.4));
+    heart(image, cx, cy, r, p.heart); return;
+  }
   drawBurst(image, cx, cy, frame, spec.frames, maxR, p);
   if (spec.name === 'burst.big' || spec.name === 'boom.boss.top' || spec.name === 'boom.player') {
     const t = frame / Math.max(1, spec.frames - 1);
@@ -1050,7 +1072,8 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
 }
 
 const NATIVE_EFFECT_NAMES = [
-  'burst', 'burst.big', 'missile.pop.tiny', 'missile.pop.mid', 'missile.pop.big',
+  'burst', 'burst.big', 'material.surface', 'material.skeleton', 'material.mycelium', 'material.heart',
+  'missile.pop.tiny', 'missile.pop.mid', 'missile.pop.big',
   'boom.elite', 'boom.elite.spray', 'boom.boss.back', 'boom.boss.top', 'boom.player', 'debris',
 ] as const;
 

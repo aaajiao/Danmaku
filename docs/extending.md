@@ -612,8 +612,8 @@ patterns. Everything specific to one lives in its `EnemySpec`, so a stage adds
 new opposition by writing a file.
 
 `sprite`, `hp` and `radius` are required; `width`, `height`, `motion`,
-`timeline`, `tint`, `patterns`, `spoils`, `scoreValue`, `onHit`, `onDeath` and
-`despawnMargin` are not (`src/sim/enemy.ts:39-71`).
+`timeline`, `tint`, `hitMaterial`, `patterns`, `spoils`, `scoreValue`, `onHit`,
+`onDeath` and `despawnMargin` are not (`src/sim/enemy.ts:39-71`).
 
 ```ts
 import { defineEnemy } from '../sim/enemy';
@@ -629,6 +629,7 @@ defineEnemy('skirmisher', {
   hp: 18,
   radius: 11,
   tint: { r: 1, g: 0.85, b: 0.7 },
+  hitMaterial: 'skeleton',
   timeline: [
     { count: 0, motion: { r: 2.6, theta: 90 } },
     { count: 50, motion: { r: 1.4, theta: 20 } },
@@ -647,6 +648,15 @@ defineEnemy('skirmisher', {
   onDeath: 'explosion',
 });
 ```
+
+`hitMaterial` selects one of four cosmetic contact languages:
+`surface` (membrane ripple and ring crack), `skeleton` (bone-white segments),
+`mycelium` (filament break and retraction), or `heart` (core compression and
+rebound). The vocabulary is closed so a pack cannot name an FX strip the engine
+does not know. It changes neither HP nor collision; `Run` emits it at the actual
+contact point through the `fx` RNG stream. A killing hit skips this layer in
+favour of the death effect, and a held beam rate-limits all contact layers while
+continuing to apply damage every tick.
 
 `scoreValue` is the kill's **immediate** points; `spoils` is what it scatters
 for the player to collect, a `[name, count]` list over the item registry. Most
@@ -806,7 +816,7 @@ A boss is an enemy with a script: a sequence of `SpellCard` phases, each with it
 own health, clock, movement and fire.
 
 `BossSpec` is `sprite`, `radius` and `phases`, plus optional `width`, `height`,
-`tint`, `entry`, `onDeath`, `music`, `dialogue`, `dialogueFor` and `spoils`
+`tint`, `hitMaterial`, `entry`, `onDeath`, `music`, `dialogue`, `dialogueFor` and `spoils`
 (`src/sim/boss.ts:135-198`). A `SpellCard` requires `name`, `hp`, `timeLimit`
 and `patterns`, and takes optional `difficulties`, `motion`, `timeline`,
 `bonus`, `isSpell`, `background` and `music` (`src/sim/boss.ts:71-122`).
@@ -851,6 +861,7 @@ defineBoss('herald', {
   width: 56,
   height: 56,
   tint: { r: 1, g: 0.85, b: 0.9 },
+  hitMaterial: 'heart',
   entry: { x: 240, y: 140, ticks: 90 },
   onDeath: 'death.big',
   phases: [

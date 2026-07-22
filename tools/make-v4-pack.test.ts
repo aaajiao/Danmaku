@@ -317,7 +317,7 @@ describe('generated output and exact manifest', () => {
     const nativeEffects = Object.keys(FX_STRIPS).filter((name) => name !== 'pulse');
     expect(V4_EFFECT_SPECS.slice(0, nativeEffects.length).map((spec) => spec.name)).toEqual(nativeEffects);
     expect(Object.keys(assets.effects ?? {})).toEqual(V4_EFFECT_SPECS.map((spec) => spec.name));
-    expect(Object.keys(assets.effects ?? {})).toHaveLength(30);
+    expect(Object.keys(assets.effects ?? {})).toHaveLength(34);
     expect(Object.keys(assets.lasers ?? {})).toEqual([...LASER_STRIP_CELLS]);
     expect(Object.keys(assets.missiles ?? {})).toEqual([...MISSILE_STRIP_CELLS]);
     expect(Object.keys(assets.pickups ?? {})).toEqual([...PICKUP_STRIP_CELLS]);

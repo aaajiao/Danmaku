@@ -170,12 +170,14 @@ const MAIN_TURRET = 'test-run-turret';
 defineEnemy(MAIN_TURRET, {
   sprite: 'halo', hp: 60, radius: 18, width: 40, height: 40, motion: { r: 0.4, theta: 90 },
   patterns: [{ pattern: 'ring', options: { spec: RUN_HEAVY, count: 12, period: 70, rotation: 9 }, startAt: 20 }],
-  despawnMargin: 96, spoils: [['power', 3]], scoreValue: 1000, onHit: 'hit', onDeath: 'death.big',
+  despawnMargin: 96, spoils: [['power', 3]], scoreValue: 1000,
+  hitMaterial: 'skeleton', onHit: 'hit', onDeath: 'death.big',
 });
 
 const MAIN_BOSS = 'test-run-boss';
 defineBoss(MAIN_BOSS, {
   sprite: 'halo', radius: 20, width: 56, height: 56,
+  hitMaterial: 'heart',
   entry: { x: 240, y: 140, ticks: 90 },
   onDeath: 'death.big',
   phases: [
@@ -978,6 +980,50 @@ describe('boss hit feedback', () => {
     expect(sparked).toBe(true);
   });
 
+  test('a non-clearing boss hit adds its authored material at the real contact point', () => {
+    const run = new Run(config({ boss: MAIN_BOSS }));
+    let boss;
+    for (let t = 0; t < 40000; t++) {
+      run.tick(pursue(run)); boss = run.boss.boss;
+      if (boss !== undefined && !boss.entering) break;
+    }
+    expect(boss).toBeDefined();
+    run.bullets.clear(); run.effects.clear();
+    run.bullets.spawn(boss!.x + 5, boss!.y, { style: { sprite: 'glow.small' }, radius: 4, motion: { r: 0, theta: 270 }, damage: 1, feedback: 'round' }, 'player');
+    run.tick(0);
+    const heart = run.effects.particles.find((p) => p.spec.sprite === 'material.heart');
+    expect(heart).toBeDefined();
+    expect(heart!.x).toBe(boss!.x + 5);
+    expect(heart!.y).toBe(boss!.y);
+  });
+
+  test('an enemy emits its material while alive, but a killing hit yields to death FX', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE }));
+    const enemy = run.enemies.spawn(MAIN_TURRET, 240, 300);
+    expect(enemy).toBeDefined();
+
+    const shot = (damage: number): void => {
+      run.bullets.spawn(
+        enemy!.x,
+        enemy!.y,
+        {
+          style: { sprite: 'glow.small' }, radius: 4,
+          motion: { r: 0, theta: 270 }, damage, feedback: 'round',
+        },
+        'player',
+      );
+      run.tick(0);
+    };
+
+    shot(1);
+    expect(run.effects.particles.some((p) => p.spec.sprite === 'material.skeleton')).toBe(true);
+
+    run.effects.clear();
+    shot(100);
+    expect(enemy!.alive).toBe(false);
+    expect(run.effects.particles.some((p) => p.spec.sprite === 'material.skeleton')).toBe(false);
+  });
+
   test('a legacy shot without a feedback family retains the boss hit sparkle', () => {
     const run = new Run(config({ boss: MAIN_BOSS }));
     let boss;
@@ -1027,6 +1073,37 @@ describe('boss hit feedback', () => {
     expect(firstSparkCount).toBe(2);
     expect(secondSparkCount).toBeLessThanOrEqual(firstSparkCount);
     expect(boss!.hp).toBe(hp - 2);
+    const hearts = run.effects.particles.filter((p) => p.spec.sprite === 'material.heart');
+    expect(hearts).toHaveLength(1);
+  });
+
+  test('the same beam gate covers an enemy legacy spark and its material layer', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE }));
+    const enemy = run.enemies.spawn(MAIN_TURRET, 240, 300)!;
+    const hp = enemy.hp;
+    run.bullets.spawn(
+      enemy.x,
+      enemy.y + 40,
+      {
+        style: { sprite: 'beam.cyan' }, radius: 3,
+        motion: { r: 0, theta: 270 }, damage: 1,
+        laser: { length: 80 }, pierce: true, feedback: 'beam',
+      },
+      'player',
+    );
+
+    run.tick(0);
+    const generic = getEffectSpec('hit');
+    const firstGeneric = run.effects.particles.filter((p) => p.spec === generic).length;
+    const firstMaterial = run.effects.particles.filter(
+      (p) => p.spec.sprite === 'material.skeleton',
+    ).length;
+    run.tick(0);
+
+    expect(run.effects.particles.filter((p) => p.spec === generic)).toHaveLength(firstGeneric);
+    expect(run.effects.particles.filter((p) => p.spec.sprite === 'material.skeleton'))
+      .toHaveLength(firstMaterial);
+    expect(enemy.hp).toBe(hp - 2);
   });
 
   test('no flash while the boss is invulnerable during entry', () => {
