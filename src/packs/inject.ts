@@ -1273,11 +1273,17 @@ function toShotType(name: string, s: ContentShot): ShotType {
   const type: ShotType = {
     name,
     levels: s.levels.map(
-      (l): ShotSpec => ({
-        spec: l.spec as unknown as ShotSpec['spec'],
-        offsets: l.offsets as unknown as ShotSpec['offsets'],
-        period: l.period,
-      }),
+      (l): ShotSpec => {
+        const level: ShotSpec = {
+          spec: l.spec as unknown as ShotSpec['spec'],
+          offsets: l.offsets as unknown as ShotSpec['offsets'],
+          period: l.period,
+        };
+        if (l.focusSpec !== undefined) level.focusSpec = l.focusSpec as unknown as ShotSpec['spec'];
+        if (l.focusOffsets !== undefined) level.focusOffsets = l.focusOffsets as unknown as ShotSpec['offsets'];
+        if (l.focusPeriod !== undefined) level.focusPeriod = l.focusPeriod;
+        return level;
+      },
     ),
   };
   if (s.description !== undefined) type.description = s.description;

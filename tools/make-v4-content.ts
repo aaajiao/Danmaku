@@ -3071,33 +3071,33 @@ const shots: PackContent['shots'] = {
   spread: {
     description: 'parallel bolts that fan wider with each power tier',
     levels: [
-      { spec: GUN_BOLT, offsets: fan([]), period: 5 },
-      { spec: BOLT_T1, offsets: fan([7]), period: 5 },
-      { spec: BOLT_T2, offsets: fan([7, 15]), period: 4 },
+      { spec: GUN_BOLT, offsets: fan([]), period: 5, focusOffsets: [...CENTRAL_PAIR], focusPeriod: 5 },
+      { spec: BOLT_T1, offsets: fan([7]), period: 5, focusOffsets: rake(1), focusPeriod: 5 },
+      { spec: BOLT_T2, offsets: fan([7, 15]), period: 4, focusOffsets: rake(2), focusPeriod: 5 },
       // 7 and 15 again, not re-spaced: a different muzzle set can be a worse one.
-      { spec: BOLT_HYPER, offsets: fan([7, 15, 26]), period: 4 },
+      { spec: BOLT_HYPER, offsets: fan([7, 15, 26]), period: 4, focusOffsets: rake(3), focusPeriod: 5 },
     ],
   },
   needle: {
     description: 'parallel needles; concentration instead of coverage',
     levels: [
-      { spec: GUN_NEEDLE, offsets: rake(0), period: 6 },
-      { spec: NEEDLE_T1, offsets: rake(1), period: 6 },
-      { spec: NEEDLE_T2, offsets: rake(2), period: 6 },
-      { spec: NEEDLE_T3, offsets: rake(3), period: 6 },
+      { spec: GUN_NEEDLE, offsets: rake(0), period: 6, focusSpec: { ...GUN_NEEDLE }, focusOffsets: rake(0), focusPeriod: 5 },
+      { spec: NEEDLE_T1, offsets: rake(1), period: 6, focusSpec: { ...NEEDLE_T1 }, focusOffsets: rake(1), focusPeriod: 6 },
+      { spec: NEEDLE_T2, offsets: rake(2), period: 6, focusSpec: { ...NEEDLE_T2 }, focusOffsets: rake(2), focusPeriod: 6 },
+      { spec: NEEDLE_T3, offsets: rake(3), period: 6, focusSpec: { ...NEEDLE_T3 }, focusOffsets: rake(3), focusPeriod: 6 },
     ],
   },
   homing: {
     description: 'slow tracking shot; trades rate and speed for never missing',
     levels: [
-      { spec: GUN_SEEKER, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 9 },
+      { spec: GUN_SEEKER, offsets: [{ x: 0, y: -12, angle: FORWARD }], period: 9, focusSpec: { ...GUN_SEEKER }, focusOffsets: [{ x: 0, y: -14, angle: FORWARD }], focusPeriod: 7 },
       {
         spec: GUN_SEEKER,
         offsets: [
           { x: -7, y: -10, angle: FORWARD },
           { x: 7, y: -10, angle: FORWARD },
         ],
-        period: 9,
+        period: 9, focusSpec: { ...GUN_SEEKER }, focusOffsets: rake(0), focusPeriod: 7,
       },
       {
         spec: SEEKER_T2,
@@ -3106,7 +3106,7 @@ const shots: PackContent['shots'] = {
           { x: 7, y: -10, angle: FORWARD },
           { x: 0, y: -14, angle: FORWARD },
         ],
-        period: 8,
+        period: 8, focusSpec: { ...SEEKER_T2 }, focusOffsets: rake(1), focusPeriod: 8,
       },
       {
         spec: SEEKER_T3,
@@ -3116,7 +3116,7 @@ const shots: PackContent['shots'] = {
           { x: 4, y: -12, angle: FORWARD },
           { x: 10, y: -8, angle: FORWARD + 6 },
         ],
-        period: 8,
+        period: 8, focusSpec: { ...SEEKER_T3 }, focusOffsets: rake(1), focusPeriod: 7,
       },
     ],
   },
@@ -3125,10 +3125,10 @@ const shots: PackContent['shots'] = {
     levels: [
       // One muzzle at every tier; the tiers buy duration (life) and reach (growth),
       // going from a strobe to an unbroken beam, never more emitters.
-      { spec: { ...GUN_BEAM, life: 3 }, offsets: MUZZLE, period: 6 },
-      { spec: { ...GUN_BEAM, life: 4 }, offsets: MUZZLE, period: 6 },
-      { spec: { ...GUN_BEAM, life: 5 }, offsets: MUZZLE, period: 6 },
-      { spec: { ...GUN_BEAM, life: 6, laser: { ...GUN_BEAM.laser, growth: 120 } }, offsets: MUZZLE, period: 5 },
+      { spec: { ...GUN_BEAM, life: 3 }, offsets: MUZZLE, period: 6, focusSpec: { ...GUN_BEAM, life: 4 }, focusOffsets: MUZZLE, focusPeriod: 6 },
+      { spec: { ...GUN_BEAM, life: 4 }, offsets: MUZZLE, period: 6, focusSpec: { ...GUN_BEAM, life: 5 }, focusOffsets: MUZZLE, focusPeriod: 6 },
+      { spec: { ...GUN_BEAM, life: 5 }, offsets: MUZZLE, period: 6, focusSpec: { ...GUN_BEAM, life: 6 }, focusOffsets: MUZZLE, focusPeriod: 6 },
+      { spec: { ...GUN_BEAM, life: 6, laser: { ...GUN_BEAM.laser, growth: 120 } }, offsets: MUZZLE, period: 5, focusSpec: { ...GUN_BEAM, life: 7, laser: { ...GUN_BEAM.laser, growth: 140 } }, focusOffsets: MUZZLE, focusPeriod: 5 },
     ],
   },
   // MAW's gun: the inverse of `laser`. Reach is capped by the pellet's `life`
@@ -3138,10 +3138,10 @@ const shots: PackContent['shots'] = {
   scatter: {
     description: 'point-blank ember spray that evaporates past the pocket',
     levels: [
-      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR], period: 6 },
-      { spec: SPRAY_T1, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6 },
-      { spec: SPRAY_T2, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5 },
-      { spec: SPRAY_T3, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4 },
+      { spec: SCATTER_PELLET, offsets: [...CENTRAL_PAIR], period: 6, focusSpec: { ...SCATTER_PELLET }, focusOffsets: [...CENTRAL_MID], focusPeriod: 3 },
+      { spec: SPRAY_T1, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A], period: 6, focusSpec: { ...SPRAY_T1 }, focusOffsets: [...CENTRAL_PAIR, ...CENTRAL_MID], focusPeriod: 5 },
+      { spec: SPRAY_T2, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B], period: 5, focusSpec: { ...SPRAY_T2 }, focusOffsets: [...CENTRAL_PAIR, ...CENTRAL_MID], focusPeriod: 4 },
+      { spec: SPRAY_T3, offsets: [...CENTRAL_PAIR, ...CENTRAL_MID, ...CHEEK_A, ...CHEEK_B, ...CHEEK_C], period: 4, focusSpec: { ...SPRAY_T3 }, focusOffsets: [...CENTRAL_PAIR, ...CENTRAL_MID], focusPeriod: 3 },
     ],
   },
 };
@@ -3272,6 +3272,28 @@ const options: PackContent['options'] = {
       ],
     ],
   },
+  // SPIRE's anchored lenses stay on a vertical rail. Loose play leaves them
+  // behind the ship as delayed repeaters; focus stacks them into the planted beam.
+  spire: {
+    sprite: 'ring',
+    shot: { ...OPT_STD_SHOT, style: { ...OPT_STD_SHOT.style, sprite: 'orb.small.satellite', r: 0.78, g: 0.62, b: 1 } },
+    period: 7,
+    followSpeed: 0.55,
+    tint: { r: 0.82, g: 0.65, b: 1 },
+    levels: [
+      [],
+      [{ x: 0, y: 30, focusX: 0, focusY: -20, angle: FORWARD }],
+      [
+        { x: 0, y: 30, focusX: 0, focusY: -20, angle: FORWARD },
+        { x: 0, y: 52, focusX: 0, focusY: -34, angle: FORWARD },
+      ],
+      [
+        { x: 0, y: 30, focusX: 0, focusY: -20, angle: FORWARD },
+        { x: 0, y: 52, focusX: 0, focusY: -34, angle: FORWARD },
+        { x: 0, y: 74, focusX: 0, focusY: -48, angle: FORWARD },
+      ],
+    ],
+  },
   picket: {
     sprite: 'orb.medium',
     shot: OPT_PICKET_SHOT,
@@ -3307,7 +3329,7 @@ const options: PackContent['options'] = {
 const bombs: PackContent['bombs'] = {
   // The default: covers the screen, converts everything it eats, modest damage —
   // its real payment is the clear.
-  spread: {
+  'scout-tide': {
     duration: 90,
     invulnTicks: 150,
     damagePerTick: 2,
@@ -3316,12 +3338,35 @@ const bombs: PackContent['bombs'] = {
   },
   // The trade: half the coverage and no conversion, for four times the damage.
   // Fired point-blank into a boss it is a damage cooldown, not an escape.
-  lance: {
+  'lance-pierce': {
     duration: 60,
     invulnTicks: 90,
     damagePerTick: 8,
     radius: 96,
     effect: 'explosion',
+  },
+  'hound-pack': {
+    duration: 120,
+    invulnTicks: 150,
+    damagePerTick: 2,
+    radius: 180,
+    convertBullets: true,
+    effect: 'burst',
+  },
+  'spire-field': {
+    duration: 75,
+    invulnTicks: 110,
+    damagePerTick: 5,
+    radius: 128,
+    effect: 'burst.big',
+  },
+  'maw-devour': {
+    duration: 48,
+    invulnTicks: 90,
+    damagePerTick: 11,
+    radius: 78,
+    convertBullets: true,
+    effect: 'missile.pop.big',
   },
 };
 
@@ -3343,7 +3388,7 @@ const characters: PackContent['characters'] = {
     blurb: 'even fire, wide bomb',
     shot: 'spread',
     options: 'standard',
-    bomb: 'spread',
+    bomb: 'scout-tide',
     player: {
       x: 240, y: 568, speed: 3.6, focusSpeed: 1.5,
       // Lethal radius against a 40px sprite. That ratio is the genre.
@@ -3357,7 +3402,7 @@ const characters: PackContent['characters'] = {
     blurb: 'homing options, focused bomb',
     shot: 'needle',
     options: 'seeker',
-    bomb: 'lance',
+    bomb: 'lance-pierce',
     player: {
       x: 240, y: 568, speed: 3.1, focusSpeed: 1.2,
       radius: 2.5, grazeRadius: 24, lives: 2, bombs: 3, invulnTicks: 90,
@@ -3374,7 +3419,7 @@ const characters: PackContent['characters'] = {
     blurb: 'self-aiming gun, hand-aimed options',
     shot: 'homing',
     options: 'picket',
-    bomb: 'spread',
+    bomb: 'hound-pack',
     player: {
       x: 240, y: 568, speed: 2.9, focusSpeed: 1.6,
       radius: 2.5, grazeRadius: 26, lives: 3, bombs: 2, invulnTicks: 90,
@@ -3389,8 +3434,8 @@ const characters: PackContent['characters'] = {
     sprite: 'ship',
     blurb: 'planted beam, point-blank bomb',
     shot: 'laser',
-    options: 'seeker',
-    bomb: 'lance',
+    options: 'spire',
+    bomb: 'spire-field',
     player: {
       x: 240, y: 568, speed: 4.2, focusSpeed: 1,
       radius: 2.5, grazeRadius: 28, lives: 2, bombs: 3, invulnTicks: 90,
@@ -3410,7 +3455,7 @@ const characters: PackContent['characters'] = {
     blurb: 'point-blank spray, graze-fed',
     shot: 'scatter',
     options: 'clinch',
-    bomb: 'lance',
+    bomb: 'maw-devour',
     player: {
       x: 240, y: 568, speed: 3.9, focusSpeed: 1.4,
       radius: 2.5, grazeRadius: 30, lives: 2, bombs: 4, invulnTicks: 90,

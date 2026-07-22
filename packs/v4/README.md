@@ -41,7 +41,7 @@ this pack before the build turns green.
 - A baked name shared by several people uses a declared multi-lineage scheme:
   first owner's surface, second owner's mycelium, final owner's heart, neutral
   bone. It does not impersonate one claimant. The important remaining shared
-  enemy/player names are `beam.cyan` and `scale.satellite`; separating them
+  enemy/player names are `beam.cyan` and `orb.small.satellite`; separating them
   further requires a presentation-only per-firer skin seam in the renderer.
 
 ## Four anatomical silhouettes

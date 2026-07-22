@@ -397,7 +397,7 @@ export const V4_OWNER_PROJECTILES: Record<V4ProjectileOwner, readonly string[]> 
   'player.scout': ['glow.small.bolt', 'glow.medium.bolt', 'glow.large.bolt', 'bolt.hyper', 'orb.small.satellite'],
   'player.lance': ['needle.pin', 'needle.pin.t0', 'needle.pin.t1', 'needle.pin.t2', 'scale.satellite'],
   'player.hound': ['scale.tracker', 'scale.chase', 'scale.chase.hi', 'orb.small.battery'],
-  'player.spire': ['beam.cyan', 'cap.v3', 'scale.satellite'],
+  'player.spire': ['beam.cyan', 'cap.v3', 'orb.small.satellite'],
   'player.maw': ['glow.small.spray', 'glow.small.spray.t1', 'glow.small.spray.t2', 'glow.small.spray.t3', 'orb.small.clinch'],
 
   'enemy.grunt': ['orb.small.chaff'],
@@ -452,7 +452,7 @@ export function projectileFaction(name: string): V4ProjectileFaction {
  * A baked shared strip cannot change colour per firer.  It therefore carries a
  * visible lineage: first owner's surface, second owner's mycelium, final owner's
  * heart, common bone.  This is deliberately neither one claimant's palette nor
- * an averaged mud colour. `beam.cyan` and `scale.satellite` consequently read as
+ * an averaged mud colour. `beam.cyan` and `orb.small.satellite` consequently read as
  * dual heritage until the renderer grows a presentation-only per-owner skin.
  */
 function sharedLineagePalette(owners: readonly V4ProjectileOwner[]): Palette {
@@ -1309,7 +1309,7 @@ this pack before the build turns green.
 - A baked name shared by several people uses a declared multi-lineage scheme:
   first owner's surface, second owner's mycelium, final owner's heart, neutral
   bone. It does not impersonate one claimant. The important remaining shared
-  enemy/player names are \`beam.cyan\` and \`scale.satellite\`; separating them
+  enemy/player names are \`beam.cyan\` and \`orb.small.satellite\`; separating them
   further requires a presentation-only per-firer skin seam in the renderer.
 
 ## Four anatomical silhouettes

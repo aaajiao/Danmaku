@@ -470,6 +470,9 @@ export interface ContentShotSpec {
   spec: Record<string, unknown>;
   offsets: readonly Record<string, unknown>[];
   period: number;
+  focusSpec?: Record<string, unknown>;
+  focusOffsets?: readonly Record<string, unknown>[];
+  focusPeriod?: number;
 }
 
 /**
@@ -851,7 +854,9 @@ const SPELLCARD_FIELDS = [
   'music',
 ] as const;
 const SHOT_FIELDS = ['levels', 'description'] as const;
-const SHOT_LEVEL_FIELDS = ['spec', 'offsets', 'period'] as const;
+const SHOT_LEVEL_FIELDS = [
+  'spec', 'offsets', 'period', 'focusSpec', 'focusOffsets', 'focusPeriod',
+] as const;
 const OPTIONS_FIELDS = ['sprite', 'shot', 'period', 'levels', 'followSpeed', 'tint'] as const;
 const BOMB_FIELDS = [
   'duration',
@@ -2044,6 +2049,9 @@ function validateShotLevel(
   requireField(raw, 'spec', 'object', where, prefix, errors, 'a bullet spec');
   requireField(raw, 'offsets', 'array', where, prefix, errors, 'an array of muzzle offsets');
   requireField(raw, 'period', 'number', where, prefix, errors, 'ticks between volleys');
+  optField(raw, 'focusSpec', 'object', where, prefix, errors);
+  optField(raw, 'focusOffsets', 'array', where, prefix, errors);
+  optField(raw, 'focusPeriod', 'number', where, prefix, errors);
   for (const key of Object.keys(raw)) {
     if ((SHOT_LEVEL_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(`${prefix}${where}: `, key, SHOT_LEVEL_FIELDS));

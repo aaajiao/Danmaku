@@ -380,7 +380,8 @@ describe('runtime consumer ownership', () => {
   });
 
   test('known player, missile and beam corrections stay attached to their real consumers', () => {
-    expect(V4_PROJECTILE_OWNERS['scale.satellite']).toEqual(['player.lance', 'player.spire']);
+    expect(V4_PROJECTILE_OWNERS['scale.satellite']).toEqual(['player.lance']);
+    expect(V4_PROJECTILE_OWNERS['orb.small.satellite']).toEqual(['player.scout', 'player.spire']);
     expect(V4_PROJECTILE_OWNERS['orb.small.battery']).toEqual(['player.hound']);
     expect(V4_PROJECTILE_OWNERS['missile.2']).toEqual(['enemy.drifter']);
     expect(V4_PROJECTILE_OWNERS['missile.3']).toEqual(['boss.warden']);

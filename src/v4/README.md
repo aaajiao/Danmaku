@@ -77,7 +77,7 @@ The move into `src/v4` is an ownership-only, replay-neutral migration:
   `src/packs/base-pack.json`. Its SHA-256 is
   `919d306d8f6aad6399705060392ed982aa1ade333ab8f0c4105dfacc6a7a42ea`, and the
   replay-facing fingerprint is intentionally revised with authored campaign
-  changes; the current campaign is `b342fac308ec`.
+  changes; the current campaign is `82bb48dc46a0`.
 - [`tools/make-v4-content.test.ts`](../../tools/make-v4-content.test.ts) pins the
   committed campaign bytes and generated fingerprint to their authoring source.
 - [`backgrounds/index.test.ts`](./backgrounds/index.test.ts) pins every migrated

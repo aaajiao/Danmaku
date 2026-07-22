@@ -5421,7 +5421,20 @@
                 "angle": 270
               }
             ],
-            "period": 5
+            "period": 5,
+            "focusOffsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           },
           {
             "spec": {
@@ -5460,7 +5473,25 @@
                 "angle": 277
               }
             ],
-            "period": 5
+            "period": 5,
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           },
           {
             "spec": {
@@ -5509,7 +5540,35 @@
                 "angle": 285
               }
             ],
-            "period": 4
+            "period": 4,
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           },
           {
             "spec": {
@@ -5570,7 +5629,45 @@
                 "angle": 296
               }
             ],
-            "period": 4
+            "period": 4,
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -27,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 27,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           }
         ]
       },
@@ -5603,7 +5700,33 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "needle.pin",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           },
           {
             "spec": {
@@ -5641,7 +5764,43 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "needle.pin.t0",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 6
           },
           {
             "spec": {
@@ -5689,7 +5848,53 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "needle.pin.t1",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 6
           },
           {
             "spec": {
@@ -5747,7 +5952,63 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "needle.pin.t2",
+                "r": 1,
+                "g": 0.85,
+                "b": 0.6,
+                "orientToHeading": true
+              },
+              "radius": 2,
+              "motion": {
+                "r": 11,
+                "theta": 270
+              },
+              "damage": 2,
+              "blade": {
+                "length": 26
+              }
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 18,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -27,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 27,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 6
           }
         ]
       },
@@ -5779,7 +6040,32 @@
                 "angle": 270
               }
             ],
-            "period": 9
+            "period": 9,
+            "focusSpec": {
+              "style": {
+                "sprite": "scale.tracker",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -14,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 7
           },
           {
             "spec": {
@@ -5811,7 +6097,32 @@
                 "angle": 270
               }
             ],
-            "period": 9
+            "period": 9,
+            "focusSpec": {
+              "style": {
+                "sprite": "scale.tracker",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 7
           },
           {
             "spec": {
@@ -5848,7 +6159,42 @@
                 "angle": 270
               }
             ],
-            "period": 8
+            "period": 8,
+            "focusSpec": {
+              "style": {
+                "sprite": "scale.chase",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 8
           },
           {
             "spec": {
@@ -5890,7 +6236,42 @@
                 "angle": 276
               }
             ],
-            "period": 8
+            "period": 8,
+            "focusSpec": {
+              "style": {
+                "sprite": "scale.chase.hi",
+                "r": 1,
+                "g": 0.8,
+                "b": 0.5,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 5,
+              "motion": {
+                "r": 7,
+                "theta": 270,
+                "behaviour": "homing"
+              },
+              "damage": 1
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": -9,
+                "y": -12,
+                "angle": 270
+              },
+              {
+                "x": 9,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 7
           }
         ]
       },
@@ -5928,7 +6309,38 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "beam.cyan",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 90,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 4
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 6
           },
           {
             "spec": {
@@ -5961,7 +6373,38 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "beam.cyan",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 90,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 5
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 6
           },
           {
             "spec": {
@@ -5994,7 +6437,38 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "beam.cyan",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 90,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 6
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 6
           },
           {
             "spec": {
@@ -6027,7 +6501,38 @@
                 "angle": 270
               }
             ],
-            "period": 5
+            "period": 5,
+            "focusSpec": {
+              "style": {
+                "sprite": "beam.cyan",
+                "r": 0.85,
+                "g": 0.7,
+                "b": 1,
+                "additive": true,
+                "orientToHeading": true
+              },
+              "radius": 3,
+              "motion": {
+                "r": 0,
+                "theta": 270
+              },
+              "damage": 1,
+              "laser": {
+                "length": 48,
+                "growth": 140,
+                "maxLength": 520
+              },
+              "pierce": true,
+              "life": 7
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -12,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           }
         ]
       },
@@ -6063,7 +6568,31 @@
                 "angle": 270
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "glow.small.spray",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "focusOffsets": [
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 3
           },
           {
             "spec": {
@@ -6109,7 +6638,41 @@
                 "angle": 286
               }
             ],
-            "period": 6
+            "period": 6,
+            "focusSpec": {
+              "style": {
+                "sprite": "glow.small.spray.t1",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "focusOffsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 5
           },
           {
             "spec": {
@@ -6165,7 +6728,41 @@
                 "angle": 296
               }
             ],
-            "period": 5
+            "period": 5,
+            "focusSpec": {
+              "style": {
+                "sprite": "glow.small.spray.t2",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "focusOffsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 4
           },
           {
             "spec": {
@@ -6231,7 +6828,41 @@
                 "angle": 306
               }
             ],
-            "period": 4
+            "period": 4,
+            "focusSpec": {
+              "style": {
+                "sprite": "glow.small.spray.t3",
+                "r": 1,
+                "g": 0.55,
+                "b": 0.3,
+                "additive": true
+              },
+              "radius": 8,
+              "motion": {
+                "r": 8,
+                "theta": 270
+              },
+              "damage": 1,
+              "life": 18
+            },
+            "focusOffsets": [
+              {
+                "x": -5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 5,
+                "y": -10,
+                "angle": 270
+              },
+              {
+                "x": 0,
+                "y": -10,
+                "angle": 270
+              }
+            ],
+            "focusPeriod": 3
           }
         ]
       }
@@ -6417,6 +7048,82 @@
               "y": -34,
               "focusX": 0,
               "focusY": -30
+            }
+          ]
+        ]
+      },
+      "spire": {
+        "sprite": "ring",
+        "shot": {
+          "style": {
+            "sprite": "orb.small.satellite",
+            "r": 0.78,
+            "g": 0.62,
+            "b": 1,
+            "additive": true
+          },
+          "radius": 4,
+          "motion": {
+            "r": 11,
+            "theta": 270
+          },
+          "damage": 1
+        },
+        "period": 7,
+        "followSpeed": 0.55,
+        "tint": {
+          "r": 0.82,
+          "g": 0.65,
+          "b": 1
+        },
+        "levels": [
+          [],
+          [
+            {
+              "x": 0,
+              "y": 30,
+              "focusX": 0,
+              "focusY": -20,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": 30,
+              "focusX": 0,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": 0,
+              "y": 52,
+              "focusX": 0,
+              "focusY": -34,
+              "angle": 270
+            }
+          ],
+          [
+            {
+              "x": 0,
+              "y": 30,
+              "focusX": 0,
+              "focusY": -20,
+              "angle": 270
+            },
+            {
+              "x": 0,
+              "y": 52,
+              "focusX": 0,
+              "focusY": -34,
+              "angle": 270
+            },
+            {
+              "x": 0,
+              "y": 74,
+              "focusX": 0,
+              "focusY": -48,
+              "angle": 270
             }
           ]
         ]
@@ -6689,19 +7396,42 @@
       }
     },
     "bombs": {
-      "spread": {
+      "scout-tide": {
         "duration": 90,
         "invulnTicks": 150,
         "damagePerTick": 2,
         "convertBullets": true,
         "effect": "death.big"
       },
-      "lance": {
+      "lance-pierce": {
         "duration": 60,
         "invulnTicks": 90,
         "damagePerTick": 8,
         "radius": 96,
         "effect": "explosion"
+      },
+      "hound-pack": {
+        "duration": 120,
+        "invulnTicks": 150,
+        "damagePerTick": 2,
+        "radius": 180,
+        "convertBullets": true,
+        "effect": "burst"
+      },
+      "spire-field": {
+        "duration": 75,
+        "invulnTicks": 110,
+        "damagePerTick": 5,
+        "radius": 128,
+        "effect": "burst.big"
+      },
+      "maw-devour": {
+        "duration": 48,
+        "invulnTicks": 90,
+        "damagePerTick": 11,
+        "radius": 78,
+        "convertBullets": true,
+        "effect": "missile.pop.big"
       }
     },
     "characters": {
@@ -6711,7 +7441,7 @@
         "blurb": "even fire, wide bomb",
         "shot": "spread",
         "options": "standard",
-        "bomb": "spread",
+        "bomb": "scout-tide",
         "player": {
           "x": 240,
           "y": 568,
@@ -6730,7 +7460,7 @@
         "blurb": "homing options, focused bomb",
         "shot": "needle",
         "options": "seeker",
-        "bomb": "lance",
+        "bomb": "lance-pierce",
         "player": {
           "x": 240,
           "y": 568,
@@ -6749,7 +7479,7 @@
         "blurb": "self-aiming gun, hand-aimed options",
         "shot": "homing",
         "options": "picket",
-        "bomb": "spread",
+        "bomb": "hound-pack",
         "player": {
           "x": 240,
           "y": 568,
@@ -6767,8 +7497,8 @@
         "sprite": "ship",
         "blurb": "planted beam, point-blank bomb",
         "shot": "laser",
-        "options": "seeker",
-        "bomb": "lance",
+        "options": "spire",
+        "bomb": "spire-field",
         "player": {
           "x": 240,
           "y": 568,
@@ -6787,7 +7517,7 @@
         "blurb": "point-blank spray, graze-fed",
         "shot": "scatter",
         "options": "clinch",
-        "bomb": "lance",
+        "bomb": "maw-devour",
         "player": {
           "x": 240,
           "y": 568,

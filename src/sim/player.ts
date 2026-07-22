@@ -24,6 +24,10 @@ export interface ShotSpec {
   offsets: readonly { x: number; y: number; angle?: number }[];
   /** Ticks between volleys. */
   period: number;
+  /** Optional focused form. Omitted fields inherit the ordinary form. */
+  focusSpec?: BulletSpec;
+  focusOffsets?: readonly { x: number; y: number; angle?: number }[];
+  focusPeriod?: number;
 }
 
 export interface PlayerConfig {
@@ -234,14 +238,17 @@ export class Player {
     if (shot === undefined) return;
     // Off the tick, never a float accumulator: an accumulator drifts, and its
     // drift depends on when firing started, so two identical runs diverge.
-    if (shot.period > 0 && tick % shot.period !== 0) return;
+    const period = this.focused ? shot.focusPeriod ?? shot.period : shot.period;
+    if (period > 0 && tick % period !== 0) return;
 
     this.fired = true;
-    for (const muzzle of shot.offsets) {
+    const spec = this.focused ? shot.focusSpec ?? shot.spec : shot.spec;
+    const offsets = this.focused ? shot.focusOffsets ?? shot.offsets : shot.offsets;
+    for (const muzzle of offsets) {
       const bullet = bullets.spawn(
         this.x + muzzle.x,
         this.y + muzzle.y,
-        shot.spec,
+        spec,
         'player',
       );
       // The pool is at its ceiling; drop the rest of the volley rather than
