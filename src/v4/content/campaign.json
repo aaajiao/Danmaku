@@ -77,7 +77,7 @@
           ]
         ],
         "scoreValue": 100,
-        "onHit": "hit",
+        "onHit": "hit.surface",
         "onDeath": "explosion"
       },
       "weaver": {
@@ -201,7 +201,7 @@
           ]
         ],
         "scoreValue": 300,
-        "onHit": "hit",
+        "onHit": "hit.mycelium",
         "onDeath": "explosion"
       },
       "turret": {
@@ -342,7 +342,7 @@
           ]
         ],
         "scoreValue": 1000,
-        "onHit": "hit",
+        "onHit": "hit.skeleton",
         "onDeath": "death.big"
       },
       "drifter": {
@@ -441,7 +441,7 @@
           ]
         ],
         "scoreValue": 100,
-        "onHit": "hit",
+        "onHit": "hit.surface",
         "onDeath": "explosion"
       },
       "lash": {
@@ -571,7 +571,7 @@
           ]
         ],
         "scoreValue": 400,
-        "onHit": "hit",
+        "onHit": "hit.skeleton",
         "onDeath": "explosion"
       },
       "hunter": {
@@ -702,7 +702,7 @@
           ]
         ],
         "scoreValue": 400,
-        "onHit": "hit",
+        "onHit": "hit.mycelium",
         "onDeath": "explosion"
       },
       "censer": {
@@ -774,7 +774,7 @@
           ]
         ],
         "scoreValue": 1000,
-        "onHit": "hit",
+        "onHit": "hit.heart",
         "onDeath": "explosion"
       },
       "bastion": {
@@ -890,7 +890,7 @@
           ]
         ],
         "scoreValue": 1500,
-        "onHit": "hit",
+        "onHit": "hit.skeleton",
         "onDeath": "death.big"
       },
       "clerk": {
@@ -990,7 +990,7 @@
           ]
         ],
         "scoreValue": 100,
-        "onHit": "hit",
+        "onHit": "hit.surface",
         "onDeath": "explosion"
       },
       "stele": {
@@ -1106,7 +1106,7 @@
           ]
         ],
         "scoreValue": 350,
-        "onHit": "hit",
+        "onHit": "hit.skeleton",
         "onDeath": "explosion"
       },
       "summons": {
@@ -1215,7 +1215,7 @@
           ]
         ],
         "scoreValue": 200,
-        "onHit": "hit",
+        "onHit": "hit.mycelium",
         "onDeath": "explosion"
       },
       "assessor": {
@@ -1306,7 +1306,7 @@
           ]
         ],
         "scoreValue": 500,
-        "onHit": "hit",
+        "onHit": "hit.surface",
         "onDeath": "explosion"
       },
       "ray": {
@@ -1407,7 +1407,7 @@
           ]
         ],
         "scoreValue": 500,
-        "onHit": "hit",
+        "onHit": "hit.skeleton",
         "onDeath": "explosion"
       },
       "usher": {
@@ -1476,7 +1476,7 @@
           ]
         ],
         "scoreValue": 100,
-        "onHit": "hit",
+        "onHit": "hit.mycelium",
         "onDeath": "explosion"
       },
       "marshal": {
@@ -1600,7 +1600,7 @@
           ]
         ],
         "scoreValue": 350,
-        "onHit": "hit",
+        "onHit": "hit.skeleton",
         "onDeath": "explosion"
       },
       "notary": {
@@ -1730,7 +1730,7 @@
           ]
         ],
         "scoreValue": 500,
-        "onHit": "hit",
+        "onHit": "hit.heart",
         "onDeath": "explosion"
       }
     },

@@ -764,7 +764,7 @@ const enemies: PackContent['enemies'] = {
     ],
     spoils: [['power', 1]],
     scoreValue: 100,
-    onHit: 'hit',
+    onHit: 'hit.surface',
     onDeath: 'explosion',
   },
 
@@ -805,7 +805,7 @@ const enemies: PackContent['enemies'] = {
     ],
     spoils: [['power', 2]],
     scoreValue: 300,
-    onHit: 'hit',
+    onHit: 'hit.mycelium',
     onDeath: 'explosion',
   },
 
@@ -861,7 +861,7 @@ const enemies: PackContent['enemies'] = {
     // not tier-scaled; only the ring's density is).
     spoils: [['power', 3], ['bomb', 1]],
     scoreValue: 1000,
-    onHit: 'hit',
+    onHit: 'hit.skeleton',
     // The heaviest thing in the cast, so it gets the heaviest death.
     onDeath: 'death.big',
   },
@@ -904,7 +904,7 @@ const enemies: PackContent['enemies'] = {
     ],
     spoils: [['power', 1]],
     scoreValue: 100,
-    onHit: 'hit',
+    onHit: 'hit.surface',
     onDeath: 'explosion',
   },
 
@@ -952,7 +952,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 80,
     spoils: [['power', 2]],
     scoreValue: 400,
-    onHit: 'hit',
+    onHit: 'hit.skeleton',
     onDeath: 'explosion',
   },
 
@@ -996,7 +996,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 80,
     spoils: [['power', 2]],
     scoreValue: 400,
-    onHit: 'hit',
+    onHit: 'hit.mycelium',
     onDeath: 'explosion',
   },
 
@@ -1030,7 +1030,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 96,
     spoils: [['power', 3]],
     scoreValue: 1000,
-    onHit: 'hit',
+    onHit: 'hit.heart',
     onDeath: 'explosion',
   },
 
@@ -1077,7 +1077,7 @@ const enemies: PackContent['enemies'] = {
     // stage hands back 3 bombs on every tier — inside the 2-4 the economy targets.
     spoils: [['power', 3], ['bomb', 1]],
     scoreValue: 1500,
-    onHit: 'hit',
+    onHit: 'hit.skeleton',
     onDeath: 'death.big',
   },
 
@@ -1119,7 +1119,7 @@ const enemies: PackContent['enemies'] = {
     ],
     spoils: [['power', 1]],
     scoreValue: 100,
-    onHit: 'hit',
+    onHit: 'hit.surface',
     onDeath: 'explosion',
   },
 
@@ -1167,7 +1167,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 80,
     spoils: [['power', 2]],
     scoreValue: 350,
-    onHit: 'hit',
+    onHit: 'hit.skeleton',
     onDeath: 'explosion',
   },
 
@@ -1205,7 +1205,7 @@ const enemies: PackContent['enemies'] = {
     ],
     spoils: [['power', 1]],
     scoreValue: 200,
-    onHit: 'hit',
+    onHit: 'hit.mycelium',
     onDeath: 'explosion',
   },
 
@@ -1246,7 +1246,7 @@ const enemies: PackContent['enemies'] = {
     // its score row; the bomb rides alongside.
     spoils: [['power', 2], ['score', 1], ['bomb', 1]],
     scoreValue: 500,
-    onHit: 'hit',
+    onHit: 'hit.surface',
     onDeath: 'explosion',
   },
 
@@ -1288,7 +1288,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 80,
     spoils: [['power', 2]],
     scoreValue: 500,
-    onHit: 'hit',
+    onHit: 'hit.skeleton',
     onDeath: 'explosion',
   },
 
@@ -1328,7 +1328,7 @@ const enemies: PackContent['enemies'] = {
     ],
     spoils: [['power', 1]],
     scoreValue: 100,
-    onHit: 'hit',
+    onHit: 'hit.mycelium',
     onDeath: 'explosion',
   },
 
@@ -1375,7 +1375,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 80,
     spoils: [['power', 2]],
     scoreValue: 350,
-    onHit: 'hit',
+    onHit: 'hit.skeleton',
     onDeath: 'explosion',
   },
 
@@ -1431,7 +1431,7 @@ const enemies: PackContent['enemies'] = {
     despawnMargin: 80,
     spoils: [['power', 2], ['bomb', 1], ['score', 2]],
     scoreValue: 500,
-    onHit: 'hit',
+    onHit: 'hit.heart',
     onDeath: 'explosion',
   },
 };

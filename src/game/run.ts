@@ -44,7 +44,7 @@ import { Random } from '../core/random';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec, type DialogueLine } from '../sim/boss';
-import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
+import { bulletHitsCircle, BulletSystem, type Bullet } from '../sim/bullet';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
@@ -405,6 +405,23 @@ const BOSS_ENTRY_Y = -60;
 
 /** The impact spark a player shot throws on the boss — the same modest `spark`-sprite burst trash enemies use, small and short for the seal's darkest zone. */
 const BOSS_HIT_SPARK = 'hit';
+
+const BOSS_MATERIAL_HIT: Readonly<Record<string, string>> = {
+  sentinel: 'hit.surface',
+  warden: 'hit.skeleton',
+  magistrate: 'hit.mycelium',
+  chancellor: 'hit.surface',
+  regent: 'hit.heart',
+};
+
+function weaponImpactEffect(bullet: Bullet): string {
+  if (bullet.laser !== undefined) return 'impact.beam';
+  const sprite = bullet.style.sprite;
+  if (sprite.includes('needle') || sprite.includes('pin')) return 'impact.needle';
+  if (sprite.includes('scale') || sprite.includes('tracker') || sprite.includes('chase')) return 'impact.tracker';
+  if (sprite.includes('spray') || sprite.includes('clinch')) return 'impact.scatter';
+  return 'impact.bolt';
+}
 
 /**
  * What a death costs, and how much of it is left on the floor.
@@ -871,6 +888,7 @@ export class Run {
 
         const killed = this.enemies.damage(enemy, b.damage);
         if (!killed && enemy.spec.onHit) this.effects.emit(enemy.spec.onHit, b.x, b.y);
+        this.effects.emit(weaponImpactEffect(b), b.x, b.y);
         this.#emit({ type: 'shot-hit', x: b.x, y: b.y, name: enemy.name });
 
         // A piercing beam keeps going and keeps damaging; anything else is
@@ -893,12 +911,17 @@ export class Run {
       if (boss === undefined || boss.entering) continue;
       if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
 
-      this.boss.damage(b.damage);
+      const phaseCleared = this.boss.damage(b.damage);
       // Mirror the enemy path (which emits `enemy.spec.onHit`): a boss hit was
       // the only landing in the game that threw no spark. Drawn from the `fx`
       // stream inside `EffectSystem.emit`, never `sim`, so the determinism
       // contract and the golden traces are untouched by construction (rule 2).
       this.effects.emit(BOSS_HIT_SPARK, b.x, b.y);
+      this.effects.emit(BOSS_MATERIAL_HIT[boss.name] ?? 'hit.surface', b.x, b.y);
+      this.effects.emit(weaponImpactEffect(b), b.x, b.y);
+      if (!phaseCleared && boss.phaseHpFraction <= 0.125) {
+        this.effects.emit('hit.heart', boss.x, boss.y);
+      }
       this.#emit({ type: 'boss-hit', x: b.x, y: b.y, name: boss.name });
       if (!b.pierce) this.bullets.despawn(b);
     }
