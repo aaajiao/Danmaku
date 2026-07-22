@@ -371,8 +371,7 @@ time, so an out-of-range pair loops the whole track rather than throwing.
 
 A **pack** adds or replaces tracks through its top-level `music` section
 (`docs/packs.md` §6.5a): a new name registers namespaced for the pack's own
-stages/bosses to name, a built-in name replaces that placeholder — exactly the
-`descent` swap `packs/clearing` demonstrates.
+stages/bosses to name, while a built-in name replaces that placeholder.
 
 ### The preferred route to a real track is a pack
 
@@ -536,8 +535,8 @@ melodic note) still crosses the seam continuously, so its endpoint is a small,
 deliberate, inaudible-in-practice jump, not a click. Every melodic voice is
 exactly zero at the seam regardless of `leadOctave`, which is the part the
 design actually depends on and the part `leadOctave` was built not to disturb;
-well under the ≤0.02 click threshold proven against the existing clearing-pack
-technique.
+well under the ≤0.02 click threshold established by the retired pre-v4
+clearing-pack fixture.
 
 ### Pass 2, held: the lead harmonic stack (designed, not shipped)
 

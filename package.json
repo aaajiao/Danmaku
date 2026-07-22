@@ -4,9 +4,6 @@
   "type": "module",
   "scripts": {
     "dev": "bun tools/serve.ts",
-    "art:kit": "bun tools/make-art-kit.ts",
-    "make:example-pack": "bun tools/make-example-pack.ts",
-    "make:clearing-pack": "bun tools/make-clearing-pack.ts",
     "make:v4-pack": "bun tools/make-v4-pack.ts",
     "measure:audio": "bun tools/measure-audio.ts",
     "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",

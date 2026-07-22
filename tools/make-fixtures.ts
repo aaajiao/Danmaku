@@ -27,10 +27,9 @@
  *
  * ## The PNG encoder
  *
- * Lives in `tools/png.ts`, not here — `tools/make-example-pack.ts` needs the
- * same encoder and the same independent verifying parser, and a second
- * hand-rolled implementation is exactly the kind of pair that drifts apart
- * silently. That file's header carries the rest of the argument.
+ * Lives in `tools/png.ts`, not here, so every asset generator can share the
+ * same encoder and independent verifying parser. A second hand-rolled
+ * implementation is exactly the kind of pair that drifts apart silently.
  *
  * A subtly wrong PNG is accepted by some decoders and rejected by others, which
  * would be a miserable thing to debug months from now. So this script verifies

@@ -1142,7 +1142,8 @@ function sprayStrip(opts: {
  * one genuinely new fx draw this round, design §a; fx-stream, order-independent
  * w.r.t. the sim, so harmless). Authored at **8×8**, not the source art's 2×2:
  * a 2px frame cannot self-pad (`frameW − 2·FX_PAD` is negative), so the floor is
- * paintable-sized and the art-kit importer NEAREST-upscales the 2×2 source 4× at
+ * paintable-sized and the purchaser-local BulletPack importer NEAREST-upscales
+ * the 2×2 source 4× at
  * bake time (design §c) — the seam gate stays untouched. `loop`, so no
  * `life === stripLength` coupling; the ember fades on its particle's alpha.
  */

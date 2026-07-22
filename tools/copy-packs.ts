@@ -1,11 +1,12 @@
 // Build step: stage packs/ for a static host.
 //
 // The dev server (tools/serve.ts) synthesizes /packs/index.json per request;
-// a static host cannot. So the build copies the packs/ tree into dist/packs/
-// and writes the same index.json alongside it — the listing the loader fetches,
-// precomputed. On any static host the built output then works with no wrapper.
-// Skips (with a log line) when packs/ is absent, so a repo with no packs still
-// builds.
+// a static host cannot. So the build replaces dist/packs/ from the current
+// shippable packs and writes index.json alongside them — the listing the loader
+// fetches, precomputed. Replacing the directory is load-bearing: a deleted or
+// newly unconfirmed pack must not survive in a later deploy as stale output.
+// When packs/ is absent, the stale destination is still removed and the build
+// continues with a log line.
 //
 // A pack whose pack.json `license` begins with "UNCONFIRMED" is staged by
 // neither the copy nor the index (CLAUDE.md rule 9: everything we ship must be
@@ -15,11 +16,17 @@
 // copied individually and the unconfirmed ones are skipped out loud — never
 // silently — so a licence that clears later is the only thing needed to ship it.
 
-import { cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const PACKS_DIR = new URL("../packs/", import.meta.url).pathname;
 const DIST_PACKS_DIR = new URL("../dist/packs/", import.meta.url).pathname;
+
+export interface StagePacksResult {
+  hasPacks: boolean;
+  ship: string[];
+  skipped: string[];
+}
 
 /** True when a pack's declared licence forbids distribution until cleared. */
 function isUnconfirmed(license: unknown): boolean {
@@ -59,30 +66,46 @@ async function surveyPacks(dir: string): Promise<{ ship: string[]; skipped: stri
   return { ship, skipped };
 }
 
-let hasPacks = true;
-try {
-  const s = await stat(PACKS_DIR);
-  hasPacks = s.isDirectory();
-} catch {
-  hasPacks = false;
-}
+/** Replace one build destination from the packs currently eligible to ship. */
+export async function stagePacks(
+  packsDir: string,
+  distPacksDir: string,
+): Promise<StagePacksResult> {
+  let hasPacks = true;
+  try {
+    const s = await stat(packsDir);
+    hasPacks = s.isDirectory();
+  } catch {
+    hasPacks = false;
+  }
 
-if (!hasPacks) {
-  console.log("copy-packs: no packs/ directory — nothing to stage.");
-} else {
-  const { ship, skipped } = await surveyPacks(PACKS_DIR);
-  await mkdir(DIST_PACKS_DIR, { recursive: true });
+  // `dist/` is disposable build output. Clear this exact child even when the
+  // source directory disappeared, so no previously staged pack can be deployed.
+  await rm(distPacksDir, { recursive: true, force: true });
+  if (!hasPacks) return { hasPacks: false, ship: [], skipped: [] };
+
+  const { ship, skipped } = await surveyPacks(packsDir);
+  await mkdir(distPacksDir, { recursive: true });
   for (const name of ship) {
-    await cp(join(PACKS_DIR, name), join(DIST_PACKS_DIR, name), { recursive: true });
+    await cp(join(packsDir, name), join(distPacksDir, name), { recursive: true });
   }
   await writeFile(
-    join(DIST_PACKS_DIR, "index.json"),
+    join(distPacksDir, "index.json"),
     JSON.stringify({ packs: ship }),
   );
-  console.log(`copy-packs: staged ${ship.length} pack(s) → dist/packs/`);
-  if (skipped.length > 0) {
-    console.log(
-      `copy-packs: skipped ${skipped.length} unconfirmed-licence pack(s): ${skipped.join(", ")}`,
-    );
+  return { hasPacks: true, ship, skipped };
+}
+
+if (import.meta.main) {
+  const { hasPacks, ship, skipped } = await stagePacks(PACKS_DIR, DIST_PACKS_DIR);
+  if (!hasPacks) {
+    console.log("copy-packs: no packs/ directory — nothing to stage.");
+  } else {
+    console.log(`copy-packs: staged ${ship.length} pack(s) → dist/packs/`);
+    if (skipped.length > 0) {
+      console.log(
+        `copy-packs: skipped ${skipped.length} unconfirmed-licence pack(s): ${skipped.join(", ")}`,
+      );
+    }
   }
 }

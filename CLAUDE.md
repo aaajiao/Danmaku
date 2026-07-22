@@ -25,11 +25,10 @@ src/packs/         drop-in packs: pure shape validation, content injector,
                    bundled.ts — the built-in game, injected as pack data)
 src/main.ts        the browser shell: input in, pixels out, nothing else
 docs/              asset specification, extension guide, pack format
-packs/             fetched asset packs on disk (packs/example is the reference
-                   reskin; packs/clearing is the content-first second pack)
+packs/             project-owned shipped art (`v4`) plus the README-only
+                   `example` workspace; generated/imported packs are local
 test/visual/       checks that need a real GL context and cannot run in `bun test`
-tools/             fixture, example-pack and base-pack generation, dev server,
-                   build copy
+tools/             fixture and base/v4-pack generation, dev server, build copy
 ```
 
 The built-in campaign — stage-1 through stage-4, their fifteen trash enemies and
@@ -331,6 +330,13 @@ game does so a content mismatch **refuses**, exactly like a mismatched character
 stage — and a pack character flown on any campaign is a content run for that reason.
 The format, both validation layers and the boundary are
 [`docs/packs.md`](./docs/packs.md).
+
+**`packs/v4` is the only loadable pack committed and shipped by this repository.**
+`packs/example` is deliberately README-only until v4 is final, when both the
+example assets and Art Kit are redesigned from the final surface contract. The
+obsolete example/clearing/Art-Kit generators are retired; the purchased-
+BulletPack importer remains an audit tool whose output is temporary local data,
+not a second shipped pack.
 
 The **base game is now this format's largest consumer**: the built-in campaign is
 a bundled pack (`src/packs/bundled.ts` injects `base-pack.json` at boot). It runs

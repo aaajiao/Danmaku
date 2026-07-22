@@ -1,12 +1,12 @@
 /**
- * The format-2 acceptance test — reachability, proven for pack content.
+ * Full-surface fixture acceptance — reachability, proven for pack content.
  *
  * `reachability.test.ts` drives the real `StateMachine` to prove no built-in is
  * registered-but-unreachable. Pack content is exempt from *that* scan (its names
  * carry '/'), precisely because a built-in playthrough never enters a pack
  * campaign nor flies a pack ship — so the proof that pack content is reachable
- * has to live here, and it is the same proof shaped to a pack: inject the real
- * `example` pack, drive the real machine through title → its campaign row →
+ * has to live here, and it is the same proof shaped to a pack: validate and
+ * inject the in-memory fixture, then drive the real machine through title → its campaign row →
  * character select → PLAYING THE PACK SHIP, and assert the whole tier holds end
  * to end:
  *
@@ -21,8 +21,7 @@
  *   - the pack effect fires on a pack enemy's death, and the pack item drops
  *     from its spoils and is collected,
  *   - the `next` chain advances into the second pack stage,
- *   - the built-in `sentinel` midboss WAVE arrives, and the pack END boss `pyre`
- *     arrives after it, transitions phases, and its spell card's background
+ *   - the pack END boss arrives, transitions phases, and its spell card's background
  *     override is reported by `Run.scene`,
  *   - the campaign clears through the pack boss, and
  *   - the replay the run records carries the campaign's strict `packsData`
@@ -41,10 +40,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import '../packs/bundled'; // built-in patterns/behaviours (via content) + the base campaign (grunt, sentinel, stage-1) the example pack references bare
+import '../packs/bundled';
 import '../sim/item'; // built-in items; content imports it type-only
 import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { Button } from '../core/input';
@@ -66,11 +62,14 @@ import type { Replay } from '../sim/replay';
 import { validateManifest } from './manifest';
 import { injectPack } from './inject';
 import { attachIdentity } from './loader';
-
-const DIR = join(import.meta.dir, '..', '..', 'packs', 'example');
+import {
+  FULL_PACK_NAME,
+  fullPackFixture,
+  fullPackQualified as q,
+} from './full-pack.fixture';
 
 /** The pack character SELECT offers and this test flies, under its qualified name. */
-const PACK_CHARACTER = 'example/raider';
+const PACK_CHARACTER = q('voyager');
 
 /**
  * A synthetic pack identity. In production the loader hashes the pack's bytes;
@@ -78,21 +77,18 @@ const PACK_CHARACTER = 'example/raider';
  * campaign (or the pack character) carries reaches replay meta unaltered — not
  * what the hash is.
  */
-const PACKS_DATA = 'example@deadbeef01ab';
+const PACKS_DATA = `${FULL_PACK_NAME}@deadbeef01ab`;
 
 /** The render name sets the browser loader would hand the injector. */
 const CTX_NAMES = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], laserSprites: laserSkinNames(), missileSprites: [...MISSILE_STRIP_CELLS], scenes: backgroundNames(), portraits: portraitNames() };
 
-/** Validate and inject the committed pack once (idempotent per pack name). */
-function injectExample(): { campaigns: Campaign[]; characterPacks: CharacterPack[] } {
-  const parsed = validateManifest(
-    JSON.parse(readFileSync(join(DIR, 'pack.json'), 'utf8')),
-    'example',
-  );
+/** Validate and inject the in-memory full fixture once (idempotent per name). */
+function injectFixture(): { campaigns: Campaign[]; characterPacks: CharacterPack[] } {
+  const parsed = validateManifest(fullPackFixture(), FULL_PACK_NAME);
   if ('errors' in parsed) {
-    throw new Error(`packs/example/pack.json failed validation:\n${parsed.errors.join('\n')}`);
+    throw new Error(`full pack fixture failed validation:\n${parsed.errors.join('\n')}`);
   }
-  // Idempotent per pack name: `example-pack.test.ts` may have injected `example`
+  // Idempotent per pack name: `full-pack.test.ts` may have injected the fixture
   // already in this shared process; this returns that first result rather than
   // re-registering and throwing a duplicate. The pairing goes through the
   // loader's real `attachIdentity` — NOT a copy of it — so this test drives the
@@ -128,7 +124,7 @@ interface Coverage {
 }
 
 /**
- * Play the example campaign from the title screen to ALL CLEAR, flying the pack
+ * Play the fixture campaign from the title screen to ALL CLEAR, flying the pack
  * ship.
  *
  * Menus are driven by pulsing a button on alternate ticks, because `Edges` reads
@@ -171,8 +167,8 @@ function playCampaign(
 
   // The pack character registers last, but its exact index is what indexOf
   // reports whatever else shares the process — navigate to it rather than assume.
-  const raiderIndex = characterNames().indexOf(PACK_CHARACTER);
-  if (raiderIndex < 0) throw new Error(`expected ${PACK_CHARACTER} in the character registry`);
+  const fixtureCharacterIndex = characterNames().indexOf(PACK_CHARACTER);
+  if (fixtureCharacterIndex < 0) throw new Error(`expected ${PACK_CHARACTER} in the character registry`);
 
   let pulse = 0;
   let lastRun: Run | undefined;
@@ -183,9 +179,8 @@ function playCampaign(
   /**
    * Whether the run was showing a dialogue line at the end of the previous tick.
    *
-   * `ashfall` sends the built-in `sentinel` as a midboss wave AND the pack boss
-   * `pyre` as its end boss, and both carry a pre-fight exchange a *fresh* Shot
-   * press advances (a held one does not). This combat pilot holds Shot
+   * The fixture boss carries a pre-fight exchange that a *fresh* Shot press
+   * advances (a held one does not). This combat pilot holds Shot
    * continuously, so without pulsing it here it would stall at the first exchange
    * until the tick limit and never reach the pack end boss. Mirrors the same
    * branch in `reachability.test.ts`, and generic — it taps through any dialogue.
@@ -213,7 +208,7 @@ function playCampaign(
       const view = top?.view?.() as { selected?: number } | undefined;
       const selected = view?.selected ?? 0;
       pulse ^= 1;
-      if (selected < raiderIndex) buttons = pulse ? Button.Down : 0;
+      if (selected < fixtureCharacterIndex) buttons = pulse ? Button.Down : 0;
       else buttons = pulse ? Button.Shot : 0;
     } else if (name === 'playing' && inDialogue) {
       // Tap through the pre-boss exchange: a fresh Shot advances a line, a held
@@ -298,19 +293,19 @@ function playCampaign(
   return cover;
 }
 
-describe('the example pack is reachable and its content runs', () => {
-  const { campaigns, characterPacks } = injectExample();
+describe('the in-memory full pack fixture is reachable and its content runs', () => {
+  const { campaigns, characterPacks } = injectFixture();
   const cover = playCampaign(campaigns, characterPacks);
 
   test('injection contributes exactly the entry campaign row and the pack character', () => {
     expect(campaigns).toEqual([
-      { label: 'example/gauntlet', stage: 'example/gauntlet', packsData: PACKS_DATA },
+      { label: q('trial'), stage: q('trial'), packsData: PACKS_DATA },
     ]);
     expect(characterPacks).toEqual([{ character: PACK_CHARACTER, packsData: PACKS_DATA }]);
   });
 
   test('the run played to ALL CLEAR rather than falling out early', () => {
-    expect(cover.ticks).toBeGreaterThan(1_000);
+    expect(cover.ticks).toBeGreaterThan(500);
     expect(cover.states.has('cleared')).toBe(true);
   });
 
@@ -326,62 +321,57 @@ describe('the example pack is reachable and its content runs', () => {
   });
 
   test('both pack stages ran — the entry, and its next chain', () => {
-    expect(cover.stages.has('example/gauntlet')).toBe(true);
-    expect(cover.stages.has('example/ashfall')).toBe(true);
+    expect(cover.stages.has(q('trial'))).toBe(true);
+    expect(cover.stages.has(q('finale'))).toBe(true);
     // The built-in starter was never entered: the campaign row steered the run.
     expect(cover.stages.has('stage-1')).toBe(false);
   });
 
   test('both pack enemies actually spawned, under their qualified names', () => {
-    expect(cover.enemies.has('example/ember')).toBe(true);
-    expect(cover.enemies.has('example/drone')).toBe(true);
+    expect(cover.enemies.has(q('emitter'))).toBe(true);
+    expect(cover.enemies.has(q('drone'))).toBe(true);
   });
 
   test('the pack effect fired and the pack item dropped and was collected', () => {
-    // `cinder` paints `mote` particles — a cell no built-in effect emits, so a
-    // live `mote` particle can only be the pack effect, fired by `ember`'s death.
+    // `spark` paints `mote` particles — a cell no built-in effect emits, so a
+    // live `mote` particle can only be the pack effect fired by the emitter's death.
     expect(cover.effectSprites.has('mote')).toBe(true);
-    // `relic` drops from `ember`'s spoils, landing under its qualified name.
-    expect(cover.items.has('example/relic')).toBe(true);
+    // `token` drops from the emitter's spoils, landing under its qualified name.
+    expect(cover.items.has(q('token'))).toBe(true);
     // And the pickup mechanic ran — the immortal pilot swept up drops.
     expect(cover.events.has('pickup')).toBe(true);
   });
 
-  test('the built-in sentinel midboss and the pack end boss both arrived', () => {
-    // `sentinel` is a built-in boss WAVE mid-schedule; `pyre` is the pack stage's
-    // own end boss, arriving after the waves and named under its qualified name.
-    expect(cover.bosses.has('sentinel')).toBe(true);
-    expect(cover.bosses.has('example/pyre')).toBe(true);
+  test('the pack end boss arrived and advanced beyond its opening phase', () => {
+    expect(cover.bosses.has(q('keeper'))).toBe(true);
     // The pack boss transitioned past its opening phase.
     expect(cover.events.has('boss-phase')).toBe(true);
   });
 
   test('the pack boss dialogue was reached — its exchange is on the real path', () => {
-    // `pyre` carries a two-line exchange the pilot taps through before the fight.
-    // Seeing `example/pyre` as a dialogue speaker proves the whole wire: the pack
+    // `keeper` carries a two-line exchange the pilot taps through before the fight.
+    // Seeing its qualified portrait as a dialogue speaker proves the whole wire: the pack
     // `portraits` name qualified onto the boss spec, the Run entered the dialogue
     // phase on boss-send, and the getter exposed the speaker — the honesty-rule
     // feature is on the campaign's real path, not merely registered.
-    expect(cover.dialogueSpeakers.has('example/pyre')).toBe(true);
-    // The built-in `sentinel` midboss exchange was tapped through too (bare name).
-    expect(cover.dialogueSpeakers.has('sentinel')).toBe(true);
+    expect(cover.dialogueSpeakers.has(q('keeper'))).toBe(true);
   });
 
   test('each pack stage entered its declared built-in scene, and the pack boss overrode it', () => {
     expect(cover.scenes.has('expanse')).toBe(true);
     expect(cover.scenes.has('undertow')).toBe(true);
-    // `pyre`'s spell card overrides the scene to `drift` — a background nothing
+    // The fixture spell card overrides the scene to `drift` — a background nothing
     // else in this campaign names, so seeing it proves the card's override was
     // reported by `Run.scene`.
     expect(cover.scenes.has('drift')).toBe(true);
   });
 
-  test('the pack track scored gauntlet — Run.music reported it, qualified', () => {
-    // `gauntlet.music: "ashen"` qualifies to `example/ashen`; the getter reports
+  test('the pack track scored the entry stage — Run.music reported it, qualified', () => {
+    // `trial.music: "pulse"` qualifies to the fixture pack's track; the getter reports
     // it live for the life of that stage, exactly as `Run.scene` reports the
     // stage's background. This is the headless half of the music feature — the
     // reconcile-and-crossfade that turns the string into sound is browser-judged.
-    expect(cover.music.has('example/ashen')).toBe(true);
+    expect(cover.music.has(q('pulse'))).toBe(true);
   });
 
   test("every replay carries the campaign's strict packsData identity", () => {
@@ -393,7 +383,7 @@ describe('the example pack is reachable and its content runs', () => {
       expect(replay.meta?.packsData).toBe(PACKS_DATA);
     }
     const last = cover.replays[cover.replays.length - 1];
-    expect(last?.meta?.stage).toBe('example/ashfall');
+    expect(last?.meta?.stage).toBe(q('finale'));
   });
 });
 
@@ -405,7 +395,7 @@ describe('the example pack is reachable and its content runs', () => {
  * `packsData ''` and would play back under different content unchecked.
  *
  * Proved at the states level with a synthetic character in `states.test.ts`; here
- * it is the real `example/raider` driven through the real machine, off a menu
+ * it is the fixture's real pack character driven through the real machine, off a menu
  * with no campaign row at all.
  */
 describe('a pack ship flown off the plain START row records the pack identity', () => {
@@ -414,7 +404,7 @@ describe('a pack ship flown off the plain START row records the pack identity', 
     // fixture: the identity must reach the run through the same producer the
     // shell uses, or a broken shell wire (the `characters` half unmapped) would
     // pass here while failing in the browser — the exact gap this test closes.
-    const { characterPacks } = injectExample();
+    const { characterPacks } = injectFixture();
     const machine = new StateMachine();
     let seed = 1;
     const ctx: GameContext = {
@@ -427,8 +417,8 @@ describe('a pack ship flown off the plain START row records the pack identity', 
     };
     machine.push(new TitleState(ctx));
 
-    const raiderIndex = characterNames().indexOf(PACK_CHARACTER);
-    expect(raiderIndex).toBeGreaterThanOrEqual(0);
+    const fixtureCharacterIndex = characterNames().indexOf(PACK_CHARACTER);
+    expect(fixtureCharacterIndex).toBeGreaterThanOrEqual(0);
 
     // Drive title (START, row 0) → character select → the pack ship. A short cap:
     // this only needs to reach PLAYING, not clear anything.
@@ -442,7 +432,7 @@ describe('a pack ship flown off the plain START row records the pack identity', 
         const view = top?.view?.() as { selected?: number } | undefined;
         const selected = view?.selected ?? 0;
         pulse ^= 1;
-        if (selected < raiderIndex) buttons = pulse ? Button.Down : 0;
+        if (selected < fixtureCharacterIndex) buttons = pulse ? Button.Down : 0;
         else buttons = pulse ? Button.Shot : 0;
       } else {
         // Title (single START row) — pulse confirm.
@@ -474,12 +464,12 @@ describe('a pack ship flown off the plain START row records the pack identity', 
  * already exercise.
  */
 describe('difficulty is real on pack content', () => {
-  // Ensure `example/gauntlet` is registered (idempotent per pack name).
-  injectExample();
+  // Ensure the fixture entry stage is registered (idempotent per pack name).
+  injectFixture();
 
-  /** Enemy-faction bullets summed over a fixed window of a `gauntlet` run at `tier`. */
-  function gauntletEnemyExposure(tier: Difficulty, ticks = 700): number {
-    const run = new Run({ seed: 0x9a12, character: 'scout', stage: 'example/gauntlet', difficulty: tier });
+  /** Enemy-faction bullets summed over a fixed window of the entry run at `tier`. */
+  function entryEnemyExposure(tier: Difficulty, ticks = 700): number {
+    const run = new Run({ seed: 0x9a12, character: 'scout', stage: q('trial'), difficulty: tier });
     let total = 0;
     for (let t = 0; t < ticks && !run.finished; t++) {
       // Immortal and firing nothing (input 0): the only bullets in the air are the
@@ -495,31 +485,31 @@ describe('difficulty is real on pack content', () => {
     return total;
   }
 
-  test('a gauntlet run at Lunatic fires a denser curtain than Normal, and Easy thinner', () => {
-    // `ember`'s patterns carry `difficulty` blocks (aimed-fan count 2/3/·/6,
-    // spiral arms 1/2/·/4), so the same seed puts more bullets up as the tier
-    // rises. This is the honesty guard for the pack surface: if a refactor drops
+  test('an entry run at Lunatic fires a denser curtain than Normal, and Easy thinner', () => {
+    // The emitter's aimed-fan carries a `difficulty` block (count 2/3/·/6), so
+    // the same seed puts more bullets up as the tier rises. This is the honesty
+    // guard for the pack surface: if a refactor drops
     // the blocks, `mergeOptions` returns the base on every tier and this collapses.
-    const easy = gauntletEnemyExposure('easy');
-    const normal = gauntletEnemyExposure('normal');
-    const lunatic = gauntletEnemyExposure('lunatic');
+    const easy = entryEnemyExposure('easy');
+    const normal = entryEnemyExposure('normal');
+    const lunatic = entryEnemyExposure('lunatic');
     expect(normal).toBeGreaterThan(easy);
     expect(lunatic).toBeGreaterThan(normal);
   });
 
   test('a replay of a pack campaign is refused across tiers, accepted on the same one', () => {
     const seed = 0x4242;
-    const live = new Run({ seed, character: 'scout', stage: 'example/gauntlet', difficulty: 'normal' });
+    const live = new Run({ seed, character: 'scout', stage: q('trial'), difficulty: 'normal' });
     for (let t = 0; t < 200; t++) live.tick(0);
     const replay = live.finishRecording();
     // Same tier, same pack stage: accepted.
     expect(
-      () => new Run({ seed, character: 'scout', stage: 'example/gauntlet', difficulty: 'normal', replay }),
+      () => new Run({ seed, character: 'scout', stage: q('trial'), difficulty: 'normal', replay }),
     ).not.toThrow();
     // A different tier is a different run — the tier changed what bullets are in
     // the air — so it is refused, strict like a mismatched stage or character.
     expect(
-      () => new Run({ seed, character: 'scout', stage: 'example/gauntlet', difficulty: 'lunatic', replay }),
+      () => new Run({ seed, character: 'scout', stage: q('trial'), difficulty: 'lunatic', replay }),
     ).toThrow(/difficulty/);
   });
 });

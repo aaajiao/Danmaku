@@ -242,8 +242,9 @@ const pickupAtlas = await makePickupAtlas(undefined, packs.pickupStrips);
 
 // v4's women and default projectile/feedback package are project-owned art, but
 // actors stay on normal-blend textures of their own. The selected art pack (v4
-// by default, purchaser-local BulletPack only by explicit query) supplies bullets,
-// lasers, missiles, explosions, pickups and player feedback.
+// by default; purchaser-local BulletPack by explicit query, or as the local
+// fallback only when v4 is absent) supplies bullets, lasers, missiles,
+// explosions, pickups and player feedback.
 const v4Actors = await loadV4ActorAtlases();
 // Original engine-owned UI, independent of whichever projectile pack is live.
 const v4Ui = await loadV4UiAtlas();

@@ -15,8 +15,8 @@
  * deterministically — stable key order, `JSON.stringify(..., null, 2)`. A drift
  * test (`tools/make-base-pack.test.ts`) regenerates and byte-diffs against
  * the checked-in file, so the JSON can never drift from this source
- * unnoticed — the make-example-pack idiom, one layer up: authoring-time code
- * may generate data; data never carries code.
+ * unnoticed. The authoring rule is one-way: code may generate data; data never
+ * carries code.
  *
  * ## hpSeconds, not hp
  *

@@ -215,7 +215,9 @@ BulletPack 是已购买的第三方素材，作者为 J i m（itch.io: `jinvorio
 它继续作为动画节奏、类别覆盖、运行时接线和兼容性对照，不再决定 v4 的
 造型身份。最终默认包 `packs/v4` 使用项目自有像素：保留丰富颜色和现有
 sim 几何，却把机战式弹体重绘成人物施术产生的外表、骨相、菌丝与心核。
-购买素材仍可通过 `?pack=bulletpack` 单独审计，不进入可提交的 v4 像素。
+需要复核时可从购买者副本临时生成 `bulletpack` 并通过
+`?pack=bulletpack` 单独审计；生成包不在项目中保留，也不进入可提交的 v4
+像素。
 
 ![v4 人物关联弹幕、激光、爆炸与掉落物风格锁定](art/v4/projectile-style-lock.png)
 
@@ -459,7 +461,7 @@ Canvas、字体或第三方图像库。`src/render/v4-ui-layout.ts` 同时作为
 | 负空间反馈 | 人物透明孔洞、读取实际半径的 focus 与真实 graze event 短弧已完成；UI 为局部透明面板 | 补人物局部暗垫与真实移动 path 短痕，做 Normal/Lunatic 可读性检查 |
 | 原创 v4 包 | `packs/v4` 已作为无 query 默认包；70 个 bullet 名、20 个 effect/player FX、11 个 laser、13 个 missile、10 个 pickup、五档心翼与 HUD 均为项目自有像素 | 浏览器逐关检查人物身份色、强弹层级和密集弹幕负空间 |
 | v4 UI | `src/assets/v4/ui-v4.png` 已接 Title、Difficulty、Character、HUD、Dialogue、Pause、Clear、Game Over、Ending；portrait 复用 actor atlas | 浏览器检查 CJK/第三方 fallback、Boss 条和四种 shader 上的局部透明度 |
-| BulletPack 兼容参考 | 本地 importer 已完成 117/117 消费者、显式五档 banking、Bomb/结算的 entity/state-age 动画、laser 无缝 body 与 painted `contentW/contentH` 尺寸；仅 `?pack=bulletpack` 显式选择 | 保持回归测试；不把购买 PNG 纳入版本库或 v4 默认视觉身份 |
+| BulletPack 兼容参考 | 本地 importer 已完成 117/117 消费者、显式五档 banking、Bomb/结算的 entity/state-age 动画、laser 无缝 body 与 painted `contentW/contentH` 尺寸；输出已从项目移除，需要时临时再生成并用 `?pack=bulletpack` 显式选择 | 保持回归测试；不把购买 PNG 或生成包纳入版本库、发布包或 v4 默认视觉身份 |
 
 因此当前代码是 **可运行的 v4 第一版**，不是已通过本文件全部验收的最终美术。凡与第 0 节风格锁定不一致的早期彩色运行图，只能被替换，不能反过来修改本总纲。
 
@@ -469,6 +471,11 @@ Canvas、字体或第三方图像库。`src/render/v4-ui-layout.ts` 同时作为
 同图集对话 portrait、项目自有 `packs/v4` 默认包、engine-owned v4 UI，以及
 BulletPack 的 117/117 本地兼容审计、laser/painted-content/banking/Bomb 修复。
 这些结果保持模拟数据、碰撞和 replay 不变。
+
+旧 `clearing` 与旧 `example` 素材已退出发布面：`packs/v4` 是唯一随仓库
+加载和构建的 pack，`packs/example` 只保留 README 占位。等 v4 视觉与素材
+接口最终锁定后，再从最终规范同步重建 example 与 Art Kit；在此之前两者
+都不是权威模板。
 
 下一轮按以下顺序推进：
 

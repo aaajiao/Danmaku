@@ -32,10 +32,10 @@ a pack is the packaged, drop-in version of the same swap those documents describ
 at the source level. You do not need them to write a pack; you need them if you
 want to understand *why* a bullet must be white or a sound must fade to zero.
 
-If you want the shortest path rather than the full reference, start with
-[`docs/quickstart.md`](./quickstart.md) — it grows the worked example pack
-`packs/clearing` from an empty folder to two playable campaigns, and links back
-here for each field.
+[`docs/quickstart.md`](./quickstart.md) records the current lifecycle and links
+the minimum authoritative references. The worked example and Art Kit are
+deliberately deferred until v4's contracts are final; this document remains the
+manifest reference in the meantime.
 
 ---
 
@@ -107,15 +107,11 @@ files it names:
 
 ```
 packs/
-  example/                 the reference pack, committed to the repo
-    pack.json              the manifest — the only required file
-    bullets.png            256×64, 8×2 cells of 32×32
-    ship.png               64×64, one sprite
-    life.png               ≤16×16 HUD icon, replaces ♥
-    bomb.png               ≤16×16 HUD icon, replaces ★
-    shot.wav               a replaced sound
-    pickup.wav             another replaced sound
-    README.md              annotation (ignored by the loader)
+  v4/                      the sole committed and shipped pack
+    pack.json
+    …
+  example/                 reserved future-example workspace
+    README.md              no manifest, so it is not loadable or shipped
   my-pack/
     pack.json
     …
@@ -127,18 +123,16 @@ else procedural. The **directory name is the pack's identity** — `pack.json`'s
 `name` field must equal it — so renaming the folder renames the pack, and a
 mismatch is rejected before anything loads (§6).
 
-`packs/example/` is a complete, working pack that exercises every v1 field and
-obeys every rule the loader checks. **Copy it, rename the folder and its `name`,
-and start replacing files.** Its `README.md` annotates every field and every art
-decision; this document is the specification, that pack is the reference
-implementation of it.
+`packs/v4/` is the only loadable pack committed and shipped by this repository.
+`packs/example/` deliberately contains only a README: it reserves the location
+for a future worked example but is absent from the pack index because it has no
+`pack.json`. Once v4's visual and asset contracts are final, the example assets
+and Art Kit will be rebuilt together from that final contract.
 
-`packs/clearing/` is a second committed pack and the opposite proof: it carries
-almost no art — two campaigns, three bosses and a character on the procedural
-floor, with one replaced music track and two dialogue portraits its only files.
-Read `example` to see art take effect, `clearing` to see how little a content pack
-must carry. [`docs/quickstart.md`](./quickstart.md) walks `clearing` from an empty
-folder to two playable campaigns and is the fastest way in for a first-time author.
+[`docs/quickstart.md`](./quickstart.md) explains the temporary local workflow
+without presenting the retired `clearing` content as a reproducible template.
+The obsolete example/clearing generators were removed because they would
+recreate pre-v4 assets; their outputs are neither committed nor shipped.
 
 ---
 
@@ -157,17 +151,20 @@ So the whole activation story is: **drop a folder into `packs/`, refresh the
 page.** The server rescans the directory on every request for the index, so a
 pack added while the server is running is seen on the next reload. No build step,
 no config edit, no restart. The plain URL intentionally selects project-owned
-`v4` when present, falling back to purchaser-local `bulletpack` only when v4 is
-absent; open any other newly added pack with `?pack=<name>` while testing it.
+`v4` when present, falling back to a temporarily generated purchaser-local
+`bulletpack` only when v4 is absent; open any other newly added pack with
+`?pack=<name>` while testing it.
 
 ### 3.2 In a production build
 
-`bun run build` appends `tools/copy-packs.ts`, which copies the `packs/` tree
-into `dist/packs/` and writes the same `index.json` alongside it — precomputed,
-because a static host cannot synthesize it per request. The built output is then
-plain static files that any host serves directly, with no wrapper. If `packs/`
-is absent, the copy step logs `copy-packs: no packs/ directory — nothing to
-stage.` and the build still succeeds.
+`bun run build` appends `tools/copy-packs.ts`, which replaces `dist/packs/` from
+the currently shippable directories under `packs/` and writes the same
+`index.json` alongside them — precomputed, because a static host cannot
+synthesize it per request. Replacing the destination prevents a removed pack
+from surviving as stale deploy output. The result is plain static files that any
+host serves directly, with no wrapper. If `packs/` is absent, the old destination
+is still removed, the copy step logs `copy-packs: no packs/ directory — nothing
+to stage.`, and the build succeeds.
 
 ### 3.3 Under the bare server, packs are simply unavailable
 
@@ -187,21 +184,22 @@ in the message.
 
 ## 4. The manifest — `pack.json`
 
-### 4.1 A complete worked example
+### 4.1 A complete reskin fragment
 
-This is the presentation half of `packs/example/pack.json` — the fields a
-reskin commonly uses. The real file carries more than what is shown here: it
-goes on to declare `music` (§6.5a), `portraits` (§6.5b), and a `requires` plus
-a full `content` section (§9), each covered where its tier is introduced:
+This illustrative manifest is the presentation half of a complete pack — the
+fields a reskin commonly uses. It goes on to declare `music` (§6.5a),
+`portraits` (§6.5b), and a `requires` plus a full `content` section (§9), each
+covered where its tier is introduced. It is documentation, not the contents of
+the README-only `packs/example` workspace:
 
 ```json
 {
   "format": 1,
-  "name": "example",
+  "name": "my-pack",
   "version": "1.0.0",
   "author": "Danmaku project",
   "license": "CC0-1.0",
-  "description": "The reference pack: every v1 field, and art that follows every rule the loader checks. Copy this directory, rename it, and swap the files.",
+  "description": "A complete reskin fragment with original project art.",
   "assets": {
     "bullets": "bullets.png",
     "ship": "ship.png",
@@ -746,29 +744,31 @@ compose cleanly — each wins the slots it declares.
 `?pack=<name>` in the URL narrows to a single pack, ignoring the rest. This is
 how you check one pack in isolation.
 
-This build treats a discovered project-owned `v4` as the default art pack. If it
-is absent, purchaser-local `bulletpack` is the fallback, so the alphabetical
-`example` folder cannot silently replace either art direction on the plain URL.
-An explicit `?pack=<name>` still wins — use `?pack=example` to inspect the
-example and `?pack=bulletpack` to audit the purchased reference. The original
-BulletPack source and its generated pack remain gitignored because purchase
-authorizes use, not redistribution of the source sprite sheets.
+This build treats the committed project-owned `v4` as the default art pack. If
+it is absent, a purchaser-local `bulletpack` generated for an explicit audit can
+still serve as the compatibility fallback; that generated tree is not retained
+in the project. `packs/example` has no manifest and therefore cannot enter this
+selection. An explicit `?pack=<name>` still wins for any pack you deliberately
+generate or add locally. The original BulletPack source and any generated audit
+pack remain gitignored because purchase authorizes use, not redistribution of
+the source sprite sheets.
 
 Every boot prints a **boot report** to the console — which pack won each slot,
-what overrode what, what failed, and the replay-meta hash. It looks like:
+what overrode what, what failed, and the replay-meta hash. For an illustrative
+locally added pack named `my-pack`, it looks like:
 
 ```
 packs: boot report
-  assets.bullets: example  (/packs/example/bullets.png)
-  assets.ship: example  (/packs/example/ship.png)
-  assets.filter: example  (nearest)
-  sounds.shot: example  (/packs/example/shot.wav)
-  sounds.pickup: example  (/packs/example/pickup.wav)
-  hud.life: example  (/packs/example/life.png)
-  hud.bomb: example  (/packs/example/bomb.png)
-  content.enemies: example (2 registered)
-  content.stages: example (gauntlet → ashfall)
-  meta: example@2e42786213c2
+  assets.bullets: my-pack  (/packs/my-pack/bullets.png)
+  assets.ship: my-pack  (/packs/my-pack/ship.png)
+  assets.filter: my-pack  (nearest)
+  sounds.shot: my-pack  (/packs/my-pack/shot.wav)
+  sounds.pickup: my-pack  (/packs/my-pack/pickup.wav)
+  hud.life: my-pack  (/packs/my-pack/life.png)
+  hud.bomb: my-pack  (/packs/my-pack/bomb.png)
+  content.enemies: my-pack (2 registered)
+  content.stages: my-pack (trial → finale)
+  meta: my-pack@2e42786213c2
 ```
 
 The two `content.*` lines are printed for a content pack (§9) so a developer can
@@ -777,7 +777,7 @@ the count, and one `content.stages` line per entry campaign showing its `next`
 chain in bare names. They are informational, not golden. A reskin-only pack
 prints neither. When no pack supplies anything, the body reads `(no pack
 resources active — running on placeholders)`. An override adds a line like
-`override: assets.bullets ← "crimson" (overrode "example")`. A failed pack is
+`override: assets.bullets ← "crimson" (overrode "my-pack")`. A failed pack is
 skipped whole and named:
 
 ```
@@ -813,13 +813,15 @@ only what the pack form adds: a section key as the entry's name, three
 substitutions (a stage's `entry`/`next`, a boss card's `hpSeconds`, a character's
 `shot` by name), and name resolution that runs pack-first (§9.3).
 
-`packs/example/` is the reference and carries one of every section: two enemies
-(`ember` and the minimal `drone`), a boss (`pyre`, three phases), a shot
-(`emberbolt`), options (`emberwing`), a bomb (`firestorm`), a character (`raider`,
-equipping all three), an effect (`cinder`), an item (`relic`), and a two-stage
-campaign (`gauntlet` → `ashfall`, which sends the built-in `sentinel` as a midboss
-wave and the pack's own `pyre` as its end boss). Copy it. Everything below is
-drawn from it.
+The complete in-memory fixture used by the validator/injector/playthrough tests
+carries one of every section: two enemies (`emitter` and the minimal `drone`), a
+boss (`keeper`, three phases), a shot (`lance`), options (`orbit`), a bomb
+(`flare`), a character (`voyager`, equipping all three), an effect (`spark`), an
+item (`token`), and a two-stage campaign (`trial` → `finale`, ending at the pack's
+own `keeper`). `packs/example` remains README-only until a new example is designed
+from the final v4 contract; no current tool materializes it. The older names in
+the illustrative field/error snippets below are examples of the format, not
+claims about the test fixture.
 
 ### 9.1 The gate: `requires` and the covering invariant
 
@@ -1458,15 +1460,16 @@ is the same shape as everything else in the game reaching content by name:
 - **The boot report** prints a `content.<section>: <pack> (…)` line per shipped
   section (§8) — a count for enemies, the `next` chain for stages — so a developer
   sees the data took effect, not just the reskin.
-- **A test proves it, it is not a claim.** `src/packs/example-play.test.ts`
-  injects the real example pack and drives the **real** `StateMachine` flying the
-  **pack character** `raider`: title → the campaign row → SELECT (navigating to
-  `example/raider`) → playing. It asserts the pack shot fires, both pack enemies
-  spawn, the pack effect (`cinder`, sprite `mote`) fires on death and the pack item
-  (`example/relic`) drops and is collected, the `next` chain reaches `ashfall`, the
-  built-in `sentinel` midboss *and* the pack `example/pyre` end boss both arrive,
-  the card's `drift` background override shows up in `Run.scene`, the campaign
-  clears, and every replay records the strict `packsData`. This is the format-2
+- **A test proves it, it is not a claim.** `src/packs/full-pack-play.test.ts`
+  injects the complete in-memory pack fixture and drives the **real**
+  `StateMachine` flying the **pack character** `voyager`: title → the campaign
+  row → SELECT (navigating to
+  `test-pack-fixture/voyager`) → playing. It asserts the pack shot fires, both
+  pack enemies spawn, the pack effect (`spark`, sprite `mote`) fires on death and
+  the pack item (`test-pack-fixture/token`) drops and is collected, the `next`
+  chain reaches `finale`, the pack's `keeper` end boss arrives, the card's `drift`
+  background override shows up in `Run.scene`, the campaign clears, and every
+  replay records the strict `packsData`. This is the format-2
   acceptance test, in the spirit of `reachability.test.ts` — which itself exempts
   namespaced names (any containing `/`) from its built-in scan, because pack
   content is reachable only through its own campaign or character.
@@ -1492,7 +1495,7 @@ air (§9.2), so a replay across tiers is a different run.
   option and bomb, all of which change the simulation, so a built-in campaign
   flown with one is still a pack run. Without this a replay flown with a pack ship
   would record `''` and replay under different content — the one subtle strictness
-  this tier turns on, and `example-play.test.ts` proves it end to end.
+  this tier turns on, and `full-pack-play.test.ts` proves it end to end.
 
 A wholly built-in run — a built-in character on a built-in campaign — records `''`
 even with content packs loaded, because injected content a built-in stage and ship
@@ -1562,9 +1565,9 @@ the **authoring source**. (Prose that documents a surviving engine *mechanism*
 rather than the moved content — the `REFERENCE_DPS` calibration story, for one —
 stayed with its mechanism in `src/sim/boss.ts`.) The generator emits `base-pack.json` (checked in), and a
 drift test (`tools/make-base-pack.test.ts`) regenerates and diffs it, so generator
-output that disagrees with the committed JSON fails the build. This is the
-established make-example-pack idiom (§9): authoring-time code may generate data;
-data never carries code. The generator emits a second artifact beside the JSON —
+output that disagrees with the committed JSON fails the build. The authoring
+principle is unchanged: authoring-time code may generate data; data never carries
+code. The generator emits a second artifact beside the JSON —
 `src/packs/base-pack.fingerprint.ts`, the sha256 of the JSON bytes (first 12 hex),
 drift-tested the same way — which `bundled.ts` re-exports and the shell threads in
 as the `content` fingerprint (§11). Alongside these, eight committed replay traces
@@ -1742,9 +1745,9 @@ stage, spawn your enemies, and chain through `next` to your boss. A content pack
 that fails semantic validation is named in the report's `FAILED` block with the
 `inject.ts` problem list (§9.4) and contributes no row. Unlike the pixel checks,
 content is fully covered headlessly — `bun test` runs the shape validator, the
-injector against the real registries, and the acceptance playthrough
-(`src/packs/example-play.test.ts`), so a content bug fails the source gate, not
-only the browser.
+injector against the real registries, and the acceptance playthrough against
+the complete in-memory fixture (`src/packs/full-pack.fixture.ts`), so a content
+bug fails the source gate, not only the browser.
 
 ```
 bun run build          # confirm dist/packs/<name>/ is staged and index.json lists it

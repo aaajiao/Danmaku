@@ -521,7 +521,7 @@ ones, so a proposal has something to sit next to:
 | `drift` | deep → lift | `(0.015, 0.022, 0.050)` → `(0.045, 0.075, 0.130)` (`drift.ts:36-37`) |
 | `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.016, 0.034, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.038, 0.104, 0.152)` (`expanse.ts:82-86`) — `SKY_LIFT`/`GROUND_LIFT` pull the scene toward cyan-ice (R/G ≈0.37), the one deliberate stage-body edit of the seal-family round, closing the hue collision with `drift` |
 | `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:103-105`) |
-| `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) — the base campaign no longer names this scene (its boss cards name the boss-family scenes instead); kept registered because `packs/example` and `packs/clearing` still name it |
+| `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) — the base campaign no longer names this scene (its boss cards name the boss-family scenes instead); kept registered as an extension surface and for temporary pack fixtures |
 | `undertow` | haze / wall deep / wall lift | `(0.018, 0.010, 0.030)`, `(0.026, 0.014, 0.044)`, `(0.100, 0.048, 0.150)` (`undertow.ts:86-88`) |
 | `vault` | haze / deep / lift | `(0.010, 0.007, 0.002)`, `(0.022, 0.016, 0.005)`, `(0.085, 0.060, 0.018)` (`vault.ts:130-132`) — analytic peak ≈0.079, still pending the live `test:visual`/`dev` measurement the other rows already carry |
 
@@ -718,13 +718,12 @@ This is the section the rest of the file exists for. It is written as a
 procedure because the obvious one-line version does not work, and each step
 below is a place it stops working.
 
-> **Start from a template.** `bun run art:kit` emits paintable templates for
-> every hand-authored surface (bullet sheet, ship, portraits, HUD icons) into
-> `./art-kit/` — each carries the grid, the 2px safe margin, the cell names, the
-> current placeholder as a low-alpha ghost to paint over, and a `+x` arrow on the
-> directional cells, plus a Chinese quick guide (`README.zh.md`). Every size and
-> name in it is read from the engine, so it cannot drift from what the loader
-> checks. Paint a fresh layer over the ghost and export at the exact size.
+> **Art Kit lifecycle.** The pre-v4 example assets and Art Kit generator are
+> retired. There is no current Art Kit command or authoritative template. After
+> v4's final visual and asset contracts are locked, redesign the example and Art
+> Kit together so the new templates read the final engine sizes and names. Until
+> that coordinated rebuild, use the live loader contract in this document and
+> `packs/v4` as the source of truth.
 
 ### 5.0 The preferred route is a pack — no code edit at all
 
@@ -735,8 +734,9 @@ needs **no editing of `src/` at all**: drop an [asset pack](./packs.md) into
 same dimension, margin and whiteness checks this section describes — in the
 browser, against your real pixels — and reports every failure by name. It layers
 over the placeholders, needs only a page refresh under `bun run dev`, and is the
-right choice for shipping a reskin. **`packs/example/` is a complete worked
-example of everything in section 3.**
+right choice for shipping a reskin. Today `packs/v4` is the sole shipped pack;
+`packs/example` is README-only until it and the Art Kit are rebuilt from the
+final v4 contract.
 
 The rest of this section is the **low-level seam beneath that**: the
 `BULLET_SHEET` constant in `main.ts` and the `bulletAtlas(url)` function a pack's
@@ -927,8 +927,9 @@ very little and prevents all five of the above.
 
 The renderer has native strip surfaces for bullets, effects, lasers, missiles,
 pickups, the player ship and player effects. The purchased BulletPack reference
-import exercises all seven generated sheets. The art-kit templates remain a
-small authoring starter rather than an inventory of every renderer surface.
+import can exercise all seven generated sheets during a local audit. That output
+is not retained or shipped. A new Art Kit will be designed after v4 is final; it
+will be an authoring starter rather than an inventory of every renderer surface.
 
 ### The reference importer — `tools/import-bulletpack.ts`
 
@@ -1046,10 +1047,12 @@ Product: **16Bit Bullets, Explosions & Misc Asset Pack** by **J i m**
 (`jinvorionstg` on itch.io). The user confirmed the purchase on 2026-07-20, and
 the product-page terms allow commercial project use. That permission does not
 grant redistribution of the purchased source sprites, so the generated
-`packs/bulletpack/` tree remains local and gitignored; the committed importer and
-semantic map reproduce it from the purchaser's copy.
+`packs/bulletpack/` tree is generated only on demand, remains gitignored, and is
+removed after the local audit; the committed importer and semantic map can
+reproduce it from the purchaser's copy.
 
 When no explicit `?pack=` is supplied, project-owned `v4` is the default; a
-discovered `bulletpack` is only the purchaser-local fallback when v4 is absent.
-An explicit query remains authoritative, so `?pack=bulletpack`, `?pack=example`
-or another named pack still wins when intentionally requested.
+temporarily regenerated `bulletpack` is only the purchaser-local fallback when
+v4 is absent. An explicit query remains authoritative, so `?pack=bulletpack` or
+another deliberately added local pack still wins when intentionally requested.
+The README-only `packs/example` workspace has no manifest and cannot be selected.

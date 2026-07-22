@@ -1056,8 +1056,9 @@ browser-audit items in \`docs/assets.md §8\`.
   statement permits use however desired, including commercial use.
 - Purchase/use permission does not grant redistribution of the source sprites.
   Therefore \`packs/bulletpack/\` remains **\`.gitignore\`d**; only this importer
-  and its semantic map are committed. Local and production builds may use the
-  generated pack from the purchaser's copy.
+  and its semantic map are committed. Generate the pack only for an explicit
+  purchaser-local audit, select it with \`?pack=bulletpack\`, and remove it again
+  afterward. It is not a production or distributable project pack.
 
 ## The two artist notes shipped in the folder (verbatim)
 

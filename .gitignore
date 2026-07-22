@@ -33,8 +33,8 @@ test-results/
 # See NOTICE: we hold no rights to it and cannot redistribute it.
 toho-like-js/
 
-# Art-kit output. `bun run art:kit` emits paintable templates here; they are a
-# working surface for an artist, regenerated on demand, never committed.
+# Reserved output for the Art Kit that will be rebuilt after v4 is final.
+# Generated artist working files remain local and are never committed.
 art-kit/
 
 # Imported purchased third-party art pack. `bun tools/import-bulletpack.ts`
