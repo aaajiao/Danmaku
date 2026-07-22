@@ -13,14 +13,17 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 
 import { expect, test } from 'bun:test';
 
 import {
   V4_CONTENT_FINGERPRINT_PATH,
   V4_CONTENT_PATH,
+  V4_GAMEPLAY_FINGERPRINT_PATHS,
   buildV4ContentFingerprint,
   buildV4ContentJson,
+  fingerprintV4Edition,
 } from './make-v4-content';
 
 test('the committed v4 campaign is byte-identical to the generator output', () => {
@@ -32,15 +35,83 @@ test('the committed v4 campaign is byte-identical to the generator output', () =
   expect(generated).toBe(committed);
 });
 
-test('the committed v4 campaign fingerprint is byte-identical to the generator output', () => {
-  // The fingerprint is derived from the JSON bytes, so this drifting means one of
-  // two things: the JSON changed without regenerating the hash (the whole failure
-  // this catches), or the fingerprint module was hand-edited. Either is fixed by
-  // one action — `bun tools/make-v4-content.ts` — same as the JSON above.
+test('the committed v4 edition fingerprint is byte-identical to the generator output', () => {
+  // The fingerprint is derived from campaign JSON plus compiled pattern and
+  // behaviour source. Drift means one of those changed without regeneration, or
+  // the generated module was hand-edited. One generator command fixes either.
   const committed = readFileSync(V4_CONTENT_FINGERPRINT_PATH, 'utf8');
   const generated = buildV4ContentFingerprint();
   expect(generated.length).toBe(committed.length);
   expect(generated).toBe(committed);
+});
+
+test('the replay identity changes for data and executable danmaku independently', () => {
+  const campaign = buildV4ContentJson();
+  const gameplay = V4_GAMEPLAY_FINGERPRINT_PATHS.map(
+    (path): readonly [string, string] => [basename(path), readFileSync(path, 'utf8')],
+  );
+  const baseline = fingerprintV4Edition(campaign, gameplay);
+
+  expect(fingerprintV4Edition(`${campaign}\n`, gameplay)).not.toBe(baseline);
+  expect(
+    fingerprintV4Edition(campaign, gameplay.map((entry, index) => (
+      index === 0 ? [entry[0], `${entry[1]}\n// algorithm probe`] as const : entry
+    ))),
+  ).not.toBe(baseline);
+});
+
+interface PatternSlotProbe {
+  pattern: string;
+  options?: { spec?: { style?: { sprite?: string } } };
+}
+
+function spatialSignature(patterns: readonly PatternSlotProbe[]): string {
+  return patterns.map((slot) => (
+    `${slot.pattern}:${slot.options?.spec?.style?.sprite ?? '<no-sprite>'}`
+  )).join('|');
+}
+
+test('all sixteen enemy roles have a distinct authored danmaku signature', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: { enemies: Record<string, { patterns?: PatternSlotProbe[] }> };
+  };
+  const entries = Object.entries(pack.content.enemies);
+  expect(entries).toHaveLength(16);
+
+  const seen = new Map<string, string>();
+  for (const [name, enemy] of entries) {
+    expect(enemy.patterns?.length ?? 0).toBeGreaterThanOrEqual(1);
+    const signature = spatialSignature(enemy.patterns ?? []);
+    expect(seen.get(signature)).toBeUndefined();
+    seen.set(signature, name);
+  }
+  expect(seen.size).toBe(entries.length);
+});
+
+test('every boss has several pattern families and every phase has its own signature', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: {
+      bosses: Record<string, { phases: { name: string; patterns: PatternSlotProbe[] }[] }>;
+    };
+  };
+
+  expect(Object.keys(pack.content.bosses)).toHaveLength(5);
+  for (const boss of Object.values(pack.content.bosses)) {
+    expect(boss.phases.length).toBeGreaterThanOrEqual(3);
+    const families = new Set(boss.phases.flatMap((phase) => (
+      phase.patterns.map((slot) => slot.pattern)
+    )));
+    expect(families.size).toBeGreaterThanOrEqual(4);
+
+    const signatures = new Set<string>();
+    for (const phase of boss.phases) {
+      expect(phase.patterns.length).toBeGreaterThanOrEqual(2);
+      const signature = spatialSignature(phase.patterns);
+      expect(signatures.has(signature)).toBe(false);
+      signatures.add(signature);
+    }
+    expect(signatures.size).toBe(boss.phases.length);
+  }
 });
 
 test('every stage fields a mid-stage bomb carrier — a wave enemy whose spoils drop a bomb', () => {

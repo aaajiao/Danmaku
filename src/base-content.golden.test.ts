@@ -119,6 +119,16 @@ function canonical(value: unknown, path: string): unknown {
  */
 function committedText(name: string, produce: () => string): { committed: string; wrote: boolean } {
   const url = new URL(name, FIXTURE_DIR);
+  // Deliberate gameplay revisions need a reviewable way to replace the oracle.
+  // It is opt-in and exact-string gated so an ordinary test run can never bless
+  // current behaviour. `wrote: false` lets the same run self-check the freshly
+  // recorded replay instead of failing as though the fixture had been missing.
+  if (process.env['UPDATE_BASE_CONTENT_GOLDENS'] === '1') {
+    mkdirSync(FIXTURE_DIR, { recursive: true });
+    const text = produce();
+    writeFileSync(url, text);
+    return { committed: text, wrote: false };
+  }
   if (existsSync(url)) {
     return { committed: readFileSync(url, 'utf8'), wrote: false };
   }

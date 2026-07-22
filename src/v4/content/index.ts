@@ -58,8 +58,9 @@ import campaignJson from './campaign.json';
 export const BASE_PACK_NAME = 'base';
 
 // Re-exported so the shell (main.ts) can thread it into `RunConfig.contentFingerprint`
-// without importing the generated module directly — the base content's identity in
-// replay meta, a plain string the sim carries opaquely (see RunConfig.contentFingerprint).
+// without importing the generated module directly — the bundled data + compiled
+// danmaku identity in replay meta, a plain string the sim carries opaquely (see
+// RunConfig.contentFingerprint).
 export { CONTENT_FINGERPRINT } from './campaign.fingerprint';
 
 const manifest = campaignJson as unknown as PackManifest;

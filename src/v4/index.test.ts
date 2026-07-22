@@ -58,8 +58,8 @@ describe('v4 edition composition', () => {
     );
   });
 
-  test('preserves the replay-neutral campaign identity', () => {
-    expect(CONTENT_FINGERPRINT).toBe('919d306d8f6a');
+  test('pins the current data plus executable-danmaku replay identity', () => {
+    expect(CONTENT_FINGERPRINT).toBe('6f4bc1ad6a0a');
   });
 
   test('keeps the historical import facades live without a second registration', async () => {

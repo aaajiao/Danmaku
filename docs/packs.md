@@ -1585,8 +1585,9 @@ code. `campaign.json` is generated, replay-guarded output, not a file to hand-ed
 the old stage-1/stage-2 manifest description remains a replay-neutral frozen
 record of the migration rather than an invitation to change its data. The
 generator emits a second artifact beside the JSON —
-`src/v4/content/campaign.fingerprint.ts`, the sha256 of the JSON bytes (first 12 hex),
-drift-tested the same way — which `src/v4/content/index.ts` re-exports and the shell threads in
+`src/v4/content/campaign.fingerprint.ts`, the sha256 (first 12 hex) of the JSON
+bytes plus the compiled v4 pattern/behaviour sources they invoke, drift-tested
+the same way — which `src/v4/content/index.ts` re-exports and the shell threads in
 as the `content` fingerprint (§11). Alongside these, eight committed replay traces
 (`src/base-content.golden.test.ts` — four stages × two difficulties) assert zero
 simulation divergence — the permanent behavioural guard. (The port itself was additionally gated on a
@@ -1681,20 +1682,21 @@ keys with two policies:
   Because content changes what the game *does*, a mismatch here **refuses**, exactly
   as a mismatched character, stage, boss or difficulty tier does. This is the strict
   path the v1 spec reserved and format 2 made real.
-- **`RunConfig.contentFingerprint`** (meta key `content`) — the **bundled base
-  content** identity: a short opaque hash the shell computes from
-  `src/v4/content/campaign.json`
-  (`src/v4/content/campaign.fingerprint.ts`, generated beside the JSON and drift-tested
-  with it) and threads in. The base pack joins neither key above — it is not a
+- **`RunConfig.contentFingerprint`** (meta key `content`) — the **bundled v4
+  simulation** identity: a short opaque hash generated from
+  `src/v4/content/campaign.json` plus `src/v4/gameplay/patterns.ts` and
+  `src/v4/gameplay/behaviours.ts`
+  (`src/v4/content/campaign.fingerprint.ts`, generated beside the JSON and drift-tested)
+  and threaded in by the shell. The base pack joins neither key above — it is not a
   fetched pack but the build itself — yet it *can* drift when the engine's own
   enemies, bosses or player side change. So it takes a **third policy, the middle
   ground**: on playback an **absent** `content` key **warns** (a legacy recording,
   or a harness that threaded none) — `run: replay has no content fingerprint (a
   legacy recording, or a harness that threaded none) — replaying without a content
   check` — while a **present-and-different** one **refuses** — `run: replay was
-  recorded with content "…", not "…"`. What it covers is the bundled pack **JSON**;
-  it does **not** cover the pattern, behaviour or shader **code** the pack names by
-  string (a future build hash would). Unset means the shell opted out — fixtures
+  recorded with content "…", not "…"`. It covers the bundled pack **JSON** plus
+  the v4 pattern and behaviour **code** that JSON names, but not shader code or
+  raster presentation. Unset means the shell opted out — fixtures
   and debug launches thread none, which is the legacy-warn path, and is why the
   base-content gate traces (§9.7) carry no `content` key and do not move when the
   fingerprint changes.

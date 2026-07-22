@@ -31,7 +31,7 @@
         },
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -47,8 +47,9 @@
                 }
               },
               "count": 3,
-              "spread": 24,
-              "period": 50
+              "spread": 20,
+              "period": 50,
+              "swing": 12
             },
             "startAt": 30,
             "difficulty": {
@@ -114,7 +115,7 @@
         ],
         "patterns": [
           {
-            "pattern": "spiral",
+            "pattern": "weave",
             "options": {
               "spec": {
                 "style": {
@@ -129,23 +130,27 @@
                   "theta": 90
                 }
               },
-              "arms": 2,
+              "pairs": 1,
               "step": 17,
+              "amplitude": 34,
               "period": 5
             },
             "startAt": 40,
             "stopAt": 90,
             "difficulty": {
               "easy": {
-                "arms": 1,
+                "pairs": 1,
+                "amplitude": 24,
                 "period": 7
               },
               "hard": {
-                "arms": 3,
+                "pairs": 2,
+                "amplitude": 38,
                 "period": 4
               },
               "lunatic": {
-                "arms": 4,
+                "pairs": 2,
+                "amplitude": 46,
                 "period": 4
               }
             }
@@ -216,7 +221,7 @@
         },
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -234,7 +239,8 @@
               },
               "count": 12,
               "period": 70,
-              "rotation": 9
+              "rotation": 9,
+              "gap": 46
             },
             "startAt": 20,
             "difficulty": {
@@ -355,7 +361,7 @@
         },
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -377,8 +383,9 @@
                 }
               },
               "count": 3,
-              "spread": 26,
-              "period": 52
+              "spread": 22,
+              "period": 52,
+              "swing": 10
             },
             "startAt": 30,
             "difficulty": {
@@ -472,7 +479,7 @@
         ],
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -499,8 +506,9 @@
                 "life": 64
               },
               "count": 2,
-              "spread": 26,
-              "period": 96
+              "spread": 18,
+              "period": 96,
+              "swing": 14
             },
             "startAt": 40,
             "stopAt": 190,
@@ -604,7 +612,7 @@
         ],
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "weave",
             "options": {
               "spec": {
                 "style": {
@@ -629,23 +637,25 @@
                   }
                 }
               },
-              "count": 2,
-              "spread": 34,
+              "pairs": 1,
+              "amplitude": 24,
+              "step": 18,
               "period": 44
             },
             "startAt": 34,
             "stopAt": 156,
             "difficulty": {
               "easy": {
-                "count": 1
+                "pairs": 1,
+                "amplitude": 18
               },
               "hard": {
-                "count": 3,
-                "spread": 40
+                "pairs": 2,
+                "amplitude": 30
               },
               "lunatic": {
-                "count": 4,
-                "spread": 46,
+                "pairs": 2,
+                "amplitude": 38,
                 "period": 38
               }
             }
@@ -717,7 +727,7 @@
         },
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -742,7 +752,8 @@
               },
               "count": 10,
               "period": 84,
-              "rotation": 13
+              "rotation": 13,
+              "gap": 56
             },
             "startAt": 24,
             "difficulty": {
@@ -788,7 +799,7 @@
         },
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "lane-wall",
             "options": {
               "spec": {
                 "style": {
@@ -810,21 +821,29 @@
                   }
                 }
               },
-              "count": 14,
-              "period": 84,
-              "rotation": 12
+              "columns": 8,
+              "gapColumn": 3,
+              "gapWidth": 2,
+              "shift": 1,
+              "speed": 1.9,
+              "period": 84
             },
             "startAt": 30,
             "difficulty": {
               "easy": {
-                "count": 10
+                "columns": 7,
+                "gapWidth": 2,
+                "period": 96
               },
               "hard": {
-                "count": 18,
+                "columns": 10,
+                "gapWidth": 2,
                 "period": 74
               },
               "lunatic": {
-                "count": 22,
+                "columns": 12,
+                "gapWidth": 2,
+                "shift": 2,
                 "period": 68
               }
             }
@@ -902,7 +921,7 @@
         },
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -918,8 +937,9 @@
                 }
               },
               "count": 3,
-              "spread": 34,
-              "period": 48
+              "spread": 28,
+              "period": 48,
+              "swing": 13
             },
             "startAt": 30,
             "difficulty": {
@@ -1020,7 +1040,7 @@
         ],
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -1037,7 +1057,8 @@
               },
               "count": 18,
               "period": 40,
-              "rotation": 5
+              "rotation": 5,
+              "gap": 34
             },
             "startAt": 55,
             "stopAt": 220,
@@ -1117,7 +1138,7 @@
         },
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "weave",
             "options": {
               "spec": {
                 "style": {
@@ -1140,25 +1161,26 @@
                   }
                 }
               },
-              "count": 3,
-              "spread": 12,
+              "pairs": 2,
+              "amplitude": 11,
+              "step": 15,
               "period": 30
             },
             "startAt": 24,
             "difficulty": {
               "easy": {
-                "count": 2,
-                "spread": 10,
+                "pairs": 1,
+                "amplitude": 9,
                 "period": 40
               },
               "hard": {
-                "count": 3,
-                "spread": 16,
+                "pairs": 2,
+                "amplitude": 14,
                 "period": 26
               },
               "lunatic": {
-                "count": 4,
-                "spread": 18,
+                "pairs": 3,
+                "amplitude": 17,
                 "period": 22
               }
             }
@@ -1335,7 +1357,7 @@
         ],
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -1372,6 +1394,7 @@
               },
               "count": 1,
               "spread": 0,
+              "swing": 0,
               "period": 150
             },
             "startAt": 40,
@@ -1418,7 +1441,7 @@
         },
         "patterns": [
           {
-            "pattern": "aimed-fan",
+            "pattern": "alternating-fan",
             "options": {
               "spec": {
                 "style": {
@@ -1439,7 +1462,8 @@
                 }
               },
               "count": 3,
-              "spread": 26,
+              "spread": 20,
+              "swing": 14,
               "period": 40
             },
             "startAt": 20,
@@ -1505,7 +1529,7 @@
         ],
         "patterns": [
           {
-            "pattern": "ring",
+            "pattern": "lane-wall",
             "options": {
               "spec": {
                 "style": {
@@ -1520,27 +1544,32 @@
                   "theta": 90
                 }
               },
-              "count": 20,
-              "period": 44,
-              "rotation": 6
+              "columns": 9,
+              "gapColumn": 4,
+              "gapWidth": 2,
+              "shift": 1,
+              "speed": 1.8,
+              "period": 44
             },
             "startAt": 60,
             "stopAt": 240,
             "difficulty": {
               "easy": {
-                "count": 16,
-                "period": 56,
-                "rotation": 4
+                "columns": 7,
+                "gapWidth": 2,
+                "period": 56
               },
               "hard": {
-                "count": 24,
-                "period": 38,
-                "rotation": 8
+                "columns": 11,
+                "gapWidth": 2,
+                "shift": 2,
+                "period": 38
               },
               "lunatic": {
-                "count": 28,
-                "period": 34,
-                "rotation": 9
+                "columns": 13,
+                "gapWidth": 2,
+                "shift": 2,
+                "period": 34
               }
             }
           },
@@ -1666,7 +1695,7 @@
             }
           },
           {
-            "pattern": "ring",
+            "pattern": "gap-ring",
             "options": {
               "spec": {
                 "style": {
@@ -1684,7 +1713,8 @@
               },
               "count": 18,
               "period": 46,
-              "rotation": 5
+              "rotation": 5,
+              "gap": 34
             },
             "startAt": 170,
             "stopAt": 250,
@@ -1809,7 +1839,7 @@
             ],
             "patterns": [
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -1826,7 +1856,8 @@
                     }
                   },
                   "count": 5,
-                  "spread": 34,
+                  "spread": 28,
+                  "swing": 13,
                   "period": 48
                 },
                 "difficulty": {
@@ -1896,7 +1927,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -1917,7 +1948,8 @@
                   },
                   "count": 18,
                   "period": 42,
-                  "rotation": 9
+                  "rotation": 9,
+                  "gap": 44
                 },
                 "difficulty": {
                   "easy": {
@@ -1934,7 +1966,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -1955,7 +1987,8 @@
                   },
                   "count": 18,
                   "period": 42,
-                  "rotation": -14
+                  "rotation": -14,
+                  "gap": 44
                 },
                 "startAt": 21,
                 "difficulty": {
@@ -1973,7 +2006,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -1994,7 +2027,8 @@
                     }
                   },
                   "count": 3,
-                  "spread": 18,
+                  "spread": 14,
+                  "swing": 9,
                   "period": 96
                 },
                 "startAt": 60,
@@ -2077,7 +2111,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2098,7 +2132,8 @@
                   },
                   "count": 20,
                   "period": 90,
-                  "rotation": 11
+                  "rotation": 11,
+                  "gap": 38
                 },
                 "startAt": 240,
                 "difficulty": {
@@ -2116,7 +2151,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -2133,7 +2168,8 @@
                     }
                   },
                   "count": 7,
-                  "spread": 50,
+                  "spread": 42,
+                  "swing": 12,
                   "period": 75
                 },
                 "startAt": 420,
@@ -2195,7 +2231,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2216,12 +2252,13 @@
                   },
                   "count": 24,
                   "period": 66,
-                  "rotation": 15
+                  "rotation": 15,
+                  "gap": 32
                 },
                 "startAt": 40
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -2238,7 +2275,8 @@
                     }
                   },
                   "count": 7,
-                  "spread": 44,
+                  "spread": 38,
+                  "swing": 14,
                   "period": 60
                 },
                 "startAt": 90
@@ -2319,7 +2357,7 @@
             ],
             "patterns": [
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -2341,7 +2379,8 @@
                     }
                   },
                   "count": 5,
-                  "spread": 32,
+                  "spread": 26,
+                  "swing": 12,
                   "period": 46
                 },
                 "difficulty": {
@@ -2453,7 +2492,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2481,7 +2520,8 @@
                   },
                   "count": 4,
                   "period": 120,
-                  "rotation": 21
+                  "rotation": 21,
+                  "gap": 66
                 },
                 "difficulty": {
                   "easy": {
@@ -2497,7 +2537,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -2523,7 +2563,8 @@
                     }
                   },
                   "count": 3,
-                  "spread": 28,
+                  "spread": 22,
+                  "swing": 11,
                   "period": 84
                 },
                 "startAt": 60,
@@ -2566,7 +2607,7 @@
             ],
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2591,7 +2632,8 @@
                   },
                   "count": 12,
                   "period": 66,
-                  "rotation": 17
+                  "rotation": 17,
+                  "gap": 48
                 },
                 "difficulty": {
                   "easy": {
@@ -2608,7 +2650,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2632,7 +2674,8 @@
                   },
                   "count": 10,
                   "period": 96,
-                  "rotation": -14
+                  "rotation": -14,
+                  "gap": 56
                 },
                 "startAt": 120,
                 "difficulty": {
@@ -2737,7 +2780,7 @@
             ],
             "patterns": [
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -2759,7 +2802,8 @@
                     }
                   },
                   "count": 5,
-                  "spread": 36,
+                  "spread": 30,
+                  "swing": 12,
                   "period": 44
                 },
                 "difficulty": {
@@ -2876,7 +2920,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -2903,7 +2947,8 @@
                   },
                   "count": 14,
                   "period": 78,
-                  "rotation": 13
+                  "rotation": 13,
+                  "gap": 40
                 },
                 "difficulty": {
                   "easy": {
@@ -2920,7 +2965,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -2942,7 +2987,8 @@
                     }
                   },
                   "count": 3,
-                  "spread": 22,
+                  "spread": 18,
+                  "swing": 10,
                   "period": 54
                 },
                 "startAt": 40,
@@ -3027,7 +3073,7 @@
             },
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3055,7 +3101,8 @@
                   },
                   "count": 6,
                   "period": 132,
-                  "rotation": 17
+                  "rotation": 17,
+                  "gap": 52
                 },
                 "difficulty": {
                   "easy": {
@@ -3071,7 +3118,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3095,7 +3142,8 @@
                   },
                   "count": 12,
                   "period": 132,
-                  "rotation": 9
+                  "rotation": 9,
+                  "gap": 44
                 },
                 "startAt": 66,
                 "difficulty": {
@@ -3177,7 +3225,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3202,7 +3250,8 @@
                   },
                   "count": 10,
                   "period": 90,
-                  "rotation": 19
+                  "rotation": 19,
+                  "gap": 54
                 },
                 "startAt": 30,
                 "difficulty": {
@@ -3220,7 +3269,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3248,7 +3297,8 @@
                   },
                   "count": 4,
                   "period": 150,
-                  "rotation": 26
+                  "rotation": 26,
+                  "gap": 62
                 },
                 "startAt": 120,
                 "difficulty": {
@@ -3264,7 +3314,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -3290,7 +3340,8 @@
                     }
                   },
                   "count": 3,
-                  "spread": 30,
+                  "spread": 24,
+                  "swing": 12,
                   "period": 96
                 },
                 "startAt": 240,
@@ -3406,7 +3457,7 @@
             ],
             "patterns": [
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -3422,7 +3473,8 @@
                     }
                   },
                   "count": 5,
-                  "spread": 38,
+                  "spread": 32,
+                  "swing": 12,
                   "period": 52
                 },
                 "difficulty": {
@@ -3443,7 +3495,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3460,7 +3512,8 @@
                   },
                   "count": 12,
                   "period": 72,
-                  "rotation": 6
+                  "rotation": 6,
+                  "gap": 46
                 },
                 "difficulty": {
                   "easy": {
@@ -3544,7 +3597,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -3560,7 +3613,8 @@
                     }
                   },
                   "count": 5,
-                  "spread": 40,
+                  "spread": 34,
+                  "swing": 13,
                   "period": 50
                 },
                 "difficulty": {
@@ -3590,7 +3644,7 @@
             "background": "sable",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3616,7 +3670,8 @@
                   },
                   "count": 16,
                   "period": 80,
-                  "rotation": 0
+                  "rotation": 0,
+                  "gap": 42
                 },
                 "difficulty": {
                   "easy": {
@@ -3631,7 +3686,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -3647,7 +3702,8 @@
                     }
                   },
                   "count": 3,
-                  "spread": 20,
+                  "spread": 16,
+                  "swing": 10,
                   "period": 64
                 },
                 "difficulty": {
@@ -3732,7 +3788,7 @@
             },
             "patterns": [
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -3769,6 +3825,7 @@
                   },
                   "count": 1,
                   "spread": 0,
+                  "swing": 0,
                   "period": 300
                 },
                 "difficulty": {
@@ -3784,7 +3841,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3813,7 +3870,8 @@
                   },
                   "count": 5,
                   "period": 120,
-                  "rotation": 12
+                  "rotation": 12,
+                  "gap": 58
                 },
                 "startAt": 40,
                 "difficulty": {
@@ -3830,7 +3888,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -3858,7 +3916,8 @@
                     "life": 84
                   },
                   "count": 3,
-                  "spread": 42,
+                  "spread": 34,
+                  "swing": 14,
                   "period": 150
                 },
                 "startAt": 90,
@@ -3889,7 +3948,7 @@
             "background": "sable",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -3906,7 +3965,8 @@
                   },
                   "count": 20,
                   "period": 46,
-                  "rotation": 8
+                  "rotation": 8,
+                  "gap": 34
                 },
                 "difficulty": {
                   "easy": {
@@ -3994,7 +4054,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -4010,12 +4070,13 @@
                     }
                   },
                   "count": 7,
-                  "spread": 46,
+                  "spread": 40,
+                  "swing": 14,
                   "period": 44
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -4032,7 +4093,8 @@
                   },
                   "count": 20,
                   "period": 60,
-                  "rotation": 5
+                  "rotation": 5,
+                  "gap": 34
                 }
               }
             ]
@@ -4148,7 +4210,7 @@
             ],
             "patterns": [
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -4164,7 +4226,8 @@
                     }
                   },
                   "count": 5,
-                  "spread": 38,
+                  "spread": 32,
+                  "swing": 13,
                   "period": 50
                 },
                 "difficulty": {
@@ -4229,7 +4292,7 @@
             "background": "regnum",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -4255,7 +4318,8 @@
                   },
                   "count": 12,
                   "period": 90,
-                  "rotation": 4
+                  "rotation": 4,
+                  "gap": 48
                 },
                 "difficulty": {
                   "easy": {
@@ -4270,7 +4334,7 @@
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -4296,7 +4360,8 @@
                   },
                   "count": 12,
                   "period": 90,
-                  "rotation": -4
+                  "rotation": -4,
+                  "gap": 48
                 },
                 "difficulty": {
                   "easy": {
@@ -4320,7 +4385,7 @@
             "background": "regnum",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "lane-wall",
                 "options": {
                   "spec": {
                     "style": {
@@ -4335,27 +4400,35 @@
                       "theta": 90
                     }
                   },
-                  "count": 16,
-                  "period": 54,
-                  "rotation": 3
+                  "columns": 9,
+                  "gapColumn": 2,
+                  "gapWidth": 2,
+                  "shift": 1,
+                  "speed": 1.6,
+                  "period": 54
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 12,
+                    "columns": 7,
+                    "gapWidth": 2,
                     "period": 66
                   },
                   "hard": {
-                    "count": 20,
+                    "columns": 11,
+                    "gapWidth": 2,
+                    "shift": 2,
                     "period": 46
                   },
                   "lunatic": {
-                    "count": 22,
+                    "columns": 13,
+                    "gapWidth": 2,
+                    "shift": 2,
                     "period": 42
                   }
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "lane-wall",
                 "options": {
                   "spec": {
                     "style": {
@@ -4370,21 +4443,29 @@
                       "theta": 90
                     }
                   },
-                  "count": 16,
-                  "period": 54,
-                  "rotation": -2
+                  "columns": 9,
+                  "gapColumn": 6,
+                  "gapWidth": 2,
+                  "shift": -1,
+                  "speed": 1.6,
+                  "period": 54
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 12,
+                    "columns": 7,
+                    "gapWidth": 2,
                     "period": 66
                   },
                   "hard": {
-                    "count": 20,
+                    "columns": 11,
+                    "gapWidth": 2,
+                    "shift": -2,
                     "period": 46
                   },
                   "lunatic": {
-                    "count": 22,
+                    "columns": 13,
+                    "gapWidth": 2,
+                    "shift": -2,
                     "period": 42
                   }
                 }
@@ -4399,7 +4480,7 @@
             "background": "regnum",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -4427,7 +4508,8 @@
                   },
                   "count": 8,
                   "period": 64,
-                  "rotation": 5
+                  "rotation": 5,
+                  "gap": 54
                 },
                 "difficulty": {
                   "easy": {
@@ -4445,7 +4527,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -4461,7 +4543,8 @@
                     }
                   },
                   "count": 4,
-                  "spread": 30,
+                  "spread": 24,
+                  "swing": 12,
                   "period": 58
                 },
                 "difficulty": {
@@ -4528,7 +4611,7 @@
             "background": "regnum",
             "patterns": [
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -4545,7 +4628,8 @@
                   },
                   "count": 18,
                   "period": 52,
-                  "rotation": 6
+                  "rotation": 6,
+                  "gap": 36
                 },
                 "difficulty": {
                   "easy": {
@@ -4670,7 +4754,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "alternating-fan",
                 "options": {
                   "spec": {
                     "style": {
@@ -4686,12 +4770,13 @@
                     }
                   },
                   "count": 7,
-                  "spread": 46,
+                  "spread": 40,
+                  "swing": 14,
                   "period": 44
                 }
               },
               {
-                "pattern": "ring",
+                "pattern": "gap-ring",
                 "options": {
                   "spec": {
                     "style": {
@@ -4708,7 +4793,8 @@
                   },
                   "count": 22,
                   "period": 58,
-                  "rotation": 5
+                  "rotation": 5,
+                  "gap": 32
                 }
               }
             ]

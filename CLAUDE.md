@@ -355,19 +355,22 @@ validator and injector as a fetched pack. It differs in four ways: there is zero
 network fetch; names register **unqualified** (`grunt`, `sentinel`, `stage-1`);
 its entry takes the plain START row and joins neither guest `packs` nor
 `packsData` identity; and a validation failure throws at boot. It does carry the
-build-owned `CONTENT_FINGERPRINT`, derived from the exact campaign bytes and
-recorded in replay meta, so later content drift is refused rather than replayed
-silently. `src/packs/bundled.ts` only preserves the old import surface.
+build-owned `CONTENT_FINGERPRINT`, derived from the exact campaign bytes plus
+the compiled v4 pattern/behaviour sources they invoke, and recorded in replay
+meta. Later data **or executable danmaku** drift is therefore refused rather
+than replayed silently. `src/packs/bundled.ts` only preserves the old import
+surface.
 
-The ownership migration itself is replay-neutral: `campaign.json` is byte-for-
-byte identical to the former `src/packs/base-pack.json`, its fingerprint remains
-`919d306d8f6a`, every scene's assembled GLSL source and scroll speed is SHA-256
-pinned in `src/v4/backgrounds/index.test.ts`, and the committed golden replay
-traces were not regenerated. The manifest's description still says “stage-1 and
-stage-2”; that prose is historically frozen because changing even metadata would
-change the campaign bytes and fingerprint. The actual v4 inventory is four
-stages, sixteen enemies and five bosses. Fix that description only as an explicit
-content revision, never as cleanup folded into an ownership move.
+The ownership migration itself was replay-neutral: `campaign.json` was byte-for-
+byte identical to the former `src/packs/base-pack.json`, with historical
+fingerprint `919d306d8f6a`, and its golden traces were not regenerated. The later
+spatial-language revision deliberately moved gameplay, regenerated those traces,
+and expanded the fingerprint to cover executable v4 gameplay as well as JSON.
+Every scene's assembled GLSL source and scroll speed remains SHA-256 pinned in
+`src/v4/backgrounds/index.test.ts`. The manifest's description still says
+“stage-1 and stage-2”; the actual inventory is four stages, sixteen enemies and
+five bosses. Fix that metadata only as an explicit content revision, never as
+unrelated cleanup.
 
 **A registry only has what something imported.** A module nobody imports never
 runs, so its `define*` calls never happen and the name resolves to nothing at the

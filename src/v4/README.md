@@ -18,7 +18,7 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Motion definitions | [`gameplay/behaviours.ts`](./gameplay/behaviours.ts) | Registry, timelines and integration in [`src/sim/motion.ts`](../sim/motion.ts) |
 | Authored shader scenes | [`backgrounds/`](./backgrounds) | Registry, shared GLSL helpers, cross-fade and renderer in [`src/render/background.ts`](../render/background.ts) |
 | Campaign authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
-| Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay carries the opaque content fingerprint; simulation does not import the pack loader |
+| Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay identity hashes campaign data plus compiled v4 patterns/behaviours; simulation carries only the opaque string |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
 
 The distinction is ownership, not duplication. `src/v4` supplies one edition's
@@ -69,21 +69,28 @@ keep older imports working while ownership stays visible under this directory.
 - Art changes belong to the independent `packs/v4` generator and manifest. They
   must not be used as a route for simulation or shader logic.
 
-## Ownership-migration baseline
+## Ownership migration and the first authored revision
 
-The move into `src/v4` is an ownership-only, replay-neutral migration:
+The move into `src/v4` was an ownership-only, replay-neutral migration:
 
 - `content/campaign.json` is byte-identical to the former
   `src/packs/base-pack.json`. Its SHA-256 is
   `919d306d8f6aad6399705060392ed982aa1ade333ab8f0c4105dfacc6a7a42ea`, and the
-  replay-facing fingerprint remains `919d306d8f6a`.
+  replay-facing fingerprint was `919d306d8f6a`.
 - [`tools/make-v4-content.test.ts`](../../tools/make-v4-content.test.ts) pins the
   committed campaign bytes and generated fingerprint to their authoring source.
 - [`backgrounds/index.test.ts`](./backgrounds/index.test.ts) pins every migrated
   scene's assembled GLSL SHA-256 and scroll speed to the pre-move runtime values.
-- The committed traces used by
-  [`src/base-content.golden.test.ts`](../base-content.golden.test.ts) were not
-  regenerated. Moving ownership must not change their simulation fingerprints.
+- The traces used by [`src/base-content.golden.test.ts`](../base-content.golden.test.ts)
+  were not regenerated for that move.
+
+The later spatial-language revision is deliberately **not** replay-neutral. It
+adds `alternating-fan`, `gap-ring`, `weave` and `lane-wall`, reauthors the cast's
+actual firing signatures, and regenerates the eight Normal/Lunatic traces. The
+generated `CONTENT_FINGERPRINT` now hashes campaign JSON together with the exact
+`patterns.ts` and `behaviours.ts` bytes, closing the migration-era hole where
+compiled danmaku could change under an unchanged replay identity. Its current
+value is `6f4bc1ad6a0a`.
 
 `campaign.json` still contains the description “stage-1 and stage-2, their cast
 and bosses.” That string is stale historical metadata: the actual edition has

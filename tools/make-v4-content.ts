@@ -40,7 +40,8 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateManifest, type PackContent, type PackManifest } from '../src/packs/manifest';
 
@@ -750,8 +751,8 @@ const enemies: PackContent['enemies'] = {
     // player is readable before it starts shooting.
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: ENEMY_SHOT, count: 3, spread: 24, period: 50 },
+        pattern: 'alternating-fan',
+        options: { spec: ENEMY_SHOT, count: 3, spread: 20, period: 50, swing: 12 },
         startAt: 30,
         // The opening's chaff, and so the stage's difficulty axis before any
         // boss: Easy thins the fan and slows it, Lunatic widens and quickens it.
@@ -781,14 +782,14 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'spiral',
-        options: { spec: ENEMY_SHOT, arms: 2, step: 17, period: 5 },
+        pattern: 'weave',
+        options: { spec: ENEMY_SHOT, pairs: 1, step: 17, amplitude: 34, period: 5 },
         startAt: 40,
         stopAt: 90,
         difficulty: {
-          easy: { arms: 1, period: 7 },
-          hard: { arms: 3, period: 4 },
-          lunatic: { arms: 4, period: 4 },
+          easy: { pairs: 1, amplitude: 24, period: 7 },
+          hard: { pairs: 2, amplitude: 38, period: 4 },
+          lunatic: { pairs: 2, amplitude: 46, period: 4 },
         },
       },
       // One lazy homing writ between its arcs — the second place (after turret)
@@ -819,8 +820,8 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 0.4, theta: 90 },
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: HEAVY_SHOT, count: 12, period: 70, rotation: 9 },
+        pattern: 'gap-ring',
+        options: { spec: HEAVY_SHOT, count: 12, period: 70, rotation: 9, gap: 46 },
         startAt: 20,
         // The wall, and stage-1's densest single pattern — the wave the tier axis
         // must visibly move. Easy opens the ring's gaps, Lunatic closes them.
@@ -880,8 +881,8 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 1.7, theta: 90 },
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: SPARK, count: 3, spread: 26, period: 52 },
+        pattern: 'alternating-fan',
+        options: { spec: SPARK, count: 3, spread: 22, period: 52, swing: 10 },
         startAt: 30,
         // Stage-2's chaff carries its trash-phase density the way grunt does
         // stage-1's: Easy thins the fan, Lunatic widens and quickens it.
@@ -926,8 +927,8 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: LANCE, count: 2, spread: 26, period: 96 },
+        pattern: 'alternating-fan',
+        options: { spec: LANCE, count: 2, spread: 18, period: 96, swing: 14 },
         startAt: 40,
         stopAt: 190,
         // Beams are lethal lines, so the tier moves their count in ones, not the
@@ -973,14 +974,14 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: SEEKER, count: 2, spread: 34, period: 44 },
+        pattern: 'weave',
+        options: { spec: SEEKER, pairs: 1, amplitude: 24, step: 18, period: 44 },
         startAt: 34,
         stopAt: 156,
         difficulty: {
-          easy: { count: 1 },
-          hard: { count: 3, spread: 40 },
-          lunatic: { count: 4, spread: 46, period: 38 },
+          easy: { pairs: 1, amplitude: 18 },
+          hard: { pairs: 2, amplitude: 30 },
+          lunatic: { pairs: 2, amplitude: 38, period: 38 },
         },
       },
       // A homing mandate pair from the kunai slot, reskinned as a missile — the
@@ -1016,8 +1017,8 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 0.5, theta: 90 },
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: EMBER_PYRE, count: 10, period: 84, rotation: 13 },
+        pattern: 'gap-ring',
+        options: { spec: EMBER_PYRE, count: 10, period: 84, rotation: 13, gap: 56 },
         startAt: 24,
         // Easy leaves the gathered ring threadable, Lunatic packs it.
         difficulty: {
@@ -1036,8 +1037,8 @@ const enemies: PackContent['enemies'] = {
 
   /**
    * The wall. Barely moves, must be killed, and pays for it — stage-2's `turret`,
-   * with the hang-then-snap ring in place of a plain one, plus a scatter that
-   * starts late so the two never arrive as a single undifferentiated mess.
+   * with a shifting column wall and a deliberately authored safe lane, plus a
+   * scatter that starts late so the two never arrive as one undifferentiated mess.
    */
   bastion: {
     sprite: 'shard',
@@ -1049,15 +1050,23 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 0.32, theta: 90 },
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: SHELL_ASSAY, count: 14, period: 84, rotation: 12 },
+        pattern: 'lane-wall',
+        options: {
+          spec: SHELL_ASSAY,
+          columns: 8,
+          gapColumn: 3,
+          gapWidth: 2,
+          shift: 1,
+          speed: 1.9,
+          period: 84,
+        },
         startAt: 30,
-        // Stage-2's densest trash pattern. Easy opens the hanging ring, Lunatic
-        // closes it.
+        // Stage-2's densest trash pattern. Easy leaves a wider, slower wall;
+        // Lunatic adds columns and shifts the opening faster without closing it.
         difficulty: {
-          easy: { count: 10 },
-          hard: { count: 18, period: 74 },
-          lunatic: { count: 22, period: 68 },
+          easy: { columns: 7, gapWidth: 2, period: 96 },
+          hard: { columns: 10, gapWidth: 2, period: 74 },
+          lunatic: { columns: 12, gapWidth: 2, shift: 2, period: 68 },
         },
       },
       {
@@ -1098,8 +1107,8 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 1.8, theta: 90 },
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: WRIT, count: 3, spread: 34, period: 48 },
+        pattern: 'alternating-fan',
+        options: { spec: WRIT, count: 3, spread: 28, period: 48, swing: 13 },
         startAt: 30,
         difficulty: {
           easy: { count: 2, period: 60 },
@@ -1143,8 +1152,8 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: SLAB, count: 18, period: 40, rotation: 5 },
+        pattern: 'gap-ring',
+        options: { spec: SLAB, count: 18, period: 40, rotation: 5, gap: 34 },
         startAt: 55,
         stopAt: 220,
         difficulty: {
@@ -1185,13 +1194,13 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 2.2, theta: 90 },
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: SUBPOENA, count: 3, spread: 12, period: 30 },
+        pattern: 'weave',
+        options: { spec: SUBPOENA, pairs: 2, amplitude: 11, step: 15, period: 30 },
         startAt: 24,
         difficulty: {
-          easy: { count: 2, spread: 10, period: 40 },
-          hard: { count: 3, spread: 16, period: 26 },
-          lunatic: { count: 4, spread: 18, period: 22 },
+          easy: { pairs: 1, amplitude: 9, period: 40 },
+          hard: { pairs: 2, amplitude: 14, period: 26 },
+          lunatic: { pairs: 3, amplitude: 17, period: 22 },
         },
       },
       // Its signature homing writ — service of process made literal. A single flat
@@ -1273,8 +1282,8 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: RAY_BEAM, count: 1, spread: 0, period: 150 },
+        pattern: 'alternating-fan',
+        options: { spec: RAY_BEAM, count: 1, spread: 0, swing: 0, period: 150 },
         startAt: 40,
         stopAt: 170,
         // A swept beam is a lethal moving line, so its count moves in ones.
@@ -1316,8 +1325,8 @@ const enemies: PackContent['enemies'] = {
     motion: { r: 2.6, theta: 90 },
     patterns: [
       {
-        pattern: 'aimed-fan',
-        options: { spec: PICKET, count: 3, spread: 26, period: 40 },
+        pattern: 'alternating-fan',
+        options: { spec: PICKET, count: 3, spread: 20, swing: 14, period: 40 },
         startAt: 20,
         difficulty: {
           easy: { count: 2, spread: 20, period: 52 },
@@ -1334,10 +1343,9 @@ const enemies: PackContent['enemies'] = {
 
   /**
    * The marshal — the stationary anchor the ushers sweep past. Slow and durable:
-   * dives, plants for about three seconds, and lays a rotating ring-wall of slow
-   * bulwark bars whose volleys interlock into a standing wall with one turning
-   * lane, the stage-2 wall. Ring count rises per tier and Lunatic tightens the
-   * gap — the lane narrows Easy->Lunatic but never closes.
+   * dives, plants for about three seconds, and lays repeated columns of slow
+   * bulwark bars with one shifting lane. Column count rises per tier and Lunatic
+   * moves the opening faster, but the authored route never closes.
    */
   marshal: {
     sprite: 'scale',
@@ -1351,20 +1359,28 @@ const enemies: PackContent['enemies'] = {
     ],
     patterns: [
       {
-        pattern: 'ring',
-        options: { spec: BULWARK, count: 20, period: 44, rotation: 6 },
+        pattern: 'lane-wall',
+        options: {
+          spec: BULWARK,
+          columns: 9,
+          gapColumn: 4,
+          gapWidth: 2,
+          shift: 1,
+          speed: 1.8,
+          period: 44,
+        },
         startAt: 60,
         stopAt: 240,
         difficulty: {
-          easy: { count: 16, period: 56, rotation: 4 },
-          hard: { count: 24, period: 38, rotation: 8 },
-          lunatic: { count: 28, period: 34, rotation: 9 },
+          easy: { columns: 7, gapWidth: 2, period: 56 },
+          hard: { columns: 11, gapWidth: 2, shift: 2, period: 38 },
+          lunatic: { columns: 13, gapWidth: 2, shift: 2, period: 34 },
         },
       },
-      // A homing execution salvo behind the ring-wall — the writ that follows once
+      // A homing execution salvo behind the lane-wall — the writ that follows once
       // the wall has pinned your lane. Flat, on the plant window; the stage-4
       // opening's strict tier rise (`difficulty-honesty.test.ts`, which measures
-      // the marshal ring-wall) is carried by the ring above.
+      // the marshal lane-wall) is carried by the wall above.
       {
         pattern: 'aimed-fan',
         options: { spec: EXECUTION, count: 2, spread: 28, period: 90 },
@@ -1417,8 +1433,8 @@ const enemies: PackContent['enemies'] = {
         // signet rings before the notary leaves, whose gap turns by `rotation`
         // between volleys. Lunatic turns it faster. (There is no death-trigger, so
         // this is a late `startAt`, not literally on death — see SIGNET.)
-        pattern: 'ring',
-        options: { spec: SIGNET, count: 18, period: 46, rotation: 5 },
+        pattern: 'gap-ring',
+        options: { spec: SIGNET, count: 18, period: 46, rotation: 5, gap: 34 },
         startAt: 170,
         stopAt: 250,
         difficulty: {
@@ -1509,8 +1525,8 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'aimed-fan',
-            options: { spec: SHARD, count: 5, spread: 34, period: 48 },
+            pattern: 'alternating-fan',
+            options: { spec: SHARD, count: 5, spread: 28, swing: 13, period: 48 },
             difficulty: {
               easy: { count: 3, period: 60 },
               hard: { count: 7, spread: 40, period: 40 },
@@ -1544,8 +1560,8 @@ const bosses: PackContent['bosses'] = {
           // Two counter-rotating rings. Their offsets drift apart at different
           // rates, so the safe gaps sweep instead of standing still.
           {
-            pattern: 'ring',
-            options: { spec: PETAL, count: 18, period: 42, rotation: 9 },
+            pattern: 'gap-ring',
+            options: { spec: PETAL, count: 18, period: 42, rotation: 9, gap: 44 },
             difficulty: {
               easy: { count: 12 },
               hard: { count: 22, period: 36 },
@@ -1553,8 +1569,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: PETAL, count: 18, period: 42, rotation: -14 },
+            pattern: 'gap-ring',
+            options: { spec: PETAL, count: 18, period: 42, rotation: -14, gap: 44 },
             startAt: 21,
             difficulty: {
               easy: { count: 12 },
@@ -1564,8 +1580,8 @@ const bosses: PackContent['bosses'] = {
           },
           // One aimed volley per cycle, so standing in a gap is not free.
           {
-            pattern: 'aimed-fan',
-            options: { spec: NEEDLE, count: 3, spread: 18, period: 96 },
+            pattern: 'alternating-fan',
+            options: { spec: NEEDLE, count: 3, spread: 14, swing: 9, period: 96 },
             startAt: 60,
             difficulty: {
               easy: { count: 1 },
@@ -1603,8 +1619,8 @@ const bosses: PackContent['bosses'] = {
           // Ring pressure arrives late, once the player has settled into reading
           // the spiral, and is what actually makes the timer matter.
           {
-            pattern: 'ring',
-            options: { spec: PETAL, count: 20, period: 90, rotation: 11 },
+            pattern: 'gap-ring',
+            options: { spec: PETAL, count: 20, period: 90, rotation: 11, gap: 38 },
             startAt: 240,
             difficulty: {
               easy: { count: 14 },
@@ -1613,8 +1629,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'aimed-fan',
-            options: { spec: SHARD, count: 7, spread: 50, period: 75 },
+            pattern: 'alternating-fan',
+            options: { spec: SHARD, count: 7, spread: 42, swing: 12, period: 75 },
             startAt: 420,
             difficulty: {
               easy: { count: 4 },
@@ -1644,8 +1660,8 @@ const bosses: PackContent['bosses'] = {
         motion: { r: 0 },
         patterns: [
           { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
-          { pattern: 'ring', options: { spec: PETAL, count: 24, period: 66, rotation: 15 }, startAt: 40 },
-          { pattern: 'aimed-fan', options: { spec: SHARD_TITHE, count: 7, spread: 44, period: 60 }, startAt: 90 },
+          { pattern: 'gap-ring', options: { spec: PETAL, count: 24, period: 66, rotation: 15, gap: 32 }, startAt: 40 },
+          { pattern: 'alternating-fan', options: { spec: SHARD_TITHE, count: 7, spread: 38, swing: 14, period: 60 }, startAt: 90 },
         ],
       },
     ],
@@ -1689,8 +1705,8 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'aimed-fan',
-            options: { spec: SPARK_FEE, count: 5, spread: 32, period: 46 },
+            pattern: 'alternating-fan',
+            options: { spec: SPARK_FEE, count: 5, spread: 26, swing: 12, period: 46 },
             difficulty: {
               easy: { count: 3, period: 58 },
               hard: { count: 7, spread: 38, period: 40 },
@@ -1731,8 +1747,8 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           // Four beams at 90°, rotating 21° a volley, so the safe wedges walk.
           {
-            pattern: 'ring',
-            options: { spec: COLUMN_HEAVY, count: 4, period: 120, rotation: 21 },
+            pattern: 'gap-ring',
+            options: { spec: COLUMN_HEAVY, count: 4, period: 120, rotation: 21, gap: 66 },
             difficulty: {
               easy: { count: 3 },
               hard: { count: 5 },
@@ -1741,8 +1757,8 @@ const bosses: PackContent['bosses'] = {
           },
           // Seekers between beams: standing in a wedge must not be free.
           {
-            pattern: 'aimed-fan',
-            options: { spec: SEEKER_LIEN, count: 3, spread: 28, period: 84 },
+            pattern: 'alternating-fan',
+            options: { spec: SEEKER_LIEN, count: 3, spread: 22, swing: 11, period: 84 },
             startAt: 60,
             difficulty: {
               easy: { count: 1 },
@@ -1766,8 +1782,8 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: EMBER, count: 12, period: 66, rotation: 17 },
+            pattern: 'gap-ring',
+            options: { spec: EMBER, count: 12, period: 66, rotation: 17, gap: 48 },
             difficulty: {
               easy: { count: 8 },
               hard: { count: 16, period: 58 },
@@ -1776,8 +1792,8 @@ const bosses: PackContent['bosses'] = {
           },
           // The shells arrive late and hang while the ring is still gathering.
           {
-            pattern: 'ring',
-            options: { spec: SHELL, count: 10, period: 96, rotation: -14 },
+            pattern: 'gap-ring',
+            options: { spec: SHELL, count: 10, period: 96, rotation: -14, gap: 56 },
             startAt: 120,
             difficulty: {
               easy: { count: 7 },
@@ -1831,8 +1847,8 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'aimed-fan',
-            options: { spec: SPARK, count: 5, spread: 36, period: 44 },
+            pattern: 'alternating-fan',
+            options: { spec: SPARK, count: 5, spread: 30, swing: 12, period: 44 },
             difficulty: {
               easy: { count: 3, period: 56 },
               hard: { count: 7, spread: 42, period: 38 },
@@ -1876,8 +1892,8 @@ const bosses: PackContent['bosses'] = {
           // A ring of seekers: every bullet flies straight for 18 ticks and then
           // all of them turn inward together.
           {
-            pattern: 'ring',
-            options: { spec: SEEKER_ESCROW, count: 14, period: 78, rotation: 13 },
+            pattern: 'gap-ring',
+            options: { spec: SEEKER_ESCROW, count: 14, period: 78, rotation: 13, gap: 40 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 18, period: 68 },
@@ -1886,8 +1902,8 @@ const bosses: PackContent['bosses'] = {
           },
           // Wavering chaff so the gaps between seeker volleys are not empty.
           {
-            pattern: 'aimed-fan',
-            options: { spec: SPARK, count: 3, spread: 22, period: 54 },
+            pattern: 'alternating-fan',
+            options: { spec: SPARK, count: 3, spread: 18, swing: 10, period: 54 },
             startAt: 40,
             difficulty: {
               easy: { count: 1 },
@@ -1924,8 +1940,8 @@ const bosses: PackContent['bosses'] = {
           // Six columns, 17° a volley. COLUMN.life is 108 and the period is 132,
           // so exactly one set is live at a time and the room reconfigures.
           {
-            pattern: 'ring',
-            options: { spec: COLUMN_BLUE, count: 6, period: 132, rotation: 17 },
+            pattern: 'gap-ring',
+            options: { spec: COLUMN_BLUE, count: 6, period: 132, rotation: 17, gap: 52 },
             difficulty: {
               easy: { count: 4 },
               hard: { count: 7 },
@@ -1935,8 +1951,8 @@ const bosses: PackContent['bosses'] = {
           // Shells during the gap between colonnades: the hang covers the beams'
           // dead time.
           {
-            pattern: 'ring',
-            options: { spec: SHELL, count: 12, period: 132, rotation: 9 },
+            pattern: 'gap-ring',
+            options: { spec: SHELL, count: 12, period: 132, rotation: 9, gap: 44 },
             startAt: 66,
             difficulty: {
               easy: { count: 8 },
@@ -1970,8 +1986,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: EMBER, count: 10, period: 90, rotation: 19 },
+            pattern: 'gap-ring',
+            options: { spec: EMBER, count: 10, period: 90, rotation: 19, gap: 54 },
             startAt: 30,
             difficulty: {
               easy: { count: 7 },
@@ -1982,8 +1998,8 @@ const bosses: PackContent['bosses'] = {
           // Four columns rather than six: the field already has a spiral and a
           // mill in it, and the beams are the thing that must stay readable.
           {
-            pattern: 'ring',
-            options: { spec: COLUMN_CYAN, count: 4, period: 150, rotation: 26 },
+            pattern: 'gap-ring',
+            options: { spec: COLUMN_CYAN, count: 4, period: 150, rotation: 26, gap: 62 },
             startAt: 120,
             difficulty: {
               easy: { count: 3 },
@@ -1992,8 +2008,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'aimed-fan',
-            options: { spec: SEEKER, count: 3, spread: 30, period: 96 },
+            pattern: 'alternating-fan',
+            options: { spec: SEEKER, count: 3, spread: 24, swing: 12, period: 96 },
             startAt: 240,
             difficulty: {
               easy: { count: 1 },
@@ -2074,8 +2090,8 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'aimed-fan',
-            options: { spec: WRIT, count: 5, spread: 38, period: 52 },
+            pattern: 'alternating-fan',
+            options: { spec: WRIT, count: 5, spread: 32, swing: 12, period: 52 },
             difficulty: {
               easy: { count: 3, period: 64 },
               hard: { count: 6, spread: 42, period: 44 },
@@ -2083,8 +2099,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: DECREE_LEDGER, count: 12, period: 72, rotation: 6 },
+            pattern: 'gap-ring',
+            options: { spec: DECREE_LEDGER, count: 12, period: 72, rotation: 6, gap: 46 },
             difficulty: {
               easy: { count: 10, period: 84 },
               hard: { count: 14, period: 60 },
@@ -2121,8 +2137,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'aimed-fan',
-            options: { spec: WRIT, count: 5, spread: 40, period: 50 },
+            pattern: 'alternating-fan',
+            options: { spec: WRIT, count: 5, spread: 34, swing: 13, period: 50 },
             difficulty: {
               easy: { count: 3, period: 62 },
               hard: { count: 6, spread: 44, period: 44 },
@@ -2147,8 +2163,8 @@ const bosses: PackContent['bosses'] = {
         background: 'sable',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: SEAL_WITNESS, count: 16, period: 80, rotation: 0 },
+            pattern: 'gap-ring',
+            options: { spec: SEAL_WITNESS, count: 16, period: 80, rotation: 0, gap: 42 },
             difficulty: {
               easy: { count: 12 },
               hard: { count: 20 },
@@ -2156,8 +2172,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'aimed-fan',
-            options: { spec: WRIT_BRIEF, count: 3, spread: 20, period: 64 },
+            pattern: 'alternating-fan',
+            options: { spec: WRIT_BRIEF, count: 3, spread: 16, swing: 10, period: 64 },
             difficulty: {
               easy: { count: 2, period: 80 },
               hard: { count: 4, period: 54 },
@@ -2208,8 +2224,8 @@ const bosses: PackContent['bosses'] = {
           // The rake: one beam aimed at the player, holding through the telegraph,
           // then sweeping. A pair on the higher tiers, so the count moves in ones.
           {
-            pattern: 'aimed-fan',
-            options: { spec: RAKE, count: 1, spread: 0, period: 300 },
+            pattern: 'alternating-fan',
+            options: { spec: RAKE, count: 1, spread: 0, swing: 0, period: 300 },
             difficulty: {
               hard: { count: 2, spread: 60 },
               lunatic: { count: 2, spread: 76, period: 260 },
@@ -2217,8 +2233,8 @@ const bosses: PackContent['bosses'] = {
           },
           // The wall of streams behind the rake: a rotating ring that reconfigures.
           {
-            pattern: 'ring',
-            options: { spec: STREAM_WALL, count: 5, period: 120, rotation: 12 },
+            pattern: 'gap-ring',
+            options: { spec: STREAM_WALL, count: 5, period: 120, rotation: 12, gap: 58 },
             startAt: 40,
             difficulty: {
               easy: { count: 3 },
@@ -2229,8 +2245,8 @@ const bosses: PackContent['bosses'] = {
           // A light curtain of streams under the rake, aimed so the lane below the
           // sweep is never a free rest.
           {
-            pattern: 'aimed-fan',
-            options: { spec: STREAM, count: 3, spread: 42, period: 150 },
+            pattern: 'alternating-fan',
+            options: { spec: STREAM, count: 3, spread: 34, swing: 14, period: 150 },
             startAt: 90,
             difficulty: {
               easy: { count: 2, period: 180 },
@@ -2253,8 +2269,8 @@ const bosses: PackContent['bosses'] = {
         background: 'sable',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: DECREE, count: 20, period: 46, rotation: 8 },
+            pattern: 'gap-ring',
+            options: { spec: DECREE, count: 20, period: 46, rotation: 8, gap: 34 },
             difficulty: {
               easy: { count: 14, period: 58 },
               hard: { count: 24, period: 40 },
@@ -2292,8 +2308,8 @@ const bosses: PackContent['bosses'] = {
         music: 'fiat',
         patterns: [
           { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
-          { pattern: 'aimed-fan', options: { spec: WRIT, count: 7, spread: 46, period: 44 } },
-          { pattern: 'ring', options: { spec: DECREE, count: 20, period: 60, rotation: 5 } },
+          { pattern: 'alternating-fan', options: { spec: WRIT, count: 7, spread: 40, swing: 14, period: 44 } },
+          { pattern: 'gap-ring', options: { spec: DECREE, count: 20, period: 60, rotation: 5, gap: 34 } },
         ],
       },
     ],
@@ -2374,8 +2390,8 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'aimed-fan',
-            options: { spec: WRIT, count: 5, spread: 38, period: 50 },
+            pattern: 'alternating-fan',
+            options: { spec: WRIT, count: 5, spread: 32, swing: 13, period: 50 },
             difficulty: {
               easy: { count: 3, period: 64 },
               hard: { count: 6, spread: 42, period: 42 },
@@ -2405,8 +2421,8 @@ const bosses: PackContent['bosses'] = {
         background: 'regnum',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: CROWN_MANDAMUS, count: 12, period: 90, rotation: 4 },
+            pattern: 'gap-ring',
+            options: { spec: CROWN_MANDAMUS, count: 12, period: 90, rotation: 4, gap: 48 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 15 },
@@ -2414,8 +2430,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: CROWN_CCW, count: 12, period: 90, rotation: -4 },
+            pattern: 'gap-ring',
+            options: { spec: CROWN_CCW, count: 12, period: 90, rotation: -4, gap: 48 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 15 },
@@ -2438,21 +2454,37 @@ const bosses: PackContent['bosses'] = {
         background: 'regnum',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: LATTICE_TENURE, count: 16, period: 54, rotation: 3 },
+            pattern: 'lane-wall',
+            options: {
+              spec: LATTICE_TENURE,
+              columns: 9,
+              gapColumn: 2,
+              gapWidth: 2,
+              shift: 1,
+              speed: 1.6,
+              period: 54,
+            },
             difficulty: {
-              easy: { count: 12, period: 66 },
-              hard: { count: 20, period: 46 },
-              lunatic: { count: 22, period: 42 },
+              easy: { columns: 7, gapWidth: 2, period: 66 },
+              hard: { columns: 11, gapWidth: 2, shift: 2, period: 46 },
+              lunatic: { columns: 13, gapWidth: 2, shift: 2, period: 42 },
             },
           },
           {
-            pattern: 'ring',
-            options: { spec: LATTICE, count: 16, period: 54, rotation: -2 },
+            pattern: 'lane-wall',
+            options: {
+              spec: LATTICE,
+              columns: 9,
+              gapColumn: 6,
+              gapWidth: 2,
+              shift: -1,
+              speed: 1.6,
+              period: 54,
+            },
             difficulty: {
-              easy: { count: 12, period: 66 },
-              hard: { count: 20, period: 46 },
-              lunatic: { count: 22, period: 42 },
+              easy: { columns: 7, gapWidth: 2, period: 66 },
+              hard: { columns: 11, gapWidth: 2, shift: -2, period: 46 },
+              lunatic: { columns: 13, gapWidth: 2, shift: -2, period: 42 },
             },
           },
         ],
@@ -2470,8 +2502,8 @@ const bosses: PackContent['bosses'] = {
         background: 'regnum',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: WARRANT, count: 8, period: 64, rotation: 5 },
+            pattern: 'gap-ring',
+            options: { spec: WARRANT, count: 8, period: 64, rotation: 5, gap: 54 },
             difficulty: {
               easy: { count: 6, period: 80 },
               hard: { count: 10, period: 54 },
@@ -2479,8 +2511,8 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'aimed-fan',
-            options: { spec: WRIT, count: 4, spread: 30, period: 58 },
+            pattern: 'alternating-fan',
+            options: { spec: WRIT, count: 4, spread: 24, swing: 12, period: 58 },
             difficulty: {
               easy: { count: 3, period: 72 },
               hard: { count: 5, spread: 34, period: 50 },
@@ -2514,8 +2546,8 @@ const bosses: PackContent['bosses'] = {
         background: 'regnum',
         patterns: [
           {
-            pattern: 'ring',
-            options: { spec: DECREE_MANDAMUS, count: 18, period: 52, rotation: 6 },
+            pattern: 'gap-ring',
+            options: { spec: DECREE_MANDAMUS, count: 18, period: 52, rotation: 6, gap: 36 },
             difficulty: {
               easy: { count: 12, period: 64 },
               hard: { count: 22, period: 46 },
@@ -2563,8 +2595,8 @@ const bosses: PackContent['bosses'] = {
         music: 'fiat',
         patterns: [
           { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
-          { pattern: 'aimed-fan', options: { spec: WRIT, count: 7, spread: 46, period: 44 } },
-          { pattern: 'ring', options: { spec: DECREE, count: 22, period: 58, rotation: 5 } },
+          { pattern: 'alternating-fan', options: { spec: WRIT, count: 7, spread: 40, swing: 14, period: 44 } },
+          { pattern: 'gap-ring', options: { spec: DECREE, count: 22, period: 58, rotation: 5, gap: 32 } },
         ],
       },
     ],
@@ -3472,23 +3504,57 @@ export const V4_CONTENT_PATH = fileURLToPath(
 );
 
 /**
- * The generated fingerprint module's text: a SHA-256 of the v4 campaign JSON
- * bytes, truncated to 12 hex exactly like `hashPack`, wrapped in one exported
- * constant. Derived from `buildV4ContentJson()` so the two artifacts are
- * fingerprint-of-content by construction — the hash can never describe an older
- * JSON than the one shipped beside it. This is the base content's identity in
- * replay meta (`RunConfig.contentFingerprint`): a recording pins it, and a
- * later engine whose bundled content has drifted meets a different hash and is
- * refused rather than silently replaying under content it was not recorded on.
+ * Compiled gameplay sources that can move a replay without changing campaign
+ * JSON. Hashing the exact reviewed bytes closes the old hole where a pattern or
+ * behaviour algorithm could drift under an unchanged content fingerprint.
+ */
+export const V4_GAMEPLAY_FINGERPRINT_PATHS = [
+  fileURLToPath(new URL('../src/v4/gameplay/patterns.ts', import.meta.url)),
+  fileURLToPath(new URL('../src/v4/gameplay/behaviours.ts', import.meta.url)),
+] as const;
+
+/** Hash the edition's simulation-bearing chunks; exported so the drift test can
+ * prove that changing either data or compiled gameplay changes the identity. */
+export function fingerprintV4Edition(
+  campaignJson: string,
+  gameplaySources: readonly (readonly [label: string, bytes: string])[],
+): string {
+  const hash = createHash('sha256');
+  const chunks: readonly (readonly [label: string, bytes: string])[] = [
+    ['campaign.json', campaignJson],
+    ...gameplaySources,
+  ];
+  for (const [label, bytes] of chunks) {
+    hash.update(`${label.length}:${label}:${bytes.length}:`);
+    hash.update(bytes);
+  }
+  return hash.digest('hex').slice(0, 12);
+}
+
+/**
+ * The generated replay fingerprint covers both authored campaign JSON and the
+ * compiled v4 pattern/behaviour sources it names. Length-prefixed chunks prevent
+ * a boundary ambiguity (`ab` + `c` versus `a` + `bc`), and labels make file order
+ * explicit. The result is truncated to 12 hex exactly like `hashPack` and wrapped
+ * in the historical `CONTENT_FINGERPRINT` export for API compatibility.
+ *
+ * A recording therefore refuses both kinds of incompatible build: changed data
+ * and changed executable danmaku. Comments in the gameplay sources are included;
+ * that can conservatively refuse a replay after a prose-only edit, but it can
+ * never accept a replay whose algorithm changed invisibly — the safe direction.
  */
 export function buildV4ContentFingerprint(): string {
-  const fingerprint = createHash('sha256').update(buildV4ContentJson()).digest('hex').slice(0, 12);
+  const fingerprint = fingerprintV4Edition(
+    buildV4ContentJson(),
+    V4_GAMEPLAY_FINGERPRINT_PATHS.map(
+      (path): readonly [string, string] => [basename(path), readFileSync(path, 'utf8')],
+    ),
+  );
   return (
     `// GENERATED by tools/make-v4-content.ts — do not edit; run \`bun tools/make-v4-content.ts\`.\n` +
-    `// SHA-256 of src/v4/content/campaign.json (first 12 hex), the bundled v4\n` +
-    `// content's identity in replay meta (see RunConfig.contentFingerprint in\n` +
-    `// src/game/run.ts). tools/make-v4-content.test.ts byte-diffs it against the\n` +
-    `// generator, so it cannot silently disagree with the JSON it fingerprints.\n` +
+    `// SHA-256 (first 12 hex) of campaign.json plus v4 gameplay patterns and\n` +
+    `// behaviours: the bundled edition's simulation identity in replay meta.\n` +
+    `// tools/make-v4-content.test.ts byte-diffs this against the generator.\n` +
     `export const CONTENT_FINGERPRINT = '${fingerprint}';\n`
   );
 }

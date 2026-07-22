@@ -203,8 +203,9 @@ export interface RunConfig {
    */
   difficulty?: Difficulty;
   /**
-   * Fingerprint of the bundled base content this run was flown under: a short
-   * opaque hash generated from `src/v4/content/campaign.json` and threaded in. Recorded
+   * Fingerprint of the bundled v4 simulation this run was flown under: a short
+   * opaque hash generated from `src/v4/content/campaign.json` plus its compiled
+   * pattern/behaviour sources and threaded in. Recorded
    * into replay meta as `content`, and on playback: absent WARNS (a legacy
    * recording, or a harness that threaded none), present-and-different REFUSES.
    *
@@ -217,8 +218,9 @@ export interface RunConfig {
    *
    * A plain **string** by the same contract as `packs`: `src/game` must not import
    * `src/packs`, so the identity crosses as text and nothing here learns what a
-   * fingerprint is of. Unset means the shell opted out (fixtures, debug launches),
-   * and then nothing is recorded and nothing is checked.
+   * fingerprint is of. It deliberately excludes shaders and raster presentation,
+   * which cannot change a replay. Unset means the shell opted out (fixtures,
+   * debug launches), and then nothing is recorded and nothing is checked.
    */
   contentFingerprint?: string;
   /**
