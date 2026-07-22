@@ -53,6 +53,11 @@ import {
   LASER_SHEET,
   LASER_SHEET_W,
   LASER_SHEET_H,
+  MISSILE_STRIPS,
+  MISSILE_STRIP_CELLS,
+  MISSILE_SHEET,
+  MISSILE_SHEET_W,
+  MISSILE_SHEET_H,
 } from './procedural';
 
 describe('cell padding', () => {
@@ -288,6 +293,104 @@ describe('laser strip geometry', () => {
     const bad = { frameH: 24, extent: { h: 24 } };
     const hLimit = bad.frameH - 2 * FX_PAD;
     expect(bad.extent.h).toBeGreaterThan(hLimit);
+  });
+});
+
+/**
+ * The three missile detonation tiers on the fx sheet. They are strips on the
+ * shared fx texture NOW (this render stage), but the `defineEffect` that emits
+ * them — and the `life === stripLength` coupling `strip.test.ts` measures — lands
+ * with the content stage that fires a missile, so `reachability`'s "every
+ * registered particle effect" assertion stays green until a firer exists. Here we
+ * only pin that the strips are present and shaped, since a missing tier would
+ * throw the first frame a detonation is emitted.
+ */
+describe('the missile detonation tiers exist on the fx sheet', () => {
+  test('all three tiers are once strips, 36×28, tinted', () => {
+    for (const name of ['missile.pop.tiny', 'missile.pop.mid', 'missile.pop.big']) {
+      const s = FX_STRIPS[name];
+      expect(s).toBeDefined();
+      expect(s!.mode).toBe('once');
+      expect(s!.frameW).toBe(36);
+      expect(s!.frameH).toBe(28);
+      expect(s!.color).toBe('tinted');
+    }
+  });
+
+  test('the tiers match the BulletPack Exp file frame counts (tiny 11, mid 9, big 8)', () => {
+    // Counter-intuitive on purpose (tiny carries the MOST frames): the floor
+    // tracks the file so the import round's pixels land frame-for-frame.
+    expect(FX_STRIPS['missile.pop.tiny']?.frames).toBe(11);
+    expect(FX_STRIPS['missile.pop.mid']?.frames).toBe(9);
+    expect(FX_STRIPS['missile.pop.big']?.frames).toBe(8);
+  });
+});
+
+/**
+ * The missile body floor — 13 animated strips on their own sheet, symmetric to
+ * the laser floor. Frames are laid horizontally per row; the per-frame budget is
+ * the same seam law (`frameW − 2·FX_PAD` / `frameH − 2·FX_PAD`), re-derived from
+ * the painter's own dimensions. `bun test` has no canvas, so this is arithmetic;
+ * `test:assets` measures the real painted footprint and the nose-east pointing.
+ */
+describe('missile strip geometry', () => {
+  test('the sheet carries 13 bodies (12 strip5 + 1 strip17)', () => {
+    expect(MISSILE_STRIP_CELLS.length).toBe(13);
+    expect(Object.keys(MISSILE_STRIPS).sort()).toEqual([...MISSILE_STRIP_CELLS].sort());
+    const strip5 = Object.values(MISSILE_STRIPS).filter((s) => s.frames === 5).length;
+    const strip17 = Object.values(MISSILE_STRIPS).filter((s) => s.frames === 17).length;
+    expect(strip5).toBe(12);
+    expect(strip17).toBe(1);
+  });
+
+  test('every frame of every strip clears 2px of margin on both axes', () => {
+    const over: string[] = [];
+    for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+      const wLimit = s.frameW - 2 * FX_PAD;
+      const hLimit = s.frameH - 2 * FX_PAD;
+      for (let f = 0; f < s.frames; f++) {
+        const e = s.frameExtent(f);
+        if (e.w > wLimit || e.h > hLimit) {
+          over.push(`${name} frame ${f}: ${e.w}×${e.h} > ${wLimit}×${hLimit}`);
+        }
+      }
+    }
+    expect(over).toEqual([]);
+  });
+
+  test('every body is painted nose-EAST — wider than tall (rule 7)', () => {
+    // The arithmetic proxy for "the nose points +x": an imported nose-up pack
+    // frame rotated +90° lands wider than tall. The painted pointing itself is a
+    // browser check (test:assets); this catches a transposed frame size.
+    const off = Object.entries(MISSILE_STRIPS)
+      .filter(([, s]) => s.frameW <= s.frameH)
+      .map(([name, s]) => `${name}: ${s.frameW}×${s.frameH} is not nose-east`);
+    expect(off).toEqual([]);
+  });
+
+  test('every strip fits the shared sheet, frames laid horizontally', () => {
+    const off: string[] = [];
+    for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+      const p = MISSILE_SHEET.positions[name]!;
+      if (s.stride < s.frameW) off.push(`${name}: stride ${s.stride} < frameW ${s.frameW}`);
+      if (p.x + s.frames * s.stride > MISSILE_SHEET_W) off.push(`${name}: runs past sheet width`);
+      if (p.y + s.frameH > MISSILE_SHEET_H) off.push(`${name}: runs past sheet height`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  test('the sheet dimensions are derived from the table, not hand-set', () => {
+    const width = Math.max(...Object.values(MISSILE_STRIPS).map((s) => s.frames * s.stride), 1);
+    const height = Object.values(MISSILE_STRIPS).reduce((h, s) => h + s.frameH, 0);
+    expect(MISSILE_SHEET_W).toBe(width);
+    expect(MISSILE_SHEET_H).toBe(height);
+  });
+
+  test('every body loops (a thruster flicker), and all are tinted (rule 9)', () => {
+    for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+      expect(`${name}:${s.color}`).toBe(`${name}:tinted`);
+      expect(`${name}:${s.mode}`).toBe(`${name}:loop`);
+    }
   });
 });
 

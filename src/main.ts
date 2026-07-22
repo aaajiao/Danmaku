@@ -39,6 +39,7 @@ import {
   shipAtlas as makeShipAtlas,
   effectAtlas as makeEffectAtlas,
   laserAtlas as makeLaserAtlas,
+  missileAtlas as makeMissileAtlas,
 } from './render/procedural';
 import { beamLayout } from './render/beam';
 import { getLaserSkin, laserSkinNames } from './render/laser-skin';
@@ -196,6 +197,13 @@ const fxAtlas = await makeEffectAtlas(undefined, packs.effectStrips);
 // a cap.
 const laserAtlas = await makeLaserAtlas(undefined, packs.laserStrips);
 
+// The missile sheet: a fourth texture carrying the animated missile bodies a
+// base spec names (`b.missile` routes here, not by cell name). Procedural floor
+// (rule 9) this round — the BulletPack `assets.missiles` reskin is the import
+// round's (design §g.5), so no pack branch is threaded yet. All missiles are
+// enemy this round, so one batch on one texture suffices.
+const missileAtlas = await makeMissileAtlas();
+
 // Every registered skin's body and cap must resolve on the laser atlas, or a
 // beam that names it draws nothing — throw at boot rather than in the draw loop
 // the first frame the beam is fired. This is the "all named strips exist" gate
@@ -235,6 +243,16 @@ const batches = {
   enemyShots: new SpriteBatch(bulletAtlas, {
     capacity: 8192,
     renderOrder: Layer.EnemyShots,
+  }),
+  // Missiles ride their own texture (the strips doctrine — one atlas is one
+  // batch) at their own layer (Layer.Missiles), a heavier threat over the bullet
+  // swarm. Normal blending, not additive: a missile is a solid body, so it reads
+  // as an object rather than a glow that could counterfeit a bullet's 1.0-white
+  // core. Sparse on field (salvos of a few), so a small capacity suffices; a
+  // future player missile adds a faction-keyed second batch (noted, not built).
+  missiles: new SpriteBatch(missileAtlas, {
+    capacity: 256,
+    renderOrder: Layer.Missiles,
   }),
   effects: new SpriteBatch(bulletAtlas, {
     capacity: 4096,
@@ -283,6 +301,7 @@ stage.add(batches.player.mesh, 'Player');
 stage.add(batches.options.mesh, 'Player', 1);
 stage.add(batches.playerShots.mesh, 'PlayerShots');
 stage.add(batches.enemyShots.mesh, 'EnemyShots');
+stage.add(batches.missiles.mesh, 'Missiles');
 stage.add(batches.bursts.mesh, 'Bursts');
 stage.add(batches.effects.mesh, 'Effects');
 // Caps at the Effects tier but one step above the small-particle effects batch,
@@ -678,14 +697,23 @@ function drawRun(run: Run): void {
       continue;
     }
 
+    // A missile draws from its OWN atlas into its OWN batch/layer — routed by the
+    // sim field `b.missile` (the render layer cannot be imported by the sim, so
+    // the sim marks the missile as a string-named skin and the shell resolves it,
+    // the import boundary). It falls through the laser branches above because a
+    // missile sets `blade`, never `laser`. An ordinary bullet stays on the bullet
+    // atlas and its faction batch, byte-identical to before.
+    const onMissile = b.missile !== undefined;
+    const spriteAtlas = onMissile ? missileAtlas : bulletAtlas;
+    const drawBatch = onMissile ? batches.missiles : batch;
     // Select the frame off `b.age` — run-relative, tick-only, reproduced by a
     // replay. For the base game every bullet strip is `frames: 1` at 32px, so
     // `stripFrame` returns 0 and the width/height default to 32: byte-identical
-    // to before. Only a native pack sheet animates or resizes a bullet, and its
-    // native `frameW/frameH` flow in as the default draw size (amendment §2).
-    const s = bulletAtlas.strip(b.style.sprite);
-    const frame = bulletAtlas.frameOf(s, stripFrame(s, b.age));
-    batch.draw(b.x, b.y, frame, {
+    // to before. A native pack sheet, or a missile body, animates or resizes, and
+    // its native `frameW/frameH` flow in as the default draw size (amendment §2).
+    const s = spriteAtlas.strip(b.style.sprite);
+    const frame = spriteAtlas.frameOf(s, stripFrame(s, b.age));
+    drawBatch.draw(b.x, b.y, frame, {
       rotation: b.angle,
       width: b.style.width ?? s.frameW,
       height: b.style.height ?? s.frameH,

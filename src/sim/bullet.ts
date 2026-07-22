@@ -80,6 +80,36 @@ export interface LaserSpec {
   cooldown?: number;
 }
 
+/**
+ * Makes a bullet a *missile*: an ordinary bullet in every mechanic it already
+ * has — an elongated `blade` capsule for its body, `homing` to curve, and
+ * `orientToHeading` to point where it travels — plus the one thing the `Bullet`
+ * primitive could not do, a flash when it dies.
+ *
+ * It is a field on `BulletSpec`, not a second projectile format, for the same
+ * reason `laser` is: a missile is a bullet, and standing up a parallel system,
+ * pool and collision path to acquire one death-fx hook would re-derive every
+ * upstream mistake CLAUDE.md catalogues. The sim carries exactly one property —
+ * where to puff — and records *that* a missile detonated, never what the puff
+ * looks like (that is the game/render layer's, across the import boundary).
+ */
+export interface MissileSpec {
+  /**
+   * The fx effect emitted where this missile detonates — a FLOORED effect name
+   * (`missile.pop.tiny|mid|big`), so a base missile puffs with zero pack loaded
+   * (rule 9). The name is resolved on the `fx` stream by the game layer, never
+   * here: this module only records *that* a detonation happened and where (see
+   * `BulletSystem` `#pops` and `drainMissilePops`).
+   *
+   * An object, not a bare `detonation?: string`, because the field's *presence*
+   * (`missile !== undefined`) does triple duty — it marks this bullet a
+   * detonator, it is the render layer's key to draw from the missile atlas, and
+   * it is the extension point a blast radius or split-on-death grows from without
+   * another `BulletSpec` field.
+   */
+  explosion: string;
+}
+
 export interface BulletSpec {
   style: BulletStyle;
   /** Collision radius. Danmaku hitboxes are far smaller than the sprite. */
@@ -122,6 +152,13 @@ export interface BulletSpec {
    * say so without pretending not to be a beam.
    */
   pierce?: boolean;
+  /**
+   * Makes this bullet a missile that detonates on death. Undefined = an ordinary
+   * bullet. Its presence adds no sim behaviour on its own — a missile is homing +
+   * blade + orientToHeading, all existing — beyond recording a detonation where
+   * the bullet dies (see `MissileSpec`).
+   */
+  missile?: MissileSpec;
 }
 
 export class Bullet {
@@ -198,6 +235,16 @@ export class Bullet {
   /** Whether damaging something ends this bullet. See `BulletSpec.pierce`. */
   pierce = false;
 
+  /**
+   * The detonation recipe, or undefined for an ordinary bullet. A spec
+   * discriminator the *system* reads at the moment it removes this bullet — it
+   * is never a control surface a caller writes to request removal (that is
+   * `despawn`; `alive` is system-owned, rule 8). Its presence records a
+   * detonation on removal and, in the render layer, routes this bullet's body to
+   * the missile atlas.
+   */
+  missile: MissileSpec | undefined;
+
   reset(): void {
     this.alive = false;
     this.age = 0;
@@ -211,6 +258,10 @@ export class Bullet {
     this.lethal = false;
     this.bladeHalf = 0;
     this.pierce = false;
+    // Cleared every reset, like `laser`/`bladeHalf` above and for the same
+    // reason: the free list is LIFO, so a plain shot reusing a missile's slot
+    // must not come back a detonator.
+    this.missile = undefined;
   }
 
   spawn(x: number, y: number, spec: BulletSpec, faction: Faction, rng: Random): void {
@@ -241,6 +292,9 @@ export class Bullet {
     // inheriting a blade's slot does not inherit its reach.
     this.bladeHalf = spec.blade === undefined ? 0 : spec.blade.length / 2;
     this.pierce = spec.pierce ?? false;
+    // Written every spawn, same as `laser`/`bladeHalf`: a plain bullet reusing a
+    // missile's pooled slot comes back a point that does not detonate.
+    this.missile = spec.missile;
 
     this.vector.init(spec.motion, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -263,6 +317,27 @@ export interface BulletSystemOptions {
   cellSize?: number;
 }
 
+/**
+ * One missile detonation, snapshotted where it died. The game layer drains these
+ * each tick and emits `explosion` on the `fx` stream — the analogue of
+ * `EnemyDeath` for `EnemySystem.drainDeaths` and `ClearedBullet` for
+ * `BombSystem.drainCleared`.
+ *
+ * A value snapshot, not the bullet: the pool hands its slot straight back out, so
+ * `x`/`y` are read at removal and copied before the position is reused.
+ */
+export interface MissilePop {
+  x: number;
+  y: number;
+  /** The fx effect to emit — carried out from `MissileSpec.explosion`. */
+  explosion: string;
+  /**
+   * Which side fired it. Unread this round (all missiles are enemy); carried so
+   * the deferred player-side missile can route its own detonation later.
+   */
+  faction: Faction;
+}
+
 export class BulletSystem {
   readonly bullets: Bullet[] = [];
   readonly #pool: Pool<Bullet>;
@@ -271,6 +346,16 @@ export class BulletSystem {
 
   /** Spawns refused because the pool was at its ceiling. */
   droppedSpawns = 0;
+
+  /**
+   * Missile detonations recorded this tick, double-buffered like
+   * `EnemySystem`'s death list and `BombSystem`'s cleared list so a drain on a
+   * tick that detonated nothing costs no allocation. Write-only sim bookkeeping
+   * (rule 2): nothing in `step()`, collision, expiry or the pool ever reads it,
+   * so it can never feed back into a position, a heading or a removal decision.
+   */
+  #pops: MissilePop[] = [];
+  #popSpare: MissilePop[] = [];
 
   constructor(options: BulletSystemOptions) {
     this.#bounds = options.bounds;
@@ -398,6 +483,21 @@ export class BulletSystem {
         (b.maxBounces > 0 && b.bounceCount >= b.maxBounces);
 
       if (expired) {
+        // A missile detonates a flash where it dies — but only when its own
+        // `life` ran out while it was still on the field. Culled off the edge it
+        // puffs into nothing the player can see, and a bounce-cap expiry (base
+        // missiles set none) is out of scope this round; both fall through
+        // silently. `reach` is the same widened bound the `expired` test used, so
+        // this on-field check agrees with the removal decision exactly rather
+        // than re-deriving it. The record is read AT removal (rule 8 — never a
+        // "please-remove-me" flag) and is write-only fx bookkeeping (rule 2): it
+        // moves no position and no removal, so it cannot touch the trace.
+        const offscreen =
+          b.x < -reach || b.x > width + reach || b.y < -reach || b.y > height + reach;
+        const lifeExpired = b.life > 0 && b.age >= b.life;
+        if (b.missile !== undefined && lifeExpired && !offscreen) {
+          this.#pops.push({ x: b.x, y: b.y, explosion: b.missile.explosion, faction: b.faction });
+        }
         b.alive = false;
         this.#pool.release(b);
         continue;
@@ -521,12 +621,46 @@ export class BulletSystem {
     if (!bullet.alive) return;
     bullet.alive = false;
 
+    // A consumed removal detonates too — a hit the game resolved (`run.ts`'s
+    // player-hit path) or a bomb-clear. Recorded at the removal, exactly as the
+    // step()-expiry record is, and behind the `!alive` guard above so a bullet
+    // found twice in one sweep records at most one pop — the same double-release
+    // protection that guard already provides.
+    if (bullet.missile !== undefined) {
+      this.#pops.push({
+        x: bullet.x,
+        y: bullet.y,
+        explosion: bullet.missile.explosion,
+        faction: bullet.faction,
+      });
+    }
+
     const index = this.bullets.indexOf(bullet);
     // splice, not swap-remove: spawn order is draw order (main.ts's render
     // loop walks `bullets` directly), and a swap would make it jump.
     if (index >= 0) this.bullets.splice(index, 1);
 
     this.#pool.release(bullet);
+  }
+
+  /**
+   * Missile detonations recorded since the last drain, oldest first — the
+   * missiles that died on-field this tick by life-expiry, plus every one
+   * consumed through `despawn` (a resolved hit, a bomb-clear). A stage wipe
+   * (`clear`) records nothing: it is a reset, not a detonation.
+   *
+   * The game layer drains this each tick and emits each `explosion` on the `fx`
+   * stream; this system does not know what a `missile.pop.*` looks like — the
+   * name crosses the import boundary as a string. Double-buffered like
+   * `EnemySystem.drainDeaths` and `BombSystem.drainCleared`, so the returned
+   * array is recycled by the next drain — read it or copy it before then.
+   */
+  drainMissilePops(): readonly MissilePop[] {
+    const drained = this.#pops;
+    this.#pops = this.#popSpare;
+    this.#pops.length = 0;
+    this.#popSpare = drained;
+    return drained;
   }
 
   clear(): void {

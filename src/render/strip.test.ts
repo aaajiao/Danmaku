@@ -109,8 +109,14 @@ describe('the effect/strip life coupling (measured, not typed)', () => {
     );
   });
 
-  test('burst and burst.big are covered by this guard', () => {
-    expect(singleShotStripEffects.sort()).toEqual(['burst', 'burst.big']);
+  test('burst, burst.big and the three missile.pop tiers are covered by this guard', () => {
+    // The 导弹轮 tiers join burst/burst.big: each is a count:1, speed:0 particle on
+    // a `once` fx strip, so its `life` must equal its strip's `stripLength` or the
+    // airburst freeze-then-lingers (or dies mid-animation) — the same coupling,
+    // now measured over the missile detonations the content stage fires.
+    expect(singleShotStripEffects.sort()).toEqual(
+      ['burst', 'burst.big', 'missile.pop.big', 'missile.pop.mid', 'missile.pop.tiny'].sort(),
+    );
   });
 
   test.each(singleShotStripEffects)('%s: life === stripLength(strip)', (name) => {

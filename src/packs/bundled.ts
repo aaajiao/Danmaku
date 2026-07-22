@@ -44,7 +44,7 @@ import '../content';
 import '../render/backgrounds';
 import { backgroundNames } from '../render/background';
 import { portraitNames } from '../render/portrait';
-import { BULLET_CELLS, BULLET_VARIANT_CELLS, SHIP_CELLS } from '../render/procedural';
+import { BULLET_CELLS, BULLET_VARIANT_CELLS, MISSILE_STRIP_CELLS, SHIP_CELLS } from '../render/procedural';
 import { laserSkinNames } from '../render/laser-skin';
 
 import { injectPack, type InjectContext } from './inject';
@@ -85,6 +85,10 @@ const context: InjectContext = {
   // resolved through the render-side registry the same way `scenes`/`portraits`
   // are. `LANCE`/`COLUMN`/`RAKE`/`RAY_BEAM` and the player's `GUN_BEAM` name these.
   laserSprites: laserSkinNames(),
+  // The missile bodies a `missile` bullet may wear — the fourth sprite pool
+  // (missile atlas). The base campaign's writs (`CITATION`…`EDICT`) name these,
+  // routed there in the shell by `b.missile !== undefined` (导弹轮 design §c.1).
+  missileSprites: [...MISSILE_STRIP_CELLS],
   scenes: backgroundNames(),
   portraits: portraitNames(),
 };

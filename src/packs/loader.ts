@@ -36,6 +36,7 @@ import { definePortrait, hasPortrait, portraitNames, PORTRAIT_SIZE } from '../re
 import {
   BULLET_CELLS,
   BULLET_VARIANT_CELLS,
+  MISSILE_STRIP_CELLS,
   SHIP_CELLS,
   BULLET_COLUMNS,
   BULLET_GRID,
@@ -301,6 +302,10 @@ export async function loadPacks(): Promise<LoadedPacks> {
     // A guest content pack may author a beam card naming one of these built-in
     // skins — it may not DEFINE a skin (engine code), the pack boundary.
     laserSprites: laserSkinNames(),
+    // The missile bodies a `missile` bullet may wear (the fourth sprite pool,
+    // missile atlas). Same boundary as beams: a guest pack may fire a missile
+    // naming one of these built-in bodies, but may not define a new one.
+    missileSprites: [...MISSILE_STRIP_CELLS],
     scenes: backgroundNames(),
     // Built-in portrait names a boss `dialogue` speaker may resolve against; a
     // pack's own `portraits` section extends this set pack-first inside injection.

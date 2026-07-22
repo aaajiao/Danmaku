@@ -149,6 +149,44 @@
                 "period": 4
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.6",
+                  "r": 1,
+                  "g": 0.82,
+                  "b": 0.55,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 20
+                },
+                "missile": {
+                  "explosion": "missile.pop.tiny"
+                },
+                "life": 230,
+                "motion": {
+                  "r": 1.7,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 1.3,
+                    "delay": 24,
+                    "duration": 44
+                  }
+                }
+              },
+              "count": 1,
+              "spread": 0,
+              "period": 200
+            },
+            "startAt": 50,
+            "stopAt": 90
           }
         ],
         "spoils": [
@@ -248,6 +286,43 @@
                 "period": 18
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.0",
+                  "r": 1,
+                  "g": 0.8,
+                  "b": 0.55,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 14
+                },
+                "missile": {
+                  "explosion": "missile.pop.tiny"
+                },
+                "life": 220,
+                "motion": {
+                  "r": 1.6,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 1.4,
+                    "delay": 20,
+                    "duration": 40
+                  }
+                }
+              },
+              "count": 1,
+              "spread": 0,
+              "period": 110
+            },
+            "startAt": 40
           }
         ],
         "despawnMargin": 96,
@@ -322,6 +397,36 @@
                 "period": 38
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.2",
+                  "r": 1,
+                  "g": 0.84,
+                  "b": 0.58,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 14
+                },
+                "missile": {
+                  "explosion": "missile.pop.tiny"
+                },
+                "life": 180,
+                "motion": {
+                  "r": 2.2,
+                  "theta": 90
+                }
+              },
+              "count": 1,
+              "spread": 0,
+              "period": 110
+            },
+            "startAt": 46
           }
         ],
         "spoils": [
@@ -413,6 +518,44 @@
                 "period": 84
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.7",
+                  "r": 1,
+                  "g": 0.78,
+                  "b": 0.52,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 20
+                },
+                "missile": {
+                  "explosion": "missile.pop.tiny"
+                },
+                "life": 240,
+                "motion": {
+                  "r": 1.9,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 1.6,
+                    "delay": 18,
+                    "duration": 56
+                  }
+                }
+              },
+              "count": 1,
+              "spread": 0,
+              "period": 100
+            },
+            "startAt": 60,
+            "stopAt": 190
           }
         ],
         "despawnMargin": 80,
@@ -506,6 +649,44 @@
                 "period": 38
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.1",
+                  "r": 0.95,
+                  "g": 0.82,
+                  "b": 0.55,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 15
+                },
+                "missile": {
+                  "explosion": "missile.pop.tiny"
+                },
+                "life": 240,
+                "motion": {
+                  "r": 2,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 1.8,
+                    "delay": 16,
+                    "duration": 60
+                  }
+                }
+              },
+              "count": 2,
+              "spread": 30,
+              "period": 80
+            },
+            "startAt": 50,
+            "stopAt": 150
           }
         ],
         "despawnMargin": 80,
@@ -757,6 +938,43 @@
                 "period": 34
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.8",
+                  "r": 0.95,
+                  "g": 0.82,
+                  "b": 0.55,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 17
+                },
+                "missile": {
+                  "explosion": "missile.pop.mid"
+                },
+                "life": 240,
+                "motion": {
+                  "r": 1.9,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 1.9,
+                    "delay": 16,
+                    "duration": 58
+                  }
+                }
+              },
+              "count": 2,
+              "spread": 24,
+              "period": 90
+            },
+            "startAt": 45
           }
         ],
         "spoils": [
@@ -840,6 +1058,37 @@
                 "rotation": 7
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.11",
+                  "r": 0.85,
+                  "g": 0.8,
+                  "b": 0.6,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 12
+                },
+                "missile": {
+                  "explosion": "missile.pop.tiny"
+                },
+                "life": 180,
+                "motion": {
+                  "r": 2,
+                  "theta": 90
+                }
+              },
+              "count": 2,
+              "spread": 30,
+              "period": 90
+            },
+            "startAt": 70,
+            "stopAt": 210
           }
         ],
         "despawnMargin": 80,
@@ -913,6 +1162,43 @@
                 "period": 22
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.5",
+                  "r": 0.98,
+                  "g": 0.82,
+                  "b": 0.5,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 19
+                },
+                "missile": {
+                  "explosion": "missile.pop.mid"
+                },
+                "life": 240,
+                "motion": {
+                  "r": 2,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 2,
+                    "delay": 14,
+                    "duration": 60
+                  }
+                }
+              },
+              "count": 1,
+              "spread": 0,
+              "period": 60
+            },
+            "startAt": 36
           }
         ],
         "spoils": [
@@ -1257,6 +1543,44 @@
                 "rotation": 9
               }
             }
+          },
+          {
+            "pattern": "aimed-fan",
+            "options": {
+              "spec": {
+                "style": {
+                  "sprite": "missile.10",
+                  "r": 0.95,
+                  "g": 0.8,
+                  "b": 0.5,
+                  "orientToHeading": true
+                },
+                "radius": 2,
+                "blade": {
+                  "length": 17
+                },
+                "missile": {
+                  "explosion": "missile.pop.mid"
+                },
+                "life": 260,
+                "motion": {
+                  "r": 1.9,
+                  "theta": 90,
+                  "w": 0,
+                  "behaviour": "homing",
+                  "options": {
+                    "turnRate": 1.9,
+                    "delay": 16,
+                    "duration": 62
+                  }
+                }
+              },
+              "count": 2,
+              "spread": 28,
+              "period": 90
+            },
+            "startAt": 80,
+            "stopAt": 240
           }
         ],
         "despawnMargin": 80,
@@ -2078,6 +2402,43 @@
                     "period": 22
                   }
                 }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "missile.3",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.5,
+                      "orientToHeading": true
+                    },
+                    "radius": 2,
+                    "blade": {
+                      "length": 16
+                    },
+                    "missile": {
+                      "explosion": "missile.pop.mid"
+                    },
+                    "life": 260,
+                    "motion": {
+                      "r": 1.8,
+                      "theta": 90,
+                      "w": 0,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 1.8,
+                        "delay": 16,
+                        "duration": 66
+                      }
+                    }
+                  },
+                  "count": 2,
+                  "spread": 30,
+                  "period": 90
+                },
+                "startAt": 30
               }
             ]
           },
@@ -2593,6 +2954,59 @@
                     "count": 7,
                     "spread": 32,
                     "period": 46
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "missile.4",
+                      "r": 1,
+                      "g": 0.72,
+                      "b": 0.5,
+                      "orientToHeading": true
+                    },
+                    "radius": 2,
+                    "blade": {
+                      "length": 18
+                    },
+                    "missile": {
+                      "explosion": "missile.pop.mid"
+                    },
+                    "life": 260,
+                    "motion": {
+                      "r": 1.4,
+                      "theta": 90,
+                      "w": 0,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 1.8,
+                        "delay": 16,
+                        "duration": 70
+                      }
+                    }
+                  },
+                  "count": 3,
+                  "spread": 40,
+                  "period": 74
+                },
+                "startAt": 24,
+                "difficulty": {
+                  "easy": {
+                    "count": 2,
+                    "period": 92
+                  },
+                  "hard": {
+                    "count": 4,
+                    "spread": 48,
+                    "period": 64
+                  },
+                  "lunatic": {
+                    "count": 5,
+                    "spread": 54,
+                    "period": 56
                   }
                 }
               }
@@ -3244,6 +3658,59 @@
                   "lunatic": {
                     "count": 5,
                     "period": 48
+                  }
+                }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "missile.9",
+                      "r": 0.98,
+                      "g": 0.8,
+                      "b": 0.48,
+                      "orientToHeading": true
+                    },
+                    "radius": 2,
+                    "blade": {
+                      "length": 17
+                    },
+                    "missile": {
+                      "explosion": "missile.pop.big"
+                    },
+                    "life": 150,
+                    "motion": {
+                      "r": 1.4,
+                      "theta": 90,
+                      "w": 0,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 2,
+                        "delay": 18,
+                        "duration": 70
+                      }
+                    }
+                  },
+                  "count": 2,
+                  "spread": 34,
+                  "period": 96
+                },
+                "startAt": 30,
+                "difficulty": {
+                  "easy": {
+                    "count": 1,
+                    "period": 120
+                  },
+                  "hard": {
+                    "count": 3,
+                    "spread": 40,
+                    "period": 84
+                  },
+                  "lunatic": {
+                    "count": 3,
+                    "spread": 46,
+                    "period": 76
                   }
                 }
               }
@@ -4001,6 +4468,43 @@
                     "period": 46
                   }
                 }
+              },
+              {
+                "pattern": "aimed-fan",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "missile.massive",
+                      "r": 0.98,
+                      "g": 0.78,
+                      "b": 0.46,
+                      "orientToHeading": true
+                    },
+                    "radius": 4,
+                    "blade": {
+                      "length": 46
+                    },
+                    "missile": {
+                      "explosion": "missile.pop.big"
+                    },
+                    "life": 180,
+                    "motion": {
+                      "r": 1,
+                      "theta": 90,
+                      "w": 0,
+                      "behaviour": "homing",
+                      "options": {
+                        "turnRate": 1.1,
+                        "delay": 24,
+                        "duration": 80
+                      }
+                    }
+                  },
+                  "count": 1,
+                  "spread": 0,
+                  "period": 120
+                },
+                "startAt": 30
               }
             ]
           },

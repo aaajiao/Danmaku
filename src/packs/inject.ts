@@ -153,6 +153,17 @@ export interface InjectContext {
    * (unlike this module) may import `render`.
    */
   laserSprites: readonly string[];
+  /**
+   * Missile-body cell names (`MISSILE_STRIP_CELLS`, `src/render/procedural.ts`) —
+   * the only sprites a MISSILE may wear, because a missile is drawn by the missile
+   * batch from the missile atlas, a FOURTH sheet distinct from the bullet, ship and
+   * laser sheets. A bullet spec carrying a `missile` field names one of these, not
+   * a bullet cell, and the shell routes it there by `b.missile !== undefined` — so
+   * it is validated against this pool for the same reason a `laser` is validated
+   * against `laserSprites`: the set that actually draws it. Supplied by the caller,
+   * which (unlike this module) may import `render`.
+   */
+  missileSprites: readonly string[];
   /** Registered background scene names. */
   scenes: readonly string[];
   /**
@@ -435,6 +446,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
   const sprites = new Set(context.sprites);
   const shipSprites = new Set(context.shipSprites);
   const laserSprites = new Set(context.laserSprites);
+  const missileSprites = new Set(context.missileSprites);
   const scenes = new Set(context.scenes);
   const packEnemies = new Set(enemyKeys);
   const packStages = new Set(stageKeys);
@@ -465,12 +477,21 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
     isRecord(spec) && isRecord(spec.style) && typeof spec.style.sprite === 'string'
       ? spec.style.sprite
       : undefined;
-  // A bullet carrying a `laser` field names a laser SKIN, drawn by the beam batch
-  // from the laser atlas — a separate namespace from the bullet-sheet cells. So a
-  // laser's sprite validates against `laserSprites`, exactly as a character
-  // validates against `shipSprites`. Every non-laser bullet stays on `sprites`.
+  // Which sheet a bullet spec's sprite must resolve on, chosen by the field that
+  // routes it to a batch in the shell. A `missile` field draws from the missile
+  // atlas (`b.missile !== undefined`, main.ts) → `missileSprites`; a `laser` field
+  // draws from the laser atlas → `laserSprites`; everything else is a bullet-sheet
+  // cell → `sprites`. Missile is checked first because a missile spec sets `blade`,
+  // never `laser` (a missile is never a beam), so the order only matters as a
+  // guard: a spec that somehow set both would validate as a missile, matching the
+  // shell's own routing precedence. Each pool is the set that actually draws it,
+  // the same reason a character validates against `shipSprites`.
   const spritePool = (spec: unknown): Set<string> =>
-    isRecord(spec) && isRecord(spec.laser) ? laserSprites : sprites;
+    isRecord(spec) && isRecord(spec.missile)
+      ? missileSprites
+      : isRecord(spec) && isRecord(spec.laser)
+        ? laserSprites
+        : sprites;
   const bulletBehaviours = (spec: unknown): (string | undefined)[] => {
     if (!isRecord(spec)) return [];
     const timeline = Array.isArray(spec.timeline) ? spec.timeline : [];

@@ -764,6 +764,17 @@ export class Run {
     this.#resolvePlayerHit();
     this.#resolveBossEvents(rng);
 
+    // Missile detonations puff on the `fx` stream, exactly like the enemy-death
+    // burst in `#resolveDeaths` and for the same reason (rule 2): a write-only
+    // sim queue, drained here and consumed only to emit, so it can never move the
+    // trace. Drained after every despawn source this tick — bomb-clear, on-field
+    // life-expiry, the resolved player hit, a boss phase-clear — so a detonation
+    // flashes the tick it happens rather than the next. No-ops until content
+    // fires a missile: with none in play the queue is always empty.
+    for (const pop of this.bullets.drainMissilePops()) {
+      this.effects.emit(pop.explosion, pop.x, pop.y);
+    }
+
     this.effects.step();
 
     this.#resolveExtends(rng);
@@ -1523,6 +1534,10 @@ export class Run {
     this.items.drainCollected();
     this.bombs.drainCleared();
     this.boss.drainEvents();
+    // A stale missile pop would flash a detonation on the first tick of the fresh
+    // run. Cosmetic-only (fx stream), so it never touches the trace, but drained
+    // here for the same discipline as the queues above.
+    this.bullets.drainMissilePops();
 
     this.#tick = 0;
     this.#outcome = 'playing';

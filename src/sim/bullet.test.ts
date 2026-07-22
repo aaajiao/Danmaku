@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Random, sim } from '../core/random';
+import { atan2Deg, deltaDeg } from '../core/trig';
 import {
   Bullet,
   bulletHitsCircle,
@@ -10,6 +11,7 @@ import {
   type BulletSystemOptions,
   type FieldBounds,
   type LaserSpec,
+  type MissileSpec,
 } from './bullet';
 import { circlesOverlap } from './collision';
 import { defineBehaviour, type MotionContext, type MotionSegment } from './motion';
@@ -2174,3 +2176,277 @@ describe('piercing', () => {
     expect(second.laser).toBeUndefined();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Missiles — a BulletSpec that detonates on death (导弹轮)            */
+/* ------------------------------------------------------------------ */
+
+// Homing transcribed from `content/behaviours.ts`'s `homing`, kept local under a
+// namespaced name so this sim test needs no content-layer import and cannot
+// collide with the real registration. It reads the context and `core/trig` and
+// draws NOTHING from the generator — the exact property the no-RNG-draw
+// assertion below locks end to end.
+defineBehaviour('bullet.test.homing', (vector, context) => {
+  const dx = context.targetX - context.x;
+  const dy = context.targetY - context.y;
+  if (dx === 0 && dy === 0) return;
+  const turnRate = vector.options['turnRate'] ?? 3;
+  const delta = deltaDeg(vector.theta, atan2Deg(dy, dx));
+  const step = Math.min(Math.abs(delta), Math.abs(turnRate));
+  vector.theta += delta < 0 ? -step : step;
+});
+
+const POP: MissileSpec = { explosion: 'test.pop' };
+
+/**
+ * A missile spec with the real anatomy: an elongated `blade` body, a homing
+ * segment, `orientToHeading`, and the `missile` detonation recipe. Stationary by
+ * default so it stays on-field; callers add `life`/`motion` to steer the case.
+ */
+function makeMissile(overrides: Partial<BulletSpec> = {}): BulletSpec {
+  return makeSpec({
+    style: { sprite: 'missile.0', orientToHeading: true },
+    radius: 2,
+    blade: { length: 16 },
+    missile: { ...POP },
+    motion: { r: 0, theta: 90 },
+    ...overrides,
+  });
+}
+
+describe('the missile field round-trips through spawn and reset', () => {
+  test('a spawned missile carries its spec detonation recipe', () => {
+    const system = makeSystem();
+    const b = system.spawn(120, 200, makeMissile(), 'enemy', rng()) as Bullet;
+    expect(b.missile).toEqual({ explosion: 'test.pop' });
+  });
+
+  test('a plain bullet has no missile recipe', () => {
+    const system = makeSystem();
+    const b = system.spawn(120, 200, makeSpec(), 'enemy', rng()) as Bullet;
+    expect(b.missile).toBeUndefined();
+  });
+
+  test('missile is per-life state, so a slot cannot inherit it', () => {
+    // The same LIFO-pool argument `pierce`/`laser`/`bladeHalf` make: the slot a
+    // missile releases is handed to the very next spawn, and a plain bullet that
+    // inherited `missile` would detonate on a death that is not a detonation.
+    const system = new BulletSystem({ bounds: FIELD, initial: 1, max: 1 });
+    const first = system.spawn(240, 240, makeMissile(), 'enemy', new Random(1)) as Bullet;
+    expect(first.missile).toEqual({ explosion: 'test.pop' });
+    system.despawn(first);
+
+    const second = system.spawn(240, 240, makeSpec(), 'enemy', new Random(1)) as Bullet;
+    expect(second.missile).toBeUndefined();
+  });
+});
+
+describe('the detonation record matrix', () => {
+  test('a missile that runs out of life on-field records one pop', () => {
+    const system = makeSystem();
+    system.spawn(240, 240, makeMissile({ life: 3 }), 'enemy', rng());
+    stepTimes(system, 3); // age reaches 3 >= life 3, still at (240, 240)
+
+    const pops = system.drainMissilePops();
+    expect(pops).toHaveLength(1);
+    expect(pops[0]).toEqual({ x: 240, y: 240, explosion: 'test.pop', faction: 'enemy' });
+  });
+
+  test('a missile culled off the field records no pop', () => {
+    // `life` omitted (0 = until offscreen): it leaves the field and is culled,
+    // not life-expired, so the matrix records nothing — a puff off the edge is
+    // wasted particles no one can see.
+    const system = makeSystem();
+    system.spawn(240, 470, makeMissile({ motion: { r: 20, theta: 90 } }), 'enemy', rng());
+    stepTimes(system, 6);
+
+    expect(system.count).toBe(0);
+    expect(system.drainMissilePops()).toHaveLength(0);
+  });
+
+  test('a missile whose life ends off-field records no pop — offscreen wins', () => {
+    // Both life-expiry AND offscreen are true on the same removal; the matrix
+    // records only the on-field case, so this puffs nothing.
+    const system = makeSystem();
+    system.spawn(240, 470, makeMissile({ life: 3, motion: { r: 20, theta: 90 } }), 'enemy', rng());
+    stepTimes(system, 3);
+
+    expect(system.drainMissilePops()).toHaveLength(0);
+  });
+
+  test('despawn detonates — a resolved hit or a bomb-clear puffs', () => {
+    const system = makeSystem();
+    const b = system.spawn(150, 160, makeMissile(), 'enemy', rng()) as Bullet;
+    system.despawn(b);
+
+    const pops = system.drainMissilePops();
+    expect(pops).toHaveLength(1);
+    expect(pops[0]).toEqual({ x: 150, y: 160, explosion: 'test.pop', faction: 'enemy' });
+  });
+
+  test('a double despawn records at most one pop', () => {
+    // The `!alive` guard in despawn that stops a double pool-release also stops a
+    // second pop for a bullet found twice in one sweep.
+    const system = makeSystem();
+    const b = system.spawn(150, 160, makeMissile(), 'enemy', rng()) as Bullet;
+    system.despawn(b);
+    system.despawn(b); // no-op: already gone
+
+    expect(system.drainMissilePops()).toHaveLength(1);
+  });
+
+  test('a stage wipe (clear) records no detonation — it is a reset', () => {
+    const system = makeSystem();
+    system.spawn(10, 10, makeMissile(), 'enemy', rng());
+    system.spawn(20, 20, makeMissile(), 'enemy', rng());
+    system.clear();
+
+    expect(system.count).toBe(0);
+    expect(system.drainMissilePops()).toHaveLength(0);
+  });
+
+  test('a plain bullet never records a pop, however it is removed', () => {
+    // The `b.missile !== undefined` guard: a point bullet that life-expires or is
+    // despawned records nothing.
+    const system = makeSystem();
+    system.spawn(240, 240, makeSpec({ life: 2 }), 'enemy', rng());
+    const b = system.spawn(200, 200, makeSpec(), 'enemy', rng()) as Bullet;
+    system.despawn(b);
+    stepTimes(system, 2);
+
+    expect(system.drainMissilePops()).toHaveLength(0);
+  });
+});
+
+describe('drainMissilePops is a double-buffer', () => {
+  test('a drain empties the queue — a second drain returns nothing', () => {
+    const system = makeSystem();
+    system.despawn(system.spawn(1, 2, makeMissile(), 'enemy', rng()) as Bullet);
+    system.despawn(system.spawn(3, 4, makeMissile(), 'enemy', rng()) as Bullet);
+
+    expect(system.drainMissilePops()).toHaveLength(2);
+    expect(system.drainMissilePops()).toHaveLength(0);
+  });
+
+  test('the buffers alternate and are reused — copy before the next-but-one drain', () => {
+    // The drainDeaths/drainCleared contract: two backing arrays cycle, so a
+    // returned buffer is reused two drains later. Pinning it stops a future
+    // caller from stashing the reference and being surprised when it is emptied.
+    const system = makeSystem();
+    const drainAfterOnePop = (n: number): readonly unknown[] => {
+      system.despawn(system.spawn(n, n, makeMissile(), 'enemy', rng()) as Bullet);
+      return system.drainMissilePops();
+    };
+    const a = drainAfterOnePop(1);
+    const b = drainAfterOnePop(2);
+    const c = drainAfterOnePop(3);
+
+    expect(a).not.toBe(b); // two distinct backing buffers
+    expect(c).toBe(a); // the first buffer comes back around — proof it recycles
+  });
+});
+
+describe('missiles draw nothing from the sim stream (the locked determinism property, G1)', () => {
+  test('1000 ticks of homing, detonating missiles leave the sim stream byte-identical to plain bullets', () => {
+    const SEED = 0x515d1e;
+    const rMissile = new Random(SEED);
+    const rPlain = new Random(SEED);
+    const sysM = new BulletSystem({ bounds: FIELD, initial: 256 });
+    const sysP = new BulletSystem({ bounds: FIELD, initial: 256 });
+
+    // A shared random draw at spawn (`rrandom`) is the baseline: it proves the
+    // assertion is not vacuously true of two streams that both draw nothing. The
+    // missile spec adds homing + blade + orientToHeading + the detonation record
+    // ON TOP of that draw; the plain spec is the same motion without them. If any
+    // of the missile machinery drew from `sim`, the two streams would part.
+    const baseMotion = { rrandom: { min: 1, max: 2 }, theta: 90 } as const;
+    const missileSpec = makeMissile({
+      motion: {
+        ...baseMotion,
+        w: 0,
+        behaviour: 'bullet.test.homing',
+        options: { turnRate: 3, delay: 0, duration: 2000 },
+      },
+      life: 40,
+    });
+    const plainSpec = makeSpec({ motion: { ...baseMotion }, life: 40 });
+
+    let detonations = 0;
+    for (let t = 0; t < 1000; t++) {
+      // Same spawn cadence in both, so the spawn-time `rrandom` draws match
+      // exactly regardless of where the two bullets then fly.
+      if (t % 4 === 0) {
+        sysM.spawn(240, 120, missileSpec, 'enemy', rMissile);
+        sysP.spawn(240, 120, plainSpec, 'enemy', rPlain);
+      }
+      // Target off to the side so the homing math computes a real, non-zero turn
+      // every tick — even the turn path must draw nothing.
+      sysM.step(180, 400, rMissile);
+      sysP.step(180, 400, rPlain);
+      detonations += sysM.drainMissilePops().length;
+      sysP.drainMissilePops(); // parity, though it is always empty
+    }
+
+    // Identical generator state after identical spawn draws and 1000 steps of
+    // divergent motion: the missile machinery perturbed no stream.
+    expect(rMissile.getState()).toEqual(rPlain.getState());
+    // And it was not inertness over an empty code path: missiles homed, expired
+    // on-field, and detonated.
+    expect(detonations).toBeGreaterThan(0);
+  });
+
+  test('spawning and detonating a missile never touches the shared sim stream', () => {
+    // The companion to the file's existing `sim` guard: the missile field, the
+    // homing segment and the pop record all leave the global stream pristine when
+    // an explicit generator is passed.
+    const before = sim.getState();
+    const r = rng(7);
+    const system = makeSystem({ initial: 8 });
+
+    for (let t = 0; t < 40; t++) {
+      system.spawn(240, 120, makeMissile({ life: 5 }), 'enemy', r);
+      system.step(180, 400, r);
+      system.drainMissilePops();
+    }
+
+    expect(sim.getState()).toEqual(before);
+  });
+});
+
+describe('a missile detonation is read AT removal, never a please-remove-me flag (rule 8, G4)', () => {
+  test('the missile field detonates nothing while the bullet is alive', () => {
+    // `missile` is a spec discriminator the system reads when it is already
+    // removing the bullet — it is not a standing flag whose presence removes or
+    // records anything. A live missile that never leaves the field and never
+    // expires records no pop, however long it is stepped.
+    const system = makeSystem();
+    const b = system.spawn(240, 240, makeMissile(), 'enemy', rng()) as Bullet; // r: 0, life: 0 → immortal, on-field
+    stepTimes(system, 500);
+
+    expect(b.alive).toBe(true);
+    expect(system.count).toBe(1);
+    expect(system.drainMissilePops()).toHaveLength(0);
+
+    // The pop appears only when the SYSTEM removes it, at the removal.
+    system.despawn(b);
+    expect(system.drainMissilePops()).toHaveLength(1);
+  });
+
+  test('writing alive from outside does not remove a missile, and so records no pop', () => {
+    // Rule 8: `alive` is system-owned. Flipping it is not a removal — the bullet
+    // keeps its slot and its live-list entry — so no removal path runs and no pop
+    // is recorded. Removal (and the pop) come only through despawn/expiry.
+    const system = makeSystem();
+    const b = system.spawn(240, 240, makeMissile(), 'enemy', rng()) as Bullet;
+    b.alive = false; // the wrong way to remove a bullet; see rule 8
+
+    expect(system.count).toBe(1); // still in the live list — the flag removed nothing
+    expect(system.drainMissilePops()).toHaveLength(0); // and detonated nothing
+  });
+});
+
+// The G3 authored-invariant honesty scan (`life > delay + duration`) walks the
+// base-pack DATA, which sim code may not import (architecture.test.ts:
+// "src/sim imports nothing from src/packs"). It lives at the composition layer,
+// in `reachability.test.ts`, beside the beam-sweep `hold === warmup` scan it
+// mirrors — the same file that already imports `base-pack.json`.

@@ -94,6 +94,11 @@ import type { Bullet } from './sim/bullet';
 // so it reads the skin names as the source of truth for the "every body reached"
 // gate below, rather than hard-coding the eight.
 import { laserSkinNames } from './render/laser-skin';
+// The composed game's missile-body cells (render-side), read as the source of
+// truth for the "every body reached" gate below — the `laserSkinNames` idiom for
+// the missile sheet. This file is the shell's layer and already reads
+// render-adjacent registries the way `main.ts` does.
+import { MISSILE_STRIP_CELLS } from './render/procedural';
 import { EVENT_SOUNDS, SHELL_CUES } from './game/cues';
 import { StateMachine } from './game/state';
 import { TitleState, type GameContext } from './game/states';
@@ -191,6 +196,24 @@ interface Coverage {
    * registered.
    */
   beamSwept: boolean;
+  /**
+   * Missile body skins (`b.style.sprite`) a real run put on the field — the
+   * reachability half of "all 13 missile bodies consumed": every registered body
+   * (`MISSILE_STRIP_CELLS`, `render/procedural.ts`) must be fired by reachable
+   * content. Collected off `run.bullets.bullets` where `b.missile !== undefined`,
+   * exactly as `beamSkins` reads the laser field. The three `missile.pop.*`
+   * detonation tiers need no field here — the existing "every registered particle
+   * effect" scan already fails the build if a tier is emitted by nobody.
+   */
+  missileSkins: Set<string>;
+  /**
+   * The homing seek loop actually TURNED a missile: its `theta` moved between
+   * ticks while `w === 0` (the vector integrates no turn), so the swing came from
+   * the `homing` behaviour, not from `w` — the missile analogue of `beamSwept`,
+   * and the proof homing RAN in a real fight rather than merely being registered.
+   * A dumbfire missile (no `homing`) never sets this, which is correct.
+   */
+  missileHomed: boolean;
   maxPower: number;
   maxOptions: number;
   ticks: number;
@@ -270,6 +293,8 @@ function playThroughGame(
     beamLethal: false,
     beamDecaying: false,
     beamSwept: false,
+    missileSkins: new Set(),
+    missileHomed: false,
     maxPower: 0,
     maxOptions: 0,
     ticks: 0,
@@ -279,6 +304,11 @@ function playThroughGame(
   // so a pooled slot reused for a new beam does not inherit the old one's angle —
   // the `beam-sweep` detector below compares against it to see a lethal beam turn.
   const priorTheta = new Map<Bullet, { generation: number; theta: number }>();
+  // The same, for missiles: a homing missile's heading last tick, so the detector
+  // below can see the `homing` behaviour turn it. Disjoint from `priorTheta` — a
+  // bullet is a beam or a missile or neither, never both — but kept separate for
+  // clarity, and generation-keyed for the same pooled-slot reason.
+  const priorMissileTheta = new Map<Bullet, { generation: number; theta: number }>();
 
   let confirm = 0;
   let descended = 0;
@@ -437,6 +467,24 @@ function playThroughGame(
       // fired, that telegraph→lethal→decay all ran, and that `beam-sweep` turned a
       // lethal beam — are collected in one pass (design §e.2).
       for (const b of run.bullets.bullets) {
+        // Missiles (导弹轮). A missile is a `Bullet` carrying `missile`, and — like
+        // a beam — lives in the same array as every other bullet, so it is read
+        // here off the live field. Two facts a real run must show: which body skins
+        // fired, and that a homing missile actually TURNED (design §e.5). A missile
+        // sets no `laser`, so the beam `continue` below skips it; collect it first.
+        if (b.missile !== undefined) {
+          cover.missileSkins.add(b.style.sprite);
+          const mTheta = b.vector.theta;
+          const mPrior = priorMissileTheta.get(b);
+          // A missile whose heading moved since last tick while the vector
+          // integrates no turn (`w === 0`) can only have been steered by the
+          // `homing` behaviour — the proof it RAN. Keyed by generation so a reused
+          // pool slot never counts a stale heading as a turn (the beamSwept idiom).
+          if (b.vector.w === 0 && mPrior !== undefined && mPrior.generation === b.generation && mPrior.theta !== mTheta) {
+            cover.missileHomed = true;
+          }
+          priorMissileTheta.set(b, { generation: b.generation, theta: mTheta });
+        }
         if (b.laser === undefined) continue;
         cover.beamSkins.add(b.style.sprite);
         const warmup = b.laser.warmup ?? 0;
@@ -514,6 +562,8 @@ const COVER: Coverage = {
   beamLethal: RUNS.some((c) => c.beamLethal),
   beamDecaying: RUNS.some((c) => c.beamDecaying),
   beamSwept: RUNS.some((c) => c.beamSwept),
+  missileSkins: union(RUNS, (c) => c.missileSkins),
+  missileHomed: RUNS.some((c) => c.missileHomed),
   maxPower: Math.max(...RUNS.map((c) => c.maxPower)),
   maxOptions: Math.max(...RUNS.map((c) => c.maxOptions)),
   ticks: Math.max(...RUNS.map((c) => c.ticks)),
@@ -816,6 +866,30 @@ describe('a real playthrough reaches', () => {
     expect(`beam-sweep ran: ${swept}`).toBe('beam-sweep ran: true');
   });
 
+  test('every registered missile body skin, fired by reachable content', () => {
+    // The reachability half of "all 13 missile bodies consumed" (导弹轮 design §d):
+    // every body in `MISSILE_STRIP_CELLS` is put on the field by a real
+    // playthrough — the stage-1 tutorial `CITATION`→missile.0, weaver's `NOTICE`,
+    // the stage-2/3/4 trash writs, and the four bosses' `MANDAMUS`/`JUDGMENT`/
+    // `DOCKET`/`EDICT`. A body nothing fires is dead presentation, the exact
+    // failure this file exists for. Unioned with the Lunatic run so a body fired
+    // only on a gated card would still count (mirrors the laser-skin gate).
+    const fired = new Set<string>([...COVER.missileSkins, ...LUNATIC.missileSkins]);
+    for (const skin of MISSILE_STRIP_CELLS) {
+      expect(`${skin} fired: ${fired.has(skin)}`).toBe(`${skin} fired: true`);
+    }
+  });
+
+  test('homing turned a missile — the seek loop ran in a real fight, not merely registered', () => {
+    // Registration proves the `homing` behaviour resolves; this proves a real
+    // fight steered a missile with it (a missile whose theta moved while `w === 0`).
+    // The dumbfire writs (`SERVICE`, `DISTRAINT`) never trigger it, so this is a
+    // positive proof homing missiles specifically reach the field and curve — the
+    // missile analogue of the beam-sweep assertion above (design §e.5).
+    const homed = COVER.missileHomed || LUNATIC.missileHomed;
+    expect(`missile homing ran: ${homed}`).toBe('missile homing ran: true');
+  });
+
   test('the top power tier, and therefore every weapon and option tier', () => {
     // The failure: `addPower` clamped to `shots.length - 1` = 0, so power never
     // rose, no option ever deployed, and the whole `defineShot` registry was
@@ -958,6 +1032,77 @@ describe('the base pack couples its swept beams honestly', () => {
   test('every beam-sweep spec sets w == 0', () => {
     for (const s of sweeps) {
       expect(`${s.where}: w=${s.w}`).toBe(`${s.where}: w=0`);
+    }
+  });
+});
+
+describe('the base pack couples its homing missiles honestly (G3)', () => {
+  // The missile analogue of the beam-sweep couplings above, and the same kind of
+  // data scan: a homing missile whose `life` runs out before its seek window
+  // (`delay + duration`) closes has authored tracking that never runs — dead
+  // authoring, silent. `life > delay + duration` is the invariant, the missile
+  // mirror of `beam-sweep`'s `hold === warmup`. A generic tree walk, so a missile
+  // authored on any future enemy, boss card, shot or option is caught here with
+  // no change.
+  //
+  // The scan LOGIC is proved first on constructed specs — the base campaign fires
+  // no missiles yet this round (the 导弹轮 engine landed before its content), so
+  // the base-pack walk below passes on zero today and becomes a live tripwire the
+  // moment the content stage authors a homing missile.
+  test('the scan flags a missile whose life ends before its seek window closes', () => {
+    const dishonest = {
+      spec: {
+        missile: { explosion: 'x' },
+        life: 30, // <= delay 10 + duration 40 = 50
+        motion: { behaviour: 'homing', options: { delay: 10, duration: 40 } },
+      },
+    };
+    const found = collectMissiles(dishonest, 'fixture');
+    expect(found).toHaveLength(1);
+    expect(found[0]!.life).toBeLessThanOrEqual(found[0]!.delay + found[0]!.duration);
+  });
+
+  test('the scan passes a missile whose life outlives its seek window', () => {
+    const honest = {
+      spec: {
+        missile: { explosion: 'x' },
+        life: 200, // > delay 16 + duration 70
+        motion: { behaviour: 'homing', options: { delay: 16, duration: 70 } },
+      },
+    };
+    const found = collectMissiles(honest, 'fixture');
+    expect(found).toHaveLength(1);
+    expect(found[0]!.life).toBeGreaterThan(found[0]!.delay + found[0]!.duration);
+  });
+
+  test('the scan reads the homing defaults when options omit delay and duration', () => {
+    const found = collectMissiles({
+      spec: { missile: { explosion: 'x' }, life: 100, motion: { behaviour: 'homing' } },
+    });
+    expect(found).toHaveLength(1);
+    expect(found[0]!.delay).toBe(0);
+    expect(found[0]!.duration).toBe(60); // the `homing` default (content/behaviours.ts)
+  });
+
+  test('a dumbfire missile (no homing behaviour) is not scanned — it has no window', () => {
+    const found = collectMissiles({
+      spec: { missile: { explosion: 'x' }, life: 20, motion: { r: 3, theta: 90 } },
+    });
+    expect(found).toHaveLength(0);
+  });
+
+  test('every homing missile the base pack ships outlives its seek window', () => {
+    // The standing guard. Zero missiles this round, so it walks to nothing today;
+    // when the content stage authors homing missiles it begins to bite, exactly
+    // as the beam-sweep coupling does. The coupling itself is proved on the
+    // fixtures above, so this is not its only witness.
+    for (const m of collectMissiles(basePack)) {
+      expect({
+        where: m.where,
+        life: m.life,
+        window: m.delay + m.duration,
+        outlivesWindow: m.life > m.delay + m.duration,
+      }).toEqual({ where: m.where, life: m.life, window: m.delay + m.duration, outlivesWindow: true });
     }
   });
 });
@@ -1127,6 +1272,53 @@ function collectBeamSweeps(node: unknown, path = 'base-pack'): BeamSweep[] {
       out.push({ where: path, hold: options.hold, warmup: laser.warmup, w: motion.w });
     }
     for (const [k, v] of Object.entries(rec)) out.push(...collectBeamSweeps(v, `${path}.${k}`));
+    return out;
+  }
+  return out;
+}
+
+/** One base-pack homing missile, with the numbers its `life > delay+duration` coupling reads. */
+interface HomingMissile {
+  where: string;
+  life: number;
+  delay: number;
+  duration: number;
+}
+
+/**
+ * Every object in the base-pack tree that is a homing missile with a finite
+ * `life`: `missile` present, `motion.behaviour === 'homing'`, and a numeric
+ * `life`. The `collectBeamSweeps` idiom, so a missile authored on any enemy, boss
+ * card, shot or option in future is caught with no change here.
+ *
+ * `delay`/`duration` fall back to the `homing` behaviour's own defaults (0 and
+ * 60, `content/behaviours.ts`), so a missile that omits them still has a real
+ * seek window to be measured against.
+ */
+function collectMissiles(node: unknown, path = 'base-pack'): HomingMissile[] {
+  const out: HomingMissile[] = [];
+  if (Array.isArray(node)) {
+    node.forEach((v, i) => out.push(...collectMissiles(v, `${path}[${i}]`)));
+    return out;
+  }
+  if (node !== null && typeof node === 'object') {
+    const rec = node as Record<string, unknown>;
+    const motion = rec.motion as Record<string, unknown> | undefined;
+    if (
+      rec.missile !== undefined &&
+      motion !== undefined &&
+      motion.behaviour === 'homing' &&
+      typeof rec.life === 'number'
+    ) {
+      const options = (motion.options ?? {}) as Record<string, number>;
+      out.push({
+        where: path,
+        life: rec.life,
+        delay: options.delay ?? 0,
+        duration: options.duration ?? 60,
+      });
+    }
+    for (const [k, v] of Object.entries(rec)) out.push(...collectMissiles(v, `${path}.${k}`));
     return out;
   }
   return out;

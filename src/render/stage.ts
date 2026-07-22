@@ -36,6 +36,13 @@ export const Layer = {
   Player: 400,
   PlayerShots: 500,
   EnemyShots: 600,
+  // Missiles: a heavier threat that reads OVER the bullet swarm and UNDER the
+  // detonation flash it becomes on death. Its own texture/batch (the strips
+  // doctrine — one atlas is one batch), slotted between EnemyShots (600) and
+  // Bursts (650) with room on both sides. Spaced so it slots in without
+  // renumbering (CLAUDE.md rule 5); a new Layer is a data change, never a
+  // resequence.
+  Missiles: 620,
   // Frame-animated bursts (the fx sheet's own additive batch) sit just under
   // the small-particle Effects layer: an explosion flash reads behind the
   // sparks thrown off the same kill. Spaced so it slots in without renumbering

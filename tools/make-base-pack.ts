@@ -539,6 +539,174 @@ const LATTICE = {
   motion: { r: 1.6, theta: 90 },
 };
 
+/* ---- missiles (导弹轮): writs served ---- */
+
+/*
+ * A missile is the `Bullet` primitive with one new field — `missile:
+ * { explosion }` — beside the `blade` capsule hitbox and (for homing ones) the
+ * `homing` behaviour it already shipped: no new pattern, behaviour or entity
+ * (design Decision 0). It differs from an ordinary bullet in exactly one way the
+ * sim can see: it detonates a floored `missile.pop.*` airburst where it dies
+ * (recorded AT removal, never a remove-flag — rule 8). The `sprite` names a strip
+ * on the MISSILE atlas (`missile.0`…`missile.massive`, `render/procedural.ts`),
+ * routed there by `b.missile !== undefined` in the shell — so the skin is just
+ * the sprite name, no registry (design §c.1). `orientToHeading` points the body
+ * along travel (rule 7 — the floor paints nose-EAST); `blade` is the lethal
+ * capsule down that heading, sized to the visible body.
+ *
+ * Two kinds ship. A HOMING writ steers toward the player inside a bounded window
+ * (`behaviour: 'homing'`, `core/trig`, zero RNG — the exact loop `SEEKER` fires):
+ * `motion.w: 0` so homing owns `theta` cleanly, and `life > delay + duration` so
+ * the seek window closes before the body self-destructs (the G3 honesty coupling,
+ * `reachability.test.ts` — a missile that expired mid-seek would have dead
+ * authored tracking). A DUMBFIRE writ (`SERVICE`, `DISTRAINT`) sets `missile` but
+ * no `homing`, so it flies its polar heading and detonates on burn-out — "served
+ * in person". Every spec is warm gold: a writ is a gilt legal document, and the
+ * tint colours the procedural floor until the BulletPack pixels load (rule 9).
+ * Enemy-fired throughout this round, so `REFERENCE_DPS`/`balance.test.ts` do not
+ * move and no character gains a missile (design §e.6).
+ */
+
+/** turret's tutorial writ — one slow homing citation, long-baited: the first body a player sees curve (stage 1). */
+const CITATION = {
+  style: { sprite: 'missile.0', r: 1, g: 0.8, b: 0.55, orientToHeading: true },
+  radius: 2,
+  blade: { length: 14 },
+  missile: { explosion: 'missile.pop.tiny' },
+  life: 220, // > delay(20)+duration(40): finishes seeking before it expires (G3)
+  motion: { r: 1.6, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.4, delay: 20, duration: 40 } },
+};
+
+/** weaver's notice — one lazy homing writ thrown between its arcs (stage 1). */
+const NOTICE = {
+  style: { sprite: 'missile.6', r: 1, g: 0.82, b: 0.55, orientToHeading: true },
+  radius: 2,
+  blade: { length: 20 },
+  missile: { explosion: 'missile.pop.tiny' },
+  life: 230,
+  motion: { r: 1.7, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.3, delay: 24, duration: 44 } },
+};
+
+/** hunter's mandate — a homing pair from its kunai slot, reskinned as a missile (stage 2). */
+const MANDATE = {
+  style: { sprite: 'missile.1', r: 0.95, g: 0.82, b: 0.55, orientToHeading: true },
+  radius: 2,
+  blade: { length: 15 },
+  missile: { explosion: 'missile.pop.tiny' },
+  life: 240,
+  motion: { r: 2, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.8, delay: 16, duration: 60 } },
+};
+
+/** drifter's service — a DUMBFIRE straight writ "served in person": no homing, detonates on burn-out (stage 2). */
+const SERVICE = {
+  style: { sprite: 'missile.2', r: 1, g: 0.84, b: 0.58, orientToHeading: true },
+  radius: 2,
+  blade: { length: 14 },
+  missile: { explosion: 'missile.pop.tiny' },
+  life: 180, // no seek window — sized to expire on-field so it puffs where it lands
+  motion: { r: 2.2, theta: 90 },
+};
+
+/** lash's injunction — a single homing writ on a stopAt window, thrown while it is planted (stage 2). */
+const INJUNCTION = {
+  style: { sprite: 'missile.7', r: 1, g: 0.78, b: 0.52, orientToHeading: true },
+  radius: 2,
+  blade: { length: 20 },
+  missile: { explosion: 'missile.pop.tiny' },
+  life: 240,
+  motion: { r: 1.9, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.6, delay: 18, duration: 56 } },
+};
+
+/** warden's mandamus — an aimed-fan homing wedge (stage-2 midboss). */
+const MANDAMUS = {
+  style: { sprite: 'missile.3', r: 1, g: 0.72, b: 0.5, orientToHeading: true },
+  radius: 2,
+  blade: { length: 16 },
+  missile: { explosion: 'missile.pop.mid' },
+  life: 260,
+  motion: { r: 1.8, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.8, delay: 16, duration: 66 } },
+};
+
+/** magistrate's judgment — the "Summary Judgment" homing salvo (stage-2 boss, design §b.1). */
+const JUDGMENT = {
+  style: { sprite: 'missile.4', r: 1, g: 0.72, b: 0.5, orientToHeading: true },
+  radius: 2,
+  blade: { length: 18 },
+  missile: { explosion: 'missile.pop.mid' },
+  life: 260, // > delay(16)+duration(70) (G3)
+  motion: { r: 1.4, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.8, delay: 16, duration: 70 } },
+};
+
+/** summons's process — its signature homing writ, service of process made literal (stage 3). */
+const PROCESS = {
+  style: { sprite: 'missile.5', r: 0.98, g: 0.82, b: 0.5, orientToHeading: true },
+  radius: 2,
+  blade: { length: 19 },
+  missile: { explosion: 'missile.pop.mid' },
+  life: 240,
+  motion: { r: 2, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 2, delay: 14, duration: 60 } },
+};
+
+/** clerk's certiorari — a homing pair over its aimed fan (stage 3). */
+const CERTIORARI = {
+  style: { sprite: 'missile.8', r: 0.95, g: 0.82, b: 0.55, orientToHeading: true },
+  radius: 2,
+  blade: { length: 17 },
+  missile: { explosion: 'missile.pop.mid' },
+  life: 240,
+  motion: { r: 1.9, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.9, delay: 16, duration: 58 } },
+};
+
+/** stele's distraint — a DUMBFIRE spread from the planted slab, no homing (stage 3). */
+const DISTRAINT = {
+  style: { sprite: 'missile.11', r: 0.85, g: 0.8, b: 0.6, orientToHeading: true },
+  radius: 2,
+  blade: { length: 12 },
+  missile: { explosion: 'missile.pop.tiny' },
+  life: 180,
+  motion: { r: 2, theta: 90 },
+};
+
+/** chancellor's docket — a deep-card homing barrage; big detonations (stage-3 boss). */
+const DOCKET = {
+  style: { sprite: 'missile.9', r: 0.98, g: 0.8, b: 0.48, orientToHeading: true },
+  radius: 2,
+  blade: { length: 17 },
+  missile: { explosion: 'missile.pop.big' },
+  // Deliberately short-lived and slow: boss-fired, so no bomb clears it (bombs are
+  // suppressed under a boss) and an invulnerable late-game player is never hit — the
+  // detonation reachability rests on an on-field burn-out. From the boss's station
+  // (y≈96) at r 1.4, life 150 expires near mid-field, well inside the 640-tall frame.
+  life: 150, // > delay(18)+duration(70) (G3)
+  motion: { r: 1.4, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 2, delay: 18, duration: 70 } },
+};
+
+/** marshal's execution — a homing salvo behind its ring-wall (stage 4). */
+const EXECUTION = {
+  style: { sprite: 'missile.10', r: 0.95, g: 0.8, b: 0.5, orientToHeading: true },
+  radius: 2,
+  blade: { length: 17 },
+  missile: { explosion: 'missile.pop.mid' },
+  life: 260,
+  motion: { r: 1.9, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.9, delay: 16, duration: 62 } },
+};
+
+/**
+ * regent's edict — the final boss's signature: one enormous slow homing writ per
+ * volley, the massive 17-frame body. Big detonations. Same boss-fired on-field
+ * burn-out reasoning as DOCKET: slow (r 1.0) and short-lived (life 180) so it
+ * self-destructs near mid-field rather than flying off the edge, since no bomb or
+ * player-hit will remove it under the final boss (stage-4 boss).
+ */
+const EDICT = {
+  style: { sprite: 'missile.massive', r: 0.98, g: 0.78, b: 0.46, orientToHeading: true },
+  radius: 4,
+  blade: { length: 46 },
+  missile: { explosion: 'missile.pop.big' },
+  life: 180, // > delay(24)+duration(80) (G3)
+  motion: { r: 1, theta: 90, w: 0, behaviour: 'homing', options: { turnRate: 1.1, delay: 24, duration: 80 } },
+};
+
 /* ================================================================== */
 /* Enemies                                                            */
 /* ================================================================== */
@@ -597,6 +765,17 @@ const enemies: PackContent['enemies'] = {
           lunatic: { arms: 4, period: 4 },
         },
       },
+      // One lazy homing writ between its arcs — the second place (after turret)
+      // a stage-1 body is seen to curve. A single flat volley, so it adds the same
+      // constant to every tier and the stage-1 opening's strict tier rise
+      // (`difficulty-honesty.test.ts`) is untouched. Fired inside the 40–90 sweep
+      // window, before the weaver leaves upward.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: NOTICE, count: 1, spread: 0, period: 200 },
+        startAt: 50,
+        stopAt: 90,
+      },
     ],
     spoils: [['power', 2]],
     scoreValue: 300,
@@ -634,6 +813,16 @@ const enemies: PackContent['enemies'] = {
           hard: { count: 3, period: 20 },
           lunatic: { count: 4, period: 18 },
         },
+      },
+      // The TUTORIAL writ — one slow homing citation on a long period, the first
+      // body in the whole game a player watches curve (design §b.2). Flat across
+      // tiers (a single count-1 drip), so the stage-1 turret wall's density axis is
+      // still carried entirely by its ring above. The turret crawls the length of
+      // the stage behind a 96px margin, so this dribbles the writ out the whole time.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: CITATION, count: 1, spread: 0, period: 110 },
+        startAt: 40,
       },
     ],
     // It crawls in from well above the field and is meant to survive the trip.
@@ -676,6 +865,16 @@ const enemies: PackContent['enemies'] = {
           lunatic: { count: 5, spread: 38, period: 38 },
         },
       },
+      // A DUMBFIRE writ "served in person": `missile` set, no `homing`, so it flies
+      // its aimed heading and detonates on burn-out — the first missile a player
+      // sees that does NOT curve, so the homing ones read as a distinct threat. One
+      // flat drip; stage-2's opening is not difficulty-honesty-measured, but a flat
+      // slot keeps it honest anyway.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: SERVICE, count: 1, spread: 0, period: 110 },
+        startAt: 46,
+      },
     ],
     spoils: [['power', 1]],
     scoreValue: 100,
@@ -713,6 +912,16 @@ const enemies: PackContent['enemies'] = {
           lunatic: { count: 3, spread: 38, period: 84 },
         },
       },
+      // A single homing injunction on the plant window, thrown alongside the beams
+      // so the lane a beam leaves is not a free rest. Flat, on the same stopAt the
+      // beam obeys, so it fires only while planted (a homing writ from a moving
+      // muzzle would be as unreadable as a moving beam).
+      {
+        pattern: 'aimed-fan',
+        options: { spec: INJUNCTION, count: 1, spread: 0, period: 100 },
+        startAt: 60,
+        stopAt: 190,
+      },
     ],
     despawnMargin: 80,
     spoils: [['power', 2]],
@@ -747,6 +956,15 @@ const enemies: PackContent['enemies'] = {
           hard: { count: 3, spread: 40 },
           lunatic: { count: 4, spread: 46, period: 38 },
         },
+      },
+      // A homing mandate pair from the kunai slot, reskinned as a missile — the
+      // same moving-source arc that makes the seeker's delay legible now curves a
+      // detonating body. Flat, on the same arc window.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: MANDATE, count: 2, spread: 30, period: 80 },
+        startAt: 50,
+        stopAt: 150,
       },
     ],
     despawnMargin: 80,
@@ -863,6 +1081,15 @@ const enemies: PackContent['enemies'] = {
           lunatic: { count: 5, spread: 44, period: 34 },
         },
       },
+      // A homing certiorari pair over the aimed fan — the writ that comes back for
+      // you. Flat, so the stage-3 opening's strict tier rise
+      // (`difficulty-honesty.test.ts`, which measures the clerk fan) is carried by
+      // the fan above and this adds the same constant to every tier.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: CERTIORARI, count: 2, spread: 24, period: 90 },
+        startAt: 45,
+      },
     ],
     spoils: [['power', 1]],
     scoreValue: 100,
@@ -900,6 +1127,16 @@ const enemies: PackContent['enemies'] = {
           lunatic: { count: 24, period: 30, rotation: 7 },
         },
       },
+      // A DUMBFIRE distraint spread off the planted slab — no homing, so it flies
+      // straight down through the lattice lane and detonates on burn-out, a second
+      // reason the resting spot inside the wall is not free. Flat, on the plant
+      // window; the stage-3 opening's tier rise is carried by the slab ring above.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: DISTRAINT, count: 2, spread: 30, period: 90 },
+        startAt: 70,
+        stopAt: 210,
+      },
     ],
     despawnMargin: 80,
     spoils: [['power', 2]],
@@ -930,6 +1167,14 @@ const enemies: PackContent['enemies'] = {
           hard: { count: 3, spread: 16, period: 26 },
           lunatic: { count: 4, spread: 18, period: 22 },
         },
+      },
+      // Its signature homing writ — service of process made literal. A single flat
+      // process alongside the subpoena fan, so the "one comes to find you" fiction
+      // gains a detonating body that curves after you.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: PROCESS, count: 1, spread: 0, period: 60 },
+        startAt: 36,
       },
     ],
     spoils: [['power', 1]],
@@ -1089,6 +1334,16 @@ const enemies: PackContent['enemies'] = {
           hard: { count: 24, period: 38, rotation: 8 },
           lunatic: { count: 28, period: 34, rotation: 9 },
         },
+      },
+      // A homing execution salvo behind the ring-wall — the writ that follows once
+      // the wall has pinned your lane. Flat, on the plant window; the stage-4
+      // opening's strict tier rise (`difficulty-honesty.test.ts`, which measures
+      // the marshal ring-wall) is carried by the ring above.
+      {
+        pattern: 'aimed-fan',
+        options: { spec: EXECUTION, count: 2, spread: 28, period: 90 },
+        startAt: 80,
+        stopAt: 240,
       },
     ],
     despawnMargin: 80,
@@ -1421,6 +1676,14 @@ const bosses: PackContent['bosses'] = {
               lunatic: { count: 4, period: 22 },
             },
           },
+          // An aimed-fan homing wedge of mandamus writs from the pacing source —
+          // the midboss's first missiles, mid-tier detonations. Flat; the phase's
+          // density axis stays on the aimed fan and spray above.
+          {
+            pattern: 'aimed-fan',
+            options: { spec: MANDAMUS, count: 2, spread: 30, period: 90 },
+            startAt: 30,
+          },
         ],
       },
       {
@@ -1597,6 +1860,20 @@ const bosses: PackContent['bosses'] = {
               easy: { count: 1 },
               hard: { count: 5, spread: 28 },
               lunatic: { count: 7, spread: 32, period: 46 },
+            },
+          },
+          // "Summary Judgment" — a homing salvo of judgment writs read against the
+          // seeker ring and chaff, the missiles the boss's whole card is named for
+          // (design §b.1). Mid-tier detonations; the seeker ring above still owns
+          // the density axis, so this is a flat aimed-fan of three.
+          {
+            pattern: 'aimed-fan',
+            options: { spec: JUDGMENT, count: 3, spread: 40, period: 74 },
+            startAt: 24,
+            difficulty: {
+              easy: { count: 2, period: 92 },
+              hard: { count: 4, spread: 48, period: 64 },
+              lunatic: { count: 5, spread: 54, period: 56 },
             },
           },
         ],
@@ -1850,6 +2127,22 @@ const bosses: PackContent['bosses'] = {
               easy: { count: 2, period: 80 },
               hard: { count: 4, period: 54 },
               lunatic: { count: 5, period: 48 },
+            },
+          },
+          // The docket barrage — a homing salvo that denies the free rim-hug the
+          // graze card offers, so the seal is not only witnessed but served. These
+          // are the game's BIG detonations, and — boss-fired, so no bomb clears them
+          // and an invulnerable late player is never hit — the tier's reachability
+          // rests on their on-field burn-out: DOCKET is slow and short-lived (life
+          // 150) so it self-destructs near mid-field, well inside the 640-tall frame.
+          {
+            pattern: 'aimed-fan',
+            options: { spec: DOCKET, count: 2, spread: 34, period: 96 },
+            startAt: 30,
+            difficulty: {
+              easy: { count: 1, period: 120 },
+              hard: { count: 3, spread: 40, period: 84 },
+              lunatic: { count: 3, spread: 46, period: 76 },
             },
           },
         ],
@@ -2153,6 +2446,18 @@ const bosses: PackContent['bosses'] = {
               hard: { count: 5, spread: 34, period: 50 },
               lunatic: { count: 6, spread: 38, period: 46 },
             },
+          },
+          // The regent's signature: one enormous slow homing edict per volley — the
+          // massive 17-frame body — read against the warrant seekers and the aimed
+          // colonnade, the hardest single card given a third, heavier thing to
+          // track. BIG detonations; like DOCKET it is boss-fired, so its tier
+          // reachability rests on an on-field burn-out (slow, life 180, expires near
+          // mid-field). One per volley on a long period keeps it a landmark, not a
+          // wall; the tier bumps the seeker ring above, not this.
+          {
+            pattern: 'aimed-fan',
+            options: { spec: EDICT, count: 1, spread: 0, period: 120 },
+            startAt: 30,
           },
         ],
       },

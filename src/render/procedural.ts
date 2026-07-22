@@ -754,6 +754,68 @@ function pulseRatio(f: number): number {
   return 0.2 + 0.4 * tri;
 }
 
+// --- missile.pop.*: a missile detonation airburst — a bright core flash and an
+// expanding ring, tinted orange by the effect spec (the floor stays white +
+// tint, rule 9). Three tiers a missile firer picks by threat; radial (no
+// orientation, like `burst`), and MISSILE-OWNED — distinct from `burst` /
+// `burst.big`, which stay generic enemy/boss/player death, so a missile's blast
+// art never plays on a trash kill (design §c.4). Every tier shares a 36×28 frame;
+// radii are capped so the ring diameter clears the 28px cross-axis seam pad.
+const POP_FRAME_W = 36;
+const POP_FRAME_H = 28;
+const POP_RING_THICK = 3;
+function popRing(f: number, frames: number, ringMax: number): number {
+  return 2 + (ringMax - 2) * (frames <= 1 ? 0 : f / (frames - 1));
+}
+function popCore(f: number, frames: number, coreMax: number): number {
+  const t = frames <= 1 ? 0 : f / (frames - 1);
+  return coreMax * (0.5 + 0.5 * t); // grows as the fireball opens
+}
+
+/**
+ * One `missile.pop.*` tier as an `FxStrip`. `frameExtent` re-derives its box from
+ * the SAME radii the painter uses (the `CELL_ART` discipline, per frame), and the
+ * radii are chosen so the ring's outer diameter clears `frameH − 2·FX_PAD` = 24
+ * on every frame — capped by the cross-axis, the tighter of the two. `once`, so
+ * a single particle whose `life` is `stripLength` dies as the last frame finishes
+ * (rule 8) — that coupling is asserted when a content stage registers the effect.
+ */
+function popStrip(
+  frames: number,
+  tpf: number,
+  coreMax: number,
+  ringMax: number,
+  sheetY: number,
+): FxStrip {
+  return {
+    frameW: POP_FRAME_W,
+    frameH: POP_FRAME_H,
+    frames,
+    ticksPerFrame: tpf,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY,
+    stride: POP_FRAME_W,
+    frameExtent: (f) => {
+      const e = Math.max(
+        popCore(f, frames, coreMax) * 2,
+        (popRing(f, frames, ringMax) + POP_RING_THICK / 2) * 2,
+      );
+      return { w: e, h: e };
+    },
+    draw: (ctx, f, cx, cy) => {
+      const t = frames <= 1 ? 0 : f / (frames - 1);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * (1 - 0.55 * t);
+      ring(ctx, cx, cy, popRing(f, frames, ringMax), POP_RING_THICK);
+      ctx.globalAlpha = 1 - 0.8 * t;
+      orb(ctx, cx, cy, popCore(f, frames, coreMax), 0.4);
+      ctx.restore();
+    },
+  };
+}
+
 export const FX_STRIPS: Record<string, FxStrip> = {
   burst: {
     frameW: 64,
@@ -824,6 +886,13 @@ export const FX_STRIPS: Record<string, FxStrip> = {
       orb(ctx, cx, cy, PULSE_RADIUS, pulseRatio(f));
     },
   },
+  // The three missile detonation tiers, on their own rows below `pulse`. Frame
+  // counts match the BulletPack `Exp` files a reskin drops in (tiny carries the
+  // MOST frames, 11; big the fewest, 8 — counter-intuitive, but the floor tracks
+  // the file so the import round's pixels land frame-for-frame). `once`.
+  'missile.pop.tiny': popStrip(11, 2, 6, 9, 192),
+  'missile.pop.mid': popStrip(9, 2, 7, 10, 220),
+  'missile.pop.big': popStrip(8, 3, 9, 10, 248),
 };
 
 /** The names the fx floor guarantees, mirroring `BULLET_CELLS` for the fx sheet. */
@@ -1404,5 +1473,319 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
       color: row.color,
     });
   });
+  return atlas;
+}
+
+/* ------------------------------------------------------------------ */
+/* The missile body floor (rule 9)                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A missile is an ordinary strip bullet drawn on its OWN atlas (the sim routes
+ * by `b.missile !== undefined`, never by cell name — the render layer cannot be
+ * imported by the sim, so the sim marks the missile and the shell resolves the
+ * skin). The body is a single animated strip, so its "skin" is just
+ * `b.style.sprite` resolved here — no two-part anatomy and therefore no skin
+ * registry, unlike a laser (design §c.1).
+ *
+ * This floor is the never-blocked half: a placeholder body for every strip a
+ * base missile spec names, so the game draws a homing writ with zero assets, and
+ * a BulletPack reskin later swaps the pixels through `missileAtlas(url)` — the
+ * `url` branch is here now, the pack-per-file `assets.missiles` composite is the
+ * import round's (design §g.5).
+ *
+ * Every strip is `tinted` (rule 9): a warm boss missile is coloured by the
+ * content tint until baked pixels load. Bodies are painted **nose-EAST (+x)**
+ * (rule 7 — an oriented sprite runs +x, and `orientToHeading` rotates the whole
+ * quad by the heading), so an imported nose-up pack frame rotated +90° at import
+ * lands on the same proportions.
+ */
+export interface MissileStripGeo {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  /** Px between frame origins; equals `frameW` (frames laid horizontally). */
+  stride: number;
+  /** Painted box of frame `f`, px, re-derived from the painter's own dimensions. */
+  frameExtent: (frame: number) => { w: number; h: number };
+  draw: StripDraw;
+}
+
+/**
+ * A missile body, painted nose-EAST (+x, rule 7): a fuselage with a pointed nose
+ * cone at +x and an age-clocked thruster glow at the tail (-x) that pulses across
+ * the strip's `loop` frames — the "banking pose" reinterpreted as a thruster loop
+ * (design §c.3), so a live body reads without a turn-driven frame axis. The whole
+ * silhouette stays inside `len × thick` (the fuselage reaches the box every frame;
+ * the nozzle glow pulses WITHIN it), so `frameExtent` is that box and no frame
+ * bleeds the inter-frame seam.
+ */
+function missileBody(
+  ctx: Ctx,
+  cx: number,
+  cy: number,
+  len: number,
+  thick: number,
+  frame: number,
+  frames: number,
+): void {
+  const half = len / 2;
+  const ht = thick / 2;
+  const noseTip = cx + half; // +x
+  const tail = cx - half; // -x
+  const noseLen = Math.min(len * 0.34, thick * 1.4);
+  const shoulderX = noseTip - noseLen;
+
+  // Fuselage: tail edge → shoulder → nose tip, with a soft cross-axis gradient so
+  // even a 3px-thick dart reads as a lit tube rather than a flat bar.
+  const g = ctx.createLinearGradient(0, cy - ht, 0, cy + ht);
+  g.addColorStop(0, 'rgba(255,255,255,0.18)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+  g.addColorStop(1, 'rgba(255,255,255,0.18)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(tail, cy - ht);
+  ctx.lineTo(shoulderX, cy - ht);
+  ctx.lineTo(noseTip, cy);
+  ctx.lineTo(shoulderX, cy + ht);
+  ctx.lineTo(tail, cy + ht);
+  ctx.closePath();
+  ctx.fill();
+
+  // Thruster nozzle: a bright glow at the very tail whose radius pulses across the
+  // loop frames (brightest at frame 0), contained in the fuselage back so neither
+  // the silhouette nor `frameExtent` changes frame to frame.
+  const phase = frames > 1 ? frame / frames : 0;
+  const pulse = 0.5 + 0.5 * Math.cos(phase * Math.PI * 2);
+  const nozzleR = Math.max(1, Math.min(ht, len * 0.12) * (0.55 + 0.45 * pulse));
+  orb(ctx, tail + nozzleR, cy, nozzleR, 0.15);
+}
+
+/**
+ * The massive missile — the final boss's signature writ. A fatter fuselage than
+ * `missileBody`, a warhead band, tail fins, and TWIN thruster tongues that pulse
+ * out of phase across its 17 frames. Same box discipline: everything inside
+ * `len × thick`, so `frameExtent` is the box.
+ */
+function missileMassive(
+  ctx: Ctx,
+  cx: number,
+  cy: number,
+  len: number,
+  thick: number,
+  frame: number,
+  frames: number,
+): void {
+  const half = len / 2;
+  const ht = thick / 2;
+  const noseTip = cx + half;
+  const tail = cx - half;
+  const noseLen = len * 0.3;
+  const shoulderX = noseTip - noseLen;
+
+  // Fins: two triangles at the tail, cross-axis, inside the box.
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(tail, cy + s * ht);
+    ctx.lineTo(tail + len * 0.22, cy + s * ht * 0.35);
+    ctx.lineTo(tail + len * 0.14, cy + s * ht * 0.35);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Fuselage.
+  const g = ctx.createLinearGradient(0, cy - ht, 0, cy + ht);
+  g.addColorStop(0, 'rgba(255,255,255,0.22)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+  g.addColorStop(1, 'rgba(255,255,255,0.22)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(tail + len * 0.06, cy - ht * 0.78);
+  ctx.lineTo(shoulderX, cy - ht * 0.78);
+  ctx.lineTo(noseTip, cy);
+  ctx.lineTo(shoulderX, cy + ht * 0.78);
+  ctx.lineTo(tail + len * 0.06, cy + ht * 0.78);
+  ctx.closePath();
+  ctx.fill();
+
+  // Warhead band: a brighter ring near the nose shoulder.
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = Math.max(1, thick * 0.08);
+  ctx.beginPath();
+  ctx.moveTo(shoulderX, cy - ht * 0.7);
+  ctx.lineTo(shoulderX, cy + ht * 0.7);
+  ctx.stroke();
+
+  // Twin thruster tongues, pulsing out of phase across the 17-frame loop.
+  const phase = frames > 1 ? frame / frames : 0;
+  for (const s of [-1, 1]) {
+    const p = 0.5 + 0.5 * Math.cos(phase * Math.PI * 2 + (s > 0 ? Math.PI : 0));
+    const r = Math.max(1, ht * 0.34 * (0.55 + 0.45 * p));
+    orb(ctx, tail + r, cy + s * ht * 0.32, r, 0.12);
+  }
+}
+
+/** A 5-frame body strip (12 of these): a thruster-loop flicker clocked off age. */
+function bodyGeo(frameW: number, frameH: number): MissileStripGeo {
+  const len = frameW - 2 * FX_PAD;
+  const thick = frameH - 2 * FX_PAD;
+  return {
+    frameW,
+    frameH,
+    frames: 5,
+    ticksPerFrame: 3,
+    mode: 'loop',
+    color: 'tinted',
+    stride: frameW,
+    frameExtent: () => ({ w: len, h: thick }),
+    draw: (ctx, f, cx, cy) => missileBody(ctx, cx, cy, len, thick, f, 5),
+  };
+}
+
+/** The 17-frame massive strip: a slower twin-thruster loop. */
+function massiveGeo(frameW: number, frameH: number): MissileStripGeo {
+  const len = frameW - 2 * FX_PAD;
+  const thick = frameH - 2 * FX_PAD;
+  return {
+    frameW,
+    frameH,
+    frames: 17,
+    ticksPerFrame: 2,
+    mode: 'loop',
+    color: 'tinted',
+    stride: frameW,
+    frameExtent: () => ({ w: len, h: thick }),
+    draw: (ctx, f, cx, cy) => missileMassive(ctx, cx, cy, len, thick, f, 17),
+  };
+}
+
+/**
+ * The 13 missile body strips — 12 `strip5` + 1 `strip17` — mirroring the 13
+ * BulletPack missile files a reskin supplies. Frame sizes are the nose-EAST
+ * (+x) proportions the pack's nose-up frames land on after the +90° import
+ * rotation (rule 7). `procedural.test.ts` holds every frame against the seam
+ * pad; the reachability collectors (a later stage) assert every one is fired.
+ */
+export const MISSILE_STRIPS: Record<string, MissileStripGeo> = {
+  'missile.0': bodyGeo(21, 9),
+  'missile.1': bodyGeo(22, 7),
+  'missile.2': bodyGeo(21, 12),
+  'missile.3': bodyGeo(22, 12),
+  'missile.4': bodyGeo(23, 17),
+  'missile.5': bodyGeo(27, 12),
+  'missile.6': bodyGeo(28, 15),
+  'missile.7': bodyGeo(28, 15),
+  'missile.8': bodyGeo(25, 13),
+  'missile.9': bodyGeo(24, 13),
+  'missile.10': bodyGeo(24, 13),
+  'missile.11': bodyGeo(18, 13),
+  'missile.massive': massiveGeo(71, 44),
+};
+
+/** Every missile strip name, `BULLET_CELLS`'s companion for the missile sheet. */
+export const MISSILE_STRIP_CELLS = Object.keys(MISSILE_STRIPS) as readonly string[];
+
+/**
+ * Where each strip sits on the shared missile sheet: one strip per row, frames
+ * laid horizontally, sheet width the widest row. Derived from the table so the
+ * layout and the dimensions cannot drift (the laser sheet's discipline).
+ */
+function missileLayout(): {
+  positions: Record<string, { x: number; y: number }>;
+  width: number;
+  height: number;
+} {
+  const positions: Record<string, { x: number; y: number }> = {};
+  let width = 1;
+  let y = 0;
+  for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+    positions[name] = { x: 0, y };
+    width = Math.max(width, s.frames * s.stride);
+    y += s.frameH;
+  }
+  return { positions, width, height: Math.max(1, y) };
+}
+
+export const MISSILE_SHEET = missileLayout();
+export const MISSILE_SHEET_W = MISSILE_SHEET.width;
+export const MISSILE_SHEET_H = MISSILE_SHEET.height;
+
+/** Wire every `MISSILE_STRIPS` name onto `atlas` as a `Strip`. Shared by both branches. */
+function defineMissileStrips(atlas: Atlas): void {
+  for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+    const p = MISSILE_SHEET.positions[name]!;
+    atlas.defineStrip(name, {
+      x: p.x,
+      y: p.y,
+      frameW: s.frameW,
+      frameH: s.frameH,
+      frames: s.frames,
+      stride: s.stride,
+      ticksPerFrame: s.ticksPerFrame,
+      mode: s.mode,
+      color: s.color,
+    });
+  }
+}
+
+/**
+ * Render the procedural missile sheet: every `MISSILE_STRIPS` strip's frames laid
+ * out on one shared canvas, each on its own row. White + tint, like the laser
+ * sheet (a warm missile's colour is the content tint), so one greyscale sheet
+ * serves every colour and the saturation gate holds.
+ */
+export function createMissileAtlas(): Atlas {
+  const { positions, width, height } = MISSILE_SHEET;
+  const { el, ctx } = canvas(width, height);
+
+  for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
+    const p = positions[name]!;
+    for (let f = 0; f < s.frames; f++) {
+      const cx = p.x + f * s.stride + s.frameW / 2;
+      const cy = p.y + s.frameH / 2;
+      s.draw(ctx, f, cx, cy);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(el);
+  texture.magFilter = THREE.LinearFilter; // generated art is smooth, not pixel art
+  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, width, height);
+  defineMissileStrips(atlas);
+  return atlas;
+}
+
+/**
+ * The missile sheet, generated or loaded — symmetric to `laserAtlas(url?)`.
+ *
+ * - `missileAtlas()` — the procedural body floor (rule 9).
+ * - `missileAtlas(url)` — one combined `MISSILE_SHEET_W`×`MISSILE_SHEET_H` sheet
+ *   loaded and dimension-checked (the direct-import seam), naming both figures on
+ *   a mismatch (the point `bulletAtlas`/`laserAtlas` make: a wrong-sized sheet
+ *   silently repoints every strip at a crop of the wrong shape).
+ *
+ * The pack-per-file `assets.missiles` composite branch is deferred to the
+ * BulletPack import round (design §g.5), which is the round that supplies the
+ * coloured missile pixels — exactly as `laserAtlas` reserved its own composite.
+ */
+export async function missileAtlas(url?: string): Promise<Atlas> {
+  if (url === undefined) return createMissileAtlas();
+
+  const atlas = await loadAtlas(url);
+  if (atlas.width !== MISSILE_SHEET_W || atlas.height !== MISSILE_SHEET_H) {
+    throw new Error(
+      `missile sheet "${url}" is ${atlas.width}×${atlas.height}, expected ${MISSILE_SHEET_W}×${MISSILE_SHEET_H}`,
+    );
+  }
+  defineMissileStrips(atlas);
   return atlas;
 }

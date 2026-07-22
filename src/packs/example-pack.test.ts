@@ -25,7 +25,7 @@ import '../render/backgrounds'; // registers the scenes the injector resolves ag
 import { backgroundNames } from '../render/background';
 import { laserSkinNames } from '../render/laser-skin';
 import { portraitNames } from '../render/portrait';
-import { BULLET_CELLS, SHIP_CELLS } from '../render/procedural';
+import { BULLET_CELLS, MISSILE_STRIP_CELLS, SHIP_CELLS } from '../render/procedural';
 import { getEnemySpec, hasEnemy } from '../sim/enemy';
 import { getStage, hasStage } from '../content/stage';
 import { getBossSpec, hasBoss } from '../sim/boss';
@@ -54,7 +54,7 @@ function readManifest(): unknown {
  * boundary permits `render`), so the injection this test proves is the one that
  * runs for real rather than a hand-kept copy of the valid names.
  */
-const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], laserSprites: laserSkinNames(), scenes: backgroundNames(), portraits: portraitNames() };
+const CTX = { sprites: [...BULLET_CELLS], shipSprites: [...SHIP_CELLS], laserSprites: laserSkinNames(), missileSprites: [...MISSILE_STRIP_CELLS], scenes: backgroundNames(), portraits: portraitNames() };
 
 /** Validate the committed manifest and hand back the accepted `PackManifest`. */
 function acceptedManifest(): PackManifest {

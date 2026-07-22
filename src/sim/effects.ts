@@ -357,3 +357,51 @@ defineEffect('burst.big', {
   tint: { r: 1, g: 0.55, b: 0.3 },
   additive: true,
 });
+
+/**
+ * The missile detonation tiers (导弹轮) — a missile's airburst where it dies, one
+ * `count:1, speed:0` particle per tier whose sprite is a `once` fx strip
+ * (`missile.pop.*` in `FX_STRIPS`), dying as its last frame finishes because
+ * `life === stripLength` (rule 8 — no completion flag; measured, not typed, by
+ * `src/render/strip.test.ts` like `burst`/`burst.big`). These are MISSILE-OWNED
+ * and deliberately distinct from `burst`/`burst.big`: those keep serving generic
+ * enemy/boss/player death, so a missile-explosion never plays on a trash kill.
+ *
+ * They live here — engine code, not pack data — because a base missile spec names
+ * one by string (`MissileSpec.explosion`) and `effects.emit` throws on an unknown
+ * name (line 69): the procedural floor must exist before any content names it
+ * (the never-blocked floor, rule 9). Registered now, with the content stage that
+ * first FIRES a missile — registering them any earlier would redden
+ * `reachability.test.ts`'s "every registered particle effect" scan, which fails a
+ * tier no firer reaches. The frame counts are the BulletPack `Exp` files' own
+ * (tiny carries the most, 11; big the fewest, 8), warm-graded by threat.
+ */
+defineEffect('missile.pop.tiny', {
+  sprite: 'missile.pop.tiny',
+  count: 1,
+  speed: 0,
+  life: 22, // stripLength = 11 frames × 2 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.78, b: 0.42 },
+  additive: true,
+});
+
+defineEffect('missile.pop.mid', {
+  sprite: 'missile.pop.mid',
+  count: 1,
+  speed: 0,
+  life: 18, // stripLength = 9 frames × 2 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.66, b: 0.34 },
+  additive: true,
+});
+
+defineEffect('missile.pop.big', {
+  sprite: 'missile.pop.big',
+  count: 1,
+  speed: 0,
+  life: 24, // stripLength = 8 frames × 3 ticks; asserted in strip.test.ts
+  scale: { from: 1, to: 1 },
+  tint: { r: 1, g: 0.5, b: 0.26 },
+  additive: true,
+});
