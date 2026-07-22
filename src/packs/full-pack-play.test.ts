@@ -40,9 +40,8 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import '../packs/bundled';
+import '../v4';
 import '../sim/item'; // built-in items; content imports it type-only
-import '../render/backgrounds'; // registers the scenes the injector resolves against
 import { Button } from '../core/input';
 import { backgroundNames } from '../render/background';
 import { laserSkinNames } from '../render/laser-skin';

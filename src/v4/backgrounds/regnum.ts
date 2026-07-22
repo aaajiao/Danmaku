@@ -97,7 +97,7 @@
  * and seal-tier exposure are the only departures.
  */
 
-import { defineBackground } from '../background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('regnum', {
   scrollSpeed: 0.8,

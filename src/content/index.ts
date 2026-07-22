@@ -20,6 +20,7 @@
  */
 
 import './behaviours';
+import './pattern-registry';
 import './patterns';
 import './shots';
 import './stage';

@@ -16,46 +16,56 @@ src/sim/           motion DSL, collision, bullets, enemies, bosses, player,
                    options, bombs, items, effects, replay
 src/render/        three.js: sprite batching, atlases, layered stage,
                    post-processing, background engine
-src/render/backgrounds/   the authored scenes, one fragment shader per file
-src/content/       danmaku patterns, shot types, motion behaviours, stages
+src/content/       generic pattern registry/primitives, shot and stage registries,
+                   plus compatibility facades for the active edition
 src/game/          run rules, state machine, screens — all game logic, no three.js
 src/audio/         sound registry and runtime synthesis
 src/packs/         drop-in packs: pure shape validation, content injector,
-                   loader, and the bundled base campaign (base-pack.json +
-                   bundled.ts — the built-in game, injected as pack data)
+                   loader, and compatibility entry for bundled edition content
+src/v4/            compile-time edition root: gameplay definitions, authored
+                   background shaders, and generated four-stage campaign data
 src/main.ts        the browser shell: input in, pixels out, nothing else
 docs/              asset specification, extension guide, pack format
 packs/             project-owned shipped art (`v4`) plus the README-only
                    `example` workspace; generated/imported packs are local
 test/visual/       checks that need a real GL context and cannot run in `bun test`
-tools/             fixture and base/v4-pack generation, dev server, build copy
+tools/             fixture and v4 content/art generation, dev server, build copy
 ```
 
-The built-in campaign — stage-1 through stage-4, their fifteen trash enemies and
-five bosses — is no longer engine TypeScript, and neither is the player side: the five
-characters (scout, lance, hound, spire, maw), their five shots, four option sets and
-two bombs are pack data too. All of it is `src/packs/base-pack.json`, authored by
-`tools/make-base-pack.ts` and injected through the same validate+inject pipeline
-as any fetched pack (`src/packs/bundled.ts`), the format eating the game's own
-content. The four ways a bundled pack differs from
-a fetched one are under "How this is extended".
+`src/v4/index.ts` is the active edition's **compile-time composition root**. It
+installs v4's deterministic patterns and motion behaviours from
+`src/v4/gameplay/`, its authored shader scenes from `src/v4/backgrounds/`, and
+then its campaign from `src/v4/content/`, in that dependency order. The generic
+registries and systems stay outside the edition under `src/content/`, `src/sim/`,
+`src/render/`, `src/game/` and `src/packs/`.
+
+The built-in campaign — stage-1 through stage-4, their sixteen trash enemies and
+five bosses — is no longer engine TypeScript, and neither is the player side: the
+five characters (scout, lance, hound, spire, maw), their five shots, four option
+sets and two bombs are data too. All of it is `src/v4/content/campaign.json`,
+authored by `tools/make-v4-content.ts` and injected through the same
+validate+inject pipeline as any fetched pack by `src/v4/content/index.ts`.
+`src/packs/bundled.ts` is only the compatibility entry for historical imports.
+The ways bundled edition content differs from a fetched pack are under "How this
+is extended".
 
 Four tests scan whole trees rather than testing one module, and all four exist
 because the thing they check fails silently:
 
 ```
-src/determinism.test.ts       approximated `Math` in sim, content, core, game (rule 3)
-src/architecture.test.ts      renderer imports in sim, content, game (the rule below)
+src/determinism.test.ts       approximated `Math` in generic + v4 gameplay trees (rule 3)
+src/architecture.test.ts      renderer/pack imports in headless trees (the rule below)
 src/reachability.test.ts      registered content a real playthrough never touches
 src/balance.test.ts           the damage model, re-derived from the real `Run`
 ```
 
 The last two live at the `src/` root, beside `main.ts`, not under `src/game/`.
-They drive the *composed* game — which now needs the bundled base pack injected
-— and composition is the shell's layer, where importing game + packs + render is
+They drive the *composed* game — which needs the bundled v4 campaign injected —
+and composition is the shell's layer, where importing game + edition + render is
 what the tests do. `src/difficulty-honesty.test.ts` moved to the root for the
-same reason. The scan-scope tests (`determinism`, `architecture`) are unchanged:
-they scan `sim`/`content`/`game`/`core`, and the root is not one of those trees.
+same reason. The scan-scope tests (`determinism`, `architecture`) scan
+`sim`/`content`/`game`/`core` plus `v4/gameplay`; the root is not one of those
+trees.
 
 The last two are newer than the rest of this document and are described under
 "Registration is not reachability" and "The damage model is measured, not typed"
@@ -64,8 +74,9 @@ the other 1289 tests were all green through.
 
 ### The import boundary
 
-`src/sim/`, `src/content/` and `src/game/` must not import **values** from
-`src/render/`. All three are enforced.
+`src/sim/`, `src/content/`, `src/game/` and `src/v4/gameplay/` must not import
+**values** from `src/render/`. All four are enforced. They also import nothing
+from `src/packs/`: edition gameplay is compiled code, not pack-loader code.
 
 The simulation is engine-agnostic by construction, which is what makes it
 testable headlessly and reproducible. `bun test` *is* that headless run: it has
@@ -177,9 +188,10 @@ unrelated rather than close.
 `src/core/trig.ts` is built only from IEEE-754-exact operations. Use `sinDeg`,
 `cosDeg`, `atan2Deg`. It is not a tax — `atan2Deg` is faster than `Math.atan2`.
 
-`src/determinism.test.ts` scans `sim`, `content`, `core` and `game`, and fails on
-any approximated `Math` call. **That guard exists because this was fixed once and
-the fix was incomplete**: `motion.ts` was converted, `patterns.ts` was not, and
+`src/determinism.test.ts` scans `sim`, `content`, `core`, `game` and
+`v4/gameplay`, and fails on any approximated `Math` call. **That guard exists
+because this was fixed once and the fix was incomplete**: `motion.ts` was
+converted, the then-active `patterns.ts` was not, and
 the whole suite stayed green — the divergence was silent, with an identical RNG
 draw count and only the coordinates drifting. Exceptions belong in that test's
 allowlist, with the argument for why they are safe.
@@ -266,9 +278,9 @@ and never tempted to borrow them. See [`docs/assets.md`](./docs/assets.md).
 New content is added by **writing a file and importing it**, never by editing the
 engine. Every extension point is a registry:
 
-| Surface | Register with | Defined in |
+| Surface | Register with | Registry / engine API |
 |---|---|---|
-| Danmaku patterns | `definePattern` | `src/content/patterns.ts` |
+| Danmaku patterns | `definePattern` | `src/content/pattern-registry.ts` |
 | Motion the polar model cannot express | `defineBehaviour` | `src/sim/motion.ts` |
 | Player shot types | `defineShot` | `src/content/shots.ts` |
 | Enemy types | `defineEnemy` | `src/sim/enemy.ts` |
@@ -290,23 +302,19 @@ engine. Every extension point is a registry:
 Content references registry entries **by name**, never by index, so re-packing an
 atlas or reordering a table cannot silently repoint at the wrong thing.
 
-The **Defined in** column is where a registry's *mechanism* lives, not where the
-built-in campaign's data does. `defineEnemy`, `defineBoss`, `defineStage`,
-`defineShot`, `defineCharacter`, `defineOptions` and `defineBomb` are the
-registration surfaces — but the enemies, bosses, stages *and the player side* of
-the base game are no longer written inline beneath them. They are pack data now,
-authored in `tools/make-base-pack.ts`, emitted to `src/packs/base-pack.json`, and
-registered through the injector at boot. So a new enemy, boss, stage, weapon,
-option set, bomb or character *for the base campaign* is written in the generator
-(`docs/extending.md` §6–§7); the `define*` calls still take a hand-written spec
-when you register content from engine code, which is how a guest pack's names
-still reach these registries. Those files keep their machinery — the registries,
-the systems, and the runtime constants a system reads every tick (`option.ts`'s
-`FORWARD` and `DEFAULT_FOLLOW_SPEED`) — none of which moved with the data.
+The last column is where a registry's *mechanism* lives, not where v4's authored
+definitions do. `src/v4/gameplay/` owns the active edition's executable pattern
+and behaviour definitions; `src/v4/backgrounds/` owns its GLSL scenes; and
+`tools/make-v4-content.ts` authors the enemies, bosses, stages and player side
+emitted to `src/v4/content/campaign.json`. The generic `define*` APIs, systems
+and per-tick runtime constants remain outside `src/v4`. A new enemy, boss, stage,
+weapon, option set, bomb or character *for v4* is written in the v4 content
+generator (`docs/extending.md` §6–§7), while a new executable pattern, behaviour
+or shader is compiled under the matching v4 directory and imported by its index.
 
 The last row is the one that is not code: an **asset pack** is a folder dropped
-into `packs/`, and it extends the game without touching a registry or the engine
-at all. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
+into `packs/`, and it extends the game without importing a module or editing the
+engine. It carries two kinds of thing. A **reskin** replaces the sprite *skins*
 that patterns, effects and the HUD draw with — bullet sheet, ship, HUD icons,
 sounds, music tracks (a stage or boss names a track by string, exactly as it
 names a scene; the file is presentation and stays under the warn-only skin
@@ -319,9 +327,10 @@ effects and items: an enemy is an `EnemySpec`, a stage is waves chained into a
 selectable campaign, a boss is spell-card phases sized in seconds — and may carry a
 pre-fight dialogue exchange, which is boss content and travels strict — a character
 names its shot/options/bomb and joins the SELECT screen. What a pack never carries
-is *code* — the patterns an enemy or boss fires, the behaviours that steer a bullet
-and the shader scenes a stage is set in all stay engine code, joined to a pack only
-by name, and a new item `kind` stays a game rule. Dialogue is the boundary drawn
+is *code*: no TypeScript, JavaScript or GLSL can cross the manifest boundary. The
+patterns an enemy or boss fires, the behaviours that steer a bullet and the shader
+scenes a stage is set in are precompiled edition code, joined to a pack only by
+registered name, and a new item `kind` stays a game rule. Dialogue is the boundary drawn
 once more: the *text* is content the sim runs (advancing a line is input that
 delays the boss), the *portrait* is only presentation. A pack paints and arranges;
 it never scripts a new rule. The replay contract splits on that line: a reskin cannot
@@ -332,37 +341,48 @@ The format, both validation layers and the boundary are
 [`docs/packs.md`](./docs/packs.md).
 
 **`packs/v4` is the only loadable pack committed and shipped by this repository.**
-`packs/example` is deliberately README-only until v4 is final, when both the
-example assets and Art Kit are redesigned from the final surface contract. The
-obsolete example/clearing/Art-Kit generators are retired; the purchased-
-BulletPack importer remains an audit tool whose output is temporary local data,
-not a second shipped pack.
+It is a pure-data **art pack**: manifest metadata plus project-owned raster atlases
+and HUD images, with no `content`, TypeScript or GLSL. It paints the compiled v4
+edition but does not define it. `packs/example` is deliberately README-only until
+v4 is final, when both the example assets and Art Kit are redesigned from the
+final surface contract. The obsolete example/clearing/Art-Kit generators are
+retired; the purchased-BulletPack importer remains an audit tool whose output is
+temporary local data, not a second shipped pack.
 
-The **base game is now this format's largest consumer**: the built-in campaign is
-a bundled pack (`src/packs/bundled.ts` injects `base-pack.json` at boot). It runs
-the *same* pipeline — same validator, same shapes, same injection — differing from
-a fetched pack in exactly four ways: it is **statically imported**, not fetched
-(the bundler inlines the JSON, so there is zero network and no `packs/` directory
-— the never-blocked floor holds); its names register **unqualified** (`grunt`,
-`sentinel`, `stage-1`), because it *is* the base game, not a guest layering over
-it; it contributes **no campaign row and no replay meta** — its entry stage takes
-the plain START row and it joins neither `packs` nor `packsData`, exactly as
-engine-defined content did, which is why the port declares no replay divergence;
-and a validation failure **throws at boot** rather than warning, because a broken
-base pack is a build defect, not a user-file problem. `docs/packs.md` §9.7 (The
-bundled base pack) is the reference.
+The **v4 campaign is this format's largest consumer**:
+`src/v4/content/index.ts` statically imports `campaign.json` and runs the same
+validator and injector as a fetched pack. It differs in four ways: there is zero
+network fetch; names register **unqualified** (`grunt`, `sentinel`, `stage-1`);
+its entry takes the plain START row and joins neither guest `packs` nor
+`packsData` identity; and a validation failure throws at boot. It does carry the
+build-owned `CONTENT_FINGERPRINT`, derived from the exact campaign bytes and
+recorded in replay meta, so later content drift is refused rather than replayed
+silently. `src/packs/bundled.ts` only preserves the old import surface.
+
+The ownership migration itself is replay-neutral: `campaign.json` is byte-for-
+byte identical to the former `src/packs/base-pack.json`, its fingerprint remains
+`919d306d8f6a`, every scene's assembled GLSL source and scroll speed is SHA-256
+pinned in `src/v4/backgrounds/index.test.ts`, and the committed golden replay
+traces were not regenerated. The manifest's description still says “stage-1 and
+stage-2”; that prose is historically frozen because changing even metadata would
+change the campaign bytes and fingerprint. The actual v4 inventory is four
+stages, sixteen enemies and five bosses. Fix that description only as an explicit
+content revision, never as cleanup folded into an ownership move.
 
 **A registry only has what something imported.** A module nobody imports never
 runs, so its `define*` calls never happen and the name resolves to nothing at the
-moment a player reaches it. Two index files exist to prevent that, each with a
-test that reads its own directory and fails when a sibling is missing from it:
+moment a player reaches it. Two edition entry points make that composition
+explicit:
 
 ```
-src/content/index.ts               every content module
-src/render/backgrounds/index.ts    every scene
+src/v4/index.ts                    the edition layers, in dependency order
+src/v4/backgrounds/index.ts        every authored v4 scene
 ```
 
-This has already gone wrong once: `behaviours`, `shots` and `stage-2` were
+The background index has a directory-scanning test that fails when a sibling is
+missing. Compatibility facades under `src/content/`, `src/render/backgrounds/`
+and `src/packs/bundled.ts` preserve old import paths; they are not ownership
+roots. This has already gone wrong once: behaviours, shots and stage-2 were
 written, tested, green — and absent from the bundle.
 
 ### Registration is not reachability
@@ -372,9 +392,10 @@ ever asks for it, and those are different claims. The shipped build had
 `stage-2`, `warden` and `magistrate` fully written, imported, unit-tested and
 green — and unreachable, because `stage-1` never named a boss to send or a stage
 to follow. Every registry was correct. Nothing joined them up. (Those names are
-now base-pack content, injected at boot; the wire is a wave and a `next` in
-`base-pack.json`, and the pack injector's own reachability pass — `docs/packs.md`
-§9.3 — rejects a stage no `next` reaches before this test ever runs.)
+now v4 campaign data, injected at boot; the wire is a wave and a `next` in
+`src/v4/content/campaign.json`, and the pack injector's own reachability pass —
+`docs/packs.md` §9.3 — rejects a stage no `next` reaches before this test ever
+runs.)
 
 That is the shape of nearly every defect the audit found: not a broken
 subsystem, but a missing wire between two working ones — an argument not passed,
@@ -392,8 +413,11 @@ It has been watched failing: deleting `stage-1`'s `boss` and `next` — exactly
 the state the project shipped in — turns its 24 assertions into 10 pass, 14
 fail, while the rest of the suite stays green.
 
-So: adding content means adding it to a registry, adding its module to the index
-*and* making something reach it. The third step is now the one with a test.
+So: adding v4 data means editing `tools/make-v4-content.ts`, regenerating the
+campaign and making something reach every new entry. Adding executable v4
+vocabulary means defining it under `src/v4/gameplay/` or
+`src/v4/backgrounds/` and importing it from the edition root/index. A guest pack
+may arrange those registered names but cannot add executable vocabulary.
 
 ### The damage model is measured, not typed
 
@@ -405,9 +429,9 @@ It used to be a literal — `0.56`, typed once into a test file and repeated in
 three prose comments. It was unverifiable and it was wrong, and each consumer
 was wrong differently: `boss.ts` sized above it and produced phases no loadout
 could drain inside their own clocks; the since-retired `stage-2.ts` (its content
-now lives in `base-pack.json`) inferred it was far too generous and sized an
-order of magnitude *below* it, giving a midboss less health than two trash
-enemies.
+now lives in `src/v4/content/campaign.json`) inferred it was far too generous
+and sized an order of magnitude *below* it, giving a midboss less health than
+two trash enemies.
 
 `src/balance.test.ts` re-derives the number by driving the real `Run`
 across every character × power tier × focus state. If player damage changes for
@@ -457,7 +481,8 @@ JS. Instancing addresses both.
 
 `src/render/background.ts` is an engine and names no scene: a full-screen quad at
 `Layer.Background`, a fixed uniform set, and a cross-fade. Every scene is a
-fragment shader in its own file under `src/render/backgrounds/`.
+fragment shader in its own file under `src/v4/backgrounds/`. The historical
+`src/render/backgrounds/index.ts` path is a compatibility import only.
 
 A stage declares where it is set with `StageSpec.background`, and a spell card
 may override it with `SpellCard.background`. Both are **strings**, because
@@ -477,7 +502,8 @@ Two constraints bind every scene, and both are in `background.ts`'s header:
 - **`uTick` advances in `step()` and nowhere else.** No `performance.now`, ever.
   A background on a wall clock desynchronises from a replay visually while every
   test stays green, because the simulation is untouched and nothing can notice.
-  `backgrounds/index.test.ts` scans for wall-clock sources.
+  `src/v4/backgrounds/index.test.ts` scans for wall-clock sources and pins each
+  migrated shader's assembled source hash and scroll rate.
 - **亮到能看,暗到能玩 — bright enough to see, dark enough to play.** The fixed
   "peak near 0.1" ceiling is RETIRED: the diversity rounds proved the structure
   was present all along and only the ceiling made it invisible, so scenes ship at

@@ -279,7 +279,7 @@ export class BombSystem {
 }
 
 // The starter bombs — spread and lance — moved into the bundled base pack
-// (`tools/make-base-pack.ts` → `base-pack.json`) with the characters that deploy
+// (`tools/make-v4-content.ts` → `src/v4/content/campaign.json`) with the characters that deploy
 // them (decisions-round2 §D). This file keeps the machinery only: the `BombSpec`
 // shape, the registry and the `BombSystem` that burns one. `effect` names a
 // particle effect the game resolves; nothing above knows which bombs exist.

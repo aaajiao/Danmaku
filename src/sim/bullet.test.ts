@@ -2181,7 +2181,7 @@ describe('piercing', () => {
 /* Missiles — a BulletSpec that detonates on death (导弹轮)            */
 /* ------------------------------------------------------------------ */
 
-// Homing transcribed from `content/behaviours.ts`'s `homing`, kept local under a
+// Homing transcribed from `v4/gameplay/behaviours.ts`'s `homing`, kept local under a
 // namespaced name so this sim test needs no content-layer import and cannot
 // collide with the real registration. It reads the context and `core/trig` and
 // draws NOTHING from the generator — the exact property the no-RNG-draw
@@ -2449,4 +2449,4 @@ describe('a missile detonation is read AT removal, never a please-remove-me flag
 // base-pack DATA, which sim code may not import (architecture.test.ts:
 // "src/sim imports nothing from src/packs"). It lives at the composition layer,
 // in `reachability.test.ts`, beside the beam-sweep `hold === warmup` scan it
-// mirrors — the same file that already imports `base-pack.json`.
+// mirrors — the same file that already imports the v4 campaign JSON.

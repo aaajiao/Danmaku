@@ -34,7 +34,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import './packs/bundled';
+import './v4';
 import { BulletSystem } from './sim/bullet';
 import { BossSystem } from './sim/boss';
 import { DIFFICULTIES, type Difficulty } from './sim/difficulty';

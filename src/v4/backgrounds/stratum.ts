@@ -53,7 +53,7 @@
  * cells, top-lane calm, verdigris palette, exposure ours.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('stratum', {
   scrollSpeed: 0.7,

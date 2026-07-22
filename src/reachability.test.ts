@@ -64,12 +64,12 @@
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
-import './packs/bundled';
-// The base-pack DATA, walked by the beam-sweep coupling test below. Read as data
+import './v4';
+// The v4 campaign data, walked by the beam-sweep coupling test below. Read as data
 // here (root/composition layer) because `src/content` may not import `src/packs`
 // at all — the pack boundary is total (architecture.test.ts) — so the invariant
 // is pinned where the beam reachability collectors already live.
-import basePack from './packs/base-pack.json';
+import basePack from './v4/content/campaign.json';
 import { Button } from './core/input';
 import { fx, sim } from './core/random';
 import {
@@ -740,7 +740,7 @@ describe('a real playthrough reaches', () => {
     //
     // So this asserts the run side: every scene any reachable stage or spell
     // card declares is actually entered. That those strings resolve to real
-    // shaders is `render/backgrounds/index.test.ts`'s job, and it imports both
+    // shaders is `v4/backgrounds/index.test.ts`'s job, and it imports both
     // halves for exactly that purpose. Between the two files the round trip is
     // covered, and neither has to break the boundary to do it.
     const declared = new Set<string>();
@@ -1111,7 +1111,7 @@ describe('the base pack couples its homing missiles honestly (G3)', () => {
     });
     expect(found).toHaveLength(1);
     expect(found[0]!.delay).toBe(0);
-    expect(found[0]!.duration).toBe(60); // the `homing` default (content/behaviours.ts)
+    expect(found[0]!.duration).toBe(60); // the `homing` default (v4/gameplay/behaviours.ts)
   });
 
   test('a dumbfire missile (no homing behaviour) is not scanned — it has no window', () => {
@@ -1322,7 +1322,7 @@ interface HomingMissile {
  * card, shot or option in future is caught with no change here.
  *
  * `delay`/`duration` fall back to the `homing` behaviour's own defaults (0 and
- * 60, `content/behaviours.ts`), so a missile that omits them still has a real
+ * 60, `v4/gameplay/behaviours.ts`), so a missile that omits them still has a real
  * seek window to be measured against.
  */
 function collectMissiles(node: unknown, path = 'base-pack'): HomingMissile[] {

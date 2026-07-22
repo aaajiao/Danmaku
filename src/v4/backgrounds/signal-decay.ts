@@ -73,7 +73,7 @@
  * baked signal/decay constants, excised pointer, graded grain, and exposure.
  */
 
-import { defineBackground } from '../background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('signal-decay', {
   scrollSpeed: 1.0,

@@ -62,7 +62,7 @@
  */
 
 import { musicNames } from '../audio/music';
-import { patternNames } from '../content/patterns';
+import { patternNames } from '../content/pattern-registry';
 import { defineShot, getShot, shotNames, type ShotType } from '../content/shots';
 import { defineStage, stageNames, type BossWave, type EnemyWave, type StageSpec, type WaveEntry } from '../content/stage';
 import { characterNames, defineCharacter, type CharacterSpec } from '../game/run';

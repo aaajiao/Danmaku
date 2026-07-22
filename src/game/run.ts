@@ -204,7 +204,7 @@ export interface RunConfig {
   difficulty?: Difficulty;
   /**
    * Fingerprint of the bundled base content this run was flown under: a short
-   * opaque hash the shell computes from `base-pack.json` and threads in. Recorded
+   * opaque hash generated from `src/v4/content/campaign.json` and threaded in. Recorded
    * into replay meta as `content`, and on playback: absent WARNS (a legacy
    * recording, or a harness that threaded none), present-and-different REFUSES.
    *
@@ -1683,8 +1683,8 @@ function expectOrWarnMeta(replay: Replay, key: string, expected: string): void {
 /* ------------------------------------------------------------------ */
 
 // scout/lance/hound/spire/maw — and the five shots, four option sets and two bombs
-// they fly — moved into the bundled base pack (`tools/make-base-pack.ts` →
-// `base-pack.json`), registering through the inject pipeline like any pack
+// they fly — moved into the v4 campaign (`tools/make-v4-content.ts` →
+// `src/v4/content/campaign.json`), registering through the inject pipeline like any pack
 // character (decisions-round2 §D). This module keeps only the machinery above:
 // the `CharacterSpec` shape and the registry `CharacterSelectState` reads. The
 // roster's presence and correctness are proved at the composition root —

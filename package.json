@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun tools/serve.ts",
+    "make:v4-content": "bun tools/make-v4-content.ts",
     "make:v4-pack": "bun tools/make-v4-pack.ts",
     "measure:audio": "bun tools/measure-audio.ts",
     "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",

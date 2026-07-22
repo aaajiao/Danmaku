@@ -20,7 +20,7 @@
  * concurrent population. The peak of that over a window is what the 2000-bullet limit
  * is denominated in. No player fires, so every live bullet is enemy fire.
  *
- * ## Two trash windows, from stage-4's own waves (`base-pack.json`)
+ * ## Two trash windows, from stage-4's own waves (`v4/content/campaign.json`)
  *
  * - **Mid composite [760, 1040)** — the two `marshal`s at `at: 760` lay their
  *   `ring`-walls while an `usher` bank sweeps and the `assessor` at `980` dives: a
@@ -77,7 +77,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import './packs/bundled';
+import './v4';
 import { BossSystem } from './sim/boss';
 import { BulletSystem } from './sim/bullet';
 import { type Difficulty } from './sim/difficulty';

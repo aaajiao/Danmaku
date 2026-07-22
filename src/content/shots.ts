@@ -6,7 +6,7 @@
  * inline at one ship's call site. That was the argument for lifting the weapons
  * out of `run.ts` into content, and the same argument runs one hop further: the
  * four starter weapons (spread/needle/homing/laser) now live in the bundled base
- * pack (`tools/make-base-pack.ts` → `base-pack.json`) and register through the
+ * campaign (`tools/make-v4-content.ts` → `src/v4/content/campaign.json`) and register through the
  * inject pipeline, the player-side half of decisions-round2 §D. This file keeps
  * the machinery only — the type, the registry and its accessors.
  *

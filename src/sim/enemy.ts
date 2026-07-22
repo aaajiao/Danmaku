@@ -16,7 +16,7 @@
  * `drainDeaths` hands the list over at a moment the caller chooses.
  */
 
-import { Emitter } from '../content/patterns';
+import { Emitter } from '../content/pattern-registry';
 import { Pool } from '../core/pool';
 import { sim, type Random } from '../core/random';
 import type { BulletSystem, FieldBounds } from './bullet';
@@ -423,8 +423,8 @@ export class EnemySystem {
   }
 }
 
-// The enemy cast — grunt/weaver/turret and stage-2's drifter/lash/hunter/censer/
-// bastion — is no longer defined here. It moved into the bundled base pack
-// (`src/packs/base-pack.json`, authored by `tools/make-base-pack.ts`) and registers
+// The sixteen-enemy v4 cast is no longer defined here. It moved into the
+// bundled campaign
+// (`src/v4/content/campaign.json`, authored by `tools/make-v4-content.ts`) and registers
 // through the pack injector at boot. This module keeps only the mechanism and its
 // registry; content data is a pack now (decisions-basepack.md).

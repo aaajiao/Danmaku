@@ -459,7 +459,7 @@ defineItem('big-power', {
 // `score` (the chip / small change) is repointed onto the silver-coin skin. The
 // repoint is sim-inert: nothing in sim/content/game reads `ItemSpec.sprite` or
 // `.tint`, so it leaves the golden trace untouched — the divergence this round
-// declares is the spoils redenomination alone (make-base-pack.ts), never this line.
+// declares is the spoils redenomination alone (make-v4-content.ts), never this line.
 defineItem('score', {
   sprite: 'pickup.coin.silver',
   radius: 13,

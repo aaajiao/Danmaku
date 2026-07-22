@@ -243,7 +243,7 @@ function collectProjectileSpecs(
 
 function actualBaseProjectileOwners(): Map<string, Set<V4ProjectileOwner>> {
   const base = record(JSON.parse(
-    readFileSync(join(import.meta.dir, '..', 'src', 'packs', 'base-pack.json'), 'utf8'),
+    readFileSync(join(import.meta.dir, '..', 'src', 'v4', 'content', 'campaign.json'), 'utf8'),
   ));
   const content = record(base?.content);
   if (content === undefined) throw new Error('base pack has no content');
@@ -634,7 +634,7 @@ describe('ship and HUD', () => {
 
 describe('base campaign name reachability', () => {
   test('every sprite string used by base-pack resolves on a v4 runtime surface', () => {
-    const base = JSON.parse(readFileSync(join(import.meta.dir, '..', 'src', 'packs', 'base-pack.json'), 'utf8')) as unknown;
+    const base = JSON.parse(readFileSync(join(import.meta.dir, '..', 'src', 'v4', 'content', 'campaign.json'), 'utf8')) as unknown;
     const used = new Set<string>();
     const walk = (value: unknown): void => {
       if (Array.isArray(value)) {

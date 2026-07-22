@@ -76,7 +76,7 @@
  * projection, field scale and exposure. The cursor swirl is excised (no pointer).
  */
 
-import { defineBackground } from '../background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('vault', {
   scrollSpeed: 0.5,

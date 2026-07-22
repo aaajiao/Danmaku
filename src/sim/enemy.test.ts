@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import '../v4/gameplay/patterns';
 import { Random, sim } from '../core/random';
 import { BulletSystem, type BulletSpec, type FieldBounds } from './bullet';
 import {
@@ -197,9 +198,9 @@ describe('registry', () => {
   });
 
   test('enemyNames lists every registered enemy', () => {
-    // The shipped cast — grunt, weaver, turret and stage-2's — is no longer
-    // defined in this module; it moved into the bundled base pack, where the
-    // drift test (`tools/make-base-pack.test.ts`) pins its specs and
+    // The sixteen-enemy shipped cast is no longer defined in this module; it
+    // moved into the bundled v4 campaign, where the
+    // drift test (`tools/make-v4-content.test.ts`) pins its specs and
     // `src/reachability.test.ts` proves each one spawns and fires. This
     // module owns the registry, so it is verified here against its own fixtures.
     const names = enemyNames();

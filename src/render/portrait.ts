@@ -211,6 +211,6 @@ definePortrait('warden', { tint: { r: 1, g: 0.6, b: 0.72 } });
 definePortrait('magistrate', { tint: { r: 0.72, g: 0.68, b: 1 } });
 definePortrait('chancellor', { tint: { r: 0.95, g: 0.82, b: 0.5 } });
 // The regent, stage-4's final authority: the chancellor's amber a shade darker,
-// mirroring its `tint` in base-pack.json — the empty seat reads gold, terminal.
+// mirroring its `tint` in the v4 campaign JSON — the empty seat reads gold, terminal.
 definePortrait('regent', { tint: { r: 0.85, g: 0.72, b: 0.44 } });
 definePortrait('player', { tint: { r: 0.62, g: 0.88, b: 0.72 } });

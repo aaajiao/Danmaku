@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import '../v4/gameplay/patterns';
 
 import { Button } from '../core/input';
 import { fx, sim } from '../core/random';
@@ -27,7 +28,7 @@ const SEED = 0x5747a1;
  *
  * The shipped roster used to reach this file for free: importing `./run`
  * registered scout/lance and pulled in their shots, options and bombs. That
- * content moved into the bundled base pack (`src/packs/base-pack.json`), which a
+ * content moved into the v4 campaign (`src/v4/content/campaign.json`), which a
  * `src/game` unit test may not import — so this file registers its own faithful
  * stand-in instead of depending on some other test file injecting the pack into
  * the shared process (the cross-file coupling this file's `OTHER_BOSS` note
@@ -141,7 +142,7 @@ defineStage(NO_BOSS_STAGE, { name: NO_BOSS_STAGE, outro: 0, waves: [] });
  * `config()` below used to default to `'stage-1'`, whose boss is `'sentinel'`,
  * both of which this file got for free: importing `../content/stage` and
  * `../sim/boss` registered them as a module side effect. That content moved into
- * the bundled base pack (`src/packs/base-pack.json`), which a `src/game` unit test
+ * the v4 campaign (`src/v4/content/campaign.json`), which a `src/game` unit test
  * may not import — so this file registers its own faithful stand-in instead of
  * depending on some other test file having injected the pack into the shared
  * process (the exact cross-file coupling this file's `OTHER_BOSS` note condemns).
@@ -1089,7 +1090,7 @@ describe('scene', () => {
     // Only stage-1 here: this file reaches `content/stage.ts` transitively
     // through `sim/enemy` and never imports the content index, so stage-2 is
     // genuinely unregistered in this process. Asserting both mappings is
-    // `render/backgrounds/index.test.ts`'s job — it imports both halves, which
+    // `v4/backgrounds/index.test.ts`'s job — it imports both halves, which
     // is the whole reason it exists.
     expect(new Run(config()).scene).toBe('expanse');
   });

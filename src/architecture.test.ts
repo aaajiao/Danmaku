@@ -1,8 +1,9 @@
 /**
  * The import boundary, enforced.
  *
- * CLAUDE.md states it under "Repository layout": `src/sim/` and `src/content/`
- * must not import from `src/render/`. Until this file, **nothing checked it**.
+ * CLAUDE.md states it under "Repository layout": `src/sim/`, `src/content/`,
+ * `src/game/` and `src/v4/gameplay/` must not import from `src/render/`. Until
+ * this file, **nothing checked it**.
  * The rule was written down, obeyed by hand for the life of the project, and one
  * careless import away from being false with every test still green — because
  * the thing it protects is not correctness. It is the ability to run the
@@ -35,14 +36,13 @@ const ROOT = new URL('.', import.meta.url).pathname;
 /**
  * Trees whose modules must be runnable with no renderer present.
  *
- * `game` is here even though CLAUDE.md's layout section names only `sim` and
- * `content`. `src/main.ts` opens by declaring that all game logic lives under
- * `src/game/` and imports no three.js, because that is what lets a whole run be
- * simulated and replayed headlessly — so the directory already holds itself to
- * this rule, and a rule held by convention is one nobody has broken *yet*.
- * It passes today with no renderer import of any kind, type-only included.
+ * CLAUDE.md names all four trees because each must remain executable without a
+ * GL context. `src/game/` owns the headless run/replay orchestration, while
+ * `src/v4/gameplay/` owns this edition's compiled pattern and behaviour
+ * registrations. A runtime renderer edge in any one of them would spend the
+ * same headless-simulation guarantee.
  */
-const HEADLESS_TREES = ['sim', 'content', 'game'];
+const HEADLESS_TREES = ['sim', 'content', 'game', 'v4/gameplay'];
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];

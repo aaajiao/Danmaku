@@ -28,7 +28,7 @@
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
-import './packs/bundled';
+import './v4';
 import { Button } from './core/input';
 import { fx, sim } from './core/random';
 import {

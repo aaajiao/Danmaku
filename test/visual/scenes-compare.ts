@@ -43,7 +43,7 @@ import {
   composeFragmentShader,
   getBackgroundSpec,
 } from '../../src/render/background';
-import '../../src/render/backgrounds/index';
+import '../../src/v4/backgrounds';
 
 /* ------------------------------------------------------------------ layout */
 

@@ -48,7 +48,7 @@ import { describe, expect, test } from 'bun:test';
 // doing so is what lets this file validate the REAL declared sprites standalone
 // rather than vacuously passing on empty registries under the full suite's
 // cross-file leakage.
-import '../packs/bundled';
+import '../v4';
 import { getShot, shotNames } from '../content/shots';
 import { bossNames, getBossSpec } from '../sim/boss';
 import { enemyNames, getEnemySpec } from '../sim/enemy';

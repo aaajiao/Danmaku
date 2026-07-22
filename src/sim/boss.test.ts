@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import '../v4/gameplay/patterns';
 import { Random } from '../core/random';
 import {
   Boss,
@@ -688,9 +689,9 @@ describe('determinism', () => {
   });
 });
 
-// The reference boss `sentinel` and stage-2's warden/magistrate used to be
-// verified here — fly-in, phase transitions, timeout survival, every card fires.
-// They moved into the bundled base pack (`src/packs/base-pack.json`), which this
+// The five shipped v4 bosses used to be verified in sim-side fixtures here —
+// fly-in, phase transitions, timeout survival, every card fires.
+// They moved into the v4 campaign (`src/v4/content/campaign.json`), which this
 // sim-side unit test may not import. The mechanism those cases exercised is
 // covered above against the local `test.*` fixtures; the real bosses are covered
 // at the composition root — `src/base-content.golden.test.ts` replays each to a

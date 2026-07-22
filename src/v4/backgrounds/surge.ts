@@ -47,7 +47,7 @@
  * ink-dissolve by pbakaus/radiant, MIT. Ported; our clock and palette.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('surge', {
   scrollSpeed: 1.4,

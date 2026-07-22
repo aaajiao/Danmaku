@@ -36,7 +36,7 @@
  * mid-transition. `drainEvents` hands them over at a moment the caller picks.
  */
 
-import { Emitter, patternNames } from '../content/patterns';
+import { Emitter, patternNames } from '../content/pattern-registry';
 import { sim, type Random } from '../core/random';
 import type { BulletSystem, FieldBounds } from './bullet';
 import {
@@ -807,9 +807,9 @@ export class BossSystem {
 /* The damage model every boss is tuned against                        */
 /* ------------------------------------------------------------------ */
 //
-// The bosses themselves — sentinel, and stage-2's warden/magistrate — are no
-// longer defined here. They moved into the bundled base pack
-// (`src/packs/base-pack.json`, authored by `tools/make-base-pack.ts`) and register
+// The five shipped v4 bosses are no longer defined here. They moved into the
+// bundled campaign
+// (`src/v4/content/campaign.json`, authored by `tools/make-v4-content.ts`) and register
 // through the pack injector at boot, where a pack spell card declares `hpSeconds`
 // and the injector applies `phaseHp`/`phaseClock` below exactly as this file's
 // bosses used to. What stays here is the mechanism, the registry, and this damage

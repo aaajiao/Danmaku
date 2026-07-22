@@ -77,7 +77,7 @@
  * projection, exposure and the variant seam are the only departures.
  */
 
-import { defineBackground } from '../background';
+import { defineBackground } from '../../render/background';
 
 /**
  * The ported `liquid-gold` basis. A pure function of its arguments (uv, aspect,

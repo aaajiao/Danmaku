@@ -8,9 +8,8 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import '../packs/bundled';
+import '../v4';
 import '../sim/item';
-import '../render/backgrounds';
 import { backgroundNames } from '../render/background';
 import { laserSkinNames } from '../render/laser-skin';
 import { portraitNames } from '../render/portrait';

@@ -17,7 +17,8 @@
  * ## Why a grep, and why here
  *
  * This was fixed once already and the fix was incomplete: `src/sim/motion.ts`
- * was converted while `src/content/patterns.ts` was left calling `Math.atan2`,
+ * was converted while the then-`src/content/patterns.ts` pattern code (now
+ * `src/v4/gameplay/patterns.ts`) was left calling `Math.atan2`,
  * and the whole suite stayed green. It stayed green because the divergence is
  * *silent* — the RNG draw count was identical across engines, so nothing failed;
  * bullets simply flew along slightly different paths.
@@ -43,7 +44,7 @@ import { join } from 'node:path';
  * project: the guard would have reported green on a `Math.atan2` in the aim
  * target, which is the exact regression its header describes.
  */
-const SIMULATION_TREES = ['sim', 'content', 'core', 'game'];
+const SIMULATION_TREES = ['sim', 'content', 'core', 'game', 'v4/gameplay'];
 
 /**
  * Math members the spec permits an engine to approximate. `sqrt` is absent

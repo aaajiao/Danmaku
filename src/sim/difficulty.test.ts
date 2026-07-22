@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
+import '../v4/gameplay/patterns';
 import { Random } from '../core/random';
 import { BossSystem, defineBoss, type BossEvent } from './boss';
 import { BulletSystem, type BulletSpec, type FieldBounds } from './bullet';

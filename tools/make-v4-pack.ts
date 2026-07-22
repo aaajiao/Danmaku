@@ -392,7 +392,7 @@ export const V4_OWNER_PALETTES: Record<V4ProjectileOwner, Palette> = {
 
 /** Runtime strip names each actual person can cause to draw. Laser caps are
  * included even though they are resolved by the render-side skin registry and
- * therefore never appear as `style.sprite` in base-pack.json. */
+ * therefore never appear as `style.sprite` in the v4 campaign JSON. */
 export const V4_OWNER_PROJECTILES: Record<V4ProjectileOwner, readonly string[]> = {
   'player.scout': ['glow.small.bolt', 'glow.medium.bolt', 'glow.large.bolt', 'bolt.hyper', 'orb.small.satellite'],
   'player.lance': ['needle.pin', 'needle.pin.t0', 'needle.pin.t1', 'needle.pin.t2', 'scale.satellite'],

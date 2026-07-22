@@ -6,7 +6,7 @@
  * Two questions, kept apart because they answer to different judges.
  *
  * **Performance** is automated: drive a real `BulletSystem` through real
- * `content/patterns.ts` emitters up to a target population, then hold it
+ * v4 pattern emitters up to a target population, then hold it
  * there and measure. "Hold" is doing real work here — the specs below add
  * `bounce: true` (which the shipped content does not use) purely so the
  * count sampled at frame 0 is still the count sampled at frame 149. Without
@@ -59,7 +59,8 @@ import { createBulletAtlas } from '../../src/render/procedural';
 import { SpriteBatch } from '../../src/render/sprite-batch';
 import { Layer, Stage } from '../../src/render/stage';
 import { Random } from '../../src/core/random';
-import { Emitter } from '../../src/content/patterns';
+import '../../src/v4/gameplay/patterns';
+import { Emitter } from '../../src/content/pattern-registry';
 import { BulletSystem, type BulletSpec } from '../../src/sim/bullet';
 
 const FIELD_W = 480;

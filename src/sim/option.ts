@@ -264,7 +264,7 @@ export class OptionSystem {
 }
 
 // The starter formations — standard/seeker/picket — moved into the bundled base
-// pack (`tools/make-base-pack.ts` → `base-pack.json`) with the characters that
+// campaign (`tools/make-v4-content.ts` → `src/v4/content/campaign.json`) with the characters that
 // fly them (decisions-round2 §D). This file keeps the machinery: the `OptionSpec`
 // shape, the registry, and the `OptionSystem` that runs a layout. `FORWARD` and
 // `DEFAULT_FOLLOW_SPEED` above stay because the system reads them at runtime — a

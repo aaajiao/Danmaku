@@ -9,6 +9,15 @@ derivative and cannot ship. **Everything here must be original work.** That is
 the constraint, but it is also the opportunity — upstream's own sheets were
 mostly empty, and we are not obliged to repeat their shape.
 
+`packs/v4/` is the shipped **data-only art pack**: manifests and pixels, with no
+patterns, motion behaviours, campaign logic, or GLSL. The executable v4 edition
+is composed under `src/v4/`: patterns in `src/v4/gameplay/patterns.ts`,
+behaviours in `src/v4/gameplay/behaviours.ts`, authored shaders in
+`src/v4/backgrounds/`, and the generated campaign in
+`src/v4/content/campaign.json`. That campaign is produced by
+`tools/make-v4-content.ts` and validated/injected by
+`src/v4/content/index.ts`; it is not an image-pack asset or a file to hand-edit.
+
 ---
 
 ## 1. The three principles
@@ -239,8 +248,8 @@ A 32px bullet occupies 32 of the field's 480 pixels — about 6.7% of its width.
 Per-draw scaling is a different thing and it exists. `SpriteStyle.width` and
 `height` default to the region's own size (`src/render/sprite-batch.ts:31-32`,
 `:242-243`) and callers override them freely: the boss draws a 32px cell at 56px
-(the base pack's `sentinel`, `tools/make-base-pack.ts:744-745`), the turret at
-40px (the base pack's `turret`, `tools/make-base-pack.ts:361-362`), the
+(the v4 campaign's `sentinel`, `tools/make-v4-content.ts`), the turret at
+40px (the v4 campaign's `turret`, `tools/make-v4-content.ts`), the
 ship's 64px art at 40px (`src/main.ts:484-486`), and particles anywhere from
 1.6× to 0.05×. So "final display size" means the size to design *for*, not the
 only size a cell will ever be drawn at. The practical consequence is at the top
@@ -255,13 +264,13 @@ of section 3.5: detail that only reads at one size is wasted.
 The name is a historical accident and it will mislead you. **This sheet is not
 just bullets.** Every `SpriteBatch` in the game except the player's own is built
 on it (`src/main.ts:172-192`): enemies wear `orb.large`, `ring` and `halo`
-(the base pack's `grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), the boss
-wears `halo` (the base pack's `sentinel`, `tools/make-base-pack.ts:742`), items
+(the v4 campaign's `grunt`/`weaver`/`turret`, `tools/make-v4-content.ts`), the boss
+wears `halo` (the v4 campaign's `sentinel`, `tools/make-v4-content.ts`), items
 wear `shard`, `star`, `mote`, `petal` and `ring`
 (`src/sim/item.ts:407-451`), particles draw `glow.medium`, `spark`, `needle`,
 `star`, `glow.small` and `glow.large` (`src/sim/effects.ts:251-323`), and the
 player's shots draw `glow.small` and `scale` (the base pack's shot skins,
-`src/packs/base-pack.json`; `src/content/shots.ts` is now registration-only).
+`src/v4/content/campaign.json`; `src/content/shots.ts` is now registration-only).
 All sixteen cells are in use by something. Sixteen 32×32 cells carry
 essentially the whole visual vocabulary of the game — the player ship is the
 only art outside them — which is why these cells deserve far more attention than
@@ -349,8 +358,8 @@ workhorse and `orb.large` still reads as a threat.
 The last column is stricter than it looks. It does not mean "something sets
 `orientToHeading` on this cell today" — `kunai`, `scale`, `needle` and
 `glow.small` are the only four with a caller that does (the base pack's enemy,
-boss and player shot cards in `src/packs/base-pack.json`, authored by
-`tools/make-base-pack.ts`). It
+boss and player shot cards in `src/v4/content/campaign.json`, generated from
+`tools/make-v4-content.ts`). It
 means the shape is elongated
 or asymmetric and so has a direction at all, and rule 7 says that direction is
 east. `shard` and `petal` have no rotating caller yet and must still be drawn
@@ -388,18 +397,25 @@ six overlapping explosion particles from compositing into a white disc.
 
 ### 3.2 Player ship — `ship.png`, one region per character
 
-The only art in the game that is not a bullet cell. `createShipAtlas`
+> **Scope: procedural fallback / low-level pack floor only.** The current v4
+> runtime already uses the compiled five-player actor atlas; this subsection
+> documents the fallback `ship` region and legacy asset seam, not the default
+> character presentation. The authoritative v4 actor atlas dimensions and
+> runtime sizes are in [`v4-art-direction.md` §9](./v4-art-direction.md#9-图集与动画技术规格).
+
+In the procedural floor this is the only art that is not a bullet cell. `createShipAtlas`
 (`src/render/procedural.ts`) builds a 64×64 texture with **named regions and no
 grid**, `atlas.define('ship', { x: 0, y: 0, w: 64, h: 64 })`.
 
 **One region is not enough — the roster is five ships.** `scout`, `lance`,
 `hound`, `spire` and `maw` each name their art through `CharacterSpec.sprite`
-(`src/game/run.ts`), and today all five name `'ship'` because that is the only
-region the placeholder paints. A real art set gives each ship its own region and
+(`src/game/run.ts`), and all five name `'ship'` because that is the only
+region the placeholder paints. A generic replacement gives each ship its own region and
 repoints its `sprite` string; the shell already reads the field, so no code
 changes. Register the regions the way the bullet grid names its cells — a
 `defineShip`-style helper, or `atlas.define('scout', …)` per ship — and give this
-section a row per character. Until then, one silhouette stands in for all five.
+section a row per character. Without v4's actor layer or an active replacement,
+one fallback silhouette stands in for all five.
 
 | Property | Value | Verified at |
 |---|---|---|
@@ -419,7 +435,7 @@ neutral. A ship drawn blue would flash grey.
 Must include a **visually distinct centre point** marking the hitbox. This is
 not a debug affordance — showing the hitbox is standard genre practice and a
 real readability feature, because the ship sprite is many times larger than the
-2.5px lethal radius (each character's `radius`, `src/packs/base-pack.json`; read
+2.5px lethal radius (each character's `radius`, `src/v4/content/campaign.json`; read
 as `player.radius` at `src/game/run.ts:1021`). The placeholder marks it with a
 3px-radius disc two pixels below centre (`src/render/procedural.ts:392-395`),
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
@@ -433,24 +449,30 @@ request.
 
 ### 3.3 Enemies — no sheet, and they are on screen regardless
 
-There is no `enemies.png` and no `createEnemyAtlas`. The status is not "not yet
-implemented" — enemies are drawn, right now, from the **bullet atlas**:
+> **Scope: procedural fallback / low-level floor only.** “No enemy sheet” below
+> describes the engine fallback. The current v4 runtime uses compiled actor
+> atlases for 16 enemies and 5 bosses (alongside the five-player atlas); their
+> authoritative cells, visible sizes, and naming contract are in
+> [`v4-art-direction.md` §9](./v4-art-direction.md#9-图集与动画技术规格).
+
+The procedural floor has no `enemies.png` and no `createEnemyAtlas`. When that
+fallback is visible, enemies are drawn from the **bullet atlas**:
 `batches.enemies` is constructed on it (`src/main.ts:173`), `grunt` is a tinted
 `orb.large`, `weaver` a `ring`, `turret` a `halo` (the base pack's
-`grunt`/`weaver`/`turret`, `tools/make-base-pack.ts`), and the boss `sentinel` is
-a `halo` drawn at 56×56 out of a 32px cell (`tools/make-base-pack.ts:742-745`).
+`grunt`/`weaver`/`turret`, `tools/make-v4-content.ts`), and the boss `sentinel` is
+a `halo` drawn at 56×56 out of a 32px cell (`tools/make-v4-content.ts`).
 `width` and `height` default to the cell size and are overridden per enemy — the
-turret is 40×40 (`tools/make-base-pack.ts:361-362`).
+turret is 40×40 (`tools/make-v4-content.ts`).
 
 Two consequences an artist should know before touching this. Enemies scale a
 32px cell up by as much as 1.75×, so the bullet sheet's cells are already being
 asked to hold up at boss size. And enemies inherit the tint discipline
 completely: every enemy on screen is white art multiplied by a `tint`
-(the base pack's per-enemy `tint`, `tools/make-base-pack.ts`), so the first enemy sheet is not
+(the v4 campaign's per-enemy `tint`, `tools/make-v4-content.ts`), so the first enemy sheet is not
 competing against a blank screen but against silhouettes that already read at
 speed.
 
-When a real sheet arrives:
+The pre-v4 generic-sheet proposal was:
 
 | Property | Value |
 |---|---|
@@ -459,10 +481,10 @@ When a real sheet arrives:
 | Animation | 4 frames per row, advancing every 5 ticks |
 | Orientation | facing down (toward the player) |
 
-Nothing in the engine reads that table yet. `EnemySpec` carries a `sprite` name
+Nothing in the generic fallback reads that table. `EnemySpec` carries a `sprite` name
 and no frame count at all (`src/sim/enemy.ts:46-48`), so the animation row is a
-proposal, not a contract — it needs code in `src/sim/enemy.ts` before art can
-use it. Upstream's `enemy.png` was 512×512 and used **three of its 256 cells**.
+historical proposal, not the v4 contract. V4's live actor atlas contract is in
+the linked art-direction document. Upstream's `enemy.png` was 512×512 and used **three of its 256 cells**.
 Do not reserve space speculatively; add rows as enemy types are actually
 authored.
 
@@ -472,16 +494,18 @@ authored.
 and no plan for either. A background is a full-screen quad at `Layer.Background`
 running a shader registered with `defineBackground`
 (`src/render/background.ts:149`), one scene per file under
-`src/render/backgrounds/`, reaching the game only because that directory's index
-imports it. Thirteen exist. Six are stage/menu places, each its own shader:
+`src/v4/backgrounds/`, reaching the game only because
+`src/v4/backgrounds/index.ts` imports it and the v4 composition root loads that
+index. The old `src/render/backgrounds/index.ts` path is a compatibility entry
+point only. Fourteen authored scenes exist. Six are stage/menu places, each its own shader:
 `drift`, `expanse`, `stratum`, `surge`, `undertow`, `vault`. Seven more are the
 **boss family** — `signet`, `cordon`, `intaglio`, `sable`, `regnum`, `umbra`,
 `decree` — each a per-scene near-identical port of a pbakaus/radiant reference
-(MIT). Two ported bases are shared across a family (`GOLD_GLSL`, owned by
-`signet.ts` and imported by `cordon`/`regnum`; `VEIL_GLSL`, owned by `umbra.ts`
-and imported by `decree`); the rest are standalone. See
-[`docs/extending.md` §12](./extending.md#12-adding-a-background-scene), "A family
-of scenes sharing one ported basis."
+(MIT). `signal-decay` is the terminal game-over/ending scene. The former
+`GOLD_GLSL` and `VEIL_GLSL` sibling sharing has been retired: every authored
+scene is now standalone, and a structural test forbids scene-to-scene imports.
+See [`docs/extending.md` §12](./extending.md#12-adding-a-background-scene),
+“One reference, one scene.”
 
 The reason is in the header of `src/render/background.ts`: upstream's background
 was a textured plane scrolled by a counter, which gives you exactly one
@@ -516,7 +540,7 @@ scene without touching a line of maths. They reach the framebuffer unmanaged,
 exactly as sprite tints do (section 1.1) — the number is the colour. The shipped
 ones, so a proposal has something to sit next to:
 
-| Scene | Constants | Values (`src/render/backgrounds/`) |
+| Scene | Constants | Values (`src/v4/backgrounds/`) |
 |---|---|---|
 | `drift` | deep → lift | `(0.015, 0.022, 0.050)` → `(0.045, 0.075, 0.130)` (`drift.ts:36-37`) |
 | `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.016, 0.034, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.038, 0.104, 0.152)` (`expanse.ts:82-86`) — `SKY_LIFT`/`GROUND_LIFT` pull the scene toward cyan-ice (R/G ≈0.37), the one deliberate stage-body edit of the seal-family round, closing the hue collision with `drift` |
@@ -861,7 +885,8 @@ any change to `Atlas`, `loadTexture` or the grid. A UV error found here would
 otherwise present as your art looking wrong.
 
 **`bun run test:density` is the one that judges the art.** It drives a real
-`BulletSystem` through real `content/patterns.ts` emitters to a target
+`BulletSystem` through the real v4 emitters in
+`src/v4/gameplay/patterns.ts` to a target
 population and renders a still frame at each density using the bullet specs the
 shipped game actually fires. The performance half is automated; the readability
 half is not, and does not pretend to be — it puts the frame on screen and leaves

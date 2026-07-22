@@ -68,7 +68,7 @@ function measuredUnion(image: DecodedImage, strip: NativeStrip): { width: number
 
 describe('v4 hostile projectile visibility', () => {
   test('decoded paint contains every non-laser circle and capsule fired by enemies or bosses', async () => {
-    const base = await Bun.file(new URL('../packs/base-pack.json', import.meta.url)).json() as {
+    const base = await Bun.file(new URL('../v4/content/campaign.json', import.meta.url)).json() as {
       content: { enemies: unknown; bosses: unknown };
     };
     const manifest = await Bun.file(new URL('../../packs/v4/pack.json', import.meta.url)).json() as {

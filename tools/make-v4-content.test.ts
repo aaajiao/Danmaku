@@ -1,13 +1,13 @@
 /**
- * Drift guard for the generated base pack.
+ * Drift guard for the generated v4 campaign.
  *
- * `src/packs/base-pack.json` is committed, and `tools/make-base-pack.ts` is the
+ * `src/v4/content/campaign.json` is committed, and `tools/make-v4-content.ts` is the
  * source of truth it is generated from — the design commentary lives in the
  * generator, the JSON is machinery. If someone edits the JSON by hand, or edits
  * the generator without regenerating, the two diverge and the commentary stops
  * describing the shipped pack. This regenerates in memory and byte-diffs.
  *
- * A failure means exactly one action: run `bun tools/make-base-pack.ts` and
+ * A failure means exactly one action: run `bun tools/make-v4-content.ts` and
  * commit the result (having first confirmed the change was intended — the replay
  * traces in `src/base-content.golden.test.ts` prove whether it moves gameplay).
  */
@@ -17,28 +17,28 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'bun:test';
 
 import {
-  BASE_PACK_FINGERPRINT_PATH,
-  BASE_PACK_PATH,
-  buildBasePackFingerprint,
-  buildBasePackJson,
-} from './make-base-pack';
+  V4_CONTENT_FINGERPRINT_PATH,
+  V4_CONTENT_PATH,
+  buildV4ContentFingerprint,
+  buildV4ContentJson,
+} from './make-v4-content';
 
-test('the committed base-pack.json is byte-identical to the generator output', () => {
-  const committed = readFileSync(BASE_PACK_PATH, 'utf8');
-  const generated = buildBasePackJson();
+test('the committed v4 campaign is byte-identical to the generator output', () => {
+  const committed = readFileSync(V4_CONTENT_PATH, 'utf8');
+  const generated = buildV4ContentJson();
   // Compare lengths first so a size mismatch reports as a number, not a wall of
   // diff, then the exact-equality assertion pins the content.
   expect(generated.length).toBe(committed.length);
   expect(generated).toBe(committed);
 });
 
-test('the committed base-pack.fingerprint.ts is byte-identical to the generator output', () => {
+test('the committed v4 campaign fingerprint is byte-identical to the generator output', () => {
   // The fingerprint is derived from the JSON bytes, so this drifting means one of
   // two things: the JSON changed without regenerating the hash (the whole failure
   // this catches), or the fingerprint module was hand-edited. Either is fixed by
-  // one action — `bun tools/make-base-pack.ts` — same as the JSON above.
-  const committed = readFileSync(BASE_PACK_FINGERPRINT_PATH, 'utf8');
-  const generated = buildBasePackFingerprint();
+  // one action — `bun tools/make-v4-content.ts` — same as the JSON above.
+  const committed = readFileSync(V4_CONTENT_FINGERPRINT_PATH, 'utf8');
+  const generated = buildV4ContentFingerprint();
   expect(generated.length).toBe(committed.length);
   expect(generated).toBe(committed);
 });
@@ -52,7 +52,7 @@ test('every stage fields a mid-stage bomb carrier — a wave enemy whose spoils 
   // boss-only bombs. This asserts the invariant over the shipped pack directly, so
   // that regression fails the build. It counts only wave enemies, not the boss: the
   // point is bombs *before* the boss door, which a boss drop cannot supply.
-  const pack = JSON.parse(readFileSync(BASE_PACK_PATH, 'utf8'));
+  const pack = JSON.parse(readFileSync(V4_CONTENT_PATH, 'utf8'));
   const enemies: Record<string, { spoils?: [string, number][] }> = pack.content.enemies;
   const dropsBomb = (name: string): boolean =>
     (enemies[name]?.spoils ?? []).some(([kind]) => kind === 'bomb');

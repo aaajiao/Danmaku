@@ -76,7 +76,7 @@
  * samples noise faster than the pixel grid can carry and what that aliases into
  * looks exactly like sparse bullets.
  *
- * Written scenes live in `./backgrounds/`, one per file, imported by that
+ * Written scenes live in `src/v4/backgrounds/`, one per file, imported by that
  * directory's index. Nothing in *this* file names a scene.
  *
  * ## Cross-fading without coupling
@@ -240,18 +240,12 @@ export const BACKGROUND_NOISE_GLSL = /* glsl */ `
  * a palette: an engine cell with a reference's colour grafted on read as our
  * shader, not as the original, and only the direct ports passed acceptance.
  *
- * Where a picture IS shared, the scene that OWNS the port exports it and its
- * siblings import it — the same "a shape reused by several scenes lives once, or
- * the copies drift" rule as `BACKGROUND_NOISE_GLSL` above, but owned by a scene
- * rather than by the engine:
- *
- *   - `GOLD_GLSL` — the `liquid-gold` port, owned by `backgrounds/signet.ts`,
- *     imported by `cordon` and `regnum` (three gold seals, one basis, regraded).
- *   - `VEIL_GLSL` — the `stardust-veil` port, owned by `backgrounds/umbra.ts`,
- *     imported by `decree` (the 出神 pair, one nebula, unmoored two ways).
- *
- * The remaining boss scenes (`intaglio`, `sable`) and every stage scene are each a
- * standalone port in their own file. Exposure is PER SCENE: each file ships an
+ * The later no-repeat ruling is stricter: one reference, one scene. The former
+ * `GOLD_GLSL` sharing across signet/cordon/regnum and `VEIL_GLSL` sharing across
+ * umbra/decree were dissolved; each authored scene is now a standalone port in
+ * its own file and the v4 background index test forbids sibling-scene imports.
+ * Generic mathematical helpers may remain engine-owned, but a picture never is.
+ * Exposure is PER SCENE: each file ships an
  * `EXPOSURE` constant graded by role — stages a step below the menu, the seals a
  * calmer boss station, the 出神 pair the dimmest of all — MEASURED in the
  * acceptance pass, never chosen in advance (the luminance law in this file's

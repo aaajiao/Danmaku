@@ -10,7 +10,7 @@
  * default, the regression that a boss without a matching key is unchanged.
  *
  * It lives at the composition root, not under `src/game`: it imports the bundled
- * base pack (where `sentinel` and its `dialogueFor` now live), and `packs/bundled`
+ * v4 campaign (where `sentinel` and its `dialogueFor` now live), and `src/v4`
  * pulls in the renderer to build its inject context — which `src/game` may not do
  * (`architecture.test.ts`). Reachability keeps its single pilot character; this
  * dedicated test is the variant wire's proof.
@@ -21,7 +21,7 @@ import { describe, expect, test } from 'bun:test';
 // Registers the base pack — `sentinel` with its `dialogue` and `dialogueFor` — and
 // the built-in portraits its speakers name. Importing `Run` below registers the
 // built-in characters (`spire`, `scout`), so both halves of the pairing exist.
-import './packs/bundled';
+import './v4';
 
 import { Button } from './core/input';
 import { defineStage } from './content/stage';

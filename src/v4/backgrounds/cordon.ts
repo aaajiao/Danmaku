@@ -90,7 +90,7 @@
  * are the only departures.
  */
 
-import { defineBackground } from '../background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('cordon', {
   scrollSpeed: 0.6,

@@ -102,7 +102,7 @@
  * our GLSL reconstruction, tick clock, y-down field, grading and exposure.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('sable', {
   scrollSpeed: 0.6,

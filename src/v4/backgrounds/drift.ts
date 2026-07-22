@@ -47,7 +47,7 @@
  * palette and exposure.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('drift', {
   scrollSpeed: 0.6,

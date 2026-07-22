@@ -23,7 +23,7 @@
 import { sim, type Random } from '../core/random';
 import { getBossSpec } from '../sim/boss';
 import { EnemySystem, getEnemySpec } from '../sim/enemy';
-import { patternNames } from './patterns';
+import { patternNames } from './pattern-registry';
 
 export interface EnemyWave {
   /** Tick, relative to the stage start. */
@@ -118,7 +118,7 @@ export interface StageSpec {
    * import from `src/render` — that rule is what keeps the whole simulation
    * runnable with no GL context, and it is worth more than the convenience of
    * putting the shader next to the stage that uses it. So the shaders live in
-   * `render/backgrounds/` and a stage refers to one the same way it refers to a
+   * `src/v4/backgrounds/` and a stage refers to one the same way it refers to a
    * pattern or an enemy: by string, checked at the point of use.
    *
    * Unset means the shell keeps whatever is already on screen.
@@ -438,8 +438,8 @@ export class StageRunner {
   }
 }
 
-// Stage 1 and stage 2 are no longer defined here. They moved into the bundled
-// base pack (`src/packs/base-pack.json`, authored by `tools/make-base-pack.ts`) and
+// The four v4 stages are not defined here. They live in the compiled edition's
+// campaign (`src/v4/content/campaign.json`, authored by `tools/make-v4-content.ts`) and
 // register through the pack injector at boot. This module keeps only the
 // `defineStage` machinery and its registry; a stage is pack data now
 // (decisions-basepack.md).

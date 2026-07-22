@@ -97,7 +97,7 @@
  * exposure.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 /**
  * The ported stardust-veil. It is a **string constant only** — no new

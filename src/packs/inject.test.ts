@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import '../packs/bundled'; // built-in patterns/behaviours (via content) + the base campaign (grunt, sentinel, stage-1) the example pack references bare
+import '../v4'; // compiled patterns/behaviours/scenes + the campaign names fixtures reference bare
 import '../sim/item'; // registers built-in items (power, score, …) — content imports it type-only
 import { getShot } from '../content/shots';
 import { getStage, hasStage } from '../content/stage';
@@ -275,7 +275,7 @@ describe('atomicity — one bad name rejects the whole pack, registries untouche
 describe('a bundled pack that fails validation throws, registering nothing (decisions-basepack §Invalid=throw)', () => {
   test('a broken reference under bundled semantics throws PackInjectError and lands no bare name', () => {
     const name = uniqueName();
-    // The negative twin of the happy-path `import '../packs/bundled'` every suite
+    // The negative twin of the happy-path `import '../v4'` every suite
     // runs: that proves the VALID base pack does not throw; this proves an INVALID
     // one DOES. decisions-basepack §"Invalid = throw" binds it — a bundled pack
     // failing validation is a build defect that must fail loudly, never degrade —

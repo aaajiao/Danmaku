@@ -100,7 +100,7 @@
  * softened beat envelope, broadened speculars, coarsened mesh and exposure.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('intaglio', {
   scrollSpeed: 0.9,

@@ -47,17 +47,29 @@ src/sim/        motion DSL, collision, bullets, enemies, bosses, items,
                 bombs, options, effects, replay — engine-agnostic
 src/game/       run rules, state machine, screens — game logic, no three.js
 src/render/     three.js: instanced sprite batching, atlases, layered stage,
-                post-processing, background engine
-src/render/backgrounds/    one fragment shader per scene
-src/content/    patterns, shot types, motion behaviours, stages
+                post-processing, generic background engine and registries
+src/content/    generic pattern primitives plus shot/stage registries
+src/v4/         compiled edition root: gameplay vocabulary, authored shaders,
+                generated campaign data
 src/audio/      sound registry and runtime synthesis
+src/packs/      data-pack validation, injection and loading
+packs/v4/       project-owned raster/HUD art pack; data only, no TS or GLSL
 src/main.ts     the browser shell
 docs/           asset spec and extension guide
 ```
 
-Nothing under `src/sim/`, `src/content/` or `src/game/` imports a renderer value,
-which is what lets the whole simulation — and every determinism check — run with
-no GL context. `src/architecture.test.ts` enforces it.
+`src/v4/index.ts` is the compile-time composition root. It registers v4's
+patterns and behaviours, then its shader scenes, then the four-stage campaign;
+the generic engine and registries remain outside that directory. Nothing under
+`src/sim/`, `src/content/`, `src/game/` or `src/v4/gameplay/` imports a renderer
+value, which is what lets the whole simulation — and every determinism check —
+run with no GL context. `src/architecture.test.ts` enforces it.
+
+The similarly named `packs/v4` has a different job: it is a runtime-loaded,
+pure-data art pack containing project-owned atlases and HUD images. Packs may
+paint and arrange registered names, but no pack can inject TypeScript,
+JavaScript or GLSL. See [`src/v4/README.md`](./src/v4/README.md) for the ownership
+boundary and migration guarantees.
 
 ## Documentation
 
@@ -69,8 +81,10 @@ no GL context. `src/architecture.test.ts` enforces it.
   behaviours, art and 3D content.
 - [`docs/v4-art-direction.md`](./docs/v4-art-direction.md) — the illustrated v4
   source of truth: Japanese STG negative space, Ghost-layer women, the
-  project-owned projectile/UI package, four unchanged background shaders and
+  project-owned projectile/UI package, unchanged authored background shaders and
   BulletPack as a purchaser-local compatibility reference.
+- [`src/v4/README.md`](./src/v4/README.md) — where the compiled v4 edition ends,
+  where the generic engine begins, and why `packs/v4` remains data-only.
 
 ## The one thing to know
 

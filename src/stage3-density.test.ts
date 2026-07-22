@@ -18,7 +18,7 @@
  * player fires, every live bullet is enemy fire, so `count` is exactly the enemy
  * curtain.
  *
- * ## The three windows, all from stage-3's own waves (`base-pack.json`)
+ * ## The three windows, all from stage-3's own waves (`v4/content/campaign.json`)
  *
  * - **Stele slice [620, 780)** — the pure-stele curtain *before* the summons fans
  *   begin at spawn+24 (=784). The two steles at `at: 620` plus the one at `at: 700`
@@ -66,7 +66,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import './packs/bundled';
+import './v4';
 import { BulletSystem } from './sim/bullet';
 import { type Difficulty } from './sim/difficulty';
 import { EnemySystem } from './sim/enemy';

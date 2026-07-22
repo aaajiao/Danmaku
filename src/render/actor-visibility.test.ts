@@ -29,7 +29,7 @@ function widestPaint(
 
 describe('v4 actor contact visibility', () => {
   test('decoded enemy and boss paint covers every contact circle', async () => {
-    const base = await Bun.file(new URL('../packs/base-pack.json', import.meta.url)).json() as {
+    const base = await Bun.file(new URL('../v4/content/campaign.json', import.meta.url)).json() as {
       content: {
         enemies: Record<string, { radius: number }>;
         bosses: Record<string, { radius: number }>;

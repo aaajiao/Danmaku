@@ -1,19 +1,17 @@
 /**
- * Generate `src/packs/base-pack.json` — the built-in campaign as pack data.
+ * Generate `src/v4/content/campaign.json` — the v4 campaign as pack data.
  *
- * The game's own stage-1 and stage-2, their eight trash enemies and three
- * bosses used to live in `src/sim/enemy.ts`, `src/sim/boss.ts`,
- * `src/content/stage.ts` and `src/content/stage-2.ts` as engine TypeScript.
- * decisions-basepack.md moves them into a **bundled pack**: pack-format JSON
- * injected through the same validate+inject pipeline as any fetched pack. This
- * is the format eating the game's own content — the final proof the pack
- * surface is complete.
+ * The game's four stages, sixteen enemy types, five bosses and complete player
+ * side are authored here as a **bundled campaign**: pack-format JSON injected
+ * through the same validate+inject pipeline as any fetched pack. This is the
+ * format eating the game's own content — the final proof the data surface is
+ * complete while executable edition design stays compiled under `src/v4`.
  *
  * This file is the authoring source. The design commentary that used to sit
  * beside the specs in those four modules survives here as comments (a pack's
- * JSON cannot carry them), and the file emits `src/packs/base-pack.json`
+ * JSON cannot carry them), and the file emits `src/v4/content/campaign.json`
  * deterministically — stable key order, `JSON.stringify(..., null, 2)`. A drift
- * test (`tools/make-base-pack.test.ts`) regenerates and byte-diffs against
+ * test (`tools/make-v4-content.test.ts`) regenerates and byte-diffs against
  * the checked-in file, so the JSON can never drift from this source
  * unnoticed. The authoring rule is one-way: code may generate data; data never
  * carries code.
@@ -38,7 +36,7 @@
  * `fiat`) and the `sentinel`/`warden`/`magistrate`/`player` portraits by name —
  * it declares no assets of its own.
  *
- * Run with `bun tools/make-base-pack.ts`.
+ * Run with `bun tools/make-v4-content.ts`.
  */
 
 import { createHash } from 'node:crypto';
@@ -1389,7 +1387,7 @@ const enemies: PackContent['enemies'] = {
    * Lunatic adds an arm to the spiral and turns the stamp's gap harder.
    *
    * Its spoils include a bomb: it is the carrier the economy test now requires per
-   * stage (`tools/make-base-pack.test.ts`), and the assessor reprise below is a
+   * stage (`tools/make-v4-content.test.ts`), and the assessor reprise below is a
    * second, so the stage hands back bombs before the boss door on every tier.
    */
   notary: {
@@ -1537,7 +1535,7 @@ const bosses: PackContent['bosses'] = {
         isSpell: true,
         bonus: 200000,
         // 'signet' is sentinel's seal — the cell stated plainly, stamped over the
-        // stage field when the first card lands (see render/backgrounds/signet.ts).
+        // stage field when the first card lands (see src/v4/backgrounds/signet.ts).
         background: 'signet',
         // Stationary: the card is a shape to be read, and a moving source would
         // smear it into noise.
@@ -1637,7 +1635,7 @@ const bosses: PackContent['bosses'] = {
         difficulties: ['lunatic'],
         bonus: 800000,
         // 'umbra' — the seal unmoored: signet drifts off-station, a radial moiré
-        // swims, never brighter (render/backgrounds/umbra.ts). Lunatic-only.
+        // swims, never brighter (src/v4/backgrounds/umbra.ts). Lunatic-only.
         background: 'umbra',
         // The one per-card track in the game: this Lunatic-only card lifts to its
         // own theme for its duration, overriding sentinel's `nemesis` exactly as
@@ -1725,7 +1723,7 @@ const bosses: PackContent['bosses'] = {
         isSpell: true,
         bonus: 120000,
         // 'cordon' — the seal truncated: a broken half-arc, a picket line
-        // (render/backgrounds/cordon.ts). Olive-brass over undertow's indigo.
+        // (src/v4/backgrounds/cordon.ts). Olive-brass over undertow's indigo.
         background: 'cordon',
         // Stationary. A beam's telegraph is a promise about where the line will
         // be, and a moving muzzle breaks it.
@@ -1871,7 +1869,7 @@ const bosses: PackContent['bosses'] = {
         isSpell: true,
         bonus: 150000,
         // 'intaglio' — the seal inverted: the rosette is the cut void, the ground
-        // the fill (render/backgrounds/intaglio.ts). Bone over undertow's indigo.
+        // the fill (src/v4/backgrounds/intaglio.ts). Bone over undertow's indigo.
         background: 'intaglio',
         motion: { r: 0 },
         patterns: [
@@ -2065,7 +2063,7 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 7,
         isSpell: false,
         // 'sable' — the seal darkened: pressed nearly shut, oxblood, the darkest
-        // scene (render/backgrounds/sable.ts). Against stratum's verdigris.
+        // scene (src/v4/backgrounds/sable.ts). Against stratum's verdigris.
         background: 'sable',
         // A slow horizontal drift, reversed so it paces rather than leaves —
         // aimed streams you weave against, from a moving source.
@@ -2200,7 +2198,7 @@ const bosses: PackContent['bosses'] = {
         // 'sable' — chancellor's OWN darkened seal, not magistrate's 'intaglio':
         // the campaign holds one scene per boss (design §E), so a beam card here
         // stays under chancellor's scene, and it names a scene that already exists
-        // (render/backgrounds/sable.ts) — no new shader.
+        // (src/v4/backgrounds/sable.ts) — no new shader.
         background: 'sable',
         // Stationary. A beam's telegraph is a promise about where the line will be,
         // and a moving muzzle breaks it — the same law 'Picket Line' and
@@ -2281,7 +2279,7 @@ const bosses: PackContent['bosses'] = {
         // once — spiral, aimed-fan and a rotating ring — but the authored lane
         // never closes (readable at the 2000-bullet budget, never the 5000 soup).
         // It lifts to its own drier, closer track for its duration, on the shared
-        // 出神 scene `decree` (the seal draining, render/backgrounds/decree.ts),
+        // 出神 scene `decree` (the seal draining, src/v4/backgrounds/decree.ts),
         // exactly as 'Total Eclipse' pairs `zenith`+`umbra`. `decree` is shared by
         // this card and the regent's 'Sine Die', the one scene for the one `fiat`
         // track. Reached only on the shared Lunatic full run.
@@ -2365,7 +2363,7 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 8,
         isSpell: false,
         // 'regnum' — the seal resolved and filled, crimson on the empty seat
-        // (render/backgrounds/regnum.ts). Against vault's gold.
+        // (src/v4/backgrounds/regnum.ts). Against vault's gold.
         background: 'regnum',
         // A slow horizontal pace, reversed so it stations rather than leaves —
         // aimed streams from a moving source, the chancellor's opener recalled.
@@ -3460,52 +3458,54 @@ const MANIFEST: PackManifest = {
  * through the real `validateManifest` first: this generator cannot emit a pack
  * its own validator would reject.
  */
-export function buildBasePackJson(): string {
+export function buildV4ContentJson(): string {
   const result = validateManifest(MANIFEST, MANIFEST.name);
   if ('errors' in result) {
-    throw new Error(`make-base-pack: manifest is invalid:\n  ${result.errors.join('\n  ')}`);
+    throw new Error(`make-v4-content: manifest is invalid:\n  ${result.errors.join('\n  ')}`);
   }
   return JSON.stringify(MANIFEST, null, 2) + '\n';
 }
 
 /** The checked-in path the generator writes and the drift test reads. */
-export const BASE_PACK_PATH = fileURLToPath(new URL('../src/packs/base-pack.json', import.meta.url));
+export const V4_CONTENT_PATH = fileURLToPath(
+  new URL('../src/v4/content/campaign.json', import.meta.url),
+);
 
 /**
- * The generated fingerprint module's text: a SHA-256 of the base-pack JSON
+ * The generated fingerprint module's text: a SHA-256 of the v4 campaign JSON
  * bytes, truncated to 12 hex exactly like `hashPack`, wrapped in one exported
- * constant. Derived from `buildBasePackJson()` so the two artifacts are
+ * constant. Derived from `buildV4ContentJson()` so the two artifacts are
  * fingerprint-of-content by construction — the hash can never describe an older
  * JSON than the one shipped beside it. This is the base content's identity in
  * replay meta (`RunConfig.contentFingerprint`): a recording pins it, and a
  * later engine whose bundled content has drifted meets a different hash and is
  * refused rather than silently replaying under content it was not recorded on.
  */
-export function buildBasePackFingerprint(): string {
-  const fingerprint = createHash('sha256').update(buildBasePackJson()).digest('hex').slice(0, 12);
+export function buildV4ContentFingerprint(): string {
+  const fingerprint = createHash('sha256').update(buildV4ContentJson()).digest('hex').slice(0, 12);
   return (
-    `// GENERATED by tools/make-base-pack.ts — do not edit; run \`bun tools/make-base-pack.ts\`.\n` +
-    `// SHA-256 of src/packs/base-pack.json (first 12 hex), the bundled base\n` +
+    `// GENERATED by tools/make-v4-content.ts — do not edit; run \`bun tools/make-v4-content.ts\`.\n` +
+    `// SHA-256 of src/v4/content/campaign.json (first 12 hex), the bundled v4\n` +
     `// content's identity in replay meta (see RunConfig.contentFingerprint in\n` +
-    `// src/game/run.ts). tools/make-base-pack.test.ts byte-diffs it against the\n` +
+    `// src/game/run.ts). tools/make-v4-content.test.ts byte-diffs it against the\n` +
     `// generator, so it cannot silently disagree with the JSON it fingerprints.\n` +
     `export const CONTENT_FINGERPRINT = '${fingerprint}';\n`
   );
 }
 
 /** The checked-in path of the generated fingerprint module. */
-export const BASE_PACK_FINGERPRINT_PATH = fileURLToPath(
-  new URL('../src/packs/base-pack.fingerprint.ts', import.meta.url),
+export const V4_CONTENT_FINGERPRINT_PATH = fileURLToPath(
+  new URL('../src/v4/content/campaign.fingerprint.ts', import.meta.url),
 );
 
 if (import.meta.main) {
-  const text = buildBasePackJson();
-  const fingerprint = buildBasePackFingerprint();
-  mkdirSync(fileURLToPath(new URL('../src/packs/', import.meta.url)), { recursive: true });
-  writeFileSync(BASE_PACK_PATH, text);
-  writeFileSync(BASE_PACK_FINGERPRINT_PATH, fingerprint);
+  const text = buildV4ContentJson();
+  const fingerprint = buildV4ContentFingerprint();
+  mkdirSync(fileURLToPath(new URL('../src/v4/content/', import.meta.url)), { recursive: true });
+  writeFileSync(V4_CONTENT_PATH, text);
+  writeFileSync(V4_CONTENT_FINGERPRINT_PATH, fingerprint);
   // eslint-disable-next-line no-console
-  console.log(`wrote ${BASE_PACK_PATH} (${text.length} bytes)`);
+  console.log(`wrote ${V4_CONTENT_PATH} (${text.length} bytes)`);
   // eslint-disable-next-line no-console
-  console.log(`wrote ${BASE_PACK_FINGERPRINT_PATH} (${fingerprint.length} bytes)`);
+  console.log(`wrote ${V4_CONTENT_FINGERPRINT_PATH} (${fingerprint.length} bytes)`);
 }

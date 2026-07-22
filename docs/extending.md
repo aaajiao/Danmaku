@@ -10,11 +10,25 @@ Base-campaign character or stage art must also follow
 negative-space hierarchy and retained-shader rules are the current visual source
 of truth, not optional examples.
 
+The active edition has an explicit composition boundary. Generic pattern
+registration, `Emitter`, and geometry primitives live in
+`src/content/pattern-registry.ts`; the actual built-in v4 pattern definitions
+live in `src/v4/gameplay/patterns.ts`, and v4 motion behaviours live in
+`src/v4/gameplay/behaviours.ts`. Authored shader scenes live in
+`src/v4/backgrounds/`. The four-stage campaign is generated as
+`src/v4/content/campaign.json` by `tools/make-v4-content.ts`, then validated and
+injected by `src/v4/content/index.ts`. That generated JSON is not an authoring
+surface: make intentional content changes in the generator and regenerate it.
+The edition move itself is replay-neutral and does not invite edits to the
+frozen historical stage-1/stage-2 manifest description. `packs/v4` is separate: it is the
+data-only raster-art pack and contains no executable patterns, behaviours, or
+GLSL.
+
 | You want to add | Call | In |
 |---|---|---|
 | A bullet | (no registry — a `BulletSpec` value) | `src/sim/bullet.ts` |
-| A danmaku pattern | `definePattern` | `src/content/patterns.ts` |
-| Motion the polar model cannot express | `defineBehaviour` | `src/sim/motion.ts` |
+| A danmaku pattern | `definePattern` | registry/primitives: `src/content/pattern-registry.ts`; v4 definitions: `src/v4/gameplay/patterns.ts` |
+| Motion the polar model cannot express | `defineBehaviour` | registry/mechanics: `src/sim/motion.ts`; v4 definitions: `src/v4/gameplay/behaviours.ts` |
 | An enemy | `defineEnemy` | `src/sim/enemy.ts` |
 | A boss | `defineBoss` | `src/sim/boss.ts` |
 | A stage | `defineStage` | `src/content/stage.ts` |
@@ -25,7 +39,7 @@ of truth, not optional examples.
 | A particle effect | `defineEffect` | `src/sim/effects.ts` |
 | A sound | `defineSound` | `src/audio/index.ts` |
 | A music track | `defineMusic` | `src/audio/music.ts` |
-| A background scene | `defineBackground` | `src/render/background.ts` |
+| A background scene | `defineBackground` | engine API: `src/render/background.ts`; v4 scenes: `src/v4/backgrounds/` |
 | A dialogue portrait | `definePortrait` | `src/render/portrait.ts` |
 | A sprite region | `Atlas.define` / `Atlas.defineGrid` | `src/render/atlas.ts` |
 | A render layer | a `Layer` constant | `src/render/stage.ts` |
@@ -35,15 +49,17 @@ Two facts about registries that will bite you before anything else does:
 - **They throw on duplicate names.** `definePattern({ name: 'ring' })` twice is
   an error at import time, not a silent overwrite. A silent overwrite would mean
   the entry a spec resolves to depends on module load order, which is the
-  load-order dependence `patterns.ts` was written to avoid, and it would rebind
-  content nobody touched. Tests that register their own entries must namespace
+  load-order dependence `pattern-registry.ts` was written to avoid, and it
+  would rebind content nobody touched. Tests that register their own entries must namespace
   them — see the `NS` constant in `src/content/patterns.test.ts`. `defineSound`
   is the deliberate exception, and §10 says why.
 - **Registration happens on import.** A `BulletSpec` naming
   `behaviour: 'homing'` throws at *spawn* time if nothing imported the module
-  that registered it. `src/content/shots.ts:24-28` carries that import with a
-  comment explaining that it is load-bearing rather than tidiness. Import content
-  modules for their side effects from wherever you assemble a stage.
+  that registered it. The v4 composition root imports
+  `src/v4/gameplay/behaviours.ts` and `src/v4/gameplay/patterns.ts` before
+  `src/v4/content/index.ts` injects the campaign; that content index repeats the
+  side-effect imports so it is self-sufficient. Import definition modules before
+  assembling any content that names them.
 
 Content is referenced **by name, never by index**, so repacking an atlas or
 reordering a table cannot repoint at the wrong thing.
@@ -190,8 +206,8 @@ blob around the muzzle. Tested against a circle at its stored position instead, 
 an emitter parked above the field firing down has its beam deleted on the tick it
 spawns while most of the body — and all of the hitbox — is on screen.
 
-Growth and warmup want tuning together. The base pack's stage-2 lance (`LANCE`,
-now JSON ammo in `base-pack.json`, authored in `tools/make-base-pack.ts`) is 40px
+Growth and warmup want tuning together. The v4 campaign's stage-2 lance (`LANCE`,
+generated into `src/v4/content/campaign.json` from `tools/make-v4-content.ts`) is 40px
 plus 28 ticks at 22px/tick, which is 656 against a 600 cap, so the beam finishes
 drawing itself out at almost exactly the tick it becomes lethal: the player
 watches a line reach across the field, and then it is live.
@@ -266,7 +282,7 @@ anything else keeps it alive.
 
 ```ts
 // src/content/lattice.ts
-import { definePattern, fan, aimAngle } from './patterns';
+import { definePattern, fan, aimAngle } from './pattern-registry';
 import type { BulletSpec } from '../sim/bullet';
 
 interface LatticeOptions {
@@ -321,11 +337,11 @@ variation is the firing *slot's* job, on the enemy (§4) or boss (§5) that name
 the pattern, never the factory's.
 
 **Type the parameter; do not cast it.** `PatternDefinition.create` declares
-`options?: Readonly<Record<string, unknown>>` (`src/content/patterns.ts:40`)
+`options?: Readonly<Record<string, unknown>>` (`src/content/pattern-registry.ts:40`)
 because the registry cannot know your shape — but `create` is written as a
 method, and TypeScript compares method parameters bivariantly, so narrowing it to
 your own `Readonly<Partial<T>>` is accepted. That is what all four built-ins do
-(`src/content/patterns.ts:165, 196, 235, 264`), and nothing outside the tests
+(`src/v4/gameplay/patterns.ts`), and nothing outside the tests
 casts through `unknown`. A cast buys the same field access and gives up every
 check on the way to it.
 
@@ -333,7 +349,7 @@ check on the way to it.
 where any field may be missing, and pretending otherwise only moves the
 `undefined` somewhere the compiler has stopped looking. The built-ins funnel the
 one field that cannot be defaulted through `requireSpec`
-(`src/content/patterns.ts:143-151`). That helper is module-private, so a pattern
+(`src/v4/gameplay/patterns.ts:23-31`). That helper is module-private, so a pattern
 defined in another file writes the two lines above by hand.
 
 ### The EmitContext
@@ -411,7 +427,7 @@ Pin it down with a test:
 import { test, expect } from 'bun:test';
 import { Random } from '../core/random';
 import { BulletSystem } from '../sim/bullet';
-import { Emitter } from './patterns';
+import { Emitter } from './pattern-registry';
 import { iceOrb } from './bullets';
 import './lattice';   // load-bearing: nothing else registers the pattern
 
@@ -439,7 +455,7 @@ test('lattice is reproducible from its seed', () => {
 
 That side-effect import is the trap the preamble describes, and this test is where
 it is easiest to drop: `Emitter` resolves the name through `createPattern`, which
-throws `unknown pattern "lattice"` (`src/content/patterns.ts:57`) — a failure about
+throws `unknown pattern "lattice"` (`src/content/pattern-registry.ts:57`) — a failure about
 the import graph, reported from a test about determinism.
 
 ---
@@ -453,8 +469,9 @@ after the derivatives and clamps have been applied.
 
 **Pick a name nobody has taken.** `defineBehaviour` throws
 `motion behaviour "x" is already defined` (`src/sim/motion.ts:107-111`), at
-import time, and the four already registered are `homing`, `waver`,
-`accelerate-to` and `orbit` (`src/content/behaviours.ts:81, 114, 146, 190`).
+import time, and the five v4 behaviours already registered are `homing`, `waver`,
+`accelerate-to`, `orbit`, and `beam-sweep`
+(`src/v4/gameplay/behaviours.ts`).
 `behaviourNames()` lists them at runtime. The registry refuses rather than
 overwrites for the reason every registry here does: an overwrite would make the
 behaviour a spec resolves to a function of module load order, and it would
@@ -489,8 +506,9 @@ defineBehaviour('intercept', (vector, context) => {
 ```
 
 **`atan2Deg` and `deltaDeg`, never `Math.atan2` and never `* 180 / Math.PI`.**
-A behaviour lives in `src/sim` or `src/content`, both of which
-`src/determinism.test.ts` scans, so an approximated `Math` call here does not
+V4 behaviours live in `src/v4/gameplay/behaviours.ts`; the generic registry and
+motion machinery stay in `src/sim/motion.ts`. `src/determinism.test.ts` scans
+both trees, so an approximated `Math` call here does not
 merely risk a divergence — it fails the suite. The reason it is banned is in
 `src/sim/motion.ts:12-29`: this value is integrated into position, a 1-ULP
 disagreement between engines drifts a bullet across a hitbox edge, the flipped
@@ -532,8 +550,8 @@ Notes that are easy to get wrong:
   `MoveVector.init` zeroes `vector.age` (`src/sim/motion.ts:186`) every time a
   segment falls due. A window gated on `context.age` is therefore already expired
   if a `MotionTimeline` hands the vector a steering segment at tick 200. Every
-  shipped behaviour gates on `vector.age` (`src/content/behaviours.ts:85, 118,
-  150, 194`) and the module states the distinction at `:21-29`. Behaviours run
+  shipped behaviour gates on `vector.age` (`src/v4/gameplay/behaviours.ts`) and
+  the module states the distinction at `:21-29`. Behaviours run
   before `step()` increments it, so a segment's first invocation sees age 0.
 - **`context.targetX/targetY` are the target for *this bullet's faction*,
   chosen before the behaviour runs.** `BulletSystem.step` takes two aim points
@@ -567,8 +585,8 @@ This is the sim stream. Every draw shifts the sequence for everything after it,
 so a behaviour that draws every tick on every bullet is a determinism hazard
 even though it is perfectly reproducible — gate it on a period, as above.
 
-The four shipped behaviours draw nothing at all, and
-`src/content/behaviours.ts:31-40` says so on purpose: it is a property content
+The five shipped v4 behaviours draw nothing at all, and
+`src/v4/gameplay/behaviours.ts:31-40` says so on purpose: it is a property content
 depends on. Because they perturb no stream, *attaching* one to an existing
 pattern cannot move any other bullet in the run, which is what makes them safe to
 add to a pattern that already has fixtures. A behaviour that draws is understood
@@ -639,7 +657,7 @@ is entirely spoils data — nothing in `Run` learns a new rule. Two doctrines:
 - **Every stage fields a mid-stage bomb carrier.** One trash type per stage — a
   wall the player must fight, not an edge-skimmer — carries `['bomb', 1]` in its
   spoils, sized against how often it spawns so the stage yields 2-4 bombs on every
-  tier (spawn counts are not tier-scaled). `tools/make-base-pack.test.ts` asserts
+  tier (spawn counts are not tier-scaled). `tools/make-v4-content.test.ts` asserts
   this invariant over the shipped pack, so re-authoring a wave set cannot silently
   drop the carrier and regress the economy to boss-only bombs.
 - **Bosses declare their spoils explicitly.** The shipped bosses each name their
@@ -743,7 +761,7 @@ callback firing there would run arbitrary game code while the live list is being
 rewritten.
 
 `despawnMargin` defaults to the field's own margin. Raise it for something that
-dives off the edge and is meant to come back: the base-pack `turret` carries 96
+dives off the edge and is meant to come back: the v4 campaign's `turret` carries 96
 because it crawls in from well above the field. The cull also refuses to fire
 until the enemy has been inside the field once (`Enemy.entered`,
 `src/sim/enemy.ts:127-134`), or every authored entrance would be deleted on the
@@ -752,10 +770,11 @@ spawns outside and travels further out is never culled at all. It is a content
 bug, and only the pool ceiling bounds it.
 
 `src/sim/enemy.ts` holds only the mechanism and its registry now — no cast. The
-base game's enemies (`grunt`, `weaver`, `turret`, stage-2's five, stage-3's four
+base game's enemies (`grunt`, `weaver`, `turret`, stage-2's five, stage-3's five
 and stage-4's three) moved into
-the bundled base pack, authored as JSON in `tools/make-base-pack.ts` and
-registered through the injector at boot (`docs/packs.md` §9.7). Adding
+the bundled v4 campaign, generated as `src/v4/content/campaign.json` from
+`tools/make-v4-content.ts` and registered through `src/v4/content/index.ts` at
+boot (`docs/packs.md` §9.7). Adding
 an enemy to the base campaign is a generator edit, not an inline `defineEnemy`;
 the `defineEnemy` surface remains for engine-registered content and for the tests
 that fixture their own. Nothing in the system above knows any enemy exists.
@@ -1003,7 +1022,8 @@ exists precisely so this cannot be done by hand; `src/sim/boss.ts`'s
 
 **Adding a boss to the base campaign is a generator edit.** `sentinel`, `warden`,
 `magistrate`, `chancellor` and `regent` are no longer engine `defineBoss` calls —
-they are JSON in `base-pack.json`, authored in `tools/make-base-pack.ts`, where a card states its
+they are generated JSON in `src/v4/content/campaign.json`, authored in
+`tools/make-v4-content.ts`, where a card states its
 health as `hpSeconds` (the same `phaseHp` seconds, reconverted by the injector)
 rather than calling `phaseHp` in TypeScript. The `defineBoss` surface documented
 above stays for engine-registered content and for a guest pack's injector path;
@@ -1083,7 +1103,7 @@ read until the slot's `startAt` falls due and detonates from inside
 `EnemySystem.step` an arbitrary number of ticks after the enemy appeared. This is
 deliberately not done in `defineStage`: a content file defining its own enemies
 would then have to be imported in the right order, which is the load-order trap
-`patterns.ts` was written to avoid.
+`pattern-registry.ts` was written to avoid.
 
 **`boss` and `next` are how a stage joins the game.** `boss` names the fight sent
 once the script is spent and the field is clear; `next` names the stage that
@@ -1128,12 +1148,14 @@ title menu grows a row per entry, so a pack stage is reachable without touching
 
 **The base game's own stages are that pack data.** `stage-1`, `stage-2`,
 `stage-3` and `stage-4` are no longer `defineStage` calls in `src/content/stage.ts`
-— that file keeps only the machinery. They are JSON in `base-pack.json`, authored
-in `tools/make-base-pack.ts`, and injected bare (no campaign row: the entry stage
+— that file keeps only the machinery. They are generated JSON in
+`src/v4/content/campaign.json`, authored in `tools/make-v4-content.ts`, and
+injected bare by `src/v4/content/index.ts` (no campaign row: the entry stage
 takes the plain START row). So extending the base campaign — a new stage, or a
 new wave in an existing one — is a generator edit; `docs/packs.md` §9.7
-covers how it round-trips byte-for-byte and the drift test that holds it.
-The worked example is **`stage-3`** (`tools/make-base-pack.ts:1619`): its
+covers how it round-trips byte-for-byte and the drift test that holds it. Do not
+hand-edit `campaign.json`; it is generated, replay-guarded output.
+The worked example is **`stage-3`** (`tools/make-v4-content.ts`): its
 wave arc and its `boss: 'chancellor'` handoff are the same `StageSpec` fields
 above, authored in the generator's JSON rather than through `defineStage`. It is
 no longer the campaign's last stage — its `next` names `stage-4`, whose own
@@ -1155,8 +1177,9 @@ shots, four option sets and two bombs they fly — are no longer inline `define*
 `src/content/shots.ts`, `src/sim/option.ts`, `src/sim/bomb.ts` or `src/game/run.ts`;
 those files keep only the registries, the systems and the runtime constants they
 read (`FORWARD` and `DEFAULT_FOLLOW_SPEED` stay in `option.ts` — the option system
-reads them every tick). The five characters and their loadouts are JSON in
-`base-pack.json`, authored in `tools/make-base-pack.ts` and injected at boot
+reads them every tick). The five characters and their loadouts are generated JSON in
+`src/v4/content/campaign.json`, authored in `tools/make-v4-content.ts` and
+injected at boot by `src/v4/content/index.ts`
 (`docs/packs.md` §9.7). So adding a ship to the **base** roster is a generator
 edit; the `define*` surfaces below stay for engine-registered content, for a guest
 pack's injector path, and for the tests that fixture their own. The subsections
@@ -1218,7 +1241,7 @@ that reach `~180px` — so a boss stationed at the top of the field (~240px from
 pilot's usual station) takes **no** damage until `maw` flies up into the pocket,
 which is the whole character. A leash like this is pure data, priced by the
 balance wall like any other weapon: the shorter the reach, the higher the
-up-close rate it can carry (`scatter` in `tools/make-base-pack.ts`). No engine
+up-close rate it can carry (`scatter` in `tools/make-v4-content.ts`). No engine
 mechanism is involved — `life` already expires bullets; a player weapon just gets
 to choose the number as a design axis, the inverse of `laser` buying range back
 per tier.
@@ -1683,7 +1706,8 @@ before. Until then, offset the draw call.
 A background is a full-screen fragment shader. `src/render/background.ts` owns
 only the shared part — a quad at `Layer.Background`, a fixed set of uniforms, and
 a cross-fade — and knows the name of no scene at all. The scenes live one per
-file in `src/render/backgrounds/`.
+file in `src/v4/backgrounds/`. The old `src/render/backgrounds/index.ts` path is
+only a compatibility entry point; it is not the authored scene source.
 
 `BackgroundSpec` is `fragment`, plus optional `uniforms` and `scrollSpeed`
 (`src/render/background.ts:138-145`). The shader body must define the entry
@@ -1692,8 +1716,8 @@ increasing downward**, matching the space content is authored in. Return linear
 colour; the wrapper applies `uIntensity` and the cross-fade alpha.
 
 ```ts
-// src/render/backgrounds/ashfall.ts
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+// src/v4/backgrounds/ashfall.ts
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('ashfall', {
   scrollSpeed: 0.5,
@@ -1710,7 +1734,7 @@ ${BACKGROUND_NOISE_GLSL}
 });
 ```
 
-Then add `import './ashfall';` to `src/render/backgrounds/index.ts`.
+Then add `import './ashfall';` to `src/v4/backgrounds/index.ts`.
 `index.test.ts` reads the directory and fails when a file is missing from that
 list — because a background module nothing imports never calls
 `defineBackground`, so the scene does not exist at runtime and
@@ -1785,42 +1809,26 @@ both shipped perspective scenes decay their *structured* terms much faster than
 their brightness: what survives near the horizon is a smooth gradient with
 nothing left to alias.
 
-Read `src/render/backgrounds/expanse.ts` and `undertow.ts` before writing one.
+Read `src/v4/backgrounds/expanse.ts` and `undertow.ts` before writing one.
 They carry the reasoning at length — including why `undertow` has exactly six
 flutes, which is a genuine seam problem with a non-obvious fix — and it is not
 worth repeating here.
 
-### A family of scenes sharing one ported basis: the seal idiom
+### One reference, one scene: the no-repeat rule
 
-Not every new scene should be a scene written from nothing. The five boss
-scenes — `signet`, `cordon`, `intaglio`, `sable`, `regnum` — and the two
-Lunatic-only 出神 scenes — `umbra`, `decree` — are each a **near-identical port
-of a pbakaus/radiant reference** (MIT), because identity comes from porting the
-reference, not from an engine grammar wearing a palette. There is no single
-`SEAL_GLSL` cell for the whole family any more; it was retired. Where several
-members share one picture, the scene that OWNS the port exports it as a string
-constant and its siblings import it — for the same reason `BACKGROUND_NOISE_GLSL`
-lives once: a shape reused by several scenes lives once, or the copies drift.
-There are two shared bases, each owned by a scene:
+The five boss scenes — `signet`, `cordon`, `intaglio`, `sable`, `regnum` — and
+the two Lunatic-only 出神 scenes — `umbra`, `decree` — are standalone ports of
+their own references. There is no engine `SEAL_GLSL` cell and no sibling-owned
+visual basis. Earlier versions shared `GOLD_GLSL` across signet/cordon/regnum
+and `VEIL_GLSL` across umbra/decree; both arrangements were retired because
+palette and parameter variants still read as the same picture.
 
-  - `GOLD_GLSL` — the `liquid-gold` port, owned by `backgrounds/signet.ts` and
-    imported by `cordon` and `regnum`. `signet` is the reference ungraded; the
-    other two pass their own variant set to `goldScene(...)` — a hue `tint`, an
-    `exposure`, a `fill` (dark rest → fuller field), a saturation, and a `calm`
-    (a gentle radial dim at the boss station). One molten-gold pool, three hues.
-  - `VEIL_GLSL` — the `stardust-veil` port, owned by `backgrounds/umbra.ts` and
-    imported by `decree`. One cosmic nebula, unmoored two ways.
-
-The other boss scenes — `intaglio`, `sable` — are standalone ports in their own
-file, reusing no basis. This is the visual counterpart of `defineMusic` composing
-a track from one `CELL_*` motif and a root: where a picture is shared, identity
-lives in the ported basis and individuality is one variant set plus a hue.
-
-Each member file is short: import the basis it is cut from (plus
-`BACKGROUND_NOISE_GLSL` when the basis reads `bgNoise`, as `VEIL_GLSL` does),
-declare an `EXPOSURE` graded for its role, and call the basis's scene function
-with its variant parameters. The picture is the reference; the file only grades
-and modulates it.
+`src/v4/backgrounds/index.test.ts` makes that ruling structural: no authored
+scene may import another scene. Generic, identity-free maths such as
+`BACKGROUND_NOISE_GLSL` may remain engine-owned; composition, geometry, palette,
+exposure and motion that make a scene recognisable stay in that scene's own file.
+When adding one, port its reference directly, declare its own `EXPOSURE`, and
+import only the generic background engine/helpers.
 
 The two 出神 scenes are the veil **unmoored**: the field drifts and precesses
 (`sin`/`cos` of `uScroll`, never a wall clock — rule 1 binds this file exactly as
@@ -1833,13 +1841,10 @@ would cost more than the signal is worth: the same reason `expanse`/`undertow`
 decay their *structured* terms near the horizon rather than dimming — losing a
 bullet is worse than losing a flourish.
 
-If you are adding a new *family* of scenes — several thin variations on one
-picture, rather than one more standalone place — this is the pattern: port the
-reference once in the scene that owns it, export it as a string constant, give it
-a fixed vocabulary of variant parameters, and write one file per member that
-imports it, sets those parameters, and grades its own palette and exposure.
-Reserve it for that case; a stage scene like `expanse` or `stratum` is one place
-and stays one file.
+If several proposals are only thin variations on one picture, keep the strongest
+as one scene rather than manufacturing a family through hue shifts. A new scene
+earns a new file by having its own spatial structure and motion, not merely a new
+palette.
 
 ### Dialogue portraits: `definePortrait`, a sibling render registry
 
@@ -2132,14 +2137,16 @@ drags three.js in has already spent the thing the rule was buying.
 **The escape hatch, when you need a value.** Name it as a string in the content
 layer and resolve it in the shell. `StageSpec.background` is exactly that
 pattern: the stage says `'expanse'`, `src/main.ts` imports
-`./render/backgrounds` for its side effects, and the two halves meet in the one
-module that is allowed to know both. If that shape does not fit what you are
+the `./v4` composition root, which installs `src/v4/backgrounds` for its side
+effects, and the two halves meet in the one module that is allowed to know both.
+The historical `./render/backgrounds` import is compatibility-only. If that shape does not fit what you are
 doing, the design is wrong rather than the rule — which is what the repository
 layout section means when it says so.
 
-The scanner covers `sim`, `content` and `game` (`src/architecture.test.ts:45`).
-`src/game/` was a convention there for a while and is now enforced with the other
-two — it passes with no renderer import of any kind, type-only included.
+The scanner covers `sim`, `content`, `game`, and `v4/gameplay`
+(`src/architecture.test.ts:45`). `src/game/` was a convention there for a while
+and is now enforced with the other headless trees — they pass with no renderer
+import of any kind, type-only included.
 
 ---
 

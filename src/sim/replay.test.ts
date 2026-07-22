@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test';
 
 import { Button } from '../core/input';
 import { Random } from '../core/random';
-import { Emitter } from '../content/patterns';
+import '../v4/gameplay/patterns';
+import { Emitter } from '../content/pattern-registry';
 import { BulletSystem, type BulletSpec, type FieldBounds } from './bullet';
 import {
   deserialize,

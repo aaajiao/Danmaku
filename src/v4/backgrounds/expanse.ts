@@ -48,7 +48,7 @@
  * bokeh broadened, exposure ours.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('expanse', {
   scrollSpeed: 0.7,

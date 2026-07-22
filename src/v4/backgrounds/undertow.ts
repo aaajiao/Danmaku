@@ -52,7 +52,7 @@
  * eased haze frequency, exposure ours.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('undertow', {
   scrollSpeed: 0.9,

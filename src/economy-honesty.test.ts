@@ -19,7 +19,7 @@
  *
  * The design conserved the aggregates on paper (39,000 across the five bosses,
  * 1,500 across the two trash carriers, 40,500 in all, identical old-vs-new). Part 1
- * re-derives those numbers from the SHIPPED data (`base-pack.json` spoils) crossed
+ * re-derives those numbers from the shipped v4 campaign spoils crossed
  * with the item registry (`getItemSpec(name).value`), so a gem re-valued, a count
  * mistyped, or a boss redenominated off its own target fails here by name — the
  * same "a tuning constant no test can measure will drift" discipline `balance.test`
@@ -59,11 +59,11 @@
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
-import './packs/bundled';
-// The shipped base-pack DATA, read at the root/composition layer (as the beam and
+import './v4';
+// The shipped v4 campaign data, read at the root/composition layer (as the beam and
 // item reachability tests do) — `src/content` may not import `src/packs`, so the
 // spoils invariant is pinned here, where the base pack is data.
-import basePack from './packs/base-pack.json';
+import basePack from './v4/content/campaign.json';
 import { Button } from './core/input';
 import { fx, sim } from './core/random';
 import { getStage } from './content/stage';

@@ -7,20 +7,10 @@
  * all. Anything added here that decides something belongs in `Run` instead.
  */
 
-// Side-effect import: content registers itself when its module is evaluated, so
-// a stage nothing imports simply does not exist at runtime. See content/index.ts.
-import './content';
-// Same reason, for the scenes. A stage names its background as a string, so a
-// background module nobody imports fails at the moment the stage is entered —
-// far from the file that is actually missing. See render/backgrounds/index.ts.
-import './render/backgrounds';
-// The built-in campaign is a bundled pack now: stage-1/stage-2, their cast and
-// bosses register by injecting `base-pack.json` at import. It must run AFTER
-// content (the patterns it names) and the scenes/portraits above, and BEFORE
-// loadPacks below so a fetched pack naming a base name still qualifies away from
-// it. START keeps resolving 'stage-1'. See packs/bundled.ts.
-import './packs/bundled';
-import { CONTENT_FINGERPRINT } from './packs/bundled';
+// The compiled v4 edition installs its deterministic patterns and behaviours,
+// byte-pinned shaders, and four-stage campaign in dependency order. Arbitrary
+// asset packs remain data-only and load afterward.
+import { CONTENT_FINGERPRINT } from './v4';
 
 import * as THREE from 'three';
 import { Audio, defineSound } from './audio';
@@ -482,8 +472,8 @@ window.addEventListener('keydown', (e) => {
 // reach the game as plain data: `src/game` may not import `src/packs`, so the
 // loader hands over flat `{ label, stage, packsData }` records and `TitleState`
 // arms `ctx.stage`/`ctx.packsData` from the chosen row. The list is only
-// populated because module-eval order guarantees the wire: `import './content'`
-// (built-ins register) runs before this file's top-level `await loadPacks()`
+// populated because module-eval order guarantees the wire: `import './v4'`
+// (the compiled edition registers) runs before this file's top-level `await loadPacks()`
 // (which injects each pack's content into those same registries), which runs
 // before the state machine below is constructed — so every campaign a row can
 // select names a stage that already exists by the time a player reaches it.

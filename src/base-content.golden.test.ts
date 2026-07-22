@@ -13,7 +13,7 @@
  * registry snapshot pinning the thirteen ported registrations byte-for-byte —
  * did its job when the port landed and was retired per that document's
  * §"After the port lands": structural drift is now the generator drift test's
- * problem (`tools/make-base-pack.test.ts` byte-diffs generator output against
+ * problem (`tools/make-v4-content.test.ts` byte-diffs generator output against
  * the checked-in JSON), and behavioural drift is this file's. A change that
  * moves these traces is either a bug or a deliberate divergence — say which,
  * regenerate through `recordFixture`, and state it in the commit.
@@ -32,13 +32,13 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
-// Imported the way the running game imports it after the port: the bundled base
-// pack (`packs/bundled.ts`) injects `base-pack.json`, registering the same
+// Imported the way the running game imports it: the v4 composition root injects
+// `src/v4/content/campaign.json`, registering the same
 // built-in campaign — grunt, sentinel, stage-1 — by the same bare names, now as
 // pack data. This snapshot is what proves those names still resolve to
 // byte-identical specs; before the port this line imported './content', which
 // registered them as engine TypeScript.
-import './packs/bundled';
+import './v4';
 
 import { Button } from './core/input';
 import { fx, sim } from './core/random';

@@ -99,7 +99,7 @@
  * exposure.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../background';
+import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('decree', {
   scrollSpeed: 1.2,
