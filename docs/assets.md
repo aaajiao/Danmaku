@@ -708,7 +708,7 @@ runtime cells are:
 |---|---:|---|
 | `ui.title.masthead` | 400×96 | title identity and crest silhouette |
 | `ui.menu.row` | 300×50 | normal/selected menu-row frame, alpha-modulated by state |
-| `ui.character.frame` | 190×336 | frame over the selected real actor crop |
+| `ui.character.frame` | 170×300 | compact frame over the enlarged selected real actor crop |
 | `ui.dialogue.frame` | 456×164 | dialogue silhouette and circular portrait well |
 | `ui.status.frame` | 300×436 | pause, clear, game-over, ending and result card |
 | `ui.boss.ornament` | 440×72 | authored caps/crest behind the compact Boss facts |

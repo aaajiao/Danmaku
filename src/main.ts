@@ -1631,53 +1631,64 @@ function drawView(view: {
     drawScreenHeading(view.title ?? 'SELECT', 72);
     const previewActor = view.character === undefined ? undefined : V4_PLAYER_ACTORS[view.character];
     const identity = view.character === undefined ? undefined : V4_CHARACTER_UI[view.character as keyof typeof V4_CHARACTER_UI];
-    const characterFrame = V4_UI_CELLS['ui.character.frame'];
-    const characterFrameX = 38;
-    const characterFrameY = 100;
+    const characterLayout = V4_UI_SCREEN.character;
     if (previewActor !== undefined) {
       const strip = v4Actors.players.strip(previewActor.strip);
       const frame = v4Actors.players.frameOf(strip, 2);
+      const source = characterLayout.actorSource;
+      const actor = characterLayout.actor;
       surface.imageSmoothingEnabled = false;
       surface.globalAlpha = 0.96;
       surface.drawImage(
         v4Actors.players.texture.image as CanvasImageSource,
-        frame.x,
-        frame.y,
-        frame.w,
-        frame.h,
-        46,
-        142,
-        178,
-        178,
+        frame.x + source.x,
+        frame.y + source.y,
+        source.w,
+        source.h,
+        actor.x,
+        actor.y,
+        actor.w,
+        actor.h,
       );
       surface.globalAlpha = 1;
     } else if (view.character !== undefined) {
-      surface.drawImage(portraitImage(view.character), 58, 154, 154, 154);
+      const fallback = characterLayout.fallback;
+      surface.drawImage(
+        portraitImage(view.character),
+        fallback.x,
+        fallback.y,
+        fallback.w,
+        fallback.h,
+      );
     }
     // Draw the identity card over the preview so its authored thorns and heart
     // remain the foreground silhouette.  The image inside is still the real
     // actor atlas (or the existing third-party portrait fallback), never a
     // second character identity baked into UI art.
-    drawV4Ui(surface, v4Ui, 'ui.character.frame', characterFrameX, characterFrameY, {
-      width: characterFrame.displayW,
-      height: characterFrame.displayH,
+    const characterFrame = characterLayout.frame;
+    drawV4Ui(surface, v4Ui, 'ui.character.frame', characterFrame.x, characterFrame.y, {
+      width: characterFrame.w,
+      height: characterFrame.h,
       alpha: 0.92,
     });
     if (identity !== undefined) {
+      const crest = characterLayout.crest;
       drawV4Ui(
         surface,
         v4Ui,
         identity.crest,
-        characterFrameX + (characterFrame.displayW - 64) / 2,
-        94,
-        { width: 64, height: 64 },
+        crest.x,
+        crest.y,
+        { width: crest.w, height: crest.h },
       );
     }
-    drawMenuRows(view.menu ?? [], view.selected, 236, 142, 196, 48, age);
+    const menu = characterLayout.menu;
+    drawMenuRows(view.menu ?? [], view.selected, menu.x, menu.y, menu.w, menu.rowH, age);
     // Character copy owns the right-hand column below the menu. Keeping it out
     // of the full-width centre prevents even short built-in blurbs from crossing
-    // the production card's right edge at x=228.
-    drawViewLines(view.lines ?? [], 334, 390, 176, '#93a2ae');
+    // the compact production card's right edge.
+    const copy = characterLayout.copy;
+    drawViewLines(view.lines ?? [], copy.x, copy.y, copy.w, '#93a2ae');
     surface.restore();
     return;
   }

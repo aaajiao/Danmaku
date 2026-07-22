@@ -179,6 +179,19 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(titleSource).toContain("surface.fillText('\u25bc'");
   });
 
+  test('character selection crops transparent actor padding and gives the body priority over its frame', () => {
+    const characterStart = mainSource.indexOf("if (view.kind === 'character-select')");
+    const difficultyStart = mainSource.indexOf("if (view.kind === 'difficulty-select')", characterStart);
+    const characterSource = mainSource.slice(characterStart, difficultyStart);
+
+    expect(characterSource).toContain('const characterLayout = V4_UI_SCREEN.character');
+    expect(characterSource).toContain('frame.x + source.x');
+    expect(characterSource).toContain('frame.y + source.y');
+    expect(characterSource).toContain('actor.x,');
+    expect(characterSource).toContain("drawV4Ui(surface, v4Ui, 'ui.character.frame'");
+    expect(characterSource).not.toContain('46,\n        142,\n        178,\n        178');
+  });
+
   test('dialogue uses the shared layout and clips both portrait paths to its round well', () => {
     const dialogueStart = mainSource.indexOf('function drawDialogue(');
     const wrapStart = mainSource.indexOf('function wrapText(', dialogueStart);

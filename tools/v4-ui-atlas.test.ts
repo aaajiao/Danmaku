@@ -4,6 +4,7 @@ import {
   V4_UI_ATLAS_WIDTH,
   V4_UI_CELLS,
   V4_UI_PANEL_CORNER,
+  V4_UI_SCREEN,
 } from '../src/render/v4-ui-layout';
 import {
   generateV4UiAtlas,
@@ -16,7 +17,7 @@ const file = new URL('../src/assets/v4/ui-v4.png', import.meta.url);
 
 const PRODUCTION_CELLS = {
   'ui.dialogue.frame': { x: 0, y: 256, w: 456, h: 164 },
-  'ui.character.frame': { x: 456, y: 256, w: 190, h: 336 },
+  'ui.character.frame': { x: 456, y: 256, w: 170, h: 300 },
   'ui.status.frame': { x: 724, y: 256, w: 300, h: 436 },
   'ui.title.masthead': { x: 0, y: 420, w: 400, h: 96 },
   'ui.boss.ornament': { x: 0, y: 516, w: 440, h: 72 },
@@ -142,6 +143,25 @@ describe('v4 engine-owned UI atlas', () => {
     expect(panel.frameH).toBe(48);
     expect(panel.frameW - V4_UI_PANEL_CORNER * 2).toBeGreaterThan(0);
     expect(panel.frameH - V4_UI_PANEL_CORNER * 2).toBeGreaterThan(0);
+  });
+
+  test('the character-select composition crops padding and keeps the enlarged actor inside its card', () => {
+    const { frame, actorSource, actor, crest, menu, copy } = V4_UI_SCREEN.character;
+    expect(frame).toEqual({ x: 45, y: 104, w: 170, h: 300 });
+    expect(actorSource).toEqual({ x: 24, y: 4, w: 80, h: 120 });
+    expect(actorSource.x + actorSource.w).toBeLessThanOrEqual(128);
+    expect(actorSource.y + actorSource.h).toBeLessThanOrEqual(128);
+    expect(actor.x).toBeGreaterThanOrEqual(frame.x);
+    expect(actor.y).toBeGreaterThanOrEqual(frame.y);
+    expect(actor.x + actor.w).toBeLessThanOrEqual(frame.x + frame.w);
+    expect(actor.y + actor.h).toBeLessThanOrEqual(frame.y + frame.h);
+    expect(actor).toEqual({ x: 50, y: 134, w: 160, h: 240 });
+    expect(actor.w / actorSource.w).toBe(2);
+    expect(actor.h / actorSource.h).toBe(2);
+    expect(actor.h / frame.h).toBe(0.8);
+    expect(crest.x + crest.w / 2).toBe(frame.x + frame.w / 2);
+    expect(menu.x).toBeGreaterThan(frame.x + frame.w);
+    expect(copy.x - copy.w / 2).toBeGreaterThanOrEqual(menu.x);
   });
 
   test('animated graze feedback is a four-frame fixed-size strip', () => {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { V4_UI_SCREEN } from '../src/render/v4-ui-layout';
 import { decodePng } from './png-decode';
 
 interface SheetSpec {
@@ -120,4 +121,28 @@ describe('compiled v4 Ghost actor atlases', () => {
       }
     });
   }
+
+  test('every neutral player pose fits the character-select preview crop', async () => {
+    const players = SHEETS[0]!;
+    const image = decodePng(await Bun.file(players.url).bytes());
+    const crop = V4_UI_SCREEN.character.actorSource;
+
+    for (let row = 0; row < players.rows; row++) {
+      const neutral = frameAlpha(image.rgba, image.width, players.frame, 2, row);
+      expect(
+        neutral.minX,
+        `player row ${row} paints left of the preview crop`,
+      ).toBeGreaterThanOrEqual(crop.x);
+      expect(
+        neutral.minY,
+        `player row ${row} paints above the preview crop`,
+      ).toBeGreaterThanOrEqual(crop.y);
+      expect(neutral.maxX, `player row ${row} paints right of the preview crop`).toBeLessThan(
+        crop.x + crop.w,
+      );
+      expect(neutral.maxY, `player row ${row} paints below the preview crop`).toBeLessThan(
+        crop.y + crop.h,
+      );
+    }
+  });
 });

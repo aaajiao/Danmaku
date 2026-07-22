@@ -85,7 +85,7 @@ export const V4_UI_CELLS = {
   // while callers may still scale them to a screen composition (menu rows in
   // particular intentionally fit several different text columns).
   'ui.dialogue.frame': cell(0, 256, 456, 164),
-  'ui.character.frame': cell(456, 256, 190, 336),
+  'ui.character.frame': cell(456, 256, 170, 300),
   'ui.status.frame': cell(724, 256, 300, 436),
   'ui.title.masthead': cell(0, 420, 400, 96),
   'ui.boss.ornament': cell(0, 516, 440, 72),
@@ -99,7 +99,18 @@ export const V4_UI_PANEL_CORNER = 12;
 /** Fixed screen compositions, also in 480×640 logical pixels. */
 export const V4_UI_SCREEN = {
   menu: { x: 54, y: 116, w: 372, h: 458 },
-  character: { x: 24, y: 30, w: 432, h: 574 },
+  character: {
+    frame: { x: 45, y: 104, w: 170, h: 300 },
+    // Every neutral player pose paints inside this shared 80x120 crop. Cropping
+    // the common transparent rim lets the full-body preview read at menu scale
+    // without changing the gameplay actor atlas or its pivots.
+    actorSource: { x: 24, y: 4, w: 80, h: 120 },
+    actor: { x: 50, y: 134, w: 160, h: 240 },
+    fallback: { x: 58, y: 182, w: 144, h: 144 },
+    crest: { x: 104, y: 92, w: 52, h: 52 },
+    menu: { x: 236, y: 142, w: 196, rowH: 48 },
+    copy: { x: 334, y: 390, w: 176 },
+  },
   status: { x: 90, y: 102, w: 300, h: 436 },
   dialogue: { x: 12, y: 464, w: 456, h: 164 },
 } as const;
