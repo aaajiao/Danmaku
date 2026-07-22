@@ -2954,6 +2954,7 @@ const GUN_BOLT = {
   radius: 4,
   motion: { r: 9, theta: FORWARD },
   damage: 1,
+  feedback: 'round',
 };
 
 /**
@@ -2967,6 +2968,7 @@ const GUN_NEEDLE = {
   motion: { r: 11, theta: FORWARD },
   damage: 2,
   blade: { length: 26 },
+  feedback: 'needle',
 };
 
 /**
@@ -2980,6 +2982,7 @@ const GUN_SEEKER = {
   radius: 5,
   motion: { r: 7, theta: FORWARD, behaviour: 'homing' },
   damage: 1,
+  feedback: 'tracking',
 };
 
 /**
@@ -3004,6 +3007,7 @@ const GUN_BEAM = {
   damage: 1,
   laser: { length: 48, growth: 90, maxLength: 520 },
   pierce: true,
+  feedback: 'beam',
 };
 
 /**
@@ -3019,6 +3023,7 @@ const SCATTER_PELLET = {
   motion: { r: 8, theta: FORWARD },
   damage: 1,
   life: 18,
+  feedback: 'scatter',
 };
 
 /* ---- player per-tier shot SKINS (战役扩容轮) ----
@@ -3052,9 +3057,9 @@ const SPRAY_T3 = { ...SCATTER_PELLET, style: { ...SCATTER_PELLET.style, sprite: 
  * weapon's damage budget while changing its flight language and silhouette:
  * SCOUT condenses into a white-blue core, LANCE grows a bone-white cutting
  * spine, HOUND tightens its tracking scales, SPIRE sustains its beam, and MAW
- * compacts its embers into a heavier-looking close-range knot. The `feedback`
- * semantics that drive contact FX are added in the weapon-feedback stage; this
- * round owns firing behaviour only.
+ * compacts its embers into a heavier-looking close-range knot. Their inherited
+ * `feedback` semantics keep the impact language attached to the weapon family,
+ * not to a particular tier sprite.
  */
 const SCOUT_FOCUS = {
   ...GUN_BOLT,
@@ -3298,6 +3303,7 @@ const OPT_STD_SHOT = {
   radius: 4,
   motion: { r: 11, theta: FORWARD },
   damage: 1,
+  feedback: 'round',
 };
 
 const OPT_SEEKER_SHOT = {
@@ -3305,6 +3311,7 @@ const OPT_SEEKER_SHOT = {
   radius: 5,
   motion: { r: 9, theta: FORWARD },
   damage: 1,
+  feedback: 'tracking',
 };
 
 const OPT_PICKET_SHOT = {
@@ -3312,6 +3319,7 @@ const OPT_PICKET_SHOT = {
   radius: 4,
   motion: { r: 11, theta: FORWARD },
   damage: 1,
+  feedback: 'round',
 };
 
 /** SPIRE's relays echo its vertical grammar with slim, fixed column shots. */
@@ -3321,6 +3329,7 @@ const OPT_RELAY_SHOT = {
   motion: { r: 10, theta: FORWARD },
   damage: 1,
   blade: { length: 22 },
+  feedback: 'needle',
 };
 
 // Each tier keeps the tier below's slots and adds a pair — the option-layout twin
@@ -3383,6 +3392,7 @@ const CLINCH_SHOT = {
   motion: { r: 9, theta: FORWARD },
   damage: 1,
   life: 20,
+  feedback: 'scatter',
 };
 
 // `clinch`'s slots fire straight up: wide when loose (each |x| ≥ 34 keeps the

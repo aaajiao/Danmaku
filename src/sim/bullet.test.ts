@@ -3,6 +3,7 @@ import { Random, sim } from '../core/random';
 import { atan2Deg, deltaDeg } from '../core/trig';
 import {
   Bullet,
+  bulletContactPoint,
   bulletHitsCircle,
   bulletReach,
   bulletShapeOverlaps,
@@ -82,6 +83,16 @@ describe('spawn', () => {
     expect(bullet.bounce).toBe(true);
     expect(bullet.maxBounces).toBe(3);
     expect(bullet.style).toBe(style);
+  });
+
+  test('feedback is copied per life and cannot leak through a pooled slot', () => {
+    const system = makeSystem({ initial: 1, max: 1 });
+    const first = system.spawn(20, 20, makeSpec({ feedback: 'needle' }), 'player', rng()) as Bullet;
+    expect(first.feedback).toBe('needle');
+    system.despawn(first);
+    const reused = system.spawn(20, 20, makeSpec(), 'player', rng()) as Bullet;
+    expect(reused).toBe(first);
+    expect(reused.feedback).toBeUndefined();
   });
 
   test('damage defaults to 1 and life to 0, meaning "until offscreen"', () => {
@@ -2072,6 +2083,14 @@ describe('bullet shapes', () => {
     expect(extent(b, 0, -1, 6)).toBe(109);
     // Down, behind the muzzle: nothing but the cap.
     expect(extent(b, 0, 1, 6)).toBe(9);
+  });
+
+  test('visual contact lies on the same carried or forward segment that collided', () => {
+    const blade = make(NEEDLE, 270);
+    expect(bulletContactPoint(blade, 240, 220)).toEqual({ x: 240, y: 227 });
+
+    const beam = make({ ...NEEDLE, blade: undefined, laser: { length: 100 } }, 270);
+    expect(bulletContactPoint(beam, 240, 170)).toEqual({ x: 240, y: 170 });
   });
 
   test('reach covers whatever shape the bullet has', () => {

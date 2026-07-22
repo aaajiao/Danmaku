@@ -66,6 +66,18 @@ describe('registry', () => {
     }
   });
 
+  test('weapon contact effects are registered with their distinct short lifetimes', () => {
+    for (const name of ['impact.needle', 'impact.round', 'impact.tracking', 'impact.beam', 'impact.scatter', 'impact.scatter.pause']) {
+      expect(effectNames()).toContain(name);
+      expect(getEffectSpec(name).life).toBeDefined();
+    }
+    expect(getEffectSpec('impact.round').speed).toBe(0);
+    expect(getEffectSpec('impact.round').tint).toEqual({ r: 1, g: 0.38, b: 0.58 });
+    expect(getEffectSpec('impact.tracking').gravity).toBeGreaterThan(0);
+    expect(getEffectSpec('impact.tracking').spin).toBeGreaterThan(0);
+    expect(getEffectSpec('impact.scatter.pause').life).toBe(3);
+  });
+
   test('starter effects fade out, so nothing pops off the field', () => {
     for (const name of ['explosion', 'hit', 'graze', 'pickup', 'muzzle', 'death.big']) {
       expect(getEffectSpec(name).alpha?.to).toBe(0);

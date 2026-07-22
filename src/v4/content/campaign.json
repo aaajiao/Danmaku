@@ -5470,7 +5470,8 @@
                 "r": 9,
                 "theta": 270
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "round"
             },
             "offsets": [
               {
@@ -5499,7 +5500,8 @@
                   "r": 10.5,
                   "theta": 270
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "round"
               },
               "offsets": [
                 {
@@ -5529,7 +5531,8 @@
                 "r": 9,
                 "theta": 270
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "round"
             },
             "offsets": [
               {
@@ -5568,7 +5571,8 @@
                   "r": 10.5,
                   "theta": 270
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "round"
               },
               "offsets": [
                 {
@@ -5608,7 +5612,8 @@
                 "r": 9,
                 "theta": 270
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "round"
             },
             "offsets": [
               {
@@ -5657,7 +5662,8 @@
                   "r": 10.5,
                   "theta": 270
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "round"
               },
               "offsets": [
                 {
@@ -5699,7 +5705,8 @@
                 "r": 9,
                 "theta": 270
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "round"
             },
             "offsets": [
               {
@@ -5760,7 +5767,8 @@
                   "r": 10.5,
                   "theta": 270
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "round"
               },
               "offsets": [
                 {
@@ -5809,7 +5817,8 @@
               "damage": 2,
               "blade": {
                 "length": 26
-              }
+              },
+              "feedback": "needle"
             },
             "offsets": [
               {
@@ -5837,7 +5846,8 @@
                 "damage": 2,
                 "blade": {
                   "length": 32
-                }
+                },
+                "feedback": "needle"
               },
               "offsets": [
                 {
@@ -5866,7 +5876,8 @@
               "damage": 2,
               "blade": {
                 "length": 26
-              }
+              },
+              "feedback": "needle"
             },
             "offsets": [
               {
@@ -5904,7 +5915,8 @@
                 "damage": 1,
                 "blade": {
                   "length": 32
-                }
+                },
+                "feedback": "needle"
               },
               "offsets": [
                 {
@@ -5943,7 +5955,8 @@
               "damage": 2,
               "blade": {
                 "length": 26
-              }
+              },
+              "feedback": "needle"
             },
             "offsets": [
               {
@@ -5991,7 +6004,8 @@
                 "damage": 1,
                 "blade": {
                   "length": 32
-                }
+                },
+                "feedback": "needle"
               },
               "offsets": [
                 {
@@ -6040,7 +6054,8 @@
               "damage": 2,
               "blade": {
                 "length": 26
-              }
+              },
+              "feedback": "needle"
             },
             "offsets": [
               {
@@ -6098,7 +6113,8 @@
                 "damage": 1,
                 "blade": {
                   "length": 32
-                }
+                },
+                "feedback": "needle"
               },
               "offsets": [
                 {
@@ -6161,7 +6177,8 @@
                 "theta": 270,
                 "behaviour": "homing"
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "tracking"
             },
             "offsets": [
               {
@@ -6192,7 +6209,8 @@
                     "duration": 90
                   }
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "tracking"
               },
               "offsets": [
                 {
@@ -6220,7 +6238,8 @@
                 "theta": 270,
                 "behaviour": "homing"
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "tracking"
             },
             "offsets": [
               {
@@ -6256,7 +6275,8 @@
                     "duration": 90
                   }
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "tracking"
               },
               "offsets": [
                 {
@@ -6289,7 +6309,8 @@
                 "theta": 270,
                 "behaviour": "homing"
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "tracking"
             },
             "offsets": [
               {
@@ -6330,7 +6351,8 @@
                     "duration": 90
                   }
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "tracking"
               },
               "offsets": [
                 {
@@ -6368,7 +6390,8 @@
                 "theta": 270,
                 "behaviour": "homing"
               },
-              "damage": 1
+              "damage": 1,
+              "feedback": "tracking"
             },
             "offsets": [
               {
@@ -6414,7 +6437,8 @@
                     "duration": 90
                   }
                 },
-                "damage": 1
+                "damage": 1,
+                "feedback": "tracking"
               },
               "offsets": [
                 {
@@ -6468,6 +6492,7 @@
                 "maxLength": 520
               },
               "pierce": true,
+              "feedback": "beam",
               "life": 3
             },
             "offsets": [
@@ -6501,6 +6526,7 @@
                   "maxLength": 520
                 },
                 "pierce": true,
+                "feedback": "beam",
                 "life": 5
               },
               "period": 8
@@ -6528,6 +6554,7 @@
                 "maxLength": 520
               },
               "pierce": true,
+              "feedback": "beam",
               "life": 4
             },
             "offsets": [
@@ -6561,6 +6588,7 @@
                   "maxLength": 520
                 },
                 "pierce": true,
+                "feedback": "beam",
                 "life": 6
               },
               "period": 8
@@ -6588,6 +6616,7 @@
                 "maxLength": 520
               },
               "pierce": true,
+              "feedback": "beam",
               "life": 5
             },
             "offsets": [
@@ -6621,6 +6650,7 @@
                   "maxLength": 520
                 },
                 "pierce": true,
+                "feedback": "beam",
                 "life": 7
               },
               "period": 7
@@ -6648,6 +6678,7 @@
                 "maxLength": 520
               },
               "pierce": true,
+              "feedback": "beam",
               "life": 6
             },
             "offsets": [
@@ -6681,6 +6712,7 @@
                   "maxLength": 520
                 },
                 "pierce": true,
+                "feedback": "beam",
                 "life": 7
               },
               "period": 7
@@ -6706,7 +6738,8 @@
                 "theta": 270
               },
               "damage": 1,
-              "life": 18
+              "life": 18,
+              "feedback": "scatter"
             },
             "offsets": [
               {
@@ -6738,7 +6771,8 @@
                   "theta": 270
                 },
                 "damage": 1,
-                "life": 22
+                "life": 22,
+                "feedback": "scatter"
               },
               "offsets": [
                 {
@@ -6770,7 +6804,8 @@
                 "theta": 270
               },
               "damage": 1,
-              "life": 18
+              "life": 18,
+              "feedback": "scatter"
             },
             "offsets": [
               {
@@ -6817,7 +6852,8 @@
                   "theta": 270
                 },
                 "damage": 1,
-                "life": 22
+                "life": 22,
+                "feedback": "scatter"
               },
               "offsets": [
                 {
@@ -6854,7 +6890,8 @@
                 "theta": 270
               },
               "damage": 1,
-              "life": 18
+              "life": 18,
+              "feedback": "scatter"
             },
             "offsets": [
               {
@@ -6911,7 +6948,8 @@
                   "theta": 270
                 },
                 "damage": 1,
-                "life": 22
+                "life": 22,
+                "feedback": "scatter"
               },
               "offsets": [
                 {
@@ -6953,7 +6991,8 @@
                 "theta": 270
               },
               "damage": 1,
-              "life": 18
+              "life": 18,
+              "feedback": "scatter"
             },
             "offsets": [
               {
@@ -7020,7 +7059,8 @@
                   "theta": 270
                 },
                 "damage": 1,
-                "life": 22
+                "life": 22,
+                "feedback": "scatter"
               },
               "offsets": [
                 {
@@ -7066,7 +7106,8 @@
             "r": 11,
             "theta": 270
           },
-          "damage": 1
+          "damage": 1,
+          "feedback": "round"
         },
         "period": 5,
         "followSpeed": 1.6,
@@ -7180,7 +7221,8 @@
             "r": 9,
             "theta": 270
           },
-          "damage": 1
+          "damage": 1,
+          "feedback": "tracking"
         },
         "period": 8,
         "followSpeed": 0.9,
@@ -7250,7 +7292,8 @@
             "r": 11,
             "theta": 270
           },
-          "damage": 1
+          "damage": 1,
+          "feedback": "round"
         },
         "period": 4,
         "followSpeed": 1.8,
@@ -7401,7 +7444,8 @@
           "damage": 1,
           "blade": {
             "length": 22
-          }
+          },
+          "feedback": "needle"
         },
         "period": 8,
         "followSpeed": 1.1,
@@ -7520,7 +7564,8 @@
             "theta": 270
           },
           "damage": 1,
-          "life": 20
+          "life": 20,
+          "feedback": "scatter"
         },
         "period": 12,
         "followSpeed": 1.4,

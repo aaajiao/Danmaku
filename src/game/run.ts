@@ -44,7 +44,7 @@ import { Random } from '../core/random';
 import { getStage, StageRunner } from '../content/stage';
 import { BombSystem, getBombSpec } from '../sim/bomb';
 import { BossSystem, getBossSpec, type DialogueLine } from '../sim/boss';
-import { bulletHitsCircle, BulletSystem } from '../sim/bullet';
+import { bulletContactPoint, bulletHitsCircle, BulletSystem, type Bullet } from '../sim/bullet';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '../sim/difficulty';
 import { EffectSystem } from '../sim/effects';
 import { EnemySystem } from '../sim/enemy';
@@ -405,8 +405,8 @@ const TIMEOUT_BONUS_FRACTION = 0.25;
 /** Where a boss enters from, relative to the field. */
 const BOSS_ENTRY_Y = -60;
 
-/** The impact spark a player shot throws on the boss — the same modest `spark`-sprite burst trash enemies use, small and short for the seal's darkest zone. */
-const BOSS_HIT_SPARK = 'hit';
+const BEAM_IMPACT_PERIOD = 8;
+const BEAM_IMPACT_CELL = 24;
 
 /**
  * What a death costs, and how much of it is left on the floor.
@@ -522,6 +522,8 @@ export class Run {
   #playback: ReplayPlayback | undefined;
 
   #tick = 0;
+  /** Cosmetic cell timers; never read by simulation or replay state. */
+  readonly #beamImpactTicks = new Map<string, number>();
   #outcome: RunOutcome = 'playing';
   #bossSent = false;
   #bossDefeated = false;
@@ -871,9 +873,11 @@ export class Run {
         if (enemy === undefined || !enemy.alive) continue;
         if (!bulletHitsCircle(b, enemy.x, enemy.y, enemy.spec.radius)) continue;
 
+        const contact = bulletContactPoint(b, enemy.x, enemy.y);
         const killed = this.enemies.damage(enemy, b.damage);
-        if (!killed && enemy.spec.onHit) this.effects.emit(enemy.spec.onHit, b.x, b.y);
-        this.#emit({ type: 'shot-hit', x: b.x, y: b.y, name: enemy.name });
+        if (!killed && enemy.spec.onHit) this.effects.emit(enemy.spec.onHit, contact.x, contact.y);
+        this.#emit({ type: 'shot-hit', x: contact.x, y: contact.y, name: enemy.name });
+        this.#emitShotFeedback(b, contact.x, contact.y);
 
         // A piercing beam keeps going and keeps damaging; anything else is
         // spent on the first thing it touches.
@@ -895,14 +899,41 @@ export class Run {
       if (boss === undefined || boss.entering) continue;
       if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
 
+      const contact = bulletContactPoint(b, boss.x, boss.y);
       this.boss.damage(b.damage);
-      // Mirror the enemy path (which emits `enemy.spec.onHit`): a boss hit was
-      // the only landing in the game that threw no spark. Drawn from the `fx`
-      // stream inside `EffectSystem.emit`, never `sim`, so the determinism
-      // contract and the golden traces are untouched by construction (rule 2).
-      this.effects.emit(BOSS_HIT_SPARK, b.x, b.y);
-      this.#emit({ type: 'boss-hit', x: b.x, y: b.y, name: boss.name });
+      // Legacy/guest shots did not author a semantic family. Keep the old boss
+      // spark for them while authored player shots choose their own language.
+      if (b.feedback === undefined) this.effects.emit('hit', contact.x, contact.y);
+      else this.#emitShotFeedback(b, contact.x, contact.y);
+      this.#emit({ type: 'boss-hit', x: contact.x, y: contact.y, name: boss.name });
       if (!b.pierce) this.bullets.despawn(b);
+    }
+  }
+
+  /** Cosmetic only: every name resolves in EffectSystem and therefore uses fx RNG. */
+  #emitShotFeedback(b: Bullet, x: number, y: number): void {
+    const feedback = b.feedback;
+    if (feedback === undefined) return;
+    // A beam already has a continuous body/cap. Limit sparks per contact-area,
+    // not globally: separate targets can still read independently, while one
+    // held beam cannot turn every damage tick into a fountain.
+    if (feedback === 'beam') {
+      const cell = `${Math.floor(x / BEAM_IMPACT_CELL)},${Math.floor(y / BEAM_IMPACT_CELL)}`;
+      const last = this.#beamImpactTicks.get(cell);
+      if (last !== undefined && this.#tick - last < BEAM_IMPACT_PERIOD) return;
+      this.#beamImpactTicks.set(cell, this.#tick);
+    }
+    const direction = b.vector.theta;
+    switch (feedback) {
+      case 'needle': this.effects.emit('impact.needle', x, y, direction); break;
+      case 'round': this.effects.emit('impact.round', x, y); break;
+      case 'tracking': this.effects.emit('impact.tracking', x, y, direction + 180); break;
+      case 'beam': this.effects.emit('impact.beam', x, y, direction); break;
+      case 'scatter':
+        this.effects.emit('impact.scatter', x, y, direction);
+        // Stationary three-tick plate reads as impact weight; simulation never pauses.
+        this.effects.emit('impact.scatter.pause', x, y);
+        break;
     }
   }
 
@@ -1609,6 +1640,7 @@ export class Run {
     this.bullets.drainMissilePops();
 
     this.#tick = 0;
+    this.#beamImpactTicks.clear();
     this.#outcome = 'playing';
     this.#bossSent = false;
     this.#bossDefeated = false;

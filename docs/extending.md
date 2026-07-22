@@ -244,6 +244,17 @@ despawns the bullet on its first hit — correct for an ordinary shot, wrong for
 weapon whose entire point is reach. `laser` sets it; a plain `spread` bolt does
 not. It is read only on the player-fire path; enemy fire has no equivalent.
 
+### Player contact feedback
+
+Player weapons may declare `feedback: 'needle' | 'round' | 'tracking' | 'beam' |
+'scatter'` on their `BulletSpec`. This is a semantic presentation tag, never a
+sprite-name convention: it selects bone-white cuts, heart-core flashes, curved
+tears, a beam edge with throttled contact FX, or a heavy close-range impact.
+It does not alter collision, damage, positions, or tick timing. Contact effects
+are emitted by `Run` through `EffectSystem`, whose scatter uses only the `fx`
+RNG stream; a beam is locally throttled by contact area so piercing contact does
+not emit every tick.
+
 ### Timelines
 
 `timeline` overrides `motion` after the first segment falls due. Counts are

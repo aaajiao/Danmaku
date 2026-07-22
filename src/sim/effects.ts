@@ -270,6 +270,31 @@ defineSprite('hit', 'spark', {
   additive: true,
 });
 
+// Player weapon contact language. All variance remains inside this FX-only
+// system; the weapon semantic chooses a name, never a sprite heuristic.
+defineSprite('impact.needle', 'needle', {
+  count: { min: 1, max: 2 }, speed: { min: 1, max: 2 }, life: { min: 4, max: 7 }, spread: 18,
+  drag: 0.8, scale: { from: 0.8, to: 0.15 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.97, b: 0.86 }, additive: true,
+});
+defineSprite('impact.round', 'glow.small', {
+  count: 1, speed: 0, life: 4, scale: { from: 0.75, to: 0.1 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.38, b: 0.58 }, additive: true,
+});
+defineSprite('impact.tracking', 'shard', {
+  count: { min: 2, max: 3 }, speed: { min: 1.2, max: 2.4 }, life: { min: 6, max: 10 }, spread: 54,
+  drag: 0.86, gravity: 0.08, spin: 0.34, scale: { from: 0.65, to: 0.12 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.86, b: 0.42 }, additive: true,
+});
+defineSprite('impact.beam', 'spark', {
+  count: 2, speed: { min: 0.4, max: 1.1 }, life: { min: 4, max: 6 }, spread: 24,
+  drag: 0.75, scale: { from: 0.5, to: 0.08 }, alpha: { from: 0.8, to: 0 }, tint: { r: 0.75, g: 0.95, b: 1 }, additive: true,
+});
+defineSprite('impact.scatter', 'glow.medium', {
+  count: { min: 3, max: 5 }, speed: { min: 0.4, max: 1.5 }, life: { min: 5, max: 8 },
+  drag: 0.72, scale: { from: 1.05, to: 0.12 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.48, b: 0.22 }, additive: true,
+});
+defineSprite('impact.scatter.pause', 'glow.large', {
+  count: 1, speed: 0, life: 3, scale: { from: 0.48, to: 0.26 }, alpha: { from: 0.72, to: 0 }, tint: { r: 1, g: 0.76, b: 0.45 }, additive: true,
+});
+
 // Graze is feedback on a near miss, so it fires along the bullet's heading and
 // stays cool-toned — it must never be mistaken for taking damage.
 defineSprite('graze', 'needle', {

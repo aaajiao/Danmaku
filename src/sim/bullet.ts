@@ -110,6 +110,9 @@ export interface MissileSpec {
   explosion: string;
 }
 
+/** Presentation-only contact language authored by a weapon, never inferred from skin names. */
+export type ShotFeedback = 'needle' | 'round' | 'tracking' | 'beam' | 'scatter';
+
 export interface BulletSpec {
   style: BulletStyle;
   /** Collision radius. Danmaku hitboxes are far smaller than the sprite. */
@@ -124,6 +127,8 @@ export interface BulletSpec {
   /** Bounces allowed before the bullet despawns. 0 (default) means unlimited. */
   maxBounces?: number;
   damage?: number;
+  /** Cosmetic hit language. It does not participate in movement, collision or damage. */
+  feedback?: ShotFeedback;
   /** Makes this a beam: a segment hitbox that grows from the muzzle. */
   laser?: LaserSpec;
   /**
@@ -245,6 +250,9 @@ export class Bullet {
    */
   missile: MissileSpec | undefined;
 
+  /** The authored visual impact language, copied per pooled life. */
+  feedback: ShotFeedback | undefined;
+
   reset(): void {
     this.alive = false;
     this.age = 0;
@@ -262,6 +270,7 @@ export class Bullet {
     // reason: the free list is LIFO, so a plain shot reusing a missile's slot
     // must not come back a detonator.
     this.missile = undefined;
+    this.feedback = undefined;
   }
 
   spawn(x: number, y: number, spec: BulletSpec, faction: Faction, rng: Random): void {
@@ -295,6 +304,7 @@ export class Bullet {
     // Written every spawn, same as `laser`/`bladeHalf`: a plain bullet reusing a
     // missile's pooled slot comes back a point that does not detonate.
     this.missile = spec.missile;
+    this.feedback = spec.feedback;
 
     this.vector.init(spec.motion, rng);
     this.hasTimeline = spec.timeline !== undefined;
@@ -729,6 +739,31 @@ export function bulletShapeOverlaps(
   }
 
   return circlesOverlap(x, y, radius, b.x, b.y, b.radius);
+}
+
+/**
+ * Nearest point on the bullet's real segment shape to a struck circle centre.
+ * This is visual-only: collision keeps using `bulletShapeOverlaps` above.
+ */
+export function bulletContactPoint(b: Bullet, x: number, y: number): { x: number; y: number } {
+  let ax = b.x;
+  let ay = b.y;
+  let bx = b.x;
+  let by = b.y;
+  if (b.laser !== undefined) {
+    bx += b.length * cosDeg(b.vector.theta);
+    by += b.length * sinDeg(b.vector.theta);
+  } else if (b.bladeHalf > 0) {
+    const dx = b.bladeHalf * cosDeg(b.vector.theta);
+    const dy = b.bladeHalf * sinDeg(b.vector.theta);
+    ax -= dx; ay -= dy; bx += dx; by += dy;
+  }
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return { x: b.x, y: b.y };
+  const t = Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / lengthSquared));
+  return { x: ax + dx * t, y: ay + dy * t };
 }
 
 /**

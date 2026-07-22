@@ -264,6 +264,10 @@ describe('native laser bodies size visible paint, not transparent padding', () =
     expect(mainSource).toContain('bodyStrip.contentH,');
     expect(mainSource).toContain('tileLength: skin.tileLength ?? bodyStrip.frameW');
   });
+
+  test('only an authored player beam receives the persistent contact edge', () => {
+    expect(mainSource).toContain("b.faction === 'player' && b.feedback === 'beam'");
+  });
 });
 
 describe('native projectile paint contains its collision geometry', () => {

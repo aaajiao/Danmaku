@@ -1255,6 +1255,20 @@ describe('the data tier — name resolution errors are golden', () => {
     );
   });
 
+  test('a bullet spec with an unknown contact-feedback family is rejected at injection', () => {
+    const name = uniqueName();
+    expect(problemsOf(manifest(name, {
+      shots: {
+        blaster: {
+          levels: [{ spec: { style: { sprite: 'shard' }, feedback: 'ricochet' }, offsets: [], period: 5 }],
+        },
+      },
+      characters: { raider: { label: 'R', shot: 'blaster', options: 'standard', bomb: 'scout-tide', sprite: 'ship', player: player() } },
+    }))).toContain(
+      `pack "${name}": shot "blaster" level 0 uses invalid shot feedback "ricochet" — expected needle, round, tracking, beam, or scatter`,
+    );
+  });
+
   test('a focused shot override names sprites and behaviours from the same registries', () => {
     const name = uniqueName();
     expect(problemsOf(manifest(name, {

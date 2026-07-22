@@ -36,7 +36,7 @@ const SEED = 0x5747a1;
  * composition root by `src/reachability.test.ts`, `src/balance.test.ts` and the
  * replay regression (`src/base-content.golden.test.ts`).
  */
-const RUN_BOLT = { style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1 };
+const RUN_BOLT = { style: { sprite: 'glow.small', r: 0.7, g: 0.95, b: 1 }, radius: 4, motion: { r: 9, theta: 270 }, damage: 1, feedback: 'round' as const };
 const RUN_SHOT_LEVELS = [
   { spec: RUN_BOLT, offsets: [{ x: -6, y: -10, angle: 270 }, { x: 6, y: -10, angle: 270 }], period: 5 },
   {
@@ -948,20 +948,16 @@ describe('boss hit feedback', () => {
     return mask;
   }
 
-  test('the spark the boss path emits is a registered effect', () => {
-    // Guards the unregistered-name failure class for THIS const specifically:
-    // the literal in `run.ts` must resolve, or `EffectSystem.emit` throws the
-    // first time a shot lands on a boss.
+  test('weapon feedback names used by the boss path are registered', () => {
     const source = readFileSync(new URL('./run.ts', import.meta.url), 'utf8');
-    const match = source.match(/const BOSS_HIT_SPARK = '([^']+)'/);
-    expect(match).not.toBeNull();
-    const name = match![1]!;
-    expect(effectNames()).toContain(name);
-    expect(() => getEffectSpec(name)).not.toThrow();
+    for (const name of source.match(/impact\.(?:needle|round|tracking|beam|scatter(?:\.pause)?)/g) ?? []) {
+      expect(effectNames()).toContain(name);
+      expect(() => getEffectSpec(name)).not.toThrow();
+    }
   });
 
   test('a shot landing on a boss lights the flash and throws a spark', () => {
-    const sparkSprite = getEffectSpec('hit').sprite;
+    const sparkSprite = getEffectSpec('impact.round').sprite;
     const run = new Run(config({ boss: MAIN_BOSS }));
 
     let flashed = false;
@@ -980,6 +976,57 @@ describe('boss hit feedback', () => {
     expect(fought).toBe(true);
     expect(flashed).toBe(true);
     expect(sparked).toBe(true);
+  });
+
+  test('a legacy shot without a feedback family retains the boss hit sparkle', () => {
+    const run = new Run(config({ boss: MAIN_BOSS }));
+    let boss;
+    for (let t = 0; t < 40000; t++) {
+      run.tick(pursue(run));
+      boss = run.boss.boss;
+      if (boss !== undefined && !boss.entering) break;
+    }
+    expect(boss).toBeDefined();
+    run.bullets.clear();
+    run.effects.clear();
+    run.bullets.spawn(
+      boss!.x,
+      boss!.y,
+      { style: { sprite: 'glow.small' }, radius: 4, motion: { r: 0, theta: 270 }, damage: 1 },
+      'player',
+    );
+    run.tick(0);
+    expect(run.effects.particles.some((p) => p.spec.sprite === getEffectSpec('hit').sprite)).toBe(true);
+  });
+
+  test('a held beam throttles contact sparks locally without throttling damage ticks', () => {
+    const run = new Run(config({ boss: MAIN_BOSS }));
+    let boss;
+    for (let t = 0; t < 40000; t++) {
+      run.tick(pursue(run));
+      boss = run.boss.boss;
+      if (boss !== undefined && !boss.entering) break;
+    }
+    expect(boss).toBeDefined();
+    run.bullets.clear();
+    run.effects.clear();
+    const hp = boss!.hp;
+    run.bullets.spawn(
+      boss!.x,
+      boss!.y,
+      {
+        style: { sprite: 'beam.cyan' }, radius: 3, motion: { r: 0, theta: 270 }, damage: 1,
+        laser: { length: 48 }, pierce: true, feedback: 'beam',
+      },
+      'player',
+    );
+    run.tick(0);
+    const firstSparkCount = run.effects.particles.filter((p) => p.spec.sprite === getEffectSpec('impact.beam').sprite).length;
+    run.tick(0);
+    const secondSparkCount = run.effects.particles.filter((p) => p.spec.sprite === getEffectSpec('impact.beam').sprite).length;
+    expect(firstSparkCount).toBe(2);
+    expect(secondSparkCount).toBeLessThanOrEqual(firstSparkCount);
+    expect(boss!.hp).toBe(hp - 2);
   });
 
   test('no flash while the boss is invulnerable during entry', () => {

@@ -156,6 +156,36 @@ test('all five player weapons author a distinct focus-held shot at every power t
   }
 });
 
+test('all player shot tiers preserve an explicit semantic contact-feedback family', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: {
+      shots: Record<string, { levels: PlayerShotTierProbe[] }>;
+      options: Record<string, { shot: Record<string, unknown> }>;
+    };
+  };
+  const expected = new Set(['needle', 'round', 'tracking', 'beam', 'scatter']);
+  const seen = new Set<string>();
+
+  for (const [name, shot] of Object.entries(pack.content.shots)) {
+    for (const [tier, level] of shot.levels.entries()) {
+      const feedback = level.spec.feedback;
+      expect(typeof feedback, `${name} tier ${tier}`).toBe('string');
+      expect(expected.has(feedback as string), `${name} tier ${tier}`).toBe(true);
+      seen.add(feedback as string);
+
+      const focusedFeedback = (level.focused?.spec ?? level.spec).feedback;
+      expect(focusedFeedback, `${name} focused tier ${tier}`).toBe(feedback);
+    }
+  }
+  for (const [name, option] of Object.entries(pack.content.options)) {
+    const feedback = option.shot.feedback;
+    expect(typeof feedback, `${name} option`).toBe('string');
+    expect(expected.has(feedback as string), `${name} option`).toBe(true);
+    seen.add(feedback as string);
+  }
+  expect(seen).toEqual(expected);
+});
+
 test('the five heroines do not share their shot, option formation, or bomb identity', () => {
   const pack = JSON.parse(buildV4ContentJson()) as {
     content: {

@@ -499,6 +499,15 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
       motionBehaviour,
     );
   };
+  const shotFeedback = new Set(['needle', 'round', 'tracking', 'beam', 'scatter']);
+  const validateBulletFeedback = (spec: unknown, where: string): void => {
+    if (!isRecord(spec) || spec.feedback === undefined) return;
+    if (typeof spec.feedback !== 'string' || !shotFeedback.has(spec.feedback)) {
+      problems.push(
+        `pack "${pack}": ${where} uses invalid shot feedback ${JSON.stringify(spec.feedback)} — expected needle, round, tracking, beam, or scatter`,
+      );
+    }
+  };
 
   // --- enemies: sprite, patterns, behaviours, spoils item names ---------
   for (const name of enemyKeys) {
@@ -523,6 +532,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
       // sprite or behaviour passed injection and threw only when this slot's
       // `startAt` fell due mid-run.
       const spec = slot.options?.spec;
+      validateBulletFeedback(spec, `${where} pattern "${slot.pattern}"`);
       const sprite = bulletSprite(spec);
       const pool = spritePool(spec);
       if (sprite !== undefined && !pool.has(sprite)) {
@@ -635,6 +645,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
           );
         }
         const spec = slot.options?.spec;
+        validateBulletFeedback(spec, `${cw} pattern "${slot.pattern}"`);
         const sprite = bulletSprite(spec);
         const pool = spritePool(spec);
         if (sprite !== undefined && !pool.has(sprite)) {
@@ -731,6 +742,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
     shot.levels.forEach((level, i) => {
       const lw = `${where} level ${i}`;
       const validateShotBullet = (spec: unknown, suffix = ''): void => {
+        validateBulletFeedback(spec, `${lw}${suffix}`);
         const sprite = bulletSprite(spec);
         const pool = spritePool(spec);
         if (sprite !== undefined && !pool.has(sprite)) {
@@ -761,6 +773,7 @@ function validateAndBuild(manifest: PackManifest, context: InjectContext, bundle
       );
     }
     const shotSprite = bulletSprite(opt.shot);
+    validateBulletFeedback(opt.shot, where);
     const shotPool = spritePool(opt.shot);
     if (shotSprite !== undefined && !shotPool.has(shotSprite)) {
       problems.push(

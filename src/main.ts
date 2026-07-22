@@ -1039,6 +1039,20 @@ function drawRun(run: Run): void {
         // law) — the shell is the only place that knows both halves.
         const bodyBaked = bodyStrip.color === 'baked';
         for (const q of layout.body) {
+          // Player beam impacts own a thin persistent hot edge; unlike contact
+          // particles this stays continuous along the rendered beam and consumes
+          // no simulation state or RNG.
+          if (b.faction === 'player' && b.feedback === 'beam') {
+            batches.beamBodies.draw(q.x, q.y, q.uv, {
+              rotation: q.rotation,
+              width: q.width,
+              height: q.height * 1.35,
+              r: bodyBaked ? 1 : b.style.r,
+              g: bodyBaked ? 1 : b.style.g,
+              b: bodyBaked ? 1 : b.style.b,
+              a: q.alpha * 0.24,
+            });
+          }
           batches.beamBodies.draw(q.x, q.y, q.uv, {
             rotation: q.rotation,
             width: q.width,
