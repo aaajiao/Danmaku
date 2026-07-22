@@ -658,6 +658,16 @@ contact point through the `fx` RNG stream. A killing hit skips this layer in
 favour of the death effect, and a held beam rate-limits all contact layers while
 continuing to apply damage every tick.
 
+Bosses use the same local material response, plus a fixed eight-tick display
+cadence owned by `BossSystem`; it never gates damage. Heavy hits are semantic
+scatter, non-beam damage of at least 2, and Bomb. Their recoil is render-only.
+A phase's final third contracts the body and selects a dedicated fixed-tick
+distress strip from the same material: membrane/ring fracture, bone segments,
+retracting branched filament, or unstable heart core. Guest Bosses without a
+material keep the restrained generic crack/heart fallback at their atlas size.
+A spell phase emits `boss.break` only when it has a successor on the active
+difficulty (timeout counts); the final phase instead keeps the boss death tier.
+
 `scoreValue` is the kill's **immediate** points; `spoils` is what it scatters
 for the player to collect, a `[name, count]` list over the item registry. Most
 trash drops only `power`, so `[['power', 1]]` — but the list can name any

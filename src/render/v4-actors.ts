@@ -24,6 +24,8 @@ export interface V4ActorSpec {
   readonly strip: string;
   /** Square display box in logical 480×640 pixels. */
   readonly size: number;
+  /** Optional v4-only final-death identity strip on the shared FX atlas. */
+  readonly deathStrip?: string;
 }
 
 export const V4_PLAYER_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
@@ -54,11 +56,11 @@ export const V4_ENEMY_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
 };
 
 export const V4_BOSS_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
-  sentinel: { strip: 'actor.boss.sentinel', size: 88 },
-  warden: { strip: 'actor.boss.warden', size: 88 },
-  magistrate: { strip: 'actor.boss.magistrate', size: 95 },
-  chancellor: { strip: 'actor.boss.chancellor', size: 96 },
-  regent: { strip: 'actor.boss.regent', size: 110 },
+  sentinel: { strip: 'actor.boss.sentinel', size: 88, deathStrip: 'boss.death.sentinel' },
+  warden: { strip: 'actor.boss.warden', size: 88, deathStrip: 'boss.death.warden' },
+  magistrate: { strip: 'actor.boss.magistrate', size: 95, deathStrip: 'boss.death.magistrate' },
+  chancellor: { strip: 'actor.boss.chancellor', size: 96, deathStrip: 'boss.death.chancellor' },
+  regent: { strip: 'actor.boss.regent', size: 110, deathStrip: 'boss.death.regent' },
 };
 
 const PLAYER_ORDER = ['scout', 'lance', 'hound', 'spire', 'maw'] as const;
@@ -177,6 +179,8 @@ export interface V4BossPoseFacts {
   readonly ticksSinceFire: number | undefined;
   readonly phaseHpFraction: number;
   readonly phaseTimeFraction: number;
+  readonly impactKind?: 'light' | 'heavy';
+  readonly impactFraction?: number;
 }
 
 /**
@@ -190,6 +194,7 @@ export function v4BossPoseFrame(
   facts: V4BossPoseFacts,
 ): number {
   if (facts.entering) return 0;
+  if (facts.impactKind === 'heavy' && (facts.impactFraction ?? 0) > 0) return 4;
   if (facts.phaseTicks < 4) return 1;
   if (facts.ticksSinceFire !== undefined && facts.ticksSinceFire <= 3) return 2;
   if (facts.phaseHpFraction <= 0.125 || facts.phaseTimeFraction <= 0.125) return 4;

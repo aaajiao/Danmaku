@@ -291,10 +291,10 @@ defineSprite('hit', 'spark', {
 // system; the weapon semantic chooses a name, never a sprite heuristic.
 defineSprite('impact.needle', 'needle', {
   count: { min: 1, max: 2 }, speed: { min: 1, max: 2 }, life: { min: 4, max: 7 }, spread: 18,
-  drag: 0.8, scale: { from: 0.8, to: 0.15 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.97, b: 0.86 }, additive: true,
+  drag: 0.8, scale: { from: 0.8, to: 0.15 }, alpha: { from: 1, to: 0 }, tint: { r: 0.91, g: 0.94, b: 0.96 }, additive: true,
 });
 defineSprite('impact.round', 'glow.small', {
-  count: 1, speed: 0, life: 4, scale: { from: 0.75, to: 0.1 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.38, b: 0.58 }, additive: true,
+  count: 1, speed: 0, life: 4, scale: { from: 0.75, to: 0.1 }, alpha: { from: 1, to: 0 }, tint: { r: 0.94, g: 0.85, b: 0.89 }, additive: true,
 });
 defineSprite('impact.tracking', 'shard', {
   count: { min: 2, max: 3 }, speed: { min: 1.2, max: 2.4 }, life: { min: 6, max: 10 }, spread: 54,
@@ -328,7 +328,15 @@ defineEffect('material.mycelium', {
 });
 defineEffect('material.heart', {
   sprite: 'material.heart', count: 1, speed: 0, life: 8,
-  scale: { from: 0.92, to: 1.08 }, alpha: { from: 1, to: 0 }, tint: { r: 1, g: 0.72, b: 0.82 }, additive: true,
+  scale: { from: 0.92, to: 1.08 }, alpha: { from: 1, to: 0 }, tint: { r: 0.94, g: 0.85, b: 0.89 }, additive: true,
+});
+
+// Non-final spell-card transition punctuation. Final death remains the exact
+// four-layer `TIER_BOOMS.boss` composition owned by the game layer.
+defineEffect('boss.break', {
+  sprite: 'boss.break', count: 1, speed: 0, life: 24,
+  scale: { from: 0.82, to: 1.16 }, alpha: { from: 1, to: 0 },
+  tint: { r: 0.86, g: 0.94, b: 1 }, additive: true,
 });
 
 // Graze is feedback on a near miss, so it fires along the bullet's heading and

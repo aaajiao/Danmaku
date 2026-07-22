@@ -268,16 +268,18 @@ const UNSPAWNED: BossSpec = {
   phases: [{ name: '', hp: 1, timeLimit: 0, patterns: [] }],
 };
 
-/**
- * How many ticks a landed hit keeps the boss's flash lit. Sized to bridge the
- * player's fire cadence (~a shot every 2-4 ticks): each hit *refreshes* the
- * counter to this value rather than accumulating, so sustained fire holds a
- * steady glow that cannot ramp to a solid-white light show, and a ceasefire
- * decays it over this many ticks. Deliberately short — the boss station is the
- * darkest zone of the seal scenes, so the flash is behaviour made visible, not
- * illumination. Pure integer state: no RNG (rule 2), no wall clock.
- */
-const HIT_FLASH_TICKS = 4;
+export type BossImpactKind = 'light' | 'heavy';
+
+export interface BossImpact {
+  readonly kind: BossImpactKind;
+  /** Incoming shot heading quantized to the eight authored recoil directions. */
+  readonly direction8: number;
+}
+
+/** Cosmetic impact cadence. Damage is deliberately not gated by this value. */
+export const BOSS_IMPACT_PERIOD = 8;
+export const BOSS_LIGHT_IMPACT_TICKS = 4;
+export const BOSS_HEAVY_IMPACT_TICKS = 8;
 
 export class Boss {
   x = 0;
@@ -304,13 +306,12 @@ export class Boss {
   /** No death and no bomb since this phase began. Read by the transition event. */
   clean = true;
 
-  /**
-   * Ticks remaining on the hit-flash. Set by `BossSystem.damage`, decremented in
-   * `BossSystem.step`. Presentation-only: nothing in the sim reads it back and it
-   * is not part of the replay fingerprint, so it steers no gameplay. The shell
-   * lifts the sprite tint toward white while it is live (`hitFlashFraction`).
-   */
-  hitFlash = 0;
+  /** Rate-limited, presentation-only local response to the latest landed hit. */
+  impact: BossImpact | undefined;
+  impactTicks = 0;
+  impactCooldown = 0;
+  /** Monotonic acceptance counter lets the game gate particle emission identically. */
+  impactSerial = 0;
 
   /** Presentation fact: this boss added at least one bullet on its latest tick. */
   readonly #fire = { thisTick: false, lastTick: -1 };
@@ -383,13 +384,10 @@ export class Boss {
     return fraction < 0 ? 0 : fraction > 1 ? 1 : fraction;
   }
 
-  /**
-   * Hit-flash intensity, 1 on the tick a hit lands down to 0. For the shell to
-   * lerp the sprite tint toward white, the same read-only-data shape as
-   * `phaseHpFraction`. No hit, no flash.
-   */
-  get hitFlashFraction(): number {
-    const fraction = this.hitFlash / HIT_FLASH_TICKS;
+  /** Remaining fraction of the accepted local response. Never affects gameplay. */
+  get impactFraction(): number {
+    const duration = this.impact?.kind === 'heavy' ? BOSS_HEAVY_IMPACT_TICKS : BOSS_LIGHT_IMPACT_TICKS;
+    const fraction = this.impactTicks / duration;
     return fraction < 0 ? 0 : fraction > 1 ? 1 : fraction;
   }
 
@@ -412,7 +410,10 @@ export class Boss {
     this.phaseIndex = 0;
     this.phaseTicks = 0;
     this.hasTimeline = false;
-    this.hitFlash = 0;
+    this.impact = undefined;
+    this.impactTicks = 0;
+    this.impactCooldown = 0;
+    this.impactSerial = 0;
     this.#fire.thisTick = false;
     this.#fire.lastTick = -1;
     // `notePlayerDeath`/`notePlayerBomb` write this without checking `alive`,
@@ -435,7 +436,10 @@ export class Boss {
     this.angle = 0;
     this.alive = true;
     this.clean = true;
-    this.hitFlash = 0;
+    this.impact = undefined;
+    this.impactTicks = 0;
+    this.impactCooldown = 0;
+    this.impactSerial = 0;
     this.#fire.thisTick = false;
     this.#fire.lastTick = -1;
     this.#difficulty = difficulty;
@@ -513,10 +517,10 @@ export class Boss {
     this.phaseIndex = index;
     this.phaseTicks = 0;
     this.clean = true;
-    // A hit that clears a phase sets the flash on the same tick `#endPhase` arms
-    // the next card; clearing it here stops that flash from ghosting onto a fresh
-    // card the player has not yet touched.
-    this.hitFlash = 0;
+    // A clearing hit must not ghost its pose onto the fresh successor card.
+    this.impact = undefined;
+    this.impactTicks = 0;
+    this.impactCooldown = 0;
     this.#fire.thisTick = false;
     this.#fire.lastTick = -1;
 
@@ -696,9 +700,10 @@ export class BossSystem {
       return;
     }
 
-    // Decay the hit-flash one tick. Runs only past entry (damage refuses during
-    // entry, so it is 0 there anyway). Pure integer, no RNG, no wall clock.
-    if (boss.hitFlash > 0) boss.hitFlash--;
+    // Presentation counters are fixed-tick integers and feed no gameplay.
+    if (boss.impactTicks > 0) boss.impactTicks--;
+    if (boss.impactCooldown > 0) boss.impactCooldown--;
+    if (boss.impactTicks === 0) boss.impact = undefined;
 
     if (boss.hasTimeline) {
       // Timeline first: a segment falling due this tick must apply before the
@@ -725,18 +730,29 @@ export class BossSystem {
   }
 
   /** Returns true if this damage cleared the current phase. */
-  damage(amount: number): boolean {
+  damage(amount: number, impact?: BossImpact): boolean {
     const boss = this.#boss;
     // Invulnerable while flying in, and after the last phase there is nothing
     // left to hit — a shot landing on the tick the fight ended must not open
     // a phase that does not exist.
     if (!boss.alive || boss.entering) return false;
 
-    // Light the flash for every landed hit. Set before the hp check so a hit
-    // that clears the phase would set it too — but `beginPhase` immediately
-    // clears it for the next card, so the clearing hit deliberately shows no
-    // flash (the phase transition is its own, larger, event).
-    boss.hitFlash = HIT_FLASH_TICKS;
+    // Cosmetic acceptance is independent of damage. A heavy hit may replace a
+    // light response immediately; otherwise the cadence prevents held beams
+    // and rapid fire from turning the whole actor into high-frequency noise.
+    if (impact !== undefined && (
+      boss.impactCooldown === 0 ||
+      (impact.kind === 'heavy' && boss.impact?.kind !== 'heavy')
+    )) {
+      // Keep the public presentation seam defensive: authored callers use an
+      // integer octant, but a pack or debug hook may hand us any finite number.
+      // Quantize before wrapping so render code can never index DIR8 with 0.5.
+      const direction8 = Number.isFinite(impact.direction8) ? Math.round(impact.direction8) : 0;
+      boss.impact = { kind: impact.kind, direction8: ((direction8 % 8) + 8) % 8 };
+      boss.impactTicks = impact.kind === 'heavy' ? BOSS_HEAVY_IMPACT_TICKS : BOSS_LIGHT_IMPACT_TICKS;
+      boss.impactCooldown = BOSS_IMPACT_PERIOD;
+      boss.impactSerial++;
+    }
 
     boss.hp -= amount;
     if (boss.hp > 0) return false;

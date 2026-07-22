@@ -150,6 +150,30 @@ function petal(ctx: Ctx, cx: number, cy: number, radius: number): void {
   ctx.fill();
 }
 
+/** Compact unstable heart silhouette used by the boss distress overlay. */
+function heartCore(ctx: Ctx, cx: number, cy: number, size: number): void {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + size * 1.35);
+  ctx.bezierCurveTo(
+    cx - size * 1.35,
+    cy + size * 0.45,
+    cx - size * 1.2,
+    cy - size * 0.9,
+    cx,
+    cy - size * 0.25,
+  );
+  ctx.bezierCurveTo(
+    cx + size * 1.2,
+    cy - size * 0.9,
+    cx + size * 1.35,
+    cy + size * 0.45,
+    cx,
+    cy + size * 1.35,
+  );
+  ctx.closePath();
+  ctx.fill();
+}
+
 /**
  * A laser body glow band, painted **east-native** (rule 7 — an oriented sprite
  * runs +x, and the beam renderer stretches/tiles along local +x). The glow is
@@ -1159,6 +1183,75 @@ function debrisRadius(f: number): number {
 const MATERIAL_FRAMES = 8;
 function materialProgress(f: number): number { return f / (MATERIAL_FRAMES - 1); }
 
+const BOSS_DISTRESS_FRAMES = 8;
+function bossDistressPulse(f: number): number {
+  const half = BOSS_DISTRESS_FRAMES / 2;
+  return f <= half ? f / half : (BOSS_DISTRESS_FRAMES - f) / half;
+}
+
+// Union paint bounds of the five procedural identity painters below. Keeping
+// these honest is the Law-of-Geometry seam: a native pack must not enlarge a
+// 96px moon fragment merely because its transparent source cell is 128px.
+const BOSS_IDENTITY_EXTENTS = [
+  { w: 75, h: 77 },  // Sentinel lunar fragments
+  { w: 58, h: 102 }, // Warden seal bars
+  { w: 102, h: 54 }, // Magistrate twin blades
+  { w: 74, h: 102 }, // Chancellor tablets and script
+  { w: 102, h: 94 }, // Regent crown, dome and roots
+] as const;
+
+function bossIdentityStrip(kind: number, sheetY: number): FxStrip {
+  const frames = 16;
+  return {
+    frameW: 128, frameH: 128, frames, ticksPerFrame: 2, mode: 'once', color: 'tinted',
+    sheetX: 0, sheetY, stride: 128,
+    frameExtent: () => BOSS_IDENTITY_EXTENTS[kind]!,
+    draw: (ctx, f, cx, cy) => {
+      const t = f / (frames - 1);
+      const spread = 8 + 42 * t;
+      ctx.save();
+      ctx.globalAlpha = 1 - t * 0.72;
+      ctx.strokeStyle = 'white';
+      ctx.fillStyle = 'white';
+      ctx.lineWidth = 2;
+      if (kind === 0) {
+        // Sentinel: the lunar halo separates into eccentric ring fragments.
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath(); ctx.arc(cx, cy, spread * (0.45 + i * 0.24), -0.3 + i, 1.8 + i); ctx.stroke();
+        }
+      } else if (kind === 1) {
+        // Warden: the talisman cage pulls apart into vertical seal bars.
+        for (let i = -2; i <= 2; i++) ctx.fillRect(cx + i * (7 + t * 7) - 1, cy - spread, 2, spread * 2);
+      } else if (kind === 2) {
+        // Magistrate: twin adjudication blades fan out from the verdict seal.
+        for (const sign of [-1, 1]) {
+          ctx.beginPath(); ctx.moveTo(cx, cy + 5); ctx.lineTo(cx + sign * spread, cy - spread * 0.72); ctx.lineTo(cx + sign * (spread - 5), cy - spread * 0.42); ctx.closePath(); ctx.fill();
+        }
+        ring(ctx, cx, cy, 7 + 12 * t, 1.5);
+      } else if (kind === 3) {
+        // Chancellor: archive tablets unbind while mycelial script escapes.
+        for (let i = -1; i <= 1; i++) {
+          const ox = i * (18 + 6 * t);
+          const top = cy - spread + (i === 0 ? 0 : i < 0 ? 6 : 10);
+          const height = spread * 1.35;
+          ctx.strokeRect(cx + ox - 9, top, 18, height);
+          for (let row = 1; row <= 3; row++) {
+            const y = top + height * row / 4;
+            ctx.beginPath(); ctx.moveTo(cx + ox - 5, y); ctx.lineTo(cx + ox + 5, y); ctx.stroke();
+          }
+        }
+        for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.quadraticCurveTo(cx + i * 8, cy - spread * 0.3, cx + i * spread * 0.35, cy + spread); ctx.stroke(); }
+      } else {
+        // Regent: the rooted crown and dome ring split on separate axes.
+        ctx.beginPath(); ctx.moveTo(cx - spread, cy - 6); ctx.lineTo(cx - spread * 0.55, cy - spread * 0.65); ctx.lineTo(cx, cy - 12); ctx.lineTo(cx + spread * 0.55, cy - spread * 0.65); ctx.lineTo(cx + spread, cy - 6); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy + 8, spread, Math.PI, 0); ctx.stroke();
+        for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 5, cy + 8); ctx.lineTo(cx + i * spread * 0.4, cy + spread); ctx.stroke(); }
+      }
+      ctx.restore();
+    },
+  };
+}
+
 export const FX_STRIPS: Record<string, FxStrip> = {
   burst: {
     frameW: 64,
@@ -1250,14 +1343,160 @@ export const FX_STRIPS: Record<string, FxStrip> = {
   },
   'material.mycelium': {
     frameW: 32, frameH: 32, frames: MATERIAL_FRAMES, ticksPerFrame: 1, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 672, stride: 32,
-    frameExtent: () => ({ w: 28, h: 12 }),
-    draw: (ctx, f, cx, cy) => { const t = materialProgress(f); const reach = t < 0.45 ? 5 + 20 * t : 14 - 9 * (t - 0.45); ctx.save(); ctx.globalAlpha = 1 - t; ctx.lineWidth = 1; ctx.strokeStyle = 'white'; ctx.beginPath(); ctx.moveTo(cx - 10, cy + 4); ctx.quadraticCurveTo(cx, cy - 7, cx + reach - 10, cy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx - 7, cy - 3); ctx.lineTo(cx + reach - 9, cy + 5); ctx.stroke(); ctx.restore(); },
+    frameExtent: () => ({ w: 26, h: 14 }),
+    draw: (ctx, f, cx, cy) => {
+      const t = materialProgress(f);
+      const gap = 1 + 5 * t;
+      const retract = 11 - 3 * t;
+      ctx.save();
+      ctx.globalAlpha = 1 - t * 0.72;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'white';
+      // A severed trunk whose two live ends pull inward, with small forks that
+      // keep it legible as mycelium rather than an X-shaped blade scratch.
+      ctx.beginPath(); ctx.moveTo(cx - retract, cy + 2); ctx.quadraticCurveTo(cx - 8, cy - 4, cx - gap, cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + gap, cy); ctx.quadraticCurveTo(cx + 8, cy + 4, cx + retract, cy - 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - retract + 2, cy + 1); ctx.lineTo(cx - retract - 2, cy - 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - retract + 3, cy + 2); ctx.lineTo(cx - retract, cy + 6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + retract - 2, cy - 1); ctx.lineTo(cx + retract + 2, cy + 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + retract - 3, cy - 2); ctx.lineTo(cx + retract, cy - 6); ctx.stroke();
+      orb(ctx, cx - gap, cy, 1, 0.18);
+      orb(ctx, cx + gap, cy, 1, 0.18);
+      ctx.restore();
+    },
   },
   'material.heart': {
     frameW: 24, frameH: 24, frames: MATERIAL_FRAMES, ticksPerFrame: 1, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 704, stride: 24,
     frameExtent: () => ({ w: 16, h: 16 }),
     draw: (ctx, f, cx, cy) => { const t = materialProgress(f); const squeeze = t < 0.35 ? 1 - t * 0.65 : 0.78 + (t - 0.35) * 0.45; ctx.save(); ctx.scale(1 / squeeze, squeeze); orb(ctx, cx * squeeze, cy / squeeze, 7, 0.25); ctx.restore(); },
   },
+  'boss.distress.surface': {
+    frameW: 64, frameH: 64, frames: BOSS_DISTRESS_FRAMES, ticksPerFrame: 2, mode: 'loop', color: 'tinted', sheetX: 0, sheetY: 1560, stride: 64,
+    frameExtent: () => ({ w: 50, h: 50 }),
+    draw: (ctx, f, cx, cy) => {
+      const pulse = bossDistressPulse(f);
+      const membraneR = 14 + 8 * pulse;
+      ctx.save();
+      ctx.globalAlpha = 0.42 + pulse * 0.38;
+      ring(ctx, cx, cy, membraneR, 1.5);
+      ctx.globalAlpha = 0.3 + (1 - pulse) * 0.25;
+      ring(ctx, cx, cy, 8 + 4 * (1 - pulse), 1);
+      ctx.globalAlpha = 0.78;
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2 + 0.32;
+        const inner = membraneR * 0.48;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+        ctx.lineTo(cx + Math.cos(a + 0.13) * (membraneR * 0.72), cy + Math.sin(a + 0.13) * (membraneR * 0.72));
+        ctx.lineTo(cx + Math.cos(a - 0.08) * (membraneR + 2), cy + Math.sin(a - 0.08) * (membraneR + 2));
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+  },
+  'boss.distress.skeleton': {
+    frameW: 64, frameH: 64, frames: BOSS_DISTRESS_FRAMES, ticksPerFrame: 2, mode: 'loop', color: 'tinted', sheetX: 0, sheetY: 1624, stride: 64,
+    frameExtent: () => ({ w: 48, h: 46 }),
+    draw: (ctx, f, cx, cy) => {
+      const pulse = bossDistressPulse(f);
+      const gap = 3 + 4 * pulse;
+      ctx.save();
+      ctx.globalAlpha = 0.62 + pulse * 0.3;
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx - 22, cy - 11); ctx.lineTo(cx - 9 - gap, cy - 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + 9 + gap, cy + 2); ctx.lineTo(cx + 22, cy + 11); ctx.stroke();
+      orb(ctx, cx - 9 - gap, cy - 2, 2, 0.35);
+      orb(ctx, cx + 9 + gap, cy + 2, 2, 0.35);
+      ctx.globalAlpha = 0.82;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - 2, cy - 21);
+      ctx.lineTo(cx + 3, cy - 11);
+      ctx.lineTo(cx - 3, cy - 2);
+      ctx.lineTo(cx + 2, cy + 8);
+      ctx.lineTo(cx - 2, cy + 21);
+      ctx.stroke();
+      ctx.restore();
+    },
+  },
+  'boss.distress.mycelium': {
+    frameW: 64, frameH: 64, frames: BOSS_DISTRESS_FRAMES, ticksPerFrame: 2, mode: 'loop', color: 'tinted', sheetX: 0, sheetY: 1688, stride: 64,
+    frameExtent: () => ({ w: 52, h: 42 }),
+    draw: (ctx, f, cx, cy) => {
+      const pulse = bossDistressPulse(f);
+      const gap = 3 + 7 * pulse;
+      const retract = 24 - 4 * pulse;
+      ctx.save();
+      ctx.globalAlpha = 0.52 + pulse * 0.35;
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx - retract, cy + 13); ctx.quadraticCurveTo(cx - 17, cy - 14, cx - gap, cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + retract, cy - 13); ctx.quadraticCurveTo(cx + 17, cy + 14, cx + gap, cy); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx - 19, cy + 2); ctx.lineTo(cx - 13, cy - 18); ctx.lineTo(cx - gap - 2, cy - 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + 19, cy - 2); ctx.lineTo(cx + 13, cy + 18); ctx.lineTo(cx + gap + 2, cy + 5); ctx.stroke();
+      ctx.globalAlpha = 0.8 * (1 - pulse * 0.55);
+      orb(ctx, cx - gap + 1, cy - 1, 1.2, 0.2);
+      orb(ctx, cx + gap - 1, cy + 1, 1.2, 0.2);
+      ctx.restore();
+    },
+  },
+  'boss.distress.crack': {
+    frameW: 64, frameH: 64, frames: 4, ticksPerFrame: 1, mode: 'loop', color: 'tinted', sheetX: 0, sheetY: 728, stride: 64,
+    frameExtent: () => ({ w: 54, h: 54 }),
+    draw: (ctx, f, cx, cy) => { ctx.save(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; for (let i = 0; i <= f; i++) { const side = i % 2 === 0 ? 1 : -1; ctx.beginPath(); ctx.moveTo(cx + side * (3 + i * 2), cy - 7 + i * 3); ctx.lineTo(cx + side * (12 + i * 3), cy + i * 2); ctx.lineTo(cx + side * (20 + i * 2), cy + 14 + i * 3); ctx.stroke(); } ctx.restore(); },
+  },
+  'boss.distress.heart': {
+    frameW: 32, frameH: 32, frames: 8, ticksPerFrame: 1, mode: 'loop', color: 'tinted', sheetX: 0, sheetY: 792, stride: 32,
+    frameExtent: () => ({ w: 26, h: 26 }),
+    draw: (ctx, f, cx, cy) => {
+      const pulse = bossDistressPulse(f);
+      const squeeze = 0.78 + pulse * 0.22;
+      ctx.save();
+      ctx.globalAlpha = 0.35 + pulse * 0.35;
+      ring(ctx, cx, cy, 9 + 2 * pulse, 1.2);
+      ctx.globalAlpha = 0.82 + pulse * 0.18;
+      ctx.fillStyle = 'white';
+      ctx.translate(cx, cy);
+      ctx.scale(1 / squeeze, squeeze);
+      heartCore(ctx, 0, 0, 6);
+      ctx.restore();
+    },
+  },
+  'boss.break': {
+    frameW: 96, frameH: 96, frames: 12, ticksPerFrame: 2, mode: 'once', color: 'tinted', sheetX: 0, sheetY: 824, stride: 96,
+    frameExtent: () => ({ w: 88, h: 88 }),
+    draw: (ctx, f, cx, cy) => {
+      const t = f / 11;
+      const r = 10 + 32 * t;
+      const split = 2 * t;
+      ctx.save();
+      ctx.globalAlpha = 1 - t * 0.65;
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 3 - 1.5 * t;
+      // Two displaced, incomplete seal halves — never a complete ring/crosshair.
+      ctx.beginPath(); ctx.arc(cx - split, cy, r, -0.2 * Math.PI, 0.62 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx + split, cy, r, 0.84 * Math.PI, 1.68 * Math.PI); ctx.stroke();
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3 + (i % 2 === 0 ? -0.08 : 0.08);
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * (5 + 8 * t), cy + Math.sin(a) * (5 + 8 * t));
+        ctx.lineTo(cx + Math.cos(a) * (18 + 24 * t), cy + Math.sin(a) * (18 + 24 * t));
+        ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(cx - 3, cy - 9); ctx.lineTo(cx + 2, cy - 3); ctx.lineTo(cx - 2, cy + 3); ctx.lineTo(cx + 3, cy + 10); ctx.stroke();
+      ctx.restore();
+    },
+  },
+  'boss.death.sentinel': bossIdentityStrip(0, 920),
+  'boss.death.warden': bossIdentityStrip(1, 1048),
+  'boss.death.magistrate': bossIdentityStrip(2, 1176),
+  'boss.death.chancellor': bossIdentityStrip(3, 1304),
+  'boss.death.regent': bossIdentityStrip(4, 1432),
   // The three missile detonation tiers, on their own rows below `pulse`. Frame
   // counts match the BulletPack `Exp` files a reskin drops in (tiny carries the
   // MOST frames, 11; big the fewest, 8 — counter-intuitive, but the floor tracks

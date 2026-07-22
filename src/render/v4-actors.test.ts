@@ -28,6 +28,9 @@ describe('v4 actor ledger', () => {
     ].map((actor) => actor.strip);
     expect(new Set(strips).size).toBe(strips.length);
     expect(strips.every((name) => name.startsWith('actor.'))).toBeTrue();
+    const deaths = Object.values(V4_BOSS_ACTORS).map((actor) => actor.deathStrip);
+    expect(new Set(deaths).size).toBe(5);
+    expect(deaths.every((name) => name?.startsWith('boss.death.'))).toBeTrue();
   });
 
   test('narrow contact actors use display boxes whose painted width covers their hit circle', () => {
@@ -75,5 +78,6 @@ describe('v4 actor ledger', () => {
     expect(v4BossPoseFrame({ ...facts, phaseHpFraction: 0.125 })).toBe(4);
     expect(v4BossPoseFrame({ ...facts, phaseTimeFraction: 0.1 })).toBe(4);
     expect(v4BossPoseFrame({ ...facts, ticksSinceFire: 12 })).toBe(0);
+    expect(v4BossPoseFrame({ ...facts, impactKind: 'heavy', impactFraction: 1 })).toBe(4);
   });
 });

@@ -10,7 +10,7 @@ spines, branching mycelium and a warm heart core — redrawn at STG-native sizes
 | Surface | Count | File |
 |---|---:|---|
 | Native bullet names (16 neutral floors + 56 current base variants) | 72 | `bullets/bullets.png` |
-| Native effects | 15 | `effects/effects.png` |
+| Native effects | 26 | `effects/effects.png` |
 | Player option / thrust / bomb effects | 19 | `effects/effects.png` |
 | Laser bodies + caps | 11 | `lasers/lasers.png` |
 | Missile bodies | 13 | `missiles/missiles.png` |
@@ -57,6 +57,12 @@ Names that alias the same engine floor can therefore carry different alpha
 silhouettes. For example `orb.small.chaff`, `orb.small.battery`,
 `orb.small.spark` and `orb.small.beacon` are surface/skeleton/mycelium/heart,
 not four colour swaps of one orb.
+
+Actor material hits and Boss distress/Break/death use the Ghost body palette:
+surface silver, bone white, cold-rim mycelium and the low-saturation pink-white
+heart core. They deliberately do not inherit the saturated enemy projectile
+palette. The five Boss death strips preserve identity as lunar fragments, a
+seal cage, twin blades, archive tablets with script, and a rooted crown/dome.
 
 Hostile bullets carry an opaque bone-white keyline and a five-pixel threat core;
 player bullets keep an opaque identity-colour keyline. This faction grammar is

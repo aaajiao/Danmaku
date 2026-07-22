@@ -72,7 +72,8 @@ describe('registry', () => {
       expect(getEffectSpec(name).life).toBeDefined();
     }
     expect(getEffectSpec('impact.round').speed).toBe(0);
-    expect(getEffectSpec('impact.round').tint).toEqual({ r: 1, g: 0.38, b: 0.58 });
+    expect(getEffectSpec('impact.needle').tint).toEqual({ r: 0.91, g: 0.94, b: 0.96 });
+    expect(getEffectSpec('impact.round').tint).toEqual({ r: 0.94, g: 0.85, b: 0.89 });
     expect(getEffectSpec('impact.tracking').gravity).toBeGreaterThan(0);
     expect(getEffectSpec('impact.tracking').spin).toBeGreaterThan(0);
     expect(getEffectSpec('impact.scatter.pause').life).toBe(3);

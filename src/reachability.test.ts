@@ -1153,6 +1153,7 @@ describe('a real playthrough emits', () => {
     'player-death',
     'boss-entered',
     'boss-phase',
+    'boss-break',
     'boss-cleared',
     'boss-defeated',
     'cleared',

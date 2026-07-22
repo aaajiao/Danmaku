@@ -27,6 +27,7 @@ import {
   V4_OWNER_IDS,
   V4_OWNER_PALETTES,
   V4_OWNER_PROJECTILES,
+  V4_GHOST_FX_PALETTE,
   V4_BULLET_NAMES,
   V4_EFFECT_SPECS,
   V4_LASER_SPECS,
@@ -317,7 +318,7 @@ describe('generated output and exact manifest', () => {
     const nativeEffects = Object.keys(FX_STRIPS).filter((name) => name !== 'pulse');
     expect(V4_EFFECT_SPECS.slice(0, nativeEffects.length).map((spec) => spec.name)).toEqual(nativeEffects);
     expect(Object.keys(assets.effects ?? {})).toEqual(V4_EFFECT_SPECS.map((spec) => spec.name));
-    expect(Object.keys(assets.effects ?? {})).toHaveLength(34);
+    expect(Object.keys(assets.effects ?? {})).toHaveLength(45);
     expect(Object.keys(assets.lasers ?? {})).toEqual([...LASER_STRIP_CELLS]);
     expect(Object.keys(assets.missiles ?? {})).toEqual([...MISSILE_STRIP_CELLS]);
     expect(Object.keys(assets.pickups ?? {})).toEqual([...PICKUP_STRIP_CELLS]);
@@ -423,6 +424,13 @@ describe('runtime consumer ownership', () => {
       expect(palette.heart, name).toEqual(V4_OWNER_PALETTES[owners[owners.length - 1]!]!.heart);
       for (const owner of owners) expect(palette, `${name} vs ${owner}`).not.toEqual(V4_OWNER_PALETTES[owner]);
     }
+  });
+
+  test('early Boss spell colours stay in their authored stage families', () => {
+    expect(V4_OWNER_PALETTES['boss.sentinel'].surface.slice(0, 3)).toEqual([64, 174, 224]);
+    expect(V4_OWNER_PALETTES['boss.sentinel'].mycelium.slice(0, 3)).toEqual([129, 214, 242]);
+    expect(V4_OWNER_PALETTES['boss.warden'].surface.slice(0, 3)).toEqual([76, 92, 184]);
+    expect(V4_OWNER_PALETTES['boss.warden'].mycelium.slice(0, 3)).toEqual([64, 185, 159]);
   });
 });
 
@@ -604,9 +612,14 @@ function categoryContract(
     test('every frame is nonempty, animated, padded and content-exact', () => {
       for (const [name, strip] of Object.entries(strips)) {
         const frames = stripFrames(sheet, strip);
-        for (const frame of frames) {
+        for (let index = 0; index < frames.length; index++) {
+          const frame = frames[index]!;
           expect(frame.painted, name).toBeGreaterThan(0);
-          expectStandardPadding(frame, strip.frameW, strip.frameH);
+          try {
+            expectStandardPadding(frame, strip.frameW, strip.frameH);
+          } catch (error) {
+            throw new Error(`${name} frame ${index}: ${String(error)}`);
+          }
         }
         expectAnimated(frames);
         expectExactContent(strip, frames);
@@ -618,6 +631,74 @@ function categoryContract(
 categoryContract('effects atlas', 'effects/effects.png', assets.effects ?? {});
 categoryContract('missiles atlas', 'missiles/missiles.png', assets.missiles ?? {});
 categoryContract('pickups atlas', 'pickups/pickups.png', assets.pickups ?? {});
+
+test('four boss distress materials are native looping, padded and visually distinct', () => {
+  const sheet = png('effects/effects.png');
+  const names = ['surface', 'skeleton', 'mycelium', 'heart'] as const;
+  const masks = new Set<string>();
+  for (const material of names) {
+    const name = `boss.distress.${material}`;
+    const strip = assets.effects?.[name];
+    expect(strip, name).toBeDefined();
+    if (strip === undefined) continue;
+    expect(strip.mode, name).toBe('loop');
+    const frames = stripFrames(sheet, strip);
+    for (const frame of frames) expectStandardPadding(frame, strip.frameW, strip.frameH);
+    expectAnimated(frames);
+    expectExactContent(strip, frames);
+    masks.add(alphaMaskHash(sheet, strip));
+  }
+  expect(masks.size).toBe(names.length);
+});
+
+test('material and boss transition effects use the cold Ghost body palette', () => {
+  expect(V4_GHOST_FX_PALETTE.surface.slice(0, 3)).toEqual([0xb9, 0xc4, 0xcf]);
+  expect(V4_GHOST_FX_PALETTE.bone.slice(0, 3)).toEqual([0xe9, 0xf0, 0xf4]);
+  expect(V4_GHOST_FX_PALETTE.mycelium.slice(0, 3)).toEqual([0xdd, 0xf4, 0xff]);
+  expect(V4_GHOST_FX_PALETTE.heart.slice(0, 3)).toEqual([0xf0, 0xd8, 0xe2]);
+  const names = V4_EFFECT_SPECS
+    .map((spec) => spec.name)
+    .filter((name) => name.startsWith('boss.distress.') || name === 'boss.break' || name.startsWith('boss.death.'));
+  expect(names).toEqual([
+    'boss.distress.surface', 'boss.distress.skeleton', 'boss.distress.mycelium',
+    'boss.distress.crack', 'boss.distress.heart', 'boss.break',
+    'boss.death.sentinel', 'boss.death.warden', 'boss.death.magistrate',
+    'boss.death.chancellor', 'boss.death.regent',
+  ]);
+  for (const name of [
+    'material.surface', 'material.skeleton', 'material.mycelium', 'material.heart',
+    ...names,
+  ]) {
+    expect(paletteForEffect(name), name).toBe(V4_GHOST_FX_PALETTE);
+  }
+  expect(paletteForEffect('burst')).not.toBe(V4_GHOST_FX_PALETTE);
+});
+
+test('the five v4 boss final-death strips have distinct silhouettes', () => {
+  const sheet = png('effects/effects.png');
+  const names = ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent'] as const;
+  const hashes = names.map((name) => {
+    const strip = assets.effects?.[`boss.death.${name}`];
+    if (strip === undefined) throw new Error(`missing boss.death.${name}`);
+    return alphaMaskHash(sheet, strip);
+  });
+  expect(new Set(hashes).size).toBe(names.length);
+});
+
+test('native boss identity paint preserves the procedural display footprint', () => {
+  const names = ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent'] as const;
+  for (const name of names) {
+    const key = `boss.death.${name}`;
+    const native = assets.effects?.[key];
+    const floor = FX_STRIPS[key];
+    expect(native, key).toBeDefined();
+    expect(floor, key).toBeDefined();
+    if (native === undefined || floor === undefined) continue;
+    const extent = floor.frameExtent(0);
+    expect(Math.abs((native.contentW ?? 0) - extent.w), `${key} width`).toBeLessThanOrEqual(2);
+    expect(Math.abs((native.contentH ?? 0) - extent.h), `${key} height`).toBeLessThanOrEqual(2);
+  }
+});
 
 describe('missile anatomy', () => {
   const sheet = png('missiles/missiles.png');

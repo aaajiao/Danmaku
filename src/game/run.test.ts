@@ -10,6 +10,8 @@ import { effectNames, getEffectSpec } from '../sim/effects';
 import { defineEnemy } from '../sim/enemy';
 import { defineOptions } from '../sim/option';
 import { defineStage } from '../content/stage';
+import { TIER_BOOMS } from './deathfx';
+import { EVENT_SOUNDS } from './cues';
 import { deserialize, serialize, type Replay } from '../sim/replay';
 import { type Difficulty } from '../sim/difficulty';
 import {
@@ -188,6 +190,37 @@ defineBoss(MAIN_BOSS, {
     {
       name: 'Vigil', hp: 810, timeLimit: 1440, isSpell: true, motion: { r: 0 },
       patterns: [{ pattern: 'ring', options: { spec: RUN_SHOT, count: 18, period: 42, rotation: 9 } }],
+    },
+  ],
+});
+
+const BREAK_BOSS = 'test-break-boss';
+defineBoss(BREAK_BOSS, {
+  sprite: 'halo', radius: 20, onDeath: 'death.big',
+  phases: [
+    { name: 'body', hp: 10, timeLimit: 0, isSpell: false, patterns: [] },
+    { name: 'seal', hp: 10, timeLimit: 0, isSpell: true, patterns: [] },
+    { name: 'last', hp: 10, timeLimit: 0, isSpell: true, patterns: [] },
+  ],
+});
+
+const TIMEOUT_BREAK_BOSS = 'test-timeout-break-boss';
+defineBoss(TIMEOUT_BREAK_BOSS, {
+  sprite: 'halo', radius: 20,
+  phases: [
+    { name: 'clock seal', hp: 10, timeLimit: 1, isSpell: true, patterns: [] },
+    { name: 'successor', hp: 10, timeLimit: 0, isSpell: false, patterns: [] },
+  ],
+});
+
+const TIER_FINAL_BOSS = 'test-tier-final-boss';
+defineBoss(TIER_FINAL_BOSS, {
+  sprite: 'halo', radius: 20,
+  phases: [
+    { name: 'normal last', hp: 10, timeLimit: 0, isSpell: true, patterns: [] },
+    {
+      name: 'lunatic appendix', hp: 10, timeLimit: 0, isSpell: true,
+      difficulties: ['lunatic'], patterns: [],
     },
   ],
 });
@@ -958,25 +991,25 @@ describe('boss hit feedback', () => {
     }
   });
 
-  test('a shot landing on a boss lights the flash and throws a spark', () => {
+  test('a shot landing on a boss records a local response and throws a spark', () => {
     const sparkSprite = getEffectSpec('impact.round').sprite;
     const run = new Run(config({ boss: MAIN_BOSS }));
 
-    let flashed = false;
+    let responded = false;
     let sparked = false;
     let fought = false;
-    for (let t = 0; t < 40000 && !(flashed && sparked); t++) {
+    for (let t = 0; t < 40000 && !(responded && sparked); t++) {
       run.tick(pursue(run));
       const boss = run.boss.boss;
       if (boss === undefined || boss.entering) continue;
       fought = true;
-      if (boss.hitFlash > 0) flashed = true;
+      if (boss.impact !== undefined) responded = true;
       // While the boss is up the field is otherwise clear, so a `spark`-sprite
       // particle is the boss-hit spark and not a trash hit.
       for (const p of run.effects.particles) if (p.spec.sprite === sparkSprite) sparked = true;
     }
     expect(fought).toBe(true);
-    expect(flashed).toBe(true);
+    expect(responded).toBe(true);
     expect(sparked).toBe(true);
   });
 
@@ -1056,6 +1089,7 @@ describe('boss hit feedback', () => {
     expect(boss).toBeDefined();
     run.bullets.clear();
     run.effects.clear();
+    run.drainEvents();
     const hp = boss!.hp;
     run.bullets.spawn(
       boss!.x,
@@ -1073,8 +1107,26 @@ describe('boss hit feedback', () => {
     expect(firstSparkCount).toBe(2);
     expect(secondSparkCount).toBeLessThanOrEqual(firstSparkCount);
     expect(boss!.hp).toBe(hp - 2);
+    expect(run.drainEvents().filter((event) => event.type === 'boss-hit')).toHaveLength(1);
     const hearts = run.effects.particles.filter((p) => p.spec.sprite === 'material.heart');
     expect(hearts).toHaveLength(1);
+  });
+
+  test('scatter is heavy by semantic family even at one damage', () => {
+    const run = new Run(config({ boss: MAIN_BOSS }));
+    let boss;
+    for (let t = 0; t < 40000; t++) {
+      run.tick(pursue(run)); boss = run.boss.boss;
+      if (boss !== undefined && !boss.entering) break;
+    }
+    expect(boss).toBeDefined();
+    run.bullets.clear();
+    run.bullets.spawn(boss!.x, boss!.y, {
+      style: { sprite: 'glow.small' }, radius: 4, motion: { r: 0, theta: 270 },
+      damage: 1, feedback: 'scatter',
+    }, 'player');
+    run.tick(0);
+    expect(boss!.impact?.kind).toBe('heavy');
   });
 
   test('the same beam gate covers an enemy legacy spark and its material layer', () => {
@@ -1106,7 +1158,7 @@ describe('boss hit feedback', () => {
     expect(enemy.hp).toBe(hp - 2);
   });
 
-  test('no flash while the boss is invulnerable during entry', () => {
+  test('no impact response while the boss is invulnerable during entry', () => {
     const run = new Run(config({ boss: MAIN_BOSS }));
     let sawEntry = false;
     for (let t = 0; t < 40000; t++) {
@@ -1115,11 +1167,81 @@ describe('boss hit feedback', () => {
       if (boss === undefined) continue;
       if (!boss.entering) break;
       sawEntry = true;
-      // Shots pass through an entering boss without damaging it, so the flash —
-      // set on the same guarded branch as the spark — must never light.
-      expect(boss.hitFlash).toBe(0);
+      expect(boss.impact).toBeUndefined();
     }
     expect(sawEntry).toBe(true);
+  });
+});
+
+describe('boss Break and final death are separate', () => {
+  test('only the dedicated Break and accepted boss-hit events own their sounds', () => {
+    expect(EVENT_SOUNDS['boss-break']).toBe('break');
+    expect(EVENT_SOUNDS['boss-cleared']).toBeUndefined();
+    expect(EVENT_SOUNDS['boss-hit']).toBe('hit');
+  });
+
+  test('only a non-final spell with a successor emits Break', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE, boss: BREAK_BOSS }));
+    run.boss.spawn(BREAK_BOSS, 240, 140, sim);
+    run.tick(0); run.drainEvents();
+
+    run.boss.damage(10); run.tick(0);
+    expect(run.drainEvents().some((event) => event.type === 'boss-break')).toBe(false);
+
+    run.boss.damage(10); run.tick(0);
+    const middle = run.drainEvents();
+    expect(middle.filter((event) => event.type === 'boss-break')).toHaveLength(1);
+
+    run.effects.clear();
+    const emit = spyOn(run.effects, 'emit');
+    run.boss.damage(10); run.tick(0);
+    const finalEvents = run.drainEvents();
+    expect(finalEvents.some((event) => event.type === 'boss-break')).toBe(false);
+    expect(finalEvents.map((event) => event.type)).toContain('boss-defeated');
+    const names = emit.mock.calls.map((call) => call[0]);
+    expect(names).toEqual(['death.big', ...TIER_BOOMS.boss]);
+    expect(TIER_BOOMS.boss).toEqual(['boom.boss.back', 'burst.big', 'boom.boss.top', 'debris']);
+    emit.mockRestore();
+  });
+
+  test('a timed-out non-final spell is also a valid Break', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE, boss: TIMEOUT_BREAK_BOSS }));
+    run.boss.spawn(TIMEOUT_BREAK_BOSS, 240, 140, sim);
+    run.tick(0);
+    const events = run.drainEvents();
+    expect(events.filter((event) => event.type === 'boss-break')).toHaveLength(1);
+    expect(events.some((event) => event.type === 'boss-cleared')).toBe(true);
+  });
+
+  test('a raw later card gated off this difficulty does not make the live final spell Break', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE, boss: TIER_FINAL_BOSS }));
+    run.boss.spawn(TIER_FINAL_BOSS, 240, 140, sim);
+    run.tick(0); run.drainEvents();
+
+    run.boss.damage(10); run.tick(0);
+    const events = run.drainEvents();
+    expect(events.some((event) => event.type === 'boss-break')).toBe(false);
+    expect(events.some((event) => event.type === 'boss-defeated')).toBe(true);
+  });
+
+  test('a final defeat in the same drain suppresses every earlier Break candidate', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE, boss: BREAK_BOSS }));
+    run.boss.spawn(BREAK_BOSS, 240, 140, sim);
+    run.tick(0); run.drainEvents();
+
+    run.boss.damage(10);
+    run.tick(0); run.drainEvents();
+    run.effects.clear();
+
+    // Queue the middle spell clear and the final clear before Run drains either.
+    run.boss.damage(10);
+    run.boss.damage(10);
+    run.tick(0);
+    const events = run.drainEvents();
+    expect(events.some((event) => event.type === 'boss-break')).toBe(false);
+    expect(events.some((event) => event.type === 'boss-defeated')).toBe(true);
+    expect(run.effects.particles.some((particle) => particle.spec.sprite === 'boss.break'))
+      .toBe(false);
   });
 });
 

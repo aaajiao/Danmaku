@@ -54,6 +54,7 @@ export const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
   'shot-hit': 'hit',
   'enemy-killed': 'explosion',
   'boss-hit': 'hit',
+  'boss-break': 'break',
   // The boss ladder, distinct cues where one `explosion` used to serve: a low
   // bell announces the adversary, a rising stab declares a spell card, a bright
   // shatter breaks one. The boss *death* keeps `explosion` — it is the biggest
@@ -61,7 +62,6 @@ export const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
   // (做减法; `knell` was rejected for that reason). See `docs/audio.md`.
   'boss-entered': 'toll',
   'boss-phase': 'declare',
-  'boss-cleared': 'break',
   'boss-defeated': 'explosion',
   'player-death': 'death',
   pickup: 'pickup',

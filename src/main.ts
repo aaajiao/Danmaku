@@ -48,6 +48,12 @@ import { stripFrame } from './render/strip';
 import type { Atlas } from './render/atlas';
 import { PostProcessing } from './render/post';
 import { focusIndicatorLayout } from './render/focus-indicator';
+import { bossFeedbackLayout } from './render/boss-feedback';
+import {
+  stepBossIdentityFx,
+  visibleBossIdentityFx,
+  type BossIdentityFx,
+} from './render/boss-identity-fx';
 import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
@@ -77,15 +83,6 @@ import {
 // the same thing by "the frame" — see the comment on `FIELD` in game/run.ts.
 const FIELD_W = FIELD.width;
 const FIELD_H = FIELD.height;
-
-/**
- * Per-channel tint boost added to the boss sprite at the peak of a hit flash.
- * Modest on purpose: the boss sits in the darkest zone of the seal scenes, so
- * this is behaviour made visible, not a light show. Under sustained fire the
- * sim-side counter stays high and the boss holds a steady glow; on a ceasefire
- * it decays to nothing.
- */
-const BOSS_HIT_FLASH_BOOST = 0.6;
 
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
@@ -409,6 +406,16 @@ const batches = {
     blending: 'additive',
     renderOrder: Layer.Bursts + 1,
   }),
+  bossBodyFx: new SpriteBatch(fxAtlas, {
+    capacity: 16,
+    blending: 'additive',
+    renderOrder: Layer.Enemies + 3,
+  }),
+  bossDeathFx: new SpriteBatch(fxAtlas, {
+    capacity: 32,
+    blending: 'additive',
+    renderOrder: Layer.Bursts + 2,
+  }),
 };
 
 // 199: behind every enemy/Boss body; 398: behind thruster (399), ship (400)
@@ -418,6 +425,7 @@ stage.add(batches.actorEnemyPads.mesh, ACTOR_PAD_RENDER_ORDER.enemy);
 stage.add(batches.enemies.mesh, 'Enemies');
 stage.add(batches.actorEnemies.mesh, 'Enemies', 1);
 stage.add(batches.actorBosses.mesh, 'Enemies', 2);
+stage.add(batches.bossBodyFx.mesh, 'Enemies', 3);
 stage.add(batches.itemGlow.mesh, 'Items');
 stage.add(batches.items.mesh, 'Items', 1);
 stage.add(batches.pickups.mesh, 'Items', 1);
@@ -435,6 +443,7 @@ stage.add(batches.missiles.mesh, 'Missiles');
 stage.add(batches.burstsBack.mesh, 'BurstsBack');
 stage.add(batches.bursts.mesh, 'Bursts');
 stage.add(batches.bombFx.mesh, 'Bursts', 1);
+stage.add(batches.bossDeathFx.mesh, 'Bursts', 2);
 stage.add(batches.effects.mesh, 'Effects');
 // Caps at the Effects tier but one step above the small-particle effects batch,
 // so the tip flash reads over both bullets and sparks (a deterministic order,
@@ -558,6 +567,8 @@ interface GrazeUiPulse {
 const grazeUiPulses: GrazeUiPulse[] = [];
 const GRAZE_UI_TICKS = 16;
 
+const bossIdentityFx: BossIdentityFx<Run>[] = [];
+
 const loop = new Loop({
   tick() {
     const buttons = input.sample();
@@ -583,6 +594,10 @@ const loop = new Loop({
       pulse.age++;
       if (pulse.age >= GRAZE_UI_TICKS) grazeUiPulses.splice(i, 1);
     }
+    stepBossIdentityFx(bossIdentityFx, (name) => {
+      const identityStrip = fxAtlas.strip(name);
+      return identityStrip.frames * identityStrip.ticksPerFrame;
+    });
 
     // Play the menu cue the ticked state named, if any (`ui-move`/`ui-confirm`/
     // `ui-cancel`). Resolved here, in the shell, because `src/game` names sounds
@@ -635,10 +650,19 @@ const loop = new Loop({
           // pulses so presentation work cannot scale with curtain density.
           if (grazeUiPulses.length > 12) grazeUiPulses.splice(0, grazeUiPulses.length - 12);
         }
+        if (event.type === 'boss-defeated') {
+          const strip = event.name === undefined ? undefined : V4_BOSS_ACTORS[event.name]?.deathStrip;
+          if (strip !== undefined && fxAtlas.has(strip)) {
+            bossIdentityFx.push({ run, strip, x: event.x, y: event.y, age: 0 });
+          }
+        }
       }
     }
 
-    if (topRun === undefined) grazeUiPulses.length = 0;
+    if (topRun === undefined) {
+      grazeUiPulses.length = 0;
+      bossIdentityFx.length = 0;
+    }
 
     // Dialogue advance is shell-side edge detection, not a run event: a fresh
     // Shot press ticks `run.dialogue.index` up, and that increment plays
@@ -712,6 +736,18 @@ const loop = new Loop({
         drawRun(run);
         hud = run;
       }
+    }
+
+    const visibleRuns = new Set(machine.stack.flatMap((state) => {
+      const run = (state as { run?: Run }).run;
+      return run === undefined ? [] : [run];
+    }));
+    for (const identity of visibleBossIdentityFx(bossIdentityFx, visibleRuns)) {
+      const strip = fxAtlas.strip(identity.strip);
+      const life = strip.frames * strip.ticksPerFrame;
+      drawStrip(batches.bossDeathFx, fxAtlas, identity.x, identity.y, identity.strip, identity.age, {
+        a: Math.max(0, 1 - identity.age / life),
+      });
     }
 
     for (const batch of Object.values(batches)) batch.end();
@@ -834,21 +870,18 @@ function drawActorPad(
  *
  * A tinted strip is white art whose colour comes from content, so it keeps the
  * authored tint. A baked strip already carries its final colour in its texels and
- * therefore draws identity-white. `boost` is presentation layered on top of both
- * modes — currently the boss hit flash — so a baked boss still flashes without
- * having its resting colour multiplied by the content tint.
+ * therefore draws identity-white.
  */
 function stripTint(
   atlas: Atlas,
   name: string,
   tint?: { r?: number; g?: number; b?: number },
-  boost = 0,
 ): { r: number; g: number; b: number } {
   const source = atlas.strip(name).color === 'baked' ? undefined : tint;
   return {
-    r: (source?.r ?? 1) + boost,
-    g: (source?.g ?? 1) + boost,
-    b: (source?.b ?? 1) + boost,
+    r: source?.r ?? 1,
+    g: source?.g ?? 1,
+    b: source?.b ?? 1,
   };
 }
 
@@ -890,25 +923,35 @@ function drawRun(run: Run): void {
 
   const boss = run.boss.boss;
   if (boss?.alive) {
-    // Hit flash: presentation reading sim data (`hitFlashFraction`, the
-    // `phaseHpFraction` pattern). The tint multiplies the texel in the shader,
-    // so an already-white boss cannot brighten by lerping *toward* white —
-    // instead add a flat boost to every channel, which both lifts mid-tone
-    // texels (bloom then makes the pop visible) and desaturates a coloured boss
-    // toward white. Kept modest: the boss sits in the darkest zone of the seal.
-    const boost = boss.hitFlashFraction * BOSS_HIT_FLASH_BOOST;
-    // The v4 five-pose strip reads phase opening, actual volleys and remaining
-    // phase health/time. It never infers or schedules an attack. Size stays
-    // spec-driven; the hit-flash boost rides the tint as before.
+    const feedback = bossFeedbackLayout({
+      hpFraction: boss.phaseHpFraction,
+      phaseTicks: boss.phaseTicks,
+      impactKind: boss.impact?.kind,
+      impactFraction: boss.impactFraction,
+      direction8: boss.impact?.direction8,
+    });
+    const drawX = boss.x + feedback.recoilX;
+    const drawY = boss.y + feedback.recoilY;
     const actor = V4_BOSS_ACTORS[boss.name];
+    const legacyStrip = actor === undefined ? bulletAtlas.strip(boss.spec.sprite) : undefined;
+    const bodyWidth = actor?.size
+      ?? boss.spec.width
+      ?? legacyStrip?.displayW
+      ?? legacyStrip?.frameW
+      ?? boss.spec.radius * 2;
+    const bodyHeight = actor?.size
+      ?? boss.spec.height
+      ?? legacyStrip?.displayH
+      ?? legacyStrip?.frameH
+      ?? boss.spec.radius * 2;
     if (actor !== undefined) {
-      const base = 0.86 + boost;
+      const size = actor.size * feedback.bodyScale;
       drawActorPad(batches.actorEnemyPads, 'boss', boss.x, boss.y, actor.size);
       drawPose(
         batches.actorBosses,
         v4Actors.bosses,
-        boss.x,
-        boss.y,
+        drawX,
+        drawY,
         actor.strip,
         v4BossPoseFrame({
           entering: boss.entering,
@@ -916,17 +959,52 @@ function drawRun(run: Run): void {
           ticksSinceFire: boss.ticksSinceFire,
           phaseHpFraction: boss.phaseHpFraction,
           phaseTimeFraction: boss.phaseTimeFraction,
+          impactKind: boss.impact?.kind,
+          impactFraction: boss.impactFraction,
         }),
-        { width: actor.size, height: actor.size, r: base, g: base, b: base },
+        { width: size, height: size, r: 0.86, g: 0.86, b: 0.86 },
       );
     } else {
-      const tint = stripTint(bulletAtlas, boss.spec.sprite, boss.spec.tint, boost);
-      drawStrip(batches.enemies, bulletAtlas, boss.x, boss.y, boss.spec.sprite, boss.age, {
+      const tint = stripTint(bulletAtlas, boss.spec.sprite, boss.spec.tint);
+      drawStrip(batches.enemies, bulletAtlas, drawX, drawY, boss.spec.sprite, boss.age, {
         rotation: boss.angle,
         width: boss.spec.width,
         height: boss.spec.height,
+        scale: feedback.bodyScale,
         ...tint,
       });
+    }
+    if (feedback.distress > 0) {
+      const distressWidth = bodyWidth * feedback.bodyScale;
+      const distressHeight = bodyHeight * feedback.bodyScale;
+      const coreSize = Math.min(distressWidth, distressHeight);
+      const material = boss.spec.hitMaterial;
+      if (material === 'surface' || material === 'skeleton' || material === 'mycelium') {
+        drawPose(batches.bossBodyFx, fxAtlas, drawX, drawY, `boss.distress.${material}`, feedback.materialFrame, {
+          width: distressWidth,
+          height: distressHeight,
+          a: feedback.crackAlpha,
+        });
+      }
+      else if (material === 'heart') {
+        drawPose(batches.bossBodyFx, fxAtlas, drawX, drawY - coreSize * 0.05, 'boss.distress.heart', feedback.heartFrame, {
+          width: coreSize * 0.36 * feedback.heartScale,
+          height: coreSize * 0.36 * feedback.heartScale,
+          a: feedback.heartAlpha,
+        });
+      }
+      else {
+        // Guest Bosses without the v4 material vocabulary keep a restrained
+        // generic crack plus heart fallback, sized from their actual atlas body.
+        drawPose(batches.bossBodyFx, fxAtlas, drawX, drawY, 'boss.distress.crack', feedback.crackFrame, {
+          width: distressWidth, height: distressHeight, a: feedback.crackAlpha * 0.7,
+        });
+        drawPose(batches.bossBodyFx, fxAtlas, drawX, drawY - coreSize * 0.05, 'boss.distress.heart', feedback.heartFrame, {
+          width: coreSize * 0.3 * feedback.heartScale,
+          height: coreSize * 0.3 * feedback.heartScale,
+          a: feedback.heartAlpha * 0.45,
+        });
+      }
     }
   }
 

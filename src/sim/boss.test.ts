@@ -227,65 +227,79 @@ describe('entry', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Hit flash                                                           */
+/* Local impact presentation                                           */
 /* ------------------------------------------------------------------ */
 
-describe('hit flash', () => {
-  test('a landed hit lights the flash to full, and it decays to zero', () => {
+describe('local impact presentation', () => {
+  const light = { kind: 'light' as const, direction8: 2 };
+
+  test('continuous damage lands every tick while its display is rate-limited', () => {
     const { system } = makeSystem();
     system.spawn('test.three', 240, 120, rng());
-
-    expect(system.boss?.hitFlash).toBe(0);
-    system.damage(1);
-    // Set to the full ticks, so the normalized fraction reads 1 the tick it lands.
-    expect(system.boss?.hitFlashFraction).toBe(1);
-
-    const start = system.boss?.hitFlash ?? 0;
-    expect(start).toBeGreaterThan(0);
-
-    // One decrement per step, down to zero, and not below.
-    for (let i = 1; i <= start; i++) {
-      stepTimes(system, 1);
-      expect(system.boss?.hitFlash).toBe(start - i);
+    const boss = system.boss!;
+    const hp = boss.hp;
+    for (let i = 0; i < 8; i++) {
+      system.damage(1, light);
+      system.step(240, 460, rng());
     }
-    expect(system.boss?.hitFlash).toBe(0);
-    stepTimes(system, 1);
-    expect(system.boss?.hitFlash).toBe(0);
+    expect(boss.hp).toBe(hp - 8);
+    expect(boss.impactSerial).toBe(1);
+    system.damage(1, light);
+    expect(boss.hp).toBe(hp - 9);
+    expect(boss.impactSerial).toBe(2);
   });
 
-  test('each hit refreshes the counter rather than accumulating', () => {
+  test('heavy response overrides light without mutating boss geometry or motion', () => {
     const { system } = makeSystem();
-    system.spawn('test.three', 240, 120, rng());
-
-    system.damage(1);
-    const full = system.boss?.hitFlash ?? 0;
-    stepTimes(system, 1); // decays one
-    expect(system.boss?.hitFlash).toBe(full - 1);
-
-    system.damage(1); // refresh — assignment, not += , so it caps at full
-    expect(system.boss?.hitFlash).toBe(full);
+    const boss = system.spawn('test.three', 240, 120, rng())!;
+    const geometry = [boss.x, boss.y, boss.spec.radius, boss.vector.r, boss.vector.theta];
+    system.damage(1, light);
+    system.damage(2, { kind: 'heavy', direction8: 10 });
+    expect(boss.impact).toEqual({ kind: 'heavy', direction8: 2 });
+    expect(boss.impactSerial).toBe(2);
+    system.damage(2, { kind: 'heavy', direction8: 4 });
+    expect(boss.impact).toEqual({ kind: 'heavy', direction8: 2 });
+    expect(boss.impactSerial).toBe(2);
+    expect([boss.x, boss.y, boss.spec.radius, boss.vector.r, boss.vector.theta]).toEqual(geometry);
   });
 
-  test('an entering boss cannot flash — damage is refused during the fly-in', () => {
+  test('impact directions are rounded to a wrapped integer octant at the public seam', () => {
+    const { system } = makeSystem();
+    const boss = system.spawn('test.three', 240, 120, rng())!;
+
+    system.damage(1, { kind: 'light', direction8: 9.6 });
+    expect(boss.impact?.direction8).toBe(2);
+
+    for (let i = 0; i < 8; i++) system.step(240, 460, rng());
+    system.damage(1, { kind: 'light', direction8: -1.6 });
+    expect(boss.impact?.direction8).toBe(6);
+
+    for (let i = 0; i < 8; i++) system.step(240, 460, rng());
+    system.damage(1, { kind: 'light', direction8: Number.NaN });
+    expect(boss.impact?.direction8).toBe(0);
+  });
+
+  test('an entering boss cannot accept impact — damage is refused during fly-in', () => {
     const { system } = makeSystem();
     system.spawn('test.entering', 240, -40, rng());
 
     expect(system.boss?.entering).toBe(true);
-    expect(system.damage(999)).toBe(false);
-    expect(system.boss?.hitFlash).toBe(0);
-    expect(system.boss?.hitFlashFraction).toBe(0);
+    expect(system.damage(999, light)).toBe(false);
+    expect(system.boss?.impact).toBeUndefined();
+    expect(system.boss?.impactFraction).toBe(0);
   });
 
-  test('the hit that clears a phase does not flash the next card', () => {
+  test('the hit that clears a phase does not recoil the next card', () => {
     const { system } = makeSystem();
     system.spawn('test.three', 240, 120, rng()); // phase 0 hp 100
     system.drainEvents();
 
     // Exactly drains phase 0; `beginPhase` for the next card must clear the flash
     // this same-tick hit set, or it would ghost onto a card not yet touched.
-    expect(system.damage(100)).toBe(true);
+    expect(system.damage(100, light)).toBe(true);
     expect(system.boss?.phaseIndex).toBe(1);
-    expect(system.boss?.hitFlash).toBe(0);
+    expect(system.boss?.impact).toBeUndefined();
+    expect(system.boss?.impactSerial).toBe(1);
   });
 });
 
@@ -689,6 +703,36 @@ function trace(boss: string, seed: number, ticks: number): string[] {
 }
 
 describe('determinism', () => {
+  test('presentation impacts do not change fight state, events, or RNG', () => {
+    const left = makeSystem().system;
+    const right = makeSystem().system;
+    const leftRng = rng(77);
+    const rightRng = rng(77);
+    left.spawn('test.three', 240, 120, leftRng);
+    right.spawn('test.three', 240, 120, rightRng);
+    left.drainEvents(); right.drainEvents();
+
+    for (let tick = 0; tick < 80; tick++) {
+      if (tick % 3 === 0) {
+        const amount = tick % 12 === 0 ? 2 : 1;
+        left.damage(amount, { kind: amount >= 2 ? 'heavy' : 'light', direction8: tick });
+        right.damage(amount);
+      }
+      left.step(250, 460, leftRng);
+      right.step(250, 460, rightRng);
+      const a = left.boss;
+      const b = right.boss;
+      expect(a === undefined).toBe(b === undefined);
+      if (a !== undefined && b !== undefined) {
+        expect([a.hp, a.phaseIndex, a.phaseTicks, a.x, a.y, a.vector.r, a.vector.theta])
+          .toEqual([b.hp, b.phaseIndex, b.phaseTicks, b.x, b.y, b.vector.r, b.vector.theta]);
+      }
+      expect(left.drainEvents().map((event) => [event.type, event.phaseIndex, event.clean]))
+        .toEqual(right.drainEvents().map((event) => [event.type, event.phaseIndex, event.clean]));
+      expect(leftRng.getState()).toEqual(rightRng.getState());
+    }
+  });
+
   test('the same seed reproduces a fight exactly', () => {
     expect(trace('test.random', 12345, 200)).toEqual(trace('test.random', 12345, 200));
   });

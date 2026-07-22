@@ -249,8 +249,34 @@ describe('fx strip geometry', () => {
     expect(FX_STRIPS.burst?.mode).toBe('once');
     expect(FX_STRIPS['burst.big']?.mode).toBe('once');
     expect(FX_STRIPS.pulse?.mode).toBe('loop');
+    expect(FX_STRIPS['boss.break']?.mode).toBe('once');
+    expect(FX_STRIPS['boss.distress.crack']?.mode).toBe('loop');
+    for (const name of ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent']) {
+      expect(FX_STRIPS[`boss.death.${name}`]?.mode).toBe('once');
+    }
     // All tinted: the floor is recolourable (rule 9); colour comes from the tint.
     for (const s of Object.values(FX_STRIPS)) expect(s.color).toBe('tinted');
+  });
+
+  test('four boss distress materials are distinct looping, padded strip contracts', () => {
+    const names = ['surface', 'skeleton', 'mycelium', 'heart'] as const;
+    for (const material of names) {
+      const name = `boss.distress.${material}`;
+      const strip = FX_STRIPS[name];
+      expect(strip, name).toBeDefined();
+      if (strip === undefined) continue;
+      expect(strip.mode, name).toBe('loop');
+      expect(strip.frames, name).toBeGreaterThanOrEqual(4);
+      for (let frame = 0; frame < strip.frames; frame++) {
+        const extent = strip.frameExtent(frame);
+        expect(extent.w, `${name} frame ${frame} width`).toBeGreaterThan(0);
+        expect(extent.h, `${name} frame ${frame} height`).toBeGreaterThan(0);
+        expect(extent.w, `${name} frame ${frame} width`).toBeLessThanOrEqual(strip.frameW - 2 * FX_PAD);
+        expect(extent.h, `${name} frame ${frame} height`).toBeLessThanOrEqual(strip.frameH - 2 * FX_PAD);
+      }
+    }
+    // Third-party/older callers may still request the generic fracture loop.
+    expect(FX_STRIPS['boss.distress.crack']?.mode).toBe('loop');
   });
 });
 

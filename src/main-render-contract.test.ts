@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { Layer } from './render/stage';
 
 const mainSource = await Bun.file(new URL('./main.ts', import.meta.url)).text();
 const v4UiSource = await Bun.file(new URL('./render/v4-ui.ts', import.meta.url)).text();
@@ -6,16 +7,56 @@ const v4UiSource = await Bun.file(new URL('./render/v4-ui.ts', import.meta.url))
 describe('the shell honours baked strip colour', () => {
   test('the shared tint resolver makes baked art identity-white', () => {
     expect(mainSource).toContain("atlas.strip(name).color === 'baked' ? undefined : tint");
-    expect(mainSource).toContain('r: (source?.r ?? 1) + boost');
-    expect(mainSource).toContain('g: (source?.g ?? 1) + boost');
-    expect(mainSource).toContain('b: (source?.b ?? 1) + boost');
+    expect(mainSource).toContain('r: source?.r ?? 1');
+    expect(mainSource).toContain('g: source?.g ?? 1');
+    expect(mainSource).toContain('b: source?.b ?? 1');
+    expect(mainSource).not.toContain('boost');
   });
 
   test('enemy, boss, ordinary bullet/missile and effect draws all use it', () => {
     expect(mainSource).toContain('stripTint(bulletAtlas, e.spec.sprite, e.spec.tint)');
-    expect(mainSource).toContain('stripTint(bulletAtlas, boss.spec.sprite, boss.spec.tint, boost)');
+    expect(mainSource).toContain('stripTint(bulletAtlas, boss.spec.sprite, boss.spec.tint)');
+    expect(mainSource).not.toContain('boss.hitFlash');
     expect(mainSource).toContain('stripTint(spriteAtlas, b.style.sprite, b.style)');
     expect(mainSource).toContain('stripTint(atlas, p.spec.sprite, p.spec.tint)');
+  });
+});
+
+describe('boss feedback stays local and below bullet danger', () => {
+  test('distress is below both shot layers while death identity stays with bursts', () => {
+    expect(Layer.Enemies + 3).toBeLessThan(Layer.PlayerShots);
+    expect(Layer.Enemies + 3).toBeLessThan(Layer.EnemyShots);
+    expect(mainSource).toContain('renderOrder: Layer.Enemies + 3');
+    expect(mainSource).toContain('renderOrder: Layer.Bursts + 2');
+    expect(mainSource).toContain("drawActorPad(batches.actorEnemyPads, 'boss', boss.x, boss.y, actor.size)");
+    expect(mainSource).toContain('const drawX = boss.x + feedback.recoilX');
+  });
+
+  test('a defeated v4 boss queues, draws, and fades its unique identity strip', () => {
+    expect(mainSource).toContain("if (event.type === 'boss-defeated')");
+    expect(mainSource).toContain('V4_BOSS_ACTORS[event.name]?.deathStrip');
+    expect(mainSource).toContain('bossIdentityFx.push({ run, strip, x: event.x, y: event.y, age: 0 })');
+    expect(mainSource).toContain('stepBossIdentityFx(bossIdentityFx');
+    expect(mainSource).toContain('visibleBossIdentityFx(bossIdentityFx, visibleRuns)');
+    expect(mainSource).toContain('drawStrip(batches.bossDeathFx');
+    expect(mainSource).toContain('a: Math.max(0, 1 - identity.age / life)');
+  });
+
+  test('guest boss distress follows its actual atlas display geometry', () => {
+    expect(mainSource).toContain('const legacyStrip = actor === undefined ? bulletAtlas.strip(boss.spec.sprite) : undefined');
+    expect(mainSource).toContain('legacyStrip?.displayW');
+    expect(mainSource).toContain('legacyStrip?.frameW');
+    expect(mainSource).toContain('legacyStrip?.displayH');
+    expect(mainSource).toContain('legacyStrip?.frameH');
+    expect(mainSource).not.toContain('Math.max(boss.spec.width ?? 64, boss.spec.height ?? 64)');
+  });
+
+  test('each authored boss material selects its own low-health strip', () => {
+    expect(mainSource).toContain("material === 'surface' || material === 'skeleton' || material === 'mycelium'");
+    expect(mainSource).toContain('`boss.distress.${material}`');
+    expect(mainSource).toContain("else if (material === 'heart')");
+    expect(mainSource).toContain("'boss.distress.crack', feedback.crackFrame");
+    expect(mainSource).toContain('feedback.materialFrame');
   });
 });
 

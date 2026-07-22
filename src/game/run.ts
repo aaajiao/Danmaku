@@ -279,6 +279,7 @@ export type RunEventType =
   | 'shot-hit'
   | 'enemy-killed'
   | 'boss-hit'
+  | 'boss-break'
   | 'graze'
   | 'bomb'
   | 'pickup'
@@ -905,8 +906,16 @@ export class Run {
       if (!bulletHitsCircle(b, boss.x, boss.y, boss.spec.radius)) continue;
 
       const contact = bulletContactPoint(b, boss.x, boss.y);
-      const feedbackDue = this.#shotFeedbackDue(b, boss);
-      const cleared = this.boss.damage(b.damage);
+      const impactSerial = boss.impactSerial;
+      const cleared = this.boss.damage(b.damage, {
+        kind: (b.feedback === 'beam' || b.laser !== undefined)
+          ? 'light'
+          : (b.feedback === 'scatter' || b.damage >= 2) ? 'heavy' : 'light',
+        direction8: Math.round(b.vector.theta / 45),
+      });
+      // The boss owns its local presentation cadence. Damage above is never
+      // gated, so a held beam still drains HP on every collision tick.
+      const feedbackDue = boss.impactSerial !== impactSerial;
       // Legacy/guest shots did not author a semantic family. Keep the old boss
       // spark for them while authored player shots choose their own language.
       if (b.feedback === undefined && feedbackDue) {
@@ -916,7 +925,7 @@ export class Run {
       if (!cleared && feedbackDue) {
         this.#emitMaterialHit(boss.spec.hitMaterial, contact.x, contact.y);
       }
-      this.#emit({ type: 'boss-hit', x: contact.x, y: contact.y, name: boss.name });
+      if (feedbackDue) this.#emit({ type: 'boss-hit', x: contact.x, y: contact.y, name: boss.name });
       if (!b.pierce) this.bullets.despawn(b);
     }
   }
@@ -1169,8 +1178,15 @@ export class Run {
     const damage = this.bombs.damageAt(boss.x, boss.y, boss.spec.radius);
     if (damage <= 0) return;
 
-    this.boss.damage(damage);
-    this.#emit({ type: 'boss-hit', x: boss.x, y: boss.y, name: boss.name });
+    const impactSerial = boss.impactSerial;
+    this.boss.damage(damage, {
+      kind: 'heavy',
+      // Render-only force from below; this never mutates boss movement.
+      direction8: 6,
+    });
+    if (boss.impactSerial !== impactSerial) {
+      this.#emit({ type: 'boss-hit', x: boss.x, y: boss.y, name: boss.name });
+    }
   }
 
   #resolvePlayerHit(): void {
@@ -1209,7 +1225,11 @@ export class Run {
   }
 
   #resolveBossEvents(rng: Random): void {
-    for (const event of this.boss.drainEvents()) {
+    const events = this.boss.drainEvents();
+    // A pathological same-tick chain can clear a successor and defeat the boss
+    // before this drain. Final death owns that tick's presentation completely.
+    const defeatedThisDrain = events.some((event) => event.type === 'defeated');
+    for (const event of events) {
       const { x, y } = event.boss;
       // Indexed off the event, never off `boss.phase`. Events are drained after
       // the transition that raised them, so by now the boss has already armed
@@ -1254,6 +1274,10 @@ export class Run {
               event.type === 'phase-cleared' ? bonus : bonus * TIMEOUT_BONUS_FRACTION,
             );
             this.#award(points);
+          }
+          if (!defeatedThisDrain && card?.isSpell === true && event.boss.nextPhaseIndex(event.phaseIndex) !== undefined) {
+            this.effects.emit('boss.break', x, y);
+            this.#emit({ type: 'boss-break', x, y, count: event.phaseIndex, name: card.name });
           }
           this.#emit({
             type: 'boss-cleared',

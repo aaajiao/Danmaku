@@ -89,7 +89,7 @@ all measured by `tools/measure-audio.ts` against the real synths, not estimated:
 | `death` | `player-death`, `failed` | 0.850 | 0.9314 | 0.80 | 0.7451 | 1.0% |
 | `explosion` | `enemy-killed`, `boss-defeated`, `bomb` | 0.550 | 0.8612 | 0.55 | 0.4737 | 6.5% |
 | `toll` | `boss-entered` | 0.700 | 0.5666 | 0.60 | 0.3399 | 0.0% |
-| `break` | `boss-cleared` | 0.220 | 0.3901 | 0.55 | 0.2146 | 51.5% |
+| `break` | `boss-break` (non-final spell with an active successor) | 0.220 | 0.3901 | 0.55 | 0.2146 | 51.5% |
 | `declare` | `boss-phase` | 0.350 | 0.4253 | 0.50 | 0.2126 | 1.3% |
 | `clear` | `cleared` | 0.250 | 0.3692 | 0.50 | 0.1846 | 0.0% |
 | `hit` | `shot-hit`, `boss-hit` | 0.090 | 0.5321 | 0.35 | 0.1862 | 2.0% |

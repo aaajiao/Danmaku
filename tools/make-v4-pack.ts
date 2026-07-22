@@ -225,6 +225,30 @@ function line(image: Bitmap, x0: number, y0: number, x1: number, y1: number, col
   }
 }
 
+/** Deterministic bitmap arc made from the same integer line primitive. */
+function arcLine(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  radius: number,
+  start: number,
+  end: number,
+  color: Rgba,
+  width = 1,
+): void {
+  const steps = Math.max(4, Math.ceil(Math.abs(end - start) * radius / 3));
+  let px = cx + Math.round(Math.cos(start) * radius);
+  let py = cy + Math.round(Math.sin(start) * radius);
+  for (let i = 1; i <= steps; i++) {
+    const angle = start + ((end - start) * i) / steps;
+    const x = cx + Math.round(Math.cos(angle) * radius);
+    const y = cy + Math.round(Math.sin(angle) * radius);
+    line(image, px, py, x, y, color, width);
+    px = x;
+    py = y;
+  }
+}
+
 type Point = readonly [x: number, y: number];
 
 /** Fill a clockwise or counter-clockwise convex polygon at integer centres. */
@@ -383,8 +407,11 @@ export const V4_OWNER_PALETTES: Record<V4ProjectileOwner, Palette> = {
   'enemy.marshal': personPalette([54, 164, 157], [233, 157, 57], [255, 93, 91]),
   'enemy.notary': personPalette([142, 81, 202], [241, 181, 62], [245, 78, 161]),
 
-  'boss.sentinel': personPalette([48, 194, 141], [255, 101, 169], [255, 214, 98]),
-  'boss.warden': personPalette([235, 170, 53], [81, 210, 143], [255, 230, 118]),
+  // Stage-one silver/cyan and stage-two indigo/teal identities. Their former
+  // green-pink-gold / gold-green sets belonged to later-stage spell language
+  // and visibly drifted from both Boss actor concepts and the stage palette.
+  'boss.sentinel': personPalette([64, 174, 224], [129, 214, 242], [240, 216, 226]),
+  'boss.warden': personPalette([76, 92, 184], [64, 185, 159], [226, 232, 240]),
   'boss.magistrate': personPalette([54, 205, 243], [74, 113, 238], [244, 250, 255]),
   'boss.chancellor': personPalette([231, 73, 146], [245, 175, 53], [255, 72, 91]),
   'boss.regent': personPalette([147, 73, 225], [242, 65, 120], [255, 205, 73]),
@@ -828,6 +855,14 @@ function buildBullets(): { bytes: Uint8Array; strips: NonNullable<Extract<NonNul
 export const V4_SHARED_PLAYER_PALETTE = personPalette(
   [103, 194, 224], [221, 91, 190], [255, 190, 72], [242, 247, 250],
 );
+/** Material and boss-body feedback follow the Ghost body palette, not bullet hues. */
+export const V4_GHOST_FX_PALETTE: Palette = {
+  shadow: [0x59, 0x65, 0x74, 96],
+  surface: [0xb9, 0xc4, 0xcf, 228],
+  bone: [0xe9, 0xf0, 0xf4, 255],
+  mycelium: [0xdd, 0xf4, 0xff, 224],
+  heart: [0xf0, 0xd8, 0xe2, 255],
+};
 const V4_SHARED_ENEMY_FX_PALETTE = personPalette(
   [171, 106, 201], [235, 118, 68], [255, 207, 91], [240, 240, 238],
 );
@@ -842,6 +877,14 @@ export function paletteForEffect(name: string): Palette {
   if (bombOwner !== undefined) return V4_OWNER_PALETTES[bombOwner];
   if (name.startsWith('player.') || name === 'boom.player') return V4_SHARED_PLAYER_PALETTE;
   if (name.startsWith('missile.pop.')) return V4_SHARED_MISSILE_FX_PALETTE;
+  if (
+    name.startsWith('material.')
+    || name.startsWith('boss.distress.')
+    || name === 'boss.break'
+    || name.startsWith('boss.death.')
+  ) {
+    return V4_GHOST_FX_PALETTE;
+  }
   // `debris` serves both player and boss; a single baked strip must remain a
   // shared lifecycle ember rather than falsely wearing either faction's colour.
   if (name === 'debris') return sharedLineagePalette(['player.maw', 'boss.regent']);
@@ -878,6 +921,11 @@ function drawBurst(image: Bitmap, cx: number, cy: number, frame: number, frames:
       cx + Math.round((d[0] * reach) / 8), cy + Math.round((d[1] * reach) / 8),
       [p.mycelium[0], p.mycelium[1], p.mycelium[2], Math.max(45, alpha - 30)]);
   }
+}
+
+function loopPulse(frame: number, frames: number): number {
+  const half = frames / 2;
+  return frame <= half ? frame / half : (frames - frame) / half;
 }
 
 function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, frame: number): void {
@@ -976,18 +1024,33 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
   }
   if (spec.name === 'player.bomb.hound-pack') {
     const sway = frame % 3 - 1;
-    for (const [dx, dy] of [[-14, 9], [0, -11], [14, 9]] as const) {
-      disc(image, cx + dx + sway, cy + dy, 5, p.surface);
-      heart(image, cx + dx + sway, cy + dy, 1, p.heart);
+    for (const [dx, dy] of [[-13, 7], [0, -7], [13, 7]] as const) {
+      const hx = cx + dx + sway;
+      const hy = cy + dy;
+      // Three readable familiar heads: pointed ears and a small bone muzzle,
+      // rather than three network-status dots joined by a HUD line.
+      convex(image, [[hx - 4, hy - 2], [hx - 2, hy - 7], [hx, hy - 3]], p.surface);
+      convex(image, [[hx, hy - 3], [hx + 2, hy - 7], [hx + 4, hy - 2]], p.surface);
+      disc(image, hx, hy, 4, p.surface);
+      line(image, hx - 2, hy + 1, hx, hy + 3, p.bone);
+      line(image, hx, hy + 3, hx + 2, hy + 1, p.bone);
+      heart(image, hx, hy - 1, 1, p.heart);
     }
-    line(image, cx - 12, cy + 7, cx + 12, cy + 7, p.mycelium);
+    line(image, cx - 13 + sway, cy + 7, cx, cy - 7, p.mycelium);
+    line(image, cx, cy - 7, cx + 13 + sway, cy + 7, p.mycelium);
     return;
   }
   if (spec.name === 'player.bomb.spire-field') {
     const r = 8 + frame % 10;
-    convex(image, [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]], [p.surface[0], p.surface[1], p.surface[2], 145]);
-    line(image, cx, cy - r, cx, cy + r, p.bone);
-    line(image, cx - r, cy, cx + r, cy, p.mycelium);
+    // An open relay field surrounding a three-column tower. It cannot be read
+    // as the solid diamond used by the gem pickup.
+    ring(image, cx, cy, r, 1, [p.surface[0], p.surface[1], p.surface[2], 175]);
+    line(image, cx, cy - r, cx, cy + r, p.bone, 2);
+    const side = Math.max(3, Math.round(r * 0.42));
+    const half = Math.max(4, Math.round(r * 0.58));
+    line(image, cx - side, cy - half, cx - side, cy + half, p.surface);
+    line(image, cx + side, cy - half, cx + side, cy + half, p.surface);
+    line(image, cx - r + 2, cy, cx + r - 2, cy, p.mycelium);
     heart(image, cx, cy, 2, p.heart);
     return;
   }
@@ -1056,13 +1119,158 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
     return;
   }
   if (spec.name === 'material.mycelium') {
-    const t = frame / Math.max(1, spec.frames - 1); const reach = t < 0.5 ? 4 + Math.round(maxR * t) : Math.max(3, 12 - Math.round(12 * (t - 0.5)));
-    line(image, cx - 8, cy + 3, cx + reach - 8, cy - 3, p.mycelium, 1); line(image, cx - 6, cy - 3, cx + reach - 7, cy + 4, p.mycelium, 1);
+    const t = frame / Math.max(1, spec.frames - 1);
+    const gap = 1 + Math.round(5 * t);
+    const retract = 11 - Math.round(3 * t);
+    line(image, cx - retract, cy + 2, cx - 8, cy - 3, p.mycelium);
+    line(image, cx - 8, cy - 3, cx - gap, cy, p.mycelium);
+    line(image, cx + gap, cy, cx + 8, cy + 3, p.mycelium);
+    line(image, cx + 8, cy + 3, cx + retract, cy - 2, p.mycelium);
+    line(image, cx - retract + 2, cy + 1, cx - retract - 2, cy - 5, p.surface);
+    line(image, cx - retract + 3, cy + 2, cx - retract, cy + 6, p.mycelium);
+    line(image, cx + retract - 2, cy - 1, cx + retract + 2, cy + 5, p.surface);
+    line(image, cx + retract - 3, cy - 2, cx + retract, cy - 6, p.mycelium);
+    disc(image, cx - gap, cy, 1, p.bone);
+    disc(image, cx + gap, cy, 1, p.bone);
     return;
   }
   if (spec.name === 'material.heart') {
     const t = frame / Math.max(1, spec.frames - 1); const r = t < 0.4 ? Math.max(2, 4 - Math.round(4 * t)) : 3 + Math.round(2 * (t - 0.4));
     heart(image, cx, cy, r, p.heart); return;
+  }
+  if (spec.name === 'boss.distress.surface') {
+    const pulse = loopPulse(frame, spec.frames);
+    const membraneR = 14 + Math.round(8 * pulse);
+    ring(image, cx, cy, membraneR, 1, [p.surface[0], p.surface[1], p.surface[2], clampByte(130 + pulse * 90)]);
+    ring(image, cx, cy, 8 + Math.round(4 * (1 - pulse)), 1, [p.mycelium[0], p.mycelium[1], p.mycelium[2], 135]);
+    for (let i = 0; i < 4; i++) {
+      const d = DIR8[(i * 2 + 1) % DIR8.length]!;
+      const inner = Math.round(membraneR * 0.48);
+      const middle = Math.round(membraneR * 0.72);
+      line(
+        image,
+        cx + Math.round((d[0] * inner) / 8),
+        cy + Math.round((d[1] * inner) / 8),
+        cx + Math.round((d[0] * middle) / 8) + (i % 2 === 0 ? 1 : -1),
+        cy + Math.round((d[1] * middle) / 8),
+        p.bone,
+      );
+      line(
+        image,
+        cx + Math.round((d[0] * middle) / 8) + (i % 2 === 0 ? 1 : -1),
+        cy + Math.round((d[1] * middle) / 8),
+        cx + Math.round((d[0] * (membraneR + 2)) / 8),
+        cy + Math.round((d[1] * (membraneR + 2)) / 8),
+        p.surface,
+      );
+    }
+    return;
+  }
+  if (spec.name === 'boss.distress.skeleton') {
+    const pulse = loopPulse(frame, spec.frames);
+    const gap = 3 + Math.round(4 * pulse);
+    line(image, cx - 22, cy - 11, cx - 9 - gap, cy - 2, p.bone, 2);
+    line(image, cx + 9 + gap, cy + 2, cx + 22, cy + 11, p.bone, 2);
+    disc(image, cx - 9 - gap, cy - 2, 2, p.bone);
+    disc(image, cx + 9 + gap, cy + 2, 2, p.bone);
+    line(image, cx - 2, cy - 21, cx + 3, cy - 11, p.surface);
+    line(image, cx + 3, cy - 11, cx - 3, cy - 2, p.surface);
+    line(image, cx - 3, cy - 2, cx + 2, cy + 8, p.surface);
+    line(image, cx + 2, cy + 8, cx - 2, cy + 21, p.mycelium);
+    return;
+  }
+  if (spec.name === 'boss.distress.mycelium') {
+    const pulse = loopPulse(frame, spec.frames);
+    const gap = 3 + Math.round(7 * pulse);
+    const retract = 24 - Math.round(4 * pulse);
+    line(image, cx - retract, cy + 13, cx - 17, cy - 7, p.mycelium);
+    line(image, cx - 17, cy - 7, cx - gap, cy, p.mycelium);
+    line(image, cx + retract, cy - 13, cx + 17, cy + 7, p.mycelium);
+    line(image, cx + 17, cy + 7, cx + gap, cy, p.mycelium);
+    line(image, cx - 19, cy + 2, cx - 13, cy - 18, p.mycelium);
+    line(image, cx - 13, cy - 18, cx - gap - 2, cy - 5, p.surface);
+    line(image, cx + 19, cy - 2, cx + 13, cy + 18, p.mycelium);
+    line(image, cx + 13, cy + 18, cx + gap + 2, cy + 5, p.surface);
+    disc(image, cx - gap + 1, cy - 1, 1, p.bone);
+    disc(image, cx + gap - 1, cy + 1, 1, p.bone);
+    return;
+  }
+  if (spec.name === 'boss.distress.crack') {
+    for (let i = 0; i <= frame; i++) {
+      const side = i % 2 === 0 ? 1 : -1;
+      line(image, cx + side * (2 + i), cy - 7 + i * 3, cx + side * (11 + i * 2), cy + i * 3, p.bone);
+      line(image, cx + side * (11 + i * 2), cy + i * 3, cx + side * (19 + i * 2), cy + 13 + i * 2, p.surface);
+    }
+    return;
+  }
+  if (spec.name === 'boss.distress.heart') {
+    const pulse = loopPulse(frame, spec.frames);
+    ring(image, cx, cy, 9 + Math.round(2 * pulse), 1, [p.mycelium[0], p.mycelium[1], p.mycelium[2], 125]);
+    heart(image, cx, cy, pulse >= 0.75 ? 6 : 5, p.heart);
+    return;
+  }
+  if (spec.name === 'boss.break') {
+    const t = frame / Math.max(1, spec.frames - 1);
+    const r = 10 + Math.round(32 * t);
+    const split = Math.round(2 * t);
+    arcLine(image, cx - split, cy, r, -0.2 * Math.PI, 0.62 * Math.PI, p.surface, 2);
+    arcLine(image, cx + split, cy, r, 0.84 * Math.PI, 1.68 * Math.PI, p.surface, 2);
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 + (i % 2 === 0 ? -0.08 : 0.08);
+      const inner = 5 + Math.round(8 * t);
+      const outer = 18 + Math.round(24 * t);
+      line(image, cx + Math.round(Math.cos(a) * inner), cy + Math.round(Math.sin(a) * inner), cx + Math.round(Math.cos(a) * outer), cy + Math.round(Math.sin(a) * outer), p.bone);
+    }
+    line(image, cx - 3, cy - 9, cx + 2, cy - 3, p.mycelium);
+    line(image, cx + 2, cy - 3, cx - 2, cy + 3, p.mycelium);
+    line(image, cx - 2, cy + 3, cx + 3, cy + 10, p.mycelium);
+    return;
+  }
+  if (spec.name.startsWith('boss.death.')) {
+    const t = frame / Math.max(1, spec.frames - 1); const spread = 8 + Math.round(42 * t);
+    if (spec.name.endsWith('.sentinel')) {
+      const colours = [p.surface, p.mycelium, p.bone] as const;
+      for (let i = 0; i < 3; i++) {
+        arcLine(
+          image,
+          cx,
+          cy,
+          Math.max(3, Math.round(spread * (0.45 + i * 0.24))),
+          -0.3 + i,
+          1.8 + i,
+          colours[i]!,
+        );
+      }
+    } else if (spec.name.endsWith('.warden')) {
+      for (let i = -2; i <= 2; i++) line(image, cx + i * (7 + Math.round(t * 7)), cy - spread, cx + i * (7 + Math.round(t * 7)), cy + spread, i % 2 === 0 ? p.bone : p.surface, 2);
+    } else if (spec.name.endsWith('.magistrate')) {
+      convex(image, [[cx, cy + 4], [cx - spread, cy - Math.round(spread * 0.7)], [cx - spread + 5, cy - Math.round(spread * 0.4)]], p.bone);
+      convex(image, [[cx, cy + 4], [cx + spread, cy - Math.round(spread * 0.7)], [cx + spread - 5, cy - Math.round(spread * 0.4)]], p.surface);
+      ring(image, cx, cy, 6 + Math.round(10 * t), 1, p.mycelium);
+    } else if (spec.name.endsWith('.chancellor')) {
+      for (let i = -1; i <= 1; i++) {
+        const ox = i * (18 + Math.round(6 * t));
+        const top = cy - spread + (i === 0 ? 0 : i < 0 ? 6 : 10);
+        const bottom = top + Math.round(spread * 1.35);
+        line(image, cx + ox - 9, top, cx + ox + 9, top, p.bone);
+        line(image, cx + ox - 9, top, cx + ox - 9, bottom, p.surface);
+        line(image, cx + ox + 9, top, cx + ox + 9, bottom, p.surface);
+        line(image, cx + ox - 9, bottom, cx + ox + 9, bottom, p.surface);
+        for (let row = 1; row <= 3; row++) {
+          const writingY = top + Math.round(((bottom - top) * row) / 4);
+          line(image, cx + ox - 5, writingY, cx + ox + 5, writingY, row % 2 === 0 ? p.mycelium : p.bone);
+        }
+      }
+      for (let i = -2; i <= 2; i++) line(image, cx, cy, cx + i * Math.round(spread * 0.35), cy + spread, p.mycelium);
+    } else {
+      line(image, cx - spread, cy - 5, cx - Math.round(spread * 0.55), cy - Math.round(spread * 0.65), p.bone, 2);
+      line(image, cx - Math.round(spread * 0.55), cy - Math.round(spread * 0.65), cx, cy - 10, p.surface, 2);
+      line(image, cx, cy - 10, cx + Math.round(spread * 0.55), cy - Math.round(spread * 0.65), p.surface, 2);
+      line(image, cx + Math.round(spread * 0.55), cy - Math.round(spread * 0.65), cx + spread, cy - 5, p.bone, 2);
+      arcLine(image, cx, cy + 8, spread, Math.PI, Math.PI * 2, p.surface);
+      for (let i = -2; i <= 2; i++) line(image, cx + i * 4, cy + 5, cx + i * Math.round(spread * 0.35), cy + spread, p.mycelium);
+    }
+    return;
   }
   drawBurst(image, cx, cy, frame, spec.frames, maxR, p);
   if (spec.name === 'burst.big' || spec.name === 'boom.boss.top' || spec.name === 'boom.player') {
@@ -1073,6 +1281,9 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
 
 const NATIVE_EFFECT_NAMES = [
   'burst', 'burst.big', 'material.surface', 'material.skeleton', 'material.mycelium', 'material.heart',
+  'boss.distress.surface', 'boss.distress.skeleton', 'boss.distress.mycelium',
+  'boss.distress.crack', 'boss.distress.heart', 'boss.break',
+  'boss.death.sentinel', 'boss.death.warden', 'boss.death.magistrate', 'boss.death.chancellor', 'boss.death.regent',
   'missile.pop.tiny', 'missile.pop.mid', 'missile.pop.big',
   'boom.elite', 'boom.elite.spray', 'boom.boss.back', 'boom.boss.top', 'boom.player', 'debris',
 ] as const;
@@ -1447,6 +1658,12 @@ Names that alias the same engine floor can therefore carry different alpha
 silhouettes. For example \`orb.small.chaff\`, \`orb.small.battery\`,
 \`orb.small.spark\` and \`orb.small.beacon\` are surface/skeleton/mycelium/heart,
 not four colour swaps of one orb.
+
+Actor material hits and Boss distress/Break/death use the Ghost body palette:
+surface silver, bone white, cold-rim mycelium and the low-saturation pink-white
+heart core. They deliberately do not inherit the saturated enemy projectile
+palette. The five Boss death strips preserve identity as lunar fragments, a
+seal cage, twin blades, archive tablets with script, and a rooted crown/dome.
 
 Hostile bullets carry an opaque bone-white keyline and a five-pixel threat core;
 player bullets keep an opaque identity-colour keyline. This faction grammar is
