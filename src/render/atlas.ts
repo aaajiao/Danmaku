@@ -70,6 +70,19 @@ export interface Strip {
   mode: StripMode;
   /** Colour mode; default `'tinted'`. */
   color: StripColor;
+  /**
+   * Engine DISPLAY size, px — the Law of Geometry field (docs/packs.md, the
+   * asset-fidelity round). This is the QUAD size the entity draws at; `frameW`/
+   * `frameH` stay the UV/texel size, so a pack's extra detail is supersampled and
+   * shown small rather than resampled away, and a reskin never changes on-screen
+   * geometry. It is filled ONLY at a pack seam (`displayW = engineContent(N) ×
+   * frameW / contentW`, `render/procedural.ts`); every procedural floor strip and
+   * every legacy-grid cell leaves it ABSENT, and a consumer reads
+   * `displayW ?? frameW`, so the default is byte-identical to before this field
+   * existed. Not read by `frameOf`/`uv`: texel sampling must not change.
+   */
+  displayW?: number;
+  displayH?: number;
 }
 
 // A pivot field lived here and was never read — SpriteBatch always centres the
@@ -138,6 +151,10 @@ export class Atlas {
    * describes for itself. `stride` defaults to `frameW`, `color` to `'tinted'`.
    * Content references a strip by name exactly as it does a static cell; frames
    * exist only in the view layer (`render/strip.ts`), never in the sim.
+   *
+   * `displayW`/`displayH` (the Law of Geometry field) ride through the `...s`
+   * spread when a pack seam supplies them and stay ABSENT otherwise, so a caller
+   * that omits them (every procedural floor, the legacy grid) is byte-identical.
    */
   defineStrip(
     name: string,

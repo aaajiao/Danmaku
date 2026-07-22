@@ -46,6 +46,7 @@ import { getItemSpec, itemNames } from './sim/item';
 import { beamLayout } from './render/beam';
 import { getLaserSkin, laserSkinNames } from './render/laser-skin';
 import { stripFrame } from './render/strip';
+import type { Atlas } from './render/atlas';
 import { PostProcessing } from './render/post';
 import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
@@ -608,9 +609,70 @@ const loop = new Loop({
   },
 });
 
+/**
+ * The Law of Animation + Law of Geometry helper (asset-fidelity round). One call
+ * resolves BOTH: the frame off the entity's run-relative `.age`
+ * (`stripFrame` — never `loop.count` or a wall clock, the strips clock law) AND
+ * the quad size off the strip's `displayW/H` (native `frameW/H` when a seam set
+ * no display size — this stage, always — so it is byte-identical). `scale`
+ * multiplies the resolved size (an effect's `p.scale`); `width`/`height` override
+ * it outright (an enemy whose size is its spec, the cell only its skin).
+ *
+ * Every entity draw site routes through this — enemy, boss, bullet-atlas item,
+ * pickups, bullets, missiles, effects, and the laser cap via its own feed site.
+ * Bare-name draw stays legal only for surfaces with no run-relative age to clock
+ * from: the latent options and 1-frame player ship, and the length-driven legacy
+ * beam-body fallback (Law of Geometry excludes laser bodies). `strip.test.ts`
+ * asserts no other entity surface draws by bare name.
+ *
+ * Law of Geometry is dormant until the importer emits `contentW/contentH`: with no
+ * display size a strip draws at native `frameW/H`, so routing is byte-identical for
+ * zero-pack (every cell is 1-frame → frame 0) and animation-only for a loaded
+ * multi-frame pack. When a pack carries `contentW`, each seam fills `displayW/H`
+ * and this same call resizes with no further change here.
+ */
+function drawStrip(
+  batch: SpriteBatch,
+  atlas: Atlas,
+  x: number,
+  y: number,
+  name: string,
+  age: number,
+  style: {
+    width?: number;
+    height?: number;
+    scale?: number;
+    rotation?: number;
+    r?: number;
+    g?: number;
+    b?: number;
+    a?: number;
+  } = {},
+): void {
+  const s = atlas.strip(name);
+  const region = atlas.frameOf(s, stripFrame(s, age)); // Law of Animation: frame off .age
+  const scale = style.scale ?? 1;
+  const w = (style.width ?? s.displayW ?? s.frameW) * scale; // Law of Geometry: engine display size
+  const h = (style.height ?? s.displayH ?? s.frameH) * scale;
+  batch.draw(x, y, region, {
+    rotation: style.rotation,
+    width: w,
+    height: h,
+    r: style.r,
+    g: style.g,
+    b: style.b,
+    a: style.a,
+  });
+}
+
 function drawRun(run: Run): void {
   for (const e of run.enemies.enemies) {
-    batches.enemies.draw(e.x, e.y, e.spec.sprite, {
+    // Law of Animation: the frame resolves off `e.age` (enemy.ts sets it, 0 at
+    // spawn, tick-advanced) so a multi-frame enemy strip (clerk/hunter/ray) cycles
+    // instead of freezing on frame 0 — the primary bug the user reported. Size
+    // stays SPEC-driven: `spec.width/height` override any `displayW`, because an
+    // enemy's size is its spec and the cell is only its skin.
+    drawStrip(batches.enemies, bulletAtlas, e.x, e.y, e.spec.sprite, e.age, {
       rotation: e.angle,
       width: e.spec.width,
       height: e.spec.height,
@@ -629,7 +691,10 @@ function drawRun(run: Run): void {
     // texels (bloom then makes the pop visible) and desaturates a coloured boss
     // toward white. Kept modest: the boss sits in the darkest zone of the seal.
     const boost = boss.hitFlashFraction * BOSS_HIT_FLASH_BOOST;
-    batches.enemies.draw(boss.x, boss.y, boss.spec.sprite, {
+    // Same routing as an enemy, clocked off `boss.age`: a 1-frame boss cell (all
+    // five base bosses today) draws frame 0, a future multi-frame boss cell cycles.
+    // Size stays spec-driven; the hit-flash boost rides the tint as before.
+    drawStrip(batches.enemies, bulletAtlas, boss.x, boss.y, boss.spec.sprite, boss.age, {
       rotation: boss.angle,
       width: boss.spec.width,
       height: boss.spec.height,
@@ -663,22 +728,23 @@ function drawRun(run: Run): void {
     // replay — NEVER `loop.count`). Every legacy item (`power`/`life`/`bomb`/`score`)
     // stays on the bullet atlas and the items batch, byte-identical to before.
     if (pickupAtlas.has(item.spec.sprite)) {
-      const s = pickupAtlas.strip(item.spec.sprite);
-      const frame = pickupAtlas.frameOf(s, stripFrame(s, item.age));
       // Baked art carries its own colour (tint stays identity-white so it shows
       // unmultiplied); a tinted floor strip takes the content tint, so a coin is
       // coloured by its denomination until baked pixels load (the strips colour law
       // the missile/beam draws obey). The glow halo above always carries the tint.
-      const baked = s.color === 'baked';
-      batches.pickups.draw(item.x, item.y, frame, {
-        width: s.frameW,
-        height: s.frameH,
+      // `drawStrip` resolves the frame off `item.age` (Law of Animation, already so
+      // for the spinning pickup) and the size off `displayW` (Law of Geometry).
+      const baked = pickupAtlas.strip(item.spec.sprite).color === 'baked';
+      drawStrip(batches.pickups, pickupAtlas, item.x, item.y, item.spec.sprite, item.age, {
         r: baked ? undefined : item.spec.tint?.r,
         g: baked ? undefined : item.spec.tint?.g,
         b: baked ? undefined : item.spec.tint?.b,
       });
     } else {
-      batches.items.draw(item.x, item.y, item.spec.sprite, {
+      // The bullet-atlas item branch (`power`/`life`/`bomb`/`score`/`big-power`).
+      // Routed off `item.age` so a multi-frame item skin cycles — this is what
+      // unfreezes `big-power`→`star` (7 frames), reported static.
+      drawStrip(batches.items, bulletAtlas, item.x, item.y, item.spec.sprite, item.age, {
         rotation: item.angle,
         r: item.spec.tint?.r,
         g: item.spec.tint?.g,
@@ -717,7 +783,16 @@ function drawRun(run: Run): void {
           // procedural floor and a native reskin each tile at their native cell.
           tileLength: skin.tileLength ?? bodyStrip.frameW,
           bodyUV,
-          cap: { uv: capUV, width: capStrip.frameW, height: capStrip.frameH },
+          // Law of Geometry, cap only: the cap adopts its display size (its
+          // per-frame union → engine cap size) when the pack carries `contentW`,
+          // native `frameW/H` otherwise. The BODY is excluded — its cross-axis is
+          // `skin.thickness` and its length the sim's, so native pixels never reach
+          // the quad (the one surface that already obeyed the invariant).
+          cap: {
+            uv: capUV,
+            width: capStrip.displayW ?? capStrip.frameW,
+            height: capStrip.displayH ?? capStrip.frameH,
+          },
           age: b.age,
           warmup: b.laser.warmup ?? 0,
           life: b.life,
@@ -786,24 +861,21 @@ function drawRun(run: Run): void {
     const onMissile = b.missile !== undefined;
     const spriteAtlas = onMissile ? missileAtlas : bulletAtlas;
     const drawBatch = onMissile ? batches.missiles : batch;
-    // Select the frame off `b.age` — run-relative, tick-only, reproduced by a
-    // replay. For the base game every bullet strip is `frames: 1` at 32px, so
-    // `stripFrame` returns 0 and the width/height default to 32: byte-identical
-    // to before. A native pack sheet, or a missile body, animates or resizes, and
-    // its native `frameW/frameH` flow in as the default draw size (amendment §2).
-    const s = spriteAtlas.strip(b.style.sprite);
-    const frame = spriteAtlas.frameOf(s, stripFrame(s, b.age));
     // A baked missile body carries its own colour, so the tint stays white and it
     // shows unmultiplied; the tinted procedural floor takes the content tint, so a
     // missile is warm-coded by its spec until real pixels load (the strips colour
     // law the laser branch above obeys, applied here to the missile surface only —
     // the bullet atlas keeps its established behaviour, its baked variants being
-    // fired tint-free). An ordinary bullet stays byte-identical to before.
-    const bodyBaked = onMissile && s.color === 'baked';
-    drawBatch.draw(b.x, b.y, frame, {
+    // fired tint-free). Routed through `drawStrip` off `b.age`: the frame animates
+    // (Law of Animation) and the size is `b.style.width ?? displayW ?? frameW` (Law
+    // of Geometry — an explicit spec width still wins; `displayW` is dormant until
+    // the pack carries `contentW`). For the base game every bullet strip is
+    // `frames: 1` at 32px, so this stays byte-identical to before.
+    const bodyBaked = onMissile && spriteAtlas.strip(b.style.sprite).color === 'baked';
+    drawStrip(drawBatch, spriteAtlas, b.x, b.y, b.style.sprite, b.age, {
       rotation: b.angle,
-      width: b.style.width ?? s.frameW,
-      height: b.style.height ?? s.frameH,
+      width: b.style.width,
+      height: b.style.height,
       r: bodyBaked ? 1 : b.style.r,
       g: bodyBaked ? 1 : b.style.g,
       b: bodyBaked ? 1 : b.style.b,
@@ -830,12 +902,13 @@ function drawRun(run: Run): void {
         ? batches.burstsBack
         : batches.bursts
       : batches.effects;
-    const s = atlas.strip(p.spec.sprite);
-    const frame = atlas.frameOf(s, stripFrame(s, p.age));
-    batch.draw(p.x, p.y, frame, {
+    // Routed through `drawStrip` off `p.age`: the frame animates (already so — a
+    // squared burst) and `scale: p.scale` multiplies the resolved size, which is
+    // `displayW ?? frameW` (Law of Geometry, dormant until `contentW`). With no
+    // display size this is the old `frameW * p.scale`, byte-identical.
+    drawStrip(batch, atlas, p.x, p.y, p.spec.sprite, p.age, {
       rotation: p.angle,
-      width: s.frameW * p.scale,
-      height: s.frameH * p.scale,
+      scale: p.scale,
       r: p.spec.tint?.r,
       g: p.spec.tint?.g,
       b: p.spec.tint?.b,
@@ -850,6 +923,11 @@ function drawRun(run: Run): void {
   const optionSpec = run.options.spec;
   for (const option of run.options.options) {
     if (!option.active) continue;
+    // LATENT — bare name, NOT routed through `drawStrip`: `Option` carries no
+    // run-relative `.age`, so there is no honest clock to resolve a frame from.
+    // Animating an option strip first needs an age counter on `Option` (a sim
+    // change, out of scope this round); base options name only 1-frame cells, so
+    // frame 0 is correct today. `strip.test.ts` exempts this pair by name.
     batches.options.draw(option.x, option.y, optionSpec.sprite, {
       // `Option.angle` is DEGREES — its own doc comment says so, and contrasts
       // itself with `Bullet.angle`, which is the radians this attribute wants.
@@ -869,6 +947,11 @@ function drawRun(run: Run): void {
     // `CharacterSpec.sprite` decorative, and leaves a four-ship roster with
     // one silhouette and nowhere to put the others when real art lands.
     const ship = run.character;
+    // LATENT — bare name: the ship is a 1-frame procedural silhouette today, so
+    // frame 0 is correct. If a multi-frame ship strip ever ships (the `shipAtlas`
+    // native branch already anticipates one), route this through
+    // `drawStrip(batches.player, shipAtlas, …, player.age, …)`; there is nothing to
+    // animate until then. `strip.test.ts` exempts this pair by name.
     batches.player.draw(player.x, player.y, ship.sprite, {
       width: ship.width ?? 40,
       height: ship.height ?? 40,

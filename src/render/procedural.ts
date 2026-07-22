@@ -445,6 +445,92 @@ function defineVariantAliases(atlas: Atlas): void {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Law of Geometry — the per-strip display size (the size fix)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The engine's authored CONTENT box for a strip that declares per-frame extents:
+ * the UNION (max) over every frame of `frameExtent`, matching how the importer
+ * measures a pack strip's `contentW/H` (the union painted bound, pad-free — the
+ * painter's own radii, never the padded/​squared frame). This is `engineContent(N)`
+ * for the fx / laser-cap / missile / pickup seams, whose records all carry a
+ * `frameExtent`; the bullet and ship seams read a flat box instead (`CELL_ART`,
+ * `SHIP_SIZE`), there being no per-frame painter to union.
+ */
+export function unionExtent(s: {
+  frames: number;
+  frameExtent: (frame: number) => { w: number; h: number };
+}): { w: number; h: number } {
+  let w = 0;
+  let h = 0;
+  for (let f = 0; f < s.frames; f++) {
+    const e = s.frameExtent(f);
+    if (e.w > w) w = e.w;
+    if (e.h > h) h = e.h;
+  }
+  return { w, h };
+}
+
+/**
+ * Law of Geometry (docs/packs.md, the asset-fidelity round): the QUAD size that
+ * lands a pack strip's painted content at the engine's authored content extent,
+ * so a reskin never changes on-screen geometry. `frameW/H` stay the texel/UV
+ * size; the transparent margin (and a squared frame's extra axis) rides along
+ * invisibly.
+ *
+ * The scale is ONE number — uniform, aspect-preserving, fit-within:
+ *
+ *   scale    = min(engineContentW / contentW, engineContentH / contentH)
+ *   displayW = frameW × scale,  displayH = frameH × scale
+ *
+ * Per-axis mapping (the first draft of this law) is wrong for any art whose
+ * content aspect differs from the engine painter's, and much of BulletPack's
+ * does: the Cian designs are thin lenses (`orb.large` content 26×5) reskinning
+ * round engine cells (26×26), and per-axis stretched that 5px lens to the round
+ * cell's height — ×5 vertical distortion that smeared every soft edge into a
+ * giant blob, measured live on stage-1's own trash wave (`grunt`, no spec
+ * width, drew 32×57). Uniform fit keeps the art's shape, lands its larger
+ * dimension at the engine box, and can only ever draw AT OR UNDER engine size —
+ * size-honest by construction in both axes.
+ *
+ * `contentW/H` is the pack strip's un-margined painted bound (an additive manifest
+ * field the importer measures). When it is ABSENT — every zero-pack strip, and
+ * every pack until the importer emit-path lands — this returns `{}`, so the strip
+ * carries no `displayW/H` and the entity draws at native `frameW/H`,
+ * byte-identical to before this field existed. A non-positive content (never
+ * emitted, but guarded) also falls back rather than dividing by zero. That
+ * absent-field default is the whole safety story for this stage.
+ */
+export function displaySize(
+  engine: { w: number; h: number },
+  frameW: number,
+  frameH: number,
+  contentW: number | undefined,
+  contentH: number | undefined,
+): { displayW?: number; displayH?: number } {
+  if (contentW === undefined || contentH === undefined) return {};
+  if (contentW <= 0 || contentH <= 0) return {};
+  const scale = Math.min(engine.w / contentW, engine.h / contentH);
+  return {
+    displayW: frameW * scale,
+    displayH: frameH * scale,
+  };
+}
+
+/**
+ * `engineContent(N)` for the bullet seam: a floor cell reads its own `CELL_ART`
+ * content box; a family variant reads its base cell's (`BULLET_VARIANTS[N]` →
+ * `CELL_ART`); a genuinely pack-new name has no engine sibling and yields
+ * `undefined`, so the seam leaves `displayW/H` unset and it draws at native size.
+ */
+export function bulletEngineContent(name: string): { w: number; h: number } | undefined {
+  const base = name in CELL_ART ? (name as BulletCell) : BULLET_VARIANTS[name];
+  if (base === undefined) return undefined;
+  const art = CELL_ART[base];
+  return { w: art.w, h: art.h };
+}
+
 /**
  * Render the bullet sheet into a texture.
  *
@@ -533,6 +619,9 @@ export interface BulletStripInput {
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input. */
+  contentW?: number;
+  contentH?: number;
 }
 
 /** A whole self-describing bullet atlas: one shared PNG, every strip on it. */
@@ -550,6 +639,9 @@ export interface ShipStripInput {
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input. */
+  contentW?: number;
+  contentH?: number;
 }
 
 /**
@@ -612,6 +704,10 @@ async function nativeBulletAtlas(url: string, sheet: BulletSheetInput): Promise<
   }
 
   for (const [name, s] of Object.entries(sheet.strips)) {
+    // Law of Geometry: land this strip's painted content at its base cell's engine
+    // content extent. Absent `contentW` (this stage, always) → `{}` → native size.
+    const engine = bulletEngineContent(name);
+    const disp = engine ? displaySize(engine, s.frameW, s.frameH, s.contentW, s.contentH) : {};
     atlas.defineStrip(name, {
       x: s.x,
       y: s.y,
@@ -622,6 +718,7 @@ async function nativeBulletAtlas(url: string, sheet: BulletSheetInput): Promise<
       ticksPerFrame: s.ticksPerFrame ?? 1,
       mode: s.mode ?? 'once',
       color: s.color ?? 'tinted',
+      ...disp,
     });
   }
   // Any family variant the pack did not ship its own strip for falls back to its
@@ -704,6 +801,17 @@ export async function shipAtlas(url?: string, strip?: ShipStripInput): Promise<A
     // and frame geometry. The engine draws frame 0 (idle) this round via the
     // back-compat `strip(name)`→frame-0 path; bank-by-input is deferred to the
     // input/laser round (no run-relative `viewTick` yet — see the amendment §6).
+    // Law of Geometry: land the ship silhouette at the engine's `SHIP_SIZE` cell.
+    // Absent `contentW` (this stage) → `{}` → native size. The ship native branch
+    // is itself latent (drawn frame 0 via the back-compat path), so this only
+    // future-proofs the seam alongside the others.
+    const disp = displaySize(
+      { w: SHIP_SIZE, h: SHIP_SIZE },
+      strip.frameW,
+      strip.frameH,
+      strip.contentW,
+      strip.contentH,
+    );
     atlas.defineStrip(SHIP_CELLS[0], {
       x: 0,
       y: 0,
@@ -714,6 +822,7 @@ export async function shipAtlas(url?: string, strip?: ShipStripInput): Promise<A
       ticksPerFrame: strip.ticksPerFrame ?? 1,
       mode: strip.mode ?? 'once',
       color: strip.color ?? 'tinted',
+      ...disp,
     });
     return atlas;
   }
@@ -1214,6 +1323,9 @@ export interface EffectStripInput {
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input. */
+  contentW?: number;
+  contentH?: number;
 }
 
 /**
@@ -1267,6 +1379,8 @@ interface FxRow {
   /** A procedural painter (floor strip left un-reskinned), else a loaded image. */
   paint?: StripDraw;
   image?: CanvasImageSource;
+  /** Law of Geometry display size, filled only for a reskinned floor row. */
+  disp?: { displayW?: number; displayH?: number };
 }
 
 /** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
@@ -1299,7 +1413,11 @@ async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): 
   for (const [name, s] of Object.entries(FX_STRIPS)) {
     const over = packStrips[name];
     if (over) {
-      rows.push(await packFxRow(name, over));
+      // Law of Geometry: land the pack's painted content at the floor strip's
+      // engine content (its per-frame union). Absent `contentW` → `{}` → native.
+      const row = await packFxRow(name, over);
+      row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
+      rows.push(row);
     } else {
       rows.push({
         name,
@@ -1367,6 +1485,7 @@ async function nativeEffectAtlas(packStrips: Record<string, EffectStripInput>): 
       ticksPerFrame: row.ticksPerFrame,
       mode: row.mode,
       color: row.color,
+      ...(row.disp ?? {}),
     });
   });
   return atlas;
@@ -1575,6 +1694,10 @@ export interface LaserStripInput {
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input
+   *  (consumed only by the CAP; the body is excluded, thickness+length driven). */
+  contentW?: number;
+  contentH?: number;
 }
 
 /**
@@ -1623,6 +1746,8 @@ interface LaserRow {
   color: StripColor;
   paint?: StripDraw;
   image?: CanvasImageSource;
+  /** Law of Geometry display size, filled only for a reskinned CAP row. */
+  disp?: { displayW?: number; displayH?: number };
 }
 
 /** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
@@ -1655,7 +1780,14 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
   for (const [name, s] of Object.entries(LASER_STRIPS)) {
     const over = packStrips[name];
     if (over) {
-      rows.push(await packLaserRow(name, over));
+      // Law of Geometry: the CAP adopts a display size (its per-frame union); the
+      // BODY is EXCLUDED — it already obeys the invariant (skin.thickness + sim
+      // length never let native pixels reach the quad). Absent `contentW` → native.
+      const row = await packLaserRow(name, over);
+      if (s.role === 'cap') {
+        row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
+      }
+      rows.push(row);
     } else {
       rows.push({
         name,
@@ -1721,6 +1853,7 @@ async function nativeLaserAtlas(packStrips: Record<string, LaserStripInput>): Pr
       ticksPerFrame: row.ticksPerFrame,
       mode: row.mode,
       color: row.color,
+      ...(row.disp ?? {}),
     });
   });
   return atlas;
@@ -2029,6 +2162,9 @@ export interface MissileStripInput {
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input. */
+  contentW?: number;
+  contentH?: number;
 }
 
 /**
@@ -2078,6 +2214,8 @@ interface MissileRow {
   color: StripColor;
   paint?: StripDraw;
   image?: CanvasImageSource;
+  /** Law of Geometry display size, filled only for a reskinned floor row. */
+  disp?: { displayW?: number; displayH?: number };
 }
 
 /** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
@@ -2111,7 +2249,11 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
   for (const [name, s] of Object.entries(MISSILE_STRIPS)) {
     const over = packStrips[name];
     if (over) {
-      rows.push(await packMissileRow(name, over));
+      // Law of Geometry: land the pack's painted body at the floor body's engine
+      // content (its per-frame union). Absent `contentW` → `{}` → native size.
+      const row = await packMissileRow(name, over);
+      row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
+      rows.push(row);
     } else {
       rows.push({
         name,
@@ -2177,6 +2319,7 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
       ticksPerFrame: row.ticksPerFrame,
       mode: row.mode,
       color: row.color,
+      ...(row.disp ?? {}),
     });
   });
   return atlas;
@@ -2441,6 +2584,9 @@ export interface PickupStripInput {
   ticksPerFrame?: number;
   mode?: StripMode;
   color?: StripColor;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input. */
+  contentW?: number;
+  contentH?: number;
 }
 
 /**
@@ -2490,6 +2636,8 @@ interface PickupRow {
   color: StripColor;
   paint?: StripDraw;
   image?: CanvasImageSource;
+  /** Law of Geometry display size, filled only for a reskinned floor row. */
+  disp?: { displayW?: number; displayH?: number };
 }
 
 /** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
@@ -2523,7 +2671,12 @@ async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): 
   for (const [name, s] of Object.entries(PICKUP_STRIPS)) {
     const over = packStrips[name];
     if (over) {
-      rows.push(await packPickupRow(name, over));
+      // Law of Geometry: land the pack's painted coin/gem/bar at the floor strip's
+      // engine content (its per-frame union — face-on is the peak). Absent
+      // `contentW` → `{}` → native size, so this stage is byte-identical.
+      const row = await packPickupRow(name, over);
+      row.disp = displaySize(unionExtent(s), over.frameW, over.frameH, over.contentW, over.contentH);
+      rows.push(row);
     } else {
       rows.push({
         name,
@@ -2589,6 +2742,7 @@ async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): 
       ticksPerFrame: row.ticksPerFrame,
       mode: row.mode,
       color: row.color,
+      ...(row.disp ?? {}),
     });
   });
   return atlas;

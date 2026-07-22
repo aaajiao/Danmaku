@@ -479,6 +479,8 @@ interface Resource {
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
+    contentW?: number;
+    contentH?: number;
   };
   /** A per-file `assets.lasers` strip's geometry, paired with `url` above. */
   laserStrip?: {
@@ -488,6 +490,8 @@ interface Resource {
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
+    contentW?: number;
+    contentH?: number;
   };
   /** A per-file `assets.missiles` strip's geometry, paired with `url` above. */
   missileStrip?: {
@@ -497,6 +501,8 @@ interface Resource {
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
+    contentW?: number;
+    contentH?: number;
   };
   /** A per-file `assets.pickups` strip's geometry, paired with `url` above. */
   pickupStrip?: {
@@ -506,6 +512,8 @@ interface Resource {
     ticksPerFrame?: number;
     mode: 'loop' | 'once';
     color?: 'tinted' | 'baked';
+    contentW?: number;
+    contentH?: number;
   };
 }
 
@@ -806,6 +814,8 @@ function resolveBulletSheet(sheet: PackBulletSheet): BulletSheetInput {
       ticksPerFrame: s.ticksPerFrame,
       mode: s.mode,
       color: s.color,
+      contentW: s.contentW,
+      contentH: s.contentH,
     };
   }
   return { sheet: sheet.sheet, strips };
@@ -834,6 +844,8 @@ async function gatherNativeShip(
         ticksPerFrame: ship.ticksPerFrame,
         mode: ship.mode,
         color: ship.color,
+        contentW: ship.contentW,
+        contentH: ship.contentH,
       },
     });
   } catch (error) {
@@ -870,6 +882,8 @@ async function gatherEffectStrips(
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
+          contentW: spec.contentW,
+          contentH: spec.contentH,
         },
       });
     } catch (error) {
@@ -909,6 +923,8 @@ async function gatherLaserStrips(
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
+          contentW: spec.contentW,
+          contentH: spec.contentH,
         },
       });
     } catch (error) {
@@ -948,6 +964,8 @@ async function gatherMissileStrips(
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
+          contentW: spec.contentW,
+          contentH: spec.contentH,
         },
       });
     } catch (error) {
@@ -987,6 +1005,8 @@ async function gatherPickupStrips(
           ticksPerFrame: spec.ticksPerFrame,
           mode: spec.mode,
           color: spec.color,
+          contentW: spec.contentW,
+          contentH: spec.contentH,
         },
       });
     } catch (error) {

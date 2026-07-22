@@ -402,6 +402,18 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
       ).toBe(true);
     });
 
+    test('contentW/contentH are accepted — the additive Law of Geometry fields', () => {
+      expect(
+        accepts(sheet({ 'orb.small': { x: 0, y: 0, frameW: 8, frameH: 8, contentW: 6, contentH: 6 } })),
+      ).toBe(true);
+    });
+
+    test('contentW:0 is rejected — a content bound is a positive integer (the grammar)', () => {
+      expect(errorsOf(sheet({ foo: { x: 0, y: 0, frameW: 8, frameH: 8, contentW: 0 } }))).toContain(
+        'pack "candy": pack.json: assets.bullets.strips."foo".contentW must be a positive integer',
+      );
+    });
+
     test('frameW:0 is rejected — a size is a positive integer', () => {
       expect(errorsOf(sheet({ foo: { x: 0, y: 0, frameW: 0, frameH: 8 } }))).toContain(
         'pack "candy": pack.json: assets.bullets.strips."foo".frameW must be a positive integer',
@@ -455,6 +467,10 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
       expect(accepts(ship({ frames: 5, mode: 'once', color: 'baked' }))).toBe(true);
     });
 
+    test('contentW/contentH are accepted on a ship strip', () => {
+      expect(accepts(ship({ contentW: 30, contentH: 30 }))).toBe(true);
+    });
+
     test('a missing src fires the family string', () => {
       expect(errorsOf({ ...valid(), assets: { ship: { frameW: 40, frameH: 40 } } })).toContain(
         'pack "candy": pack.json: assets.ship.src must be a string (a path to a PNG)',
@@ -486,6 +502,20 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
           }),
         ),
       ).toBe(true);
+    });
+
+    test('contentW/contentH are accepted on an effect strip (shared PackStrip fields)', () => {
+      expect(
+        accepts(
+          fx({ blast: { src: 'b.png', frames: 8, frameW: 64, frameH: 64, mode: 'once', contentW: 60, contentH: 60 } }),
+        ),
+      ).toBe(true);
+    });
+
+    test('a bad contentH fires the positive-integer grammar', () => {
+      expect(
+        errorsOf(fx({ blast: { src: 'b.png', frames: 8, frameW: 64, frameH: 64, mode: 'once', contentH: -3 } })),
+      ).toContain('pack "candy": pack.json: assets.effects.blast.contentH must be a positive integer');
     });
 
     test('mode must be "loop" or "once" (a golden string)', () => {

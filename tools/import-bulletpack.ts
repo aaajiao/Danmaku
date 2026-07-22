@@ -73,7 +73,7 @@
  * output through `parsePng` to prove it round-trips.
  */
 
-import { mkdirSync, writeFileSync, copyFileSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, copyFileSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
 import { BULLET_CELLS, FX_PAD } from '../src/render/procedural';
 import { ColourType, encodePng, parsePng } from './png';
@@ -372,6 +372,11 @@ interface EmittedStrip {
   ticksPerFrame?: number;
   mode?: 'loop' | 'once';
   color: Colour;
+  /** Un-margined painted content bound, px — the Law of Geometry seam input the
+   *  render seam divides by (`displayW = engineContent × frameW / contentW`). The
+   *  measurement already exists here; emitting it is what activates the size fix. */
+  contentW: number;
+  contentH: number;
 }
 
 const SHEET_MAX_W = 512;
@@ -386,7 +391,7 @@ function packBulletSheet(entries: StripEntry[]): { sheet: Img; strips: Record<st
     const side = Math.max(contentW, contentH);
     const frameW = side + 2 * MARGIN;
     const frameH = contentH + 2 * MARGIN;
-    return { e, frameW, frameH, stripW: e.frames.length * frameW };
+    return { e, frameW, frameH, contentW, contentH, stripW: e.frames.length * frameW };
   });
 
   // Shelf pack: tallest first, left→right, wrap at SHEET_MAX_W.
@@ -410,11 +415,14 @@ function packBulletSheet(entries: StripEntry[]): { sheet: Img; strips: Record<st
   const sheet = blank(sheetW, sheetH);
   const strips: Record<string, EmittedStrip> = {};
   for (const { b, x, y } of placed) {
-    const { e, frameW, frameH } = b;
+    const { e, frameW, frameH, contentW, contentH } = b;
     e.frames.forEach((frame, f) => {
       blitCentred(sheet, frame, x + f * frameW, y, frameW, frameH);
     });
-    const s: EmittedStrip = { x, y, frameW, frameH, color: e.color };
+    // Law of Geometry: carry the measured content bound (not the margined/squared
+    // frame) so the render seam lands the painted content at its engine size — for
+    // floor cells too, which incidentally erases the per-cell `fit` drift.
+    const s: EmittedStrip = { x, y, frameW, frameH, contentW, contentH, color: e.color };
     if (e.frames.length > 1) {
       s.frames = e.frames.length;
       if (e.ticksPerFrame !== 1) s.ticksPerFrame = e.ticksPerFrame;
@@ -436,6 +444,11 @@ interface EmittedEffect {
   ticksPerFrame?: number;
   mode: 'loop' | 'once';
   color: Colour;
+  /** Un-margined painted content bound, px (the frame-union content, pre-margin and
+   *  pre-squaring) — the Law of Geometry seam input for effects/lasers/missiles/
+   *  pickups (`displayW = engineContent × frameW / contentW`). */
+  contentW: number;
+  contentH: number;
 }
 
 function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Img; meta: EmittedEffect; file: string } {
@@ -481,7 +494,9 @@ function buildEffectStrip(root: string, name: string, m: EffectMap): { sheet: Im
   });
 
   const file = `${name}.png`;
-  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, mode: m.mode ?? 'once', color: 'baked' };
+  // `uW`/`uH` are the pre-margin, pre-square content bound — the Law of Geometry
+  // divisor. The squared `frameW` divided by `uW` is the on-screen scale factor.
+  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, contentW: uW, contentH: uH, mode: m.mode ?? 'once', color: 'baked' };
   if ((m.ticksPerFrame ?? 1) !== 1) meta.ticksPerFrame = m.ticksPerFrame;
   return { sheet, meta, file };
 }
@@ -545,7 +560,9 @@ function buildLaserStrip(root: string, name: string, m: StripMap): { sheet: Img;
   });
 
   const file = `${name}.png`;
-  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, mode: m.mode ?? 'loop', color: 'baked' };
+  // `uW`/`uH` are the pre-margin content bound (a laser/missile keeps its aspect —
+  // no squaring), the Law of Geometry divisor for this oriented per-file strip.
+  const meta: EmittedEffect = { src: file, frames: n, frameW, frameH, contentW: uW, contentH: uH, mode: m.mode ?? 'loop', color: 'baked' };
   if ((m.ticksPerFrame ?? 1) !== 1) meta.ticksPerFrame = m.ticksPerFrame;
   return { sheet, meta, file };
 }
@@ -708,15 +725,21 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 
 - Imported from a local folder named **BulletPack** (\`${root}\`).
 - This is a **reskin** (pack format 1) in the engine's **native strip format**:
-  \`assets.bullets = { sheet, strips }\` (one packed \`bullets.png\`) plus
-  \`assets.effects\` (one PNG per explosion). It changes no simulation, so a
-  mismatch **warns**, never refuses — replay-safe.
+  \`assets.bullets = { sheet, strips }\` (one packed \`bullets/bullets.png\`) plus
+  per-file strips for \`assets.effects\`, \`.lasers\`, \`.missiles\` and \`.pickups\`.
+  It changes no simulation, so a mismatch **warns**, never refuses — replay-safe.
+- **Folder taxonomy.** The emitted tree mirrors the source pack's kebab-case
+  categories instead of a flat root: \`bullets/\` (the packed sheet), \`explosions/\`
+  (burst + death-tier + missile-detonation strips), \`lasers/\` (beam bodies +
+  caps), \`missiles/\` (missile bodies) and \`misc/\` (coin/gem/bar pickups).
+  \`pack.json\`, \`README.md\` and \`extra/\` stay at the root; every manifest asset
+  string carries its subpath.
 - **No ship, no HUD** this round: player/enemy/boss 形象 are out of scope by user
   directive (2026-07-22); the coins/gems HUD icons belong to the later pickup round.
 
 ## What was consumed
 
-- **${counts.strips}** bullet strips packed onto \`bullets.png\`: the 16 built-in
+- **${counts.strips}** bullet strips packed onto \`bullets/bullets.png\`: the 16 built-in
   cells (tinted/whitened, animation kept, coherently fit) plus baked \`role.family\`
   variants and player shot skins at native size/colour.
 - **${counts.effects}** explosion strips as \`assets.effects\` (native colour +
@@ -771,6 +794,56 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 }
 
 /* ------------------------------------------------------------------ */
+/* Emitted taxonomy: the pack mirrors the source's kebab-case folders.   */
+/* ------------------------------------------------------------------ */
+// Report 3 (decisions-asset-fidelity.md): the emitted pack keeps a folder
+// taxonomy instead of a flat ~50-file root, so the art stays navigable. Each
+// manifest SECTION lands in its own kebab-case folder (the same names `extra/`
+// already uses); the multi-category `bullets.png` sheet — floor cells + enemy
+// variants + player shots — is an engine-section artefact, so it goes under
+// `bullets/`. `pack.json`/`README.md` stay at the root and `extra/` is unchanged.
+// The manifest asset strings carry the subpath (`explosions/burst.png`); the
+// loader (`fileUrl` string-joins), `tools/serve.ts` (`normalize`+`join`) and
+// `tools/copy-packs.ts` (recursive `cp`) all handle it — no filename-only
+// assumption survives anywhere in that path.
+const BULLETS_DIR = 'bullets';
+const EXPLOSIONS_DIR = 'explosions';
+const LASERS_DIR = 'lasers';
+const MISSILES_DIR = 'missiles';
+const MISC_DIR = 'misc';
+
+/**
+ * Write one own-file strip into its category folder and rewrite its manifest
+ * `src` to carry that subpath. Called AFTER the per-file seam gate
+ * (`assertEffectStrip`), which reads only the frame geometry, never `src`.
+ */
+function emit(outDir: string, dir: string, file: string, sheet: Img, meta: EmittedEffect): void {
+  mkdirSync(join(outDir, dir), { recursive: true });
+  writeVerified(join(outDir, dir, file), sheet);
+  meta.src = `${dir}/${file}`; // POSIX subpath — the manifest is fetched over HTTP
+}
+
+/**
+ * The importer's own taxonomy self-check (binding "TESTS TO GRAFT"): every asset
+ * the manifest names must carry a category subpath AND exist at it under `outDir`.
+ * A flat filename, or a manifest ↔ tree mismatch, fails the import loudly — the
+ * same discipline `assertNativeBulletSheet`/`assertEffectStrip` apply to pixels.
+ */
+function assertTaxonomy(
+  outDir: string,
+  bulletsSheet: string,
+  sections: Record<string, EmittedEffect>[],
+): void {
+  const paths = [bulletsSheet, ...sections.flatMap((s) => Object.values(s).map((m) => m.src))];
+  for (const p of paths) {
+    if (!p.includes('/')) throw new Error(`taxonomy: emitted asset "${p}" has no category folder`);
+    if (!existsSync(join(outDir, p))) {
+      throw new Error(`taxonomy: manifest names "${p}" but no file was written there`);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 function main(): void {
@@ -817,18 +890,20 @@ function main(): void {
 
   const { sheet, strips } = packBulletSheet(entries);
   assertNativeBulletSheet(sheet, strips);
-  writeVerified(join(outDir, 'bullets.png'), sheet);
-  log.push(`assembled bullets.png (${sheet.w}×${sheet.h}) — ${entries.length} strips — coverage + seam + saturation self-check PASSED`);
+  mkdirSync(join(outDir, BULLETS_DIR), { recursive: true });
+  writeVerified(join(outDir, BULLETS_DIR, 'bullets.png'), sheet);
+  const bulletsSheetPath = `${BULLETS_DIR}/bullets.png`;
+  log.push(`assembled ${bulletsSheetPath} (${sheet.w}×${sheet.h}) — ${entries.length} strips — coverage + seam + saturation self-check PASSED`);
 
   /* --- effects (one own-file strip per explosion) --- */
   const effectsManifest: Record<string, EmittedEffect> = {};
   for (const [name, m] of mapStrips(map.effects)) {
     const { sheet: fxSheet, meta, file } = buildEffectStrip(root, name, m);
     assertEffectStrip(name, fxSheet, meta);
-    writeVerified(join(outDir, file), fxSheet);
+    emit(outDir, EXPLOSIONS_DIR, file, fxSheet, meta);
     effectsManifest[name] = meta;
     noteConsumed(m.src, name);
-    log.push(`assembled ${file} (${fxSheet.w}×${fxSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — seam self-check PASSED`);
+    log.push(`assembled ${meta.src} (${fxSheet.w}×${fxSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — seam self-check PASSED`);
   }
 
   /* --- lasers (one own-file baked strip per body/cap, rotated +x) --- */
@@ -836,10 +911,10 @@ function main(): void {
   for (const [name, m] of mapStrips(map.lasers)) {
     const { sheet: lzSheet, meta, file } = buildLaserStrip(root, name, m);
     assertEffectStrip(name, lzSheet, meta); // same per-file strip gate as effects
-    writeVerified(join(outDir, file), lzSheet);
+    emit(outDir, LASERS_DIR, file, lzSheet, meta);
     lasersManifest[name] = meta;
     noteConsumed(m.src, name);
-    log.push(`assembled ${file} (${lzSheet.w}×${lzSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — laser seam self-check PASSED`);
+    log.push(`assembled ${meta.src} (${lzSheet.w}×${lzSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — laser seam self-check PASSED`);
   }
 
   /* --- missiles (one own-file baked body strip per missile, rotated +x) --- */
@@ -851,10 +926,10 @@ function main(): void {
   for (const [name, m] of mapStrips(map.missiles)) {
     const { sheet: msSheet, meta, file } = buildLaserStrip(root, name, m);
     assertEffectStrip(name, msSheet, meta); // same per-file strip gate as effects/lasers
-    writeVerified(join(outDir, file), msSheet);
+    emit(outDir, MISSILES_DIR, file, msSheet, meta);
     missilesManifest[name] = meta;
     noteConsumed(m.src, name);
-    log.push(`assembled ${file} (${msSheet.w}×${msSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — missile seam self-check PASSED`);
+    log.push(`assembled ${meta.src} (${msSheet.w}×${msSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — missile seam self-check PASSED`);
   }
 
   /* --- pickups (one own-file baked coin/gem/bar strip, radial — no rotate) --- */
@@ -867,10 +942,10 @@ function main(): void {
   for (const [name, m] of mapStrips(map.pickups)) {
     const { sheet: pkSheet, meta, file } = buildEffectStrip(root, name, m);
     assertEffectStrip(name, pkSheet, meta); // same per-file strip gate as effects/lasers/missiles
-    writeVerified(join(outDir, file), pkSheet);
+    emit(outDir, MISC_DIR, file, pkSheet, meta);
     pickupsManifest[name] = meta;
     noteConsumed(m.src, name);
-    log.push(`assembled ${file} (${pkSheet.w}×${pkSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — pickup seam self-check PASSED`);
+    log.push(`assembled ${meta.src} (${pkSheet.w}×${pkSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — pickup seam self-check PASSED`);
   }
 
   /* --- manifest --- */
@@ -882,7 +957,7 @@ function main(): void {
     license: 'UNCONFIRMED — no LICENSE file in source; not for distribution until provenance is verified (CLAUDE.md rule 9; see README.md)',
     description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion + missile-detonation effects, baked laser body/cap strips, baked missile body strips, and baked coin/gem/bar pickup strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
     assets: {
-      bullets: { sheet: 'bullets.png', strips },
+      bullets: { sheet: bulletsSheetPath, strips },
       filter: 'nearest' as const,
       effects: effectsManifest,
       lasers: lasersManifest,
@@ -896,6 +971,17 @@ function main(): void {
   }
   writeFileSync(join(outDir, 'pack.json'), JSON.stringify(manifest, null, 2) + '\n');
   log.push('pack.json — validateManifest ACCEPTED (format 1, native strips)');
+
+  assertTaxonomy(outDir, manifest.assets.bullets.sheet, [
+    effectsManifest,
+    lasersManifest,
+    missilesManifest,
+    pickupsManifest,
+  ]);
+  log.push(
+    `taxonomy self-check — every asset lives under a category folder ` +
+      `(${BULLETS_DIR}/ ${EXPLOSIONS_DIR}/ ${LASERS_DIR}/ ${MISSILES_DIR}/ ${MISC_DIR}/)`,
+  );
 
   /* --- completeness walk + staging + extras.json --- */
   const files = walk(root).map((abs) => relative(root, abs)).sort();

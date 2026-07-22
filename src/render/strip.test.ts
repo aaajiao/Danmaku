@@ -173,14 +173,181 @@ describe('the frame clock never reads a wall clock or loop.count', () => {
   test('every stripFrame call in the shell clocks off an entity .age', async () => {
     // The fx/bullet/item draw seams select frames with `stripFrame(strip, X)`.
     // X must be a run-relative entity age (`p.age`, `b.age`, `item.age`) — never
-    // `loop.count`, never a wall clock. Proven by reading the real call sites.
+    // `loop.count`, never a wall clock. The `drawStrip` helper (asset-fidelity
+    // round) centralises the clock, so its own parameter `age` — fed an entity
+    // `.age` at every call site — is the one legal bare identifier; a wall clock
+    // or `loop.count` reaching it is still caught here. The complementary hole — a
+    // surface that makes NO `stripFrame` call at all (the exact way the freeze
+    // shipped) — is closed by the no-bare-name scan below. Proven by reading the
+    // real call sites.
     const source = await Bun.file(new URL('../main.ts', import.meta.url)).text();
     const calls = [...source.matchAll(/stripFrame\(\s*[A-Za-z0-9_]+\s*,\s*([^)]+)\)/g)].map((m) =>
       (m[1] ?? '').trim(),
     );
     expect(calls.length).toBeGreaterThan(0);
-    const bad = calls.filter((arg) => !/\.age$/.test(arg));
+    const bad = calls.filter((arg) => !/\.age$/.test(arg) && arg !== 'age');
     expect(bad).toEqual([]);
+  });
+
+  test('every drawStrip call in the shell feeds an entity .age as its clock argument', async () => {
+    // `drawStrip` CENTRALISES the frame clock — its body calls `stripFrame(s, age)`,
+    // so the scan above sees only the bare `age` parameter and is BLIND to what each
+    // call site actually feeds it. This closes that hole at the new choke point:
+    // every `drawStrip(batch, atlas, x, y, name, age, …)` call must pass a
+    // run-relative entity `.age` as its 6th positional argument — never `loop.count`,
+    // never a wall clock. Without this a call site could feed `loop.count` to
+    // drawStrip and BOTH guards would miss it (the stripFrame scan sees the
+    // centralised bare `age`; the no-bare-name scan checks only the sprite-NAME arg).
+    // Strip comment lines first (via the same `codeLines` helper the wall-clock
+    // scan uses), so a `drawStrip(…)` written inside a `//` example comment — the
+    // latent-ship note does exactly that — is not mistaken for a real call site.
+    const src = (await codeLines(new URL('../main.ts', import.meta.url))).join('\n');
+    // The 6th positional argument of every drawStrip CALL (not the `function
+    // drawStrip` declaration), splitting the argument list at TOP-LEVEL commas so a
+    // nested `{ … }` style object or a `(a ?? b)` expression does not miscount — the
+    // same depth-aware discipline the no-bare-name extractor below uses.
+    const clockArgs = (source: string): string[] => {
+      const out: string[] = [];
+      const head = /\bdrawStrip\(/g;
+      let m: RegExpExecArray | null;
+      while ((m = head.exec(source)) !== null) {
+        // Skip the `function drawStrip(` declaration; only calls carry a clock.
+        if (source.slice(Math.max(0, m.index - 9), m.index).endsWith('function ')) continue;
+        const args: string[] = [];
+        let depth = 1;
+        let cur = '';
+        for (let i = head.lastIndex; i < source.length && depth > 0; i++) {
+          const c = source[i]!;
+          if (depth === 1 && c === ',') {
+            args.push(cur.trim());
+            cur = '';
+            continue;
+          }
+          if (c === '(' || c === '[' || c === '{') depth++;
+          else if (c === ')' || c === ']' || c === '}') {
+            depth--;
+            if (depth === 0) {
+              args.push(cur.trim());
+              break;
+            }
+          }
+          cur += c;
+        }
+        out.push(args[5] ?? ''); // 6th positional arg — the `age` clock
+      }
+      return out;
+    };
+    const clocks = clockArgs(src);
+    expect(clocks.length).toBeGreaterThan(0);
+    const bad = clocks.filter((arg) => !/\.age$/.test(arg));
+    expect(bad).toEqual([]);
+  });
+});
+
+/**
+ * No animated entity surface draws by BARE NAME — the exact blindness that
+ * shipped the freeze.
+ *
+ * A bare-name draw — `batch.draw(x, y, someSpec.sprite, …)` — resolves
+ * `atlas.get(name)` = frame 0 forever, so a multi-frame strip never advances.
+ * That is what froze `clerk`/`hunter`/`ray` (enemy bodies) and `big-power` (a
+ * bullet-atlas item). The fix routes every animated entity surface through
+ * `drawStrip`, which resolves the frame off the entity's `.age`.
+ *
+ * The `stripFrame`-argument scan above is BLIND to a surface that makes no
+ * `stripFrame` call at all — precisely how the bug shipped. This scan closes that
+ * hole: it reads every `.draw(` call in the shell and fails if a bare sprite NAME
+ * (a `.sprite` expression) reaches one that is not a documented-latent exemption.
+ *
+ * Exempt, keyed `<receiver>|<third-arg>`, each because it has no run-relative age
+ * to clock from — animating it would be dishonest, not merely deferred:
+ *  - `batches.options|optionSpec.sprite` — `Option` carries no `.age` (a sim
+ *    change is needed first),
+ *  - `batches.player|ship.sprite` — a 1-frame procedural silhouette,
+ *  - `batch|b.style.sprite` — the legacy beam-body fallback, a length-driven
+ *    stretched quad (Law of Geometry excludes laser bodies; Law of Animation
+ *    routes the cap, not the body).
+ */
+describe('no animated entity surface draws by bare name (the shipped blindness)', () => {
+  // Depth-aware extractor: for every `<receiver>.draw(` in the source, return the
+  // receiver and the third positional argument (the sprite source), splitting the
+  // argument list at TOP-LEVEL commas so a nested `Math.cos(a)` or `{ … }` option
+  // object does not confuse the count. `drawStrip(` is not a `.draw(` call, so the
+  // routed sites are correctly invisible to this scan.
+  const drawCalls = (src: string): { receiver: string; third: string }[] => {
+    const out: { receiver: string; third: string }[] = [];
+    const head = /([\w.]+)\.draw\(/g;
+    let m: RegExpExecArray | null;
+    while ((m = head.exec(src)) !== null) {
+      const args: string[] = [];
+      let depth = 1;
+      let cur = '';
+      for (let i = head.lastIndex; i < src.length && depth > 0; i++) {
+        const c = src[i]!;
+        if (depth === 1 && c === ',') {
+          args.push(cur.trim());
+          cur = '';
+          continue;
+        }
+        if (c === '(' || c === '[' || c === '{') depth++;
+        else if (c === ')' || c === ']' || c === '}') {
+          depth--;
+          if (depth === 0) {
+            args.push(cur.trim());
+            break;
+          }
+        }
+        cur += c;
+      }
+      out.push({ receiver: m[1] ?? '', third: args[2] ?? '' });
+    }
+    return out;
+  };
+
+  const bareName = (calls: { receiver: string; third: string }[]) =>
+    calls.filter((c) => /\.sprite$/.test(c.third));
+
+  const EXEMPT = new Set([
+    'batches.options|optionSpec.sprite', // Option has no .age
+    'batches.player|ship.sprite', // 1-frame procedural ship
+    'batch|b.style.sprite', // legacy beam-body fallback (length-driven)
+  ]);
+
+  test('the extractor flags a pre-fix bare-name enemy draw (non-vacuous)', () => {
+    // The exact shape main.ts shipped, that froze the enemy strip at frame 0.
+    const preFix = `batches.enemies.draw(e.x, e.y, e.spec.sprite, { rotation: e.angle });`;
+    const bad = bareName(drawCalls(preFix));
+    expect(bad).toEqual([{ receiver: 'batches.enemies', third: 'e.spec.sprite' }]);
+    // And it is NOT exempt, so the real assertion below would fail on it.
+    expect(EXEMPT.has(`${bad[0]!.receiver}|${bad[0]!.third}`)).toBe(false);
+  });
+
+  test('the multi-line legacy-beam draw parses to its third arg despite nested parens', () => {
+    const beam =
+      `batch.draw(\n` +
+      `  b.x + half * Math.cos(b.angle),\n` +
+      `  b.y + half * Math.sin(b.angle),\n` +
+      `  b.style.sprite,\n` +
+      `  { rotation: b.angle },\n` +
+      `);`;
+    expect(bareName(drawCalls(beam))).toEqual([{ receiver: 'batch', third: 'b.style.sprite' }]);
+  });
+
+  test('every bare-name entity draw in main.ts is a documented-latent exemption', async () => {
+    const src = await Bun.file(new URL('../main.ts', import.meta.url)).text();
+    const offenders = bareName(drawCalls(src))
+      .map((c) => `${c.receiver}|${c.third}`)
+      .filter((key) => !EXEMPT.has(key));
+    expect(offenders).toEqual([]);
+  });
+
+  test('the frozen surfaces are actually routed through drawStrip (non-vacuous)', async () => {
+    const src = await Bun.file(new URL('../main.ts', import.meta.url)).text();
+    // Proof the routing landed: the batches that carried the frozen strips are now
+    // passed to drawStrip, not bare-name drawn. (enemies = enemy + boss bodies.)
+    expect(/drawStrip\(\s*batches\.enemies\b/.test(src)).toBe(true);
+    expect(/drawStrip\(\s*batches\.items\b/.test(src)).toBe(true); // big-power item
+    expect(/drawStrip\(\s*batches\.pickups\b/.test(src)).toBe(true); // coins/gems
   });
 });
 

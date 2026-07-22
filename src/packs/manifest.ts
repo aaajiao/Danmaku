@@ -63,6 +63,16 @@ export interface PackStrip {
   mode: 'loop' | 'once';
   /** Default `'tinted'` (white + engine tint); `'baked'` for coloured art. */
   color?: 'tinted' | 'baked';
+  /**
+   * The strip's un-margined painted content bound, px — the Law of Geometry seam
+   * input (the asset-fidelity round). Additive and optional: it describes the
+   * pack's OWN pixels (the painted box inside `frameW/H`), and the render seam
+   * uses it to scale the quad to the engine's content size (`displayW =
+   * engineContent × frameW / contentW`). Absent → the strip draws at native
+   * `frameW/H`, exactly as before this field existed.
+   */
+  contentW?: number;
+  contentH?: number;
 }
 
 /**
@@ -82,6 +92,10 @@ export interface PackBulletStrip {
   ticksPerFrame?: number;
   mode?: 'loop' | 'once';
   color?: 'tinted' | 'baked';
+  /** Un-margined painted content bound, px — the Law of Geometry seam input
+   *  (additive/optional; absent → native `frameW/H`). See `PackStrip.contentW`. */
+  contentW?: number;
+  contentH?: number;
 }
 
 /** The object form of `assets.bullets`: one shared PNG, every strip packed onto it. */
@@ -100,6 +114,10 @@ export interface PackShipStrip {
   ticksPerFrame?: number;
   mode?: 'loop' | 'once';
   color?: 'tinted' | 'baked';
+  /** Un-margined painted content bound, px — the Law of Geometry seam input
+   *  (additive/optional; absent → native `frameW/H`). See `PackStrip.contentW`. */
+  contentW?: number;
+  contentH?: number;
 }
 
 export interface PackAssets {
@@ -685,6 +703,8 @@ const BULLET_STRIP_FIELDS = [
   'ticksPerFrame',
   'mode',
   'color',
+  'contentW',
+  'contentH',
 ] as const;
 /** The fields of a native ship strip bank (`PackShipStrip`) — no x/y (one file). */
 const SHIP_STRIP_FIELDS = [
@@ -696,6 +716,8 @@ const SHIP_STRIP_FIELDS = [
   'ticksPerFrame',
   'mode',
   'color',
+  'contentW',
+  'contentH',
 ] as const;
 /** The fields of one `assets.effects` strip (`PackStrip`). */
 const EFFECT_STRIP_FIELDS = [
@@ -706,6 +728,8 @@ const EFFECT_STRIP_FIELDS = [
   'ticksPerFrame',
   'mode',
   'color',
+  'contentW',
+  'contentH',
 ] as const;
 const MUSIC_TRACK_FIELDS = ['file', 'loopStart', 'loopEnd', 'volume'] as const;
 const HUD_FIELDS = ['life', 'bomb'] as const;
@@ -1191,6 +1215,8 @@ function validateBulletSheet(sheet: Record<string, unknown>, prefix: string, err
       stripCount(strip, 'frames', where, prefix, errors, false);
       stripCount(strip, 'stride', where, prefix, errors, false);
       stripCount(strip, 'ticksPerFrame', where, prefix, errors, false);
+      stripCount(strip, 'contentW', where, prefix, errors, false);
+      stripCount(strip, 'contentH', where, prefix, errors, false);
       stripStride(strip, where, prefix, errors);
       stripEnums(strip, where, prefix, errors, false);
       for (const field of Object.keys(strip)) {
@@ -1216,6 +1242,8 @@ function validateShipStrip(ship: Record<string, unknown>, prefix: string, errors
   stripCount(ship, 'frames', where, prefix, errors, false);
   stripCount(ship, 'stride', where, prefix, errors, false);
   stripCount(ship, 'ticksPerFrame', where, prefix, errors, false);
+  stripCount(ship, 'contentW', where, prefix, errors, false);
+  stripCount(ship, 'contentH', where, prefix, errors, false);
   stripStride(ship, where, prefix, errors);
   stripEnums(ship, where, prefix, errors, false);
   for (const field of Object.keys(ship)) {
@@ -1289,6 +1317,8 @@ function validatePackStripMap(
     stripCount(strip, 'frameW', where, prefix, errors, true);
     stripCount(strip, 'frameH', where, prefix, errors, true);
     stripCount(strip, 'ticksPerFrame', where, prefix, errors, false);
+    stripCount(strip, 'contentW', where, prefix, errors, false);
+    stripCount(strip, 'contentH', where, prefix, errors, false);
     stripEnums(strip, where, prefix, errors, true);
     for (const field of Object.keys(strip)) {
       if ((EFFECT_STRIP_FIELDS as readonly string[]).includes(field)) continue;
