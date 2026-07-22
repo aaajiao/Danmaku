@@ -430,13 +430,23 @@ const DEATH_POWER_ITEMS = 8;
  * what grazing and spell-card capture feed. Crossed once each, ascending, so a
  * run that jumps two thresholds in one pickup is owed both.
  *
- * Measured against the whole game rather than picked: a pilot that is never hit
- * across both stages, capturing all ten cards, finishes on about 547,000, and
- * one that flails finishes on 52,000. So the first extend sits where a player
- * who is capturing cards at all will reach it, the second where a good run will,
- * and the third above a clean clear — something to play toward.
+ * Measured against the whole game rather than picked, and re-measured whenever the
+ * economy moves: `economy-honesty.test.ts` drives a full four-stage campaign with a
+ * clean card-capturing pilot and a flailing one and pins what each earns. The stale
+ * figures this comment once carried (547,000 clean / 52,000 flailing, "both stages",
+ * "ten cards") predate stages 3-4 and the card-bonus economy that came with them: a
+ * single boss card now pays 200,000-1,000,000, so a clean full clear finishes near
+ * 4,700,000 and crosses all three thresholds inside stage 1, while a flailing clear
+ * that captures nothing finishes near 48,000 and crosses none. The three anchors are
+ * therefore comfortably saturated by a capturing player and comfortably out of reach
+ * of one who is not — the gradient the extend is for still holds, even though the
+ * top anchor is no longer "above a clean clear". Recalibrating the anchors to the
+ * four-stage curve is a scoring-economy change and its own round; the pickup-variety
+ * round deliberately does not touch it — it redenominates the drop table while
+ * holding every boss's score AGGREGATE exactly invariant, so the count of extends a
+ * given pilot earns is unchanged (proven in `economy-honesty.test.ts`).
  */
-const EXTEND_SCORES: readonly number[] = [100_000, 300_000, 600_000];
+export const EXTEND_SCORES: readonly number[] = [100_000, 300_000, 600_000];
 
 /**
  * The shower a defeated boss drops when its own `BossSpec.spoils` is unset.

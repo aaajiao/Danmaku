@@ -815,7 +815,37 @@ describe('a real playthrough reaches', () => {
   test('every registered item kind', () => {
     // The failure: four of five kinds spawned only from a boss defeat, which
     // never happened, and `life` had no spawn site at all.
+    //
+    // This equality self-extends: the pickup-variety round registers eight
+    // score-TIER names (silver `score`, `coin.gold`, five `gem.*`, `bar.gold`), and
+    // both sides of this `toEqual` must grow by them together — a registered tier
+    // that nothing drops fails here, a dropped name that nothing registers throws in
+    // the pack injector before this. The per-name test below names WHICH rung, so a
+    // single missing gem reads as itself rather than as a sorted-array mismatch.
     expect([...COVER.items].sort()).toEqual(content(itemNames()).sort());
+  });
+
+  test('the pickup tier ladder is reachable — every rung, on its boss', () => {
+    // The redenomination places each tier on a specific enemy, and colour is boss
+    // identity: a full playthrough defeats every boss, so every rung reaches the
+    // field. `bar.gold` is the jackpot the regent alone drops — the reachability
+    // trap the design flagged (converting ALL `score` would strand the retained
+    // silver chip) is avoided by keeping `score` on two trash carriers AND regent.
+    const LADDER: readonly [name: string, source: string][] = [
+      ['score', 'two trash carriers + regent (silver chip)'],
+      ['coin.gold', 'magistrate'],
+      ['gem.green', 'sentinel'],
+      ['gem.yellow', 'warden'],
+      ['gem.cyan', 'magistrate'],
+      ['gem.pink', 'chancellor'],
+      ['gem.purple', 'regent'],
+      ['bar.gold', 'regent (jackpot)'],
+    ];
+    const reached = new Set<string>([...COVER.items, ...LUNATIC.items]);
+    for (const [name, source] of LADDER) {
+      expect(`${name} (from ${source}) reached: ${reached.has(name)}`)
+        .toBe(`${name} (from ${source}) reached: true`);
+    }
   });
 
   test('every registered particle effect', () => {

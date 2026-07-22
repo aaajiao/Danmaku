@@ -40,7 +40,9 @@ import {
   effectAtlas as makeEffectAtlas,
   laserAtlas as makeLaserAtlas,
   missileAtlas as makeMissileAtlas,
+  pickupAtlas as makePickupAtlas,
 } from './render/procedural';
+import { getItemSpec, itemNames } from './sim/item';
 import { beamLayout } from './render/beam';
 import { getLaserSkin, laserSkinNames } from './render/laser-skin';
 import { stripFrame } from './render/strip';
@@ -206,6 +208,14 @@ const laserAtlas = await makeLaserAtlas(undefined, packs.laserStrips);
 // one batch on one texture suffices.
 const missileAtlas = await makeMissileAtlas(undefined, packs.missileStrips);
 
+// The pickup sheet: a fifth texture carrying the animated coin/gem/bar bodies an
+// item's `sprite` names (routed by which atlas owns the name, not by cell name).
+// Procedural floor (rule 9) unless a pack ships `assets.pickups`, in which case
+// its baked strips composite onto this one texture exactly as fx, lasers and
+// missiles do — a coin a pack reskins takes its native baked pixels, the rest
+// stay procedural — without the sim ever learning a pickup has a skin.
+const pickupAtlas = await makePickupAtlas(undefined, packs.pickupStrips);
+
 // Every registered skin's body and cap must resolve on the laser atlas, or a
 // beam that names it draws nothing — throw at boot rather than in the draw loop
 // the first frame the beam is fired. This is the "all named strips exist" gate
@@ -216,6 +226,26 @@ for (const name of laserSkinNames()) {
     if (!laserAtlas.has(strip)) {
       throw new Error(`laser skin "${name}" names strip "${strip}", absent from the laser atlas`);
     }
+  }
+}
+
+// Every registered item's sprite must resolve on EXACTLY ONE of the two atlases
+// an item can draw from — the bullet sheet (legacy power/life/bomb cells) or the
+// pickup sheet (coins/gems/bar) — or a drop of it renders nothing the first frame
+// it spawns. Throw at boot, mirroring the laser-skin gate above, rather than in
+// the item draw loop. A sprite on NEITHER is a typo the never-blocked floor cannot
+// cover; a sprite on BOTH is ambiguous between two textures. (This round no item
+// names a pickup skin yet — every base item resolves on the bullet sheet — so this
+// simply proves the wire before the content round hangs coins off it.)
+for (const name of itemNames()) {
+  const sprite = getItemSpec(name).sprite;
+  const onBullet = bulletAtlas.has(sprite);
+  const onPickup = pickupAtlas.has(sprite);
+  if (onBullet === onPickup) {
+    throw new Error(
+      `item "${name}" names sprite "${sprite}", which must resolve on exactly one of ` +
+        `{bullet atlas, pickup atlas} — ${onBullet ? 'it is on both' : 'it is on neither'}`,
+    );
   }
 }
 
@@ -276,6 +306,17 @@ const batches = {
     blending: 'additive',
     renderOrder: Layer.Items,
   }),
+  // The animated coin/gem/bar bodies ride their own texture (the strips doctrine —
+  // one atlas is one batch) at the Items layer, over the additive glow halo.
+  // Normal blending, not additive: a coin is a solid object, so it reads as an
+  // object rather than a glow that could counterfeit a bullet's 1.0-white core
+  // (the missile/beam precedent). Sparse on field (a handful of drops), so a small
+  // capacity suffices. An item draws through EITHER this or `items` (routed by
+  // which atlas owns its sprite), never both, so the two never overlap.
+  pickups: new SpriteBatch(pickupAtlas, {
+    capacity: 256,
+    renderOrder: Layer.Items,
+  }),
   // Beam bodies on the laser sheet: a wide dim additive lane under the ship and
   // bullets (Layer.Beams). Baked colour means no per-instance tint distinguishes
   // factions, so a player beam and an enemy beam share this batch — they differ
@@ -298,6 +339,7 @@ const batches = {
 stage.add(batches.enemies.mesh, 'Enemies');
 stage.add(batches.itemGlow.mesh, 'Items');
 stage.add(batches.items.mesh, 'Items', 1);
+stage.add(batches.pickups.mesh, 'Items', 1);
 stage.add(batches.beamBodies.mesh, 'Beams');
 stage.add(batches.player.mesh, 'Player');
 stage.add(batches.options.mesh, 'Player', 1);
@@ -601,12 +643,36 @@ function drawRun(run: Run): void {
       b: item.spec.tint?.b,
       a: 0.5,
     });
-    batches.items.draw(item.x, item.y, item.spec.sprite, {
-      rotation: item.angle,
-      r: item.spec.tint?.r,
-      g: item.spec.tint?.g,
-      b: item.spec.tint?.b,
-    });
+
+    // Route by which atlas owns the sprite (the "shell knows both halves" pattern,
+    // exactly as the fx-particle draw below does with `fxAtlas.has`): a coin/gem/bar
+    // skin lives on the pickup sheet and draws through the pickup batch, spinning on
+    // its own strip clocked off `item.age` (run-relative, tick-only, reproduced by a
+    // replay — NEVER `loop.count`). Every legacy item (`power`/`life`/`bomb`/`score`)
+    // stays on the bullet atlas and the items batch, byte-identical to before.
+    if (pickupAtlas.has(item.spec.sprite)) {
+      const s = pickupAtlas.strip(item.spec.sprite);
+      const frame = pickupAtlas.frameOf(s, stripFrame(s, item.age));
+      // Baked art carries its own colour (tint stays identity-white so it shows
+      // unmultiplied); a tinted floor strip takes the content tint, so a coin is
+      // coloured by its denomination until baked pixels load (the strips colour law
+      // the missile/beam draws obey). The glow halo above always carries the tint.
+      const baked = s.color === 'baked';
+      batches.pickups.draw(item.x, item.y, frame, {
+        width: s.frameW,
+        height: s.frameH,
+        r: baked ? undefined : item.spec.tint?.r,
+        g: baked ? undefined : item.spec.tint?.g,
+        b: baked ? undefined : item.spec.tint?.b,
+      });
+    } else {
+      batches.items.draw(item.x, item.y, item.spec.sprite, {
+        rotation: item.angle,
+        r: item.spec.tint?.r,
+        g: item.spec.tint?.g,
+        b: item.spec.tint?.b,
+      });
+    }
   }
 
   for (const b of run.bullets.bullets) {

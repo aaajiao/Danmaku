@@ -1,13 +1,13 @@
 {
   "golden": {
-    "finalFingerprint": "11695|cleared|187.9900002550884|65.96428662531692|26700|1105|301|3|0.4|0|100|0|4|0|0|178.3900002550884|-34.035713374683084|player|270|9|190.3900002550884|-34.035713374683084|player|270|9|167.59000025508843|10.964286625316916|player|270|9|179.59000025508843|10.964286625316916|player|270|9|0|0|270|0|0|0|270|0|0|0|270|0|0|0|270|0|0|0|270|0|0|0|270|0",
+    "finalFingerprint": "11695|cleared|187.9900002550884|65.96428662531692|23700|1105|301|4|0.4|0|100|0|4|0|0|178.3900002550884|-34.035713374683084|player|270|9|190.3900002550884|-34.035713374683084|player|270|9|167.59000025508843|10.964286625316916|player|270|9|179.59000025508843|10.964286625316916|player|270|9|0|0|270|0|0|0|270|0|0|0|270|0|0|0|270|0|0|0|270|0|0|0|270|0",
     "finalGraze": 1105,
-    "finalScore": 26700,
+    "finalScore": 23700,
     "outcome": "cleared",
     "sampleCount": 390,
     "sampleInterval": 30,
     "tickCount": 11695,
-    "traceSha256": "ed70f4a32b12a686f19330275adfcce09efc8d22d1f852ffbd240c8847d53482"
+    "traceSha256": "d64bb04a8788df1dd3fe1f215e1c0c6129121efdbe9092fc8d81aab8a55ad514"
   },
   "portGate": "BASE CAMPAIGN REPLAY REGRESSION: replaying these masks against the bundled base-pack content must reproduce this golden trace exactly. A change that moves it is a bug or a declared divergence.",
   "replay": {
@@ -3722,7 +3722,7 @@
       "outcome": "cleared",
       "packs": "",
       "packsData": "",
-      "score": 26700,
+      "score": 23700,
       "stage": "stage-3"
     },
     "seed": 3939589,

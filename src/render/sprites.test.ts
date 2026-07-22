@@ -55,7 +55,7 @@ import { enemyNames, getEnemySpec } from '../sim/enemy';
 import { getItemSpec, itemNames } from '../sim/item';
 import { getOptionSpec, optionNames } from '../sim/option';
 import { laserSkinNames } from './laser-skin';
-import { BULLET_CELLS, BULLET_VARIANT_CELLS } from './procedural';
+import { BULLET_CELLS, BULLET_VARIANT_CELLS, PICKUP_STRIP_CELLS } from './procedural';
 
 /**
  * The names a bullet-atlas draw may reference: the sixteen floor cells AND the
@@ -75,6 +75,17 @@ const CELLS = new Set<string>([...BULLET_CELLS, ...BULLET_VARIANT_CELLS]);
  * exactly the split the injector's sprite gate makes (`packs/inject.ts`).
  */
 const LASER_SKINS = new Set<string>(laserSkinNames());
+
+/**
+ * The names a pickup may wear: the pickup-atlas strips (`PICKUP_STRIPS`), a fourth
+ * pool distinct from the bullet cells because a coin/gem/bar draws from the pickup
+ * atlas via `batches.pickups`, not the bullet atlas. Only an `Item` names one — the
+ * money tiers (`pickup.coin.*`, `pickup.gem.*`, `pickup.bar`); `power`/`life`/`bomb`
+ * still wear bullet cells — so an item sprite resolves against the bullet cells OR
+ * this pool, which is exactly the "exactly one of {bulletAtlas, pickupAtlas}" the
+ * boot resolve-check in `main.ts` enforces at runtime, checked headlessly here.
+ */
+const PICKUP_CELLS = new Set<string>(PICKUP_STRIP_CELLS);
 
 /** Registered by a test rather than by the game. */
 const isFixture = (name: string): boolean =>
@@ -123,9 +134,14 @@ function declaredSprites(): { where: string; sprite: string; laser: boolean }[] 
   return out;
 }
 
-/** A declared sprite resolves against its own pool: a laser to a skin, else a cell. */
+/**
+ * A declared sprite resolves against its own pool: a laser to a skin, else a bullet
+ * cell OR a pickup cell (an item's money tier draws from the pickup atlas). The two
+ * cell pools are name-disjoint (`pickup.*` vs the sixteen floor cells and variants),
+ * so combining them for the non-laser case cannot make a bullet-cell typo resolve.
+ */
 const resolves = (d: { sprite: string; laser: boolean }): boolean =>
-  d.laser ? LASER_SKINS.has(d.sprite) : CELLS.has(d.sprite);
+  d.laser ? LASER_SKINS.has(d.sprite) : CELLS.has(d.sprite) || PICKUP_CELLS.has(d.sprite);
 
 describe('every declared sprite resolves to an atlas cell', () => {
   test('nothing names a cell the sheet does not contain', () => {
@@ -151,5 +167,15 @@ describe('every declared sprite resolves to an atlas cell', () => {
     expect(LASER_SKINS.size).toBeGreaterThan(0);
     const laserNamingCell = { sprite: 'orb.small', laser: true };
     expect(resolves(laserNamingCell)).toBe(false); // a laser cannot wear a bullet cell
+  });
+
+  test('the pickup pool is real, and a money tier resolves through it, not the bullet cells', () => {
+    // The score TIERS draw from the pickup atlas: their sprites resolve via
+    // PICKUP_CELLS and would be rejected against the bullet cells alone. Prove the
+    // pool is populated and that the split actually discriminates.
+    expect(PICKUP_CELLS.size).toBeGreaterThan(0);
+    const silver = { sprite: 'pickup.coin.silver', laser: false };
+    expect(CELLS.has(silver.sprite)).toBe(false); // not a bullet cell
+    expect(resolves(silver)).toBe(true); // but a real pickup cell
   });
 });

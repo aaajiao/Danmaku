@@ -48,6 +48,7 @@ import {
   type EffectStripInput,
   type LaserStripInput,
   type MissileStripInput,
+  type PickupStripInput,
   type ShipStripInput,
 } from '../render/procedural';
 import type { PackBulletSheet, PackBulletStrip, PackShipStrip, PackStrip } from './manifest';
@@ -107,6 +108,14 @@ export interface LoadedPacks {
    * the rest stay procedural. Absent means the procedural missile floor.
    */
   missileStrips?: Record<string, MissileStripInput>;
+  /**
+   * Winning per-file `assets.pickups` strips (name → resolved URL + geometry), if
+   * any pack shipped one. Structurally identical to `missileStrips`; `main.ts` hands
+   * these to `pickupAtlas(undefined, …)`, which composites them onto the single
+   * pickup texture — a coin/gem/bar strip a pack reskins takes its native baked
+   * pixels, the rest stay procedural. Absent means the procedural pickup floor.
+   */
+  pickupStrips?: Record<string, PickupStripInput>;
   /** Texture sampling for both sheets. `nearest` matches `loadTexture`. */
   filter: 'nearest' | 'linear';
   /** Registered-sound name → winning URL. Fed through `defineSound`'s url branch. */
@@ -387,6 +396,15 @@ export async function loadPacks(): Promise<LoadedPacks> {
     missileStrips[slot.slice('assets.missiles.'.length)] = { url: winner.url, ...geo };
   }
 
+  // The per-file pickup body strips that won their slot, the same shape again.
+  const pickupStrips: Record<string, PickupStripInput> = {};
+  for (const [slot, winner] of winners) {
+    if (!slot.startsWith('assets.pickups.')) continue;
+    const geo = winner.pickupStrip;
+    if (winner.url === undefined || geo === undefined) continue;
+    pickupStrips[slot.slice('assets.pickups.'.length)] = { url: winner.url, ...geo };
+  }
+
   return {
     bulletsUrl: winners.get('assets.bullets')?.url,
     bulletsStrips: winners.get('assets.bullets')?.bulletStrips,
@@ -396,6 +414,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     effectStrips: Object.keys(effectStrips).length > 0 ? effectStrips : undefined,
     laserStrips: Object.keys(laserStrips).length > 0 ? laserStrips : undefined,
     missileStrips: Object.keys(missileStrips).length > 0 ? missileStrips : undefined,
+    pickupStrips: Object.keys(pickupStrips).length > 0 ? pickupStrips : undefined,
     soundUrls,
     hudIcons: {
       life: winners.get('hud.life')?.image,
@@ -472,6 +491,15 @@ interface Resource {
   };
   /** A per-file `assets.missiles` strip's geometry, paired with `url` above. */
   missileStrip?: {
+    frames: number;
+    frameW: number;
+    frameH: number;
+    ticksPerFrame?: number;
+    mode: 'loop' | 'once';
+    color?: 'tinted' | 'baked';
+  };
+  /** A per-file `assets.pickups` strip's geometry, paired with `url` above. */
+  pickupStrip?: {
     frames: number;
     frameW: number;
     frameH: number;
@@ -729,6 +757,13 @@ async function gatherAssets(
   if (assets.missiles !== undefined) {
     await gatherMissileStrips(name, assets.missiles, slots, orderedBytes, reasons);
   }
+
+  // `assets.pickups`: per-file coin/gem/bar body strips, warn-only reskin material
+  // — the same treatment as `assets.missiles`, composited onto the pickup texture
+  // by `main.ts` via `pickupAtlas(undefined, …)`. Fetched, hashed and gated here.
+  if (assets.pickups !== undefined) {
+    await gatherPickupStrips(name, assets.pickups, slots, orderedBytes, reasons);
+  }
 }
 
 /**
@@ -907,6 +942,45 @@ async function gatherMissileStrips(
       slots.set(`assets.missiles.${strip}`, {
         url,
         missileStrip: {
+          frames: spec.frames,
+          frameW: spec.frameW,
+          frameH: spec.frameH,
+          ticksPerFrame: spec.ticksPerFrame,
+          mode: spec.mode,
+          color: spec.color,
+        },
+      });
+    } catch (error) {
+      reasons.push(`pack "${name}": ${spec.src}: ${(error as Error).message}`);
+    }
+  }
+}
+
+/**
+ * `assets.pickups`: per-file coin/gem/bar body strips, each fetched, hashed and
+ * gated — the structural twin of `gatherMissileStrips`. The geometry is carried
+ * alongside the URL so `main.ts` can composite each strip onto the one pickup
+ * texture (`pickupAtlas`), a coin/gem/bar strip a pack reskins taking its baked
+ * pixels and the rest staying procedural.
+ */
+async function gatherPickupStrips(
+  name: string,
+  pickups: Record<string, PackStrip>,
+  slots: Map<string, Resource>,
+  orderedBytes: Uint8Array[],
+  reasons: string[],
+): Promise<void> {
+  for (const strip of Object.keys(pickups)) {
+    const spec = pickups[strip];
+    if (spec === undefined) continue;
+    const url = fileUrl(name, spec.src);
+    try {
+      orderedBytes.push(await fetchBytes(url));
+      const image = await loadImage(url);
+      checkStripSheet(name, spec.src, strip, toStrip(spec), image, reasons);
+      slots.set(`assets.pickups.${strip}`, {
+        url,
+        pickupStrip: {
           frames: spec.frames,
           frameW: spec.frameW,
           frameH: spec.frameH,

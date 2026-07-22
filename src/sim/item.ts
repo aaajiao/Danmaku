@@ -443,12 +443,61 @@ defineItem('big-power', {
   magnetSpeed: 7.5,
 });
 
+// The score TIER ladder (pickup-variety round). Every rung is `kind: 'score'` —
+// the run economy already routes `case 'score': #award(value)` for any value, so a
+// denomination is not a new game rule (rule: `ItemSpec.kind` is a closed union and
+// a pack may never script a new one). What differs per rung is `value` and the
+// native `sprite`; `tint` recolours the additive glow halo behind the coin, and,
+// for the procedural floor, the white body. The baked pack skins carry their own
+// colour and draw untinted (main.ts routes on the pickup atlas).
+//
+// Colour is BOSS IDENTITY, not value: the five gems share one denomination (2000)
+// and each colour is a boss's signature. Selecting a colour draws no RNG — it is
+// authored per boss in the spoils table, so a gem's hue is stable, not a per-tick
+// render pick that would flicker as it drifts.
+//
+// `score` (the chip / small change) is repointed onto the silver-coin skin. The
+// repoint is sim-inert: nothing in sim/content/game reads `ItemSpec.sprite` or
+// `.tint`, so it leaves the golden trace untouched — the divergence this round
+// declares is the spoils redenomination alone (make-base-pack.ts), never this line.
 defineItem('score', {
-  sprite: 'mote',
+  sprite: 'pickup.coin.silver',
   radius: 13,
   value: 500,
   kind: 'score',
-  tint: { r: 0.55, g: 0.85, b: 1 },
+  tint: { r: 0.8, g: 0.82, b: 0.9 },
+});
+
+const GEM = (
+  sprite: string,
+  tint: { r: number; g: number; b: number },
+): ItemSpec => ({ sprite, radius: 14, value: 2000, kind: 'score', tint, magnetSpeed: 7 });
+
+defineItem('coin.gold', {
+  sprite: 'pickup.coin.gold',
+  radius: 13,
+  value: 1000,
+  kind: 'score',
+  tint: { r: 1, g: 0.82, b: 0.35 },
+  magnetSpeed: 6,
+});
+defineItem('gem.green', GEM('pickup.gem.green', { r: 0.45, g: 1, b: 0.6 }));
+defineItem('gem.yellow', GEM('pickup.gem.yellow', { r: 1, g: 0.9, b: 0.35 }));
+defineItem('gem.cyan', GEM('pickup.gem.cyan', { r: 0.4, g: 0.95, b: 1 }));
+defineItem('gem.pink', GEM('pickup.gem.pink', { r: 1, g: 0.5, b: 0.75 }));
+defineItem('gem.purple', GEM('pickup.gem.purple', { r: 0.7, g: 0.45, b: 1 }));
+defineItem('bar.gold', {
+  sprite: 'pickup.bar',
+  radius: 17,
+  value: 8000,
+  kind: 'score',
+  tint: { r: 1, g: 0.78, b: 0.3 },
+  magnetSpeed: 8,
+  // Legible longer than the confetti it lands in — the jackpot the regent alone
+  // drops. Polar constants ONLY (no rrandom/trandom/wrandom), the same motion the
+  // `life`/`bomb` rarities carry, so `burst` still draws exactly 2 sim values for
+  // it and the 2-draw invariance holds for the jackpot too.
+  motion: { r: 2.2, theta: 270, ra: -0.05, rrange: { min: -1.4 } },
 });
 
 defineItem('life', {

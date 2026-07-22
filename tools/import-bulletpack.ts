@@ -297,6 +297,11 @@ interface Map {
    *  body names (`missile.0` … `missile.11`, `missile.massive`,
    *  `src/render/procedural.ts`). Same oriented per-file shape as a laser. */
   missiles: Record<string, StripMap>;
+  /** Pickup coin/gem/bar strips → `assets.pickups` (baked, RADIAL — no rotate).
+   *  Keys are pickup-skin names (`pickup.coin.silver`, `pickup.gem.cyan`,
+   *  `pickup.bar`, `src/render/procedural.ts`). Same radial per-file shape as an
+   *  effect, built through `buildEffectStrip`. */
+  pickups: Record<string, EffectMap>;
   variantsDuplicate?: Record<string, string>;
 }
 
@@ -647,14 +652,21 @@ function suggestedConsumer(cat: string, file: string): string {
   if (cat === 'player-ship' && /Bomb/i.test(file)) return 'bomb visual (BombSpec carries no sprite surface yet)';
   if (cat === 'player-ship' && /Option/i.test(file)) return 'dedicated option sprite (OptionSpec currently names a bullet cell)';
   if (cat === 'player-ship') return 'player 形象 — out of scope by user directive (2026-07-22)';
-  if (cat === 'misc') return 'item skin (animated pickup) — pickup-variety round';
+  // The two SHADOWED coin twins (Gold_coin_strip6, Silver_coin_strip6 — _strip6 and
+  // NOT NoShadow) are deliberately unmapped: the uniform no-baked-shadow policy
+  // (a light-background shadow reads as a grey smudge on the dark curtain; the
+  // itemGlow halo already supplies lift). Pack-author alternate skins, deferred.
+  if (cat === 'misc' && /_strip6\.png$/i.test(file) && !/noshadow/i.test(file)) {
+    return 'DEFERRED shadow twin (pickup-variety round §g.1) — uniform no-baked-shadow policy; the NoShadow coin ships, this alternate stages';
+  }
+  if (cat === 'misc') return 'item skin (animated pickup) — pickup-variety round (8 coin/gem/bar strips consumed as assets.pickups)';
   return 'unclassified';
 }
 
 /* ------------------------------------------------------------------ */
 /* README (provenance)                                                  */
 /* ------------------------------------------------------------------ */
-function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; lasers: number; missiles: number }): string {
+function buildReadme(root: string, notes: { tip: string; quick: string }, counts: { consumed: number; staged: number; skipped: number; total: number; strips: number; effects: number; lasers: number; missiles: number; pickups: number }): string {
   return `# bulletpack — imported native-strip reskin (provenance)
 
 **Generated** by \`bun tools/import-bulletpack.ts\`. Do not hand-edit; edit
@@ -683,6 +695,10 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
   1 \`strip17\`, baked native colour, each frame rotated 90° to +x — the missile
   atlas bodies a base spec names). The 3 detonation tiers ride \`assets.effects\`
   (\`missile.pop.tiny|mid|big\`), reskinning the fx-floor names a missile fires.
+- **${counts.pickups}** pickup coin/gem/bar strips as \`assets.pickups\` (2 coins +
+  5 gems + 1 bar, baked native colour, radial — no rotation — the pickup-atlas
+  skins a base item names). The 2 shadowed coin twins stage under the uniform
+  no-baked-shadow policy (the \`itemGlow\` halo supplies lift).
 - **${counts.consumed}** source files curated in total (see
   \`tools/bulletpack-map.json\` for the exact frame/rotate/fit per strip).
 
@@ -706,11 +722,13 @@ function buildReadme(root: string, notes: { tip: string; quick: string }, counts
 ## Completeness
 
 - **${counts.staged}** files this round does not use are copied verbatim under
-  \`extra/<category>/\` (coins/gems, surplus player shots, oversized beams, and the
-  explosions no death site fires yet), staged for their own future rounds. The 11
-  \`Lasers/\` files left this pile in the laser round — they are now consumed as
+  \`extra/<category>/\` (surplus player shots, oversized beams, and the explosions
+  no death site fires yet), staged for their own future rounds. The 11 \`Lasers/\`
+  files left this pile in the laser round — they are now consumed as
   \`assets.lasers\`. The 16 \`Missiles/\` files left it in the import round — 13
-  bodies as \`assets.missiles\` and 3 detonation tiers as \`assets.effects\`.
+  bodies as \`assets.missiles\` and 3 detonation tiers as \`assets.effects\`. 8 of
+  the 10 \`Misc/\` coin/gem/bar files left it in the pickup round — consumed as
+  \`assets.pickups\`; the 2 shadowed coin twins remain (no-baked-shadow policy).
 - **${counts.skipped}** pure-junk files (\`.DS_Store\`, author \`.txt\` notes) are
   counted in the total but not listed — they left the ledger by user directive.
 - Every one of the **${counts.total}** files in the folder is accounted for
@@ -802,6 +820,22 @@ function main(): void {
     log.push(`assembled ${file} (${msSheet.w}×${msSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — missile seam self-check PASSED`);
   }
 
+  /* --- pickups (one own-file baked coin/gem/bar strip, radial — no rotate) --- */
+  // Coins/gems/bar are RADIAL (no heading, rule 7 moot), so they build through the
+  // SAME `buildEffectStrip` an explosion uses (squared, no rotation) and pass the
+  // same per-file seam gate — `assets.pickups` composites onto the fifth (pickup)
+  // texture in `main.ts`, symmetric to missiles/lasers/effects. The Silver suffix
+  // trap is handled in the MAP (`strip: 6` hand-declared), not here.
+  const pickupsManifest: Record<string, EmittedEffect> = {};
+  for (const [name, m] of Object.entries(map.pickups)) {
+    const { sheet: pkSheet, meta, file } = buildEffectStrip(root, name, m);
+    assertEffectStrip(name, pkSheet, meta); // same per-file strip gate as effects/lasers/missiles
+    writeVerified(join(outDir, file), pkSheet);
+    pickupsManifest[name] = meta;
+    noteConsumed(m.src, name);
+    log.push(`assembled ${file} (${pkSheet.w}×${pkSheet.h}, ${meta.frames}×${meta.frameW}×${meta.frameH}) — pickup seam self-check PASSED`);
+  }
+
   /* --- manifest --- */
   const manifest = {
     format: 1,
@@ -809,13 +843,14 @@ function main(): void {
     version: '2.0.0',
     author: 'Unknown — third-party BulletPack, source unconfirmed (see README.md)',
     license: 'UNCONFIRMED — no LICENSE file in source; not for distribution until provenance is verified (CLAUDE.md rule 9; see README.md)',
-    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion + missile-detonation effects, baked laser body/cap strips, and baked missile body strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
+    description: 'Native-strip reskin imported from the third-party BulletPack folder: a packed bullet sheet (16 tinted floor cells + baked colour variants + player shot skins), animated explosion + missile-detonation effects, baked laser body/cap strips, baked missile body strips, and baked coin/gem/bar pickup strips. No ship/HUD (out of scope). Licence unconfirmed — gitignored, regenerable via tools/import-bulletpack.ts.',
     assets: {
       bullets: { sheet: 'bullets.png', strips },
       filter: 'nearest' as const,
       effects: effectsManifest,
       lasers: lasersManifest,
       missiles: missilesManifest,
+      pickups: pickupsManifest,
     },
   };
   const result = validateManifest(manifest, 'bulletpack');
@@ -898,8 +933,8 @@ function main(): void {
     generatedBy: 'tools/import-bulletpack.ts',
     license: 'UNCONFIRMED — no LICENSE file in source folder',
     dispositions: {
-      consumed: 'packed into the pack (bullets.png, an effect PNG, a laser strip PNG, or a missile body PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, a fired laser skin body/cap (assets.lasers), or a fired missile body (assets.missiles). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
-      staged: 'copied verbatim to extra/<category>/ for a future round (coins/gems, surplus player shots, oversized beams, unreached explosions). No consumer this round. (Lasers left this list in the laser round, 2026-07-22 — all 11 are now consumed. Missiles left it in the import round — all 16 are now consumed: 13 bodies as assets.missiles + 3 detonation tiers as assets.effects missile.pop.*.)',
+      consumed: 'packed into the pack (bullets.png, an effect PNG, a laser strip PNG, a missile body PNG, or a pickup coin/gem/bar PNG) under a name the base four-stage campaign draws — a fired BULLET_VARIANTS name, a bare floor cell, a fired effect, a fired laser skin body/cap (assets.lasers), a fired missile body (assets.missiles), or a dropped pickup skin (assets.pickups). Play-reach for the four-stage game is tracked project-side in the consumption ledger; the tool cannot run the simulation, so "consumed" here means packed-and-named-by-the-base-campaign.',
+      staged: 'copied verbatim to extra/<category>/ for a future round (surplus player shots, oversized beams, unreached explosions, shadowed coin twins). No consumer this round. (Lasers left this list in the laser round, 2026-07-22 — all 11 are now consumed. Missiles left it in the import round — all 16 are now consumed: 13 bodies as assets.missiles + 3 detonation tiers as assets.effects missile.pop.*. Coins/gems left it in the pickup-variety round — 8 of the 10 Misc/ files are now consumed as assets.pickups; the 2 shadowed coin twins remain staged under the uniform no-baked-shadow policy.)',
       skipped: 'pure junk not tracked in files[] (.DS_Store, author .txt notes). Counted in total, not listed.',
     },
     totals: { total, consumed, staged, skipped },
@@ -915,6 +950,7 @@ function main(): void {
     strips: entries.length, effects: Object.keys(effectsManifest).length,
     lasers: Object.keys(lasersManifest).length,
     missiles: Object.keys(missilesManifest).length,
+    pickups: Object.keys(pickupsManifest).length,
   }));
 
   /* --- report --- */

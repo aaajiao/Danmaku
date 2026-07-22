@@ -1931,3 +1931,405 @@ async function nativeMissileAtlas(packStrips: Record<string, MissileStripInput>)
   });
   return atlas;
 }
+
+/* ------------------------------------------------------------------ */
+/* The pickup coin/gem/bar floor (rule 9)                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A pickup (a coin, a gem, a gold bar) is an `Item` drawn on its OWN atlas — the
+ * sim routes by which atlas owns the sprite (`pickupAtlas.has(item.spec.sprite)`,
+ * `main.ts`), never by cell name, because the render layer cannot be imported by
+ * the sim. A pickup's "skin" is just `item.spec.sprite` resolved here; the spin
+ * is a `mode: 'loop'` strip clocked off `item.age` in the view layer (the strips
+ * clock law — run-relative, reproduced by a replay, NEVER `loop.count`).
+ *
+ * This floor is the never-blocked half: a placeholder coin/gem/bar for every
+ * skin a base item names, so the game draws a shining drop with zero assets, and
+ * a BulletPack reskin later swaps the pixels through
+ * `pickupAtlas(undefined, packStrips)` — the pack-per-file `assets.pickups`
+ * composite is the import round's, symmetric to `assets.missiles`.
+ *
+ * Every strip is `tinted` (rule 9): a gold coin is coloured by the content tint
+ * until baked pixels load, so one greyscale sheet serves every denomination and
+ * hue and the saturation gate holds. Pickups are RADIAL (a coin has no heading —
+ * rule 7 is moot); `item.angle` stays 0, so no `orientToHeading`. THREE painters
+ * cover the eight skins: a spinning disc (both coins), a spinning facet (all five
+ * gems), a spinning ingot (the bar) — each seen turning about its vertical axis,
+ * so the on-screen width oscillates while the height holds. Frame counts and
+ * sizes track the native BulletPack art (coin 6 frames, gem/bar 9) so a pack
+ * sheet drops straight onto these names.
+ */
+export interface PickupStripGeo {
+  frameW: number;
+  frameH: number;
+  frames: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  /** Px between frame origins; equals `frameW` (frames laid horizontally). */
+  stride: number;
+  /** Painted box of frame `f`, px, re-derived from the painter's own dimensions. */
+  frameExtent: (frame: number) => { w: number; h: number };
+  draw: StripDraw;
+}
+
+/**
+ * Spin phase → horizontal scale for a coin/gem/bar turning about its vertical
+ * axis: full width face-on (|cos| = 1), a thin sliver edge-on (|cos| = 0), never
+ * fully vanishing (`PICKUP_SPIN_FLOOR`, so the sliver stays a legible object, not
+ * a gap in the loop). A pure function of the loop frame, so a replay reproduces
+ * the spin exactly (the strips clock law). `Math` trig is free here: this reaches
+ * the framebuffer and stops, never a position (rule 3 binds sim/content/core/game).
+ */
+const PICKUP_SPIN_FLOOR = 0.16;
+function pickupSpin(frame: number, frames: number): number {
+  const phase = frames > 1 ? frame / frames : 0;
+  return PICKUP_SPIN_FLOOR + (1 - PICKUP_SPIN_FLOOR) * Math.abs(Math.cos(phase * Math.PI * 2));
+}
+
+/** A lit metal disc (a coin): a soft cross-body gradient with a brighter +x rim. */
+function pickupDisc(ctx: Ctx, cx: number, cy: number, hw: number, hh: number): void {
+  const g = ctx.createLinearGradient(cx - hw, cy, cx + hw, cy);
+  g.addColorStop(0, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+  g.addColorStop(1, 'rgba(255,255,255,0.75)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, hw, hh, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** A faceted gem: a bright kite silhouette with a brighter crown facet on top. */
+function pickupFacet(ctx: Ctx, cx: number, cy: number, hw: number, hh: number): void {
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - hh);
+  ctx.lineTo(cx + hw, cy - hh * 0.15);
+  ctx.lineTo(cx, cy + hh);
+  ctx.lineTo(cx - hw, cy - hh * 0.15);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - hh);
+  ctx.lineTo(cx + hw * 0.5, cy - hh * 0.15);
+  ctx.lineTo(cx - hw * 0.5, cy - hh * 0.15);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** A gold-bar ingot: a wide-based trapezoid with a bright top-face band. */
+function pickupIngot(ctx: Ctx, cx: number, cy: number, hw: number, hh: number): void {
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(cx - hw, cy + hh);
+  ctx.lineTo(cx + hw, cy + hh);
+  ctx.lineTo(cx + hw * 0.72, cy - hh);
+  ctx.lineTo(cx - hw * 0.72, cy - hh);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.fillRect(cx - hw * 0.72, cy - hh, hw * 1.44, Math.max(1, hh * 0.5));
+}
+
+/** A painter takes the frame's live half-width/half-height (the spin folds in). */
+type PickupPaint = (ctx: Ctx, cx: number, cy: number, hw: number, hh: number) => void;
+
+/**
+ * One pickup strip as a `PickupStripGeo`. The vertical half (`hh`) holds across
+ * the loop; the horizontal half spins between `hwMax` (face-on) and
+ * `hwMax·PICKUP_SPIN_FLOOR` (edge-on). `frameExtent` re-derives its box from the
+ * SAME `hwMax·spin` the painter uses (the `CELL_ART` discipline, per frame), and
+ * `hwMax`/`hh` are the frame less `FX_PAD` a side, so the face-on frame lands
+ * exactly on the `frameW − 2·FX_PAD` / `frameH − 2·FX_PAD` seam limit and no
+ * frame bleeds into the next.
+ */
+function pickupGeo(
+  frameW: number,
+  frameH: number,
+  frames: number,
+  tpf: number,
+  paint: PickupPaint,
+): PickupStripGeo {
+  const hwMax = (frameW - 2 * FX_PAD) / 2;
+  const hh = (frameH - 2 * FX_PAD) / 2;
+  return {
+    frameW,
+    frameH,
+    frames,
+    ticksPerFrame: tpf,
+    mode: 'loop',
+    color: 'tinted',
+    stride: frameW,
+    frameExtent: (f) => ({ w: 2 * hwMax * pickupSpin(f, frames), h: 2 * hh }),
+    draw: (ctx, f, cx, cy) => paint(ctx, cx, cy, hwMax * pickupSpin(f, frames), hh),
+  };
+}
+
+/**
+ * The 8 pickup strips — 2 coins (6-frame disc) + 5 gems (9-frame facet) + 1 bar
+ * (9-frame ingot) — mirroring the 8 BulletPack Misc coin/gem/bar files a reskin
+ * supplies. Frame sizes track the native art (per `docs/assets.md`), so a baked
+ * pack strip lands on the same name. `procedural.test.ts` holds every frame
+ * against the seam pad; the reachability collectors assert each is dropped once a
+ * base item names it (the content round). Colour is boss identity, authored per
+ * item as a tint — the five gems share one facet floor and differ only by hue.
+ */
+export const PICKUP_STRIPS: Record<string, PickupStripGeo> = {
+  'pickup.coin.silver': pickupGeo(18, 10, 6, 3, pickupDisc),
+  'pickup.coin.gold': pickupGeo(18, 12, 6, 3, pickupDisc),
+  'pickup.gem.green': pickupGeo(15, 15, 9, 3, pickupFacet),
+  'pickup.gem.yellow': pickupGeo(15, 15, 9, 3, pickupFacet),
+  'pickup.gem.cyan': pickupGeo(15, 15, 9, 3, pickupFacet),
+  'pickup.gem.pink': pickupGeo(15, 15, 9, 3, pickupFacet),
+  'pickup.gem.purple': pickupGeo(15, 15, 9, 3, pickupFacet),
+  'pickup.bar': pickupGeo(19, 12, 9, 3, pickupIngot),
+};
+
+/** Every pickup strip name, `BULLET_CELLS`'s companion for the pickup sheet. */
+export const PICKUP_STRIP_CELLS = Object.keys(PICKUP_STRIPS) as readonly string[];
+
+/**
+ * Where each strip sits on the shared pickup sheet: one strip per row, frames
+ * laid horizontally, sheet width the widest row. Derived from the table so the
+ * layout and the dimensions cannot drift (the missile sheet's discipline).
+ */
+function pickupLayout(): {
+  positions: Record<string, { x: number; y: number }>;
+  width: number;
+  height: number;
+} {
+  const positions: Record<string, { x: number; y: number }> = {};
+  let width = 1;
+  let y = 0;
+  for (const [name, s] of Object.entries(PICKUP_STRIPS)) {
+    positions[name] = { x: 0, y };
+    width = Math.max(width, s.frames * s.stride);
+    y += s.frameH;
+  }
+  return { positions, width, height: Math.max(1, y) };
+}
+
+export const PICKUP_SHEET = pickupLayout();
+export const PICKUP_SHEET_W = PICKUP_SHEET.width;
+export const PICKUP_SHEET_H = PICKUP_SHEET.height;
+
+/** Wire every `PICKUP_STRIPS` name onto `atlas` as a `Strip`. Shared by both branches. */
+function definePickupStrips(atlas: Atlas): void {
+  for (const [name, s] of Object.entries(PICKUP_STRIPS)) {
+    const p = PICKUP_SHEET.positions[name]!;
+    atlas.defineStrip(name, {
+      x: p.x,
+      y: p.y,
+      frameW: s.frameW,
+      frameH: s.frameH,
+      frames: s.frames,
+      stride: s.stride,
+      ticksPerFrame: s.ticksPerFrame,
+      mode: s.mode,
+      color: s.color,
+    });
+  }
+}
+
+/**
+ * Render the procedural pickup sheet: every `PICKUP_STRIPS` strip's frames laid
+ * out on one shared canvas, each on its own row. White + tint, like the missile
+ * sheet (a gold coin's colour is the content tint), so one greyscale sheet serves
+ * every denomination and hue and the saturation gate holds.
+ */
+export function createPickupAtlas(): Atlas {
+  const { positions, width, height } = PICKUP_SHEET;
+  const { el, ctx } = canvas(width, height);
+
+  for (const [name, s] of Object.entries(PICKUP_STRIPS)) {
+    const p = positions[name]!;
+    for (let f = 0; f < s.frames; f++) {
+      const cx = p.x + f * s.stride + s.frameW / 2;
+      const cy = p.y + s.frameH / 2;
+      s.draw(ctx, f, cx, cy);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(el);
+  texture.magFilter = THREE.LinearFilter; // generated art is smooth, not pixel art
+  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, width, height);
+  definePickupStrips(atlas);
+  return atlas;
+}
+
+/**
+ * A pack's `assets.pickups` strip, resolved: the winning file's URL plus the
+ * geometry the manifest declared. The structural twin of the missile
+ * `MissileStripInput` (one file per strip, frames laid horizontally, frame 0
+ * leftmost — no x/y), redeclared here so `render/` need not import `packs/`.
+ * Baked native art, so `color` defaults `'baked'` — the reskin path, the
+ * saturation gate skipped.
+ */
+export interface PickupStripInput {
+  url: string;
+  frames: number;
+  frameW: number;
+  frameH: number;
+  ticksPerFrame?: number;
+  mode?: StripMode;
+  color?: StripColor;
+}
+
+/**
+ * The pickup sheet, generated, loaded, or composited from a pack — symmetric to
+ * `missileAtlas(url?, packStrips?)`.
+ *
+ * - `pickupAtlas()` — the procedural coin/gem/bar floor (rule 9).
+ * - `pickupAtlas(url)` — one combined `PICKUP_SHEET_W`×`PICKUP_SHEET_H` sheet
+ *   loaded and dimension-checked (the direct-import seam), naming both figures on
+ *   a mismatch (the point `bulletAtlas`/`missileAtlas` make: a wrong-sized sheet
+ *   silently repoints every strip at a crop of the wrong shape).
+ * - `pickupAtlas(undefined, packStrips)` — a pack's per-file `assets.pickups`
+ *   reskin, composited onto one shared texture (one batch is one texture): a coin
+ *   strip the pack reskins takes its baked pixels, a strip it leaves alone is
+ *   painted procedurally, and any pack-new name is blitted too — so every base
+ *   pickup skin always resolves. This is the branch the BulletPack import round
+ *   supplies the coloured coin/gem/bar pixels to.
+ */
+export async function pickupAtlas(
+  url?: string,
+  packStrips?: Record<string, PickupStripInput>,
+): Promise<Atlas> {
+  if (packStrips !== undefined && Object.keys(packStrips).length > 0) {
+    return nativePickupAtlas(packStrips);
+  }
+  if (url === undefined) return createPickupAtlas();
+
+  const atlas = await loadAtlas(url);
+  if (atlas.width !== PICKUP_SHEET_W || atlas.height !== PICKUP_SHEET_H) {
+    throw new Error(
+      `pickup sheet "${url}" is ${atlas.width}×${atlas.height}, expected ${PICKUP_SHEET_W}×${PICKUP_SHEET_H}`,
+    );
+  }
+  definePickupStrips(atlas);
+  return atlas;
+}
+
+/** One row of the composited pickup sheet: either a procedural painter or a blit. */
+interface PickupRow {
+  name: string;
+  frameW: number;
+  frameH: number;
+  frames: number;
+  stride: number;
+  ticksPerFrame: number;
+  mode: StripMode;
+  color: StripColor;
+  paint?: StripDraw;
+  image?: CanvasImageSource;
+}
+
+/** Resolve a pack strip's file to a blittable row (frames laid at `frameW`). */
+async function packPickupRow(name: string, s: PickupStripInput): Promise<PickupRow> {
+  const texture = await loadTexture(s.url);
+  return {
+    name,
+    frameW: s.frameW,
+    frameH: s.frameH,
+    frames: s.frames,
+    stride: s.frameW,
+    ticksPerFrame: s.ticksPerFrame ?? 1,
+    mode: s.mode ?? 'loop',
+    color: s.color ?? 'baked',
+    image: texture.image as CanvasImageSource,
+  };
+}
+
+/**
+ * Composite a pack's per-file `assets.pickups` strips onto one shared pickup
+ * texture, so the pickup atlas stays a single texture / single batch. Floor names
+ * the pack did not reskin are painted procedurally; the pack's files are blitted
+ * at their native size; every strip lands on its own row, frames horizontal — the
+ * missile discipline, one more time.
+ */
+async function nativePickupAtlas(packStrips: Record<string, PickupStripInput>): Promise<Atlas> {
+  const rows: PickupRow[] = [];
+
+  // Floor names first (procedural unless reskinned), in the floor's own order,
+  // so every base pickup skin always resolves on the result.
+  for (const [name, s] of Object.entries(PICKUP_STRIPS)) {
+    const over = packStrips[name];
+    if (over) {
+      rows.push(await packPickupRow(name, over));
+    } else {
+      rows.push({
+        name,
+        frameW: s.frameW,
+        frameH: s.frameH,
+        frames: s.frames,
+        stride: s.stride,
+        ticksPerFrame: s.ticksPerFrame,
+        mode: s.mode,
+        color: s.color,
+        paint: s.draw,
+      });
+    }
+  }
+  // Pack-new pickup names (not a floor strip): a content pack that drops one
+  // resolves; the base game draws only the floor names.
+  for (const name of Object.keys(packStrips)) {
+    if (name in PICKUP_STRIPS) continue;
+    const s = packStrips[name];
+    if (s !== undefined) rows.push(await packPickupRow(name, s));
+  }
+
+  const rowY: number[] = [];
+  let sheetW = 1;
+  let sheetH = 0;
+  for (const row of rows) {
+    rowY.push(sheetH);
+    sheetW = Math.max(sheetW, row.frames * row.stride);
+    sheetH += row.frameH;
+  }
+  sheetH = Math.max(1, sheetH);
+
+  const { el, ctx } = canvas(sheetW, sheetH);
+  rows.forEach((row, i) => {
+    const y = rowY[i] ?? 0;
+    if (row.image) {
+      ctx.drawImage(row.image, 0, y);
+    } else if (row.paint) {
+      for (let f = 0; f < row.frames; f++) {
+        row.paint(ctx, f, f * row.stride + row.frameW / 2, y + row.frameH / 2);
+      }
+    }
+  });
+
+  const texture = new THREE.CanvasTexture(el);
+  // Native baked pickup art is pixel art; nearest keeps it crisp (loadTexture's floor).
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.NoColorSpace; // display-referred; see atlas.ts
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  const atlas = new Atlas(texture, sheetW, sheetH);
+  rows.forEach((row, i) => {
+    atlas.defineStrip(row.name, {
+      x: 0,
+      y: rowY[i] ?? 0,
+      frameW: row.frameW,
+      frameH: row.frameH,
+      frames: row.frames,
+      stride: row.stride,
+      ticksPerFrame: row.ticksPerFrame,
+      mode: row.mode,
+      color: row.color,
+    });
+  });
+  return atlas;
+}

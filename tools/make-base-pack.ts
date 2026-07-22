@@ -1445,9 +1445,12 @@ const bosses: PackContent['bosses'] = {
     // Shipped bosses declare their spoils rather than fall through DEFAULT_BOSS_SPOILS.
     // That default stays — it is the reward rule for a guest pack that names none —
     // but the base campaign spells its own economy out so a change to the fallback
-    // cannot silently retune the game we ship. This row is byte-for-byte the current
-    // default: one bomb back for the stage-1 boss, as before.
-    spoils: [['big-power', 4], ['score', 12], ['bomb', 1]],
+    // cannot silently retune the game we ship. The pickup-variety round redenominates
+    // the `score` component of every boss into native tiers, holding each boss's
+    // score AGGREGATE exactly invariant. Sentinel introduces the ladder: three green
+    // gems, its signature colour, worth 3×2000 = 6000 — the same 12×500 = 6000 the
+    // old score chips paid. The `big-power`/`bomb` rows are untouched.
+    spoils: [['big-power', 4], ['gem.green', 3], ['bomb', 1]],
     // Speakers are portrait names: the boss's own, and 'player' for the ship.
     dialogue: [
       { speaker: 'sentinel', text: 'Far enough.' },
@@ -1637,8 +1640,10 @@ const bosses: PackContent['bosses'] = {
     entry: { x: 240, y: 120, ticks: 70 },
     music: 'interdict',
     onDeath: 'death.big',
-    // Explicit, same as the retired fallback: one bomb for the stage-2 midboss.
-    spoils: [['big-power', 4], ['score', 12], ['bomb', 1]],
+    // Explicit, same aggregate as the retired fallback: three yellow gems, the
+    // midboss's signature colour (3×2000 = 6000, holding the old 12×500 = 6000), plus
+    // one bomb. The variety spike of stage 2: warden pays yellow, magistrate cyan.
+    spoils: [['big-power', 4], ['gem.yellow', 3], ['bomb', 1]],
     dialogue: [
       { speaker: 'warden', text: 'This corridor is closed.' },
       { speaker: 'player', text: 'Open it.' },
@@ -1774,12 +1779,14 @@ const bosses: PackContent['bosses'] = {
     entry: { x: 240, y: 150, ticks: 90 },
     music: 'docket',
     onDeath: 'death.big',
-    // The stage-2 boss, the campaign's penultimate boss, so it out-rewards its midboss:
-    // more score, and — net new to this economy — one `life`, the second and only
-    // other direct extend in the campaign beside chancellor's. Two handed-back lives
-    // across the whole game keeps the extend genuinely rare; the mid-stage bombs are
-    // the generous channel, lives are not.
-    spoils: [['big-power', 4], ['score', 14], ['bomb', 1], ['life', 1]],
+    // The stage-2 boss out-rewards its midboss: three cyan gems (its signature) plus
+    // one gold coin — 3×2000 + 1×1000 = 7000, holding the old 14×500 = 7000 exactly —
+    // and, net new to this economy, one `life`, the second and only other direct
+    // extend in the campaign beside chancellor's. The gold coin is the only place in
+    // the campaign that denomination drops (exact conservation leaves it no trash
+    // home). Two handed-back lives across the whole game keeps the extend genuinely
+    // rare; the mid-stage bombs are the generous channel, lives are not.
+    spoils: [['big-power', 4], ['gem.cyan', 3], ['coin.gold', 1], ['bomb', 1], ['life', 1]],
     dialogue: [
       { speaker: 'magistrate', text: 'You have come a long way to be sentenced.' },
       { speaker: 'player', text: 'Read the charge, then.' },
@@ -2004,7 +2011,9 @@ const bosses: PackContent['bosses'] = {
     onDeath: 'death.big',
     // A `life` row rewards clearing the mid-game peak — the one enemy in the game
     // that hands back an extend directly rather than through the score threshold.
-    spoils: [['big-power', 4], ['life', 1], ['score', 16], ['bomb', 1]],
+    // A fat pink-gem shower is its signature: 4×2000 = 8000, holding the old
+    // 16×500 = 8000 exactly. `big-power`/`life`/`bomb` rows untouched.
+    spoils: [['big-power', 4], ['life', 1], ['gem.pink', 4], ['bomb', 1]],
     dialogue: [
       { speaker: 'chancellor', text: 'Appeals are heard here.' },
       { speaker: 'player', text: 'I did not come to be heard.' },
@@ -2294,8 +2303,13 @@ const bosses: PackContent['bosses'] = {
     onDeath: 'death.big',
     // Final-boss generous, and it includes the bomb: the whole shower lands before
     // the ending screen. A `life` row, like the chancellor's — the second enemy in
-    // the game to hand back an extend directly.
-    spoils: [['big-power', 6], ['life', 1], ['score', 24], ['bomb', 1]],
+    // the game to hand back an extend directly. The richest, most varied shower in
+    // the game: the single GOLD BAR jackpot (8000, a 4× jump over a gem), the regent's
+    // purple signature gem (2000), and four silver chips glinting under it (4×500 =
+    // 2000) — 8000 + 2000 + 2000 = 12000, holding the old 24×500 = 12000 exactly. The
+    // retained silver `score` here also keeps that chip reachable off a guaranteed
+    // boss, so converting every other `score` drop to gems cannot strand it.
+    spoils: [['big-power', 6], ['life', 1], ['bar.gold', 1], ['gem.purple', 1], ['score', 4], ['bomb', 1]],
     // Cold, flat, the reveal delivered without weight. The last line answers the
     // sentinel's opening "The gate is me."
     dialogue: [

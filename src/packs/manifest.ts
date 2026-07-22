@@ -142,6 +142,16 @@ export interface PackAssets {
    * section from `lasers`.
    */
   missiles?: Record<string, PackStrip>;
+  /**
+   * Per-file PICKUP body strips: a map of pickup-skin name (`pickup.coin.silver`,
+   * `pickup.coin.gold`, `pickup.gem.*`, `pickup.bar`, `src/render/procedural.ts`)
+   * → `PackStrip`. Structurally identical to `effects`, `lasers` and `missiles` —
+   * one PNG per strip, frames laid horizontally — and warn-only presentation for
+   * the same reason: an item names its pickup skin (content), the pixels the coin
+   * or gem wears are not. The pickup skins ride the pickup atlas (a fifth sheet),
+   * so they are a separate section from `missiles`.
+   */
+  pickups?: Record<string, PackStrip>;
 }
 
 export type PackSounds = Partial<Record<SoundName, string>>;
@@ -663,7 +673,7 @@ const TOP_FIELDS = [
  */
 const RESERVED_TOP = ['backgrounds'] as const;
 
-const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects', 'lasers', 'missiles'] as const;
+const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects', 'lasers', 'missiles', 'pickups'] as const;
 /** The fields of one native bullet strip (`PackBulletStrip`). x/y are offsets. */
 const BULLET_STRIP_FIELDS = [
   'x',
@@ -1088,6 +1098,10 @@ function validateAssets(assets: unknown, prefix: string, errors: string[]): void
     validateMissileStrips(assets.missiles, prefix, errors);
   }
 
+  if ('pickups' in assets && assets.pickups !== undefined) {
+    validatePickupStrips(assets.pickups, prefix, errors);
+  }
+
   for (const key of Object.keys(assets)) {
     if ((ASSET_FIELDS as readonly string[]).includes(key)) continue;
     errors.push(unknownField(prefix, key, ASSET_FIELDS));
@@ -1235,14 +1249,25 @@ function validateMissileStrips(missiles: unknown, prefix: string, errors: string
 }
 
 /**
+ * `assets.pickups` — the coin/gem/bar body strips. Structurally identical to
+ * `assets.effects`, `assets.lasers` and `assets.missiles` (one PNG per strip, the
+ * `PackStrip` shape), so it runs the same per-strip validation, only the section
+ * name differs in the messages.
+ */
+function validatePickupStrips(pickups: unknown, prefix: string, errors: string[]): void {
+  validatePackStripMap(pickups, 'pickups', prefix, errors);
+}
+
+/**
  * The shared `Record<string, PackStrip>` validation behind `assets.effects`,
- * `assets.lasers` and `assets.missiles`. Factored out so the sections cannot
- * drift; the section name is the only thing that varies, so the effect strings the
- * compatibility contract pins (`assets.effects.…`) are byte-identical to before.
+ * `assets.lasers`, `assets.missiles` and `assets.pickups`. Factored out so the
+ * sections cannot drift; the section name is the only thing that varies, so the
+ * effect strings the compatibility contract pins (`assets.effects.…`) are
+ * byte-identical to before.
  */
 function validatePackStripMap(
   strips: unknown,
-  section: 'effects' | 'lasers' | 'missiles',
+  section: 'effects' | 'lasers' | 'missiles' | 'pickups',
   prefix: string,
   errors: string[],
 ): void {
