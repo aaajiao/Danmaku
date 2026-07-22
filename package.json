@@ -6,6 +6,7 @@
     "dev": "bun tools/serve.ts",
     "make:v4-content": "bun tools/make-v4-content.ts",
     "make:v4-pack": "bun tools/make-v4-pack.ts",
+    "make:v4-ui": "bun tools/make-v4-ui.ts",
     "measure:audio": "bun tools/measure-audio.ts",
     "test:visual": "PORT=3006 bun ./test/visual/layer-order.html",
     "test:assets": "PORT=3007 bun ./test/visual/asset-loading.html",

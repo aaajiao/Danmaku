@@ -1,18 +1,19 @@
 /**
- * Generate the original, engine-owned v4 UI atlas.
+ * Generate the engine-owned v4 UI atlas.
  *
- * Pure TypeScript and the repository's PNG encoder only: no canvas, font,
- * native image library or network input.  Run with:
+ * Pure TypeScript and the repository's PNG codec only: no canvas, font,
+ * native image library or network input. Run with:
  *
  *     bun tools/make-v4-ui.ts
  *
- * The visual language follows `docs/art/v4/ui-style-lock.png` without copying
- * any third-party pixels: cold mycelium linework, heart cores and restrained
- * identity colour on transparent black.  Text stays runtime text so arbitrary
- * pack labels and Unicode remain legible.
+ * The original 32 small cells remain procedural. Six large production
+ * ornaments are deterministically cut from one project-owned chroma-key
+ * master: green is converted to a soft alpha matte, then each crop is
+ * area-filtered in premultiplied-alpha space. Text stays runtime text so
+ * arbitrary pack labels and Unicode remain legible.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
   V4_CHARACTER_UI,
@@ -21,6 +22,7 @@ import {
   V4_UI_CELLS,
 } from '../src/render/v4-ui-layout';
 import { ColourType, encodePng, parsePng } from './png';
+import { decodePng, type DecodedImage } from './png-decode';
 
 type RGB = readonly [number, number, number];
 
@@ -29,6 +31,33 @@ interface Image {
   readonly height: number;
   readonly rgba: Uint8Array;
 }
+
+interface SourceRect {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/** Project-owned authored raster input added to the procedural UI generator. */
+export const V4_UI_ORNAMENT_SOURCE = resolve(
+  import.meta.dir,
+  '../docs/art/v4/ui-production-ornaments-master.png',
+);
+
+/**
+ * Authored regions in the 1086x1448 chroma-key master. `cover` cropping is
+ * centred when the source and atlas-cell aspect ratios differ; this keeps the
+ * dialogue and boss linework legible without anisotropic distortion.
+ */
+export const V4_UI_ORNAMENTS = [
+  { name: 'ui.title.masthead', source: { x: 84, y: 14, w: 918, h: 222 } },
+  { name: 'ui.menu.row', source: { x: 81, y: 257, w: 922, h: 154 } },
+  { name: 'ui.character.frame', source: { x: 69, y: 438, w: 334, h: 591 } },
+  { name: 'ui.dialogue.frame', source: { x: 443, y: 422, w: 599, h: 270 } },
+  { name: 'ui.status.frame', source: { x: 561, y: 711, w: 325, h: 473 } },
+  { name: 'ui.boss.ornament', source: { x: 29, y: 1179, w: 1024, h: 224 } },
+] as const;
 
 const ICE: RGB = [211, 225, 235];
 const DIM: RGB = [97, 113, 129];
@@ -41,6 +70,200 @@ const RED: RGB = [255, 121, 92];
 
 function image(width: number, height: number): Image {
   return { width, height, rgba: new Uint8Array(width * height * 4) };
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function channel(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function median(values: number[]): number {
+  values.sort((a, b) => a - b);
+  const middle = Math.floor(values.length / 2);
+  if (values.length % 2 === 1) return values[middle]!;
+  return Math.round((values[middle - 1]! + values[middle]!) / 2);
+}
+
+/** Sample the empty outer band instead of baking a fragile guessed green. */
+function borderKey(source: DecodedImage): RGB {
+  const band = 6;
+  const red: number[] = [];
+  const green: number[] = [];
+  const blue: number[] = [];
+  const sample = (x: number, y: number): void => {
+    const at = (y * source.width + x) * 4;
+    red.push(source.rgba[at]!);
+    green.push(source.rgba[at + 1]!);
+    blue.push(source.rgba[at + 2]!);
+  };
+
+  for (let x = 0; x < source.width; x++) {
+    for (let edge = 0; edge < band; edge++) {
+      sample(x, edge);
+      sample(x, source.height - 1 - edge);
+    }
+  }
+  for (let y = band; y < source.height - band; y++) {
+    for (let edge = 0; edge < band; edge++) {
+      sample(edge, y);
+      sample(source.width - 1 - edge, y);
+    }
+  }
+  return [median(red), median(green), median(blue)];
+}
+
+/**
+ * Recover a straight-alpha foreground from the generated green screen.
+ *
+ * The alpha estimate uses both distance from the sampled key and green-channel
+ * dominance. Neutral/pink foreground pixels become opaque immediately; mixed
+ * edge pixels retain fractional coverage. RGB is then uncomposited against the
+ * sampled key, which removes the green contribution instead of merely turning
+ * it transparent and leaving a fringe.
+ */
+function removeGreenScreen(source: DecodedImage): Image {
+  const key = borderKey(source);
+  const keyDominance = Math.max(1, key[1] - Math.max(key[0], key[2]));
+  const maxKeyDistance = Math.max(
+    key[0],
+    255 - key[0],
+    key[1],
+    255 - key[1],
+    key[2],
+    255 - key[2],
+  );
+  const result = image(source.width, source.height);
+
+  for (let at = 0; at < source.rgba.length; at += 4) {
+    const red = source.rgba[at]!;
+    const green = source.rgba[at + 1]!;
+    const blue = source.rgba[at + 2]!;
+    const sourceAlpha = source.rgba[at + 3]! / 255;
+    const distance = Math.max(
+      Math.abs(red - key[0]),
+      Math.abs(green - key[1]),
+      Math.abs(blue - key[2]),
+    );
+    const dominance = green - Math.max(red, blue);
+
+    let alpha: number;
+    if (distance <= 24) {
+      alpha = 0;
+    } else if (dominance <= 12) {
+      alpha = 1;
+    } else {
+      const distanceAlpha = clamp01(distance / maxKeyDistance);
+      const dominanceAlpha = clamp01(1 - dominance / keyDominance);
+      alpha = Math.min(distanceAlpha, dominanceAlpha);
+    }
+    alpha *= sourceAlpha;
+
+    // Generated key noise below ten-percent coverage is background, not art.
+    if (alpha <= 0.1) alpha = 0;
+    else if (alpha >= 0.98) alpha = 1;
+
+    if (alpha === 0) continue;
+    const inverse = 1 - alpha;
+    result.rgba[at] = channel((red - key[0] * inverse) / alpha);
+    result.rgba[at + 1] = channel((green - key[1] * inverse) / alpha);
+    result.rgba[at + 2] = channel((blue - key[2] * inverse) / alpha);
+    result.rgba[at + 3] = channel(alpha * 255);
+  }
+  return result;
+}
+
+/** Centre-crop to the destination aspect ratio without stretching the art. */
+function coverCrop(source: SourceRect, targetW: number, targetH: number): SourceRect {
+  const sourceAspect = source.w / source.h;
+  const targetAspect = targetW / targetH;
+  if (sourceAspect > targetAspect) {
+    const width = source.h * targetAspect;
+    return { x: source.x + (source.w - width) / 2, y: source.y, w: width, h: source.h };
+  }
+  const height = source.w / targetAspect;
+  return { x: source.x, y: source.y + (source.h - height) / 2, w: source.w, h: height };
+}
+
+/**
+ * Area-filter a crop into one atlas cell. Accumulation happens in
+ * premultiplied-alpha space so transparent green/black cannot darken the
+ * antialiased white and pink linework.
+ */
+function downsampleInto(target: Image, source: Image, crop: SourceRect, name: keyof typeof V4_UI_CELLS): void {
+  const cell = V4_UI_CELLS[name];
+  if (crop.w < cell.frameW || crop.h < cell.frameH) {
+    throw new Error(`${name} would be upsampled (${crop.w}x${crop.h} -> ${cell.frameW}x${cell.frameH})`);
+  }
+
+  for (let dy = 0; dy < cell.frameH; dy++) {
+    const sourceTop = crop.y + (dy * crop.h) / cell.frameH;
+    const sourceBottom = crop.y + ((dy + 1) * crop.h) / cell.frameH;
+    const firstY = Math.floor(sourceTop);
+    const lastY = Math.ceil(sourceBottom);
+    for (let dx = 0; dx < cell.frameW; dx++) {
+      const sourceLeft = crop.x + (dx * crop.w) / cell.frameW;
+      const sourceRight = crop.x + ((dx + 1) * crop.w) / cell.frameW;
+      const firstX = Math.floor(sourceLeft);
+      const lastX = Math.ceil(sourceRight);
+      let weightedAlpha = 0;
+      let premultipliedRed = 0;
+      let premultipliedGreen = 0;
+      let premultipliedBlue = 0;
+
+      for (let sy = firstY; sy < lastY; sy++) {
+        const yWeight = Math.min(sourceBottom, sy + 1) - Math.max(sourceTop, sy);
+        if (yWeight <= 0) continue;
+        for (let sx = firstX; sx < lastX; sx++) {
+          const xWeight = Math.min(sourceRight, sx + 1) - Math.max(sourceLeft, sx);
+          if (xWeight <= 0) continue;
+          const weight = xWeight * yWeight;
+          const sourceAt = (sy * source.width + sx) * 4;
+          const alpha = source.rgba[sourceAt + 3]! / 255;
+          const alphaWeight = alpha * weight;
+          weightedAlpha += alphaWeight;
+          premultipliedRed += source.rgba[sourceAt]! * alphaWeight;
+          premultipliedGreen += source.rgba[sourceAt + 1]! * alphaWeight;
+          premultipliedBlue += source.rgba[sourceAt + 2]! * alphaWeight;
+        }
+      }
+
+      const targetAt = ((cell.y + dy) * target.width + cell.x + dx) * 4;
+      const area = (sourceRight - sourceLeft) * (sourceBottom - sourceTop);
+      const outputAlpha = weightedAlpha / area;
+      if (outputAlpha <= 0) continue;
+      target.rgba[targetAt] = channel(premultipliedRed / weightedAlpha);
+      target.rgba[targetAt + 1] = channel(premultipliedGreen / weightedAlpha);
+      target.rgba[targetAt + 2] = channel(premultipliedBlue / weightedAlpha);
+      target.rgba[targetAt + 3] = channel(outputAlpha * 255);
+    }
+  }
+}
+
+function paintProductionOrnaments(atlas: Image, bytes: Uint8Array): void {
+  const decoded = decodePng(bytes);
+  if (decoded.width !== 1086 || decoded.height !== 1448) {
+    throw new Error(
+      `v4 UI ornament master must be 1086x1448, got ${decoded.width}x${decoded.height}`,
+    );
+  }
+  const transparent = removeGreenScreen(decoded);
+  for (const ornament of V4_UI_ORNAMENTS) {
+    const right = ornament.source.x + ornament.source.w;
+    const bottom = ornament.source.y + ornament.source.h;
+    if (ornament.source.x < 0 || ornament.source.y < 0 || right > decoded.width || bottom > decoded.height) {
+      throw new Error(`${ornament.name} source crop is outside the ornament master`);
+    }
+    const cell = V4_UI_CELLS[ornament.name];
+    downsampleInto(
+      atlas,
+      transparent,
+      coverCrop(ornament.source, cell.frameW, cell.frameH),
+      ornament.name,
+    );
+  }
 }
 
 /** Straight-alpha source-over compositing. */
@@ -441,40 +664,56 @@ function paintPlates(img: Image): void {
   line(img, cx - 16, cy + 16, cx + 16, cy - 16, ICE, 0.5);
 }
 
-const atlas = image(V4_UI_ATLAS_WIDTH, V4_UI_ATLAS_HEIGHT);
-paintLogo(atlas);
-paintPanel(atlas);
-paintCursor(atlas);
-paintDivider(atlas);
-paintFocus(atlas);
-paintGraze(atlas);
-paintSmallIcons(atlas);
-(['scout', 'lance', 'hound', 'spire', 'maw'] as const).forEach((name, index) =>
-  paintCrest(atlas, name, index),
-);
-paintDifficulty(atlas);
-paintStatus(atlas);
-paintBars(atlas);
-paintPlates(atlas);
+export const V4_UI_ATLAS_OUTPUT = resolve(import.meta.dir, '../src/assets/v4/ui-v4.png');
 
-const bytes = encodePng(atlas.width, atlas.height, ColourType.RGBA, (x, y) => {
-  const at = (y * atlas.width + x) * 4;
-  return [atlas.rgba[at]!, atlas.rgba[at + 1]!, atlas.rgba[at + 2]!, atlas.rgba[at + 3]!];
-});
-
-const verified = parsePng(bytes);
-if (
-  verified.width !== V4_UI_ATLAS_WIDTH ||
-  verified.height !== V4_UI_ATLAS_HEIGHT ||
-  verified.colourType !== ColourType.RGBA
-) {
-  throw new Error(
-    `v4 UI PNG verify failed: ${verified.width}×${verified.height}, colour type ${verified.colourType}`,
+/** Build bytes without writing so tests can prove the committed atlas is current. */
+export function generateV4UiAtlas(
+  ornamentBytes: Uint8Array = readFileSync(V4_UI_ORNAMENT_SOURCE),
+): Uint8Array {
+  const atlas = image(V4_UI_ATLAS_WIDTH, V4_UI_ATLAS_HEIGHT);
+  paintLogo(atlas);
+  paintPanel(atlas);
+  paintCursor(atlas);
+  paintDivider(atlas);
+  paintFocus(atlas);
+  paintGraze(atlas);
+  paintSmallIcons(atlas);
+  (['scout', 'lance', 'hound', 'spire', 'maw'] as const).forEach((name, index) =>
+    paintCrest(atlas, name, index),
   );
+  paintDifficulty(atlas);
+  paintStatus(atlas);
+  paintBars(atlas);
+  paintPlates(atlas);
+  paintProductionOrnaments(atlas, ornamentBytes);
+
+  const bytes = encodePng(atlas.width, atlas.height, ColourType.RGBA, (x, y) => {
+    const at = (y * atlas.width + x) * 4;
+    return [atlas.rgba[at]!, atlas.rgba[at + 1]!, atlas.rgba[at + 2]!, atlas.rgba[at + 3]!];
+  });
+
+  const verified = parsePng(bytes);
+  if (
+    verified.width !== V4_UI_ATLAS_WIDTH ||
+    verified.height !== V4_UI_ATLAS_HEIGHT ||
+    verified.colourType !== ColourType.RGBA
+  ) {
+    throw new Error(
+      `v4 UI PNG verify failed: ${verified.width}×${verified.height}, colour type ${verified.colourType}`,
+    );
+  }
+  return bytes;
 }
 
-const output = resolve(import.meta.dir, '../src/assets/v4/ui-v4.png');
-mkdirSync(dirname(output), { recursive: true });
-writeFileSync(output, bytes);
-console.log(`v4 UI atlas  ${V4_UI_ATLAS_WIDTH}×${V4_UI_ATLAS_HEIGHT}  ${Object.keys(V4_UI_CELLS).length} named entries`);
-console.log(output);
+export function writeV4UiAtlas(): void {
+  const bytes = generateV4UiAtlas();
+  mkdirSync(dirname(V4_UI_ATLAS_OUTPUT), { recursive: true });
+  writeFileSync(V4_UI_ATLAS_OUTPUT, bytes);
+  console.log(
+    `v4 UI atlas  ${V4_UI_ATLAS_WIDTH}×${V4_UI_ATLAS_HEIGHT}  ` +
+      `${Object.keys(V4_UI_CELLS).length} named entries`,
+  );
+  console.log(V4_UI_ATLAS_OUTPUT);
+}
+
+if (import.meta.main) writeV4UiAtlas();

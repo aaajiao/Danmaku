@@ -8,9 +8,10 @@
  */
 
 export const V4_UI_ATLAS_WIDTH = 1024;
-// The lowest named cell ends at y=240. Keep one 16px packing gutter while
-// dropping 256 rows of permanent transparency from the former 512px sheet.
-export const V4_UI_ATLAS_HEIGHT = 256;
+// Rows 0-255 retain the original procedural vocabulary byte-for-byte in
+// layout.  The lower 512px hold production ornaments cut from the committed
+// chroma-key master by `tools/make-v4-ui.ts`.
+export const V4_UI_ATLAS_HEIGHT = 768;
 
 export interface V4UiCell {
   readonly x: number;
@@ -37,9 +38,8 @@ function cell(
 
 /**
  * One atlas, one visual grammar: cold mycelium linework, a living heart and a
- * restrained identity colour.  The 48px panel tile is the only scalable entry;
- * it is consumed as a 12px-corner nine-slice and therefore never stretches its
- * thorns or corners.
+ * restrained identity colour. The 48px utility panel scales as a nine-slice
+ * with 12px corners, so its thorns and corner ornaments stay undistorted.
  */
 export const V4_UI_CELLS = {
   'ui.logo': cell(0, 0, 320, 72),
@@ -80,6 +80,16 @@ export const V4_UI_CELLS = {
   'ui.nameplate': cell(0, 192, 248, 28),
   'ui.prompt': cell(248, 192, 112, 24),
   'ui.assist.seal': cell(360, 192, 48, 48),
+
+  // Production ornaments. Their frame and default display dimensions match,
+  // while callers may still scale them to a screen composition (menu rows in
+  // particular intentionally fit several different text columns).
+  'ui.dialogue.frame': cell(0, 256, 456, 164),
+  'ui.character.frame': cell(456, 256, 190, 336),
+  'ui.status.frame': cell(724, 256, 300, 436),
+  'ui.title.masthead': cell(0, 420, 400, 96),
+  'ui.boss.ornament': cell(0, 516, 440, 72),
+  'ui.menu.row': cell(0, 588, 300, 50),
 } as const satisfies Readonly<Record<string, V4UiCell>>;
 
 export type V4UiCellName = keyof typeof V4_UI_CELLS;
@@ -90,8 +100,8 @@ export const V4_UI_PANEL_CORNER = 12;
 export const V4_UI_SCREEN = {
   menu: { x: 54, y: 116, w: 372, h: 458 },
   character: { x: 24, y: 30, w: 432, h: 574 },
-  status: { x: 72, y: 112, w: 336, h: 416 },
-  dialogue: { x: 12, y: 510, w: 456, h: 118 },
+  status: { x: 90, y: 102, w: 300, h: 436 },
+  dialogue: { x: 12, y: 464, w: 456, h: 164 },
 } as const;
 
 /** Five playable identities, shared by crests, menus and dialogue accents. */

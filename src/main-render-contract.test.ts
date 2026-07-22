@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 const mainSource = await Bun.file(new URL('./main.ts', import.meta.url)).text();
+const v4UiSource = await Bun.file(new URL('./render/v4-ui.ts', import.meta.url)).text();
 
 describe('the shell honours baked strip colour', () => {
   test('the shared tint resolver makes baked art identity-white', () => {
@@ -113,10 +114,98 @@ describe('campaign architecture follows the same scene transition clock', () => 
 });
 
 describe('v4 UI presentation stays event- and tick-driven', () => {
-  test('state screens leave the background shader unobscured outside local panels', () => {
-    expect(mainSource).toContain('drawV4UiPanel(surface, v4Ui');
+  test('title, difficulty and character selection use open compositions without outer panels', () => {
+    const titleStart = mainSource.indexOf("if (view.kind === 'title')");
+    const characterStart = mainSource.indexOf("if (view.kind === 'character-select')", titleStart);
+    const difficultyStart = mainSource.indexOf("if (view.kind === 'difficulty-select')", characterStart);
+    const endingStart = mainSource.indexOf("if (view.kind === 'ending')", difficultyStart);
+    expect(titleStart).toBeGreaterThan(-1);
+    expect(characterStart).toBeGreaterThan(titleStart);
+    expect(difficultyStart).toBeGreaterThan(characterStart);
+    expect(endingStart).toBeGreaterThan(difficultyStart);
+
+    const branches = [
+      mainSource.slice(titleStart, characterStart),
+      mainSource.slice(characterStart, difficultyStart),
+      mainSource.slice(difficultyStart, endingStart),
+    ];
+    for (const branch of branches) {
+      expect(branch).not.toContain('drawV4UiOrnatePanel');
+      expect(branch).not.toContain('drawV4UiPanel');
+    }
+    expect(mainSource).not.toContain('drawV4UiOrnatePanel');
+    expect(v4UiSource).not.toContain("V4_UI_CELLS['ui.screen.frame']");
+    expect(v4UiSource).not.toContain('V4_UI_SCREEN_FRAME_CORNER');
     expect(mainSource).not.toContain('surface.fillRect(0, 0, FIELD_W, FIELD_H)');
     expect(mainSource).not.toContain("surface.fillStyle = 'rgba(0,0,0,0.34)'");
+  });
+
+  test('the shell consumes every production UI ornament', () => {
+    const cells = [
+      'ui.title.masthead',
+      'ui.menu.row',
+      'ui.character.frame',
+      'ui.dialogue.frame',
+      'ui.status.frame',
+      'ui.boss.ornament',
+    ] as const;
+
+    for (const cell of cells) {
+      expect(mainSource).toContain(`drawV4Ui(surface, v4Ui, '${cell}'`);
+    }
+  });
+
+  test('the title keeps its copy state-owned instead of baking it into the masthead', () => {
+    const titleStart = mainSource.indexOf("if (view.kind === 'title')");
+    const characterStart = mainSource.indexOf("if (view.kind === 'character-select')", titleStart);
+    expect(titleStart).toBeGreaterThan(-1);
+    expect(characterStart).toBeGreaterThan(titleStart);
+
+    const titleSource = mainSource.slice(titleStart, characterStart);
+    expect(titleSource).toContain("drawV4Ui(surface, v4Ui, 'ui.title.masthead'");
+    expect(titleSource).toContain('drawViewLines(view.lines ?? []');
+  });
+
+  test('the title menu stays bounded in its open composition when the campaign list grows', () => {
+    const titleStart = mainSource.indexOf("if (view.kind === 'title')");
+    const characterStart = mainSource.indexOf("if (view.kind === 'character-select')", titleStart);
+    const titleSource = mainSource.slice(titleStart, characterStart);
+
+    expect(titleSource).toContain('const titleRows = 7');
+    expect(titleSource).toContain('titleEntries.slice(titleFirst, titleFirst + titleRows)');
+    expect(titleSource).toContain('const titleMenuH = Math.max(128, 72 + visibleTitleEntries.length * 44)');
+    expect(titleSource).toContain("if (titleFirst > 0) surface.fillText('\u25b2'");
+    expect(titleSource).toContain('titleFirst + visibleTitleEntries.length < titleEntries.length');
+    expect(titleSource).toContain("surface.fillText('\u25bc'");
+  });
+
+  test('dialogue uses the shared layout and clips both portrait paths to its round well', () => {
+    const dialogueStart = mainSource.indexOf('function drawDialogue(');
+    const wrapStart = mainSource.indexOf('function wrapText(', dialogueStart);
+    expect(dialogueStart).toBeGreaterThan(-1);
+    expect(wrapStart).toBeGreaterThan(dialogueStart);
+
+    const dialogueSource = mainSource.slice(dialogueStart, wrapStart);
+    expect(dialogueSource).toContain('V4_UI_SCREEN.dialogue');
+    expect(dialogueSource).toContain("drawV4Ui(surface, v4Ui, 'ui.dialogue.frame'");
+    expect(dialogueSource).toContain('surface.arc(pCx, pCy, portraitSize / 2');
+    const clip = dialogueSource.indexOf('surface.clip();');
+    const builtInPortrait = dialogueSource.indexOf('drawV4Portrait(line.speaker, characterName');
+    const fallbackPortrait = dialogueSource.indexOf('portraitImage(line.speaker)');
+    expect(clip).toBeGreaterThan(-1);
+    expect(builtInPortrait).toBeGreaterThan(clip);
+    expect(fallbackPortrait).toBeGreaterThan(builtInPortrait);
+  });
+
+  test('the terminal clear has a distinct result seal', () => {
+    const drawViewStart = mainSource.indexOf('function drawView(');
+    const headingStart = mainSource.indexOf('function drawScreenHeading(', drawViewStart);
+    const drawViewSource = mainSource.slice(drawViewStart, headingStart);
+    expect(drawViewSource).toContain('V4_UI_SCREEN.status');
+    expect(drawViewSource).toMatch(
+      /view\.kind === 'cleared' && view\.title === 'ALL CLEAR'\s*\? 'ui\.status\.result'/,
+    );
+    expect(drawViewSource).toContain('drawV4Ui(surface, v4Ui, statusSeal');
   });
 
   test('production hides diagnostics and the Bloom control', () => {

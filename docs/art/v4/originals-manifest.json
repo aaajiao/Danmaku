@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "kind": "accepted-generated-v4-originals",
+  "files": [
+    {
+      "path": "boss-cast-ghoststyle-master.png",
+      "width": 887,
+      "height": 1774,
+      "bytes": 2179024,
+      "sha256": "d7c44595d7b7452a0d613dbdf5d02ba6179fddceff3f2a6681b9cf250d0bc73f"
+    },
+    {
+      "path": "enemies-stage-1-ghoststyle-master.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1653468,
+      "sha256": "fd3cff0fef3a64741a8eefeb3e3ddc7011ec8587ac3ef40b5a37fc201b3915f6"
+    },
+    {
+      "path": "enemies-stage-2-ghoststyle-master.png",
+      "width": 972,
+      "height": 1619,
+      "bytes": 1977305,
+      "sha256": "50e097a08965cb8c64b03cb98c58fa20d73c95107dec4cd6628ae48eeadd5084"
+    },
+    {
+      "path": "enemies-stage-3-ghoststyle-master.png",
+      "width": 862,
+      "height": 1825,
+      "bytes": 1774855,
+      "sha256": "6c85c87350fde5018e689c3082acb971c134338dea88cb21f615c52d8d25b59a"
+    },
+    {
+      "path": "enemies-stage-4-ghoststyle-master.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1820856,
+      "sha256": "5c0645601c9e302a77a9ae15d7394fa5b2299798120184fe05e20db08c2cd188"
+    },
+    {
+      "path": "player-cast-ghoststyle-master.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2069463,
+      "sha256": "b3802eb6c125bf002031d19112b8d106d7f3664ece81c40196b81844fb1acc4a"
+    },
+    {
+      "path": "projectile-style-lock.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2426187,
+      "sha256": "a9e77116620e4e27a2618a0ccb3c6fc2559cd919f09202536f21c70e5f41fed5"
+    },
+    {
+      "path": "style-lock-ghost-layers.png",
+      "width": 1662,
+      "height": 946,
+      "bytes": 1738967,
+      "sha256": "b478b66a7cc20ce7e3f21cdea7c9859c7cc084cf80573673587c4435a7a13b94"
+    },
+    {
+      "path": "ui-production-ornaments-master.png",
+      "width": 1086,
+      "height": 1448,
+      "bytes": 1489215,
+      "sha256": "7bbe7b2478b62d37b7c6b34c1c6099c5bf31f8248d5bfdffc22e4f00a2174d5a"
+    },
+    {
+      "path": "ui-screen-perimeter-master.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1190818,
+      "sha256": "967d85890201143fbd293c415ad8a15ff718b42976dcd55011cabd293e3dd1ea"
+    },
+    {
+      "path": "ui-style-lock.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2025237,
+      "sha256": "2d17a074d11bd6d80f48e24276618971a10b909b8895c106fb13aa058fd28294"
+    }
+  ]
+}

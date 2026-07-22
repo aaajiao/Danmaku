@@ -5,9 +5,24 @@ import {
   V4_UI_CELLS,
   V4_UI_PANEL_CORNER,
 } from '../src/render/v4-ui-layout';
+import {
+  generateV4UiAtlas,
+  V4_UI_ORNAMENT_SOURCE,
+  V4_UI_ORNAMENTS,
+} from './make-v4-ui';
 import { decodePng } from './png-decode';
 
 const file = new URL('../src/assets/v4/ui-v4.png', import.meta.url);
+
+const PRODUCTION_CELLS = {
+  'ui.dialogue.frame': { x: 0, y: 256, w: 456, h: 164 },
+  'ui.character.frame': { x: 456, y: 256, w: 190, h: 336 },
+  'ui.status.frame': { x: 724, y: 256, w: 300, h: 436 },
+  'ui.title.masthead': { x: 0, y: 420, w: 400, h: 96 },
+  'ui.boss.ornament': { x: 0, y: 516, w: 440, h: 72 },
+  'ui.menu.row': { x: 0, y: 588, w: 300, h: 50 },
+} as const;
+const PRODUCTION_CELL_NAMES = Object.keys(PRODUCTION_CELLS) as Array<keyof typeof PRODUCTION_CELLS>;
 
 describe('v4 engine-owned UI atlas', () => {
   test('matches the fixed 480×640 overlay contract and every entry has paint', async () => {
@@ -34,6 +49,73 @@ describe('v4 engine-owned UI atlas', () => {
         }
         expect(painted, `${name} frame ${frame} is empty`).toBeGreaterThan(3);
       }
+    }
+  });
+
+  test('retains the 32-cell procedural vocabulary and adds six production ornaments', () => {
+    expect(Object.keys(V4_UI_CELLS)).toHaveLength(38);
+    expect(V4_UI_ORNAMENTS.map(({ name }) => name).sort()).toEqual([...PRODUCTION_CELL_NAMES].sort());
+
+    for (const name of PRODUCTION_CELL_NAMES) {
+      const expected = PRODUCTION_CELLS[name];
+      const cell = V4_UI_CELLS[name];
+      expect(cell).toEqual({
+        x: expected.x,
+        y: expected.y,
+        frameW: expected.w,
+        frameH: expected.h,
+        frames: 1,
+        displayW: expected.w,
+        displayH: expected.h,
+      });
+    }
+  });
+
+  test('uses the committed masters and deterministically reproduces the atlas', async () => {
+    const source = await Bun.file(V4_UI_ORNAMENT_SOURCE).bytes();
+    expect(new Bun.CryptoHasher('sha256').update(source).digest('hex')).toBe(
+      '7bbe7b2478b62d37b7c6b34c1c6099c5bf31f8248d5bfdffc22e4f00a2174d5a',
+    );
+    const generated = generateV4UiAtlas(source);
+    const committed = await Bun.file(file).bytes();
+    expect(generated).toEqual(committed);
+  });
+
+  test('keeps the original 256-row procedural atlas pixel-exact', async () => {
+    const png = decodePng(await Bun.file(file).bytes());
+    const originalRows = png.rgba.slice(0, V4_UI_ATLAS_WIDTH * 256 * 4);
+    expect(new Bun.CryptoHasher('sha256').update(originalRows).digest('hex')).toBe(
+      '65447c632c0116ec8139ceb106cb0cde8a80a14d9882d408a064b7cb3cba8bda',
+    );
+  });
+
+  test('production ornaments have transparent mattes, antialias coverage and no green flood', async () => {
+    const png = decodePng(await Bun.file(file).bytes());
+    for (const name of PRODUCTION_CELL_NAMES) {
+      const cell = V4_UI_CELLS[name];
+      let transparent = 0;
+      let partial = 0;
+      let painted = 0;
+      let keyGreen = 0;
+      for (let y = 0; y < cell.frameH; y++) {
+        for (let x = 0; x < cell.frameW; x++) {
+          const at = ((cell.y + y) * png.width + cell.x + x) * 4;
+          const alpha = png.rgba[at + 3]!;
+          if (alpha === 0) {
+            transparent++;
+            continue;
+          }
+          painted++;
+          if (alpha < 255) partial++;
+          const red = png.rgba[at]!;
+          const green = png.rgba[at + 1]!;
+          const blue = png.rgba[at + 2]!;
+          if (green > red + 24 && green > blue + 24) keyGreen++;
+        }
+      }
+      expect(transparent, `${name} has no transparent field`).toBeGreaterThan(100);
+      expect(partial, `${name} lost its antialiased matte`).toBeGreaterThan(100);
+      expect(keyGreen / painted, `${name} retained the green screen`).toBeLessThan(0.001);
     }
   });
 

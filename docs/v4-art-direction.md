@@ -394,7 +394,7 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 | `src/assets/v4/actors-enemies-v4.png` | 16 敌人 × 4 帧；三层烘焙合成 | 已运行，baked / normal |
 | `src/assets/v4/actors-bosses-v4.png` | 5 Boss × 5 帧；三层烘焙合成 | 已运行，baked / normal |
 | `packs/v4/` 分类图集 | 原创 bullets/effects/lasers/missiles/pickups/ship/player effects | 已运行；baked，neutral floor 可 tinted |
-| `src/assets/v4/ui-v4.png` | `1024×256`：logo、九宫格、crest、HUD、Boss 条、focus/graze、状态印 | 已运行，baked / normal；已移除 256 行永久透明上传 |
+| `src/assets/v4/ui-v4.png` | `1024×768`：原 32 个 procedural cell + 六类差异化组件，共 38 cells | 已运行，baked / normal；由 `1086×1448` RGB 绿幕 ornament 母版确定性生成 |
 | portrait（不设独立图集） | 对话按十位角色各自 anchor 从 player/Boss actor atlas 取近景；第三方角色走 pack portrait/fallback | 已运行；不复制第二套人物身份 |
 | `actor-skeleton-v4.png` | 独立骨相蒙版/亮层，与人物帧同 pivot | 下一阶段，baked / normal 或低强度 additive |
 | `actor-mycelium-v4.png` | 菌丝、心脏与边缘光；不能含人物底色 | 下一阶段，baked / additive，低强度 |
@@ -446,9 +446,16 @@ HUD 仍占四角和边缘，不进入画面中央安全缝隙。
 
 ![v4 完整 UI 风格锁定：标题、菜单、选角、HUD、对话与结算](art/v4/ui-style-lock.png)
 
-该图只锁定骨白细线、菌丝角饰、心核 crest 和负空间比例；实际 UI 按
-480×640 战场重新排版。运行图集只提供局部九宫格、印章、图标与细线，
-面板保留透明负空间，绝不铺一张全屏图盖住或重调 shader。
+该图锁定骨白细线、菌丝角饰、心核 crest、组件层级和负空间比例；它仍是
+构图与风格参考，不直接作为运行图集。真正进入生产链的是从该方向生成并验收的
+[`ui-production-ornaments-master.png`](art/v4/ui-production-ornaments-master.png)：
+一张 `1086×1448` RGB 绿幕原画，包含 title masthead、menu row、character
+frame、dialogue frame、status frame 与 Boss ornament 六类差异化组件。
+[`ui-screen-perimeter-master.png`](art/v4/ui-screen-perimeter-master.png) 是已生成的
+`1254×1254` 外框方案研究原画，仅作为设计过程存档，不进入生成器、atlas 或
+runtime。实际 UI 按 480×640 战场重新排版；Title、Difficulty 与 Character
+采用开放式构图，不使用封闭的完整 outer panel，让 shader 背景和透明负空间参与
+层级，而不是再用一圈边框封住界面。
 
 - 普通文字：月白/灰，低于人物脸部亮度；
 - Graze：仅在数值增加后的短时间转为洋红；
@@ -461,14 +468,21 @@ HUD 仍占四角和边缘，不进入画面中央安全缝隙。
 ### 10.1 engine-owned v4 UI 第一版（2026-07-22）
 
 运行资源为 [`src/assets/v4/ui-v4.png`](../src/assets/v4/ui-v4.png)，由
-[`tools/make-v4-ui.ts`](../tools/make-v4-ui.ts) 纯 TypeScript 生成，不依赖
-Canvas、字体或第三方图像库。`src/render/v4-ui-layout.ts` 同时作为生成器和
-浏览器的尺寸真值，避免 atlas 裁切与 480×640 运行布局分别维护。
+[`tools/make-v4-ui.ts`](../tools/make-v4-ui.ts) 使用纯 TypeScript 与仓库 PNG
+codec 确定性生成，不依赖 Canvas、字体、原生图像库或网络。生成器只读取上述
+`1086×1448` RGB ornament 绿幕母版，从空白外边带采样 key colour，恢复带软边覆盖率的 straight alpha，
+去除混色绿边，再以居中的 cover crop 在 premultiplied-alpha 空间做 area-filter
+缩小；因此细白/粉色线条不会被透明绿或黑色压暗，也不会做非等比拉伸。
+`src/render/v4-ui-layout.ts` 同时作为生成器和浏览器的尺寸真值，避免 atlas
+裁切与 480×640 运行布局分别维护。
 
-- atlas：`1024×256 RGBA`；最低条目结束于 y=240，保留 16px gutter，并从旧图集移除 256 行永久透明像素；logo `320×72`、九宫格 tile `48×48`（角 `12px`）、cursor `24×24`、divider `320×12`；
+- atlas：`1024×768 RGBA`；`y=0..255` 保留原 32 个 procedural cell 的布局与像素，下面 512 行承载 6 个 production-derived ornament，共 38 cells；logo `320×72`、旧九宫格 tile `48×48`（角 `12px`）、cursor `24×24`、divider `320×12`；
 - 五角色 crest 与四难度印均为 `48×48`；状态印为 `56×56`；HUD icon 为 `16×16`；
 - Boss 框 `420×16`、血条 `360×8`、计时线 `360×4`；focus ring 与四帧 graze arc 均为 `32×32`；
-- Title、Difficulty、Character、HUD、Dialogue、Pause、Stage/All Clear、Game Over、Ending 已统一使用该图集与九宫格；全屏 shader 仍从面板透明负空间中可见；
+- production ornament：title masthead `400×96`、menu row `300×50`、character frame `190×336`、dialogue frame `456×164`、status frame `300×436`、Boss ornament `440×72`；
+- Title、Difficulty 与 Character 不绘制完整外框或连续暗色 outer panel：标题、选项行、角色身份框和必要分隔各自建立层级，外围保持开放；旧 procedural `ui.panel.9slice` 只服务确有内容承托需求的局部小底板；
+- Title 使用 masthead，所有菜单行使用独立 row 轮廓，Character 使用包住真实 actor 的身份框，Dialogue 使用圆形 portrait well 的专用框，Pause / Stage Clear / All Clear / Game Over / Ending 使用 status frame，Boss 条叠加独立 ornament；所有面板仍是局部构图而非全屏覆盖；
+- 标题、菜单项、难度说明、角色文案、Boss/phase 名、对话与计数等文字仍由 runtime 动态绘制，不烘焙进母版或 atlas；第三方 pack label 与 Unicode 因而保持原字符串；
 - production 隐藏 tick / bullet / draw-call 与 Bloom 控制，只有 `?debug=1` 显示并允许 `B` 切换；
 - focus 内核直接读取 `player.radius`，外环只读 `run.tickCount`；graze arc 只响应已有 `graze` RunEvent；结算金币只读状态 `age` 选择原 strip 帧；
 - 对话中的玩家名读取角色 registry label，五角色强调色分别锁定为 Scout `#8CEBFF`、Lance `#FF91BD`、Hound `#70DFA2`、Spire `#B58CFF`、Maw `#FF795C`；未知 pack speaker 与 Unicode 文本保留原字符串并走现有 portrait fallback。
@@ -494,7 +508,7 @@ Canvas、字体或第三方图像库。`src/render/v4-ui-layout.ts` 同时作为
 | 三层 glitch | 外表/骨相/菌丝+心脏已烘焙进所有人物动作帧 | 再拆 `surface/skeleton/mycelium+heart` 同 pivot 图层，接旧作式排列组合 |
 | 负空间反馈 | 人物透明孔洞、局部暗垫、读取实际 2.5px 半径并压住 FX 的 focus、真实 graze event 短弧已完成；UI 为局部透明面板 | 评估真实移动 path 短痕是否有净收益；没有就不增加 |
 | 原创 v4 包 | 默认包的 70 个 bullet 名、20 个 effect/player FX、11 个 laser、13 个 missile、10 个 pickup、五档心翼与 HUD 均为项目自有像素；敌弹已有实体核/骨白 keyline，玩家弹为身份色 keyline；分类图集使用确定性 shelf packing | 浏览器逐关检查强弹层级和 Normal/Lunatic 密集弹幕负空间 |
-| v4 UI | `1024×256` 图集已接 Title、Difficulty、Character、HUD、Dialogue、Pause、Clear、Game Over、Ending；portrait 复用 actor atlas | 浏览器检查 CJK/第三方 fallback、Boss 条和四种 shader 上的局部透明度 |
+| v4 UI | `1024×768` 图集保留原 32 cells，并从一张项目自有 `1086×1448` 绿幕母版生成 6 个 production-derived cells；Title/Difficulty/Character 使用开放式构图，菜单行、Character 身份框、Dialogue、Pause/Clear/Game Over/Ending 与 Boss 条均已消费，动态文字仍由 runtime 绘制 | 浏览器检查 CJK/第三方 fallback、6 个 ornament 的软边/裁切、三类选择界面的负空间、Boss 条和四种 shader 上的局部透明度 |
 | BulletPack 兼容参考 | 本地 importer 已完成 117/117 消费者、显式五档 banking、Bomb/结算的 entity/state-age 动画、laser 无缝 body 与 painted `contentW/contentH` 尺寸；输出已从项目移除，需要时临时再生成并用 `?pack=bulletpack` 显式选择 | 保持回归测试；不把购买 PNG 或生成包纳入版本库、发布包或 v4 默认视觉身份 |
 
 因此当前代码是 **可运行的 v4 第一版**，不是已通过本文件全部验收的最终美术。凡与第 0 节风格锁定不一致的早期彩色运行图，只能被替换，不能反过来修改本总纲。
@@ -503,7 +517,8 @@ Canvas、字体或第三方图像库。`src/render/v4-ui-layout.ts` 同时作为
 
 当前已完成：Ghost 人物母版与运行 actor atlases、base 名绑定、五档 banking、
 按真实发弹事实驱动的敌人/Boss 语义帧、逐人近景 portrait、局部暗垫、精确
-focus 核、项目自有 `packs/v4` 默认包、engine-owned v4 UI，以及 BulletPack 的
+focus 核、项目自有 `packs/v4` 默认包、由单张 ornament 绿幕原画母版确定性生成的 engine-owned
+v4 UI production ornaments，以及 BulletPack 的
 117/117 本地兼容审计。默认敌我弹的危险语言已分开，`signet` 活动带已降频，
 四关低频结构已接入；分类图集减少透明上传，发布复制会过滤 `.DS_Store`、
 `Thumbs.db`、`desktop.ini` 与 `__MACOSX`。这些调整保持模拟数据、碰撞、RNG、
@@ -544,6 +559,9 @@ focus 核、项目自有 `packs/v4` 默认包、engine-owned v4 UI，以及 Bull
 
 - BulletPack 117/117 个非垃圾/非重复 PNG 均已有 manifest 消费者；4 个重复/系统垃圾有审计说明。
 - 项目默认使用原创 `packs/v4`；其生成器不读取购买包，输出不含购买像素。
+- v4 UI 的生产原画保留在 `docs/art/v4/ui-production-ornaments-master.png`；
+  `docs/art/v4/ui-screen-perimeter-master.png` 仅为已生成的外框方案研究存档，
+  不进入运行资源。atlas 只能由前者通过 `bun run make:v4-ui` 派生，不手工修改。
 - 所有被声明的动画帧都能通过实际运行路径到达。
 - 原始购买包不进入版本库；生成输出带 provenance 与本地构建说明。
 
@@ -554,6 +572,7 @@ focus 核、项目自有 `packs/v4` 默认包、engine-owned v4 UI，以及 Bull
 - `bun run build`
 - `src/v4/index.test.ts` 证明单一入口注册四关、完整 pattern/behaviour 与全部 shader。
 - `src/v4/backgrounds/index.test.ts` 证明 14 个 shader 的当前审查基线 fragment 哈希与 scrollSpeed 未漂移；`signet` 的基线包含本轮可读性降频。
+- `tools/v4-ui-atlas.test.ts` 证明 ornament 绿幕母版哈希、`1024×768` / 38-cell atlas 的字节级再生成、原 32 cells 的像素保持，以及 6 个 ornament 的透明软边与去绿结果。
 - 浏览器逐关检查 shader、稀疏结构、局部透明 UI、人物、弹幕、Boss 转场、Bomb、laser、结算动画和 console。
 - 固定 replay 在相同 tick 的人物帧、背景、弹幕与 UI 必须一致。
 

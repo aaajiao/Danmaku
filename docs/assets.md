@@ -687,9 +687,89 @@ The drawn box is a readability judgement — legible against the field, obeying 
 negative-space budget while the player still flies — so it is checked by eye in
 `bun run dev`, not asserted by a pixel test.
 
+### 3.7 v4 engine-owned UI — RGB production master to runtime atlas
+
+The v4 interface layout and ornament atlas are engine-owned presentation. A pack
+may still replace the documented life/bomb glyphs, but it does not replace these
+six production-derived frames or their composition. Reference, production and
+preserved exploration sources are deliberately separate:
+
+| Asset | Role |
+|---|---|
+| `docs/art/v4/ui-style-lock.png` | high-level composition, linework and negative-space reference; never read by the build |
+| `docs/art/v4/ui-production-ornaments-master.png` | accepted generated **1086×1448 RGB green-screen original** for six differentiated component families |
+| `docs/art/v4/ui-screen-perimeter-master.png` | preserved generated **1254×1254 RGB green-screen perimeter study**; rejected as a closed runtime frame after live composition review and not read by the build |
+| `src/assets/v4/ui-v4.png` | generated **1024×768 RGBA** runtime atlas; never edit it by hand |
+
+The production master yields six text-free ornament cells. Their committed
+runtime cells are:
+
+| Cell | Size | Runtime use |
+|---|---:|---|
+| `ui.title.masthead` | 400×96 | title identity and crest silhouette |
+| `ui.menu.row` | 300×50 | normal/selected menu-row frame, alpha-modulated by state |
+| `ui.character.frame` | 190×336 | frame over the selected real actor crop |
+| `ui.dialogue.frame` | 456×164 | dialogue silhouette and circular portrait well |
+| `ui.status.frame` | 300×436 | pause, clear, game-over, ending and result card |
+| `ui.boss.ornament` | 440×72 | authored caps/crest behind the compact Boss facts |
+
+Title, Difficulty and Character deliberately have no closed outer panel. Their
+masthead, rows, actor frame and sparse anchors establish hierarchy while the live
+shader remains part of the composition. The procedural `ui.panel.9slice`
+(`48×48`, 12px corners) remains available only for bounded utility backplates;
+it is not stretched around those three screens.
+
+They extend rather than replace the original UI vocabulary. Atlas rows 0–255
+retain the existing 32 procedural cells — logo, nine-slice, cursor, divider,
+focus/graze, HUD icons, crests, difficulty/status seals, compact Boss bars,
+nameplate, prompt and assist seal. The lower rows hold the six production-derived
+ornaments, for 38 named cells in total. `src/render/v4-ui-layout.ts` is the one
+source of truth for their named atlas rectangles and 480×640 display composition.
+
+Build it with:
+
+```sh
+bun run make:v4-ui
+```
+
+`tools/make-v4-ui.ts` performs the conversion deterministically:
+
+1. Decode the committed RGB production master and sample its median key colour
+   from the empty six-pixel outer band; do not assume a hand-typed green.
+2. Derive a soft straight-alpha matte from key distance and green dominance,
+   then uncomposite RGB against the sampled key. Merely setting green pixels'
+   alpha to zero is wrong because it leaves green fringes in partially covered
+   edge pixels.
+3. Take the six declared component regions from the ornament master and
+   centre-crop each to its destination aspect ratio (`cover`). Reject any crop
+   that would require upscaling.
+4. Area-filter into the atlas in **premultiplied-alpha space**, then return to
+   straight RGBA. This keeps antialiased bone-white and pink linework from being
+   darkened by transparent green or black.
+5. Paint the original 32 procedural cells, add the six converted ornaments and
+   encode the complete 1024×768 atlas.
+
+All words remain runtime data. Titles, menu labels, character blurbs, Boss and
+phase names, dialogue, counters and third-party pack strings are drawn by
+`main.ts`; no source ornament may bake text or a second character portrait.
+This preserves arbitrary Unicode and lets the character/dialogue frames surround
+the real actor atlas or the established pack portrait fallback.
+
+`tools/v4-ui-atlas.test.ts` pins the production-master hash, regenerates the
+committed atlas byte-for-byte, locks the original 256 procedural rows, verifies
+all 38 rectangles, and checks each production ornament for transparent space,
+fractional antialias coverage and residual key green. The originals manifest
+separately byte-locks the retained perimeter study. Those checks establish the
+asset pipeline; `bun run dev` is still required to judge crop balance, open
+screen composition, text fit and readability over every live shader.
+
 ---
 
 ## 4. Generating art with an image model
+
+The v4 UI production master is the accepted exception to the single-cell
+workflow below: its six declared crops are explicit and deterministic (§3.7),
+not an image model's attempted runtime atlas layout.
 
 Image models do not natively produce sprite sheets on a grid. Fighting that
 wastes time. The reliable process:

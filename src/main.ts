@@ -68,7 +68,6 @@ import {
   V4_UI_CELLS,
   V4_UI_SCREEN,
   drawV4Ui,
-  drawV4UiPanel,
   loadV4UiAtlas,
   type V4UiCellName,
 } from './render/v4-ui';
@@ -1516,31 +1515,52 @@ function hudResource(
 
 function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
   const spell = boss.phase.isSpell === true;
-  drawV4Ui(surface, v4Ui, 'ui.boss.frame', 30, 8);
-  drawUiBarFill(spell ? 'ui.boss.fill.spell' : 'ui.boss.fill.normal', 60, 12, boss.phaseHpFraction);
+  // The production ornament carries the generated design's authored end caps
+  // and heart crest. Keep it inside the 80px side gutters: the persistent HUD
+  // owns those columns even during a boss, while the data-driven fills occupy
+  // the ornament's quiet centre.
+  drawV4Ui(surface, v4Ui, 'ui.boss.ornament', 80, 0, {
+    width: 320,
+    height: 52,
+    alpha: 0.72,
+  });
+  drawUiBarFill(
+    spell ? 'ui.boss.fill.spell' : 'ui.boss.fill.normal',
+    110,
+    8,
+    boss.phaseHpFraction,
+    260,
+  );
 
   // The timer runs down beside the health, because surviving it is a clear too.
   // Only a spell card gets one drawn: a non-spell phase has a clock as well,
   // but showing it makes every movement look like a card being captured.
   if (spell) {
-    drawUiBarFill('ui.boss.timer', 60, 24, 1 - boss.phaseTimeFraction);
+    drawUiBarFill('ui.boss.timer', 110, 20, 1 - boss.phaseTimeFraction, 260);
   }
 
   const tint = tintFor(boss.name);
   surface.fillStyle = `rgb(${Math.round(tint.r * 215)},${Math.round(tint.g * 215)},${Math.round(tint.b * 225)})`;
   uiFont(9, 600);
   surface.textAlign = 'left';
-  surface.fillText(boss.name, 30, 39);
+  surface.fillText(boss.name, 84, 61);
   surface.fillStyle = spell ? '#edb8c8' : '#9caab5';
   surface.textAlign = 'right';
-  surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, FIELD_W - 30, 39);
+  surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, FIELD_W - 84, 61);
   surface.textAlign = 'left';
 }
 
-function drawUiBarFill(name: V4UiCellName, x: number, y: number, fraction: number): void {
+function drawUiBarFill(
+  name: V4UiCellName,
+  x: number,
+  y: number,
+  fraction: number,
+  displayWidth?: number,
+): void {
   const spec = V4_UI_CELLS[name];
   const visible = Math.max(0, Math.min(spec.frameW, Math.round(spec.frameW * fraction)));
   if (visible === 0) return;
+  const visibleDisplayWidth = (displayWidth ?? spec.displayW) * (visible / spec.frameW);
   surface.save();
   surface.imageSmoothingEnabled = false;
   surface.drawImage(
@@ -1551,7 +1571,7 @@ function drawUiBarFill(name: V4UiCellName, x: number, y: number, fraction: numbe
     spec.frameH,
     x,
     y,
-    visible,
+    visibleDisplayWidth,
     spec.displayH,
   );
   surface.restore();
@@ -1572,27 +1592,48 @@ function drawView(view: {
   const cx = FIELD_W / 2;
 
   if (view.kind === 'title') {
-    drawV4Ui(surface, v4Ui, 'ui.logo', 80, 54);
+    const masthead = V4_UI_CELLS['ui.title.masthead'];
+    drawV4Ui(surface, v4Ui, 'ui.title.masthead', cx - masthead.displayW / 2, 38, {
+      alpha: 0.96,
+    });
     surface.textAlign = 'center';
-    uiFont(28, 600);
+    uiFont(27, 600);
     surface.fillStyle = '#e1ebf1';
-    surface.fillText(view.title ?? 'DANMAKU', cx, 145);
+    surface.fillText(view.title ?? 'DANMAKU', cx, 98);
     uiFont(11, 500);
     surface.fillStyle = '#8596a3';
-    surface.fillText('余白御寮  /  THE NEGATIVE-SPACE WARD', cx, 166);
-    drawV4UiPanel(surface, v4Ui, 86, 260, 308, Math.max(128, 72 + (view.menu?.length ?? 0) * 30), 0.92);
-    drawMenuRows(view.menu ?? [], view.selected, 118, 302, 244, 30, age);
+    surface.fillText('余白御寮  /  THE NEGATIVE-SPACE WARD', cx, 152);
+    // State-owned copy remains dynamic and verbatim.  `press start` used to be
+    // silently discarded even though TitleState supplied it through `lines`.
+    drawViewLines(view.lines ?? [], cx, 212, 320, '#8d9da8');
+    const titleEntries = view.menu ?? [];
+    const titleSelected = Math.max(0, Math.min(titleEntries.length - 1, view.selected ?? 0));
+    const titleRows = 7;
+    const titleFirst = Math.max(
+      0,
+      Math.min(titleSelected - Math.floor(titleRows / 2), titleEntries.length - titleRows),
+    );
+    const visibleTitleEntries = titleEntries.slice(titleFirst, titleFirst + titleRows);
+    const titleMenuH = Math.max(128, 72 + visibleTitleEntries.length * 44);
+    drawMenuRows(visibleTitleEntries, titleSelected - titleFirst, 74, 302, 332, 44, age);
+    surface.textAlign = 'center';
+    uiFont(9, 500);
+    surface.fillStyle = '#71808c';
+    if (titleFirst > 0) surface.fillText('▲', cx, 272);
+    if (titleFirst + visibleTitleEntries.length < titleEntries.length) {
+      surface.fillText('▼', cx, 246 + titleMenuH - 12);
+    }
     surface.restore();
     return;
   }
 
   if (view.kind === 'character-select') {
-    const panel = V4_UI_SCREEN.character;
-    drawV4UiPanel(surface, v4Ui, panel.x, panel.y, panel.w, panel.h, 0.96);
     drawScreenHeading(view.title ?? 'SELECT', 72);
     const previewActor = view.character === undefined ? undefined : V4_PLAYER_ACTORS[view.character];
     const identity = view.character === undefined ? undefined : V4_CHARACTER_UI[view.character as keyof typeof V4_CHARACTER_UI];
-    if (identity !== undefined) drawV4Ui(surface, v4Ui, identity.crest, 84, 94, { width: 64, height: 64 });
+    const characterFrame = V4_UI_CELLS['ui.character.frame'];
+    const characterFrameX = 38;
+    const characterFrameY = 100;
     if (previewActor !== undefined) {
       const strip = v4Actors.players.strip(previewActor.strip);
       const frame = v4Actors.players.frameOf(strip, 2);
@@ -1613,20 +1654,41 @@ function drawView(view: {
     } else if (view.character !== undefined) {
       surface.drawImage(portraitImage(view.character), 58, 154, 154, 154);
     }
-    drawMenuRows(view.menu ?? [], view.selected, 256, 142, 162, 48, age);
-    drawViewLines(view.lines ?? [], cx, 390, 346, '#93a2ae');
+    // Draw the identity card over the preview so its authored thorns and heart
+    // remain the foreground silhouette.  The image inside is still the real
+    // actor atlas (or the existing third-party portrait fallback), never a
+    // second character identity baked into UI art.
+    drawV4Ui(surface, v4Ui, 'ui.character.frame', characterFrameX, characterFrameY, {
+      width: characterFrame.displayW,
+      height: characterFrame.displayH,
+      alpha: 0.92,
+    });
+    if (identity !== undefined) {
+      drawV4Ui(
+        surface,
+        v4Ui,
+        identity.crest,
+        characterFrameX + (characterFrame.displayW - 64) / 2,
+        94,
+        { width: 64, height: 64 },
+      );
+    }
+    drawMenuRows(view.menu ?? [], view.selected, 236, 142, 196, 48, age);
+    // Character copy owns the right-hand column below the menu. Keeping it out
+    // of the full-width centre prevents even short built-in blurbs from crossing
+    // the production card's right edge at x=228.
+    drawViewLines(view.lines ?? [], 334, 390, 176, '#93a2ae');
     surface.restore();
     return;
   }
 
   if (view.kind === 'difficulty-select') {
-    const panel = V4_UI_SCREEN.menu;
-    drawV4UiPanel(surface, v4Ui, panel.x, 36, panel.w, 568, 0.96);
     drawScreenHeading(view.title ?? 'DIFFICULTY', 78);
     (view.menu ?? []).forEach((entry, index) => {
       const y = 132 + index * 76;
       const active = index === view.selected;
       const seal = V4_DIFFICULTY_UI[entry as keyof typeof V4_DIFFICULTY_UI];
+      drawMenuRowFrame(148, y, 270, 50, active);
       if (seal !== undefined) drawV4Ui(surface, v4Ui, seal, 96, y - 27, { alpha: active ? 1 : 0.55 });
       else drawV4Ui(surface, v4Ui, 'ui.assist.seal', 96, y - 27, { alpha: active ? 1 : 0.55 });
       if (active) drawV4Ui(surface, v4Ui, 'ui.cursor', 73, y - 15, { rotation: (age % 80) * (Math.PI / 40) });
@@ -1640,19 +1702,39 @@ function drawView(view: {
     return;
   }
 
-  const status = V4_UI_SCREEN.status;
-  drawV4UiPanel(surface, v4Ui, status.x, status.y, status.w, status.h, 0.97);
+  const { x: statusX, y: statusY, w: statusW, h: statusH } = V4_UI_SCREEN.status;
+  // Modal/result screens now carry their own generated silhouette instead of
+  // all collapsing into the same generic nine-slice. The generated source is
+  // line art on transparency, so retain one strictly local ink wash inside it:
+  // score and menu copy must not compete with a frozen danmaku curtain.
+  surface.save();
+  surface.fillStyle = 'rgba(4, 7, 12, 0.88)';
+  surface.fillRect(
+    statusX + 18,
+    statusY + 22,
+    statusW - 36,
+    statusH - 44,
+  );
+  surface.restore();
+  drawV4Ui(surface, v4Ui, 'ui.status.frame', statusX, statusY, {
+    width: statusW,
+    height: statusH,
+    alpha: 0.94,
+  });
   const sealByKind: Partial<Record<string, V4UiCellName>> = {
     pause: 'ui.status.pause',
     cleared: 'ui.status.clear',
     'game-over': 'ui.status.gameover',
     ending: 'ui.status.ending',
   };
-  drawV4Ui(surface, v4Ui, sealByKind[view.kind] ?? 'ui.status.result', cx - 28, 132, {
+  const statusSeal = view.kind === 'cleared' && view.title === 'ALL CLEAR'
+    ? 'ui.status.result'
+    : sealByKind[view.kind] ?? 'ui.status.result';
+  drawV4Ui(surface, v4Ui, statusSeal, cx - 28, 132, {
     rotation: view.kind === 'ending' ? (age % 180) * (Math.PI / 90) : undefined,
   });
   if (view.title !== undefined) drawScreenHeading(view.title, 224);
-  drawV4Ui(surface, v4Ui, 'ui.divider', 80, 242, { width: 320, alpha: 0.68 });
+  drawV4Ui(surface, v4Ui, 'ui.divider', 110, 242, { width: 260, alpha: 0.68 });
   let y = view.title === undefined ? 230 : 274;
   y = drawViewLines(view.lines ?? [], cx, y, 270, '#9cabb6');
   if (view.tally && view.tally.length > 0) {
@@ -1660,7 +1742,7 @@ function drawView(view: {
     drawCoinTally(view.tally, cx, y, age);
     y += 28;
   }
-  drawMenuRows(view.menu ?? [], view.selected, 128, Math.max(y + 18, 392), 224, 30, age);
+  drawMenuRows(view.menu ?? [], view.selected, 112, Math.max(y + 18, 388), 256, 44, age);
   if (view.kind === 'ending') {
     drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 470, { alpha: 0.74 });
     surface.textAlign = 'center';
@@ -1689,8 +1771,10 @@ function drawMenuRows(
 ): void {
   entries.forEach((entry, index) => {
     const active = index === selected;
+    const baseline = y + index * step;
+    drawMenuRowFrame(x + 16, baseline, width - 16, Math.min(50, step - 6), active);
     if (active) {
-      drawV4Ui(surface, v4Ui, 'ui.cursor', x, y + index * step - 16, {
+      drawV4Ui(surface, v4Ui, 'ui.cursor', x, baseline - 16, {
         alpha: 0.95,
         rotation: (age % 120) * (Math.PI / 60),
       });
@@ -1699,7 +1783,22 @@ function drawMenuRows(
     uiFont(12, active ? 600 : 400);
     surface.fillStyle = active ? '#e1ebf1' : '#697783';
     // Draw the source string verbatim: pack labels may be namespaced or Unicode.
-    surface.fillText(entry, x + width / 2, y + index * step, width - 34);
+    surface.fillText(entry, x + width / 2, baseline, width - 34);
+  });
+}
+
+/** One generated row silhouette, modulated rather than replaced by selection. */
+function drawMenuRowFrame(
+  x: number,
+  baselineY: number,
+  width: number,
+  height: number,
+  active: boolean,
+): void {
+  drawV4Ui(surface, v4Ui, 'ui.menu.row', x, baselineY - height / 2 - 2, {
+    width,
+    height,
+    alpha: active ? 0.78 : 0.2,
   });
 }
 
@@ -1834,10 +1933,10 @@ function drawCoinTally(
  * `tickCount` drives the advance marker's blink — a tick counter, never a wall
  * clock, so the hint pulses identically on replay as it did live.
  */
-const DIALOG_MARGIN = 12;
-const DIALOG_H = 118;
-const DIALOG_PAD = 11;
-const DIALOG_PORTRAIT = 88;
+const DIALOG_PAD = 14;
+const DIALOG_PORTRAIT_MAX = 112;
+const DIALOG_PORTRAIT_INSET = 32;
+const DIALOG_TEXT_INSET = 152;
 
 /** Draw a close crop from the same Ghost actor art used on the field. */
 function drawV4Portrait(
@@ -1856,8 +1955,8 @@ function drawV4Portrait(
   const atlas = player === undefined ? v4Actors.bosses : v4Actors.players;
   const frame = atlas.frameOf(atlas.strip(actor.strip), portrait.pose);
   // Each built-in woman owns a close framing anchor. Players use their neutral
-  // pose; bosses use the authored cast gesture, so the 88px box now carries the
-  // face, heart and hands rather than a near-full-body thumbnail.
+  // pose; bosses use the authored cast gesture, so the portrait well carries
+  // the face, heart and hands rather than a near-full-body thumbnail.
   const source = v4PortraitSource(frame, portrait);
   surface.save();
   surface.imageSmoothingEnabled = false;
@@ -1881,9 +1980,9 @@ function drawDialogue(
   tickCount: number,
   characterName: string,
 ): void {
-  const boxX = DIALOG_MARGIN;
-  const boxY = FIELD_H - DIALOG_MARGIN - DIALOG_H;
-  const boxW = FIELD_W - 2 * DIALOG_MARGIN;
+  // The layout contract owns the full composition; do not shadow it with a
+  // second set of coincident constants in the shell.
+  const { x: boxX, y: boxY, w: boxW, h: boxH } = V4_UI_SCREEN.dialogue;
   const playerIdentity = line.speaker === 'player'
     ? V4_CHARACTER_UI[characterName as keyof typeof V4_CHARACTER_UI]
     : undefined;
@@ -1895,22 +1994,53 @@ function drawDialogue(
     ? getCharacter(characterName).label
     : line.speaker;
 
-  drawV4UiPanel(surface, v4Ui, boxX, boxY, boxW, DIALOG_H, 0.96);
+  const portraitSize = Math.min(DIALOG_PORTRAIT_MAX, boxH - DIALOG_PAD * 2);
+  const pX = boxX + DIALOG_PORTRAIT_INSET;
+  const pY = boxY + (boxH - portraitSize) / 2;
+  const pCx = pX + portraitSize / 2;
+  const pCy = pY + portraitSize / 2;
+  const textX = boxX + DIALOG_TEXT_INSET;
 
-  // Portrait on the left, drawn from its fixed square down to the box height.
-  const pX = boxX + DIALOG_PAD;
-  const pY = boxY + (DIALOG_H - DIALOG_PORTRAIT) / 2;
-  if (!drawV4Portrait(line.speaker, characterName, pX, pY, DIALOG_PORTRAIT)) {
-    surface.drawImage(portraitImage(line.speaker), pX, pY, DIALOG_PORTRAIT, DIALOG_PORTRAIT);
+  // Match the frame's round portrait well and rectangular copy well instead of
+  // restoring a full-width generic panel. This local wash keeps live bullets as
+  // atmosphere without letting them break the dialogue's reading order.
+  surface.save();
+  surface.fillStyle = 'rgba(4, 7, 12, 0.84)';
+  surface.beginPath();
+  surface.arc(pCx, pCy, portraitSize / 2 + 8, 0, Math.PI * 2);
+  surface.rect(textX - 16, boxY + 18, boxX + boxW - textX, boxH - 36);
+  surface.fill();
+  surface.restore();
+
+  drawV4Ui(surface, v4Ui, 'ui.dialogue.frame', boxX, boxY, {
+    width: boxW,
+    height: boxH,
+    alpha: 0.94,
+  });
+
+  // The production frame owns a circular portrait well.  Clip both built-in
+  // actor crops and third-party fallbacks through the same geometry so a guest
+  // character cannot silently fall back to the old square-card language.
+  surface.save();
+  surface.beginPath();
+  surface.arc(pCx, pCy, portraitSize / 2, 0, Math.PI * 2);
+  surface.clip();
+  if (!drawV4Portrait(line.speaker, characterName, pX, pY, portraitSize)) {
+    surface.drawImage(portraitImage(line.speaker), pX, pY, portraitSize, portraitSize);
   }
+  surface.restore();
   // Speaking-side highlight: the portrait's rim in its own tint.
+  surface.save();
   surface.strokeStyle = `rgba(${Math.round(tint.r * 200)},${Math.round(tint.g * 200)},${Math.round(tint.b * 210)},0.75)`;
-  surface.strokeRect(pX + 0.5, pY + 0.5, DIALOG_PORTRAIT - 1, DIALOG_PORTRAIT - 1);
+  surface.lineWidth = 1;
+  surface.beginPath();
+  surface.arc(pCx, pCy, portraitSize / 2 - 0.5, 0, Math.PI * 2);
+  surface.stroke();
+  surface.restore();
   if (playerIdentity !== undefined) {
     drawV4Ui(surface, v4Ui, playerIdentity.crest, pX - 7, pY - 7, { width: 30, height: 30 });
   }
 
-  const textX = pX + DIALOG_PORTRAIT + DIALOG_PAD;
   const textW = boxX + boxW - DIALOG_PAD - textX;
   surface.textAlign = 'left';
 
@@ -1936,7 +2066,7 @@ function drawDialogue(
   // Line counter: dimmest register, low-right, like the HUD diagnostics.
   surface.fillStyle = '#66737e';
   surface.textAlign = 'right';
-  surface.fillText(`${line.index + 1} / ${line.count}`, boxX + boxW - DIALOG_PAD, boxY + DIALOG_H - DIALOG_PAD);
+  surface.fillText(`${line.index + 1} / ${line.count}`, boxX + boxW - DIALOG_PAD, boxY + boxH - DIALOG_PAD);
 
   // Advance hint: the genre's small blinking marker, pulsed on the tick clock so
   // it is identical on replay. Shown for two-thirds of each second.
