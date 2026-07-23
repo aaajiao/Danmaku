@@ -14,7 +14,8 @@ import { CONTENT_FINGERPRINT } from './v4';
 
 import * as THREE from 'three';
 import { Audio, overrideSound } from './audio';
-import { Music, MENU_MUSIC } from './audio/music';
+import { Music } from './audio/music';
+import { MENU_MUSIC } from './v4/audio';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';

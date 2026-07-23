@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import {
   defineMusic,
-  MENU_MUSIC,
   Music,
   musicNames,
   replaceMusic,
@@ -26,19 +25,6 @@ function unique(label: string): string {
 }
 
 describe('the music registry', () => {
-  test('the launch set is registered — the menu, the stage themes, a boss theme', () => {
-    // These are the names the built-in stages and bosses wire to; a rename here
-    // that is not mirrored there is exactly what `reachability.test.ts` fails on.
-    for (const name of [MENU_MUSIC, 'vigil', 'descent', 'nemesis']) {
-      expect(musicNames()).toContain(name);
-    }
-  });
-
-  test('MENU_MUSIC is the track the menu names', () => {
-    expect(MENU_MUSIC).toBe('menu');
-    expect(musicNames()).toContain(MENU_MUSIC);
-  });
-
   test('a duplicate name overwrites rather than throwing — the replacement seam', () => {
     // Like `defineSound`: the placeholder floor exists to be replaced, from a
     // content file or a pack, without editing the engine.
@@ -311,11 +297,13 @@ describe('the runtime is inert without WebAudio', () => {
   // holds: audio may go silent, never take the run down.
 
   test('constructing, unlocking and playing never throw', async () => {
+    const name = unique('runtime-known');
+    defineMusic(name, { synth: { loopSeconds: 6 } });
     const music = new Music({ masterVolume: 0.5 });
     await music.unlock();
 
     expect(music.unlocked).toBe(false); // No context came up.
-    expect(() => music.play(MENU_MUSIC, 1)).not.toThrow();
+    expect(() => music.play(name, 1)).not.toThrow();
     // Nothing started, so nothing is current — which is what makes the shell's
     // reconcile start the theme on the first tick after a real unlock.
     expect(music.current).toBeUndefined();

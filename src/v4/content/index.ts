@@ -36,8 +36,8 @@
  */
 
 // Side-effect imports: the v4 campaign names patterns, behaviours, background
-// scenes and portraits, all of which must be registered before its enemies,
-// bosses and stages resolve against them. Importing them here makes this module
+// scenes, music and portraits, all of which must be registered before its
+// enemies, bosses and stages resolve against them. Importing them here makes this module
 // inject correctly no matter what imported it (main.ts already imports the first
 // two; a headless test imports only this).
 import '../gameplay/behaviours';
@@ -45,6 +45,7 @@ import '../gameplay/patterns';
 import '../../content/shots';
 import '../../content/stage';
 import '../backgrounds';
+import '../audio';
 import { backgroundNames } from '../../render/background';
 import { portraitNames } from '../../render/portrait';
 import { BULLET_CELLS, BULLET_VARIANT_CELLS, MISSILE_STRIP_CELLS, SHIP_CELLS } from '../../render/procedural';

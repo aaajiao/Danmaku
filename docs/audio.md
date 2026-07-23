@@ -12,6 +12,11 @@ Read §0 first if you are bringing in audio someone else made. §1–§3 are the
 sound specification, §4 is music, §5 is the mix doctrine and its measured
 numbers, §6 is verification.
 
+For the active edition's artistic mapping and release gates, see the
+authoritative [`v4 audio direction`](./v4-audio-direction.md). This document
+describes generic machinery and the measured fallback; it is not a substitute
+for v4's shipped pack assets.
+
 ## 0. Provenance — the same rule as art, restated for sound
 
 Rule 9 is enforced against the past and silent about the future: `NOTICE`
@@ -243,13 +248,14 @@ reload.
 
 ## 4. Music
 
-Music is the sibling of the sound engine, in `src/audio/music.ts`, and shares
-its whole doctrine — render-side, total (nothing throws into the loop),
+The generic music registry, composer and runtime live in `src/audio/music.ts`;
+v4's thirteen authored fallback definitions live in `src/v4/audio/`. Together
+they share the sound engine's whole doctrine — render-side, total (nothing throws into the loop),
 synth-first (a track is a permanent floor, never a blocking dependency),
 silent until a user gesture unlocks it. What it does **not** share is the sound
 engine's clock (below), and since the audio-enrichment round it is not a single
 6-second drone either: `MusicSynth` is a small additive composer, and thirteen
-tracks are authored against it — one cell of four scale degrees, run through a
+v4 tracks are authored against it — one cell of four scale degrees, run through a
 different transformation per boss, plus one idle theme, four stage themes and
 three shared come-down/finale tracks.
 
@@ -310,7 +316,7 @@ generated a `MusicSynth` field of its own because there was nothing to tune.
 that omits the field — including every guest-pack track written before this
 field existed — renders identically (`mix.test.ts` proves an omitted field and
 an explicit `1` are the same buffer, and that `3` is a different one). Every
-one of the thirteen base tracks sets it to **3** explicitly, putting the lead
+one of the thirteen v4 fallback tracks sets it to **3** explicitly, putting the lead
 an octave higher again — base ~304–440 Hz, motif peaks near 550–784 Hz — which
 is the register move described in §5's two-voids doctrine. The field is a
 plain multiplier on `leadBaseHz`, so it composes with everything else

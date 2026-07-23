@@ -3,8 +3,8 @@
  * of a background's "peak luminance near 0.1". These are the numbers the design
  * argues from; `tools/measure-audio.ts` prints the full table, this asserts the
  * bounds, and `docs/audio.md` quotes them. Everything runs headlessly: the
- * built-ins register by module-scope import of `./music` and `./index` alone —
- * no bundled pack, no `Run`, no `StateMachine` — so the `import type` boundary
+ * v4's fallback definitions register explicitly from `../v4/audio`; no bundled
+ * pack, `Run`, or `StateMachine` participates, so the `import type` boundary
  * stays trivially clean.
  *
  * The three aaajiao filters, as numbers:
@@ -27,6 +27,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 
 import { fx } from '../core/random';
+import '../v4/audio';
 import { Audio, defineSound, soundNames } from './index';
 import { defineMusic, Music, musicNames, trackPhrase } from './music';
 
