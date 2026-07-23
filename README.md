@@ -5,13 +5,14 @@ A deterministic browser bullet-hell shooter built with three.js.
 **[Play online →](https://danmaku.t-h-e-s-p-a-c-e.com/)**
 · [Vercel mirror](https://danmaku-ebon.vercel.app/)
 
+**Input:** keyboard or standard controller / gamepad · touch controls are not implemented
+
 ![v4 Ghost-layer style lock: surface, skeleton, mycelium, and heart](./docs/art/v4/style-lock-ghost-layers.png)
 
 The active v4 edition, **余白御寮 / THE NEGATIVE-SPACE WARD**, is an original
 four-stage campaign built around reproducible runs and a negative-space visual
-language. It plays in a desktop browser with a keyboard or gamepad, requires no
-installation, and can optionally be installed as an offline-capable PWA. Touch
-controls are not implemented.
+language. It runs in a desktop browser with no installation and can optionally
+be installed as an offline-capable PWA.
 
 ## Highlights
 
@@ -29,7 +30,7 @@ controls are not implemented.
 
 ## Controls
 
-| Action | Keyboard | Gamepad |
+| Action | Keyboard | Controller / gamepad |
 |---|---|---|
 | Move / navigate | Arrow keys | Left stick / D-pad |
 | Shoot / confirm / advance dialogue | `Z` | A / Cross |
