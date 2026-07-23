@@ -326,7 +326,7 @@ describe('generated output and exact manifest', () => {
   });
 
   test('category ledgers are complete, exact and project-owned', () => {
-    expect(build.manifest.version).toBe('4.2.0');
+    expect(build.manifest.version).toBe('4.3.0');
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);

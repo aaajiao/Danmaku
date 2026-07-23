@@ -47,19 +47,21 @@ describe('v4 event sounds', () => {
   });
 
   test('each campaign authority has its own entry cue and guests keep the toll', () => {
-    expect(v4EventSound(event('boss-entered', { name: 'warden' }))).toBe(
+    expect(v4EventSound(event('boss-arriving', { name: 'warden' }))).toBe(
       'boss-enter-warden',
     );
-    expect(v4EventSound(event('boss-entered', { name: 'magistrate' }))).toBe(
+    expect(v4EventSound(event('boss-arriving', { name: 'magistrate' }))).toBe(
       'boss-enter-magistrate',
     );
-    expect(v4EventSound(event('boss-entered', { name: 'chancellor' }))).toBe(
+    expect(v4EventSound(event('boss-arriving', { name: 'chancellor' }))).toBe(
       'boss-enter-chancellor',
     );
-    expect(v4EventSound(event('boss-entered', { name: 'regent' }))).toBe(
+    expect(v4EventSound(event('boss-arriving', { name: 'regent' }))).toBe(
       'boss-enter-regent',
     );
-    expect(v4EventSound(event('boss-entered', { name: 'sentinel' }))).toBe('toll');
-    expect(v4EventSound(event('boss-entered', { name: 'guest-boss' }))).toBe('toll');
+    expect(v4EventSound(event('boss-arriving', { name: 'sentinel' }))).toBe('toll');
+    expect(v4EventSound(event('boss-arriving', { name: 'guest-boss' }))).toBe('toll');
+    // Settling is deliberately silent; the adjacent boss-phase owns `declare`.
+    expect(v4EventSound(event('boss-entered', { name: 'warden' }))).toBeUndefined();
   });
 });

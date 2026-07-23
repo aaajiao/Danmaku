@@ -237,7 +237,7 @@ export function v4EventSound(event: RunEvent): string | undefined {
     return POWER_TIER_SOUNDS[Math.min(tier, POWER_TIER_SOUNDS.length - 1)];
   }
 
-  if (event.type === 'boss-entered') {
+  if (event.type === 'boss-arriving') {
     return event.name === undefined ? 'toll' : (BOSS_ENTRY_SOUNDS[event.name] ?? 'toll');
   }
 
@@ -281,6 +281,15 @@ const CELL = [0, 2, 4, 3];
 const CELL_INVERTED = [0, -2, -4, -3];
 const CELL_DARKENED = [0, 1, 4, 3];
 const CELL_WHOLE = [0, 2, 4, 3, 4, 2, 0];
+
+/** The five authored arrivals warmed after the first audio gesture. */
+export const V4_BOSS_MUSIC_NAMES = [
+  'nemesis',
+  'interdict',
+  'docket',
+  'sanction',
+  'interregnum',
+] as const;
 
 // Menu — 入神 at rest: a restrained hook with enough structural silence for UI.
 defineMusic(MENU_MUSIC, {

@@ -81,6 +81,7 @@ const PLAIN_BOSS = 'test-dialogue-plain';
 defineBoss(PLAIN_BOSS, {
   sprite: 'orb.large',
   radius: 16,
+  entry: { x: 240, y: 200, ticks: 20 },
   phases: [{ name: 'test phase', hp: 2000, timeLimit: 6000, patterns: [] }],
 });
 
@@ -210,6 +211,37 @@ describe('the dialogue phase', () => {
     expect(run.boss.active).toBe(true);
     expect(run.boss.boss?.name).toBe(DIALOGUE_BOSS);
   });
+
+  test('reports arrival on the final tap and declares only after the fly-in settles', () => {
+    const run = new Run(config(DIALOGUE_BOSS));
+    run.tick(0);
+    run.drainEvents();
+
+    // Advance to the final line, draining each quiet dialogue tick so the
+    // assertion below identifies the exact spawn tick.
+    for (let line = 0; line < 2; line++) {
+      run.tick(Button.Shot);
+      expect(run.drainEvents()).toHaveLength(0);
+      run.tick(0);
+      expect(run.drainEvents()).toHaveLength(0);
+    }
+
+    run.tick(Button.Shot);
+    expect(run.drainEvents()).toEqual([
+      expect.objectContaining({ type: 'boss-arriving', name: DIALOGUE_BOSS }),
+    ]);
+    expect(run.boss.boss?.entering).toBe(true);
+
+    for (let tick = 0; tick < 19; tick++) {
+      run.tick(0);
+      expect(run.drainEvents()).toHaveLength(0);
+    }
+    run.tick(0);
+    expect(run.drainEvents().map((event) => event.type)).toEqual([
+      'boss-entered',
+      'boss-phase',
+    ]);
+  });
 });
 
 describe('a run through a dialogue replays identically', () => {
@@ -277,5 +309,8 @@ describe('a boss without dialogue', () => {
     expect(run.dialogue).toBeUndefined();
     expect(run.boss.active).toBe(true);
     expect(run.boss.boss?.name).toBe(PLAIN_BOSS);
+    expect(run.drainEvents()).toEqual([
+      expect.objectContaining({ type: 'boss-arriving', name: PLAIN_BOSS }),
+    ]);
   });
 });

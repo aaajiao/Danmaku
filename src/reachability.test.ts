@@ -1163,6 +1163,7 @@ describe('a real playthrough emits', () => {
     'pickup',
     'extend',
     'player-death',
+    'boss-arriving',
     'boss-entered',
     'boss-phase',
     'boss-break',

@@ -15,12 +15,16 @@ import { CONTENT_FINGERPRINT } from './v4';
 import * as THREE from 'three';
 import { Audio, overrideSound } from './audio';
 import { Music } from './audio/music';
-import { MENU_MUSIC, v4EventSound } from './v4/audio';
+import { MENU_MUSIC, V4_BOSS_MUSIC_NAMES, v4EventSound } from './v4/audio';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
 import { StateMachine } from './game/state';
-import { EVENT_SOUNDS } from './game/cues';
+import {
+  EVENT_SOUNDS,
+  resolveMusicTransition,
+  shouldPlayRunEventSound,
+} from './game/cues';
 import type { Replay } from './sim/replay';
 import { FIELD, getCharacter, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
@@ -118,21 +122,6 @@ fitStage();
  * it belongs on the `BackgroundSpec` of the scene being entered, not here.
  */
 const SCENE_FADE_TICKS = 60;
-
-/**
- * Seconds a music change crossfades over. About a second, the same feel as
- * `SCENE_FADE_TICKS`: long enough that a boss theme arrives as the room turning
- * rather than a cut, short enough to have resolved before the fight is dense.
- *
- * In **seconds**, not ticks, and that is the point — music runs on the audio
- * clock, never `uTick` (see `audio/music.ts`'s header on why the two clocks are
- * deliberately different). One constant covers every kind of change — menu to
- * stage, stage to stage, stage to boss — because nothing has wanted them to
- * differ; if one does, it belongs on the track being entered, not here.
- */
-const MUSIC_FADE_SECONDS = 1.0;
-/** A theme starting from silence should announce itself promptly after unlock. */
-const MUSIC_START_FADE_SECONDS = 0.25;
 
 /**
  * The music bus ceiling, and the ducked ceiling while the game is paused.
@@ -555,6 +544,8 @@ let lastUnlockButtons = 0;
  */
 let wasPaused = false;
 const dialogueIndex = new WeakMap<Run, number>();
+/** A URL-backed boss track retains its short arrival fade while it decodes. */
+let pendingBossMusic: string | undefined;
 
 interface GrazeUiPulse {
   readonly run: Run;
@@ -582,7 +573,7 @@ const loop = new Loop({
     lastUnlockButtons = buttons;
     if (audioGesture && (!audio.unlocked || !music.unlocked)) {
       void audio.unlock();
-      void music.unlock();
+      void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
     }
 
     // The state about to tick, captured before the tick applies its transitions:
@@ -613,6 +604,7 @@ const loop = new Loop({
     let scene: string | undefined;
     let track: string | undefined;
     let topRun: Run | undefined;
+    let bossArrivingForTrack = false;
 
     for (const state of machine.stack) {
       // A state may declare a music track directly, with no `Run` behind it — the
@@ -641,8 +633,16 @@ const loop = new Loop({
       track = run.music ?? track;
       topRun = run;
 
-      for (const event of run.drainEvents()) {
-        const sound = v4EventSound(event) ?? EVENT_SOUNDS[event.type];
+      const events = run.drainEvents();
+      const bossArriving = events.some((event) => event.type === 'boss-arriving');
+      // This assignment follows `topRun`: a higher run in the stack replaces
+      // both the wanted track and the arrival occurrence that qualifies it.
+      bossArrivingForTrack = bossArriving;
+
+      for (const event of events) {
+        const sound = shouldPlayRunEventSound(event.type, bossArriving)
+          ? v4EventSound(event) ?? EVENT_SOUNDS[event.type]
+          : undefined;
         if (sound) audio.play(sound);
         if (event.type === 'graze') {
           grazeUiPulses.push({
@@ -714,11 +714,18 @@ const loop = new Loop({
       if (music.current !== undefined) music.stopAll();
     } else {
       const wanted = track ?? MENU_MUSIC;
+      const transition = resolveMusicTransition(
+        music.current,
+        wanted,
+        pendingBossMusic,
+        bossArrivingForTrack,
+      );
+      pendingBossMusic = transition.pendingBossTrack;
       if (wanted !== music.current) {
-        music.play(
-          wanted,
-          music.current === undefined ? MUSIC_START_FADE_SECONDS : MUSIC_FADE_SECONDS,
-        );
+        music.play(wanted, transition.fadeSeconds);
+        // A decoded track starts synchronously. A URL still loading leaves
+        // `current` unchanged and keeps the pending arrival fade for the retry.
+        if (music.current === wanted) pendingBossMusic = undefined;
       }
     }
 

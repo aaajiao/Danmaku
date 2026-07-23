@@ -57,6 +57,13 @@ Three layers, and the seam for real art is in the middle one.
      entrance. If it delegates, `src/game/cues.ts`'s `EVENT_SOUNDS` maps the
      `RunEventType` to its generic reaction — `Run` raises `boss-defeated`,
      `EVENT_SOUNDS` says that is `explosion`, and `main.ts` plays it.
+     Boss arrival is intentionally split into two facts: `boss-arriving` is
+     emitted on the first visible fly-in tick and owns the named entrance cue,
+     while `boss-entered` means the motion has settled and is deliberately
+     silent. The adjacent `boss-phase` then owns `declare`, so the entrance and
+     declaration cannot mask one another. If an arrival shares a drained batch
+     with `shot`, `shot-hit`, `boss-hit`, `graze` or `pickup`, only those
+     low-priority sounds yield; their events and visual reactions are preserved.
    - `SHELL_CUES` (same file) names the five `ui-*` sounds, which are shell/menu
      state, never a run event — `main.ts` reads a transient `.cue` field set by
      menu code, plus a pause-enter reconcile and a dialogue-advance watch (§3).
@@ -71,6 +78,11 @@ Three layers, and the seam for real art is in the middle one.
    Everything it does is total: `play` on an unknown name is a no-op, a refused
    context leaves the game silent rather than stopped, and nothing it does may
    throw into the game loop.
+
+   `Music.preload` follows the same total contract but never starts a voice.
+   After that first gesture the shell warms only v4's five Boss tracks, so their
+   one-shot intros are decoded before arrival; the rest of the open music
+   registry remains lazy.
 
 ### Audio touches no simulation state
 
@@ -407,6 +419,12 @@ cell, then answers or restates it, across a full 16-slot phrase — so a
 listener who has heard the sentinel's theme not only recognises the shape
 returning, altered, in the regent's, but hears enough of it each loop to hum
 it:
+
+The table describes the built-in synth fallback and its repeatable loop. The v3
+formal WAVs add a one-shot identity before that region: `nemesis` 1.50s,
+`interdict` 1.25s, `docket` 1.75s, `sanction` 1.60s and `interregnum` 2.00s.
+Their pack entries set `loopStart` after the intro, so the material announces
+the arrival once and never repeats at the loop seam.
 
 | Track | Consumer | Loop s | leadOctave | Stance | Voices | Mode | Cell transform |
 |---|---|---|---|---|---|---|---|

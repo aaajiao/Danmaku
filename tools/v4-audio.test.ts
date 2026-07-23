@@ -82,6 +82,125 @@ function effectiveSoundPeak(name: SoundName): number {
   return peak(sounds.get(name)!.samples) * spec.volume;
 }
 
+function effectiveSoundRms(name: SoundName): number {
+  const spec = V4_SOUND_SPECS.find((entry) => entry.name === name)!;
+  return rms(sounds.get(name)!.samples) * spec.volume;
+}
+
+function loopSamples(name: string): Float32Array {
+  const spec = V4_TRACK_SPECS.find((entry) => entry.name === name)!;
+  const decoded = tracks.get(name)!;
+  const start = Math.round((spec.introSeconds ?? 0) * decoded.sampleRate);
+  const end = start + Math.round(spec.loopSeconds * decoded.sampleRate);
+  return decoded.samples.subarray(start, end);
+}
+
+/** Maximum event energy in a perceptually immediate short window. Measuring a
+ * band-limited RMS catches sparse peak-normalised cues that pass a peak ladder
+ * while remaining inaudible on ordinary speakers. */
+function maxWindowBandRms(
+  samples: Float32Array,
+  sampleRate: number,
+  seconds: number,
+  lo: number,
+  hi: number,
+): number {
+  const frames = Math.max(1, Math.round(seconds * sampleRate));
+  const hop = Math.max(1, Math.round(0.02 * sampleRate));
+  let maximum = 0;
+  for (let start = 0; start + frames <= samples.length; start += hop) {
+    maximum = Math.max(
+      maximum,
+      bandRms(samples.subarray(start, start + frames), sampleRate, lo, hi),
+    );
+  }
+  return maximum;
+}
+
+function correlation(a: readonly number[], b: readonly number[]): number {
+  expect(a.length).toBe(b.length);
+  const meanA = a.reduce((sum, value) => sum + value, 0) / a.length;
+  const meanB = b.reduce((sum, value) => sum + value, 0) / b.length;
+  let numerator = 0;
+  let powerA = 0;
+  let powerB = 0;
+  for (let i = 0; i < a.length; i++) {
+    const da = a[i]! - meanA;
+    const db = b[i]! - meanB;
+    numerator += da * db;
+    powerA += da * da;
+    powerB += db * db;
+  }
+  return powerA > 0 && powerB > 0
+    ? numerator / Math.sqrt(powerA * powerB)
+    : 1;
+}
+
+const IDENTITY_BANDS = [
+  [40, 80],
+  [80, 160],
+  [160, 300],
+  [300, 500],
+  [500, 800],
+  [800, 1200],
+  [1200, 1500],
+  [1500, 3000],
+  [3000, 6000],
+] as const;
+
+function spectralIdentity(samples: Float32Array, sampleRate: number): number[] {
+  return IDENTITY_BANDS.map(([lo, hi]) =>
+    bandFraction(samples, sampleRate, lo, hi),
+  );
+}
+
+function temporalIdentity(samples: Float32Array): number[] {
+  const windows = 16;
+  const values = Array.from({ length: windows }, (_, window) => {
+    const start = Math.floor((window * samples.length) / windows);
+    const end = Math.floor(((window + 1) * samples.length) / windows);
+    return rms(samples.subarray(start, end));
+  });
+  const maximum = Math.max(...values);
+  return maximum > 0 ? values.map((value) => value / maximum) : values;
+}
+
+/**
+ * Coarse spectro-temporal fingerprint for a one-shot intro. Frequency content
+ * is measured independently in eight time panels, so a shared total spectrum
+ * cannot hide different syntax and a different rhythm cannot hide a universal
+ * transposed sweep.
+ */
+function introIdentity(samples: Float32Array, sampleRate: number): number[] {
+  const bands = [
+    [40, 120],
+    [120, 260],
+    [260, 500],
+    [500, 900],
+    [900, 1500],
+    [3000, 6000],
+  ] as const;
+  const whole = rms(samples);
+  const out: number[] = [];
+  for (let panel = 0; panel < 8; panel++) {
+    const start = Math.floor((panel * samples.length) / 8);
+    const end = Math.floor(((panel + 1) * samples.length) / 8);
+    const window = samples.subarray(start, end);
+    out.push(rms(window) / whole);
+    for (const [lo, hi] of bands) {
+      out.push(bandRms(window, sampleRate, lo, hi) / whole);
+    }
+  }
+  return out;
+}
+
+function featureDistance(a: readonly number[], b: readonly number[]): number {
+  expect(a.length).toBe(b.length);
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i]! - b[i]!) ** 2;
+  return Math.sqrt(sum / a.length);
+}
+
 const SHOT_CUES = [
   'shot',
   'shot-tier-1',
@@ -304,17 +423,93 @@ describe('v4 formal score', () => {
   test('loop duration, level and quantised seam satisfy the release contract', () => {
     for (const spec of V4_TRACK_SPECS) {
       const decoded = tracks.get(spec.name)!;
-      const expectedFrames = Math.round(spec.loopSeconds * decoded.sampleRate);
+      const introSeconds = spec.introSeconds ?? 0;
+      const expectedFrames = Math.round(
+        (introSeconds + spec.loopSeconds) * decoded.sampleRate,
+      );
       expect(decoded.samples.length, spec.name).toBe(expectedFrames);
       expect(effectiveTrackRms(spec.name), spec.name).toBeGreaterThanOrEqual(0.025);
       expect(effectiveTrackRms(spec.name), spec.name).toBeLessThanOrEqual(0.075);
 
-      const seam = Math.abs(decoded.samples[0]! - decoded.samples.at(-1)!);
+      const loop = loopSamples(spec.name);
+      expect(loop.length, spec.name).toBe(
+        Math.round(spec.loopSeconds * decoded.sampleRate),
+      );
+      expect(manifest.music?.[spec.name]?.loopStart, spec.name).toBe(introSeconds);
+      expect(manifest.music?.[spec.name]?.loopEnd, spec.name).toBe(
+        introSeconds + spec.loopSeconds,
+      );
+      const seam = Math.abs(loop[0]! - loop.at(-1)!);
       expect(seam, spec.name).toBeLessThanOrEqual(0.02);
       const edge = 64;
-      const before = rms(decoded.samples.subarray(-edge));
-      const after = rms(decoded.samples.subarray(0, edge));
+      const before = rms(loop.subarray(-edge));
+      const after = rms(loop.subarray(0, edge));
       expect(Math.abs(before - after), spec.name).toBeLessThanOrEqual(0.03);
+    }
+  });
+
+  test('five boss themes announce once for 1–2s before entering their loop', () => {
+    const bosses = [
+      'nemesis',
+      'interdict',
+      'docket',
+      'sanction',
+      'interregnum',
+    ] as const;
+    const identities = new Map<string, number[]>();
+    for (const name of bosses) {
+      const spec = V4_TRACK_SPECS.find((entry) => entry.name === name)!;
+      expect(spec.introSeconds, name).toBeGreaterThanOrEqual(1);
+      expect(spec.introSeconds, name).toBeLessThanOrEqual(2);
+      const decoded = tracks.get(name)!;
+      const intro = decoded.samples.subarray(
+        0,
+        Math.round(spec.introSeconds! * decoded.sampleRate),
+      );
+      expect(rms(intro), `${name} intro is audible`).toBeGreaterThanOrEqual(0.06);
+      identities.set(name, introIdentity(intro, decoded.sampleRate));
+    }
+    for (let i = 0; i < bosses.length; i++) {
+      for (let j = i + 1; j < bosses.length; j++) {
+        const a = bosses[i]!;
+        const b = bosses[j]!;
+        expect(
+          featureDistance(identities.get(a)!, identities.get(b)!),
+          `${a} intro differs perceptually from ${b}`,
+        ).toBeGreaterThanOrEqual(0.35);
+      }
+    }
+  });
+
+  test('boss loops keep distinct macro identities after their intros finish', () => {
+    const bosses = [
+      'nemesis',
+      'interdict',
+      'docket',
+      'sanction',
+      'interregnum',
+    ] as const;
+    const spectral = new Map<string, number[]>();
+    const temporal = new Map<string, number[]>();
+    for (const name of bosses) {
+      const decoded = tracks.get(name)!;
+      const loop = loopSamples(name);
+      spectral.set(name, spectralIdentity(loop, decoded.sampleRate));
+      temporal.set(name, temporalIdentity(loop));
+    }
+    for (let i = 0; i < bosses.length; i++) {
+      for (let j = i + 1; j < bosses.length; j++) {
+        const a = bosses[i]!;
+        const b = bosses[j]!;
+        const spectralCorrelation = correlation(spectral.get(a)!, spectral.get(b)!);
+        const temporalCorrelation = correlation(temporal.get(a)!, temporal.get(b)!);
+        // A pair may share the four-note campaign cell, but it must diverge
+        // decisively in at least one listener-facing macro dimension.
+        expect(
+          spectralCorrelation <= 0.9 || temporalCorrelation <= 0.85,
+          `${a}/${b}: spectrum ${spectralCorrelation.toFixed(3)}, envelope ${temporalCorrelation.toFixed(3)}`,
+        ).toBe(true);
+      }
     }
   });
 
@@ -425,6 +620,73 @@ describe('v4 cue hierarchy and the menu behavior lane', () => {
 
   test('all five boss entrances have genuinely different waveform identities', () => {
     expectPairwiseWaveforms(BOSS_ENTRY_CUES, sounds, 0.1);
+  });
+
+  test('weak boss entrances clear declare and their BGM in short speaker-safe windows', () => {
+    const boosted = {
+      'boss-enter-warden': 'interdict',
+      'boss-enter-chancellor': 'sanction',
+      'boss-enter-regent': 'interregnum',
+    } as const satisfies Partial<Record<SoundName, string>>;
+    const shortSeconds = 0.1;
+    const lo = 120;
+    const hi = 4000;
+    const declare = sounds.get('declare')!;
+    const declareShort =
+      maxWindowBandRms(
+        declare.samples,
+        declare.sampleRate,
+        shortSeconds,
+        lo,
+        hi,
+      ) *
+      V4_SOUND_SPECS.find((entry) => entry.name === 'declare')!.volume;
+    const declareWhole = effectiveSoundRms('declare');
+
+    for (const [entryName, trackName] of Object.entries(boosted) as [
+      keyof typeof boosted,
+      string,
+    ][]) {
+      const cue = sounds.get(entryName)!;
+      const cueSpec = V4_SOUND_SPECS.find((entry) => entry.name === entryName)!;
+      const cueShort =
+        maxWindowBandRms(
+          cue.samples,
+          cue.sampleRate,
+          shortSeconds,
+          lo,
+          hi,
+        ) * cueSpec.volume;
+      expect(
+        20 * Math.log10(cueShort / declareShort),
+        `${entryName} short-window margin over declare`,
+      ).toBeGreaterThanOrEqual(1.5);
+      expect(
+        effectiveSoundRms(entryName) / declareWhole,
+        `${entryName} whole-cue RMS does not collapse behind a normalised peak`,
+      ).toBeGreaterThanOrEqual(0.95);
+
+      const track = tracks.get(trackName)!;
+      const trackSpec = V4_TRACK_SPECS.find((entry) => entry.name === trackName)!;
+      const bgmShort =
+        maxWindowBandRms(
+          track.samples,
+          track.sampleRate,
+          shortSeconds,
+          lo,
+          hi,
+        ) *
+        trackSpec.volume *
+        MUSIC_MASTER;
+      expect(
+        20 * Math.log10(cueShort / bgmShort),
+        `${entryName} short-window margin over ${trackName}`,
+      ).toBeGreaterThanOrEqual(2);
+      expect(
+        bandFraction(cue.samples, cue.sampleRate, lo, hi),
+        `${entryName} ordinary-speaker band share`,
+      ).toBeGreaterThanOrEqual(0.85);
+    }
   });
 });
 

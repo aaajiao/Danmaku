@@ -1633,7 +1633,7 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Pickups + result-tally coins | ${V4_PICKUP_SPECS.length} | \`pickups/pickups.png\` |
 | Five-bank heart-wing core | 1 strip / 5 frames | \`player/ship.png\` |
 | HUD life / bomb | 2 | \`hud/*.png\` |
-| Formal music loops | ${V4_TRACK_SPECS.length} | \`audio/music/*.wav\` |
+| Formal music tracks (5 with one-shot intro) | ${V4_TRACK_SPECS.length} | \`audio/music/*.wav\` |
 | Gameplay + menu cues | ${V4_SOUND_SPECS.length} | \`audio/sfx/*.wav\` |
 
 Every animation strip remains horizontally contiguous. Multi-strip sheets use
@@ -1704,7 +1704,7 @@ Bomb HUD is a four-organ casting flower, not a crosshair.
 
 ## Audio provenance
 
-All ${V4_TRACK_SPECS.length} music loops and ${V4_SOUND_SPECS.length} cues are
+All ${V4_TRACK_SPECS.length} music tracks and ${V4_SOUND_SPECS.length} cues are
 project-authored deterministic synthesis, exported as mono 16-bit PCM at
 ${V4_AUDIO_SAMPLE_RATE}Hz. No recording, sample, soundfont, preset or
 third-party audio enters the build.
@@ -1740,10 +1740,10 @@ export function buildV4Pack(): V4PackBuild {
   const manifest: PackManifest = {
     format: 1,
     name: 'v4',
-    version: '4.2.0',
+    version: '4.3.0',
     author: 'Danmaku project',
     license: 'LicenseRef-Danmaku-Project-Owned',
-    description: 'Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
+    description: 'Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
     assets: {
       bullets: { sheet: 'bullets/bullets.png', strips: bullets.strips },
       ship: {
@@ -1808,6 +1808,6 @@ if (import.meta.main) {
   console.log(`v4 pack: ${Object.keys(bullets.strips).length} bullets`);
   console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (${NATIVE_EFFECT_NAMES.length} native + ${PLAYER_EFFECT_SPECS.length} player)`);
   console.log(`v4 pack: ${Object.keys(assets.lasers ?? {}).length} lasers, ${Object.keys(assets.missiles ?? {}).length} missiles, ${Object.keys(assets.pickups ?? {}).length} pickups`);
-  console.log(`v4 pack: ${V4_TRACK_SPECS.length} music loops, ${V4_SOUND_SPECS.length} sound cues`);
+  console.log(`v4 pack: ${V4_TRACK_SPECS.length} music tracks, ${V4_SOUND_SPECS.length} sound cues`);
   console.log(`v4 pack: wrote ${build.files.size} files to ${V4_PACK_DIR}`);
 }

@@ -56,11 +56,12 @@ export const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
   'boss-hit': 'hit',
   'boss-break': 'break',
   // The boss ladder, distinct cues where one `explosion` used to serve: a low
-  // bell announces the adversary, a rising stab declares a spell card, a bright
-  // shatter breaks one. The boss *death* keeps `explosion` — it is the biggest
-  // report, and declare→break→explosion is the ladder without a fourth name
+  // bell announces the first visible fly-in tick, a rising stab declares a
+  // spell card once the boss settles, and a bright shatter breaks one. The boss
+  // *death* keeps `explosion` — it is the biggest report, and
+  // arrival→declare→break→explosion is the ladder without a fifth name
   // (做减法; `knell` was rejected for that reason). See `docs/audio.md`.
-  'boss-entered': 'toll',
+  'boss-arriving': 'toll',
   'boss-phase': 'declare',
   'boss-defeated': 'explosion',
   'player-death': 'death',
@@ -73,6 +74,85 @@ export const EVENT_SOUNDS: Partial<Record<RunEventType, string>> = {
   cleared: 'clear',
   failed: 'death',
 };
+
+/**
+ * Low-priority sounds that yield the tick a boss arrives.
+ *
+ * The events themselves are never discarded: `main.ts` still applies graze UI
+ * pulses and every other visual reaction. This only protects the one-shot
+ * arrival cue from a held shot, hit, pickup or graze voice in the same drained
+ * batch.
+ */
+export function shouldPlayRunEventSound(
+  type: RunEventType,
+  bossArrivingInBatch: boolean,
+): boolean {
+  if (!bossArrivingInBatch) return true;
+  return type !== 'shot'
+    && type !== 'shot-hit'
+    && type !== 'boss-hit'
+    && type !== 'graze'
+    && type !== 'pickup';
+}
+
+/**
+ * Music fades are seconds on the audio clock, never simulation ticks.
+ * Ordinary changes retain the established one-second crossfade.
+ */
+export const MUSIC_TRANSITION_FADE_SECONDS = 1;
+/** Starting from silence should announce the requested theme promptly. */
+export const MUSIC_START_FADE_SECONDS = 0.25;
+/**
+ * A boss intro is an attack transient, not crossfade material. A short ramp
+ * avoids a click without burying its first second under the outgoing stage.
+ */
+export const BOSS_ARRIVAL_MUSIC_FADE_SECONDS = 0.16;
+
+export interface MusicTransitionCue {
+  readonly fadeSeconds: number;
+  /**
+   * Boss track still owed its short fade, retained while a URL is fetching or
+   * decoding and cleared when the wanted track changes.
+   */
+  readonly pendingBossTrack: string | undefined;
+}
+
+/**
+ * Resolve one music reconciliation without touching WebAudio.
+ *
+ * `Music.play` deliberately leaves `current` unchanged while a URL decodes.
+ * Remembering the arriving track makes the retry use the same short fade on the
+ * later tick when the buffer is actually ready, rather than falling back to the
+ * ordinary one-second crossfade and swallowing the authored intro.
+ */
+export function resolveMusicTransition(
+  current: string | undefined,
+  wanted: string,
+  pendingBossTrack: string | undefined,
+  bossArrivingThisTick: boolean,
+): MusicTransitionCue {
+  const bossTrack = bossArrivingThisTick
+    ? wanted
+    : pendingBossTrack === wanted
+      ? pendingBossTrack
+      : undefined;
+
+  if (current === wanted) {
+    return {
+      fadeSeconds: MUSIC_TRANSITION_FADE_SECONDS,
+      pendingBossTrack: undefined,
+    };
+  }
+
+  return {
+    fadeSeconds: bossTrack === wanted
+      ? BOSS_ARRIVAL_MUSIC_FADE_SECONDS
+      : current === undefined
+        ? MUSIC_START_FADE_SECONDS
+        : MUSIC_TRANSITION_FADE_SECONDS,
+    pendingBossTrack: bossTrack,
+  };
+}
 
 /**
  * The UI cue channel — sounds the SHELL plays, never a run event.

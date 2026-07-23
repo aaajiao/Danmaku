@@ -642,6 +642,28 @@ export class Music {
   }
 
   /**
+   * Decode named tracks without starting a voice.
+   *
+   * Boss intros are one-shot material: waiting until the arrival frame to begin
+   * their first URL decode can put the audible attack behind the visual one on
+   * a cold cache. The shell warms the small authored boss set after unlock,
+   * while guest tracks and the rest of the open registry remain lazy.
+   */
+  preload(names: readonly string[]): void {
+    if (!this.#ctx) return;
+    for (const name of names) {
+      const spec = registry.get(name);
+      if (!spec) continue;
+      try {
+        this.#ensure(name, spec);
+      } catch {
+        // Preloading is an optimisation. The normal play/fallback path remains
+        // the authority, and no failed warm-up may escape into the game loop.
+      }
+    }
+  }
+
+  /**
    * Fade the current track to silence and stop it on the clock. Only ever one
    * track fades at a time — a fresh change drops any still-fading outgoing
    * immediately, exactly as `Background.transitionTo` drops an in-flight scene.

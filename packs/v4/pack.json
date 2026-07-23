@@ -1,10 +1,10 @@
 {
   "format": 1,
   "name": "v4",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "author": "Danmaku project",
   "license": "LicenseRef-Danmaku-Project-Owned",
-  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
+  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
   "assets": {
     "bullets": {
       "sheet": "bullets/bullets.png",
@@ -2265,32 +2265,32 @@
     },
     "nemesis": {
       "file": "audio/music/nemesis.wav",
-      "loopStart": 0,
-      "loopEnd": 14,
+      "loopStart": 1.5,
+      "loopEnd": 15.5,
       "volume": 0.7
     },
     "interdict": {
       "file": "audio/music/interdict.wav",
-      "loopStart": 0,
-      "loopEnd": 8,
+      "loopStart": 1.25,
+      "loopEnd": 9.25,
       "volume": 0.7
     },
     "docket": {
       "file": "audio/music/docket.wav",
-      "loopStart": 0,
-      "loopEnd": 16,
+      "loopStart": 1.75,
+      "loopEnd": 17.75,
       "volume": 0.7
     },
     "sanction": {
       "file": "audio/music/sanction.wav",
-      "loopStart": 0,
-      "loopEnd": 16,
+      "loopStart": 1.6,
+      "loopEnd": 17.6,
       "volume": 0.7
     },
     "interregnum": {
       "file": "audio/music/interregnum.wav",
-      "loopStart": 0,
-      "loopEnd": 16,
+      "loopStart": 2,
+      "loopEnd": 18,
       "volume": 0.7
     },
     "zenith": {

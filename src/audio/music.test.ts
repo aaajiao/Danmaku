@@ -289,6 +289,42 @@ describe('pack music failure fallback', () => {
     expect(music.current).toBeUndefined();
     expect((contexts[0] as FakeAudioContext).sources).toHaveLength(0);
   });
+
+  test('preload decodes a named track without starting or selecting it', async () => {
+    const name = unique('preload');
+    decode = async () => new FakeAudioBuffer(1, 44100 * 10, 44100);
+    defineMusic(name, {
+      url: '/pack/preload.wav',
+      loopStart: 1.5,
+      loopEnd: 8,
+    });
+
+    let fetches = 0;
+    scope.fetch = async () => {
+      fetches++;
+      return {
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    };
+
+    const music = new Music();
+    await music.unlock();
+    music.preload([name, 'unknown-preload-track']);
+    await flushLoad();
+
+    const ctx = contexts[0] as FakeAudioContext;
+    expect(fetches).toBe(1);
+    expect(music.current).toBeUndefined();
+    expect(ctx.sources).toHaveLength(0);
+
+    music.play(name);
+    expect(fetches).toBe(1);
+    expect(music.current).toBe(name);
+    expect(ctx.sources).toHaveLength(1);
+    expect(ctx.sources[0]?.loopStart).toBe(1.5);
+    expect(ctx.sources[0]?.loopEnd).toBe(8);
+  });
 });
 
 describe('the runtime is inert without WebAudio', () => {

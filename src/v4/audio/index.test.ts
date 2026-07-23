@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { musicNames } from '../../audio/music';
-import { MENU_MUSIC, V4_MUSIC_NAMES } from './index';
+import { MENU_MUSIC, V4_BOSS_MUSIC_NAMES, V4_MUSIC_NAMES } from './index';
 
 describe('v4 fallback score ownership', () => {
   test('the edition registers its exact thirteen-track inventory', () => {
@@ -17,5 +17,16 @@ describe('v4 fallback score ownership', () => {
     for (const name of V4_MUSIC_NAMES) {
       expect(source).not.toContain(`defineMusic('${name}'`);
     }
+  });
+
+  test('the preload set is exactly the five campaign boss themes', () => {
+    expect(V4_BOSS_MUSIC_NAMES).toEqual([
+      'nemesis',
+      'interdict',
+      'docket',
+      'sanction',
+      'interregnum',
+    ]);
+    for (const name of V4_BOSS_MUSIC_NAMES) expect(V4_MUSIC_NAMES).toContain(name);
   });
 });

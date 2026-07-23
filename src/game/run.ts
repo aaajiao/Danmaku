@@ -285,6 +285,7 @@ export type RunEventType =
   | 'pickup'
   | 'extend'
   | 'player-death'
+  | 'boss-arriving'
   | 'boss-entered'
   | 'boss-phase'
   | 'boss-cleared'
@@ -1384,7 +1385,7 @@ export class Run {
     const spec = getBossSpec(name);
     const lines = spec.dialogueFor?.[this.characterName] ?? spec.dialogue;
     if (lines === undefined || lines.length === 0) {
-      this.boss.spawn(name, x, y, rng);
+      this.#spawnBoss(name, x, y, rng);
       return;
     }
 
@@ -1394,6 +1395,22 @@ export class Run {
     this.bullets.clear();
     this.#dialogue = { lines, index: 0, boss: name, x, y };
     this.#dialoguePrev = Button.Shot;
+  }
+
+  /**
+   * Put a boss on the field and report the first visible fly-in tick.
+   *
+   * `BossSystem` owns the deterministic entry motion and reports `entered` only
+   * once that motion settles. Arrival is a presentation occurrence instead:
+   * keeping it as a `RunEvent` means it can cue sound/music without moving boss
+   * clocks, RNG draws or replay state. Emitting directly after a successful
+   * spawn is also what makes the dialogue path honest — its tick returns early,
+   * so a queued `BossEvent` would not reach the shell until one tick late.
+   */
+  #spawnBoss(name: string, x: number, y: number, rng: Random): void {
+    const boss = this.boss.spawn(name, x, y, rng);
+    if (boss === undefined) return;
+    this.#emit({ type: 'boss-arriving', x: boss.x, y: boss.y, name: boss.name });
   }
 
   /**
@@ -1422,7 +1439,7 @@ export class Run {
 
     // Last line passed: the boss enters exactly as it would have.
     this.#dialogue = undefined;
-    this.boss.spawn(dialogue.boss, dialogue.x, dialogue.y, rng);
+    this.#spawnBoss(dialogue.boss, dialogue.x, dialogue.y, rng);
   }
 
   /** Nearest enemy to the player, for aimed options. Boss counts as a target. */
