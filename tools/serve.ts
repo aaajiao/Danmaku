@@ -20,6 +20,7 @@ import { join, normalize } from "node:path";
 import index from "../index.html";
 
 const PACKS_DIR = new URL("../packs/", import.meta.url).pathname;
+const PUBLIC_DIR = new URL("../public/", import.meta.url).pathname;
 const PORT = Number(process.env.PORT ?? 3000);
 
 // Directory names under packs/ that contain a pack.json, sorted. Synthesized
@@ -57,6 +58,35 @@ async function servePackFile(pathname: string): Promise<Response> {
   return new Response(file);
 }
 
+/**
+ * Serve only the PWA's root metadata and icon subtree from public/.
+ *
+ * Bun's HTML dev server owns the module graph; this narrow route keeps public
+ * files out of that graph without turning the wrapper into a second general
+ * static server. The same normalized-path guard as packs/ prevents an encoded
+ * icon path from escaping public/.
+ */
+async function servePwaFile(pathname: string): Promise<Response> {
+  let rel: string;
+  try {
+    rel = normalize(decodeURIComponent(pathname.slice(1)));
+  } catch {
+    return new Response("bad request", { status: 400 });
+  }
+  if (rel.startsWith("..") || rel.includes("\0") || rel.endsWith("/")) {
+    return new Response("forbidden", { status: 403 });
+  }
+  const file = Bun.file(join(PUBLIC_DIR, rel));
+  if (!(await file.exists())) {
+    return new Response("not found", { status: 404 });
+  }
+  const headers = new Headers();
+  if (pathname === "/manifest.webmanifest") {
+    headers.set("Content-Type", "application/manifest+json; charset=utf-8");
+  }
+  return new Response(file, { headers });
+}
+
 const server = Bun.serve({
   port: PORT,
   routes: { "/": index },
@@ -67,6 +97,12 @@ const server = Bun.serve({
     }
     if (pathname.startsWith("/packs/")) {
       return servePackFile(pathname);
+    }
+    if (
+      pathname === "/manifest.webmanifest"
+      || pathname.startsWith("/icons/")
+    ) {
+      return servePwaFile(pathname);
     }
     return new Response("not found", { status: 404 });
   },

@@ -2,6 +2,8 @@
 .DS_Store
 **/.DS_Store
 Icon?
+!public/icons/
+!public/icons/*.png
 
 # Editors
 .idea/

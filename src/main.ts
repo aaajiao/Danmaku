@@ -7,6 +7,10 @@
  * all. Anything added here that decides something belongs in `Run` instead.
  */
 
+// Production registers the generated, content-addressed offline shell. This
+// import is presentation-only and is compiled away from the development path.
+import './pwa';
+
 // The compiled v4 edition installs its deterministic patterns and behaviours,
 // byte-pinned shaders, and four-stage campaign in dependency order. Arbitrary
 // asset packs remain data-only and load afterward.
