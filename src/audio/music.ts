@@ -142,7 +142,11 @@ export interface MusicSpec {
   loopStart?: number;
   loopEnd?: number;
   volume?: number;
-  /** Tuning for the synthesised placeholder; ignored once a `url` is present. */
+  /**
+   * Tuning for the synthesised placeholder. A decoded `url` takes precedence,
+   * but the synth remains the failure floor when that asset cannot be fetched
+   * or decoded.
+   */
   synth?: MusicSynth;
 }
 
@@ -154,14 +158,6 @@ interface Music_ {
   readonly volume: number;
   readonly synth: MusicSynth | undefined;
 }
-
-/**
- * The track the title and menu screens sit on. Named here rather than as a bare
- * string in the shell so both the shell and `reachability.test.ts` mean the same
- * thing by "the menu names a track": a registered track nothing reaches is dead
- * content, and the menu is what reaches this one.
- */
-export const MENU_MUSIC = 'menu';
 
 /** Well under the SFX table (shots ~0.3): the theme must never bury a cue. */
 const DEFAULT_TRACK_VOLUME = 0.7;
@@ -204,6 +200,38 @@ export function defineMusic(name: string, spec: MusicSpec): void {
         : undefined,
     volume: clamp01(spec.volume, DEFAULT_TRACK_VOLUME),
     synth: spec.synth,
+  });
+}
+
+/**
+ * Overlay a partial replacement onto a registered track.
+ *
+ * Pack assets use this seam instead of `defineMusic`: adding a `url` must not
+ * discard the built-in synth that keeps a missing or undecodable file audible,
+ * nor should an omitted mix or loop field reset edition-authored defaults.
+ * A name that does not exist yet is still legal and receives the ordinary
+ * `defineMusic` defaults, so packs may introduce their own tracks too.
+ *
+ * `defineMusic` deliberately keeps its historical whole-entry overwrite
+ * semantics. The distinction is useful: authored code can replace a definition
+ * outright, while a fetched asset can safely decorate the built-in floor.
+ */
+export function replaceMusic(name: string, spec: MusicSpec): void {
+  const previous = registry.get(name);
+  if (!previous) {
+    defineMusic(name, spec);
+    return;
+  }
+
+  registry.set(name, {
+    url: spec.url ?? previous.url,
+    loopStart: Math.max(0, finite(spec.loopStart, previous.loopStart)),
+    loopEnd:
+      spec.loopEnd !== undefined && Number.isFinite(spec.loopEnd)
+        ? spec.loopEnd
+        : previous.loopEnd,
+    volume: clamp01(spec.volume, previous.volume),
+    synth: spec.synth ?? previous.synth,
   });
 }
 
@@ -266,38 +294,8 @@ const BASS_AMP = 0.24;
 const LEAD_AMP = 0.4;
 const PULSE_AMP = 0.3;
 
-/* Scale tables — semitone offsets from the tonic. Minor and dorian are the 入神
- * institutional voice; phrygian darkens (the ♭2, `sanction`); whole-tone and
- * locrian are the two 出神 modes, a floor removed from under the same cell. */
+/** Generic default scale — semitone offsets from the tonic. */
 const MINOR = [0, 2, 3, 5, 7, 8, 10];
-const DORIAN = [0, 2, 3, 5, 7, 9, 10];
-const PHRYGIAN = [0, 1, 3, 5, 7, 8, 10];
-const WHOLE_TONE = [0, 2, 4, 6, 8, 10];
-const LOCRIAN = [0, 1, 3, 5, 6, 8, 10];
-
-/** A rest slot inside a `motif`. */
-const R = Number.NaN;
-
-/**
- * The one institutional cell, and its transformations. Identity in the array,
- * individuality in the boss that names it: `nemesis` states it plainly (stated
- * twice, answered by rest), `interdict` truncates it to two notes (inline, an 8-slot
- * curt loop), `docket` inverts it, `sanction` darkens it — its second degree pulled
- * from the 2 to the 1, which under phrygian is the ♭2, the half-step above the tonic
- * that is the mode's whole character. (The mode alone could not darken the plain
- * `CELL`: its indices {0,2,4,3} never touch degree 1, the *only* place phrygian
- * differs from minor, so the darkening has to be voiced in the cell, not merely named
- * in the mode.) `interregnum` makes it whole and resolves to the tonic. `zenith`/`fiat`
- * take it into 出神 by mode + detune, not by a different cell.
- *
- * The cell is now the SEED of a 16-slot phrase, not the whole motif: each boss's
- * `motif` states the cell (via spread) then answers/restates it across the loop, so
- * the phrase is hummable — "notice a boss theme arrive" made measurable (mix.test M15′).
- */
-const CELL = [0, 2, 4, 3];
-const CELL_INVERTED = [0, -2, -4, -3];
-const CELL_DARKENED = [0, 1, 4, 3];
-const CELL_WHOLE = [0, 2, 4, 3, 4, 2, 0];
 
 /** FNV-1a over the name: deterministic, so a track always sounds the same. */
 function hashName(name: string): number {
@@ -519,6 +517,13 @@ export class Music {
 
   #buffers = new Map<string, AudioBuffer>();
   #loading = new Set<string>();
+  /**
+   * URL failures remembered by track name. The shell reconciles music every
+   * tick; without this guard a guest track with no synth would refetch sixty
+   * times a second forever. Storing the URL, rather than only the name, still
+   * permits a later replacement asset for the same track to be attempted.
+   */
+  #failedUrls = new Map<string, string>();
 
   /** The track sounding now, and the one it is fading out over. */
   #playing: Playing | undefined;
@@ -722,6 +727,7 @@ export class Music {
     if (!ctx) return undefined;
 
     if (music.url !== undefined) {
+      if (this.#failedUrls.get(name) === music.url) return undefined;
       void this.#load(name, music.url);
       return undefined; // Silent until the fetch lands.
     }
@@ -735,184 +741,44 @@ export class Music {
     if (this.#loading.has(name)) return;
     this.#loading.add(name);
 
+    let loaded = false;
     try {
       const response = await fetch(url);
       if (!response.ok) return;
       const encoded = await response.arrayBuffer();
       const buffer = await this.#ctx?.decodeAudioData(encoded);
-      if (buffer) this.#buffers.set(name, buffer);
+      if (buffer) {
+        this.#buffers.set(name, buffer);
+        this.#failedUrls.delete(name);
+        loaded = true;
+      }
     } catch {
-      // A missing or undecodable track stays silent; the failure never reaches
-      // the caller, which runs inside the reconcile step of a frame.
+      // The fallback below is the total-degradation path. The failure never
+      // reaches the caller, which runs inside a frame's reconcile step.
     } finally {
       this.#loading.delete(name);
+      if (!loaded) this.#installFallback(name, url);
+    }
+  }
+
+  /**
+   * Remember one failed URL and, for an overlaid built-in track, restore its
+   * synthesised floor. A genuinely new URL-only track has no floor and remains
+   * silent after one attempt rather than becoming a retry storm.
+   */
+  #installFallback(name: string, url: string): void {
+    this.#failedUrls.set(name, url);
+
+    const ctx = this.#ctx;
+    const music = registry.get(name);
+    // A replacement may have landed while the old URL was in flight. Never
+    // install that stale request's fallback over the newer definition.
+    if (!ctx || music?.url !== url || !music.synth) return;
+
+    try {
+      this.#buffers.set(name, compose(ctx, name, music.synth));
+    } catch {
+      // Even a hostile synth spec may only make this track silent.
     }
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Built-in tracks                                                     */
-/* ------------------------------------------------------------------ */
-
-// Thirteen tracks, one cell, two stances. Each is composed by the additive
-// engine above until a content file or a pack gives it a `url`; their names are
-// wired onto the built-in stages and bosses (`StageSpec.music` / `BossSpec.music`
-// / `SpellCard.music`) so the feature is real, not merely registered — the
-// honesty rule `reachability.test.ts` enforces for music as it does for scenes.
-// The motif journey is the heart of the set: the four bosses each state the ONE
-// `CELL` through a different filter, so identity lives in the spec and
-// individuality in the name.
-
-// Every base track sets `leadOctave: 3` (lead into the perceptible 300–1000Hz lane)
-// and a 16-slot phrase: a statement/answer/restatement that is hummable, not a blip.
-// Every non-trance motif ends in trailing rests so the wrap slot is bass-only (M6′)
-// and a ≥0.4s lead breath exists (M7′), and sounds ≥6 of 16 slots (M15′).
-
-// Menu: 入神 idle, the trance you sit in on the title screen — a rising-then-settling
-// hook that resolves and repeats; the trailing rests are the breath.
-defineMusic(MENU_MUSIC, {
-  synth: {
-    mode: MINOR, loopSeconds: 16, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead'],
-    motif: [4, R, 2, 4, R, R, 7, 4, 2, R, 0, 2, R, R, R, R],
-  },
-});
-
-// The four stage themes — 入神 pulses, distinct per scene, no boss cell.
-// vigil (stage-1 旷野): the clearest "there is music" statement — an 8-note beacon
-// stated then answered.
-defineMusic('vigil', {
-  synth: {
-    root: 45, mode: MINOR, loopSeconds: 16, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead'],
-    motif: [0, 4, 2, 4, 7, 4, 2, 0, R, R, 4, 2, 4, R, R, R],
-  },
-});
-// descent (stage-2 竖井): driving shaft, the fastest loop — a 3-note echo-with-a-hole
-// over a quarter pulse.
-defineMusic('descent', {
-  synth: {
-    root: 46, mode: MINOR, loopSeconds: 12, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    motif: [0, 3, R, 2, 0, 3, 5, 3, R, R, 2, 0, 3, R, R, R],
-  },
-});
-// precedent (stage-3 沉积): the deepest 入神, hook by insistence. Pinned to 44Hz — the
-// floor of the authority band — as ballast: "what was decided before you arrived binds
-// you." Dorian, an accreting ostinato over a sparse tick.
-defineMusic('precedent', {
-  synth: {
-    root: 44, mode: DORIAN, loopSeconds: 16, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    motif: [0, 2, 3, 2, 0, 2, 3, 5, 0, 2, 3, 2, R, R, R, R],
-  },
-});
-// ordinance (stage-4 穹顶): claustral, a figure that bites its own tail and never
-// resolves. Pinned to 41 — the descending stage floor 44→41→38 (precedent→ordinance→
-// adjourn) stays in the BASS, the whole band settling beneath you.
-defineMusic('ordinance', {
-  synth: {
-    root: 41, mode: MINOR, loopSeconds: 14, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    motif: [0, 4, 5, 4, 2, 4, 0, 4, 5, 4, 2, R, R, R, R, R],
-  },
-});
-
-// The motif journey — four bosses, one CELL, four filters. Each states the cell (via
-// spread) then answers/restates it across a 16-slot loop, so the theme is hummable and
-// its arrival is noticeable. Roots hash-derived so each fight sits at its own pitch.
-// nemesis (sentinel s1 boss): the cell PLAIN — the identity anchor, stated twice,
-// answered by rest, over a march pulse. Must be hummable.
-defineMusic('nemesis', {
-  synth: {
-    mode: MINOR, loopSeconds: 14, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    // [0,2,4,3, 0,2,4,3, R,R,4,3, R,R,R,R]
-    motif: [...CELL, ...CELL, R, R, 4, 3, R, R, R, R],
-  },
-});
-// interdict (warden midboss): the cell TRUNCATED, curt — an 8-slot / 8s loop that
-// completes ~1.75× inside the 14s fight. Loudest raw track; watched by M1′.
-defineMusic('interdict', {
-  synth: {
-    mode: MINOR, loopSeconds: 8, beatsPerLoop: 8, leadOctave: 3, voices: ['bass', 'lead'],
-    motif: [0, 2, R, R, 0, 2, R, R],
-  },
-});
-// docket (magistrate s2 boss): the cell INVERTED, a descending answer to nemesis, over
-// a gavel pulse.
-defineMusic('docket', {
-  synth: {
-    mode: MINOR, loopSeconds: 16, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    // [0,-2,-4,-3, 0,-2,-4,-3, R,-4,-3,R, R,R,R,R]
-    motif: [...CELL_INVERTED, ...CELL_INVERTED, R, -4, -3, R, R, R, R, R],
-  },
-});
-// sanction (chancellor s3 boss): the cell DARKENED — its second degree pulled to the
-// phrygian ♭2, a half-step inaudible at 76Hz but legible at 352 (the register payoff)
-// — over an enforcing pulse.
-defineMusic('sanction', {
-  synth: {
-    mode: PHRYGIAN, loopSeconds: 16, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    // [0,1,4,3, 0,1,4,3, 0,1,R,R, R,R,R,R]
-    motif: [...CELL_DARKENED, ...CELL_DARKENED, 0, 1, R, R, R, R, R, R],
-  },
-});
-// interregnum (regent s4 final): the cell MADE WHOLE, resolving home — the melodic
-// payoff, densest, over a reigning pulse. Sits hottest (per-track volume 0.80): the
-// theme to leave the game humming.
-defineMusic('interregnum', {
-  volume: 0.8,
-  synth: {
-    mode: MINOR, loopSeconds: 16, beatsPerLoop: 16, leadOctave: 3, voices: ['bass', 'lead', 'pulse'],
-    // [0,2,4,3,4,2,0,R, 0,2,4,3,4,2,0,R]
-    motif: [...CELL_WHOLE, R, ...CELL_WHOLE, R],
-  },
-});
-
-// The two 出神 card tracks — the same cell with the floor removed. Detuned, no pulse,
-// whole-tone/locrian: the opposite of the 入神 pulses, and they must sound it. Trance
-// keeps `leadOctave 3` — same register as the 入神 counterparts, so the opposition is
-// detune + mode + sparse envelope, not a register drop.
-// zenith (sentinel Lunatic 4th phase): the nemesis cell unmoored — the tight march
-// heard drifting apart. Root matched to nemesis's own hash-derived tonic, ~30¢ flat.
-defineMusic('zenith', {
-  synth: {
-    root: 44 + (hashName('nemesis') % 12),
-    mode: WHOLE_TONE,
-    loopSeconds: 13,
-    beatsPerLoop: 16,
-    leadOctave: 3,
-    voices: ['bass', 'lead'],
-    motif: [0, R, 2, R, R, 4, R, 3, R, R, R, R, R, R, R, R],
-    detune: -30,
-    stance: 'trance',
-  },
-});
-// fiat (chancellor + regent Lunatic finales, shared): the finale cell dissolving.
-// Pinned 55 (the top of the band) and detuned, locrian — the court stops hearing and
-// simply decrees.
-defineMusic('fiat', {
-  synth: {
-    root: 55,
-    mode: LOCRIAN,
-    loopSeconds: 17,
-    beatsPerLoop: 16,
-    leadOctave: 3,
-    voices: ['bass', 'lead'],
-    motif: [0, 2, R, 3, R, 2, R, 0, R, R, R, R, R, R, R, R],
-    detune: -18,
-    stance: 'trance',
-  },
-});
-
-// adjourn (EndingScreenState): the one cadence in the game — a slow descending farewell
-// landing on the tonic, made the most legible melody of the set. Pinned to 38 — below
-// the whole authority band: you have gone beneath everything. 出神 come-down.
-defineMusic('adjourn', {
-  synth: {
-    root: 38,
-    mode: MINOR,
-    loopSeconds: 24,
-    beatsPerLoop: 16,
-    leadOctave: 3,
-    voices: ['bass', 'lead'],
-    motif: [4, R, 3, R, 2, R, 1, R, 0, R, R, R, R, R, R, R],
-    detune: -8,
-    stance: 'trance',
-  },
-});

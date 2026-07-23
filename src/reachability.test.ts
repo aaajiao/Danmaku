@@ -81,7 +81,8 @@ import {
 import { bossNames, getBossSpec } from './sim/boss';
 import { effectNames, getEffectSpec } from './sim/effects';
 import { soundNames } from './audio';
-import { MENU_MUSIC, musicNames } from './audio/music';
+import { musicNames } from './audio/music';
+import { MENU_MUSIC } from './v4/audio';
 import { bombNames } from './sim/bomb';
 import { enemyNames } from './sim/enemy';
 import { itemNames } from './sim/item';

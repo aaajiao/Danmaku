@@ -187,7 +187,28 @@ export interface PackAssets {
   pickups?: Record<string, PackStrip>;
 }
 
-export type PackSounds = Partial<Record<SoundName, string>>;
+/**
+ * One loaded sample in the top-level `sounds` section. The file replaces the
+ * built-in synthesised placeholder while the optional mix controls preserve the
+ * registered sound's authored runtime configuration instead of falling back to
+ * `defineSound`'s defaults.
+ */
+export interface PackSound {
+  /** Path to an audio file the browser can decode (a WAV, e.g.). */
+  file: string;
+  /** Sample gain, 0..1. */
+  volume?: number;
+  /** Maximum simultaneous voices. A positive integer. */
+  polyphony?: number;
+  /** Minimum interval between plays, milliseconds. Non-negative. */
+  throttleMs?: number;
+}
+
+/**
+ * Registered sound name → replacement sample. A string is the legacy shorthand
+ * for `{ file: string }`; the object form additionally carries the mix controls.
+ */
+export type PackSounds = Partial<Record<SoundName, string | PackSound>>;
 
 export interface PackHud {
   /** Small icon PNG (≤ 16×16) drawn in place of the ♥ glyph. */
@@ -758,6 +779,7 @@ const EFFECT_STRIP_FIELDS = [
   'contentW',
   'contentH',
 ] as const;
+const SOUND_FIELDS = ['file', 'volume', 'polyphony', 'throttleMs'] as const;
 const MUSIC_TRACK_FIELDS = ['file', 'loopStart', 'loopEnd', 'volume'] as const;
 const HUD_FIELDS = ['life', 'bomb'] as const;
 /** Hud resources a later format will carry; refused by name today. */
@@ -1371,15 +1393,59 @@ function validateSounds(sounds: unknown, prefix: string, errors: string[]): void
     errors.push(`${prefix}sounds must be a JSON object`);
     return;
   }
-  for (const key of Object.keys(sounds)) {
+  for (const [key, sound] of Object.entries(sounds)) {
     if (!(SOUND_NAMES as readonly string[]).includes(key)) {
       errors.push(
         `${prefix}sounds."${key}" is not a sound this game plays — valid names: ${SOUND_NAMES.join(', ')}`,
       );
       continue;
     }
-    if (typeof sounds[key] !== 'string') {
+    if (typeof sound === 'string') {
+      // Legacy `{ shot: "shot.wav" }` shorthand — unchanged.
+      continue;
+    }
+    if (!isRecord(sound)) {
+      // Compatibility contract: keep the original neither-branch error verbatim.
       errors.push(`${prefix}sounds.${key} must be a string (a path to a WAV)`);
+      continue;
+    }
+
+    const where = `sounds.${key}`;
+    if (!('file' in sound) || sound.file === undefined) {
+      errors.push(`${prefix}${where} is missing required field "file" — a path to a WAV`);
+    } else if (typeof sound.file !== 'string') {
+      errors.push(`${prefix}${where}.file must be a string (a path to a WAV)`);
+    }
+
+    if ('volume' in sound && sound.volume !== undefined) {
+      if (typeof sound.volume !== 'number') {
+        errors.push(`${prefix}${where}.volume must be a number`);
+      } else if (!Number.isFinite(sound.volume) || sound.volume < 0 || sound.volume > 1) {
+        errors.push(`${prefix}${where}.volume must be between 0 and 1, got ${sound.volume}`);
+      }
+    }
+
+    if (
+      'polyphony' in sound &&
+      sound.polyphony !== undefined &&
+      (typeof sound.polyphony !== 'number' ||
+        !Number.isInteger(sound.polyphony) ||
+        sound.polyphony <= 0)
+    ) {
+      errors.push(`${prefix}${where}.polyphony must be a positive integer`);
+    }
+
+    if ('throttleMs' in sound && sound.throttleMs !== undefined) {
+      if (typeof sound.throttleMs !== 'number') {
+        errors.push(`${prefix}${where}.throttleMs must be a number (milliseconds)`);
+      } else if (!Number.isFinite(sound.throttleMs) || sound.throttleMs < 0) {
+        errors.push(`${prefix}${where}.throttleMs must not be negative, got ${sound.throttleMs}`);
+      }
+    }
+
+    for (const field of Object.keys(sound)) {
+      if ((SOUND_FIELDS as readonly string[]).includes(field)) continue;
+      errors.push(unknownField(`${prefix}${where}: `, field, SOUND_FIELDS));
     }
   }
 }

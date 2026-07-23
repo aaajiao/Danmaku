@@ -311,3 +311,75 @@ describe('shared PackStrip loading', () => {
     expect(report).toContain(`assets.effects: ${second} (1 strip winner)`);
   });
 });
+
+describe('packed sound loading', () => {
+  test('normalises legacy and configured sounds and keeps last-winner policy with its file', async () => {
+    const first = 'sound-policy-a';
+    const second = 'sound-policy-b';
+    const encode = (value: unknown) => new TextEncoder().encode(JSON.stringify(value));
+    const manifests = new Map<string, Uint8Array>([
+      [
+        first,
+        encode({
+          format: 1,
+          name: first,
+          version: '1.0.0',
+          author: 'Test',
+          license: 'CC0-1.0',
+          sounds: {
+            shot: 'shot.wav',
+            'ui-confirm': {
+              file: 'confirm-a.wav',
+              volume: 0.2,
+              polyphony: 1,
+              throttleMs: 80,
+            },
+          },
+        }),
+      ],
+      [
+        second,
+        encode({
+          format: 1,
+          name: second,
+          version: '1.0.0',
+          author: 'Test',
+          license: 'CC0-1.0',
+          sounds: {
+            'ui-confirm': {
+              file: 'confirm-b.wav',
+              volume: 0.31,
+              polyphony: 2,
+              throttleMs: 40,
+            },
+          },
+        }),
+      ],
+    ]);
+
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/packs/index.json') return new Response(JSON.stringify([first, second]));
+      for (const [name, bytes] of manifests) {
+        if (url === `/packs/${name}/pack.json`) {
+          return new Response(bytes.slice().buffer as ArrayBuffer);
+        }
+      }
+      if (url.endsWith('.wav')) return new Response(new Uint8Array([82, 73, 70, 70]));
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch;
+    console.log = () => undefined;
+
+    const loaded = await loadPacks();
+
+    expect(loaded.soundSpecs.shot).toEqual({
+      url: `/packs/${first}/shot.wav`,
+    });
+    expect(loaded.soundSpecs['ui-confirm']).toEqual({
+      url: `/packs/${second}/confirm-b.wav`,
+      volume: 0.31,
+      polyphony: 2,
+      throttleMs: 40,
+    });
+  });
+});

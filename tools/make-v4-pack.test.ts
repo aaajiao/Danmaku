@@ -7,7 +7,7 @@
  * longitudinal exception and are checked for exact edge continuity instead.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
@@ -21,7 +21,7 @@ import {
   PICKUP_STRIP_CELLS,
 } from '../src/render/procedural';
 import { BASE_LASER_SKINS } from '../src/render/laser-skin';
-import type { PackBulletSheet, PackStrip } from '../src/packs/manifest';
+import { SOUND_NAMES, type PackBulletSheet, type PackStrip } from '../src/packs/manifest';
 import { decodePng, type DecodedImage } from './png-decode';
 import {
   V4_OWNER_IDS,
@@ -45,6 +45,11 @@ import {
   projectileFaction,
   type V4ProjectileOwner,
 } from './make-v4-pack';
+import {
+  V4_RELEASE_MUSIC_NAMES,
+  V4_SOUND_SPECS,
+  V4_TRACK_SPECS,
+} from './v4-audio';
 
 interface FrameRect {
   readonly x: number;
@@ -76,6 +81,17 @@ function bytes(relative: string): Uint8Array {
   const value = build.files.get(relative);
   if (!(value instanceof Uint8Array)) throw new Error(`${relative} is not a generated PNG`);
   return value;
+}
+
+function diskFiles(root: string, prefix = ''): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(join(root, prefix), { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...diskFiles(root, relative));
+    else out.push(relative);
+  }
+  return out.sort();
 }
 
 function png(relative: string): DecodedImage {
@@ -310,6 +326,7 @@ describe('generated output and exact manifest', () => {
   });
 
   test('category ledgers are complete, exact and project-owned', () => {
+    expect(build.manifest.version).toBe('4.1.0');
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);
@@ -327,6 +344,40 @@ describe('generated output and exact manifest', () => {
     expect(shipAsset.frames).toBe(5);
     expect(shipAsset.banking).toBe('five-way');
     expect(build.manifest.hud).toEqual({ life: 'hud/life.png', bomb: 'hud/bomb.png' });
+  });
+
+  test('audio manifest, generated files and committed tree are the same exact inventory', () => {
+    const sounds = build.manifest.sounds ?? {};
+    const music = build.manifest.music ?? {};
+    expect(Object.keys(sounds)).toEqual([...SOUND_NAMES]);
+    expect(Object.keys(music)).toEqual([...V4_RELEASE_MUSIC_NAMES]);
+    expect(Object.keys(sounds)).toHaveLength(V4_SOUND_SPECS.length);
+    expect(Object.keys(music)).toHaveLength(V4_TRACK_SPECS.length);
+
+    const declared = [
+      ...Object.values(sounds).map((value) =>
+        typeof value === 'string' ? value : value.file,
+      ),
+      ...Object.values(music).map((value) => value.file),
+    ].sort();
+    const generated = [...build.files.keys()]
+      .filter((path) => path.startsWith('audio/'))
+      .sort();
+    expect(declared).toHaveLength(28);
+    expect(new Set(declared).size).toBe(28);
+    expect(generated).toEqual(declared);
+    expect(diskFiles(join(V4_PACK_DIR, 'audio')).map((path) => `audio/${path}`)).toEqual(
+      declared,
+    );
+
+    for (const spec of V4_SOUND_SPECS) {
+      expect(sounds[spec.name]).toEqual({
+        file: `audio/sfx/${spec.name}.wav`,
+        volume: spec.volume,
+        polyphony: spec.polyphony,
+        throttleMs: spec.throttleMs,
+      });
+    }
   });
 
   test('multi-strip atlases use deterministic non-overlapping shelf packing', () => {

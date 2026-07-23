@@ -1,10 +1,10 @@
 {
   "format": 1,
   "name": "v4",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "author": "Danmaku project",
   "license": "LicenseRef-Danmaku-Project-Owned",
-  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart bullets; seamless lasers; open-rib heart-writs, effects, pickups, shared five-bank heart-wing and organic HUD. Existing background shaders remain engine-owned and unchanged.",
+  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 15-cue sound suite. Existing background shaders remain engine-owned and unchanged.",
   "assets": {
     "bullets": {
       "sheet": "bullets/bullets.png",
@@ -2079,5 +2079,177 @@
   "hud": {
     "life": "hud/life.png",
     "bomb": "hud/bomb.png"
+  },
+  "sounds": {
+    "shot": {
+      "file": "audio/sfx/shot.wav",
+      "volume": 0.3,
+      "polyphony": 4,
+      "throttleMs": 40
+    },
+    "hit": {
+      "file": "audio/sfx/hit.wav",
+      "volume": 0.35,
+      "polyphony": 6,
+      "throttleMs": 20
+    },
+    "explosion": {
+      "file": "audio/sfx/explosion.wav",
+      "volume": 0.55,
+      "polyphony": 4,
+      "throttleMs": 45
+    },
+    "graze": {
+      "file": "audio/sfx/graze.wav",
+      "volume": 0.22,
+      "polyphony": 3,
+      "throttleMs": 60
+    },
+    "pickup": {
+      "file": "audio/sfx/pickup.wav",
+      "volume": 0.35,
+      "polyphony": 4,
+      "throttleMs": 25
+    },
+    "death": {
+      "file": "audio/sfx/death.wav",
+      "volume": 0.8,
+      "polyphony": 1,
+      "throttleMs": 250
+    },
+    "toll": {
+      "file": "audio/sfx/toll.wav",
+      "volume": 0.6,
+      "polyphony": 1,
+      "throttleMs": 120
+    },
+    "declare": {
+      "file": "audio/sfx/declare.wav",
+      "volume": 0.5,
+      "polyphony": 2,
+      "throttleMs": 90
+    },
+    "break": {
+      "file": "audio/sfx/break.wav",
+      "volume": 0.55,
+      "polyphony": 2,
+      "throttleMs": 60
+    },
+    "clear": {
+      "file": "audio/sfx/clear.wav",
+      "volume": 0.5,
+      "polyphony": 1,
+      "throttleMs": 200
+    },
+    "ui-move": {
+      "file": "audio/sfx/ui-move.wav",
+      "volume": 0.31,
+      "polyphony": 2,
+      "throttleMs": 30
+    },
+    "ui-confirm": {
+      "file": "audio/sfx/ui-confirm.wav",
+      "volume": 0.29,
+      "polyphony": 2,
+      "throttleMs": 40
+    },
+    "ui-cancel": {
+      "file": "audio/sfx/ui-cancel.wav",
+      "volume": 0.27,
+      "polyphony": 2,
+      "throttleMs": 40
+    },
+    "ui-pause": {
+      "file": "audio/sfx/ui-pause.wav",
+      "volume": 0.24,
+      "polyphony": 1,
+      "throttleMs": 60
+    },
+    "ui-advance": {
+      "file": "audio/sfx/ui-advance.wav",
+      "volume": 0.28,
+      "polyphony": 2,
+      "throttleMs": 30
+    }
+  },
+  "music": {
+    "menu": {
+      "file": "audio/music/menu.wav",
+      "loopStart": 0,
+      "loopEnd": 16,
+      "volume": 0.7
+    },
+    "vigil": {
+      "file": "audio/music/vigil.wav",
+      "loopStart": 0,
+      "loopEnd": 16,
+      "volume": 0.7
+    },
+    "descent": {
+      "file": "audio/music/descent.wav",
+      "loopStart": 0,
+      "loopEnd": 12,
+      "volume": 0.7
+    },
+    "precedent": {
+      "file": "audio/music/precedent.wav",
+      "loopStart": 0,
+      "loopEnd": 16,
+      "volume": 0.7
+    },
+    "ordinance": {
+      "file": "audio/music/ordinance.wav",
+      "loopStart": 0,
+      "loopEnd": 14,
+      "volume": 0.7
+    },
+    "nemesis": {
+      "file": "audio/music/nemesis.wav",
+      "loopStart": 0,
+      "loopEnd": 14,
+      "volume": 0.7
+    },
+    "interdict": {
+      "file": "audio/music/interdict.wav",
+      "loopStart": 0,
+      "loopEnd": 8,
+      "volume": 0.7
+    },
+    "docket": {
+      "file": "audio/music/docket.wav",
+      "loopStart": 0,
+      "loopEnd": 16,
+      "volume": 0.7
+    },
+    "sanction": {
+      "file": "audio/music/sanction.wav",
+      "loopStart": 0,
+      "loopEnd": 16,
+      "volume": 0.7
+    },
+    "interregnum": {
+      "file": "audio/music/interregnum.wav",
+      "loopStart": 0,
+      "loopEnd": 16,
+      "volume": 0.8
+    },
+    "zenith": {
+      "file": "audio/music/zenith.wav",
+      "loopStart": 0,
+      "loopEnd": 13,
+      "volume": 0.7
+    },
+    "fiat": {
+      "file": "audio/music/fiat.wav",
+      "loopStart": 0,
+      "loopEnd": 17,
+      "volume": 0.7
+    },
+    "adjourn": {
+      "file": "audio/music/adjourn.wav",
+      "loopStart": 0,
+      "loopEnd": 24,
+      "volume": 0.7
+    }
   }
 }

@@ -1,7 +1,7 @@
 /**
  * The browser half of the pack system: discover packs, validate their
- * manifests, fetch and machine-check their assets, and hand `main.ts` a flat
- * set of URLs and decoded icons to build atlases and re-register sounds from.
+ * manifests, fetch and machine-check their assets, and hand `main.ts` resolved
+ * sound specs plus the URLs and decoded icons it needs to build atlases.
  *
  * This is the one pack module allowed to import `render` (it reads the sheet
  * geometry the checks measure against) and to touch the network, the DOM and a
@@ -29,7 +29,8 @@
  * happened to be written.
  */
 
-import { defineMusic, musicNames, type MusicSpec } from '../audio/music';
+import type { SoundSpec } from '../audio';
+import { musicNames, replaceMusic, type MusicSpec } from '../audio/music';
 import { backgroundNames } from '../render/background';
 import { laserSkinNames } from '../render/laser-skin';
 import { definePortrait, hasPortrait, portraitNames, PORTRAIT_SIZE } from '../render/portrait';
@@ -119,8 +120,12 @@ export interface LoadedPacks {
   pickupStrips?: Record<string, PickupStripInput>;
   /** Texture sampling for both sheets. `nearest` matches `loadTexture`. */
   filter: 'nearest' | 'linear';
-  /** Registered-sound name → winning URL. Fed through `defineSound`'s url branch. */
-  soundUrls: Record<string, string>;
+  /**
+   * Registered-sound name → winning URL plus any pack-authored mix policy.
+   * The shell applies these through `overrideSound`, preserving omitted
+   * built-in settings for legacy string entries.
+   */
+  soundSpecs: Record<string, SoundSpec>;
   /** Decoded, dimension-checked hud icons, drawn in place of the ♥/★ glyphs. */
   hudIcons: { life?: HTMLImageElement; bomb?: HTMLImageElement };
   /** `name@hash` of every loaded pack, comma-joined, '' when none. Replay meta. */
@@ -195,7 +200,7 @@ export function attachIdentity(
 
 const NONE: LoadedPacks = {
   filter: 'nearest',
-  soundUrls: {},
+  soundSpecs: {},
   hudIcons: {},
   packsMeta: '',
   campaigns: [],
@@ -393,10 +398,10 @@ export async function loadPacks(): Promise<LoadedPacks> {
 
   report({ winners, overrides, loaded, failures, surfaceRequested: requested !== null });
 
-  const soundUrls: Record<string, string> = {};
+  const soundSpecs: Record<string, SoundSpec> = {};
   for (const sound of SOUND_NAMES) {
-    const url = winners.get(`sounds.${sound}`)?.url;
-    if (url !== undefined) soundUrls[sound] = url;
+    const spec = winners.get(`sounds.${sound}`)?.sound;
+    if (spec !== undefined) soundSpecs[sound] = spec;
   }
 
   // The fx strips that won their slot, keyed by bare strip name for the
@@ -447,7 +452,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     laserStrips: Object.keys(laserStrips).length > 0 ? laserStrips : undefined,
     missileStrips: Object.keys(missileStrips).length > 0 ? missileStrips : undefined,
     pickupStrips: Object.keys(pickupStrips).length > 0 ? pickupStrips : undefined,
-    soundUrls,
+    soundSpecs,
     hudIcons: {
       life: winners.get('hud.life')?.image,
       bomb: winners.get('hud.bomb')?.image,
@@ -497,6 +502,8 @@ interface Resource {
   url?: string;
   /** A non-file value, e.g. the filter mode. */
   value?: string;
+  /** A packed sound's resolved URL and optional authored mix policy. */
+  sound?: SoundSpec;
   /** A decoded hud icon, kept so `drawHud` need not decode it again. */
   image?: HTMLImageElement;
   /** A self-describing native bullet sheet (the object form of `assets.bullets`). */
@@ -734,8 +741,9 @@ async function loadOnePack(name: string, injectContext: InjectContext): Promise<
   // the same all-or-nothing the content half holds. A built-in name replaces its
   // placeholder (bare, last-wins in the registry as in the slot map); a new name
   // registers namespaced, matching the qualified name `inject.ts` put in the
-  // stage/boss spec. `defineMusic` overwrites by name, so re-loading is a no-op.
-  for (const reg of musicRegs) defineMusic(reg.name, reg.spec);
+  // stage/boss spec. `replaceMusic` preserves a built-in synth as the failed-
+  // asset floor and defines a pack-new name when none exists.
+  for (const reg of musicRegs) replaceMusic(reg.name, reg.spec);
 
   // Register the pack's portraits LAST, past the same all-or-nothing gate as
   // music. Each is registered under its qualified `<pack>/<name>` — a pack
@@ -1137,12 +1145,19 @@ async function gatherSounds(
 
   // In `SOUND_NAMES` order, not object-key order, so the hash is stable.
   for (const sound of SOUND_NAMES) {
-    const path = sounds[sound];
-    if (path === undefined) continue;
+    const entry = sounds[sound];
+    if (entry === undefined) continue;
+    const path = typeof entry === 'string' ? entry : entry.file;
     const url = fileUrl(name, path);
     try {
       await files.bytes(url);
-      slots.set(`sounds.${sound}`, { url });
+      const spec: SoundSpec = { url };
+      if (typeof entry !== 'string') {
+        if (entry.volume !== undefined) spec.volume = entry.volume;
+        if (entry.polyphony !== undefined) spec.polyphony = entry.polyphony;
+        if (entry.throttleMs !== undefined) spec.throttleMs = entry.throttleMs;
+      }
+      slots.set(`sounds.${sound}`, { url, sound: spec });
     } catch (error) {
       reasons.push(`pack "${name}": ${path}: ${(error as Error).message}`);
     }
@@ -1174,7 +1189,7 @@ async function gatherHud(
   }
 }
 
-/** A track to register via `defineMusic` once the whole pack is proven clean. */
+/** A track to register via `replaceMusic` once the whole pack is proven clean. */
 interface MusicRegistration {
   /** The name it registers under: bare for a built-in replacement, else `<pack>/<name>`. */
   name: string;
@@ -1199,7 +1214,7 @@ interface MusicRegistration {
  * anyway — the check is an authoring courtesy, not a safety gate.
  *
  * Nothing is registered here; the payloads are collected and `loadOnePack` calls
- * `defineMusic` only once the whole pack is clean, so a rejected pack mutates no
+ * `replaceMusic` only once the whole pack is clean, so a rejected pack mutates no
  * registry.
  */
 async function gatherMusic(

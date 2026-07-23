@@ -20,6 +20,7 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Campaign authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
 | Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay identity hashes campaign data plus compiled v4 patterns/behaviours; simulation carries only the opaque string |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
+| Audio identity and release assets | [`audio/`](./audio), [`docs/v4-audio-direction.md`](../../docs/v4-audio-direction.md), and generated release audio in [`packs/v4`](../../packs/v4) | Sound/music registries, synthesis and WebAudio playback in [`src/audio`](../audio) |
 
 The distinction is ownership, not duplication. `src/v4` supplies one edition's
 definitions to generic registries; the registries, simulation and renderer do
@@ -32,11 +33,12 @@ not become v4-specific.
 1. deterministic motion behaviours;
 2. deterministic danmaku patterns;
 3. authored background shaders;
-4. generated campaign data.
+4. v4 audio identity and fallback score;
+5. generated campaign data.
 
 [`src/main.ts`](../main.ts) imports that root before it calls the runtime pack
-loader. Campaign injection can therefore resolve every pattern, behaviour and
-scene name before a guest pack is discovered.
+loader. Campaign injection can therefore resolve every pattern, behaviour,
+scene and music name before a guest pack is discovered.
 
 A pack may replace presentation and may arrange supported JSON content. It may
 name an already registered pattern, behaviour or background, but the manifest
@@ -66,6 +68,8 @@ keep older imports working while ownership stays visible under this directory.
 - Scene changes are made in [`backgrounds/`](./backgrounds), one fragment shader
   per file, and imported by its index. The generic background renderer remains
   scene-free.
+- Track identity and the emergency score floor belong in [`audio/`](./audio);
+  release samples are generated into `packs/v4` under the v4 audio direction.
 - Art changes belong to the independent `packs/v4` generator and manifest. They
   must not be used as a route for simulation or shader logic.
 

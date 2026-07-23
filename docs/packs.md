@@ -10,7 +10,7 @@ A pack has two halves that behave differently, and the difference is the spine o
 this document:
 
 - A **reskin** replaces presentation only — bullet sheet, ship, HUD icons,
-  sounds. The same patterns fire, the same bosses appear, the same replay plays
+  sounds and music. The same patterns fire, the same bosses appear, the same replay plays
   back; a replay recorded under one skin plays under any other, so a skin
   mismatch **warns**, never refuses.
 - **Content** (the `content` object, gated by `requires`) adds game data —
@@ -58,7 +58,9 @@ A pack **can** replace, as a reskin:
   (bullets, enemies, the boss, items and particle effects all wear these cells;
   see `docs/assets.md` §3.1);
 - the **player ship** sprite;
-- any of the six **sounds** the game plays;
+- any of the fifteen **sounds** the game plays;
+- any of the thirteen built-in **music tracks**, or add a pack-local track for
+  the pack's own stage, boss or spell card;
 - the **♥ life** and **★ bomb** HUD icons;
 - a **portrait** — the face drawn beside a boss's dialogue line (§5.5).
 
@@ -218,7 +220,12 @@ the README-only `packs/example` workspace:
   },
   "sounds": {
     "shot": "shot.wav",
-    "pickup": "pickup.wav"
+    "pickup": {
+      "file": "pickup.wav",
+      "volume": 0.35,
+      "polyphony": 4,
+      "throttleMs": 30
+    }
   },
   "hud": {
     "life": "life.png",
@@ -241,6 +248,7 @@ The types below are exactly what `src/packs/manifest.ts` validates.
 | `description` | no | string | A sentence, shown wherever the boot report lists loaded packs. |
 | `assets` | no | object | `bullets?`, `ship?`, `effects?`, `lasers?`, `missiles?`, `pickups?`, `filter?` — see §5.1–5.6. |
 | `sounds` | no | object | One entry per replaced sound, keyed by the sound's registered name — see §5.3. |
+| `music` | no | object | Track name → `{ file, loopStart?, loopEnd?, volume? }`. Replaces a built-in track or adds a pack-local one — see §6.5a. |
 | `hud` | no | object | `life?`, `bomb?` icon PNGs — see §5.4. |
 | `portraits` | no | object | Name → PNG path, one per speaker face. Each is an exact 96×96 image drawn beside a boss's dialogue line — see §5.5. |
 | `requires` | no | string[] | Engine capabilities the pack needs. This engine implements the nine `content.*` capabilities (enemies, stages, bosses, shots, characters, options, bombs, effects, items); anything else is refused, naming what it does not implement and what it does. A `content` section and its covering `requires` entry are one contract — see §9. Omit it entirely for a reskin-only pack (do not write `[]`). |
@@ -317,9 +325,36 @@ mix doctrine behind them, is in `docs/audio.md` §2 and §5.) An unknown name is
 rejected and lists all fifteen. A pack need not replace every sound — the
 example replaces only `shot` and `pickup`;
 everything else keeps its synthesised placeholder. Files are fed through
-`defineSound`'s `url` branch, so `docs/audio.md` §3's authoring constraints
+the audio registry's `overrideSound` seam, so `docs/audio.md` §3's authoring constraints
 (mono, fade to zero at both ends, normalise then set volume) apply to a packed
 WAV exactly as to a source-level one.
+
+A string path is the legacy shorthand:
+
+```json
+{ "shot": "shot.wav" }
+```
+
+Use the object form when the replacement needs its own mix and repetition
+settings:
+
+```json
+{
+  "graze": {
+    "file": "graze.wav",
+    "volume": 0.22,
+    "polyphony": 3,
+    "throttleMs": 45
+  }
+}
+```
+
+`file` is required. `volume` is a 0–1 sample gain, `polyphony` is the positive
+integer maximum number of simultaneous voices, and `throttleMs` is the
+non-negative minimum interval between plays. Omitting an optional setting keeps
+the registered sound's existing value; the legacy string is equivalent to an
+object containing only `file`. This is what lets an old reskin replace a UI
+sample without silently discarding its restrained volume, voice cap or throttle.
 
 ### 5.4 `hud.life` / `hud.bomb` — the HUD icons
 
@@ -564,7 +599,15 @@ section name):
 |---|---|
 | `sounds` not an object | `sounds must be a JSON object` |
 | Unknown sound name | `sounds."<key>" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance` |
-| A sound value not a string | `sounds.<key> must be a string (a path to a WAV)` |
+| A sound value neither a legacy string nor an object | `sounds.<key> must be a string (a path to a WAV)` (the legacy compatibility string) |
+| An object sound missing `file` | `sounds.<key> is missing required field "file" — a path to a WAV` |
+| Object `file` not a string | `sounds.<key>.file must be a string (a path to a WAV)` |
+| `volume` not a number | `sounds.<key>.volume must be a number` |
+| `volume` outside 0–1 | `sounds.<key>.volume must be between 0 and 1, got <n>` |
+| `polyphony` not a positive integer | `sounds.<key>.polyphony must be a positive integer` |
+| `throttleMs` not a number | `sounds.<key>.throttleMs must be a number (milliseconds)` |
+| Negative `throttleMs` | `sounds.<key>.throttleMs must not be negative, got <n>` |
+| Unknown object field | `sounds.<key>: unknown field "<field>" — did you mean "<nearest>"?` (or `… valid fields here: file, volume, polyphony, throttleMs`) |
 
 ### 6.5 `hud`
 

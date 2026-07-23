@@ -13,8 +13,9 @@
 import { CONTENT_FINGERPRINT } from './v4';
 
 import * as THREE from 'three';
-import { Audio, defineSound } from './audio';
-import { Music, MENU_MUSIC } from './audio/music';
+import { Audio, overrideSound } from './audio';
+import { Music } from './audio/music';
+import { MENU_MUSIC } from './v4/audio';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
@@ -130,6 +131,8 @@ const SCENE_FADE_TICKS = 60;
  * differ; if one does, it belongs on the track being entered, not here.
  */
 const MUSIC_FADE_SECONDS = 1.0;
+/** A theme starting from silence should announce itself promptly after unlock. */
+const MUSIC_START_FADE_SECONDS = 0.25;
 
 /**
  * The music bus ceiling, and the ducked ceiling while the game is paused.
@@ -162,13 +165,14 @@ const stageStructure = new V4StageStructure(stage, 'drift');
  */
 const packs = await loadPacks();
 
-// Re-register any sounds a pack replaced, BEFORE the first `audio.unlock()` in
+// Apply any sounds a pack replaced, BEFORE the first `audio.unlock()` in
 // the loop can fire. `Audio.unlock` pre-renders every registered sound's buffer
 // (see `audio/index.ts` `#start`), so a url swapped in after that first unlock
 // would never be decoded. This runs at module top level, before `loop.start()`,
-// which is what guarantees the ordering.
-for (const [name, url] of Object.entries(packs.soundUrls)) {
-  defineSound(name, { url });
+// which is what guarantees the ordering. `overrideSound` preserves any mix
+// fields a legacy string entry omitted, while object entries can tune them.
+for (const [name, spec] of Object.entries(packs.soundSpecs)) {
+  overrideSound(name, spec);
 }
 
 /**
@@ -537,7 +541,8 @@ const context: GameContext = {
 
 machine.push(new TitleState(context));
 
-let unlocked = false;
+/** Retry a refused audio unlock only on a fresh input gesture, never every held tick. */
+let lastUnlockButtons = 0;
 
 /**
  * Shell-side UI cues (`SHELL_CUES`), none of them a run event.
@@ -573,8 +578,9 @@ const loop = new Loop({
   tick() {
     const buttons = input.sample();
 
-    if (!unlocked && buttons !== 0) {
-      unlocked = true;
+    const audioGesture = buttons !== 0 && lastUnlockButtons === 0;
+    lastUnlockButtons = buttons;
+    if (audioGesture && (!audio.unlocked || !music.unlocked)) {
       void audio.unlock();
       void music.unlock();
     }
@@ -708,7 +714,12 @@ const loop = new Loop({
       if (music.current !== undefined) music.stopAll();
     } else {
       const wanted = track ?? MENU_MUSIC;
-      if (wanted !== music.current) music.play(wanted, MUSIC_FADE_SECONDS);
+      if (wanted !== music.current) {
+        music.play(
+          wanted,
+          music.current === undefined ? MUSIC_START_FADE_SECONDS : MUSIC_FADE_SECONDS,
+        );
+      }
     }
 
     // Duck the theme while paused rather than cutting it — the room stays, just

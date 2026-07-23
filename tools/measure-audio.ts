@@ -18,6 +18,7 @@
 
 import { Audio, soundNames } from '../src/audio/index';
 import { Music, musicNames, trackPhrase } from '../src/audio/music';
+import '../src/v4/audio';
 
 /* ------------------------------------------------------------------ */
 /* Fake WebAudio — the same shape the audio tests install              */

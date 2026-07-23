@@ -12,6 +12,11 @@ Read §0 first if you are bringing in audio someone else made. §1–§3 are the
 sound specification, §4 is music, §5 is the mix doctrine and its measured
 numbers, §6 is verification.
 
+For the active edition's artistic mapping and release gates, see the
+authoritative [`v4 audio direction`](./v4-audio-direction.md). This document
+describes generic machinery and the measured fallback; it is not a substitute
+for v4's shipped pack assets.
+
 ## 0. Provenance — the same rule as art, restated for sound
 
 Rule 9 is enforced against the past and silent about the future: `NOTICE`
@@ -96,19 +101,21 @@ all measured by `tools/measure-audio.ts` against the real synths, not estimated:
 | `pickup` | `pickup`, `extend` | 0.160 | 0.4624 | 0.35 | 0.1618 | 1.8% |
 | `shot` | every player shot | 0.070 | 0.3801 | 0.30 | 0.1140 | 2.2% |
 | `graze` | grazing a bullet | 0.130 | 0.3120 | 0.22 | 0.0686 | 100.0% |
-| `ui-confirm` | menu confirm, and the ending screen's page-turn | 0.060 | 0.2238 | 0.18 | 0.0403 | 0.0% |
-| `ui-cancel` | cancel / back | 0.060 | 0.2139 | 0.16 | 0.0342 | 0.0% |
-| `ui-pause` | pause entered | 0.070 | 0.1994 | 0.15 | 0.0299 | 0.0% |
-| `ui-advance` | dialogue line advance | 0.040 | 0.1377 | 0.12 | 0.0165 | 0.0% |
-| `ui-move` | menu selection change | 0.030 | 0.1300 | 0.12 | 0.0156 | 0.0% |
+| `ui-confirm` | menu confirm, and the ending screen's page-turn | 0.060 | 0.2232 | 0.29 | 0.0647 | 100.0% |
+| `ui-cancel` | cancel / back | 0.060 | 0.2128 | 0.27 | 0.0574 | 100.0% |
+| `ui-pause` | pause entered | 0.070 | 0.1994 | 0.24 | 0.0479 | 0.0% |
+| `ui-advance` | dialogue line advance | 0.040 | 0.1440 | 0.36 | 0.0518 | 100.0% |
+| `ui-move` | menu selection change | 0.030 | 0.1291 | 0.42 | 0.0542 | 100.0% |
 
 Read this table alongside the doctrine table in §5 rather than in isolation:
 `graze` sits at **100%** in-band on purpose (it *is* the behavior-band tenant,
 §5's Internet Void filter), and `break` at 51.5% is the other loud one — a card
 broken is meant to read as sharp and present exactly where the BGM has gone
-quiet. Everything below the boss ladder decays toward zero band energy because
-those are either sub-band bells (`toll`) or UI clicks with no spectral room to
-spare.
+quiet. Menu navigation now uses that same empty band deliberately: unlike a
+gameplay cue it fires while no curtain is being read, and putting its short
+transient at 1.5–3kHz keeps it out of the menu theme's 300–1000Hz lead. It still
+sits below `graze` by effective peak, but it no longer disappears under the
+theme's average level.
 
 One sound still serves several events by design, the same "same kind of event
 to an ear" reasoning as before: `explosion` covers a kill, the boss's own death,
@@ -140,9 +147,29 @@ into one, not four new events wanting decoration.
 As with art, the higher-level swap needs no editing of `src/`: an
 [asset pack](./packs.md) can carry sounds. A `pack.json` with a `sounds` object
 keyed by the registered names — the fifteen in `SOUND_NAMES`
-(`src/packs/manifest.ts`) — drops a WAV per name into `packs/<name>/`, and the
-loader re-registers each through the same `defineSound` `url` branch shown
-below. An unknown sound name is **rejected loudly** at load — `sounds."explsion"
+(`src/packs/manifest.ts`) — drops a WAV per name into `packs/<name>/`. The legacy
+value is a path string; the configured form is
+`{ file, volume?, polyphony?, throttleMs? }`, so a replacement can carry the same
+mix and repetition controls as `SoundSpec`:
+
+```json
+{
+  "sounds": {
+    "shot": "shot.wav",
+    "graze": {
+      "file": "graze.wav",
+      "volume": 0.22,
+      "polyphony": 3,
+      "throttleMs": 45
+    }
+  }
+}
+```
+
+The loader applies each through `overrideSound`: the file replaces the waveform,
+explicit object fields replace their matching settings, and omitted fields keep
+the registered sound's existing mix policy. An unknown sound name is **rejected
+loudly** at load — `sounds."explsion"
 is not a sound this game plays — valid names: …` — which closes the one gap the
 source-level route leaves open (a mistyped name registering a new, un-cued
 sound; see below). The authoring constraints in "Authoring constraints" apply to
@@ -175,6 +202,12 @@ reconciles — a pause-enter edge, and a `WeakMap<Run, number>` watching
 `run.dialogue.index` for an advance. None of it introduces a new
 `RunEventType`, so no replay trace moves. If you add a sixteenth UI-shaped
 sound, it joins `SHELL_CUES`, not `EVENT_SOUNDS`.
+
+The title's first confirm is also the gesture that unlocks WebAudio. `Audio`
+keeps a bounded queue only while that unlock is in flight and replays the cue
+once the context resumes; a failed unlock drops it rather than leaking a stale
+confirm into a later retry. The shell retries unlock from later non-zero input
+until both audio buses report ready.
 
 ### Authoring constraints
 
@@ -215,13 +248,14 @@ reload.
 
 ## 4. Music
 
-Music is the sibling of the sound engine, in `src/audio/music.ts`, and shares
-its whole doctrine — render-side, total (nothing throws into the loop),
+The generic music registry, composer and runtime live in `src/audio/music.ts`;
+v4's thirteen authored fallback definitions live in `src/v4/audio/`. Together
+they share the sound engine's whole doctrine — render-side, total (nothing throws into the loop),
 synth-first (a track is a permanent floor, never a blocking dependency),
 silent until a user gesture unlocks it. What it does **not** share is the sound
 engine's clock (below), and since the audio-enrichment round it is not a single
 6-second drone either: `MusicSynth` is a small additive composer, and thirteen
-tracks are authored against it — one cell of four scale degrees, run through a
+v4 tracks are authored against it — one cell of four scale degrees, run through a
 different transformation per boss, plus one idle theme, four stage themes and
 three shared come-down/finale tracks.
 
@@ -282,7 +316,7 @@ generated a `MusicSynth` field of its own because there was nothing to tune.
 that omits the field — including every guest-pack track written before this
 field existed — renders identically (`mix.test.ts` proves an omitted field and
 an explicit `1` are the same buffer, and that `3` is a different one). Every
-one of the thirteen base tracks sets it to **3** explicitly, putting the lead
+one of the thirteen v4 fallback tracks sets it to **3** explicitly, putting the lead
 an octave higher again — base ~304–440 Hz, motif peaks near 550–784 Hz — which
 is the register move described in §5's two-voids doctrine. The field is a
 plain multiplier on `leadBaseHz`, so it composes with everything else
@@ -558,14 +592,17 @@ so shipping it later is a one-line swap, not a redesign.
 threat model implies: `death` (0.7451) > `explosion` (0.4737) > `toll`
 (0.3399) > `break` (0.2146) ≈ `declare` (0.2126) > `hit` (0.1862) > `clear`
 (0.1846) > `pickup` (0.1618) > `shot` (0.1140) > `graze` (0.0686), with all
-five `ui-*` sounds sitting under the rest at 0.0165–0.0403. This ladder (M8′)
-is unchanged in shape by the round's one SFX edit — `shot`'s sweep floor
-moved 420→640Hz for spectral reasons (above), and its effective peak barely
-moved (0.1137→0.1140) — so it was re-measured, not re-derived. Losing a life
+five `ui-*` sounds sitting under the rest at 0.0479–0.0647. The navigation
+revision raises and moves those transients without crossing `graze`, so the
+M8′ ladder remains unchanged in shape and is re-measured rather than assumed.
+Losing a life
 is louder than anything else in the game; grazing a bullet — an event that
 fires dozens of times a second — is the quietest gameplay sound, and every
 menu click sits under even that, because a menu click is never the thing the
-player is supposed to be listening for.
+player is supposed to be listening for. M9a adds the missing positive menu
+claim: `ui-move`, `ui-confirm` and `ui-cancel` each clear the menu theme's
+effective RMS by at least 3dB. M9b keeps more than half of each navigation
+cue's energy in the 1.5–3kHz band the theme vacates.
 
 ## 6. Verify
 
