@@ -58,7 +58,10 @@ describe('a valid manifest round-trips', () => {
       license: 'CC0-1.0',
       description: 'a bright candy skin',
       assets: { bullets: 'bullets.png', ship: 'ship.png', filter: 'linear' },
-      sounds: { shot: 'shot.wav', death: 'death.wav' },
+      sounds: {
+        shot: 'shot.wav',
+        death: { file: 'death.wav', volume: 0.7, polyphony: 2, throttleMs: 40 },
+      },
       music: { theme: { file: 'theme.wav', loopStart: 1.5, loopEnd: 12, volume: 0.5 } },
       hud: { life: 'life.png', bomb: 'bomb.png' },
       requires: [],
@@ -706,7 +709,62 @@ describe('sounds', () => {
     );
   });
 
-  test('all six registered names are accepted', () => {
+  test('the legacy string shorthand and configured object form are both accepted', () => {
+    const raw = {
+      ...valid(),
+      sounds: {
+        shot: 'shot.wav',
+        graze: { file: 'graze.wav', volume: 0.22, polyphony: 3, throttleMs: 45 },
+      },
+    };
+    expect(validateManifest(raw, 'candy')).toEqual({
+      manifest: raw as unknown as PackManifest,
+    });
+  });
+
+  test('an object sound requires a string file', () => {
+    expect(errorsOf({ ...valid(), sounds: { shot: {} } })).toContain(
+      'pack "candy": pack.json: sounds.shot is missing required field "file" — a path to a WAV',
+    );
+    expect(errorsOf({ ...valid(), sounds: { shot: { file: 9 } } })).toContain(
+      'pack "candy": pack.json: sounds.shot.file must be a string (a path to a WAV)',
+    );
+  });
+
+  test('volume is a number between 0 and 1', () => {
+    expect(errorsOf({ ...valid(), sounds: { shot: { file: 'shot.wav', volume: 'loud' } } })).toContain(
+      'pack "candy": pack.json: sounds.shot.volume must be a number',
+    );
+    expect(errorsOf({ ...valid(), sounds: { shot: { file: 'shot.wav', volume: 1.2 } } })).toContain(
+      'pack "candy": pack.json: sounds.shot.volume must be between 0 and 1, got 1.2',
+    );
+  });
+
+  test('polyphony is a positive integer', () => {
+    expect(errorsOf({ ...valid(), sounds: { shot: { file: 'shot.wav', polyphony: 0 } } })).toContain(
+      'pack "candy": pack.json: sounds.shot.polyphony must be a positive integer',
+    );
+    expect(errorsOf({ ...valid(), sounds: { shot: { file: 'shot.wav', polyphony: 1.5 } } })).toContain(
+      'pack "candy": pack.json: sounds.shot.polyphony must be a positive integer',
+    );
+  });
+
+  test('throttleMs is a non-negative number of milliseconds', () => {
+    expect(errorsOf({ ...valid(), sounds: { graze: { file: 'graze.wav', throttleMs: '45' } } })).toContain(
+      'pack "candy": pack.json: sounds.graze.throttleMs must be a number (milliseconds)',
+    );
+    expect(errorsOf({ ...valid(), sounds: { graze: { file: 'graze.wav', throttleMs: -1 } } })).toContain(
+      'pack "candy": pack.json: sounds.graze.throttleMs must not be negative, got -1',
+    );
+  });
+
+  test('unknown object fields are rejected with a stable suggestion', () => {
+    expect(errorsOf({ ...valid(), sounds: { graze: { file: 'graze.wav', throtleMs: 45 } } })).toContain(
+      'pack "candy": pack.json: sounds.graze: unknown field "throtleMs" — did you mean "throttleMs"?',
+    );
+  });
+
+  test('all fifteen registered names are accepted', () => {
     const sounds: Record<string, string> = {};
     for (const name of SOUND_NAMES) sounds[name] = `${name}.wav`;
     const result = validateManifest({ ...valid(), sounds }, 'candy');

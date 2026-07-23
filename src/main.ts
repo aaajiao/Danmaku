@@ -13,7 +13,7 @@
 import { CONTENT_FINGERPRINT } from './v4';
 
 import * as THREE from 'three';
-import { Audio, defineSound } from './audio';
+import { Audio, overrideSound } from './audio';
 import { Music, MENU_MUSIC } from './audio/music';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
@@ -164,13 +164,14 @@ const stageStructure = new V4StageStructure(stage, 'drift');
  */
 const packs = await loadPacks();
 
-// Re-register any sounds a pack replaced, BEFORE the first `audio.unlock()` in
+// Apply any sounds a pack replaced, BEFORE the first `audio.unlock()` in
 // the loop can fire. `Audio.unlock` pre-renders every registered sound's buffer
 // (see `audio/index.ts` `#start`), so a url swapped in after that first unlock
 // would never be decoded. This runs at module top level, before `loop.start()`,
-// which is what guarantees the ordering.
-for (const [name, url] of Object.entries(packs.soundUrls)) {
-  defineSound(name, { url });
+// which is what guarantees the ordering. `overrideSound` preserves any mix
+// fields a legacy string entry omitted, while object entries can tune them.
+for (const [name, spec] of Object.entries(packs.soundSpecs)) {
+  overrideSound(name, spec);
 }
 
 /**

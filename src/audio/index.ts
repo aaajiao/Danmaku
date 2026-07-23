@@ -78,6 +78,25 @@ export function defineSound(name: string, spec: SoundSpec): void {
   });
 }
 
+/**
+ * Replace selected fields of a registered sound while preserving its authored
+ * mix policy.
+ *
+ * Pack samples use this seam: a legacy path should replace only the waveform,
+ * not accidentally turn a restrained UI tick into an unthrottled full-volume
+ * eight-voice sound. `defineSound` remains the intentional whole-entry
+ * replacement API for source-authored content.
+ */
+export function overrideSound(name: string, spec: SoundSpec): void {
+  const previous = registry.get(name);
+  defineSound(name, {
+    url: spec.url ?? previous?.url,
+    volume: spec.volume ?? previous?.volume,
+    polyphony: spec.polyphony ?? previous?.polyphony,
+    throttleMs: spec.throttleMs ?? previous?.throttleMs,
+  });
+}
+
 export function soundNames(): readonly string[] {
   return [...registry.keys()];
 }
@@ -255,6 +274,8 @@ export class Audio {
    * silently lost.
    */
   #pending: string[] = [];
+  /** One deferred replay per URL sample, so a long load cannot release a burst. */
+  #pendingLoads = new Set<string>();
 
   #buffers = new Map<string, AudioBuffer>();
   #loading = new Set<string>();
@@ -326,9 +347,7 @@ export class Audio {
     const ctx = this.#ctx;
     const master = this.#master;
     if (!ctx || !master) {
-      if (this.#unlocking !== undefined && this.#pending.length < 32) {
-        this.#pending.push(name);
-      }
+      if (this.#unlocking !== undefined) this.#queue(name);
       return;
     }
 
@@ -346,7 +365,12 @@ export class Audio {
       if (live >= sound.polyphony) return;
 
       const buffer = this.#ensure(name, sound);
-      if (!buffer) return;
+      if (!buffer) {
+        // URL samples load asynchronously. A one-shot cue requested in that
+        // window must be heard when its buffer lands rather than silently lost.
+        if (this.#pendingLoads.size < 32) this.#pendingLoads.add(name);
+        return;
+      }
 
       const gain = ctx.createGain();
       gain.gain.value = sound.volume;
@@ -373,6 +397,7 @@ export class Audio {
 
   stopAll(): void {
     this.#pending.length = 0;
+    this.#pendingLoads.clear();
     for (const voice of this.#voices) {
       try {
         voice.source.stop();
@@ -400,11 +425,16 @@ export class Audio {
     return this.#unlocked;
   }
 
-  /** Replay only the bounded cues that arrived during a successful unlock. */
+  /** Keep startup/load latency from growing an unbounded input backlog. */
+  #queue(name: string): void {
+    if (this.#pending.length < 32) this.#pending.push(name);
+  }
+
+  /** Replay the bounded cues that arrived while the context was unlocking. */
   #flushPending(): void {
     if (this.#pending.length === 0) return;
-    const pending = this.#pending.splice(0);
-    for (const name of pending) this.play(name);
+    const ready = this.#pending.splice(0);
+    for (const name of ready) this.play(name);
   }
 
   /**
@@ -441,7 +471,7 @@ export class Audio {
 
     if (sound.url !== undefined) {
       void this.#load(name, sound.url);
-      return undefined; // Silent until the fetch lands.
+      return undefined; // A requested cue is queued until the fetch lands.
     }
 
     // A registered name with no synth of its own gets an audible placeholder
@@ -458,15 +488,30 @@ export class Audio {
 
     try {
       const response = await fetch(url);
-      if (!response.ok) return;
-      const encoded = await response.arrayBuffer();
-      const buffer = await this.#ctx?.decodeAudioData(encoded);
-      if (buffer) this.#buffers.set(name, buffer);
+      if (response.ok) {
+        const encoded = await response.arrayBuffer();
+        const buffer = await this.#ctx?.decodeAudioData(encoded);
+        if (buffer) this.#buffers.set(name, buffer);
+      }
     } catch {
-      // A missing or undecodable asset leaves that one sound silent. The
-      // failure must never reach the caller: `play` runs inside render.
+      // The fallback below handles network and decode failures alike. Nothing
+      // reaches the caller: `play` runs inside render.
     } finally {
+      // A pack file is an enhancement, never the game's audibility floor. If
+      // it disappears or cannot decode, restore the original named placeholder
+      // (or the generic one for an extension name) and replay queued cues.
+      try {
+        const ctx = this.#ctx;
+        if (!this.#buffers.has(name) && ctx) {
+          this.#buffers.set(name, render(ctx, SYNTHS[name] ?? DEFAULT_SYNTH));
+        }
+      } catch {
+        // A broken WebAudio implementation may even reject buffer creation.
+        // Total degradation still wins over surfacing the failure.
+      }
       this.#loading.delete(name);
+      const replay = this.#pendingLoads.delete(name);
+      if (replay && this.#buffers.has(name)) this.play(name);
     }
   }
 }

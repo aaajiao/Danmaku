@@ -142,7 +142,11 @@ export interface MusicSpec {
   loopStart?: number;
   loopEnd?: number;
   volume?: number;
-  /** Tuning for the synthesised placeholder; ignored once a `url` is present. */
+  /**
+   * Tuning for the synthesised placeholder. A decoded `url` takes precedence,
+   * but the synth remains the failure floor when that asset cannot be fetched
+   * or decoded.
+   */
   synth?: MusicSynth;
 }
 
@@ -204,6 +208,38 @@ export function defineMusic(name: string, spec: MusicSpec): void {
         : undefined,
     volume: clamp01(spec.volume, DEFAULT_TRACK_VOLUME),
     synth: spec.synth,
+  });
+}
+
+/**
+ * Overlay a partial replacement onto a registered track.
+ *
+ * Pack assets use this seam instead of `defineMusic`: adding a `url` must not
+ * discard the built-in synth that keeps a missing or undecodable file audible,
+ * nor should an omitted mix or loop field reset edition-authored defaults.
+ * A name that does not exist yet is still legal and receives the ordinary
+ * `defineMusic` defaults, so packs may introduce their own tracks too.
+ *
+ * `defineMusic` deliberately keeps its historical whole-entry overwrite
+ * semantics. The distinction is useful: authored code can replace a definition
+ * outright, while a fetched asset can safely decorate the built-in floor.
+ */
+export function replaceMusic(name: string, spec: MusicSpec): void {
+  const previous = registry.get(name);
+  if (!previous) {
+    defineMusic(name, spec);
+    return;
+  }
+
+  registry.set(name, {
+    url: spec.url ?? previous.url,
+    loopStart: Math.max(0, finite(spec.loopStart, previous.loopStart)),
+    loopEnd:
+      spec.loopEnd !== undefined && Number.isFinite(spec.loopEnd)
+        ? spec.loopEnd
+        : previous.loopEnd,
+    volume: clamp01(spec.volume, previous.volume),
+    synth: spec.synth ?? previous.synth,
   });
 }
 
@@ -519,6 +555,13 @@ export class Music {
 
   #buffers = new Map<string, AudioBuffer>();
   #loading = new Set<string>();
+  /**
+   * URL failures remembered by track name. The shell reconciles music every
+   * tick; without this guard a guest track with no synth would refetch sixty
+   * times a second forever. Storing the URL, rather than only the name, still
+   * permits a later replacement asset for the same track to be attempted.
+   */
+  #failedUrls = new Map<string, string>();
 
   /** The track sounding now, and the one it is fading out over. */
   #playing: Playing | undefined;
@@ -722,6 +765,7 @@ export class Music {
     if (!ctx) return undefined;
 
     if (music.url !== undefined) {
+      if (this.#failedUrls.get(name) === music.url) return undefined;
       void this.#load(name, music.url);
       return undefined; // Silent until the fetch lands.
     }
@@ -735,17 +779,44 @@ export class Music {
     if (this.#loading.has(name)) return;
     this.#loading.add(name);
 
+    let loaded = false;
     try {
       const response = await fetch(url);
       if (!response.ok) return;
       const encoded = await response.arrayBuffer();
       const buffer = await this.#ctx?.decodeAudioData(encoded);
-      if (buffer) this.#buffers.set(name, buffer);
+      if (buffer) {
+        this.#buffers.set(name, buffer);
+        this.#failedUrls.delete(name);
+        loaded = true;
+      }
     } catch {
-      // A missing or undecodable track stays silent; the failure never reaches
-      // the caller, which runs inside the reconcile step of a frame.
+      // The fallback below is the total-degradation path. The failure never
+      // reaches the caller, which runs inside a frame's reconcile step.
     } finally {
       this.#loading.delete(name);
+      if (!loaded) this.#installFallback(name, url);
+    }
+  }
+
+  /**
+   * Remember one failed URL and, for an overlaid built-in track, restore its
+   * synthesised floor. A genuinely new URL-only track has no floor and remains
+   * silent after one attempt rather than becoming a retry storm.
+   */
+  #installFallback(name: string, url: string): void {
+    this.#failedUrls.set(name, url);
+
+    const ctx = this.#ctx;
+    const music = registry.get(name);
+    // A replacement may have landed while the old URL was in flight. Never
+    // install that stale request's fallback over the newer definition.
+    if (!ctx || music?.url !== url || !music.synth) return;
+
+    try {
+      this.#buffers.set(name, compose(ctx, name, music.synth));
+    } catch {
+      // Even a hostile synth spec may only make this track silent.
     }
   }
 }

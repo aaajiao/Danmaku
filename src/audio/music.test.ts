@@ -7,9 +7,23 @@
  * density page's note does for readability.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { defineMusic, MENU_MUSIC, Music, musicNames } from './music';
+import {
+  defineMusic,
+  MENU_MUSIC,
+  Music,
+  musicNames,
+  replaceMusic,
+  trackPhrase,
+} from './music';
+
+const NS = 'test:music.test/';
+let nextName = 0;
+
+function unique(label: string): string {
+  return `${NS}${label}-${nextName++}`;
+}
 
 describe('the music registry', () => {
   test('the launch set is registered — the menu, the stage themes, a boss theme', () => {
@@ -35,6 +49,29 @@ describe('the music registry', () => {
     expect(count).toBe(1);
   });
 
+  test('replaceMusic overlays an asset without discarding the authored synth', () => {
+    const name = unique('overlay');
+    defineMusic(name, {
+      volume: 0.23,
+      loopStart: 1,
+      loopEnd: 4,
+      synth: { beatsPerLoop: 4, motif: [0, Number.NaN, 2, Number.NaN] },
+    });
+
+    replaceMusic(name, { url: '/pack/overlay.wav' });
+
+    expect(trackPhrase(name)).toEqual({ beats: 4, sounded: 2, trance: false });
+  });
+
+  test('defineMusic still replaces the whole entry rather than overlaying it', () => {
+    const name = unique('whole-replacement');
+    defineMusic(name, { synth: { beatsPerLoop: 2, motif: [0, 1] } });
+
+    defineMusic(name, { url: '/pack/replacement.wav' });
+
+    expect(trackPhrase(name)).toBeUndefined();
+  });
+
   test('a non-finite loop point or volume does not poison the registry', () => {
     // Spec values arrive unvalidated; NaN must never reach a gain or a scheduler.
     expect(() =>
@@ -45,6 +82,226 @@ describe('the music registry', () => {
       }),
     ).not.toThrow();
     expect(musicNames()).toContain('test-nan');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Focused WebAudio coverage for pack-asset failure                    */
+/* ------------------------------------------------------------------ */
+
+class FakeAudioParam {
+  value = 1;
+
+  setValueAtTime(value: number): this {
+    this.value = value;
+    return this;
+  }
+
+  linearRampToValueAtTime(value: number): this {
+    this.value = value;
+    return this;
+  }
+
+  cancelScheduledValues(): this {
+    return this;
+  }
+}
+
+class FakeAudioNode {
+  connect(_target: FakeAudioNode): FakeAudioNode {
+    return _target;
+  }
+
+  disconnect(): void {}
+}
+
+class FakeGainNode extends FakeAudioNode {
+  readonly gain = new FakeAudioParam();
+}
+
+class FakeAudioBuffer {
+  readonly #data: Float32Array;
+
+  constructor(
+    readonly numberOfChannels: number,
+    readonly length: number,
+    readonly sampleRate: number,
+  ) {
+    this.#data = new Float32Array(length);
+  }
+
+  get duration(): number {
+    return this.length / this.sampleRate;
+  }
+
+  getChannelData(): Float32Array {
+    return this.#data;
+  }
+}
+
+class FakeBufferSource extends FakeAudioNode {
+  buffer: FakeAudioBuffer | null = null;
+  loop = false;
+  loopStart = 0;
+  loopEnd = 0;
+  onended: (() => void) | null = null;
+  starts = 0;
+
+  start(): void {
+    this.starts++;
+  }
+
+  stop(): void {}
+}
+
+type Decode = (data: ArrayBuffer) => Promise<FakeAudioBuffer>;
+
+let decode: Decode;
+let contexts: FakeAudioContext[] = [];
+
+class FakeAudioContext {
+  state = 'running';
+  currentTime = 0;
+  readonly sampleRate = 44100;
+  readonly destination = new FakeAudioNode();
+  readonly gains: FakeGainNode[] = [];
+  readonly sources: FakeBufferSource[] = [];
+  readonly buffers: FakeAudioBuffer[] = [];
+
+  constructor() {
+    contexts.push(this);
+  }
+
+  createGain(): FakeGainNode {
+    const gain = new FakeGainNode();
+    this.gains.push(gain);
+    return gain;
+  }
+
+  createBufferSource(): FakeBufferSource {
+    const source = new FakeBufferSource();
+    this.sources.push(source);
+    return source;
+  }
+
+  createBuffer(channels: number, length: number, rate: number): FakeAudioBuffer {
+    const buffer = new FakeAudioBuffer(channels, length, rate);
+    this.buffers.push(buffer);
+    return buffer;
+  }
+
+  async resume(): Promise<void> {}
+  async close(): Promise<void> {}
+
+  async decodeAudioData(data: ArrayBuffer): Promise<FakeAudioBuffer> {
+    return decode(data);
+  }
+
+  get voiceGains(): FakeGainNode[] {
+    return this.gains.slice(1);
+  }
+}
+
+interface TestScope {
+  AudioContext?: unknown;
+  fetch?: unknown;
+}
+
+const scope = globalThis as unknown as TestScope;
+const realFetch = scope.fetch;
+
+async function flushLoad(): Promise<void> {
+  // fetch → arrayBuffer → decode/fallback is a short promise chain. Drive every
+  // link without sleeping or coupling the test to wall-clock scheduling.
+  for (let i = 0; i < 6; i++) await Promise.resolve();
+}
+
+describe('pack music failure fallback', () => {
+  beforeEach(() => {
+    contexts = [];
+    decode = async () => new FakeAudioBuffer(1, 256, 44100);
+    scope.AudioContext = FakeAudioContext;
+  });
+
+  afterEach(() => {
+    delete scope.AudioContext;
+    scope.fetch = realFetch;
+  });
+
+  for (const failure of ['fetch', 'response', 'decode'] as const) {
+    test(`${failure} failure falls back to the preserved synth exactly once`, async () => {
+      const name = unique(`fallback-${failure}`);
+      defineMusic(name, {
+        volume: 0.23,
+        loopStart: 1,
+        loopEnd: 4,
+        synth: {
+          loopSeconds: 6,
+          beatsPerLoop: 4,
+          voices: ['lead'],
+          motif: [0, 2, Number.NaN, Number.NaN],
+        },
+      });
+      replaceMusic(name, { url: `/pack/${failure}.wav` });
+
+      let fetches = 0;
+      scope.fetch = async () => {
+        fetches++;
+        if (failure === 'fetch') throw new Error('offline');
+        return {
+          ok: failure !== 'response',
+          arrayBuffer: async () => new ArrayBuffer(8),
+        };
+      };
+      if (failure === 'decode') {
+        decode = async () => {
+          throw new Error('undecodable');
+        };
+      }
+
+      const music = new Music();
+      await music.unlock();
+      music.play(name);
+      await flushLoad();
+
+      // The next normal reconcile starts the generated floor.
+      music.play(name);
+      expect(fetches).toBe(1);
+      expect(music.current).toBe(name);
+
+      const ctx = contexts[0] as FakeAudioContext;
+      expect(ctx.buffers).toHaveLength(1);
+      expect(ctx.sources).toHaveLength(1);
+      expect(ctx.sources[0]?.buffer).toBe(ctx.buffers[0]);
+      expect(ctx.voiceGains[0]?.gain.value).toBe(0.23);
+      expect(ctx.sources[0]?.loopStart).toBe(1);
+      expect(ctx.sources[0]?.loopEnd).toBe(4);
+
+      // Idempotent reconciliation cannot refetch the failed URL.
+      for (let i = 0; i < 5; i++) music.play(name);
+      expect(fetches).toBe(1);
+    });
+  }
+
+  test('a failed URL-only guest track stays silent without retrying every tick', async () => {
+    const name = unique('url-only');
+    defineMusic(name, { url: '/pack/guest.wav' });
+
+    let fetches = 0;
+    scope.fetch = async () => {
+      fetches++;
+      return { ok: false, arrayBuffer: async () => new ArrayBuffer(0) };
+    };
+
+    const music = new Music();
+    await music.unlock();
+    music.play(name);
+    await flushLoad();
+    for (let i = 0; i < 5; i++) music.play(name);
+
+    expect(fetches).toBe(1);
+    expect(music.current).toBeUndefined();
+    expect((contexts[0] as FakeAudioContext).sources).toHaveLength(0);
   });
 });
 

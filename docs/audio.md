@@ -142,9 +142,29 @@ into one, not four new events wanting decoration.
 As with art, the higher-level swap needs no editing of `src/`: an
 [asset pack](./packs.md) can carry sounds. A `pack.json` with a `sounds` object
 keyed by the registered names — the fifteen in `SOUND_NAMES`
-(`src/packs/manifest.ts`) — drops a WAV per name into `packs/<name>/`, and the
-loader re-registers each through the same `defineSound` `url` branch shown
-below. An unknown sound name is **rejected loudly** at load — `sounds."explsion"
+(`src/packs/manifest.ts`) — drops a WAV per name into `packs/<name>/`. The legacy
+value is a path string; the configured form is
+`{ file, volume?, polyphony?, throttleMs? }`, so a replacement can carry the same
+mix and repetition controls as `SoundSpec`:
+
+```json
+{
+  "sounds": {
+    "shot": "shot.wav",
+    "graze": {
+      "file": "graze.wav",
+      "volume": 0.22,
+      "polyphony": 3,
+      "throttleMs": 45
+    }
+  }
+}
+```
+
+The loader applies each through `overrideSound`: the file replaces the waveform,
+explicit object fields replace their matching settings, and omitted fields keep
+the registered sound's existing mix policy. An unknown sound name is **rejected
+loudly** at load — `sounds."explsion"
 is not a sound this game plays — valid names: …` — which closes the one gap the
 source-level route leaves open (a mistyped name registering a new, un-cued
 sound; see below). The authoring constraints in "Authoring constraints" apply to

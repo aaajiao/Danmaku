@@ -1,7 +1,7 @@
 import { test, expect, describe, beforeEach, afterEach } from 'bun:test';
 
 import { fx, sim } from '../core/random';
-import { Audio, defineSound, soundNames } from './index';
+import { Audio, defineSound, overrideSound, soundNames } from './index';
 
 /**
  * The registry is module-level and shared by every test file that imports the
@@ -512,6 +512,27 @@ describe('with WebAudio', () => {
       expect(ctx.master.gain.value).toBe(0.8);
     });
 
+    test('a partial override preserves the registered polyphony and throttle policy', async () => {
+      const name = unique('override-policy');
+      defineSound(name, { volume: 0.2, polyphony: 1, throttleMs: 50 });
+      overrideSound(name, { volume: 0.4 });
+      const { audio, ctx } = await unlocked();
+
+      audio.play(name);
+      expect((ctx.voiceGains[0] as FakeGainNode).gain.value).toBe(0.4);
+
+      // Retire the voice but stay inside the throttle window: the second play
+      // must still be rejected if the omitted policy survived the override.
+      ctx.currentTime = 1;
+      clock += 10;
+      audio.play(name);
+      expect(ctx.sources).toHaveLength(1);
+
+      clock += 50;
+      audio.play(name);
+      expect(ctx.sources).toHaveLength(2);
+    });
+
     test('a sound with no explicit volume plays at full voice gain', async () => {
       const name = unique('default-volume');
       defineSound(name, {});
@@ -938,24 +959,25 @@ describe('with WebAudio', () => {
       return release;
     }
 
-    test('fetches and decodes, then plays from the decoded buffer', async () => {
+    test('queues a cue while loading, then replays it from the decoded buffer', async () => {
       const release = serveWhenReleased();
       const name = unique('url');
       defineSound(name, { url: '/sfx/whatever.wav' });
 
       const { audio, ctx } = await unlocked();
       // The load is kicked off at unlock but never awaited — `unlock` runs
-      // inside an input handler. A play before it lands is silent by design.
+      // inside an input handler. A play before it lands waits for that sample.
       audio.play(name);
       expect(ctx.sources).toHaveLength(0);
 
       release();
       await settle();
 
+      expect(ctx.sources).toHaveLength(1);
       audio.play(name);
       expect(timesFetched('/sfx/whatever.wav')).toBe(1);
       expect(ctx.decodes).toBe(1);
-      expect(ctx.sources).toHaveLength(1);
+      expect(ctx.sources).toHaveLength(2);
     });
 
     test('never synthesises a placeholder over a url sound', async () => {
@@ -970,7 +992,19 @@ describe('with WebAudio', () => {
       expect(ctx.buffers.length).toBe(generated);
     });
 
-    test('a failed fetch leaves the sound silent and never throws', async () => {
+    test('preloading a url sample never plays it without a cue', async () => {
+      serve(new ArrayBuffer(8));
+      const name = unique('url-preload-only');
+      defineSound(name, { url: '/sfx/preload.wav' });
+
+      const { ctx } = await unlocked();
+      await settle();
+
+      expect(ctx.decodes).toBeGreaterThanOrEqual(1);
+      expect(ctx.sources).toHaveLength(0);
+    });
+
+    test('a failed fetch restores the synthesised fallback and never throws', async () => {
       scope.fetch = async () => {
         throw new Error('network down');
       };
@@ -981,10 +1015,10 @@ describe('with WebAudio', () => {
       await settle();
 
       expect(() => audio.play(name)).not.toThrow();
-      expect(ctx.sources).toHaveLength(0);
+      expect(ctx.sources).toHaveLength(1);
     });
 
-    test('a non-ok response leaves the sound silent', async () => {
+    test('a non-ok response restores the synthesised fallback', async () => {
       serve(new ArrayBuffer(8), false);
       const name = unique('url-404');
       defineSound(name, { url: '/sfx/gone.wav' });
@@ -994,10 +1028,10 @@ describe('with WebAudio', () => {
 
       audio.play(name);
       expect(ctx.decodes).toBe(0);
-      expect(ctx.sources).toHaveLength(0);
+      expect(ctx.sources).toHaveLength(1);
     });
 
-    test('a decode failure leaves the sound silent', async () => {
+    test('a decode failure restores the synthesised fallback', async () => {
       serve(new ArrayBuffer(8));
       options.decode = async () => {
         throw new Error('not audio');
@@ -1009,10 +1043,10 @@ describe('with WebAudio', () => {
       await settle();
 
       expect(() => audio.play(name)).not.toThrow();
-      expect(ctx.sources).toHaveLength(0);
+      expect(ctx.sources).toHaveLength(1);
     });
 
-    test('repeated plays while loading do not stack fetches', async () => {
+    test('repeated plays while loading collapse to one replay and one fetch', async () => {
       const release = serveWhenReleased();
       const name = unique('url-single-flight');
       defineSound(name, { url: '/sfx/once.wav', throttleMs: 0, polyphony: 16 });
@@ -1024,6 +1058,22 @@ describe('with WebAudio', () => {
       await settle();
 
       expect(timesFetched('/sfx/once.wav')).toBe(1);
+      expect(context().sources).toHaveLength(1);
+    });
+
+    test('stopAll cancels a cue waiting on a url sample', async () => {
+      const release = serveWhenReleased();
+      const name = unique('url-cancel-pending');
+      defineSound(name, { url: '/sfx/cancel.wav' });
+
+      const { audio, ctx } = await unlocked();
+      audio.play(name);
+      audio.stopAll();
+      release();
+      await settle();
+
+      expect(timesFetched('/sfx/cancel.wav')).toBe(1);
+      expect(ctx.sources).toHaveLength(0);
     });
   });
 
