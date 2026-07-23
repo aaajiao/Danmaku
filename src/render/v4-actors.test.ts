@@ -33,6 +33,30 @@ describe('v4 actor ledger', () => {
     expect(deaths.every((name) => name?.startsWith('boss.death.'))).toBeTrue();
   });
 
+  test('the shipped pack strip names exactly match the runtime actor ledger', async () => {
+    const manifest = await Bun.file(
+      new URL('../../packs/v4/pack.json', import.meta.url),
+    ).json() as {
+      assets: {
+        actors: {
+          players: { strips: Record<string, unknown> };
+          enemies: { strips: Record<string, unknown> };
+          bosses: { strips: Record<string, unknown> };
+        };
+      };
+    };
+
+    expect(Object.keys(manifest.assets.actors.players.strips)).toEqual(
+      Object.values(V4_PLAYER_ACTORS).map((actor) => actor.strip),
+    );
+    expect(Object.keys(manifest.assets.actors.enemies.strips)).toEqual(
+      Object.values(V4_ENEMY_ACTORS).map((actor) => actor.strip),
+    );
+    expect(Object.keys(manifest.assets.actors.bosses.strips)).toEqual(
+      Object.values(V4_BOSS_ACTORS).map((actor) => actor.strip),
+    );
+  });
+
   test('narrow contact actors use display boxes whose painted width covers their hit circle', () => {
     // Alpha bounds are measured from the committed atlases in
     // tools/v4-actor-atlas.test.ts. These ratios turn those source pixels into

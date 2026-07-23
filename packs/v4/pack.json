@@ -1,7 +1,7 @@
 {
   "format": 1,
   "name": "v4",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "author": "Danmaku project",
   "license": "LicenseRef-Danmaku-Project-Owned",
   "description": "Original v4 Japanese-STG presentation pack: player, enemy and corrected Boss actor atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",

@@ -316,7 +316,9 @@ function containsRgb(image: DecodedImage, rgb: readonly [number, number, number]
 }
 
 describe('generated output and exact manifest', () => {
-  test('every committed file is byte-identical to the generator output', () => {
+  test('the committed tree is the exact generator inventory and every file is byte-identical', () => {
+    expect(diskFiles(V4_PACK_DIR)).toEqual([...build.files.keys()].sort());
+
     for (const [relative, generated] of build.files) {
       const committed = readFileSync(join(V4_PACK_DIR, relative));
       const expected = typeof generated === 'string' ? Buffer.from(generated) : Buffer.from(generated);
@@ -326,7 +328,7 @@ describe('generated output and exact manifest', () => {
   });
 
   test('category ledgers are complete, exact and project-owned', () => {
-    expect(build.manifest.version).toBe('4.4.0');
+    expect(build.manifest.version).toBe('4.4.1');
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);

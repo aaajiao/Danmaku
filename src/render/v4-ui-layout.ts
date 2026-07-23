@@ -7,6 +7,8 @@
  * All sizes are authored for the fixed 480×640 play field.
  */
 
+import type { Region } from './atlas';
+
 export const V4_UI_ATLAS_WIDTH = 1024;
 // Rows 0-255 retain the original procedural vocabulary byte-for-byte in
 // layout.  The lower 512px hold production ornaments cut from the committed
@@ -114,6 +116,51 @@ export const V4_UI_SCREEN = {
   status: { x: 90, y: 102, w: 300, h: 436 },
   dialogue: { x: 12, y: 464, w: 456, h: 164 },
 } as const;
+
+const V4_PLAYER_ACTOR_REFERENCE_FRAME = 128;
+
+function scaledActorCropAxis(
+  origin: number,
+  extent: number,
+  referenceStart: number,
+  referenceExtent: number,
+): { start: number; extent: number } {
+  const boundedExtent = Math.max(1, Math.floor(extent));
+  const localStart = Math.max(
+    0,
+    Math.min(
+      boundedExtent - 1,
+      Math.floor(referenceStart * boundedExtent / V4_PLAYER_ACTOR_REFERENCE_FRAME),
+    ),
+  );
+  const localEnd = Math.max(
+    localStart + 1,
+    Math.min(
+      boundedExtent,
+      Math.ceil(
+        (referenceStart + referenceExtent) *
+          boundedExtent /
+          V4_PLAYER_ACTOR_REFERENCE_FRAME,
+      ),
+    ),
+  );
+  return { start: origin + localStart, extent: localEnd - localStart };
+}
+
+/**
+ * Scale the accepted 128px player-preview crop into any self-described frame.
+ *
+ * Pack actor sheets are resolution-independent. Keeping the reference crop as
+ * ratios prevents a legal 64px frame from sampling its neighbour and lets a
+ * supersampled frame retain the same authored composition. Floor/ceil preserve
+ * coverage; the final bounds are always wholly inside `frame`.
+ */
+export function v4CharacterActorSource(frame: Region): Region {
+  const reference = V4_UI_SCREEN.character.actorSource;
+  const x = scaledActorCropAxis(frame.x, frame.w, reference.x, reference.w);
+  const y = scaledActorCropAxis(frame.y, frame.h, reference.y, reference.h);
+  return { x: x.start, y: y.start, w: x.extent, h: y.extent };
+}
 
 /** Five playable identities, shared by crests, menus and dialogue accents. */
 export const V4_CHARACTER_UI = {

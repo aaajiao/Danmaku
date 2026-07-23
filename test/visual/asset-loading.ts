@@ -54,6 +54,7 @@ import {
   LASER_STRIPS,
   MAX_CELL_EXTENT,
 } from '../../src/render/procedural';
+import { loadV4ActorAtlases } from '../../src/render/v4-actors';
 import { Audio, defineSound, soundNames } from '../../src/audio';
 
 /* ------------------------------------------------------------------ */
@@ -91,6 +92,15 @@ import ONE_PIXEL_URL from '../fixtures/one-pixel.png';
 import BLIP_URL from '../fixtures/blip.wav';
 // @ts-expect-error no ambient declaration for *.wav
 import STEREO_URL from '../fixtures/stereo.wav';
+// These are the committed pack files. This standalone visual page runs under a
+// bare Bun entry server, so asset imports are the repository's bundler-safe way
+// to obtain browser URLs without a source-path fetch returning the HTML entry.
+// @ts-expect-error no ambient declaration for *.png
+import PLAYER_ACTORS_URL from '../../packs/v4/actors/players.png';
+// @ts-expect-error no ambient declaration for *.png
+import ENEMY_ACTORS_URL from '../../packs/v4/actors/enemies.png';
+// @ts-expect-error no ambient declaration for *.png
+import BOSS_ACTORS_URL from '../../packs/v4/actors/bosses.png';
 
 /**
  * The 16 cell colours of `grid-8x2.png`, in cell order.
@@ -1000,6 +1010,254 @@ if (!sheetCtx) {
       `deliberately filled halo measures ${violated.w}x${violated.h}, margin ${violated.margin}px, below the ${MIN_MARGIN}px floor`,
     );
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* The committed v4 actor sheets: real PNG → Atlas → SpriteBatch       */
+/* ------------------------------------------------------------------ */
+
+section('v4 pack actor sheets — frame UV and top-down orientation through WebGL');
+
+const actorAtlases = await loadV4ActorAtlases({
+  players: {
+    url: PLAYER_ACTORS_URL,
+    strips: {
+      'actor.player.scout': {
+        x: 0,
+        y: 0,
+        frameW: 128,
+        frameH: 128,
+        frames: 5,
+        stride: 128,
+        ticksPerFrame: 1,
+        mode: 'once',
+        color: 'baked',
+      },
+    },
+  },
+  enemies: {
+    url: ENEMY_ACTORS_URL,
+    strips: {
+      'actor.enemy.hunter': {
+        x: 512,
+        y: 256,
+        frameW: 128,
+        frameH: 128,
+        frames: 4,
+        stride: 128,
+        ticksPerFrame: 8,
+        mode: 'loop',
+        color: 'baked',
+      },
+    },
+  },
+  bosses: {
+    url: BOSS_ACTORS_URL,
+    strips: {
+      'actor.boss.magistrate': {
+        x: 0,
+        y: 384,
+        frameW: 192,
+        frameH: 192,
+        frames: 5,
+        stride: 192,
+        ticksPerFrame: 12,
+        mode: 'loop',
+        color: 'baked',
+      },
+    },
+  },
+});
+
+interface ActorReadbackCase {
+  readonly family: 'players' | 'enemies' | 'bosses';
+  readonly atlas: Atlas;
+  readonly strip: string;
+  readonly frame: number;
+  readonly expectedSheet: readonly [width: number, height: number];
+  readonly expectedRect: Readonly<{ x: number; y: number; w: number; h: number }>;
+}
+
+const actorCases: readonly ActorReadbackCase[] = [
+  {
+    family: 'players',
+    atlas: actorAtlases.players!,
+    strip: 'actor.player.scout',
+    frame: 2,
+    expectedSheet: [640, 640],
+    expectedRect: { x: 256, y: 0, w: 128, h: 128 },
+  },
+  {
+    family: 'enemies',
+    atlas: actorAtlases.enemies!,
+    strip: 'actor.enemy.hunter',
+    frame: 2,
+    expectedSheet: [1024, 1024],
+    expectedRect: { x: 768, y: 256, w: 128, h: 128 },
+  },
+  {
+    family: 'bosses',
+    atlas: actorAtlases.bosses!,
+    strip: 'actor.boss.magistrate',
+    frame: 2,
+    expectedSheet: [960, 960],
+    expectedRect: { x: 384, y: 384, w: 192, h: 192 },
+  },
+];
+
+check(
+  'the three actor families decode from three independent pack textures',
+  actorCases.every(({ atlas, expectedSheet }) =>
+    atlas.width === expectedSheet[0] && atlas.height === expectedSheet[1]
+  ) && new Set(actorCases.map(({ atlas }) => atlas.texture)).size === actorCases.length,
+  actorCases
+    .map(({ family, atlas }) => `${family}=${atlas.width}x${atlas.height}`)
+    .join(', '),
+);
+
+interface ActorProbe {
+  readonly x: number;
+  readonly y: number;
+  readonly expected: RGB;
+  readonly opposite: RGB;
+  readonly separation: number;
+}
+
+function sourceRgb(
+  data: Uint8ClampedArray,
+  width: number,
+  x: number,
+  y: number,
+): readonly [r: number, g: number, b: number, a: number] {
+  const at = (y * width + x) * 4;
+  return [data[at]!, data[at + 1]!, data[at + 2]!, data[at + 3]!];
+}
+
+function sourceOverBlack(
+  pixel: readonly [r: number, g: number, b: number, a: number],
+): RGB {
+  const rgb = transferred(transfer, [pixel[0], pixel[1], pixel[2]]);
+  const alpha = pixel[3] / 255;
+  return [
+    Math.round(rgb[0] * alpha),
+    Math.round(rgb[1] * alpha),
+    Math.round(rgb[2] * alpha),
+  ];
+}
+
+/**
+ * Pick a fully opaque source texel whose opposite-axis texel is maximally
+ * different. The probe is selected from decoded source pixels but judged
+ * through WebGL, so a flipped Y, mirrored X, wrong frame or wrong texture
+ * cannot agree with both paths.
+ */
+function actorProbe(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  axis: 'x' | 'y',
+): ActorProbe | undefined {
+  let best: ActorProbe | undefined;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const source = sourceRgb(data, width, x, y);
+      if (source[3] !== 255) continue;
+      const oppositeX = axis === 'x' ? width - 1 - x : x;
+      const oppositeY = axis === 'y' ? height - 1 - y : y;
+      const expected = sourceOverBlack(source);
+      const opposite = sourceOverBlack(sourceRgb(data, width, oppositeX, oppositeY));
+      const separation = distance(expected, opposite);
+      if (best === undefined || separation > best.separation) {
+        best = { x, y, expected, opposite, separation };
+      }
+    }
+  }
+  return best;
+}
+
+const ACTOR_ORIGIN_X = 96;
+const ACTOR_ORIGIN_Y = 48;
+const ACTOR_PROBE_MIN_SEPARATION = 48;
+
+for (const actorCase of actorCases) {
+  const { family, atlas, strip, frame, expectedRect } = actorCase;
+  const resolved = atlas.frameOf(atlas.strip(strip), frame);
+  check(
+    `${family} actor frame resolves the declared pack UV rectangle`,
+    resolved.x === expectedRect.x &&
+      resolved.y === expectedRect.y &&
+      resolved.w === expectedRect.w &&
+      resolved.h === expectedRect.h,
+    `frame ${frame} → ${resolved.x},${resolved.y} ${resolved.w}x${resolved.h}; ` +
+      `expected ${expectedRect.x},${expectedRect.y} ${expectedRect.w}x${expectedRect.h}`,
+  );
+
+  const image = atlas.texture.image as CanvasImageSource;
+  const source = document.createElement('canvas');
+  source.width = atlas.width;
+  source.height = atlas.height;
+  const sourceCtx = source.getContext('2d');
+  if (sourceCtx === null) {
+    check(`${family} actor source pixels are readable`, false, 'no 2D canvas context');
+    continue;
+  }
+  sourceCtx.drawImage(image, 0, 0);
+  const framePixels = sourceCtx.getImageData(
+    resolved.x,
+    resolved.y,
+    resolved.w,
+    resolved.h,
+  );
+  const xProbe = actorProbe(framePixels.data, resolved.w, resolved.h, 'x');
+  const yProbe = actorProbe(framePixels.data, resolved.w, resolved.h, 'y');
+  if (xProbe === undefined || yProbe === undefined) {
+    check(`${family} actor frame supplies opaque readback probes`, false, 'no opaque probe found');
+    continue;
+  }
+
+  const batch = new SpriteBatch(atlas, { capacity: 1 });
+  pass(batch, (b) => {
+    b.draw(
+      ACTOR_ORIGIN_X + resolved.w / 2,
+      ACTOR_ORIGIN_Y + resolved.h / 2,
+      resolved,
+    );
+  });
+  const readX = readPixel(
+    ACTOR_ORIGIN_X + xProbe.x,
+    ACTOR_ORIGIN_Y + xProbe.y,
+  );
+  const readY = readPixel(
+    ACTOR_ORIGIN_X + yProbe.x,
+    ACTOR_ORIGIN_Y + yProbe.y,
+  );
+  const measuredX: RGB = [readX[0], readX[1], readX[2]];
+  const measuredY: RGB = [readY[0], readY[1], readY[2]];
+  const xResidual = distance(measuredX, xProbe.expected);
+  const yResidual = distance(measuredY, yProbe.expected);
+  const yMirrorResidual = distance(measuredY, yProbe.opposite);
+
+  check(
+    `${family} actor WebGL readback samples the selected texture and frame`,
+    xProbe.separation >= ACTOR_PROBE_MIN_SEPARATION &&
+      xResidual <= RESIDUAL_LIMIT &&
+      yResidual <= RESIDUAL_LIMIT,
+    `x probe separation ${xProbe.separation.toFixed(1)}, residual ${xResidual.toFixed(1)}; ` +
+      `y residual ${yResidual.toFixed(1)}`,
+  );
+  check(
+    `${family} actor WebGL readback keeps PNG top-to-bottom orientation`,
+    yProbe.separation >= ACTOR_PROBE_MIN_SEPARATION &&
+      yResidual <= RESIDUAL_LIMIT &&
+      yResidual < yMirrorResidual,
+    `top-down residual ${yResidual.toFixed(1)}, vertically flipped residual ` +
+      `${yMirrorResidual.toFixed(1)}, probe separation ${yProbe.separation.toFixed(1)}`,
+  );
+  lines.push(
+    `  ${family.padEnd(8)} ${strip} frame ${frame}: ` +
+      `x probe (${xProbe.x},${xProbe.y}) rgb(${measuredX.join(', ')}), ` +
+      `y probe (${yProbe.x},${yProbe.y}) rgb(${measuredY.join(', ')})`,
+  );
 }
 
 /* ------------------------------------------------------------------ */

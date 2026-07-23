@@ -24,15 +24,22 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Formal music tracks (5 with one-shot intro) | 13 | `audio/music/*.wav` |
 | Gameplay + menu cues | 25 | `audio/sfx/*.wav` |
 
-Every animation strip remains horizontally contiguous. Multi-strip sheets use
-a deterministic first-fit shelf layout, avoiding transparent full-width rows
-without changing frame order, names or sampling geometry.
+Every animation strip remains horizontally contiguous. The generated
+projectile/effect multi-strip sheets use a deterministic first-fit shelf
+layout, avoiding transparent full-width rows without changing frame order,
+names or sampling geometry.
 
 The Boss atlas is compiled from the isolated 25-pose master recorded in
 `docs/art/v4/originals-manifest.json` (SHA-256
 `a347c84259269c10b21100534c45614a71b307a7ae6eab240e7eeb456e8d18e7`). The compiler assigns connected foreground
 components to semantic poses before scaling them into 192px frames with 8px
 transparent gutters. It never slices the irregular source at equal fifths.
+
+The accepted compiled player and enemy sources are copied losslessly and
+hash-locked before packing:
+
+- player source SHA-256: `d7fa83a97b902cf2b172b526d2d8e04299a881b4e2ae13d34fd70cb902de16b6`
+- enemy source SHA-256: `6d983297919338dc0bd9857531bf039f5b8503bf3f331030a2d060d0f670a957`
 
 The procedural `pulse` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native

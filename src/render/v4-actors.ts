@@ -70,6 +70,8 @@ export interface ActorStripInput {
   readonly ticksPerFrame?: number;
   readonly mode?: 'loop' | 'once';
   readonly color?: 'tinted' | 'baked';
+  readonly contentW?: number;
+  readonly contentH?: number;
 }
 
 export interface ActorSheetInput {
@@ -103,6 +105,8 @@ async function loadActorAtlas(input: ActorSheetInput | undefined): Promise<Atlas
       ticksPerFrame: strip.ticksPerFrame ?? 1,
       mode: strip.mode ?? 'once',
       color: strip.color,
+      contentW: strip.contentW,
+      contentH: strip.contentH,
     });
   }
   return atlas;

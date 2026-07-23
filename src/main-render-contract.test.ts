@@ -243,8 +243,11 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     const characterSource = mainSource.slice(characterStart, difficultyStart);
 
     expect(characterSource).toContain('const characterLayout = V4_UI_SCREEN.character');
-    expect(characterSource).toContain('frame.x + source.x');
-    expect(characterSource).toContain('frame.y + source.y');
+    expect(characterSource).toContain('const source = v4CharacterActorSource(frame)');
+    expect(characterSource).toContain('source.x,');
+    expect(characterSource).toContain('source.y,');
+    expect(characterSource).not.toContain('frame.x + source.x');
+    expect(characterSource).not.toContain('frame.y + source.y');
     expect(characterSource).toContain('actor.x,');
     expect(characterSource).toContain("drawV4Ui(surface, v4Ui, 'ui.character.frame'");
     expect(characterSource).not.toContain('46,\n        142,\n        178,\n        178');

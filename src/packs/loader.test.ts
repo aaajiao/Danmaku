@@ -4,6 +4,7 @@ import {
   implicitArtPack,
   laserBodyAllowsLongAxisFill,
   loadPacks,
+  measureActorStripFrames,
   measureStripFrames,
   shouldSurfacePackReport,
 } from './loader';
@@ -26,12 +27,14 @@ const ORIGINAL_FETCH = globalThis.fetch;
 const ORIGINAL_IMAGE = globalThis.Image;
 const ORIGINAL_DOCUMENT = globalThis.document;
 const ORIGINAL_LOG = console.log;
+const ORIGINAL_WARN = console.warn;
 
 afterEach(() => {
   globalThis.fetch = ORIGINAL_FETCH;
   globalThis.Image = ORIGINAL_IMAGE;
   globalThis.document = ORIGINAL_DOCUMENT;
   console.log = ORIGINAL_LOG;
+  console.warn = ORIGINAL_WARN;
 });
 
 describe('laser-body seam exception', () => {
@@ -85,6 +88,162 @@ describe('laser-body seam exception', () => {
   });
 });
 
+describe('actor frame gates', () => {
+  const strip = {
+    frames: 1,
+    frameW: 8,
+    frameH: 8,
+    stride: 8,
+    color: 'baked' as const,
+  };
+
+  function painted(
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    width = 8,
+  ): Uint8ClampedArray {
+    const data = new Uint8ClampedArray(width * 8 * 4);
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        data[(y * width + x) * 4 + 3] = 255;
+      }
+    }
+    return data;
+  }
+
+  test('rejects each fully transparent frame, not only an empty whole strip', () => {
+    const data = painted({ minX: 2, maxX: 5, minY: 2, maxY: 5 }, 16);
+    const reasons: string[] = [];
+    measureActorStripFrames(
+      'p',
+      'actors.png',
+      'actor.player.test',
+      { ...strip, frames: 2 },
+      data,
+      16,
+      0,
+      0,
+      reasons,
+    );
+    expect(reasons).toEqual([
+      'pack "p": actors.png: strip "actor.player.test" frame 1 has no painted pixels — actor frames must not be empty',
+    ]);
+  });
+
+  test('accepts a frame whose four independent gutters are at least two pixels', () => {
+    const reasons: string[] = [];
+    measureActorStripFrames(
+      'p',
+      'actors.png',
+      'actor.player.test',
+      strip,
+      painted({ minX: 2, maxX: 5, minY: 2, maxY: 5 }),
+      8,
+      0,
+      0,
+      reasons,
+    );
+    expect(reasons).toEqual([]);
+  });
+
+  test('checks left, right, top and bottom gutters independently', () => {
+    const cases = [
+      ['left', { minX: 1, maxX: 5, minY: 2, maxY: 5 }],
+      ['right', { minX: 2, maxX: 6, minY: 2, maxY: 5 }],
+      ['top', { minX: 2, maxX: 5, minY: 1, maxY: 5 }],
+      ['bottom', { minX: 2, maxX: 5, minY: 2, maxY: 6 }],
+    ] as const;
+
+    for (const [side, bounds] of cases) {
+      const reasons: string[] = [];
+      measureActorStripFrames(
+        'p',
+        'actors.png',
+        'actor.player.test',
+        strip,
+        painted(bounds),
+        8,
+        0,
+        0,
+        reasons,
+      );
+      expect(reasons, side).toHaveLength(1);
+      expect(reasons[0], side).toContain(`clears 1px on its ${side} edge`);
+    }
+  });
+});
+
+describe('actor sheet loading', () => {
+  test('rejects a pack when a declared actor frame is fully transparent', async () => {
+    const name = 'transparent-actor-test';
+    const manifest = {
+      format: 1,
+      name,
+      version: '1.0.0',
+      author: 'Test',
+      license: 'CC0-1.0',
+      assets: {
+        actors: {
+          players: {
+            sheet: 'actors.png',
+            strips: {
+              'actor.player.test': {
+                x: 0,
+                y: 0,
+                frameW: 8,
+                frameH: 8,
+                frames: 1,
+                color: 'baked',
+              },
+            },
+          },
+        },
+      },
+    } as const;
+    const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));
+    const imageBytes = new Uint8Array([137, 80, 78, 71]);
+    const warnings: string[] = [];
+
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/packs/index.json') return new Response(JSON.stringify([name]));
+      if (url === `/packs/${name}/pack.json`) return new Response(manifestBytes);
+      if (url === `/packs/${name}/actors.png`) return new Response(imageBytes);
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch;
+
+    class TestImage {
+      naturalWidth = 8;
+      naturalHeight = 8;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_url: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    globalThis.Image = TestImage as unknown as typeof Image;
+    globalThis.document = {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          drawImage: () => undefined,
+          getImageData: () => ({ data: new Uint8ClampedArray(8 * 8 * 4) }),
+        }),
+      }),
+    } as unknown as Document;
+    console.warn = (...args: unknown[]) => warnings.push(args.join(' '));
+
+    const loaded = await loadPacks();
+
+    expect(loaded.actors).toBeUndefined();
+    expect(loaded.packsMeta).toBe('');
+    expect(warnings.join('\n')).toContain(
+      'strip "actor.player.test" frame 0 has no painted pixels',
+    );
+  });
+});
+
 describe('shared PackStrip loading', () => {
   test('one URL is fetched, decoded and hashed once while every strip keeps its own winner geometry', async () => {
     const name = 'shared-runtime-test';
@@ -107,6 +266,8 @@ describe('shared PackStrip loading', () => {
                 frameH: 6,
                 mode: 'once',
                 color: 'baked',
+                contentW: 4,
+                contentH: 4,
               },
             },
           },
@@ -248,6 +409,8 @@ describe('shared PackStrip loading', () => {
           ticksPerFrame: undefined,
           mode: 'once',
           color: 'baked',
+          contentW: 4,
+          contentH: 4,
         },
       },
     });

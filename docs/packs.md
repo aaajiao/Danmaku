@@ -54,9 +54,9 @@ manifest reference in the meantime.
 
 A pack **can** replace, as a reskin:
 
-- the **bullet sheet** — all sixteen 32×32 cells the whole game draws from
-  (bullets, enemies, the boss, items and particle effects all wear these cells;
-  see `docs/assets.md` §3.1);
+- the **bullet sheet** — all sixteen 32×32 floor cells used by bullets, items
+  and particle effects, plus the enemy/Boss presentation when its actor family
+  is absent (see `docs/assets.md` §3.1);
 - the **player ship** sprite;
 - three independent **actor sheets** — playable characters, enemies and bosses;
 - any of the twenty-five **sounds** the game plays;
@@ -335,11 +335,12 @@ plus explicitly placed horizontal strips:
 ```
 
 `x` and `y` are required. The loader never guesses a grid: every declared frame
-is bounds-checked against the decoded PNG and must keep the same transparent
-seam margin as other native strips. A family that is absent, fails to load, or
-does not contain the strip a built-in actor expects uses the ordinary
-ship/bullet presentation instead. Actor sheets stay on normal-blend textures of
-their own and never enter the high-capacity projectile batch.
+is bounds-checked against the decoded PNG, must contain painted pixels, and must
+keep at least two transparent pixels on each of its four edges independently.
+A family that is absent, fails to load, or does not contain the strip a built-in
+actor expects uses the ordinary ship/bullet presentation instead. Actor sheets
+stay on normal-blend textures of their own and never enter the high-capacity
+projectile batch.
 
 ### 5.3 `sounds.<name>` — a replaced sound
 
@@ -751,6 +752,10 @@ skips it):
   `pack "<name>": <path>: strip "<strip>" sheet is <w>×<h>, expected <frames·frameW>×<frameH> (<frames> frames of <frameW>×<frameH>)`
 - A strip frame paints past its margin:
   `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>×<ey>px, over the <frameW-2*PAD>×<frameH-2*PAD>px limit — a frame must clear 2px of margin on both axes or it bleeds into the next frame`
+- An actor frame is empty:
+  `pack "<name>": <path>: strip "<strip>" frame <i> has no painted pixels — actor frames must not be empty`
+- An actor frame is too close to one of its four edges:
+  `pack "<name>": <path>: strip "<strip>" frame <i> clears <n>px on its <left|right|top|bottom> edge, expected at least 2px — actor frames need an independent transparent gutter on every side`
 - A registered laser body paints past its **cross-axis** margin (its +x limit is
   `frameW`, deliberately):
   `pack "<name>": <path>: strip "<strip>" frame <i> paints <ex>×<ey>px, over the <frameW>×<frameH-2*PAD>px limit — a registered laser body may fill its +x axis, but must clear 2px of cross-axis margin`

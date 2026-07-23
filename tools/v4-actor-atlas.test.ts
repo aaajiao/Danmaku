@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test';
+import { createHash } from 'node:crypto';
 import { V4_UI_SCREEN } from '../src/render/v4-ui-layout';
 import { decodePng } from './png-decode';
 import {
   V4_BOSS_ACTOR_NAMES,
   V4_ENEMY_ACTOR_NAMES,
   V4_PLAYER_ACTOR_NAMES,
-  buildV4BossActorAtlas,
+  buildV4BossActorAtlasWithAudit,
 } from './v4-actor-assets';
 
 interface SheetSpec {
@@ -52,6 +53,16 @@ const SHEETS: readonly SheetSpec[] = [
     semanticStrip: 5,
   },
 ];
+
+const V4_BOSS_ACTOR_ATLAS_SHA256 =
+  'ed0f0bcfadaf4e07c24006a8c716f8e5d67086bd3d7ad30451479cac25f8e814';
+const V4_BOSS_RUNTIME_ANCHORS = [
+  [96, 94],
+  [96, 97],
+  [96, 89],
+  [96, 93],
+  [96, 103],
+] as const;
 
 function frameAlpha(
   rgba: Uint8Array,
@@ -109,8 +120,53 @@ describe('compiled v4 Ghost actor atlases', () => {
 
   test('committed Boss sheet is a byte-exact rebuild of the isolation master', async () => {
     const committed = await Bun.file(SHEETS[2]!.url).bytes();
-    const rebuilt = buildV4BossActorAtlas();
-    expect(Buffer.compare(Buffer.from(committed), Buffer.from(rebuilt))).toBe(0);
+    const rebuilt = buildV4BossActorAtlasWithAudit();
+    expect(Buffer.compare(Buffer.from(committed), Buffer.from(rebuilt.bytes))).toBe(0);
+    expect(createHash('sha256').update(rebuilt.bytes).digest('hex')).toBe(
+      V4_BOSS_ACTOR_ATLAS_SHA256,
+    );
+  });
+
+  test('Boss compilation preserves thresholded foreground and one fixed anchor per identity', () => {
+    const rebuilt = buildV4BossActorAtlasWithAudit();
+    expect(rebuilt.sourceForegroundPixels).toBe(414_898);
+    expect(rebuilt.assignedForegroundPixels).toBe(rebuilt.sourceForegroundPixels);
+    expect(rebuilt.placements).toHaveLength(25);
+    expect(
+      rebuilt.placements.reduce((sum, placement) => sum + placement.sourcePixels, 0),
+    ).toBe(rebuilt.sourceForegroundPixels);
+
+    for (let row = 0; row < 5; row++) {
+      const poses = rebuilt.placements.slice(row * 5, row * 5 + 5);
+      const anchorXs = poses.map((pose) => pose.anchorX);
+      const anchorYs = poses.map((pose) => pose.anchorY);
+      expect(
+        poses.map((pose) => [pose.anchorX, pose.anchorY]),
+      ).toEqual(Array.from({ length: 5 }, () => [...V4_BOSS_RUNTIME_ANCHORS[row]!]));
+      expect(
+        Math.max(...anchorXs) - Math.min(...anchorXs),
+        `Boss row ${row} x pivot`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.max(...anchorYs) - Math.min(...anchorYs),
+        `Boss row ${row} y pivot`,
+      ).toBeLessThanOrEqual(1);
+
+      for (const pose of poses) {
+        const frameX = pose.destX - pose.column * 192;
+        const frameY = pose.destY - pose.row * 192;
+        expect(frameX, `Boss pose ${pose.pose} left gutter`).toBeGreaterThanOrEqual(8);
+        expect(frameY, `Boss pose ${pose.pose} top gutter`).toBeGreaterThanOrEqual(8);
+        expect(
+          frameX + pose.destW,
+          `Boss pose ${pose.pose} right gutter`,
+        ).toBeLessThanOrEqual(184);
+        expect(
+          frameY + pose.destH,
+          `Boss pose ${pose.pose} bottom gutter`,
+        ).toBeLessThanOrEqual(184);
+      }
+    }
   });
 
   for (const spec of SHEETS) {

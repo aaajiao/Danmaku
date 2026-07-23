@@ -966,6 +966,13 @@ dimensions do not divide evenly by the cell size, and a 1×1 image. Run it after
 any change to `Atlas`, `loadTexture` or the grid. A UV error found here would
 otherwise present as your art looking wrong.
 
+The same page also loads the committed v4 player, enemy and Boss actor sheets
+through their self-describing strip path, draws one nontrivial frame from each
+at 1:1, and compares asymmetric source probes with the WebGL framebuffer. This
+is the durable check for the three independent textures, strip offsets and
+top-down PNG orientation; visual quality and in-game scale still belong to
+`bun run dev`.
+
 **`bun run test:density` is the one that judges the art.** It drives a real
 `BulletSystem` through the real v4 emitters in
 `src/v4/gameplay/patterns.ts` to a target

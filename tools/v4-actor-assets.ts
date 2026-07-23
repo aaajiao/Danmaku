@@ -6,11 +6,11 @@
  * is visually gridded, but several tall poses cross mathematical fifths of the
  * image, so equal-width/equal-height crops are expressly forbidden here.
  *
- * Instead, every non-black source pixel is assigned through its connected
- * foreground component to one of the 25 known pose centres. The only touching
- * pair (magistrate close / chancellor neutral) is separated at the measured
- * black-valley row. Each Boss identity then shares one scale across all five
- * poses, is bottom-aligned, and clears an 8px transparent gutter in its 192px
+ * Instead, every thresholded foreground pixel is assigned through its connected
+ * component to one of the 25 known pose centres. The only touching pair
+ * (magistrate close / chancellor neutral) is separated at the measured
+ * black-valley row. Each Boss identity then shares one scale and source anchor
+ * across all five poses and clears an 8px transparent gutter in its 192px
  * runtime frame. Forward area binning means every assigned source pixel
  * contributes to the compiled atlas; thin roots and chains cannot disappear
  * between nearest-neighbour samples.
@@ -31,6 +31,10 @@ import { ColourType, encodePng, parsePng } from './png';
 const ROOT = join(import.meta.dir, '..');
 const PLAYER_SOURCE = join(ROOT, 'src', 'assets', 'v4', 'actors-player-v4.png');
 const ENEMY_SOURCE = join(ROOT, 'src', 'assets', 'v4', 'actors-enemies-v4.png');
+export const V4_PLAYER_ACTOR_SOURCE_SHA256 =
+  'd7fa83a97b902cf2b172b526d2d8e04299a881b4e2ae13d34fd70cb902de16b6';
+export const V4_ENEMY_ACTOR_SOURCE_SHA256 =
+  '6d983297919338dc0bd9857531bf039f5b8503bf3f331030a2d060d0f670a957';
 export const V4_BOSS_ATLAS_MASTER = join(
   ROOT,
   'docs',
@@ -80,10 +84,13 @@ export const V4_BOSS_ACTOR_NAMES = [
 
 const BOSS_SOURCE_X = [104, 344, 582, 830, 1082] as const;
 const BOSS_SOURCE_Y = [150, 423, 667, 920, 1149] as const;
+const BOSS_SOURCE_WIDTH = 1254;
+const BOSS_SOURCE_HEIGHT = 1254;
 const BOSS_TOUCH_SPLIT_Y = 800;
 const BOSS_FRAME = 192;
 const BOSS_GUTTER = 8;
 const BOSS_INNER = BOSS_FRAME - BOSS_GUTTER * 2;
+const BOSS_RUNTIME_ANCHOR = BOSS_FRAME / 2;
 // The generated RGB master carries a faint 1–11/255 compression haze across
 // nominal black. Treating that haze as foreground joins distant poses through
 // the background; 12 is the first stable component threshold.
@@ -111,6 +118,26 @@ interface Bounds {
 export interface V4ActorAssetsBuild {
   readonly assets: PackActorAssets;
   readonly files: ReadonlyMap<string, Uint8Array>;
+}
+
+export interface V4BossPosePlacement {
+  readonly pose: number;
+  readonly row: number;
+  readonly column: number;
+  readonly sourcePixels: number;
+  readonly destX: number;
+  readonly destY: number;
+  readonly destW: number;
+  readonly destH: number;
+  readonly anchorX: number;
+  readonly anchorY: number;
+}
+
+export interface V4BossActorAtlasBuild {
+  readonly bytes: Uint8Array;
+  readonly sourceForegroundPixels: number;
+  readonly assignedForegroundPixels: number;
+  readonly placements: readonly V4BossPosePlacement[];
 }
 
 function actorStrip(
@@ -257,8 +284,9 @@ function nearestPose(cx: number, cy: number): number {
   let bestDistance = Infinity;
   for (let row = 0; row < 5; row++) {
     for (let column = 0; column < 5; column++) {
-      // Source spacing is close to square. Normalising both axes makes the
-      // assignment stable if a future accepted master changes resolution.
+      // Source spacing is close to square. Normalising both axes keeps X and Y
+      // distances comparable; the accepted master's exact dimensions are
+      // guarded before these absolute authored centres are used.
       const dx = (cx - BOSS_SOURCE_X[column]!) / 240;
       const dy = (cy - BOSS_SOURCE_Y[row]!) / 250;
       const distance = dx * dx + dy * dy;
@@ -332,37 +360,173 @@ function boundsByPose(assignment: Int8Array, width: number): Bounds[] {
   return bounds;
 }
 
+function sourceForegroundCount(rgba: Uint8Array): number {
+  let count = 0;
+  for (let at = 0; at < rgba.length; at += 4) {
+    if (keyedAlpha(rgba[at]!, rgba[at + 1]!, rgba[at + 2]!, rgba[at + 3]!) > 0) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function assignedForegroundCount(assignment: Int8Array): number {
+  let count = 0;
+  for (const pose of assignment) {
+    if (pose >= 0) count++;
+  }
+  return count;
+}
+
+interface BossRowLayout {
+  readonly scale: number;
+  readonly anchorX: number;
+  readonly anchorY: number;
+}
+
+function bossRowLayout(bounds: readonly Bounds[], row: number): BossRowLayout {
+  let maxLeft = 0;
+  let maxRight = 0;
+  let maxTop = 0;
+  let maxBottom = 0;
+  for (let column = 0; column < 5; column++) {
+    const bound = bounds[row * 5 + column]!;
+    const sourceX = BOSS_SOURCE_X[column]!;
+    const sourceY = BOSS_SOURCE_Y[row]!;
+    maxLeft = Math.max(maxLeft, sourceX - bound.minX);
+    maxRight = Math.max(maxRight, bound.maxX - sourceX);
+    maxTop = Math.max(maxTop, sourceY - bound.minY);
+    maxBottom = Math.max(maxBottom, bound.maxY - sourceY);
+  }
+
+  // Size against the union of all five extents around the semantic anchor, not
+  // against five independently centred boxes. This preserves the previous
+  // maximum useful scale while making one fixed anchor possible.
+  const scale = Math.min(
+    BOSS_INNER / (maxLeft + maxRight + 1),
+    BOSS_INNER / (maxTop + maxBottom + 1),
+  );
+
+  let minAnchorX = BOSS_GUTTER;
+  let maxAnchorX = BOSS_FRAME - BOSS_GUTTER - 1;
+  let minAnchorY = BOSS_GUTTER;
+  let maxAnchorY = BOSS_FRAME - BOSS_GUTTER - 1;
+  for (let column = 0; column < 5; column++) {
+    const bound = bounds[row * 5 + column]!;
+    const sourceW = bound.maxX - bound.minX + 1;
+    const sourceH = bound.maxY - bound.minY + 1;
+    const destW = Math.max(1, Math.round(sourceW * scale));
+    const destH = Math.max(1, Math.round(sourceH * scale));
+    const anchorBinX = Math.floor(
+      (BOSS_SOURCE_X[column]! - bound.minX) * destW / sourceW,
+    );
+    const anchorBinY = Math.floor(
+      (BOSS_SOURCE_Y[row]! - bound.minY) * destH / sourceH,
+    );
+    minAnchorX = Math.max(minAnchorX, BOSS_GUTTER + anchorBinX);
+    maxAnchorX = Math.min(
+      maxAnchorX,
+      BOSS_FRAME - BOSS_GUTTER - destW + anchorBinX,
+    );
+    minAnchorY = Math.max(minAnchorY, BOSS_GUTTER + anchorBinY);
+    maxAnchorY = Math.min(
+      maxAnchorY,
+      BOSS_FRAME - BOSS_GUTTER - destH + anchorBinY,
+    );
+  }
+  if (minAnchorX > maxAnchorX || minAnchorY > maxAnchorY) {
+    throw new Error(`Boss source row ${row} has no non-cropping common anchor`);
+  }
+  return {
+    scale,
+    anchorX: Math.max(minAnchorX, Math.min(BOSS_RUNTIME_ANCHOR, maxAnchorX)),
+    anchorY: Math.max(minAnchorY, Math.min(BOSS_RUNTIME_ANCHOR, maxAnchorY)),
+  };
+}
+
+function bossPosePlacement(
+  bound: Bounds,
+  row: number,
+  column: number,
+  layout: BossRowLayout,
+): V4BossPosePlacement {
+  const { scale, anchorX, anchorY } = layout;
+  const pose = row * 5 + column;
+  const sourceW = bound.maxX - bound.minX + 1;
+  const sourceH = bound.maxY - bound.minY + 1;
+  const destW = Math.max(1, Math.round(sourceW * scale));
+  const destH = Math.max(1, Math.round(sourceH * scale));
+  const anchorBinX = Math.floor(
+    (BOSS_SOURCE_X[column]! - bound.minX) * destW / sourceW,
+  );
+  const anchorBinY = Math.floor(
+    (BOSS_SOURCE_Y[row]! - bound.minY) * destH / sourceH,
+  );
+  const destX = column * BOSS_FRAME + anchorX - anchorBinX;
+  const destY = row * BOSS_FRAME + anchorY - anchorBinY;
+  const frameX = destX - column * BOSS_FRAME;
+  const frameY = destY - row * BOSS_FRAME;
+  if (
+    frameX < BOSS_GUTTER ||
+    frameY < BOSS_GUTTER ||
+    frameX + destW > BOSS_FRAME - BOSS_GUTTER ||
+    frameY + destH > BOSS_FRAME - BOSS_GUTTER
+  ) {
+    throw new Error(
+      `Boss source pose ${pose} would crop at ${frameX},${frameY} ${destW}×${destH}`,
+    );
+  }
+  return {
+    pose,
+    row,
+    column,
+    sourcePixels: bound.count,
+    destX,
+    destY,
+    destW,
+    destH,
+    anchorX,
+    anchorY,
+  };
+}
+
 /**
  * Compile the isolated Boss source into the exact 960×960 runtime sheet.
  * Exported so tests can prove the committed pack file is a byte-exact rebuild.
  */
-export function buildV4BossActorAtlas(sourceBytes = readFileSync(V4_BOSS_ATLAS_MASTER)): Uint8Array {
+export function buildV4BossActorAtlasWithAudit(
+  sourceBytes = readFileSync(V4_BOSS_ATLAS_MASTER),
+): V4BossActorAtlasBuild {
   const source = decodePng(sourceBytes);
+  if (source.width !== BOSS_SOURCE_WIDTH || source.height !== BOSS_SOURCE_HEIGHT) {
+    throw new Error(
+      `Boss source master is ${source.width}×${source.height}, ` +
+        `expected ${BOSS_SOURCE_WIDTH}×${BOSS_SOURCE_HEIGHT}`,
+    );
+  }
   const assignment = assignBossPixels(source.rgba, source.width, source.height);
   const bounds = boundsByPose(assignment, source.width);
+  const sourceForegroundPixels = sourceForegroundCount(source.rgba);
+  const assignedForegroundPixels = assignedForegroundCount(assignment);
+  if (assignedForegroundPixels !== sourceForegroundPixels) {
+    throw new Error(
+      `Boss foreground assignment lost ${sourceForegroundPixels - assignedForegroundPixels} pixels`,
+    );
+  }
   const output = new Uint8Array(BOSS_FRAME * 5 * BOSS_FRAME * 5 * 4);
+  const placements: V4BossPosePlacement[] = [];
 
   for (let row = 0; row < 5; row++) {
-    let commonW = 0;
-    let commonH = 0;
-    for (let column = 0; column < 5; column++) {
-      const bound = bounds[row * 5 + column]!;
-      commonW = Math.max(commonW, bound.maxX - bound.minX + 1);
-      commonH = Math.max(commonH, bound.maxY - bound.minY + 1);
-    }
-    const scale = Math.min(BOSS_INNER / commonW, BOSS_INNER / commonH);
+    const layout = bossRowLayout(bounds, row);
 
     for (let column = 0; column < 5; column++) {
       const pose = row * 5 + column;
       const bound = bounds[pose]!;
       const sourceW = bound.maxX - bound.minX + 1;
       const sourceH = bound.maxY - bound.minY + 1;
-      const destW = Math.max(1, Math.round(sourceW * scale));
-      const destH = Math.max(1, Math.round(sourceH * scale));
-      const destX =
-        column * BOSS_FRAME + BOSS_GUTTER + Math.floor((BOSS_INNER - destW) / 2);
-      const destY =
-        row * BOSS_FRAME + BOSS_GUTTER + BOSS_INNER - destH;
+      const placement = bossPosePlacement(bound, row, column, layout);
+      placements.push(placement);
+      const { destX, destY, destW, destH } = placement;
       const bins = destW * destH;
       const sumR = new Float64Array(bins);
       const sumG = new Float64Array(bins);
@@ -428,12 +592,35 @@ export function buildV4BossActorAtlas(sourceBytes = readFileSync(V4_BOSS_ATLAS_M
   if (checked.width !== 960 || checked.height !== 960) {
     throw new Error(`compiled Boss atlas is ${checked.width}×${checked.height}, expected 960×960`);
   }
-  return bytes;
+  return {
+    bytes,
+    sourceForegroundPixels,
+    assignedForegroundPixels,
+    placements,
+  };
+}
+
+export function buildV4BossActorAtlas(
+  sourceBytes = readFileSync(V4_BOSS_ATLAS_MASTER),
+): Uint8Array {
+  return buildV4BossActorAtlasWithAudit(sourceBytes).bytes;
 }
 
 export function buildV4ActorAssets(): V4ActorAssetsBuild {
   const players = readFileSync(PLAYER_SOURCE);
   const enemies = readFileSync(ENEMY_SOURCE);
+  const playerHash = createHash('sha256').update(players).digest('hex');
+  const enemyHash = createHash('sha256').update(enemies).digest('hex');
+  if (playerHash !== V4_PLAYER_ACTOR_SOURCE_SHA256) {
+    throw new Error(
+      `compiled player atlas SHA-256 is ${playerHash}, expected ${V4_PLAYER_ACTOR_SOURCE_SHA256}`,
+    );
+  }
+  if (enemyHash !== V4_ENEMY_ACTOR_SOURCE_SHA256) {
+    throw new Error(
+      `compiled enemy atlas SHA-256 is ${enemyHash}, expected ${V4_ENEMY_ACTOR_SOURCE_SHA256}`,
+    );
+  }
   const playerImage = decodePng(players);
   const enemyImage = decodePng(enemies);
   if (playerImage.width !== 640 || playerImage.height !== 640) {

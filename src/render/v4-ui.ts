@@ -140,5 +140,11 @@ export function drawV4UiPanel(
   ctx.restore();
 }
 
-export { V4_CHARACTER_UI, V4_DIFFICULTY_UI, V4_UI_CELLS, V4_UI_SCREEN } from './v4-ui-layout';
+export {
+  V4_CHARACTER_UI,
+  V4_DIFFICULTY_UI,
+  V4_UI_CELLS,
+  V4_UI_SCREEN,
+  v4CharacterActorSource,
+} from './v4-ui-layout';
 export type { V4UiCellName } from './v4-ui-layout';

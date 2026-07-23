@@ -80,6 +80,7 @@ import {
   V4_UI_SCREEN,
   drawV4Ui,
   loadV4UiAtlas,
+  v4CharacterActorSource,
   type V4UiCellName,
 } from './render/v4-ui';
 
@@ -1772,14 +1773,14 @@ function drawView(view: {
     if (previewActor !== undefined && previewAtlas?.has(previewActor.strip)) {
       const strip = previewAtlas.strip(previewActor.strip);
       const frame = previewAtlas.frameOf(strip, 2);
-      const source = characterLayout.actorSource;
+      const source = v4CharacterActorSource(frame);
       const actor = characterLayout.actor;
       surface.imageSmoothingEnabled = false;
       surface.globalAlpha = 0.96;
       surface.drawImage(
         previewAtlas.texture.image as CanvasImageSource,
-        frame.x + source.x,
-        frame.y + source.y,
+        source.x,
+        source.y,
         source.w,
         source.h,
         actor.x,

@@ -272,13 +272,14 @@ const SATURATION_ALPHA_FLOOR = 128;
 const HUD_ICON_MAX = 16;
 
 /**
- * The two sheet slots, which lead the boot-report ordering. The full canonical
- * first-URL order files are fetched and hashed in — bullets, ship, effects,
- * lasers, missiles, pickups, sounds in `SOUND_NAMES` order, hud, music, then
- * portraits (keyed strip/music/portrait sections in manifest order) — is fixed
- * by the call order of the `gather*` functions. A repeated URL occupies only its
- * first position. Music and portrait names are dynamic (a pack invents them),
- * so they cannot live in this fixed list; the report appends them sorted.
+ * The five fixed sheet-family slots which lead the boot-report ordering. The
+ * full canonical first-URL order files are fetched and hashed in — bullets,
+ * ship, player/enemy/Boss actors, effects, lasers, missiles, pickups, sounds in
+ * `SOUND_NAMES` order, hud, music, then portraits (keyed
+ * strip/music/portrait sections in manifest order) — and is fixed by the call
+ * order of the `gather*` functions. A repeated URL occupies only its first
+ * position. Music and portrait names are dynamic (a pack invents them), so they
+ * cannot live in this fixed list; the report appends them sorted.
  */
 const RESOURCE_ORDER = [
   'assets.bullets',
@@ -968,6 +969,8 @@ function resolveActorSheet(
       ticksPerFrame: strip.ticksPerFrame,
       mode: strip.mode,
       color: strip.color,
+      contentW: strip.contentW,
+      contentH: strip.contentH,
     };
   }
   return strips;
@@ -1614,6 +1617,72 @@ export function measureStripFrames(
   reasons: string[],
   allowLongAxisFill = false,
 ): void {
+  measureStripFramesWithPolicy(
+    name,
+    path,
+    stripName,
+    strip,
+    data,
+    sheetW,
+    x0,
+    y0,
+    reasons,
+    { allowLongAxisFill, requirePaint: false, independentMargins: false },
+  );
+}
+
+/**
+ * Actor-only frame gate.
+ *
+ * Unlike a projectile/effect strip, a known actor strip suppresses the ordinary
+ * ship/bullet fallback. Every frame therefore has to contain paint, and padding
+ * must be checked on each side independently: a narrow silhouette touching the
+ * left edge can satisfy an extent-only test while still sampling its neighbour.
+ */
+export function measureActorStripFrames(
+  name: string,
+  path: string,
+  stripName: string,
+  strip: MeasuredStrip,
+  data: Uint8ClampedArray,
+  sheetW: number,
+  x0: number,
+  y0: number,
+  reasons: string[],
+): void {
+  measureStripFramesWithPolicy(
+    name,
+    path,
+    stripName,
+    strip,
+    data,
+    sheetW,
+    x0,
+    y0,
+    reasons,
+    { allowLongAxisFill: false, requirePaint: true, independentMargins: true },
+  );
+}
+
+interface StripFrameMeasurementPolicy {
+  readonly allowLongAxisFill: boolean;
+  readonly requirePaint: boolean;
+  readonly independentMargins: boolean;
+}
+
+function measureStripFramesWithPolicy(
+  name: string,
+  path: string,
+  stripName: string,
+  strip: MeasuredStrip,
+  data: Uint8ClampedArray,
+  sheetW: number,
+  x0: number,
+  y0: number,
+  reasons: string[],
+  policy: StripFrameMeasurementPolicy,
+): void {
+  const { allowLongAxisFill, requirePaint, independentMargins } = policy;
   const limitX = allowLongAxisFill ? strip.frameW : strip.frameW - 2 * FX_PAD;
   const limitY = strip.frameH - 2 * FX_PAD;
   for (let f = 0; f < strip.frames; f++) {
@@ -1643,21 +1712,41 @@ export function measureStripFrames(
     if (maxX >= minX) {
       const ex = maxX - minX + 1;
       const ey = maxY - minY + 1;
-      if (allowLongAxisFill && ex !== strip.frameW) {
-        reasons.push(
-          `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}px on +x, ` +
-            `expected full frameW ${strip.frameW}px — a registered laser body must meet muzzle/tip and adjacent tiles`,
-        );
+      if (independentMargins) {
+        const margins = [
+          ['left', minX - fx0],
+          ['right', fx0 + strip.frameW - 1 - maxX],
+          ['top', minY - y0],
+          ['bottom', y0 + strip.frameH - 1 - maxY],
+        ] as const;
+        for (const [side, margin] of margins) {
+          if (margin >= FX_PAD) continue;
+          reasons.push(
+            `pack "${name}": ${path}: strip "${stripName}" frame ${f} clears ${margin}px on its ${side} edge, ` +
+              `expected at least ${FX_PAD}px — actor frames need an independent transparent gutter on every side`,
+          );
+        }
+      } else {
+        if (allowLongAxisFill && ex !== strip.frameW) {
+          reasons.push(
+            `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}px on +x, ` +
+              `expected full frameW ${strip.frameW}px — a registered laser body must meet muzzle/tip and adjacent tiles`,
+          );
+        }
+        if (ex > limitX || ey > limitY) {
+          const seamRule = allowLongAxisFill
+            ? 'a registered laser body may fill its +x axis, but must clear 2px of cross-axis margin'
+            : 'a frame must clear 2px of margin on each axis or it bleeds into the next frame';
+          reasons.push(
+            `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}×${ey}px, ` +
+              `over the ${limitX}×${limitY}px limit — ${seamRule}`,
+          );
+        }
       }
-      if (ex > limitX || ey > limitY) {
-        const seamRule = allowLongAxisFill
-          ? 'a registered laser body may fill its +x axis, but must clear 2px of cross-axis margin'
-          : 'a frame must clear 2px of margin on each axis or it bleeds into the next frame';
-        reasons.push(
-          `pack "${name}": ${path}: strip "${stripName}" frame ${f} paints ${ex}×${ey}px, ` +
-            `over the ${limitX}×${limitY}px limit — ${seamRule}`,
-        );
-      }
+    } else if (requirePaint) {
+      reasons.push(
+        `pack "${name}": ${path}: strip "${stripName}" frame ${f} has no painted pixels — actor frames must not be empty`,
+      );
     }
     if (strip.color === 'tinted' && satCount > 0) {
       const mean = satSum / satCount;
@@ -1814,7 +1903,7 @@ function checkNativeActorSheet(
       continue;
     }
     if (data !== undefined) {
-      measureStripFrames(name, path, stripName, strip, data, w, raw.x, raw.y, reasons);
+      measureActorStripFrames(name, path, stripName, strip, data, w, raw.x, raw.y, reasons);
     }
   }
 }

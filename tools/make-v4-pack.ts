@@ -40,6 +40,8 @@ import {
 } from './v4-audio';
 import {
   V4_BOSS_ATLAS_MASTER_SHA256,
+  V4_ENEMY_ACTOR_SOURCE_SHA256,
+  V4_PLAYER_ACTOR_SOURCE_SHA256,
   buildV4ActorAssets,
 } from './v4-actor-assets';
 
@@ -1643,15 +1645,22 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Formal music tracks (5 with one-shot intro) | ${V4_TRACK_SPECS.length} | \`audio/music/*.wav\` |
 | Gameplay + menu cues | ${V4_SOUND_SPECS.length} | \`audio/sfx/*.wav\` |
 
-Every animation strip remains horizontally contiguous. Multi-strip sheets use
-a deterministic first-fit shelf layout, avoiding transparent full-width rows
-without changing frame order, names or sampling geometry.
+Every animation strip remains horizontally contiguous. The generated
+projectile/effect multi-strip sheets use a deterministic first-fit shelf
+layout, avoiding transparent full-width rows without changing frame order,
+names or sampling geometry.
 
 The Boss atlas is compiled from the isolated 25-pose master recorded in
 \`docs/art/v4/originals-manifest.json\` (SHA-256
 \`${V4_BOSS_ATLAS_MASTER_SHA256}\`). The compiler assigns connected foreground
 components to semantic poses before scaling them into 192px frames with 8px
 transparent gutters. It never slices the irregular source at equal fifths.
+
+The accepted compiled player and enemy sources are copied losslessly and
+hash-locked before packing:
+
+- player source SHA-256: \`${V4_PLAYER_ACTOR_SOURCE_SHA256}\`
+- enemy source SHA-256: \`${V4_ENEMY_ACTOR_SOURCE_SHA256}\`
 
 The procedural \`pulse\` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native
@@ -1754,7 +1763,7 @@ export function buildV4Pack(): V4PackBuild {
   const manifest: PackManifest = {
     format: 1,
     name: 'v4',
-    version: '4.4.0',
+    version: '4.4.1',
     author: 'Danmaku project',
     license: 'LicenseRef-Danmaku-Project-Owned',
     description: 'Original v4 Japanese-STG presentation pack: player, enemy and corrected Boss actor atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
