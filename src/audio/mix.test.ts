@@ -448,12 +448,6 @@ describe('SFX hierarchy and the behavior band', () => {
     const ui = ['ui-move', 'ui-confirm', 'ui-cancel', 'ui-pause', 'ui-advance'];
     const maxUiEff = Math.max(...ui.map(eff));
     expect(eff('graze')).toBeGreaterThan(maxUiEff);
-    // The volume cap the mix contract still sets on the UI channel: a menu click
-    // is never the thing the player is meant to be listening for.
-    for (const n of ui) {
-      const v = SOUNDS.get(n)!.volume;
-      expect(`${n} vol ${v.toFixed(2)} ≤ 0.18: ${v <= 0.18}`).toBe(`${n} vol ${v.toFixed(2)} ≤ 0.18: true`);
-    }
   });
 
   test('M9 — every UI cue is under 0.090s', () => {
@@ -465,9 +459,38 @@ describe('SFX hierarchy and the behavior band', () => {
     }
   });
 
+  test('M9a — menu navigation clears the menu-theme RMS by at least 3dB', () => {
+    const menu = TRACKS.get('menu')!;
+    const menuVolume = TRACK_VOL.get('menu')!;
+    const menuEffectiveRms = rms(menu.getChannelData()) * menuVolume * 0.55;
+    for (const name of ['ui-move', 'ui-confirm', 'ui-cancel']) {
+      const cue = SOUNDS.get(name)!;
+      const cueEffectivePeak = peak(cue.buffer.getChannelData()) * cue.volume;
+      const margin = 20 * Math.log10(cueEffectivePeak / menuEffectiveRms);
+      expect(`${name} menu margin ${margin.toFixed(1)}dB ≥ 3: ${margin >= 3}`).toBe(
+        `${name} menu margin ${margin.toFixed(1)}dB ≥ 3: true`,
+      );
+    }
+  });
+
+  test('M9b — menu navigation occupies the band its BGM leaves open', () => {
+    for (const name of ['ui-move', 'ui-confirm', 'ui-cancel']) {
+      const cue = SOUNDS.get(name)!;
+      const fraction = bandFraction(
+        cue.buffer.getChannelData(),
+        cue.buffer.sampleRate,
+        1500,
+        3000,
+      );
+      expect(`${name} behavior-band ${(fraction * 100).toFixed(1)}% > 50%`).toBe(
+        `${name} behavior-band ${fraction > 0.5 ? (fraction * 100).toFixed(1) : 'LOW'}% > 50%`,
+      );
+    }
+  });
+
   test('the toll announces below the behavior band, not inside it', () => {
-    // toll is a low bell (160→150Hz): gameplay announce, exempt from the ui≤0.18
-    // rule, and it must not camp the 1.5–3kHz the graze/pickup cues own.
+    // toll is a low bell (160→150Hz): a gameplay announce rather than a short UI
+    // transient, and it must not camp the 1.5–3kHz the graze/pickup cues own.
     const toll = SOUNDS.get('toll')!;
     const band = bandFraction(toll.buffer.getChannelData(), toll.buffer.sampleRate, 1500, 3000);
     expect(`toll band ${(band * 100).toFixed(1)}% < 10%: ${band < 0.1}`).toBe(

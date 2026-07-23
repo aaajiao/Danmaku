@@ -142,16 +142,17 @@ const SYNTHS: Readonly<Record<string, Synth>> = {
   // Stage clear: a resolving rise, its own small stinger rather than the pickup chirp.
   clear: { duration: 0.25, from: 520, to: 780, decay: 6, peak: 0.4, attack: 0.003 },
 
-  // The UI channel — 负空间 sounds: all under 0.09s and quiet (playback volume
-  // ≤0.18; the synth `peak` here is the raw buffer amplitude, kept above the
-  // not-silence floor and scaled down at play), carving a click of silence
-  // rather than filling the field. Move is the faintest tick;
-  // confirm rises, cancel falls; pause is a soft low note; advance a dry blip.
-  'ui-move': { duration: 0.03, from: 900, to: 900, decay: 9, peak: 0.24 },
-  'ui-confirm': { duration: 0.06, from: 640, to: 1080, decay: 8, peak: 0.3 },
-  'ui-cancel': { duration: 0.06, from: 620, to: 300, decay: 8, peak: 0.28 },
+  // The UI channel — 负空间 sounds: all under 0.09s and below every gameplay
+  // cue, but navigation must still clear the menu theme. Move/confirm/cancel
+  // therefore occupy the 1.5–3kHz lane the BGM leaves empty instead of hiding
+  // inside its 300–1000Hz lead. Pause stays a soft low note; advance is a dry
+  // high filament. Move is the faintest navigation tick, confirm rises, cancel
+  // falls.
+  'ui-move': { duration: 0.03, from: 2200, to: 2200, decay: 9, peak: 0.24 },
+  'ui-confirm': { duration: 0.06, from: 1700, to: 2600, decay: 8, peak: 0.3 },
+  'ui-cancel': { duration: 0.06, from: 2400, to: 1500, decay: 8, peak: 0.28 },
   'ui-pause': { duration: 0.07, from: 320, to: 220, decay: 8, peak: 0.26 },
-  'ui-advance': { duration: 0.04, from: 780, to: 700, decay: 10, peak: 0.24 },
+  'ui-advance': { duration: 0.04, from: 2800, to: 2400, decay: 10, peak: 0.24 },
 };
 
 /** Stands in for a registered name nobody has authored a sound for yet. */
@@ -246,6 +247,14 @@ export class Audio {
   #masterVolume: number;
   #unlocked = false;
   #unlocking: Promise<void> | undefined;
+  /**
+   * One-shot cues requested while the browser is still resuming its context.
+   *
+   * The title's first confirm is also the gesture that unlocks audio. Without
+   * this bounded queue the cue runs in that same tick, sees no graph and is
+   * silently lost.
+   */
+  #pending: string[] = [];
 
   #buffers = new Map<string, AudioBuffer>();
   #loading = new Set<string>();
@@ -275,6 +284,8 @@ export class Audio {
       await this.#unlocking;
     } finally {
       this.#unlocking = undefined;
+      if (this.#unlocked) this.#flushPending();
+      else this.#pending.length = 0;
     }
   }
 
@@ -314,7 +325,12 @@ export class Audio {
 
     const ctx = this.#ctx;
     const master = this.#master;
-    if (!ctx || !master) return;
+    if (!ctx || !master) {
+      if (this.#unlocking !== undefined && this.#pending.length < 32) {
+        this.#pending.push(name);
+      }
+      return;
+    }
 
     try {
       const at = now();
@@ -356,6 +372,7 @@ export class Audio {
   }
 
   stopAll(): void {
+    this.#pending.length = 0;
     for (const voice of this.#voices) {
       try {
         voice.source.stop();
@@ -381,6 +398,13 @@ export class Audio {
 
   get unlocked(): boolean {
     return this.#unlocked;
+  }
+
+  /** Replay only the bounded cues that arrived during a successful unlock. */
+  #flushPending(): void {
+    if (this.#pending.length === 0) return;
+    const pending = this.#pending.splice(0);
+    for (const name of pending) this.play(name);
   }
 
   /**
@@ -469,11 +493,12 @@ defineSound('declare', { volume: 0.5, polyphony: 2, throttleMs: 90 });
 defineSound('break', { volume: 0.55, polyphony: 2, throttleMs: 60 });
 defineSound('clear', { volume: 0.5, polyphony: 1, throttleMs: 200 });
 
-// The UI channel: quiet (all ≤0.18, below graze — the 负空间 floor of the mix),
-// single- or double-voice, throttled against a held-button double-tap. Played
-// shell-side (`SHELL_CUES`), never off a run event.
-defineSound('ui-move', { volume: 0.12, polyphony: 2, throttleMs: 30 });
-defineSound('ui-confirm', { volume: 0.18, polyphony: 2, throttleMs: 40 });
-defineSound('ui-cancel', { volume: 0.16, polyphony: 2, throttleMs: 40 });
-defineSound('ui-pause', { volume: 0.15, polyphony: 1, throttleMs: 60 });
-defineSound('ui-advance', { volume: 0.12, polyphony: 2, throttleMs: 30 });
+// The UI channel stays below graze by effective peak, but its navigation
+// transients clear the menu theme in the lane the score vacates. Single- or
+// double-voice, throttled against a held-button double-tap. Played shell-side
+// (`SHELL_CUES`), never off a run event.
+defineSound('ui-move', { volume: 0.42, polyphony: 2, throttleMs: 30 });
+defineSound('ui-confirm', { volume: 0.29, polyphony: 2, throttleMs: 40 });
+defineSound('ui-cancel', { volume: 0.27, polyphony: 2, throttleMs: 40 });
+defineSound('ui-pause', { volume: 0.24, polyphony: 1, throttleMs: 60 });
+defineSound('ui-advance', { volume: 0.36, polyphony: 2, throttleMs: 30 });

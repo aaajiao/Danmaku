@@ -96,19 +96,21 @@ all measured by `tools/measure-audio.ts` against the real synths, not estimated:
 | `pickup` | `pickup`, `extend` | 0.160 | 0.4624 | 0.35 | 0.1618 | 1.8% |
 | `shot` | every player shot | 0.070 | 0.3801 | 0.30 | 0.1140 | 2.2% |
 | `graze` | grazing a bullet | 0.130 | 0.3120 | 0.22 | 0.0686 | 100.0% |
-| `ui-confirm` | menu confirm, and the ending screen's page-turn | 0.060 | 0.2238 | 0.18 | 0.0403 | 0.0% |
-| `ui-cancel` | cancel / back | 0.060 | 0.2139 | 0.16 | 0.0342 | 0.0% |
-| `ui-pause` | pause entered | 0.070 | 0.1994 | 0.15 | 0.0299 | 0.0% |
-| `ui-advance` | dialogue line advance | 0.040 | 0.1377 | 0.12 | 0.0165 | 0.0% |
-| `ui-move` | menu selection change | 0.030 | 0.1300 | 0.12 | 0.0156 | 0.0% |
+| `ui-confirm` | menu confirm, and the ending screen's page-turn | 0.060 | 0.2232 | 0.29 | 0.0647 | 100.0% |
+| `ui-cancel` | cancel / back | 0.060 | 0.2128 | 0.27 | 0.0574 | 100.0% |
+| `ui-pause` | pause entered | 0.070 | 0.1994 | 0.24 | 0.0479 | 0.0% |
+| `ui-advance` | dialogue line advance | 0.040 | 0.1440 | 0.36 | 0.0518 | 100.0% |
+| `ui-move` | menu selection change | 0.030 | 0.1291 | 0.42 | 0.0542 | 100.0% |
 
 Read this table alongside the doctrine table in §5 rather than in isolation:
 `graze` sits at **100%** in-band on purpose (it *is* the behavior-band tenant,
 §5's Internet Void filter), and `break` at 51.5% is the other loud one — a card
 broken is meant to read as sharp and present exactly where the BGM has gone
-quiet. Everything below the boss ladder decays toward zero band energy because
-those are either sub-band bells (`toll`) or UI clicks with no spectral room to
-spare.
+quiet. Menu navigation now uses that same empty band deliberately: unlike a
+gameplay cue it fires while no curtain is being read, and putting its short
+transient at 1.5–3kHz keeps it out of the menu theme's 300–1000Hz lead. It still
+sits below `graze` by effective peak, but it no longer disappears under the
+theme's average level.
 
 One sound still serves several events by design, the same "same kind of event
 to an ear" reasoning as before: `explosion` covers a kill, the boss's own death,
@@ -175,6 +177,12 @@ reconciles — a pause-enter edge, and a `WeakMap<Run, number>` watching
 `run.dialogue.index` for an advance. None of it introduces a new
 `RunEventType`, so no replay trace moves. If you add a sixteenth UI-shaped
 sound, it joins `SHELL_CUES`, not `EVENT_SOUNDS`.
+
+The title's first confirm is also the gesture that unlocks WebAudio. `Audio`
+keeps a bounded queue only while that unlock is in flight and replays the cue
+once the context resumes; a failed unlock drops it rather than leaking a stale
+confirm into a later retry. The shell retries unlock from later non-zero input
+until both audio buses report ready.
 
 ### Authoring constraints
 
@@ -558,14 +566,17 @@ so shipping it later is a one-line swap, not a redesign.
 threat model implies: `death` (0.7451) > `explosion` (0.4737) > `toll`
 (0.3399) > `break` (0.2146) ≈ `declare` (0.2126) > `hit` (0.1862) > `clear`
 (0.1846) > `pickup` (0.1618) > `shot` (0.1140) > `graze` (0.0686), with all
-five `ui-*` sounds sitting under the rest at 0.0165–0.0403. This ladder (M8′)
-is unchanged in shape by the round's one SFX edit — `shot`'s sweep floor
-moved 420→640Hz for spectral reasons (above), and its effective peak barely
-moved (0.1137→0.1140) — so it was re-measured, not re-derived. Losing a life
+five `ui-*` sounds sitting under the rest at 0.0479–0.0647. The navigation
+revision raises and moves those transients without crossing `graze`, so the
+M8′ ladder remains unchanged in shape and is re-measured rather than assumed.
+Losing a life
 is louder than anything else in the game; grazing a bullet — an event that
 fires dozens of times a second — is the quietest gameplay sound, and every
 menu click sits under even that, because a menu click is never the thing the
-player is supposed to be listening for.
+player is supposed to be listening for. M9a adds the missing positive menu
+claim: `ui-move`, `ui-confirm` and `ui-cancel` each clear the menu theme's
+effective RMS by at least 3dB. M9b keeps more than half of each navigation
+cue's energy in the 1.5–3kHz band the theme vacates.
 
 ## 6. Verify
 

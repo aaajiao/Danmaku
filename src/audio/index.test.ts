@@ -89,6 +89,7 @@ interface StubOptions {
   failConstruction?: boolean;
   failResume?: boolean;
   state?: string;
+  resumeGate?: Promise<void>;
   decode?: (data: ArrayBuffer) => Promise<FakeAudioBuffer>;
 }
 
@@ -135,6 +136,7 @@ class FakeAudioContext {
   async resume(): Promise<void> {
     this.resumes++;
     if (options.failResume) throw new Error('resume refused');
+    if (options.resumeGate) await options.resumeGate;
     this.state = 'running';
   }
 
@@ -359,6 +361,25 @@ describe('with WebAudio', () => {
       expect(audio.unlocked).toBe(true);
     });
 
+    test('replays the title confirm requested while the context is resuming', async () => {
+      let resume!: () => void;
+      options.resumeGate = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      const audio = new Audio();
+
+      const ready = audio.unlock();
+      audio.play('ui-confirm');
+      expect(context().sources).toHaveLength(0);
+
+      resume();
+      await ready;
+
+      expect(audio.unlocked).toBe(true);
+      expect(context().sources).toHaveLength(1);
+      expect(context().voiceGains[0]?.gain.value).toBe(0.29);
+    });
+
     test('a refused context leaves the engine silent, not broken', async () => {
       options.failConstruction = true;
       const audio = new Audio();
@@ -379,6 +400,27 @@ describe('with WebAudio', () => {
       expect(audio.unlocked).toBe(false);
       audio.play('shot');
       expect(context().sources).toHaveLength(0);
+    });
+
+    test('drops a queued cue when unlock fails instead of replaying it on a later retry', async () => {
+      let resume!: () => void;
+      options.resumeGate = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      options.failResume = true;
+      const audio = new Audio();
+
+      const failed = audio.unlock();
+      audio.play('ui-confirm');
+      resume();
+      await failed;
+
+      options.failResume = false;
+      options.resumeGate = undefined;
+      await audio.unlock();
+
+      expect(audio.unlocked).toBe(true);
+      expect(contexts[1]?.sources).toHaveLength(0);
     });
 
     test('a context that fails to come up is closed, not leaked', async () => {
