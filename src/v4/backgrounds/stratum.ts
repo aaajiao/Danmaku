@@ -1,69 +1,24 @@
 /**
- * `stratum` — stage 3. A NEAR-IDENTICAL port of pbakaus/radiant `dither-gradient`
- * (MIT): a smooth flowing gradient field quantized through ordered dither and a
- * traveling bit-depth wave, so "resolution bands sweep across the canvas" — which
- * reads, at stage 3, as broad geological STRATA settling past the descent. The
- * reference's own defining image (quantization as a visible class marker) IS the
- * strata identity; this is the round's principled home for a slot no single
- * user-given ref supplies natively.
+ * `stratum` — stage 3, re-authored from the original dither-gradient port.
  *
- * ## What was ported
+ * Its real identity is the slowly rotating three-centre gradient whose bit depth
+ * travels across the field. That remains the whole image. V4 enlarges the
+ * quantisation into broad settling terraces: no Bayer grid, halftone dots,
+ * cross-hatch or archive-panel iconography. Cold soot, grey-brown sediment,
+ * controlled amber and bone replace verdigris. The grade is designed for
+ * production ×1, with only a mild reduction through the lower player band.
  *
- * The reference verbatim in structure: the slowly-rotating three-center flowing
- * `baseGradient`, the four dither algorithms (Bayer-8x8, halftone, diagonal line,
- * cross-hatch) with FBM-drifting zone weights, the traveling bit-depth wave
- * (`baseLevels = mix(2,32,waveMix)` — the resolution bands = strata), the
- * per-channel chromatic dither separation, the band-edge emphasis and the
- * vignette. The amber ramp is recoloured to verdigris.
- *
- * ## Adaptation to our surface (the only departures from the reference)
- *
- *   - Uniforms baked: `u_ditherScale` (1.0), `u_bitDepth` (1.0); `u_mouse` (the
- *     analog-truth reveal and the halftone ring) is excised — no pointer (rule 1).
- *   - The dither cell is coarsened to GAME px (`uv * fieldSize / DITHER_CELL`,
- *     retina-independent — game-px units, not device-px) instead of per-device-pixel
- *     `gl_FragCoord`, so the ordered dither reads as textured banding, never as
- *     per-pixel speckle in the bullet band. The reference's per-pixel FILM GRAIN
- *     is dropped for the same reason.
- *   - A gentle top-lane calm multiplies structure toward `uv.y=0` — a stage scene
- *     must keep the entry lane dark and smooth; the reference fills uniformly.
- *   - Clock: `t = uScroll * 0.011`, slowed below the reference's raw `u_time` rate
- *     because an animated dither crawls (pixels flip between quantization levels) if
- *     the underlying field moves fast — slowing it keeps the crawl coherent, not a
- *     boil (the surviving no-strobing property). `uScroll` advances only in `step()`.
- *   - Palette recoloured to verdigris (stage 3's role-hue), value ramp preserved.
- *   - EXPOSURE 0.28 (stage 3, under a curtain).
- *
- * ## Exposure & readability
- *
- * Stage-3 tier. The bright strata crest in the ~0.24-0.30 band
- * [MEASURED-IN-ACCEPTANCE]. Dither safety is by AMPLITUDE, not period: it only
- * toggles between adjacent quantization levels of a SMOOTH field, so each step is
- * a small fraction of the local value, and the bit-depth wave carries more levels
- * (finer steps) where the field is brighter. Motion: the resolution bands sweep
- * and the gradient drifts, per-tick step under the strobe bound
- * [MEASURED-IN-ACCEPTANCE].
- *
- * ## Clock
- *
- * `uScroll` only — no wall clock (see `background.ts`, rule 1);
- * `backgrounds/index.test.ts` scans this file for wall-clock sources.
- *
- * dither-gradient by pbakaus/radiant, MIT. Ported; our clock, coarse game-px
- * cells, top-lane calm, verdigris palette, exposure ours.
+ * Clock: fixed-tick `uScroll` only (CLAUDE.md rule 1). The field is derived from
+ * pbakaus/radiant `dither-gradient` (MIT).
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('stratum', {
   scrollSpeed: 0.7,
   fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
-
-    const float DG_PI = 3.14159265;
     const float DG_TAU = 6.28318530718;
-    const float EXPOSURE = 0.28;      /* stage 3 — under a curtain */
-    const float DITHER_CELL = 6.0;    /* GAME px per dither cell (coarse, retina-free) */
+    const float EXPOSURE = 0.92;
 
     float dgHash(vec2 p) {
       vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -83,39 +38,8 @@ ${BACKGROUND_NOISE_GLSL}
       return v;
     }
 
-    /* Bayer 8x8 via three recursive 2x2 levels (WebGL1-safe, no array). */
-    float bayer8(vec2 p) {
-      vec2 fp = floor(mod(p, 8.0));
-      float val = 0.0;
-      float bx = step(4.0, fp.x), by = step(4.0, fp.y);
-      float b = bx * 2.0 * (1.0 - by) + (1.0 - bx) * 3.0 * by + bx * by * 1.0;
-      val += b * 16.0;
-      float mx = mod(fp.x, 4.0), my = mod(fp.y, 4.0);
-      bx = step(2.0, mx); by = step(2.0, my);
-      b = bx * 2.0 * (1.0 - by) + (1.0 - bx) * 3.0 * by + bx * by * 1.0;
-      val += b * 4.0;
-      float lx = mod(fp.x, 2.0), ly = mod(fp.y, 2.0);
-      bx = step(1.0, lx); by = step(1.0, ly);
-      b = bx * 2.0 * (1.0 - by) + (1.0 - bx) * 3.0 * by + bx * by * 1.0;
-      val += b;
-      return val / 64.0;
-    }
-    float halftone(vec2 p, float size) {
-      vec2 cell = floor(p / size) * size + size * 0.5;
-      return clamp(length(p - cell) / (size * 0.5), 0.0, 1.0);
-    }
-    float lineDither(vec2 p, float size) { return mod(p.x + p.y, size) / size; }
-    float crossHatch(vec2 p, float size) {
-      return min(mod(p.x + p.y, size) / size, mod(p.x - p.y, size) / size);
-    }
-    float ditherQuantize(float val, float levels, float threshold) {
-      float stepped = floor(val * levels) / levels;
-      float next = stepped + 1.0 / levels;
-      return fract(val * levels) > threshold ? next : stepped;
-    }
-
-    /* Flowing gradient field, verdigris ramp. */
-    vec3 baseGradient(vec2 uv, float t) {
+    /* The reference's flowing three-centre gradient, returned as a scalar field. */
+    float baseGradient(vec2 uv, float t) {
       float angle = t * 0.05;
       mat2 rot = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
       vec2 ruv = rot * uv;
@@ -130,85 +54,62 @@ ${BACKGROUND_NOISE_GLSL}
       float g3 = sin(d3 * 4.0 + t * 0.1 + d1 * 2.0) * 0.5 + 0.5;
       float warp = dgFbm(ruv * 2.0 + t * 0.05) * 0.3;
       float f = clamp(g1 * 0.4 + g2 * 0.35 + g3 * 0.25 + warp, 0.0, 1.0);
-      /* Verdigris / oxidised bronze ramp. */
-      vec3 col0 = vec3(0.020, 0.045, 0.038);
-      vec3 col1 = vec3(0.060, 0.170, 0.140);
-      vec3 col2 = vec3(0.210, 0.440, 0.360);
-      vec3 col3 = vec3(0.560, 0.800, 0.640);
-      vec3 col;
-      if (f < 0.33) col = mix(col0, col1, f / 0.33);
-      else if (f < 0.66) col = mix(col1, col2, (f - 0.33) / 0.33);
-      else col = mix(col2, col3, (f - 0.66) / 0.34);
-      return col;
+      return f;
     }
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
-      /* Reference centred coord; y-down retained (the strata scroll vertically). */
       vec2 sc = vec2((uv.x - 0.5) * aspect, (uv.y - 0.5));
-      float t = uScroll * 0.011;   /* slowed below the reference rate: the animated
-                                      dither crawls (pixels flip levels) if the field
-                                      moves fast — slow it so the crawl stays coherent */
+      float t = uScroll * 0.0125;
 
-      vec3 smoothColor = baseGradient(sc, t);
+      float gradientField = baseGradient(sc, t);
 
-      /* Coarse game-px cell coords (retina-free), never per-device-pixel. */
-      vec2 ditherCoord = uv * vec2(480.0, 640.0) / DITHER_CELL;
-
-      float regionNoise = dgFbm(sc * 1.5 + t * 0.04);
-      float regionNoise2 = dgFbm(sc * 2.0 - t * 0.03 + vec2(50.0));
-      float zoneBayer = smoothstep(0.3, 0.6, regionNoise);
-      float zoneHalftone = smoothstep(0.4, 0.7, regionNoise2);
-      float zoneLine = smoothstep(0.35, 0.65, sin(regionNoise * DG_TAU + t * 0.2) * 0.5 + 0.5);
-      float zoneCross = 1.0 - zoneBayer;
-      float tw = zoneBayer + zoneHalftone + zoneLine + zoneCross + 0.001;
-      zoneBayer /= tw; zoneHalftone /= tw; zoneLine /= tw; zoneCross /= tw;
-
-      /* Traveling bit-depth wave — the resolution bands = strata. */
+      /* The original traveling bit-depth wave now moves broad tonal terraces. */
       float waveAngle = t * 0.08;
       vec2 waveDir = vec2(cos(waveAngle), sin(waveAngle));
       float wavePos = dot(sc, waveDir);
       float wave1 = sin(wavePos * 4.0 - t * 0.3) * 0.5 + 0.5;
       float wave2 = sin(dot(sc, vec2(sin(t * 0.05), cos(t * 0.07))) * 6.0 + t * 0.2) * 0.5 + 0.5;
       float waveMix = wave1 * 0.6 + wave2 * 0.4;
-      /* Coarsest level floored at 4 (not the reference's 2): on the darkest bands a
-         2-level flip is the largest per-tick dither step (the crawl); 4 halves it. */
-      float baseLevels = max(mix(4.0, 32.0, waveMix), 4.0);
+      float levels = mix(3.5, 7.0, waveMix);
+      float threshold = dgFbm(sc * 1.05 + vec2(t * 0.035, -t * 0.025));
+      float layerCoord = sc.y
+        + (gradientField - 0.5) * 0.22
+        + dgFbm(vec2(sc.x * 1.35, sc.y * 0.58) + vec2(t * 0.035, 12.0)) * 0.12
+        + waveMix * 0.050
+        + threshold * 0.025;
+      float terracePhase = layerCoord * levels * DG_TAU - t * 0.72;
+      float terraceWave = sin(terracePhase) * 0.5 + 0.5;
+      float terrace = smoothstep(0.14, 0.86, terraceWave);
 
-      vec2 offsetR = vec2(0.0), offsetG = vec2(2.7, 1.3), offsetB = vec2(-1.5, 3.1);
-      float threshR = bayer8(ditherCoord + offsetR) * zoneBayer
-                    + halftone(ditherCoord + offsetR, 8.0) * zoneHalftone
-                    + lineDither(ditherCoord + offsetR, 6.0) * zoneLine
-                    + crossHatch(ditherCoord + offsetR, 6.0) * zoneCross;
-      float threshG = bayer8(ditherCoord + offsetG) * zoneBayer
-                    + halftone(ditherCoord + offsetG, 8.0) * zoneHalftone
-                    + lineDither(ditherCoord + offsetG, 6.0) * zoneLine
-                    + crossHatch(ditherCoord + offsetG, 6.0) * zoneCross;
-      float threshB = bayer8(ditherCoord + offsetB) * zoneBayer
-                    + halftone(ditherCoord + offsetB, 8.0) * zoneHalftone
-                    + lineDither(ditherCoord + offsetB, 6.0) * zoneLine
-                    + crossHatch(ditherCoord + offsetB, 6.0) * zoneCross;
+      float settling = sin(layerCoord * 10.0 - t * 0.36) * 0.5 + 0.5;
+      float shelf = smoothstep(0.38, 0.76, settling);
+      vec3 soot = vec3(0.022, 0.028, 0.040);
+      vec3 sediment = vec3(0.205, 0.195, 0.195);
+      vec3 bone = vec3(0.510, 0.495, 0.465);
+      vec3 smoothColor = mix(
+        soot,
+        sediment,
+        smoothstep(0.12, 0.82, gradientField)
+      );
+      smoothColor = mix(
+        smoothColor,
+        bone,
+        smoothstep(0.68, 0.96, gradientField) * 0.32
+      );
 
-      float levelsR = baseLevels, levelsG = baseLevels * 1.15, levelsB = baseLevels * 0.85;
-      vec3 ditheredColor;
-      ditheredColor.r = ditherQuantize(smoothColor.r, levelsR, threshR);
-      ditheredColor.g = ditherQuantize(smoothColor.g, levelsG, threshG);
-      ditheredColor.b = ditherQuantize(smoothColor.b, levelsB, threshB);
+      vec3 finalColor = smoothColor * mix(0.62, 1.24, terrace);
+      finalColor += vec3(0.145, 0.128, 0.112) * shelf * 0.060;
 
-      vec3 finalColor = ditheredColor;
-      float bandEdge = abs(fract(waveMix * 4.0) - 0.5) * 2.0;
-      bandEdge = smoothstep(0.85, 1.0, bandEdge);
-      finalColor += vec3(0.03, 0.08, 0.06) * bandEdge;
+      float travelingBand = smoothstep(0.24, 0.80, waveMix);
+      finalColor += vec3(0.135, 0.130, 0.128) * travelingBand * 0.050;
 
-      float vig = clamp(1.0 - dot(sc * 0.85, sc * 0.85), 0.0, 1.0);
-      vig = pow(vig, 0.4);
-      finalColor *= vig;
+      float vig = clamp(1.0 - dot(sc * 0.72, sc * 0.72), 0.0, 1.0);
+      finalColor *= 0.78 + 0.22 * vig;
 
-      /* Top-lane calm: a stage scene keeps the entry lane dark and smooth. */
-      float nearLane = smoothstep(0.0, 0.28, uv.y);
-      finalColor *= 0.35 + 0.65 * nearLane;
-
-      return max(finalColor, 0.0) * EXPOSURE;
+      float activityCalm = 1.0 - 0.12 * smoothstep(0.58, 0.96, uv.y);
+      finalColor = finalColor / (1.0 + finalColor * 0.25);
+      return max(finalColor, 0.0) * EXPOSURE * activityCalm;
     }
   `,
 });
