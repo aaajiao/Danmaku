@@ -193,6 +193,11 @@ Boss 的人物身份必须先于几何弹幕身份。五位 Boss 的服装从开
 
 从上到下为 Sentinel、Warden、Magistrate、Chancellor、Regent；从左到右是稳定、预备、施法、扩张与收束姿态。骨相和心核提供共同身体语法，月轮、笼形结构、双刃、档案菌丝和根系冠冕提供五位 Boss 的身份差异。
 
+原始联系图不是规则网格；按五等分直接裁切会让切线穿过披风、手臂和根须。运行图集改由隔离母版
+`art/v4/boss-cast-ghoststyle-atlas-master.png` 编译：先把所有非黑前景连通域归属到 25 个语义姿态，再以每位 Boss
+统一尺度装入 `192×192` 帧并保留 8px 透明边。`tools/v4-actor-assets.ts`
+保证每个已归属的源前景像素都会进入缩小后的像素桶，不再依赖等宽/等高矩形猜测。
+
 | Boss | 角色设定 | 负空间结构 | 关键帧 | 显示盒 |
 |---|---|---|---|---:|
 | `sentinel` | 月下守望者 | 月轮、袖与身体之间有三个开口 | idle / prepare / cast / expand / close | 88×88 |
@@ -397,10 +402,10 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 
 | 文件 | 内容 | 状态 / 色彩模式 |
 |---|---|---|
-| `src/assets/v4/actors-player-v4.png` | 5 主角 × 5 banking 帧；三层烘焙合成 | 已运行，baked / normal |
-| `src/assets/v4/actors-enemies-v4.png` | 16 敌人 × 4 帧；三层烘焙合成 | 已运行，baked / normal |
-| `src/assets/v4/actors-bosses-v4.png` | 5 Boss × 5 帧；三层烘焙合成 | 已运行，baked / normal |
-| `packs/v4/` 分类图集 | 原创 bullets/effects/lasers/missiles/pickups/ship/player effects | 已运行；baked，neutral floor 可 tinted |
+| `packs/v4/actors/players.png` | 5 主角 × 5 banking 帧；三层烘焙合成 | pack v4 已声明并运行，baked / normal |
+| `packs/v4/actors/enemies.png` | 16 敌人 × 4 帧；三层烘焙合成 | pack v4 已声明并运行，baked / normal |
+| `packs/v4/actors/bosses.png` | 5 Boss × 5 帧；由隔离母版确定性编译 | pack v4 已声明并运行，baked / normal |
+| `packs/v4/` 其他分类图集 | 原创 bullets/effects/lasers/missiles/pickups/ship/player effects | 已运行；baked，neutral floor 可 tinted |
 | `src/assets/v4/ui-v4.png` | `1024×768`：原 32 个 procedural cell + 六类差异化组件，共 38 cells | 已运行，baked / normal；由 `1086×1448` RGB 绿幕 ornament 母版确定性生成 |
 | portrait（不设独立图集） | 对话按十位角色各自 anchor 从 player/Boss actor atlas 取近景；第三方角色走 pack portrait/fallback | 已运行；不复制第二套人物身份 |
 | `actor-skeleton-v4.png` | 独立骨相蒙版/亮层，与人物帧同 pivot | 下一阶段，baked / normal 或低强度 additive |
@@ -413,11 +418,11 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 
 当前第一阶段实际运行图集如下。灰蓝底是透明像素查看器的棋盘替代色，不会进入游戏画面：
 
-![v4 五主角运行图集](../src/assets/v4/actors-player-v4.png)
+![v4 五主角运行图集](../packs/v4/actors/players.png)
 
-![v4 十六类敌人运行图集](../src/assets/v4/actors-enemies-v4.png)
+![v4 十六类敌人运行图集](../packs/v4/actors/enemies.png)
 
-![v4 五位 Boss 运行图集](../src/assets/v4/actors-bosses-v4.png)
+![v4 五位 Boss 运行图集](../packs/v4/actors/bosses.png)
 
 ### 9.2 帧规则
 

@@ -1,10 +1,10 @@
 /**
- * v4 — 余白御寮 — built-in actor art.
+ * v4 — 余白御寮 — actor semantics and pack-backed actor art.
  *
- * People and the default v4 projectile/feedback pack are project-owned art, but
- * they deliberately stay on separate texture families: one actor texture for
- * the five playable women, one for the sixteen enemy roles, and one for the five
- * bosses. A purchaser-local BulletPack remains an explicit compatibility reskin.
+ * People and the default v4 projectile/feedback pack are project-owned art. The
+ * v4 pack supplies one actor texture for the five playable women, one for the
+ * sixteen enemy roles, and one for the five bosses; another pack may omit any
+ * family and let the ordinary ship/bullet presentation remain the floor.
  * Keeping actors out of the 8k-projectile batch also keeps normal-blend,
  * baked-colour character art independent of bullet filtering and capacity.
  *
@@ -15,9 +15,6 @@
  * second Y inversion would turn every strip upside down.
  */
 
-import PLAYER_URL from '../assets/v4/actors-player-v4.png';
-import ENEMIES_URL from '../assets/v4/actors-enemies-v4.png';
-import BOSSES_URL from '../assets/v4/actors-bosses-v4.png';
 import { loadAtlas, type Atlas } from './atlas';
 
 export interface V4ActorSpec {
@@ -63,83 +60,63 @@ export const V4_BOSS_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
   regent: { strip: 'actor.boss.regent', size: 110, deathStrip: 'boss.death.regent' },
 };
 
-const PLAYER_ORDER = ['scout', 'lance', 'hound', 'spire', 'maw'] as const;
-const ENEMY_ORDER = [
-  'grunt',
-  'weaver',
-  'turret',
-  'drifter',
-  'lash',
-  'hunter',
-  'censer',
-  'bastion',
-  'clerk',
-  'stele',
-  'summons',
-  'ray',
-  'assessor',
-  'usher',
-  'marshal',
-  'notary',
-] as const;
-const BOSS_ORDER = ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent'] as const;
-
-export interface V4ActorAtlases {
-  readonly players: Atlas;
-  readonly enemies: Atlas;
-  readonly bosses: Atlas;
+export interface ActorStripInput {
+  readonly x: number;
+  readonly y: number;
+  readonly frameW: number;
+  readonly frameH: number;
+  readonly frames?: number;
+  readonly stride?: number;
+  readonly ticksPerFrame?: number;
+  readonly mode?: 'loop' | 'once';
+  readonly color?: 'tinted' | 'baked';
 }
 
-/** Load and describe the three engine-owned v4 actor sheets. */
-export async function loadV4ActorAtlases(): Promise<V4ActorAtlases> {
+export interface ActorSheetInput {
+  readonly url: string;
+  readonly strips: Readonly<Record<string, ActorStripInput>>;
+}
+
+export interface V4ActorAtlasInputs {
+  readonly players?: ActorSheetInput;
+  readonly enemies?: ActorSheetInput;
+  readonly bosses?: ActorSheetInput;
+}
+
+export interface V4ActorAtlases {
+  readonly players?: Atlas;
+  readonly enemies?: Atlas;
+  readonly bosses?: Atlas;
+}
+
+async function loadActorAtlas(input: ActorSheetInput | undefined): Promise<Atlas | undefined> {
+  if (input === undefined) return undefined;
+  const atlas = await loadAtlas(input.url);
+  for (const [name, strip] of Object.entries(input.strips)) {
+    atlas.defineStrip(name, {
+      x: strip.x,
+      y: strip.y,
+      frameW: strip.frameW,
+      frameH: strip.frameH,
+      frames: strip.frames ?? 1,
+      stride: strip.stride,
+      ticksPerFrame: strip.ticksPerFrame ?? 1,
+      mode: strip.mode ?? 'once',
+      color: strip.color,
+    });
+  }
+  return atlas;
+}
+
+/** Load only the actor texture families supplied by the selected pack. */
+export async function loadV4ActorAtlases(
+  inputs: V4ActorAtlasInputs | undefined,
+): Promise<V4ActorAtlases> {
   const [players, enemies, bosses] = await Promise.all([
-    loadAtlas(PLAYER_URL),
-    loadAtlas(ENEMIES_URL),
-    loadAtlas(BOSSES_URL),
+    loadActorAtlas(inputs?.players),
+    loadActorAtlas(inputs?.enemies),
+    loadActorAtlas(inputs?.bosses),
   ]);
-
-  for (let i = 0; i < PLAYER_ORDER.length; i++) {
-    const name = PLAYER_ORDER[i]!;
-    players.defineStrip(V4_PLAYER_ACTORS[name]!.strip, {
-      x: 0,
-      y: i * 128,
-      frameW: 128,
-      frameH: 128,
-      frames: 5,
-      ticksPerFrame: 1,
-      mode: 'once',
-      color: 'baked',
-    });
-  }
-
-  for (let i = 0; i < ENEMY_ORDER.length; i++) {
-    const name = ENEMY_ORDER[i]!;
-    enemies.defineStrip(V4_ENEMY_ACTORS[name]!.strip, {
-      x: (i % 2) * 512,
-      y: Math.floor(i / 2) * 128,
-      frameW: 128,
-      frameH: 128,
-      frames: 4,
-      ticksPerFrame: 8,
-      mode: 'loop',
-      color: 'baked',
-    });
-  }
-
-  for (let i = 0; i < BOSS_ORDER.length; i++) {
-    const name = BOSS_ORDER[i]!;
-    bosses.defineStrip(V4_BOSS_ACTORS[name]!.strip, {
-      x: 0,
-      y: i * 192,
-      frameW: 192,
-      frameH: 192,
-      frames: 5,
-      ticksPerFrame: 12,
-      mode: 'loop',
-      color: 'baked',
-    });
-  }
-
   return { players, enemies, bosses };
 }
 

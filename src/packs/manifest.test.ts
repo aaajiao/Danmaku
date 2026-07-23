@@ -352,6 +352,12 @@ describe('assets', () => {
     );
   });
 
+  test('actors wrong type', () => {
+    expect(errorsOf({ ...valid(), assets: { actors: [] } })).toContain(
+      'pack "candy": pack.json: assets.actors must be a JSON object',
+    );
+  });
+
   test('filter not in the enum', () => {
     expect(errorsOf({ ...valid(), assets: { filter: 'smooth' } })).toContain(
       'pack "candy": pack.json: assets.filter must be "nearest" or "linear"',
@@ -499,6 +505,58 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
       );
       expect(errorsOf(ship({ mode: 'wobble' }))).toContain(
         'pack "candy": pack.json: assets.ship.mode must be "loop" or "once"',
+      );
+    });
+  });
+
+  describe('actors object form', () => {
+    const actors = (role: string, sheet: unknown) => ({
+      ...valid(),
+      assets: { actors: { [role]: sheet } },
+    });
+    const strip = {
+      x: 0,
+      y: 0,
+      frameW: 128,
+      frameH: 128,
+      frames: 5,
+      stride: 128,
+      ticksPerFrame: 8,
+      mode: 'loop',
+      color: 'baked',
+    };
+
+    test('players, enemies and bosses accept self-describing sheets', () => {
+      for (const role of ['players', 'enemies', 'bosses']) {
+        expect(
+          accepts(actors(role, { sheet: `${role}.png`, strips: { [`actor.${role}.one`]: strip } })),
+        ).toBe(true);
+      }
+    });
+
+    test('placement is required so a sheet can never be guessed as a grid', () => {
+      const noX = { ...strip } as Record<string, unknown>;
+      delete noX.x;
+      expect(
+        errorsOf(actors('bosses', { sheet: 'bosses.png', strips: { pose: noX } })),
+      ).toContain(
+        'pack "candy": pack.json: assets.actors.bosses.strips."pose".x must be a non-negative integer',
+      );
+    });
+
+    test('bad sheet shapes and unknown actor families are named', () => {
+      expect(errorsOf(actors('players', 3))).toContain(
+        'pack "candy": pack.json: assets.actors.players must be a JSON object',
+      );
+      expect(
+        errorsOf(actors('enemies', { sheet: 3, strips: {} })),
+      ).toContain(
+        'pack "candy": pack.json: assets.actors.enemies.sheet must be a string (a path to the shared PNG)',
+      );
+      expect(
+        errorsOf(actors('boss', { sheet: 'boss.png', strips: {} })),
+      ).toContain(
+        'pack "candy": pack.json: assets.actors: unknown field "boss" — did you mean "bosses"?',
       );
     });
   });

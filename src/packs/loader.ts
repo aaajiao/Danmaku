@@ -34,6 +34,11 @@ import { musicNames, replaceMusic, type MusicSpec } from '../audio/music';
 import { backgroundNames } from '../render/background';
 import { laserSkinNames } from '../render/laser-skin';
 import { definePortrait, hasPortrait, portraitNames, PORTRAIT_SIZE } from '../render/portrait';
+import type {
+  ActorSheetInput,
+  ActorStripInput,
+  V4ActorAtlasInputs,
+} from '../render/v4-actors';
 import {
   BULLET_CELLS,
   BULLET_VARIANT_CELLS,
@@ -53,7 +58,14 @@ import {
   type PickupStripInput,
   type ShipStripInput,
 } from '../render/procedural';
-import type { PackBulletSheet, PackBulletStrip, PackShipStrip, PackStrip } from './manifest';
+import type {
+  PackActorAssets,
+  PackActorSheet,
+  PackBulletSheet,
+  PackBulletStrip,
+  PackShipStrip,
+  PackStrip,
+} from './manifest';
 import { injectPack, PackInjectError, type InjectContext, type InjectResult } from './inject';
 import {
   hashPack,
@@ -86,6 +98,8 @@ export interface LoadedPacks {
   shipUrl?: string;
   /** Winning native ship strip bank, if a pack shipped the object form. */
   shipStrip?: ShipStripInput;
+  /** Winning pack-backed actor texture families, each independently optional. */
+  actors?: V4ActorAtlasInputs;
   /**
    * Winning `assets.effects` strips (name → resolved URL + source geometry), if
    * any pack shipped one. `main.ts` hands these to `effectAtlas(undefined, …)`,
@@ -266,7 +280,13 @@ const HUD_ICON_MAX = 16;
  * first position. Music and portrait names are dynamic (a pack invents them),
  * so they cannot live in this fixed list; the report appends them sorted.
  */
-const RESOURCE_ORDER = ['assets.bullets', 'assets.ship'] as const;
+const RESOURCE_ORDER = [
+  'assets.bullets',
+  'assets.ship',
+  'assets.actors.players',
+  'assets.actors.enemies',
+  'assets.actors.bosses',
+] as const;
 
 /* ------------------------------------------------------------------ */
 /* Errors                                                              */
@@ -447,6 +467,7 @@ export async function loadPacks(): Promise<LoadedPacks> {
     bulletsStrips: winners.get('assets.bullets')?.bulletStrips,
     shipUrl: winners.get('assets.ship')?.url,
     shipStrip: winners.get('assets.ship')?.shipStrip,
+    actors: resolvedActorInputs(winners),
     filter: (winners.get('assets.filter')?.value as 'nearest' | 'linear') ?? 'nearest',
     effectStrips: Object.keys(effectStrips).length > 0 ? effectStrips : undefined,
     laserStrips: Object.keys(laserStrips).length > 0 ? laserStrips : undefined,
@@ -461,6 +482,26 @@ export async function loadPacks(): Promise<LoadedPacks> {
     campaigns,
     characterPacks,
   };
+}
+
+function resolvedActorInputs(winners: Map<string, Winner>): V4ActorAtlasInputs | undefined {
+  const input = (
+    role: keyof V4ActorAtlasInputs,
+  ): ActorSheetInput | undefined => {
+    const winner = winners.get(`assets.actors.${role}`);
+    if (winner?.url === undefined || winner.actorStrips === undefined) return undefined;
+    return { url: winner.url, strips: winner.actorStrips };
+  };
+  const actors: V4ActorAtlasInputs = {
+    players: input('players'),
+    enemies: input('enemies'),
+    bosses: input('bosses'),
+  };
+  return actors.players !== undefined ||
+    actors.enemies !== undefined ||
+    actors.bosses !== undefined
+    ? actors
+    : undefined;
 }
 
 /**
@@ -510,6 +551,8 @@ interface Resource {
   bulletStrips?: BulletSheetInput;
   /** A native ship strip bank (the object form of `assets.ship`). */
   shipStrip?: ShipStripInput;
+  /** One self-describing actor sheet's strips, paired with `url` above. */
+  actorStrips?: Readonly<Record<string, ActorStripInput>>;
   /** One `assets.effects` strip's source geometry, paired with `url` above. */
   effectStrip?: {
     x?: number;
@@ -836,6 +879,10 @@ async function gatherAssets(
     await gatherNativeShip(name, assets.ship, slots, files, reasons);
   }
 
+  if (assets.actors !== undefined) {
+    await gatherActorAssets(name, assets.actors, slots, files, reasons);
+  }
+
   // A value, not a file: it rides no bytes and orders after the sheets it tunes.
   if (assets.filter !== undefined) {
     slots.set('assets.filter', { value: assets.filter });
@@ -868,6 +915,62 @@ async function gatherAssets(
   if (assets.pickups !== undefined) {
     await gatherPickupStrips(name, assets.pickups, slots, files, reasons);
   }
+}
+
+async function gatherActorAssets(
+  name: string,
+  actors: PackActorAssets,
+  slots: Map<string, Resource>,
+  files: PackFiles,
+  reasons: string[],
+): Promise<void> {
+  for (const role of ['players', 'enemies', 'bosses'] as const) {
+    const sheet = actors[role];
+    if (sheet === undefined) continue;
+    await gatherActorSheet(name, role, sheet, slots, files, reasons);
+  }
+}
+
+async function gatherActorSheet(
+  name: string,
+  role: keyof PackActorAssets,
+  sheet: PackActorSheet,
+  slots: Map<string, Resource>,
+  files: PackFiles,
+  reasons: string[],
+): Promise<void> {
+  const url = fileUrl(name, sheet.sheet);
+  try {
+    await files.bytes(url);
+    const image = await files.image(url);
+    checkNativeActorSheet(name, sheet.sheet, sheet.strips, image, reasons);
+    slots.set(`assets.actors.${role}`, {
+      url,
+      actorStrips: resolveActorSheet(sheet),
+    });
+  } catch (error) {
+    reasons.push(`pack "${name}": ${sheet.sheet}: ${(error as Error).message}`);
+  }
+}
+
+function resolveActorSheet(
+  sheet: PackActorSheet,
+): Readonly<Record<string, ActorStripInput>> {
+  const strips: Record<string, ActorStripInput> = {};
+  for (const [name, strip] of Object.entries(sheet.strips)) {
+    strips[name] = {
+      x: strip.x,
+      y: strip.y,
+      frameW: strip.frameW,
+      frameH: strip.frameH,
+      frames: strip.frames,
+      stride: strip.stride,
+      ticksPerFrame: strip.ticksPerFrame,
+      mode: strip.mode,
+      color: strip.color,
+    };
+  }
+  return strips;
 }
 
 /**
@@ -1670,6 +1773,38 @@ function checkNativeBulletSheet(
     // is then rejected rather than shipped to mud the campaign; an actually-white
     // baked-tagged cell passes untouched.
     const strip = toStrip(floor.has(stripName) ? { ...raw, color: 'tinted' } : raw);
+    const { x: runsToX, y: runsToY } = stripSourceEnd(strip, raw.x, raw.y);
+    if (runsToX > w || runsToY > h) {
+      reasons.push(
+        `pack "${name}": ${path}: strip "${stripName}" runs to ${runsToX}×${runsToY}, ` +
+          `past the ${w}×${h} sheet (${strip.frames} frames of ${strip.frameW}×${strip.frameH} at ${raw.x},${raw.y})`,
+      );
+      continue;
+    }
+    if (data !== undefined) {
+      measureStripFrames(name, path, stripName, strip, data, w, raw.x, raw.y, reasons);
+    }
+  }
+}
+
+/**
+ * A self-describing actor sheet. It has no required floor vocabulary — actor
+ * semantics decide which known strips they can use — but every declared strip
+ * is bounds/seam checked against one decoded pixel buffer. Decoding once matters
+ * here: v4 carries 26 actor strips across three large sheets.
+ */
+function checkNativeActorSheet(
+  name: string,
+  path: string,
+  strips: Record<string, PackBulletStrip>,
+  image: HTMLImageElement,
+  reasons: string[],
+): void {
+  const w = image.naturalWidth;
+  const h = image.naturalHeight;
+  const data = pixels(image, w, h);
+  for (const [stripName, raw] of Object.entries(strips)) {
+    const strip = toStrip(raw);
     const { x: runsToX, y: runsToY } = stripSourceEnd(strip, raw.x, raw.y);
     if (runsToX > w || runsToY > h) {
       reasons.push(

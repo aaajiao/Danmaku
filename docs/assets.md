@@ -395,10 +395,11 @@ and drops to **0.15, 0.12 and 0.10** for `glow.small`, `glow.medium` and
 almost no plateau at all: it starts falling off immediately, which is what stops
 six overlapping explosion particles from compositing into a white disc.
 
-### 3.2 Player ship — `ship.png`, one region per character
+### 3.2 Player presentation — pack actor sheet plus `ship.png` floor
 
 > **Scope: procedural fallback / low-level pack floor only.** The current v4
-> runtime already uses the compiled five-player actor atlas; this subsection
+> runtime loads its compiled five-player actor atlas from
+> `packs/v4/actors/players.png`; this subsection
 > documents the fallback `ship` region and legacy asset seam, not the default
 > character presentation. The authoritative v4 actor atlas dimensions and
 > runtime sizes are in [`v4-art-direction.md` §9](./v4-art-direction.md#9-图集与动画技术规格).
@@ -441,17 +442,18 @@ as `player.radius` at `src/game/run.ts:1021`). The placeholder marks it with a
 which at the 40/64 draw scale lands as roughly 1.9px on screen against that
 2.5px radius — close enough to be honest, and worth keeping close.
 
-If you want animation frames later, extend to a `32 × 48` grid: row 0 idle
-(8 frames), row 1 banking left (4), row 2 banking right (4). That is the shape
-upstream used and it works; it just does not exist yet, and nothing in the
-engine advances a frame index, so it is a code change before it is an art
-request.
+The old proposed `32 × 48` idle/banking grid is not the live contract. A native
+`assets.ship` strip may declare the explicit five-way banking order, while
+`assets.actors.players` carries named, explicitly placed strips for the
+full-colour people. Both advance from replayed tick/input state; neither guesses
+animation from a filename or implicit grid.
 
-### 3.3 Enemies — no sheet, and they are on screen regardless
+### 3.3 Enemy/Boss presentation — pack actor sheets plus bullet floor
 
 > **Scope: procedural fallback / low-level floor only.** “No enemy sheet” below
-> describes the engine fallback. The current v4 runtime uses compiled actor
-> atlases for 16 enemies and 5 bosses (alongside the five-player atlas); their
+> describes the engine fallback. The current v4 runtime loads
+> `packs/v4/actors/enemies.png` and `packs/v4/actors/bosses.png` for 16 enemies
+> and 5 bosses (alongside the five-player atlas); their
 > authoritative cells, visible sizes, and naming contract are in
 > [`v4-art-direction.md` §9](./v4-art-direction.md#9-图集与动画技术规格).
 

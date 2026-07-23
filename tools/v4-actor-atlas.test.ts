@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { V4_UI_SCREEN } from '../src/render/v4-ui-layout';
 import { decodePng } from './png-decode';
+import {
+  V4_BOSS_ACTOR_NAMES,
+  V4_ENEMY_ACTOR_NAMES,
+  V4_PLAYER_ACTOR_NAMES,
+  buildV4BossActorAtlas,
+} from './v4-actor-assets';
 
 interface SheetSpec {
   readonly name: string;
@@ -23,7 +29,7 @@ interface FrameAlpha {
 const SHEETS: readonly SheetSpec[] = [
   {
     name: 'players',
-    url: new URL('../src/assets/v4/actors-player-v4.png', import.meta.url),
+    url: new URL('../packs/v4/actors/players.png', import.meta.url),
     frame: 128,
     columns: 5,
     rows: 5,
@@ -31,7 +37,7 @@ const SHEETS: readonly SheetSpec[] = [
   },
   {
     name: 'enemies',
-    url: new URL('../src/assets/v4/actors-enemies-v4.png', import.meta.url),
+    url: new URL('../packs/v4/actors/enemies.png', import.meta.url),
     frame: 128,
     columns: 8,
     rows: 8,
@@ -39,7 +45,7 @@ const SHEETS: readonly SheetSpec[] = [
   },
   {
     name: 'bosses',
-    url: new URL('../src/assets/v4/actors-bosses-v4.png', import.meta.url),
+    url: new URL('../packs/v4/actors/bosses.png', import.meta.url),
     frame: 192,
     columns: 5,
     rows: 5,
@@ -78,6 +84,35 @@ function frameAlpha(
 }
 
 describe('compiled v4 Ghost actor atlases', () => {
+  test('pack manifest owns every actor strip in semantic order', async () => {
+    const manifest = await Bun.file(
+      new URL('../packs/v4/pack.json', import.meta.url),
+    ).json() as {
+      assets: {
+        actors: {
+          players: { strips: Record<string, unknown> };
+          enemies: { strips: Record<string, unknown> };
+          bosses: { strips: Record<string, unknown> };
+        };
+      };
+    };
+    expect(Object.keys(manifest.assets.actors.players.strips)).toEqual(
+      V4_PLAYER_ACTOR_NAMES.map((name) => `actor.player.${name}`),
+    );
+    expect(Object.keys(manifest.assets.actors.enemies.strips)).toEqual(
+      V4_ENEMY_ACTOR_NAMES.map((name) => `actor.enemy.${name}`),
+    );
+    expect(Object.keys(manifest.assets.actors.bosses.strips)).toEqual(
+      V4_BOSS_ACTOR_NAMES.map((name) => `actor.boss.${name}`),
+    );
+  });
+
+  test('committed Boss sheet is a byte-exact rebuild of the isolation master', async () => {
+    const committed = await Bun.file(SHEETS[2]!.url).bytes();
+    const rebuilt = buildV4BossActorAtlas();
+    expect(Buffer.compare(Buffer.from(committed), Buffer.from(rebuilt))).toBe(0);
+  });
+
   for (const spec of SHEETS) {
     test(`${spec.name}: every authored pose is non-empty, padded and distinct`, async () => {
       const image = decodePng(await Bun.file(spec.url).bytes());

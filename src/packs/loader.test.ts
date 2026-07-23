@@ -95,6 +95,22 @@ describe('shared PackStrip loading', () => {
       author: 'Test',
       license: 'CC0-1.0',
       assets: {
+        actors: {
+          players: {
+            sheet: 'art.png',
+            strips: {
+              'actor.player.test': {
+                x: 0,
+                y: 0,
+                frames: 1,
+                frameW: 8,
+                frameH: 6,
+                mode: 'once',
+                color: 'baked',
+              },
+            },
+          },
+        },
         effects: {
           burst: {
             src: 'art.png',
@@ -219,6 +235,22 @@ describe('shared PackStrip loading', () => {
     expect(loaded.laserStrips?.['beam.warm']?.url).toBe(imageUrl);
     expect(loaded.missileStrips?.['missile.0']?.url).toBe(imageUrl);
     expect(loaded.pickupStrips?.['pickup.coin.silver']?.url).toBe(imageUrl);
+    expect(loaded.actors?.players).toEqual({
+      url: imageUrl,
+      strips: {
+        'actor.player.test': {
+          x: 0,
+          y: 0,
+          frameW: 8,
+          frameH: 6,
+          frames: 1,
+          stride: undefined,
+          ticksPerFrame: undefined,
+          mode: 'once',
+          color: 'baked',
+        },
+      },
+    });
 
     const expectedHash = await hashPack(manifestBytes, [imageBytes]);
     expect(loaded.packsMeta).toBe(`${name}@${expectedHash}`);
@@ -228,6 +260,7 @@ describe('shared PackStrip loading', () => {
     expect(report).toContain(`assets.lasers: ${name} (1 strip winner)`);
     expect(report).toContain(`assets.missiles: ${name} (1 strip winner)`);
     expect(report).toContain(`assets.pickups: ${name} (1 strip winner)`);
+    expect(report).toContain(`assets.actors.players: ${name}`);
     expect(report).not.toContain('(no pack resources active — running on placeholders)');
   });
 

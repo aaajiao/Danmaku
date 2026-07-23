@@ -124,6 +124,26 @@ export interface PackBulletSheet {
   strips: Record<string, PackBulletStrip>;
 }
 
+/**
+ * One actor texture with every animation strip placed explicitly on it.
+ *
+ * Actor art is presentation just like bullets and effects, but it stays on
+ * normal-blend textures of its own so baked character colour never enters the
+ * projectile batch. The geometry is deliberately the same self-describing
+ * shape as a native bullet sheet; only its runtime texture family differs.
+ */
+export interface PackActorSheet {
+  sheet: string;
+  strips: Record<string, PackBulletStrip>;
+}
+
+/** The three actor texture families a pack may supply independently. */
+export interface PackActorAssets {
+  players?: PackActorSheet;
+  enemies?: PackActorSheet;
+  bosses?: PackActorSheet;
+}
+
 /** The object form of `assets.ship`: a native strip bank in one PNG (no x/y). */
 export interface PackShipStrip {
   src: string;
@@ -156,6 +176,11 @@ export interface PackAssets {
    * declares the five-way banking pose contract.
    */
   ship?: string | PackShipStrip;
+  /**
+   * Baked-colour actor sheets. Each family is optional and self-describing;
+   * missing families fall back to the ordinary ship/bullet presentation.
+   */
+  actors?: PackActorAssets;
   /** Sampling for the sheets. Default `nearest`, matching `loadTexture`. */
   filter?: 'nearest' | 'linear';
   /**
@@ -745,7 +770,17 @@ const TOP_FIELDS = [
  */
 const RESERVED_TOP = ['backgrounds'] as const;
 
-const ASSET_FIELDS = ['bullets', 'ship', 'filter', 'effects', 'lasers', 'missiles', 'pickups'] as const;
+const ASSET_FIELDS = [
+  'bullets',
+  'ship',
+  'actors',
+  'filter',
+  'effects',
+  'lasers',
+  'missiles',
+  'pickups',
+] as const;
+const ACTOR_FIELDS = ['players', 'enemies', 'bosses'] as const;
 /** The fields of one native bullet strip (`PackBulletStrip`). x/y are offsets. */
 const BULLET_STRIP_FIELDS = [
   'x',
@@ -1168,6 +1203,10 @@ function validateAssets(assets: unknown, prefix: string, errors: string[]): void
     }
   }
 
+  if ('actors' in assets && assets.actors !== undefined) {
+    validateActorAssets(assets.actors, prefix, errors);
+  }
+
   if ('filter' in assets && assets.filter !== 'nearest' && assets.filter !== 'linear') {
     errors.push(`${prefix}assets.filter must be "nearest" or "linear"`);
   }
@@ -1290,6 +1329,77 @@ function validateBulletSheet(sheet: Record<string, unknown>, prefix: string, err
   for (const field of Object.keys(sheet)) {
     if (field === 'sheet' || field === 'strips') continue;
     errors.push(unknownField(`${prefix}assets.bullets: `, field, ['sheet', 'strips']));
+  }
+}
+
+/** `assets.actors`: three optional self-describing, normal-blend sheets. */
+function validateActorAssets(actors: unknown, prefix: string, errors: string[]): void {
+  if (!isRecord(actors)) {
+    errors.push(`${prefix}assets.actors must be a JSON object`);
+    return;
+  }
+  for (const role of ACTOR_FIELDS) {
+    if (!(role in actors) || actors[role] === undefined) continue;
+    const sheet = actors[role];
+    if (!isRecord(sheet)) {
+      errors.push(`${prefix}assets.actors.${role} must be a JSON object`);
+      continue;
+    }
+    validateActorSheet(sheet, role, prefix, errors);
+  }
+  for (const field of Object.keys(actors)) {
+    if ((ACTOR_FIELDS as readonly string[]).includes(field)) continue;
+    errors.push(unknownField(`${prefix}assets.actors: `, field, ACTOR_FIELDS));
+  }
+}
+
+function validateActorSheet(
+  sheet: Record<string, unknown>,
+  role: (typeof ACTOR_FIELDS)[number],
+  prefix: string,
+  errors: string[],
+): void {
+  const where = `assets.actors.${role}`;
+  if (typeof sheet.sheet !== 'string') {
+    errors.push(`${prefix}${where}.sheet must be a string (a path to the shared PNG)`);
+  }
+  if (!('strips' in sheet) || !isRecord(sheet.strips)) {
+    errors.push(`${prefix}${where}.strips must be a JSON object of name → strip`);
+  } else {
+    for (const [key, strip] of Object.entries(sheet.strips)) {
+      const stripWhere = `${where}.strips."${key}"`;
+      if (!isRecord(strip)) {
+        errors.push(`${prefix}${stripWhere} must be a JSON object`);
+        continue;
+      }
+      if (!('x' in strip)) {
+        errors.push(`${prefix}${stripWhere}.x must be a non-negative integer`);
+      } else {
+        stripOffset(strip, 'x', stripWhere, prefix, errors);
+      }
+      if (!('y' in strip)) {
+        errors.push(`${prefix}${stripWhere}.y must be a non-negative integer`);
+      } else {
+        stripOffset(strip, 'y', stripWhere, prefix, errors);
+      }
+      stripCount(strip, 'frameW', stripWhere, prefix, errors, true);
+      stripCount(strip, 'frameH', stripWhere, prefix, errors, true);
+      stripCount(strip, 'frames', stripWhere, prefix, errors, false);
+      stripCount(strip, 'stride', stripWhere, prefix, errors, false);
+      stripCount(strip, 'ticksPerFrame', stripWhere, prefix, errors, false);
+      stripCount(strip, 'contentW', stripWhere, prefix, errors, false);
+      stripCount(strip, 'contentH', stripWhere, prefix, errors, false);
+      stripStride(strip, stripWhere, prefix, errors);
+      stripEnums(strip, stripWhere, prefix, errors, false);
+      for (const field of Object.keys(strip)) {
+        if ((BULLET_STRIP_FIELDS as readonly string[]).includes(field)) continue;
+        errors.push(unknownField(`${prefix}${stripWhere}: `, field, BULLET_STRIP_FIELDS));
+      }
+    }
+  }
+  for (const field of Object.keys(sheet)) {
+    if (field === 'sheet' || field === 'strips') continue;
+    errors.push(unknownField(`${prefix}${where}: `, field, ['sheet', 'strips']));
   }
 }
 

@@ -230,12 +230,10 @@ const missileAtlas = await makeMissileAtlas(undefined, packs.missileStrips);
 // stay procedural — without the sim ever learning a pickup has a skin.
 const pickupAtlas = await makePickupAtlas(undefined, packs.pickupStrips);
 
-// v4's women and default projectile/feedback package are project-owned art, but
-// actors stay on normal-blend textures of their own. The selected art pack (v4
-// by default; purchaser-local BulletPack by explicit query, or as the local
-// fallback only when v4 is absent) supplies bullets, lasers, missiles,
-// explosions, pickups and player feedback.
-const v4Actors = await loadV4ActorAtlases();
+// Actor textures now come from the selected pack as self-describing sheets.
+// v4 supplies all three families; a different/no pack leaves them absent and
+// the ordinary ship/bullet draw paths remain the permanent floor.
+const v4Actors = await loadV4ActorAtlases(packs.actors);
 // Original engine-owned UI, independent of whichever projectile pack is live.
 const v4Ui = await loadV4UiAtlas();
 // One deterministic near-black cell, instanced once per visible v4 woman.  Its
@@ -281,7 +279,11 @@ for (const name of itemNames()) {
 // generators already choose their own filter, and a pack that supplied no
 // sheet leaves them untouched.
 if (packs.filter === 'linear') {
-  for (const atlas of [bulletAtlas, shipAtlas]) {
+  const filteredAtlases: Atlas[] = [bulletAtlas, shipAtlas];
+  for (const actorAtlas of [v4Actors.players, v4Actors.enemies, v4Actors.bosses]) {
+    if (actorAtlas !== undefined) filteredAtlases.push(actorAtlas);
+  }
+  for (const atlas of filteredAtlases) {
     atlas.texture.magFilter = THREE.LinearFilter;
     atlas.texture.minFilter = THREE.LinearFilter;
     atlas.texture.needsUpdate = true;
@@ -295,15 +297,15 @@ const batches = {
     renderOrder: ACTOR_PAD_RENDER_ORDER.enemy,
   }),
   enemies: new SpriteBatch(bulletAtlas, { capacity: 256, renderOrder: Layer.Enemies }),
-  actorEnemies: new SpriteBatch(v4Actors.enemies, { capacity: 256, renderOrder: Layer.Enemies + 1 }),
-  actorBosses: new SpriteBatch(v4Actors.bosses, { capacity: 8, renderOrder: Layer.Enemies + 2 }),
+  actorEnemies: new SpriteBatch(v4Actors.enemies ?? bulletAtlas, { capacity: 256, renderOrder: Layer.Enemies + 1 }),
+  actorBosses: new SpriteBatch(v4Actors.bosses ?? bulletAtlas, { capacity: 8, renderOrder: Layer.Enemies + 2 }),
   items: new SpriteBatch(bulletAtlas, { capacity: 512, renderOrder: Layer.Items }),
   actorPlayerPads: new SpriteBatch(actorPadAtlas, {
     capacity: 4,
     renderOrder: ACTOR_PAD_RENDER_ORDER.player,
   }),
   player: new SpriteBatch(shipAtlas, { capacity: 8, renderOrder: Layer.Player }),
-  actorPlayer: new SpriteBatch(v4Actors.players, { capacity: 4, renderOrder: Layer.Player + 2 }),
+  actorPlayer: new SpriteBatch(v4Actors.players ?? shipAtlas, { capacity: 4, renderOrder: Layer.Player + 2 }),
   options: new SpriteBatch(bulletAtlas, { capacity: 32, renderOrder: Layer.Player, }),
   optionsFx: new SpriteBatch(fxAtlas, { capacity: 32, renderOrder: Layer.Player }),
   playerFx: new SpriteBatch(fxAtlas, {
@@ -906,7 +908,8 @@ function stripTint(
 function drawRun(run: Run): void {
   for (const e of run.enemies.enemies) {
     const actor = V4_ENEMY_ACTORS[e.name];
-    if (actor !== undefined) {
+    const actorAtlas = v4Actors.enemies;
+    if (actor !== undefined && actorAtlas?.has(actor.strip)) {
       // Women are the positive form; their projectile vocabulary remains on the
       // selected art pack, project-owned v4 by default. The two breathing frames
       // yield to attack/recover only after the sim reports a successful volley.
@@ -916,7 +919,7 @@ function drawRun(run: Run): void {
       drawActorPad(batches.actorEnemyPads, 'enemy', e.x, e.y, actor.size);
       drawPose(
         batches.actorEnemies,
-        v4Actors.enemies,
+        actorAtlas,
         e.x,
         e.y,
         actor.strip,
@@ -950,7 +953,12 @@ function drawRun(run: Run): void {
     });
     const drawX = boss.x + feedback.recoilX;
     const drawY = boss.y + feedback.recoilY;
-    const actor = V4_BOSS_ACTORS[boss.name];
+    const candidateActor = V4_BOSS_ACTORS[boss.name];
+    const actorAtlas = v4Actors.bosses;
+    const actor =
+      candidateActor !== undefined && actorAtlas?.has(candidateActor.strip)
+        ? candidateActor
+        : undefined;
     const legacyStrip = actor === undefined ? bulletAtlas.strip(boss.spec.sprite) : undefined;
     const bodyWidth = actor?.size
       ?? boss.spec.width
@@ -967,7 +975,7 @@ function drawRun(run: Run): void {
       drawActorPad(batches.actorEnemyPads, 'boss', boss.x, boss.y, actor.size);
       drawPose(
         batches.actorBosses,
-        v4Actors.bosses,
+        actorAtlas!,
         drawX,
         drawY,
         actor.strip,
@@ -1328,7 +1336,12 @@ function drawRun(run: Run): void {
     // declares the same five-way semantics; arbitrary/legacy strips stay frame 0.
     const bankFrame = v4PlayerBankFrame(player.horizontalIntent, player.horizontalHeldTicks);
     const shipFrame = packs.shipStrip?.banking === 'five-way' ? bankFrame : 0;
-    const actor = V4_PLAYER_ACTORS[run.characterName];
+    const candidateActor = V4_PLAYER_ACTORS[run.characterName];
+    const actorAtlas = v4Actors.players;
+    const actor =
+      candidateActor !== undefined && actorAtlas?.has(candidateActor.strip)
+        ? candidateActor
+        : undefined;
     if (actor !== undefined) {
       // Keep the local darkness present through the invulnerability blink so
       // the player's location never disappears into scene texture. It softens
@@ -1356,7 +1369,7 @@ function drawRun(run: Run): void {
       }
       drawPose(
         batches.actorPlayer,
-        v4Actors.players,
+        actorAtlas!,
         player.x,
         player.y,
         actor.strip,
@@ -1753,17 +1766,18 @@ function drawView(view: {
   if (view.kind === 'character-select') {
     drawScreenHeading(view.title ?? 'SELECT', 72);
     const previewActor = view.character === undefined ? undefined : V4_PLAYER_ACTORS[view.character];
+    const previewAtlas = v4Actors.players;
     const identity = view.character === undefined ? undefined : V4_CHARACTER_UI[view.character as keyof typeof V4_CHARACTER_UI];
     const characterLayout = V4_UI_SCREEN.character;
-    if (previewActor !== undefined) {
-      const strip = v4Actors.players.strip(previewActor.strip);
-      const frame = v4Actors.players.frameOf(strip, 2);
+    if (previewActor !== undefined && previewAtlas?.has(previewActor.strip)) {
+      const strip = previewAtlas.strip(previewActor.strip);
+      const frame = previewAtlas.frameOf(strip, 2);
       const source = characterLayout.actorSource;
       const actor = characterLayout.actor;
       surface.imageSmoothingEnabled = false;
       surface.globalAlpha = 0.96;
       surface.drawImage(
-        v4Actors.players.texture.image as CanvasImageSource,
+        previewAtlas.texture.image as CanvasImageSource,
         frame.x + source.x,
         frame.y + source.y,
         source.w,
@@ -2087,6 +2101,7 @@ function drawV4Portrait(
   if (actor === undefined || portrait === undefined) return false;
 
   const atlas = player === undefined ? v4Actors.bosses : v4Actors.players;
+  if (atlas === undefined || !atlas.has(actor.strip)) return false;
   const frame = atlas.frameOf(atlas.strip(actor.strip), portrait.pose);
   // Each built-in woman owns a close framing anchor. Players use their neutral
   // pose; bosses use the authored cast gesture, so the portrait well carries

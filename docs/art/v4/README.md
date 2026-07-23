@@ -21,6 +21,10 @@ and remains recoverable from Git history.
 - `enemies-stage-1-ghoststyle-master.png` through
   `enemies-stage-4-ghoststyle-master.png` — four enemy-cast masters.
 - `boss-cast-ghoststyle-master.png` — five-boss pose master.
+- `boss-cast-ghoststyle-atlas-master.png` — accepted 25-pose isolation master
+  used by `tools/v4-actor-assets.ts`; unlike the earlier flattened contact
+  sheet, every silhouette has a recoverable foreground component before runtime
+  packing.
 - `projectile-style-lock.png` — projectile and effect language.
 - `ui-style-lock.png` — UI composition and ornament language.
 - `ui-production-ornaments-master.png` — accepted six-component UI production

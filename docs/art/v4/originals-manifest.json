@@ -10,6 +10,13 @@
       "sha256": "d7c44595d7b7452a0d613dbdf5d02ba6179fddceff3f2a6681b9cf250d0bc73f"
     },
     {
+      "path": "boss-cast-ghoststyle-atlas-master.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1631555,
+      "sha256": "a347c84259269c10b21100534c45614a71b307a7ae6eab240e7eeb456e8d18e7"
+    },
+    {
       "path": "enemies-stage-1-ghoststyle-master.png",
       "width": 1536,
       "height": 1024,

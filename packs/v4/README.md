@@ -17,6 +17,9 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Missile bodies | 13 | `missiles/missiles.png` |
 | Pickups + result-tally coins | 10 | `pickups/pickups.png` |
 | Five-bank heart-wing core | 1 strip / 5 frames | `player/ship.png` |
+| Playable actors | 5 strips / 25 poses | `actors/players.png` |
+| Enemy actors | 16 strips / 64 poses | `actors/enemies.png` |
+| Boss actors | 5 strips / 25 poses | `actors/bosses.png` |
 | HUD life / bomb | 2 | `hud/*.png` |
 | Formal music tracks (5 with one-shot intro) | 13 | `audio/music/*.wav` |
 | Gameplay + menu cues | 25 | `audio/sfx/*.wav` |
@@ -24,6 +27,12 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 Every animation strip remains horizontally contiguous. Multi-strip sheets use
 a deterministic first-fit shelf layout, avoiding transparent full-width rows
 without changing frame order, names or sampling geometry.
+
+The Boss atlas is compiled from the isolated 25-pose master recorded in
+`docs/art/v4/originals-manifest.json` (SHA-256
+`a347c84259269c10b21100534c45614a71b307a7ae6eab240e7eeb456e8d18e7`). The compiler assigns connected foreground
+components to semantic poses before scaling them into 192px frames with 8px
+transparent gutters. It never slices the irregular source at equal fifths.
 
 The procedural `pulse` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native

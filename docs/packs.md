@@ -58,6 +58,7 @@ A pack **can** replace, as a reskin:
   (bullets, enemies, the boss, items and particle effects all wear these cells;
   see `docs/assets.md` §3.1);
 - the **player ship** sprite;
+- three independent **actor sheets** — playable characters, enemies and bosses;
 - any of the twenty-five **sounds** the game plays;
 - any of the thirteen built-in **music tracks**, or add a pack-local track for
   the pack's own stage, boss or spell card;
@@ -246,7 +247,7 @@ The types below are exactly what `src/packs/manifest.ts` validates.
 | `author` | **yes** | string | Who made the art. Provenance, not decoration — see `license`. |
 | `license` | **yes** | string | **Provenance is mandatory.** CLAUDE.md rule 9: everything shipped needs a declared licence, because upstream's Touhou-derivative art shipped with none. A pack with no `license` is rejected. |
 | `description` | no | string | A sentence, shown wherever the boot report lists loaded packs. |
-| `assets` | no | object | `bullets?`, `ship?`, `effects?`, `lasers?`, `missiles?`, `pickups?`, `filter?` — see §5.1–5.6. |
+| `assets` | no | object | `bullets?`, `ship?`, `actors?`, `effects?`, `lasers?`, `missiles?`, `pickups?`, `filter?` — see §5.1–5.6. |
 | `sounds` | no | object | One entry per replaced sound, keyed by the sound's registered name — see §5.3. |
 | `music` | no | object | Track name → `{ file, loopStart?, loopEnd?, volume? }`. Replaces a built-in track or adds a pack-local one — see §6.5a. |
 | `hud` | no | object | `life?`, `bomb?` icon PNGs — see §5.4. |
@@ -304,10 +305,41 @@ default. A strip may explicitly declare `"banking": "five-way"`; then it must
 contain exactly five poses ordered hard-left, left, idle, right, hard-right, and
 the shell chooses them from replayed input/held ticks rather than looping them.
 
-`assets.filter` — `"nearest"` (default) or `"linear"` — sets texture sampling for
-the sheets. Hard-edged pixel art wants `"nearest"`; smooth, gradient-shaded art
-wants `"linear"`. Native baked pixel art wants `"nearest"` (the default a loaded
-sheet already gets). The default matches `loadTexture`'s own behaviour.
+`assets.filter` — `"nearest"` (default) or `"linear"` — sets texture sampling
+for the bullet, ship and any actor sheets. Hard-edged pixel art wants
+`"nearest"`; smooth, gradient-shaded art wants `"linear"`. Native baked pixel
+art wants `"nearest"` (the default a loaded sheet already gets). The default
+matches `loadTexture`'s own behaviour.
+
+### 5.2a `assets.actors` — player, enemy and Boss sheets
+
+Actor art is pack presentation, not engine-owned. The three texture families are
+independent and optional: `players`, `enemies`, `bosses`. Each is a shared PNG
+plus explicitly placed horizontal strips:
+
+```json
+"actors": {
+  "players": {
+    "sheet": "actors/players.png",
+    "strips": {
+      "actor.player.scout": {
+        "x": 0, "y": 0,
+        "frameW": 128, "frameH": 128,
+        "frames": 5, "stride": 128,
+        "ticksPerFrame": 1,
+        "mode": "once", "color": "baked"
+      }
+    }
+  }
+}
+```
+
+`x` and `y` are required. The loader never guesses a grid: every declared frame
+is bounds-checked against the decoded PNG and must keep the same transparent
+seam margin as other native strips. A family that is absent, fails to load, or
+does not contain the strip a built-in actor expects uses the ordinary
+ship/bullet presentation instead. Actor sheets stay on normal-blend textures of
+their own and never enter the high-capacity projectile batch.
 
 ### 5.3 `sounds.<name>` — a replaced sound
 
@@ -410,7 +442,7 @@ Three things bind it:
 ### 5.6 Native animation strips — shared and per-file sources
 
 Horizontal animation strips are the engine's native art format (`docs/assets.md`
-§1.4). Bullets, ships, effects, lasers, missiles and pickups carry them, and all
+§1.4). Bullets, ships, actors, effects, lasers, missiles and pickups carry them, and all
 are warn-only reskin material: a mismatched or absent native sheet warns and
 falls back to the procedural floor, exactly as a legacy sheet does. Native art
 never escalates a run to content — the *spec* that names a strip is content, the
@@ -553,14 +585,21 @@ refused, naming both the offending capabilities and the implemented set.
 | `assets` not an object | `assets must be a JSON object` |
 | `assets.bullets` neither a string nor an object | `assets.bullets must be a string (a path to a PNG)` |
 | `assets.ship` neither a string nor an object | `assets.ship must be a string (a path to a PNG)` |
+| `assets.actors` not an object | `assets.actors must be a JSON object` |
 | `assets.filter` not `"nearest"`/`"linear"` | `assets.filter must be "nearest" or "linear"` |
-| Unknown key under `assets` | `unknown field "<key>" — did you mean "<nearest>"?` (or, if nothing is within edit distance 2, `unknown field "<key>" — valid fields here: bullets, ship, filter, effects`) |
+| Unknown key under `assets` | `unknown field "<key>" — did you mean "<nearest>"?` (or, if nothing is within edit distance 2, `unknown field "<key>" — valid fields here: bullets, ship, actors, filter, effects, lasers, missiles, pickups`) |
 
 The `assets.bullets`/`assets.ship` "must be a string" strings are **kept
 verbatim** for the neither-string-nor-object case (a number, say); the object
 form is a new legal branch with new strings below. `x`/`y` are offsets
 (non-negative, 0 is the sheet origin); the rest are counts/sizes (positive) —
 the split is not cosmetic, since the grid's frame 0 sits at `x:0, y:0`.
+
+**`assets.actors` object form** (§5.2a) accepts only `players`, `enemies` and
+`bosses`. Each family requires a string `sheet`, an object `strips`, and explicit
+non-negative integer `x`/`y` placement on every strip. The remaining strip
+fields use the same positive-count and enum messages as
+`assets.bullets.strips`.
 
 **`assets.bullets` object form** (§5.6):
 
@@ -801,8 +840,9 @@ When no explicit query is present and neither `v4` nor local `bulletpack` is dis
 discovered packs load in the order `index.json` lists them (the dev server sorts
 directory names). Layering is **per resource, last wins**: if two packs both
 supply `assets.bullets`, the later one's sheet is used and the override is
-logged. A pack that supplies only sounds and a pack that supplies only a ship
-compose cleanly — each wins the slots it declares.
+logged. Actor families also win independently (`assets.actors.players`,
+`.enemies`, `.bosses`). A pack that supplies only sounds and a pack that supplies
+only a player-actor sheet compose cleanly — each wins the slots it declares.
 
 `?pack=<name>` in the URL narrows to a single pack, ignoring the rest. This is
 how you check one pack in isolation.
@@ -824,6 +864,7 @@ locally added pack named `my-pack`, it looks like:
 packs: boot report
   assets.bullets: my-pack  (/packs/my-pack/bullets.png)
   assets.ship: my-pack  (/packs/my-pack/ship.png)
+  assets.actors.players: my-pack  (/packs/my-pack/actors/players.png)
   assets.filter: my-pack  (nearest)
   sounds.shot: my-pack  (/packs/my-pack/shot.wav)
   sounds.pickup: my-pack  (/packs/my-pack/pickup.wav)

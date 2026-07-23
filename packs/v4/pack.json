@@ -1,10 +1,10 @@
 {
   "format": 1,
   "name": "v4",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "author": "Danmaku project",
   "license": "LicenseRef-Danmaku-Project-Owned",
-  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
+  "description": "Original v4 Japanese-STG presentation pack: player, enemy and corrected Boss actor atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
   "assets": {
     "bullets": {
       "sheet": "bullets/bullets.png",
@@ -959,6 +959,309 @@
       "contentW": 59,
       "contentH": 36,
       "banking": "five-way"
+    },
+    "actors": {
+      "players": {
+        "sheet": "actors/players.png",
+        "strips": {
+          "actor.player.scout": {
+            "x": 0,
+            "y": 0,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 5,
+            "stride": 128,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.player.lance": {
+            "x": 0,
+            "y": 128,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 5,
+            "stride": 128,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.player.hound": {
+            "x": 0,
+            "y": 256,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 5,
+            "stride": 128,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.player.spire": {
+            "x": 0,
+            "y": 384,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 5,
+            "stride": 128,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.player.maw": {
+            "x": 0,
+            "y": 512,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 5,
+            "stride": 128,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          }
+        }
+      },
+      "enemies": {
+        "sheet": "actors/enemies.png",
+        "strips": {
+          "actor.enemy.grunt": {
+            "x": 0,
+            "y": 0,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.weaver": {
+            "x": 512,
+            "y": 0,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.turret": {
+            "x": 0,
+            "y": 128,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.drifter": {
+            "x": 512,
+            "y": 128,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.lash": {
+            "x": 0,
+            "y": 256,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.hunter": {
+            "x": 512,
+            "y": 256,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.censer": {
+            "x": 0,
+            "y": 384,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.bastion": {
+            "x": 512,
+            "y": 384,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.clerk": {
+            "x": 0,
+            "y": 512,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.stele": {
+            "x": 512,
+            "y": 512,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.summons": {
+            "x": 0,
+            "y": 640,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.ray": {
+            "x": 512,
+            "y": 640,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.assessor": {
+            "x": 0,
+            "y": 768,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.usher": {
+            "x": 512,
+            "y": 768,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.marshal": {
+            "x": 0,
+            "y": 896,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.enemy.notary": {
+            "x": 512,
+            "y": 896,
+            "frameW": 128,
+            "frameH": 128,
+            "frames": 4,
+            "stride": 128,
+            "ticksPerFrame": 8,
+            "mode": "loop",
+            "color": "baked"
+          }
+        }
+      },
+      "bosses": {
+        "sheet": "actors/bosses.png",
+        "strips": {
+          "actor.boss.sentinel": {
+            "x": 0,
+            "y": 0,
+            "frameW": 192,
+            "frameH": 192,
+            "frames": 5,
+            "stride": 192,
+            "ticksPerFrame": 12,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.boss.warden": {
+            "x": 0,
+            "y": 192,
+            "frameW": 192,
+            "frameH": 192,
+            "frames": 5,
+            "stride": 192,
+            "ticksPerFrame": 12,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.boss.magistrate": {
+            "x": 0,
+            "y": 384,
+            "frameW": 192,
+            "frameH": 192,
+            "frames": 5,
+            "stride": 192,
+            "ticksPerFrame": 12,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.boss.chancellor": {
+            "x": 0,
+            "y": 576,
+            "frameW": 192,
+            "frameH": 192,
+            "frames": 5,
+            "stride": 192,
+            "ticksPerFrame": 12,
+            "mode": "loop",
+            "color": "baked"
+          },
+          "actor.boss.regent": {
+            "x": 0,
+            "y": 768,
+            "frameW": 192,
+            "frameH": 192,
+            "frames": 5,
+            "stride": 192,
+            "ticksPerFrame": 12,
+            "mode": "loop",
+            "color": "baked"
+          }
+        }
+      }
     },
     "filter": "nearest",
     "effects": {

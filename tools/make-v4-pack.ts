@@ -6,12 +6,12 @@
  * This is an original, deterministic pixel-art construction.  It studies the
  * v4 style locks' vocabulary (heart cores, skeletal spines, open rings and
  * branching mycelium), but it neither reads nor copies the purchased
- * BulletPack.  The generator is the source of truth: every committed PNG and
- * every manifest coordinate is rebuilt from the tables below.
+ * BulletPack. The generator is the source of truth for every committed pack
+ * file and manifest coordinate. Actor art is also pack-owned: accepted compiled
+ * player/enemy sheets are copied losslessly, while the Boss sheet is rebuilt
+ * from its isolated source master by `v4-actor-assets.ts`.
  *
- * Background scenes and actor atlases deliberately do not appear here.  A pack
- * replaces the reskin surfaces the loader already exposes; the existing shader
- * scenes and the v4 women remain engine-owned and unchanged.
+ * Background scenes remain engine-owned shader code and do not appear here.
  */
 
 import { createHash } from 'node:crypto';
@@ -38,6 +38,10 @@ import {
   V4_TRACK_SPECS,
   buildV4AudioFiles,
 } from './v4-audio';
+import {
+  V4_BOSS_ATLAS_MASTER_SHA256,
+  buildV4ActorAssets,
+} from './v4-actor-assets';
 
 export const V4_PACK_DIR = join(import.meta.dir, '..', 'packs', 'v4');
 export const V4_AUDIO_SOURCE_SHA256 = createHash('sha256')
@@ -1632,6 +1636,9 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Missile bodies | ${V4_MISSILE_SPECS.length} | \`missiles/missiles.png\` |
 | Pickups + result-tally coins | ${V4_PICKUP_SPECS.length} | \`pickups/pickups.png\` |
 | Five-bank heart-wing core | 1 strip / 5 frames | \`player/ship.png\` |
+| Playable actors | 5 strips / 25 poses | \`actors/players.png\` |
+| Enemy actors | 16 strips / 64 poses | \`actors/enemies.png\` |
+| Boss actors | 5 strips / 25 poses | \`actors/bosses.png\` |
 | HUD life / bomb | 2 | \`hud/*.png\` |
 | Formal music tracks (5 with one-shot intro) | ${V4_TRACK_SPECS.length} | \`audio/music/*.wav\` |
 | Gameplay + menu cues | ${V4_SOUND_SPECS.length} | \`audio/sfx/*.wav\` |
@@ -1639,6 +1646,12 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 Every animation strip remains horizontally contiguous. Multi-strip sheets use
 a deterministic first-fit shelf layout, avoiding transparent full-width rows
 without changing frame order, names or sampling geometry.
+
+The Boss atlas is compiled from the isolated 25-pose master recorded in
+\`docs/art/v4/originals-manifest.json\` (SHA-256
+\`${V4_BOSS_ATLAS_MASTER_SHA256}\`). The compiler assigns connected foreground
+components to semantic poses before scaling them into 192px frames with 8px
+transparent gutters. It never slices the irregular source at equal fifths.
 
 The procedural \`pulse\` floor is intentionally not replaced: it is an
 engine-tinted neutral glow, not one of the purchased-pack-equivalent native
@@ -1735,15 +1748,16 @@ export function buildV4Pack(): V4PackBuild {
   const missiles = buildRows(V4_MISSILE_SPECS, drawMissileFrame, 'missiles/missiles.png');
   const pickups = buildRows(V4_PICKUP_SPECS, drawPickupFrame, 'pickups/pickups.png');
   const ship = buildShip();
+  const actors = buildV4ActorAssets();
   const audioFiles = buildV4AudioFiles();
 
   const manifest: PackManifest = {
     format: 1,
     name: 'v4',
-    version: '4.3.0',
+    version: '4.4.0',
     author: 'Danmaku project',
     license: 'LicenseRef-Danmaku-Project-Owned',
-    description: 'Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
+    description: 'Original v4 Japanese-STG presentation pack: player, enemy and corrected Boss actor atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
     assets: {
       bullets: { sheet: 'bullets/bullets.png', strips: bullets.strips },
       ship: {
@@ -1759,6 +1773,7 @@ export function buildV4Pack(): V4PackBuild {
         contentH: ship.contentH,
         banking: 'five-way',
       },
+      actors: actors.assets,
       filter: 'nearest',
       effects: effects.strips,
       lasers: lasers.strips,
@@ -1782,6 +1797,7 @@ export function buildV4Pack(): V4PackBuild {
     ['missiles/missiles.png', encode(missiles.bitmap)],
     ['pickups/pickups.png', encode(pickups.bitmap)],
     ['player/ship.png', ship.bytes],
+    ...actors.files,
     ['hud/life.png', buildHud('life')],
     ['hud/bomb.png', buildHud('bomb')],
     ...audioFiles,
@@ -1808,6 +1824,7 @@ if (import.meta.main) {
   console.log(`v4 pack: ${Object.keys(bullets.strips).length} bullets`);
   console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (${NATIVE_EFFECT_NAMES.length} native + ${PLAYER_EFFECT_SPECS.length} player)`);
   console.log(`v4 pack: ${Object.keys(assets.lasers ?? {}).length} lasers, ${Object.keys(assets.missiles ?? {}).length} missiles, ${Object.keys(assets.pickups ?? {}).length} pickups`);
+  console.log('v4 pack: 5 player, 16 enemy and 5 Boss actor strips');
   console.log(`v4 pack: ${V4_TRACK_SPECS.length} music tracks, ${V4_SOUND_SPECS.length} sound cues`);
   console.log(`v4 pack: wrote ${build.files.size} files to ${V4_PACK_DIR}`);
 }

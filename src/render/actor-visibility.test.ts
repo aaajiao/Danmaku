@@ -35,8 +35,8 @@ describe('v4 actor contact visibility', () => {
         bosses: Record<string, { radius: number }>;
       };
     };
-    const enemyImage = decodePng(await Bun.file(new URL('../assets/v4/actors-enemies-v4.png', import.meta.url)).bytes());
-    const bossImage = decodePng(await Bun.file(new URL('../assets/v4/actors-bosses-v4.png', import.meta.url)).bytes());
+    const enemyImage = decodePng(await Bun.file(new URL('../../packs/v4/actors/enemies.png', import.meta.url)).bytes());
+    const bossImage = decodePng(await Bun.file(new URL('../../packs/v4/actors/bosses.png', import.meta.url)).bytes());
 
     Object.entries(V4_ENEMY_ACTORS).forEach(([name, actor], index) => {
       const sourceW = widestPaint(
