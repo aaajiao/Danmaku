@@ -567,6 +567,34 @@ describe('with WebAudio', () => {
       expect(ctx.sources).toHaveLength(1);
     });
 
+    test('an extension can author a distinct procedural fallback', async () => {
+      const name = unique('authored-synth');
+      defineSound(name, {
+        synth: { duration: 0.23, from: 1730, to: 410, decay: 11, peak: 0.37 },
+      });
+      const { audio, ctx } = await unlocked();
+
+      audio.play(name);
+
+      expect(ctx.sources).toHaveLength(1);
+      expect(ctx.sources[0]?.buffer?.duration).toBeCloseTo(0.23, 3);
+    });
+
+    test('a pack-style partial override preserves the authored synth floor', async () => {
+      const name = unique('authored-synth-override');
+      defineSound(name, {
+        synth: { duration: 0.19, from: 520, to: 1820, decay: 7, peak: 0.4 },
+        volume: 0.2,
+      });
+      overrideSound(name, { volume: 0.4 });
+      const { audio, ctx } = await unlocked();
+
+      audio.play(name);
+
+      expect(ctx.sources[0]?.buffer?.duration).toBeCloseTo(0.19, 3);
+      expect((ctx.voiceGains[0] as FakeGainNode).gain.value).toBe(0.4);
+    });
+
     test('each play gets its own source and gain', async () => {
       const name = unique('repeat');
       defineSound(name, { polyphony: 8 });

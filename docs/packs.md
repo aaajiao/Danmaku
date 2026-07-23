@@ -58,7 +58,7 @@ A pack **can** replace, as a reskin:
   (bullets, enemies, the boss, items and particle effects all wear these cells;
   see `docs/assets.md` §3.1);
 - the **player ship** sprite;
-- any of the fifteen **sounds** the game plays;
+- any of the twenty-five **sounds** the game plays;
 - any of the thirteen built-in **music tracks**, or add a pack-local track for
   the pack's own stage, boss or spell card;
 - the **♥ life** and **★ bomb** HUD icons;
@@ -312,17 +312,26 @@ sheet already gets). The default matches `loadTexture`'s own behaviour.
 ### 5.3 `sounds.<name>` — a replaced sound
 
 One entry per sound you replace, keyed by the sound's **registered name**. The
-fifteen names the game plays are:
+twenty-five names the game plays are:
 
 ```
 shot   hit   explosion   graze   pickup   death
 toll   declare   break   clear
 ui-move   ui-confirm   ui-cancel   ui-pause   ui-advance
+shot-tier-1   shot-tier-2   shot-tier-3
+power-up-1   power-up-2   power-up-3
+boss-enter-warden   boss-enter-magistrate
+boss-enter-chancellor   boss-enter-regent
 ```
 
 (`SOUND_NAMES` in `src/packs/manifest.ts`; what each fires on, and the measured
 mix doctrine behind them, is in `docs/audio.md` §2 and §5.) An unknown name is
-rejected and lists all fifteen. A pack need not replace every sound — the
+rejected and lists all twenty-five. `shot` is the Tier-0 weapon sound;
+`shot-tier-1` through `shot-tier-3` are its stronger near-equal-loudness
+variants, and `power-up-1` through `power-up-3` fire only on the corresponding
+tier crossing. `toll` belongs to Sentinel and remains the compatibility fallback
+for guest or otherwise unmapped bosses; the four named `boss-enter-*` cues
+belong to the other v4 bosses. A pack need not replace every sound — the
 example replaces only `shot` and `pickup`;
 everything else keeps its synthesised placeholder. Files are fed through
 the audio registry's `overrideSound` seam, so `docs/audio.md` §3's authoring constraints
@@ -598,7 +607,7 @@ section name):
 | Condition | Message |
 |---|---|
 | `sounds` not an object | `sounds must be a JSON object` |
-| Unknown sound name | `sounds."<key>" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance` |
+| Unknown sound name | `sounds."<key>" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance, shot-tier-1, shot-tier-2, shot-tier-3, power-up-1, power-up-2, power-up-3, boss-enter-warden, boss-enter-magistrate, boss-enter-chancellor, boss-enter-regent` |
 | A sound value neither a legacy string nor an object | `sounds.<key> must be a string (a path to a WAV)` (the legacy compatibility string) |
 | An object sound missing `file` | `sounds.<key> is missing required field "file" — a path to a WAV` |
 | Object `file` not a string | `sounds.<key>.file must be a string (a path to a WAV)` |

@@ -27,9 +27,35 @@
 
 import { fx } from '../core/random';
 
+/**
+ * Compact procedural fallback for an authored cue.
+ *
+ * Edition code may provide this alongside a sound name so a missing release
+ * WAV still preserves the cue's identity instead of collapsing every extension
+ * back onto the same generic beep.
+ */
+export interface SoundSynth {
+  /** Seconds. */
+  duration: number;
+  /** Hz at the start and at the end; swept between the two. */
+  from: number;
+  to: number;
+  /** 0 is a pure tone, 1 pure noise. */
+  noise?: number;
+  /** Exponential amplitude decay over the sound's length; higher is snappier. */
+  decay?: number;
+  /** Fade-in, in seconds. A waveform that starts off zero clicks without one. */
+  attack?: number;
+  /** Fold the sine towards a square, for a harsher retro edge. */
+  square?: boolean;
+  peak?: number;
+}
+
 export interface SoundSpec {
   /** Generated procedurally when absent. */
   url?: string;
+  /** Authored procedural floor used when `url` is absent or fails to decode. */
+  synth?: SoundSynth;
   volume?: number;
   /** Max simultaneous voices; further plays are dropped. */
   polyphony?: number;
@@ -40,6 +66,7 @@ export interface SoundSpec {
 /** A registered sound, with every default already resolved. */
 interface Sound {
   readonly url: string | undefined;
+  readonly synth: SoundSynth | undefined;
   readonly volume: number;
   readonly polyphony: number;
   readonly throttleMs: number;
@@ -70,6 +97,7 @@ function clamp01(value: number | undefined, fallback: number): number {
 export function defineSound(name: string, spec: SoundSpec): void {
   registry.set(name, {
     url: spec.url,
+    synth: spec.synth,
     volume: clamp01(spec.volume, 1),
     // Floored at one: a sound registered with zero voices can never play, which
     // is a typo rather than an intent. Not registering it says that better.
@@ -91,6 +119,7 @@ export function overrideSound(name: string, spec: SoundSpec): void {
   const previous = registry.get(name);
   defineSound(name, {
     url: spec.url ?? previous?.url,
+    synth: spec.synth ?? previous?.synth,
     volume: spec.volume ?? previous?.volume,
     polyphony: spec.polyphony ?? previous?.polyphony,
     throttleMs: spec.throttleMs ?? previous?.throttleMs,
@@ -105,27 +134,10 @@ export function soundNames(): readonly string[] {
 /* Synthesis                                                           */
 /* ------------------------------------------------------------------ */
 
-interface Synth {
-  /** Seconds. */
-  duration: number;
-  /** Hz at the start and at the end; swept between the two. */
-  from: number;
-  to: number;
-  /** 0 is a pure tone, 1 pure noise. */
-  noise?: number;
-  /** Exponential amplitude decay over the sound's length; higher is snappier. */
-  decay?: number;
-  /** Fade-in, in seconds. A waveform that starts off zero clicks without one. */
-  attack?: number;
-  /** Fold the sine towards a square, for a harsher retro edge. */
-  square?: boolean;
-  peak?: number;
-}
-
 /** Seconds of fade-out. A tone cut mid-cycle clicks just as a hard start does. */
 const RELEASE = 0.006;
 
-const SYNTHS: Readonly<Record<string, Synth>> = {
+const SYNTHS: Readonly<Record<string, SoundSynth>> = {
   // Sweep floor raised 420 → 640Hz (design §4, ordered fallback step 1): the BGM
   // lead now lives in [300,1000], and a downward square sweep bottoming at 420 put
   // the shot's own fundamental squarely in that lane (~90% of the shot's power) —
@@ -175,9 +187,9 @@ const SYNTHS: Readonly<Record<string, Synth>> = {
 };
 
 /** Stands in for a registered name nobody has authored a sound for yet. */
-const DEFAULT_SYNTH: Synth = { duration: 0.1, from: 800, to: 500, decay: 8, peak: 0.4 };
+const DEFAULT_SYNTH: SoundSynth = { duration: 0.1, from: 800, to: 500, decay: 8, peak: 0.4 };
 
-function render(ctx: BaseAudioContext, synth: Synth): AudioBuffer {
+function render(ctx: BaseAudioContext, synth: SoundSynth): AudioBuffer {
   const rate = ctx.sampleRate;
   const length = Math.max(1, Math.ceil(synth.duration * rate));
   const buffer = ctx.createBuffer(1, length, rate);
@@ -477,7 +489,7 @@ export class Audio {
     // A registered name with no synth of its own gets an audible placeholder
     // rather than silence, so a sound nobody authored is noticed instead of
     // quietly missing.
-    const buffer = render(ctx, SYNTHS[name] ?? DEFAULT_SYNTH);
+    const buffer = render(ctx, sound.synth ?? SYNTHS[name] ?? DEFAULT_SYNTH);
     this.#buffers.set(name, buffer);
     return buffer;
   }
@@ -503,7 +515,11 @@ export class Audio {
       try {
         const ctx = this.#ctx;
         if (!this.#buffers.has(name) && ctx) {
-          this.#buffers.set(name, render(ctx, SYNTHS[name] ?? DEFAULT_SYNTH));
+          const registered = registry.get(name);
+          this.#buffers.set(
+            name,
+            render(ctx, registered?.synth ?? SYNTHS[name] ?? DEFAULT_SYNTH),
+          );
         }
       } catch {
         // A broken WebAudio implementation may even reject buffer creation.

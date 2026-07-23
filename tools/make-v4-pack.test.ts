@@ -326,7 +326,7 @@ describe('generated output and exact manifest', () => {
   });
 
   test('category ledgers are complete, exact and project-owned', () => {
-    expect(build.manifest.version).toBe('4.1.0');
+    expect(build.manifest.version).toBe('4.2.0');
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);
@@ -363,8 +363,8 @@ describe('generated output and exact manifest', () => {
     const generated = [...build.files.keys()]
       .filter((path) => path.startsWith('audio/'))
       .sort();
-    expect(declared).toHaveLength(28);
-    expect(new Set(declared).size).toBe(28);
+    expect(declared).toHaveLength(38);
+    expect(new Set(declared).size).toBe(38);
     expect(generated).toEqual(declared);
     expect(diskFiles(join(V4_PACK_DIR, 'audio')).map((path) => `audio/${path}`)).toEqual(
       declared,

@@ -19,7 +19,7 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Five-bank heart-wing core | 1 strip / 5 frames | `player/ship.png` |
 | HUD life / bomb | 2 | `hud/*.png` |
 | Formal music loops | 13 | `audio/music/*.wav` |
-| Gameplay + menu cues | 15 | `audio/sfx/*.wav` |
+| Gameplay + menu cues | 25 | `audio/sfx/*.wav` |
 
 Every animation strip remains horizontally contiguous. Multi-strip sheets use
 a deterministic first-fit shelf layout, avoiding transparent full-width rows
@@ -89,16 +89,16 @@ Bomb HUD is a four-organ casting flower, not a crosshair.
 
 ## Audio provenance
 
-All 13 music loops and 15 cues are
+All 13 music loops and 25 cues are
 project-authored deterministic synthesis, exported as mono 16-bit PCM at
 22050Hz. No recording, sample, soundfont, preset or
 third-party audio enters the build.
 
-- Export profile: `v4-audio-pcm16-mono-22050-v1`
+- Export profile: `v4-audio-pcm16-mono-22050-v2`
 - Generator: `tools/v4-audio.ts`
-- Generator SHA-256: `cafa888d344578274cec33164f9c70d609ce6745fba68d11552d719089bf0cc8`
+- Generator SHA-256: `b66fc72d231c6e468f632b368dc2dcf31569750674357c9961bee5d62821543c`
 - Music inventory: `menu`, `vigil`, `descent`, `precedent`, `ordinance`, `nemesis`, `interdict`, `docket`, `sanction`, `interregnum`, `zenith`, `fiat`, `adjourn`
-- SFX inventory: `shot`, `hit`, `explosion`, `graze`, `pickup`, `death`, `toll`, `declare`, `break`, `clear`, `ui-move`, `ui-confirm`, `ui-cancel`, `ui-pause`, `ui-advance`
+- SFX inventory: `shot`, `hit`, `explosion`, `graze`, `pickup`, `death`, `toll`, `declare`, `break`, `clear`, `ui-move`, `ui-confirm`, `ui-cancel`, `ui-pause`, `ui-advance`, `shot-tier-1`, `shot-tier-2`, `shot-tier-3`, `power-up-1`, `power-up-2`, `power-up-3`, `boss-enter-warden`, `boss-enter-magistrate`, `boss-enter-chancellor`, `boss-enter-regent`
 
 The generator and its parameter tables are the editable source. The committed
 WAV bytes, manifest paths and both inventories are rebuilt and compared

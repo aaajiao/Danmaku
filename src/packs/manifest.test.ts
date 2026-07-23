@@ -699,7 +699,7 @@ describe('sounds', () => {
 
   test('an unknown sound name lists every valid name', () => {
     expect(errorsOf({ ...valid(), sounds: { explsion: 'x.wav' } })).toContain(
-      'pack "candy": pack.json: sounds."explsion" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance',
+      'pack "candy": pack.json: sounds."explsion" is not a sound this game plays — valid names: shot, hit, explosion, graze, pickup, death, toll, declare, break, clear, ui-move, ui-confirm, ui-cancel, ui-pause, ui-advance, shot-tier-1, shot-tier-2, shot-tier-3, power-up-1, power-up-2, power-up-3, boss-enter-warden, boss-enter-magistrate, boss-enter-chancellor, boss-enter-regent',
     );
   });
 
@@ -764,7 +764,7 @@ describe('sounds', () => {
     );
   });
 
-  test('all fifteen registered names are accepted', () => {
+  test('all twenty-five registered names are accepted', () => {
     const sounds: Record<string, string> = {};
     for (const name of SOUND_NAMES) sounds[name] = `${name}.wav`;
     const result = validateManifest({ ...valid(), sounds }, 'candy');

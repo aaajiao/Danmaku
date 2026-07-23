@@ -1740,10 +1740,10 @@ export function buildV4Pack(): V4PackBuild {
   const manifest: PackManifest = {
     format: 1,
     name: 'v4',
-    version: '4.1.0',
+    version: '4.2.0',
     author: 'Danmaku project',
     license: 'LicenseRef-Danmaku-Project-Owned',
-    description: 'Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 15-cue sound suite. Existing background shaders remain engine-owned and unchanged.',
+    description: 'Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
     assets: {
       bullets: { sheet: 'bullets/bullets.png', strips: bullets.strips },
       ship: {

@@ -451,6 +451,20 @@ describe('SFX hierarchy and the behavior band', () => {
     expect(eff('graze')).toBeGreaterThan(maxUiEff);
   });
 
+  test('v4 fallback keeps shot tiers level and makes power crossings ascend', () => {
+    const eff = (name: string): number => {
+      const sound = SOUNDS.get(name)!;
+      return peak(sound.buffer.getChannelData()) * sound.volume;
+    };
+    const shots = ['shot', 'shot-tier-1', 'shot-tier-2', 'shot-tier-3'].map(eff);
+    const spreadDb = 20 * Math.log10(Math.max(...shots) / Math.min(...shots));
+    expect(spreadDb).toBeLessThanOrEqual(0.1);
+
+    const power = ['power-up-1', 'power-up-2', 'power-up-3'].map(eff);
+    expect(power[0]!).toBeLessThan(power[1]!);
+    expect(power[1]!).toBeLessThan(power[2]!);
+  });
+
   test('M9 — every UI cue is under 0.090s', () => {
     for (const ui of ['ui-move', 'ui-confirm', 'ui-cancel', 'ui-pause', 'ui-advance']) {
       const dur = SOUNDS.get(ui)!.buffer.duration;

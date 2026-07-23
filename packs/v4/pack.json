@@ -1,10 +1,10 @@
 {
   "format": 1,
   "name": "v4",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "author": "Danmaku project",
   "license": "LicenseRef-Danmaku-Project-Owned",
-  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 15-cue sound suite. Existing background shaders remain engine-owned and unchanged.",
+  "description": "Original v4 Japanese-STG presentation pack: runtime-owner-linked surface, skeleton, mycelium and heart art plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
   "assets": {
     "bullets": {
       "sheet": "bullets/bullets.png",
@@ -2170,6 +2170,66 @@
       "volume": 0.28,
       "polyphony": 2,
       "throttleMs": 30
+    },
+    "shot-tier-1": {
+      "file": "audio/sfx/shot-tier-1.wav",
+      "volume": 0.29,
+      "polyphony": 4,
+      "throttleMs": 35
+    },
+    "shot-tier-2": {
+      "file": "audio/sfx/shot-tier-2.wav",
+      "volume": 0.28,
+      "polyphony": 4,
+      "throttleMs": 35
+    },
+    "shot-tier-3": {
+      "file": "audio/sfx/shot-tier-3.wav",
+      "volume": 0.27,
+      "polyphony": 4,
+      "throttleMs": 35
+    },
+    "power-up-1": {
+      "file": "audio/sfx/power-up-1.wav",
+      "volume": 0.48,
+      "polyphony": 1,
+      "throttleMs": 80
+    },
+    "power-up-2": {
+      "file": "audio/sfx/power-up-2.wav",
+      "volume": 0.47,
+      "polyphony": 1,
+      "throttleMs": 80
+    },
+    "power-up-3": {
+      "file": "audio/sfx/power-up-3.wav",
+      "volume": 0.46,
+      "polyphony": 1,
+      "throttleMs": 80
+    },
+    "boss-enter-warden": {
+      "file": "audio/sfx/boss-enter-warden.wav",
+      "volume": 0.6,
+      "polyphony": 1,
+      "throttleMs": 120
+    },
+    "boss-enter-magistrate": {
+      "file": "audio/sfx/boss-enter-magistrate.wav",
+      "volume": 0.59,
+      "polyphony": 1,
+      "throttleMs": 120
+    },
+    "boss-enter-chancellor": {
+      "file": "audio/sfx/boss-enter-chancellor.wav",
+      "volume": 0.58,
+      "polyphony": 1,
+      "throttleMs": 120
+    },
+    "boss-enter-regent": {
+      "file": "audio/sfx/boss-enter-regent.wav",
+      "volume": 0.57,
+      "polyphony": 1,
+      "throttleMs": 140
     }
   },
   "music": {
@@ -2177,7 +2237,7 @@
       "file": "audio/music/menu.wav",
       "loopStart": 0,
       "loopEnd": 16,
-      "volume": 0.7
+      "volume": 0.56
     },
     "vigil": {
       "file": "audio/music/vigil.wav",
@@ -2231,7 +2291,7 @@
       "file": "audio/music/interregnum.wav",
       "loopStart": 0,
       "loopEnd": 16,
-      "volume": 0.8
+      "volume": 0.7
     },
     "zenith": {
       "file": "audio/music/zenith.wav",

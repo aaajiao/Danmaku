@@ -892,6 +892,28 @@ describe('rules', () => {
     expect(run.player.power).toBeLessThan(1);
   });
 
+  test('a fired volley reports the integer power tier that produced it', () => {
+    const run = new Run(config({ stage: NO_BOSS_STAGE }));
+    run.player.power = 1;
+    run.tick(Button.Shot);
+
+    const shot = run.drainEvents().find((event) => event.type === 'shot');
+    expect(shot?.tier).toBe(1);
+  });
+
+  test('a power pickup reports a tier only when that same pickup crosses one', () => {
+    const collectAt = (power: number) => {
+      const run = new Run(config({ stage: NO_BOSS_STAGE }));
+      run.player.power = power;
+      run.items.spawn('power', run.player.x, run.player.y);
+      run.tick(0);
+      return run.drainEvents().find((event) => event.type === 'pickup');
+    };
+
+    expect(collectAt(0.94)?.tier).toBeUndefined();
+    expect(collectAt(0.95)?.tier).toBe(1);
+  });
+
   test('a bomb spends a stock, clears the field and pays for it', () => {
     const run = new Run(config());
     play(run, 600, (t) => (t % 8 !== 0 ? Button.Shot : 0));

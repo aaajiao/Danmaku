@@ -82,6 +82,61 @@ function effectiveSoundPeak(name: SoundName): number {
   return peak(sounds.get(name)!.samples) * spec.volume;
 }
 
+const SHOT_CUES = [
+  'shot',
+  'shot-tier-1',
+  'shot-tier-2',
+  'shot-tier-3',
+] as const satisfies readonly SoundName[];
+const POWER_UP_CUES = [
+  'power-up-1',
+  'power-up-2',
+  'power-up-3',
+] as const satisfies readonly SoundName[];
+const BOSS_ENTRY_CUES = [
+  'toll',
+  'boss-enter-warden',
+  'boss-enter-magistrate',
+  'boss-enter-chancellor',
+  'boss-enter-regent',
+] as const satisfies readonly SoundName[];
+
+/**
+ * Compare shape rather than encoded bytes or authored gain. Each source is
+ * peak-normalised and sampled at the same fractional positions, so different
+ * lengths do not win the assertion merely by carrying different RIFF sizes.
+ */
+function normalisedWaveformDistance(a: Float32Array, b: Float32Array): number {
+  const points = 4096;
+  const peakA = peak(a);
+  const peakB = peak(b);
+  let sum = 0;
+  for (let i = 0; i < points; i++) {
+    const indexA = Math.min(a.length - 1, Math.floor(((i + 0.5) * a.length) / points));
+    const indexB = Math.min(b.length - 1, Math.floor(((i + 0.5) * b.length) / points));
+    const delta = a[indexA]! / peakA - b[indexB]! / peakB;
+    sum += delta * delta;
+  }
+  return Math.sqrt(sum / points);
+}
+
+function expectPairwiseWaveforms(
+  names: readonly string[],
+  source: ReadonlyMap<string, DecodedPcm16Wav>,
+  minimumDistance: number,
+): void {
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const a = names[i]!;
+      const b = names[j]!;
+      expect(
+        normalisedWaveformDistance(source.get(a)!.samples, source.get(b)!.samples),
+        `${a} waveform differs from ${b}`,
+      ).toBeGreaterThanOrEqual(minimumDistance);
+    }
+  }
+}
+
 const durationBounds: Record<SoundName, readonly [number, number]> = {
   death: [0.5, 1],
   explosion: [0.3, 0.7],
@@ -98,6 +153,16 @@ const durationBounds: Record<SoundName, readonly [number, number]> = {
   'ui-move': [0.015, 0.05],
   'ui-advance': [0.02, 0.07],
   'ui-pause': [0.04, 0.12],
+  'shot-tier-1': [0.035, 0.1],
+  'shot-tier-2': [0.035, 0.1],
+  'shot-tier-3': [0.035, 0.1],
+  'power-up-1': [0.15, 0.21],
+  'power-up-2': [0.2, 0.26],
+  'power-up-3': [0.26, 0.33],
+  'boss-enter-warden': [0.4, 0.6],
+  'boss-enter-magistrate': [0.6, 0.8],
+  'boss-enter-chancellor': [0.65, 0.85],
+  'boss-enter-regent': [0.8, 1],
 };
 
 const peakBounds: Record<SoundName, readonly [number, number]> = {
@@ -116,10 +181,20 @@ const peakBounds: Record<SoundName, readonly [number, number]> = {
   'ui-move': [0.035, 0.07],
   'ui-advance': [0.035, 0.07],
   'ui-pause': [0.035, 0.07],
+  'shot-tier-1': [0.08, 0.15],
+  'shot-tier-2': [0.08, 0.15],
+  'shot-tier-3': [0.08, 0.15],
+  'power-up-1': [0.17, 0.22],
+  'power-up-2': [0.17, 0.22],
+  'power-up-3': [0.17, 0.22],
+  'boss-enter-warden': [0.24, 0.38],
+  'boss-enter-magistrate': [0.24, 0.38],
+  'boss-enter-chancellor': [0.24, 0.38],
+  'boss-enter-regent': [0.24, 0.38],
 };
 
 describe('v4 release-audio inventory', () => {
-  test('manifest and disk contain exactly thirteen tracks and fifteen cues', () => {
+  test('manifest and disk contain exactly thirteen tracks and twenty-five cues', () => {
     expect(manifest.sounds).toEqual(V4_SOUND_MANIFEST);
     expect(manifest.music).toEqual(V4_MUSIC_MANIFEST);
     expect(Object.keys(manifest.sounds ?? {})).toEqual([...SOUND_NAMES]);
@@ -131,8 +206,8 @@ describe('v4 release-audio inventory', () => {
       ),
       ...Object.values(manifest.music ?? {}).map((value) => value.file),
     ].sort();
-    expect(declared).toHaveLength(28);
-    expect(new Set(declared).size).toBe(28);
+    expect(declared).toHaveLength(38);
+    expect(new Set(declared).size).toBe(38);
     expect(allDiskAudio()).toEqual(declared);
   });
 
@@ -149,7 +224,7 @@ describe('v4 release-audio inventory', () => {
 });
 
 describe('v4 PCM release format and hygiene', () => {
-  test('all 28 files are canonical, nonempty mono PCM16 at 22050Hz', () => {
+  test('all 38 files are canonical, nonempty mono PCM16 at 22050Hz', () => {
     for (const [name, decoded] of [...tracks, ...sounds]) {
       expect(decoded.channels, name).toBe(1);
       expect(decoded.bitsPerSample, name).toBe(16);
@@ -194,6 +269,38 @@ describe('v4 PCM release format and hygiene', () => {
 });
 
 describe('v4 formal score', () => {
+  test('the four stages and five main bosses each own a distinct architecture', () => {
+    const architectureOf = (name: string): string =>
+      V4_TRACK_SPECS.find((spec) => spec.name === name)!.architecture;
+    const stageArchitectures = {
+      vigil: 'open-signal',
+      descent: 'descending-corridor',
+      precedent: 'accreted-record',
+      ordinance: 'closing-vault',
+    } as const;
+    const bossArchitectures = {
+      nemesis: 'sentinel-orbit',
+      interdict: 'warden-latch',
+      docket: 'magistrate-scan',
+      sanction: 'chancellor-seal',
+      interregnum: 'regent-recapitulation',
+    } as const;
+
+    for (const [name, architecture] of Object.entries(stageArchitectures)) {
+      expect(architectureOf(name), name).toBe(architecture);
+    }
+    for (const [name, architecture] of Object.entries(bossArchitectures)) {
+      expect(architectureOf(name), name).toBe(architecture);
+    }
+    expect(new Set(Object.values(stageArchitectures)).size).toBe(4);
+    expect(new Set(Object.values(bossArchitectures)).size).toBe(5);
+
+    // The label must reach the PCM: a unique enum value driving identical output
+    // would restore the exact "same renderer, different root" failure this guards.
+    expectPairwiseWaveforms(Object.keys(stageArchitectures), tracks, 0.2);
+    expectPairwiseWaveforms(Object.keys(bossArchitectures), tracks, 0.2);
+  });
+
   test('loop duration, level and quantised seam satisfy the release contract', () => {
     for (const spec of V4_TRACK_SPECS) {
       const decoded = tracks.get(spec.name)!;
@@ -258,10 +365,11 @@ describe('v4 cue hierarchy and the menu behavior lane', () => {
     const groups: readonly (readonly SoundName[])[] = [
       ['death'],
       ['explosion'],
-      ['toll'],
+      BOSS_ENTRY_CUES,
       ['break', 'declare'],
+      POWER_UP_CUES,
       ['hit', 'clear', 'pickup'],
-      ['shot'],
+      SHOT_CUES,
       ['graze'],
       ['ui-move', 'ui-confirm', 'ui-cancel', 'ui-pause', 'ui-advance'],
     ];
@@ -288,12 +396,35 @@ describe('v4 cue hierarchy and the menu behavior lane', () => {
     }
   });
 
-  test('continuous shot feedback stays at least 7dB above the loudest score RMS', () => {
+  test('four shot tiers are equally loud, waveform-distinct, and clear the score by 7dB', () => {
     const loudest = Math.max(
       ...V4_TRACK_SPECS.map((spec) => effectiveTrackRms(spec.name)),
     );
-    const ratioDb = 20 * Math.log10(effectiveSoundPeak('shot') / loudest);
-    expect(ratioDb).toBeGreaterThanOrEqual(7);
+    const peaks = SHOT_CUES.map(effectiveSoundPeak);
+    const spreadDb = 20 * Math.log10(Math.max(...peaks) / Math.min(...peaks));
+    expect(spreadDb, 'shot tier effective-peak spread').toBeLessThanOrEqual(0.75);
+    for (const name of SHOT_CUES) {
+      const ratioDb = 20 * Math.log10(effectiveSoundPeak(name) / loudest);
+      expect(ratioDb, name).toBeGreaterThanOrEqual(7);
+    }
+    expectPairwiseWaveforms(SHOT_CUES, sounds, 0.1);
+  });
+
+  test('three power-up cues rise in duration and authority without crossing the card layer', () => {
+    const durations = POWER_UP_CUES.map((name) => {
+      const decoded = sounds.get(name)!;
+      return decoded.samples.length / decoded.sampleRate;
+    });
+    const peaks = POWER_UP_CUES.map(effectiveSoundPeak);
+    expect(durations[0]!).toBeLessThan(durations[1]!);
+    expect(durations[1]!).toBeLessThan(durations[2]!);
+    expect(peaks[0]!).toBeLessThan(peaks[1]!);
+    expect(peaks[1]!).toBeLessThan(peaks[2]!);
+    expectPairwiseWaveforms(POWER_UP_CUES, sounds, 0.1);
+  });
+
+  test('all five boss entrances have genuinely different waveform identities', () => {
+    expectPairwiseWaveforms(BOSS_ENTRY_CUES, sounds, 0.1);
   });
 });
 

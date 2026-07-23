@@ -82,7 +82,11 @@ import { bossNames, getBossSpec } from './sim/boss';
 import { effectNames, getEffectSpec } from './sim/effects';
 import { soundNames } from './audio';
 import { musicNames } from './audio/music';
-import { MENU_MUSIC } from './v4/audio';
+import {
+  MENU_MUSIC,
+  V4_EVENT_SOUND_NAMES,
+  v4EventSound,
+} from './v4/audio';
 import { bombNames } from './sim/bomb';
 import { enemyNames } from './sim/enemy';
 import { itemNames } from './sim/item';
@@ -162,6 +166,8 @@ interface Coverage {
   items: Set<string>;
   effects: Set<string>;
   events: Set<RunEventType>;
+  /** Sound names the composed v4 event resolver actually selected. */
+  sounds: Set<string>;
   scenes: Set<string>;
   /** Music tracks a real run actually asked for, via `run.music`. */
   music: Set<string>;
@@ -281,6 +287,7 @@ function playThroughGame(
     items: new Set(),
     effects: new Set(),
     events: new Set(),
+    sounds: new Set(),
     scenes: new Set(),
     music: new Set(),
     characters: new Set(),
@@ -460,7 +467,11 @@ function playThroughGame(
       for (const enemy of run.enemies.enemies) cover.enemies.add(enemy.name);
       for (const item of run.items.items) cover.items.add(item.name);
       for (const particle of run.effects.particles) cover.effects.add(particle.spec.sprite);
-      for (const event of run.drainEvents()) cover.events.add(event.type);
+      for (const event of run.drainEvents()) {
+        cover.events.add(event.type);
+        const sound = v4EventSound(event) ?? EVENT_SOUNDS[event.type];
+        if (sound !== undefined) cover.sounds.add(sound);
+      }
 
       // Beams. A laser is a `Bullet` carrying a `LaserSpec`, so it lives in the
       // same array as every other bullet and is read here off the live field, the
@@ -550,6 +561,7 @@ const COVER: Coverage = {
   items: union(RUNS, (c) => c.items),
   effects: union(RUNS, (c) => c.effects),
   events: union(RUNS, (c) => c.events),
+  sounds: union(RUNS, (c) => c.sounds),
   scenes: union(RUNS, (c) => c.scenes),
   music: union(RUNS, (c) => c.music),
   characters: union(RUNS, (c) => c.characters),
@@ -982,7 +994,11 @@ describe('a real playthrough reaches', () => {
     // because both name registered sounds and the equality closes over the whole
     // registry — a `ui-*` sound outside `SHELL_CUES` would be an unplayed asset
     // exactly as a stranded gameplay sound is.
-    const cued = new Set([...Object.values(EVENT_SOUNDS), ...SHELL_CUES]);
+    const cued = new Set([
+      ...Object.values(EVENT_SOUNDS),
+      ...V4_EVENT_SOUND_NAMES,
+      ...SHELL_CUES,
+    ]);
     for (const name of cued) {
       expect(`${name} is registered: ${soundNames().includes(name)}`).toBe(
         `${name} is registered: true`,
@@ -997,12 +1013,7 @@ describe('a real playthrough reaches', () => {
     // that row never fires — but `death` is still heard, because `player-death`
     // cues it too. The claim that matters is that no sound is stranded behind
     // only unreachable cues, and it is asserted per sound.
-    const reachableSounds = new Set([
-      ...(Object.entries(EVENT_SOUNDS) as [RunEventType, string][])
-        .filter(([type]) => COVER.events.has(type))
-        .map(([, sound]) => sound),
-      ...UI_CUES,
-    ]);
+    const reachableSounds = new Set([...COVER.sounds, ...UI_CUES]);
     for (const name of content(soundNames())) {
       expect(`${name} reachable: ${reachableSounds.has(name)}`).toBe(
         `${name} reachable: true`,

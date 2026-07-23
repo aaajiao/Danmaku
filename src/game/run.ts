@@ -300,6 +300,8 @@ export interface RunEvent {
   count?: number;
   /** Registry name of whatever the event is about, when there is one. */
   name?: string;
+  /** Integer power tier, for a volley or a pickup that crossed a tier boundary. */
+  tier?: number;
 }
 
 /**
@@ -1046,10 +1048,15 @@ export class Run {
   #resolvePickups(): void {
     for (const pickup of this.items.drainCollected()) {
       const { kind, value } = pickup.spec;
+      let tier: number | undefined;
       switch (kind) {
-        case 'power':
+        case 'power': {
+          const before = Math.floor(this.player.power);
           this.player.addPower(value);
+          const after = Math.floor(this.player.power);
+          if (after > before) tier = after;
           break;
+        }
         case 'score':
           this.#award(value);
           // Bucket the chip onto the results-card coin tally. Silver is the base
@@ -1070,7 +1077,14 @@ export class Run {
       // sound never played because `main.ts` keyed the table on an event type
       // that does not exist, and the `pickup` effect was never emitted at all.
       this.effects.emit('pickup', pickup.x, pickup.y);
-      this.#emit({ type: 'pickup', x: pickup.x, y: pickup.y, name: pickup.name });
+      const event: RunEvent = {
+        type: 'pickup',
+        x: pickup.x,
+        y: pickup.y,
+        name: pickup.name,
+      };
+      if (tier !== undefined) event.tier = tier;
+      this.#emit(event);
     }
   }
 
@@ -1111,7 +1125,12 @@ export class Run {
     const player = this.player;
     if (!player.fired) return;
     this.effects.emit('muzzle', player.x, player.y - 12);
-    this.#emit({ type: 'shot', x: player.x, y: player.y });
+    this.#emit({
+      type: 'shot',
+      x: player.x,
+      y: player.y,
+      tier: Math.floor(player.power),
+    });
   }
 
   /**

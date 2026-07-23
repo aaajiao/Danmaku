@@ -1,12 +1,14 @@
 # Audio assets — specification and replacement guide
 
-The counterpart to [`docs/assets.md`](./assets.md), for sound. Everything the
-game plays is **synthesised at runtime** from a handful of parameters, for the
-same reason the art is generated: upstream's audio is Touhou Project derivative
-and cannot ship (CLAUDE.md, rule 9), so the placeholders are original by
-construction and licence-clean. This document is what an author needs to replace
-one with a real sample, and what the mix doctrine behind the fifteen sounds and
-thirteen tracks actually measures.
+The counterpart to [`docs/assets.md`](./assets.md), for sound. The generic
+fallback is **synthesised at runtime** from a handful of parameters; the formal
+v4 pack is deterministically rendered offline and loaded as WAV. Both are
+project-authored for the same reason the art is generated: upstream's audio is
+Touhou Project derivative and cannot ship (CLAUDE.md, rule 9). This document is
+what an author needs to replace one with a real sample, and the mix doctrine
+behind the twenty-five sounds and thirteen tracks in the complete 38-file v4
+audio set. A number is called measured below only when the current measurement
+tool produced it.
 
 Read §0 first if you are bringing in audio someone else made. §1–§3 are the
 sound specification, §4 is music, §5 is the mix doctrine and its measured
@@ -40,25 +42,29 @@ acceptance: a beautiful sample with no provenance cannot ship.
 Three layers, and the seam for real art is in the middle one.
 
 1. **Registration.** `defineSound(name, spec)` (`src/audio/index.ts`) puts a
-   name in the registry. `SoundSpec` is all optional: `url`, `volume`,
-   `polyphony`, `throttleMs`. A sound with **no `url` is synthesised**; a sound
-   **with a `url` is fetched and decoded**. That single field is the entire swap
-   — real audio is a `defineSound` call with a `url`, from a content file, and
-   nothing in the engine changes.
+   name in the registry. `SoundSpec` is all optional: `url`, `synth`, `volume`,
+   `polyphony`, `throttleMs`. A sound with **no `url` is synthesised** from its
+   authored `synth` floor (or the engine default); a sound **with a `url` is
+   fetched and decoded**, falling back to that same authored synth if loading
+   fails. `url` is still the entire release-sample swap — real audio is a
+   `defineSound` call with a `url`, from a content file, and nothing in the
+   engine changes.
 
 2. **The cue.** A registered sound plays nothing on its own. Two channels feed
    it, and they are deliberately separate:
-   - `src/game/cues.ts`'s `EVENT_SOUNDS` maps each `RunEventType` the
-     simulation raises to a sound name — `Run` raises `boss-defeated`,
-     `EVENT_SOUNDS` says that is `explosion`, `main.ts` calls
-     `audio.play('explosion')`. This is **gameplay** sound; a run event fires it.
+   - Gameplay first passes through v4's `v4EventSound(event)`, which can use
+     event details to select a weapon tier, a tier-crossing cue or a named Boss
+     entrance. If it delegates, `src/game/cues.ts`'s `EVENT_SOUNDS` maps the
+     `RunEventType` to its generic reaction — `Run` raises `boss-defeated`,
+     `EVENT_SOUNDS` says that is `explosion`, and `main.ts` plays it.
    - `SHELL_CUES` (same file) names the five `ui-*` sounds, which are shell/menu
      state, never a run event — `main.ts` reads a transient `.cue` field set by
      menu code, plus a pause-enter reconcile and a dialogue-advance watch (§3).
-   Adding a sound that should fire on an event means editing `EVENT_SOUNDS`;
-   adding a menu sound means naming it in `SHELL_CUES` and wiring the shell edge
-   that sets `.cue`. Either way, registering a sound and cuing it are two
-   different failures — `reachability.test.ts` catches both, for both channels.
+   A generic reaction belongs in `EVENT_SOUNDS`; an edition-specific reaction
+   that depends on `tier` or `name` belongs in `v4EventSound`. A menu sound
+   belongs in `SHELL_CUES` and the shell edge that sets `.cue`. In all cases,
+   registration and reachability are separate failures —
+   `reachability.test.ts` checks the composed resolver and both channels.
 
 3. **Playback.** `Audio` (`src/audio/index.ts`) owns a WebAudio graph, built
    lazily on the first input because browsers refuse one outside a user gesture.
@@ -78,34 +84,56 @@ same run as one recorded with sound.
 
 ## 2. The registered sounds
 
-Fifteen, all synthesised, all in `src/audio/index.ts`. Six are the original
-gameplay-reaction set; nine were added in the audio-enrichment round — four
-replace generic `explosion`/`pickup` cues on the boss ladder and stage clear
-with sounds shaped for that specific moment, five are the UI channel (§1, §3).
+Twenty-five names are fixed by `SOUND_NAMES`. The first fifteen are the generic
+gameplay/UI floor: six original gameplay reactions, four semantic boss/card/clear
+cues, and the five-sound UI channel (§1, §3). The other ten complete the
+four-tier weapon ladder, name its three actual tier crossings, and give the
+remaining v4 bosses distinct identities that a single held-fire sound or universal
+entrance bell would flatten.
 
 `volume` is the mix gain applied on top of the synth's own output; **effective
 peak** (`bufPeak × volume`) is the number that actually reaches the speaker and
 is what §5's hierarchy (M8) is checked against. `band%` is the fraction of each
-sound's energy sitting in the 1.5–3kHz band the BGM deliberately vacates (§5) —
-all measured by `tools/measure-audio.ts` against the real synths, not estimated:
+sound's energy sitting in the 1.5–3kHz band the BGM deliberately vacates (§5).
+The following fifteen-row baseline was measured by `tools/measure-audio.ts`
+against the real fallback synths, not estimated:
 
 | Name | Fires on | dur (s) | buffer peak | volume | effective peak | band % |
 |---|---|---|---|---|---|---|
 | `death` | `player-death`, `failed` | 0.850 | 0.9314 | 0.80 | 0.7451 | 1.0% |
 | `explosion` | `enemy-killed`, `boss-defeated`, `bomb` | 0.550 | 0.8612 | 0.55 | 0.4737 | 6.5% |
-| `toll` | `boss-entered` | 0.700 | 0.5666 | 0.60 | 0.3399 | 0.0% |
+| `toll` | Sentinel entry; guest/unknown-boss entry fallback | 0.700 | 0.5666 | 0.60 | 0.3399 | 0.0% |
 | `break` | `boss-break` (non-final spell with an active successor) | 0.220 | 0.3901 | 0.55 | 0.2146 | 51.5% |
 | `declare` | `boss-phase` | 0.350 | 0.4253 | 0.50 | 0.2126 | 1.3% |
 | `clear` | `cleared` | 0.250 | 0.3692 | 0.50 | 0.1846 | 0.0% |
 | `hit` | `shot-hit`, `boss-hit` | 0.090 | 0.5321 | 0.35 | 0.1862 | 2.0% |
 | `pickup` | `pickup`, `extend` | 0.160 | 0.4624 | 0.35 | 0.1618 | 1.8% |
-| `shot` | every player shot | 0.070 | 0.3801 | 0.30 | 0.1140 | 2.2% |
+| `shot` | every Tier-0 player shot | 0.070 | 0.3801 | 0.30 | 0.1140 | 2.2% |
 | `graze` | grazing a bullet | 0.130 | 0.3120 | 0.22 | 0.0686 | 100.0% |
 | `ui-confirm` | menu confirm, and the ending screen's page-turn | 0.060 | 0.2232 | 0.29 | 0.0647 | 100.0% |
 | `ui-cancel` | cancel / back | 0.060 | 0.2128 | 0.27 | 0.0574 | 100.0% |
 | `ui-pause` | pause entered | 0.070 | 0.1994 | 0.24 | 0.0479 | 0.0% |
 | `ui-advance` | dialogue line advance | 0.040 | 0.1440 | 0.36 | 0.0518 | 100.0% |
 | `ui-move` | menu selection change | 0.030 | 0.1291 | 0.42 | 0.0542 | 100.0% |
+
+The ten edition-specific rows below are authored release targets from
+`tools/v4-audio.ts`. Their effective targets are simple
+`targetPeak × volume` calculations. They are **not** reported as decoded buffer
+peaks or band measurements; those columns stay unpublished until the generated
+files have been measured:
+
+| Name | Fires on | authored dur (s) | target peak | volume | effective target |
+|---|---|---:|---:|---:|---:|
+| `shot-tier-1` | every Tier-1 player shot | 0.060 | 0.50 | 0.29 | 0.1450 |
+| `shot-tier-2` | every Tier-2 player shot | 0.065 | 0.52 | 0.28 | 0.1456 |
+| `shot-tier-3` | every Tier-3 player shot | 0.070 | 0.54 | 0.27 | 0.1458 |
+| `power-up-1` | the transition from Tier 0 to Tier 1 | 0.180 | 0.38 | 0.48 | 0.1824 |
+| `power-up-2` | the transition from Tier 1 to Tier 2 | 0.230 | 0.41 | 0.47 | 0.1927 |
+| `power-up-3` | the transition from Tier 2 to Tier 3 | 0.290 | 0.44 | 0.46 | 0.2024 |
+| `boss-enter-warden` | Warden entry | 0.480 | 0.52 | 0.60 | 0.3120 |
+| `boss-enter-magistrate` | Magistrate entry | 0.700 | 0.54 | 0.59 | 0.3186 |
+| `boss-enter-chancellor` | Chancellor entry | 0.760 | 0.56 | 0.58 | 0.3248 |
+| `boss-enter-regent` | Regent entry | 0.900 | 0.60 | 0.57 | 0.3420 |
 
 Read this table alongside the doctrine table in §5 rather than in isolation:
 `graze` sits at **100%** in-band on purpose (it *is* the behavior-band tenant,
@@ -117,14 +145,15 @@ transient at 1.5–3kHz keeps it out of the menu theme's 300–1000Hz lead. It s
 sits below `graze` by effective peak, but it no longer disappears under the
 theme's average level.
 
-One sound still serves several events by design, the same "same kind of event
-to an ear" reasoning as before: `explosion` covers a kill, the boss's own death,
-and a bomb; `pickup` covers an item and an extend. That restraint (做减法) is
-why the table is fifteen rows and not twenty — the boss ladder and stage clear
-earned their own cues because a bell announcing a fight, a stab declaring a
-card, a shatter breaking one, and a resolving chime clearing a stage are four
-different *kinds* of moment a generic explosion or pickup chirp was flattening
-into one, not four new events wanting decoration.
+Some sounds still serve several events by design, under the same "same kind of
+event to an ear" reasoning as before: `explosion` covers a kill, the boss's own
+death, and a bomb; `pickup` covers an item and an extend. `shot` is now
+specifically Tier 0, while `shot-tier-1` through `shot-tier-3` encode stronger
+weapons by pulse grammar and spectrum rather than by a loudness ladder.
+Likewise `toll` is Sentinel's entrance and the compatibility fallback for a
+guest or otherwise unmapped boss; Warden, Magistrate, Chancellor and Regent use
+their named entrances. The extra names are therefore semantic distinctions the
+player must hear, not decoration added to every event.
 
 ### What each `SoundSpec` field does to a loaded sample
 
@@ -139,6 +168,10 @@ into one, not four new events wanting decoration.
   want a different value.
 - **`url`** (default absent): present means "load this file instead of
   synthesising". This is the swap.
+- **`synth`** (default engine/name preset): the deterministic procedural floor
+  used when `url` is absent or cannot be decoded. Edition-specific cues should
+  author it so a missing WAV preserves semantic identity rather than becoming
+  the same generic beep.
 
 ## 3. Replacing a synth with a real sample
 
@@ -146,7 +179,7 @@ into one, not four new events wanting decoration.
 
 As with art, the higher-level swap needs no editing of `src/`: an
 [asset pack](./packs.md) can carry sounds. A `pack.json` with a `sounds` object
-keyed by the registered names — the fifteen in `SOUND_NAMES`
+keyed by the registered names — the twenty-five in `SOUND_NAMES`
 (`src/packs/manifest.ts`) — drops a WAV per name into `packs/<name>/`. The legacy
 value is a path string; the configured form is
 `{ file, volume?, polyphony?, throttleMs? }`, so a replacement can carry the same
@@ -188,9 +221,10 @@ deliberate, and it is how a content file replaces a placeholder without editing
 the engine. The cost is that a typo does not fail: `defineSound('exploson', …)`
 registers a *new* sound nobody cues instead of replacing `explosion`, and the
 placeholder plays on. `reachability.test.ts` catches exactly this — it asserts
-every registered gameplay sound is named by an `EVENT_SOUNDS` row and every
-registered UI sound is named by `SHELL_CUES` and actually reached by a scripted
-menu pilot, in both directions — so run it after adding one.
+every registered gameplay sound is reached through the composed
+`v4EventSound(event) ?? EVENT_SOUNDS[event.type]` resolver, and every registered
+UI sound is named by `SHELL_CUES` and actually reached by a scripted menu pilot,
+in both directions — so run it after adding one.
 
 ### The UI channel has no `RunEventType` to hang from
 
@@ -200,8 +234,8 @@ transient `cue?: string` field the menu base class sets at the semantic
 move/confirm/cancel and clears at the top of every tick, plus two pure shell
 reconciles — a pause-enter edge, and a `WeakMap<Run, number>` watching
 `run.dialogue.index` for an advance. None of it introduces a new
-`RunEventType`, so no replay trace moves. If you add a sixteenth UI-shaped
-sound, it joins `SHELL_CUES`, not `EVENT_SOUNDS`.
+`RunEventType`, so no replay trace moves. If another UI-shaped sound is ever
+added, it joins `SHELL_CUES`, not `EVENT_SOUNDS`.
 
 The title's first confirm is also the gesture that unlocks WebAudio. `Audio`
 keeps a bounded queue only while that unlock is in flight and replays the cue
@@ -258,6 +292,16 @@ engine's clock (below), and since the audio-enrichment round it is not a single
 v4 tracks are authored against it — one cell of four scale degrees, run through a
 different transformation per boss, plus one idle theme, four stage themes and
 three shared come-down/finale tracks.
+
+The release generator adds a second, equally load-bearing axis:
+`architecture`. Root, mode and motif preserve the related campaign cell, while
+the temporal/spectral grammar makes the spaces and bosses different pieces
+rather than transpositions of one renderer. The stage path is
+`open-signal` → `descending-corridor` → `accreted-record` → `closing-vault`;
+the five-boss path is `sentinel-orbit` → `warden-latch` →
+`magistrate-scan` → `chancellor-seal` → `regent-recapitulation`. These are
+mono perceptual architectures — envelope, density, register, silence and
+interference — not a claim that the playback engine is positional.
 
 - **A stage, boss or spell card names a track, exactly as it names a scene.**
   `StageSpec.music`, `BossSpec.music` and `SpellCard.music` are strings (`Run.music`
@@ -355,7 +399,7 @@ blip — while still ending on trailing rests, so the wrap slot stays bass-only
 
 ### The motif journey — one cell, five transformations
 
-The four boss themes on the normal difficulty ladder (`nemesis` →
+The five boss themes on the normal difficulty ladder (`nemesis` →
 `interdict` → `docket` → `sanction` → `interregnum`) are not five unrelated
 themes; they are one four-note institutional cell (`CELL = [0, 2, 4, 3]`) put
 through a different transformation per fight, and now each fight states that
@@ -462,10 +506,10 @@ aggregate RMS, because the synth spends more of its budget on gated notes
 that return to silence and less on a sustained low drone. Measured RMS now
 spans **0.0760–0.0990** (`docket` lowest, `vigil` highest) — narrower and
 lower than the pre-round **0.0891–0.1217**, even though the peak ceiling
-rose. The boss ladder stays four cues doing the work six events used to share
-unevenly (§2), the opposite direction of subtraction: naming a moment
-precisely, once, rather than reusing a generic explosion for a fourth
-unrelated thing.
+rose. The semantic cue set follows the same subtraction: four weapon tiers
+share one recognisable family but not one waveform, and five bosses share a
+campaign vocabulary but not one entrance. Naming each distinction once is
+more restrained than making every pickup or attack ornamental.
 
 **Internet Void (behavior over content).** The BGM is still written to leave
 the 1.5–3kHz band — where the player's own actions live — empty, and the
@@ -588,13 +632,20 @@ the next lever, gated on exactly that verdict and no other. It is
 seam-safe and deterministic by construction (whole-cycle partials, no RNG),
 so shipping it later is a one-line swap, not a redesign.
 
-**The SFX hierarchy.** Effective peaks (§2) fall in the order the game's own
-threat model implies: `death` (0.7451) > `explosion` (0.4737) > `toll`
-(0.3399) > `break` (0.2146) ≈ `declare` (0.2126) > `hit` (0.1862) > `clear`
-(0.1846) > `pickup` (0.1618) > `shot` (0.1140) > `graze` (0.0686), with all
-five `ui-*` sounds sitting under the rest at 0.0479–0.0647. The navigation
-revision raises and moves those transients without crossing `graze`, so the
-M8′ ladder remains unchanged in shape and is re-measured rather than assumed.
+**The SFX hierarchy.** The measured fifteen-cue fallback baseline (§2) falls in
+the order the game's own threat model implies: `death` (0.7451) >
+`explosion` (0.4737) > `toll` (0.3399) > `break` (0.2146) ≈ `declare`
+(0.2126) > `hit` (0.1862) > `clear` (0.1846) > `pickup` (0.1618) > `shot`
+(0.1140) > `graze` (0.0686), with all five `ui-*` sounds sitting under the rest
+at 0.0479–0.0647. The new authored targets keep boss entries in the `toll`
+neighbourhood (0.3120–0.3420), tier crossings between pickup/hit and
+break/declare (0.1824–0.2024), and the three added held-fire tiers nearly equal
+(0.1450–0.1458; the formal Tier-0 release cue measures 0.1500). Those ten
+figures are specification products, not decoded
+measurements; the measurement tool and listening pass must confirm them before
+they become frozen baselines. The navigation revision raises and moves those
+transients without crossing `graze`, so the existing M8′ baseline remains
+measured rather than assumed.
 Losing a life
 is louder than anything else in the game; grazing a bullet — an event that
 fires dozens of times a second — is the quietest gameplay sound, and every
@@ -625,4 +676,8 @@ title screen (`menu`) → a stage flight per theme (`vigil`, `descent`,
 `docket` → `sanction` → `interregnum`) → a Lunatic card for the 出神 pair
 (`zenith` on sentinel's fourth card, `fiat` on the chancellor/regent finales)
 → clearing the campaign for `adjourn`'s cadence. The five `ui-*` cues are
-audible on menu navigation, pause, and pre-boss dialogue.
+audible on menu navigation, pause, and pre-boss dialogue. The same pass must
+also identify the four stage architectures, distinguish `toll` plus the four
+named boss entrances without a picture, hear all four held-fire tiers at
+near-equal loudness, and hear exactly one `power-up-*` cue at each real tier
+crossing.

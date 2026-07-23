@@ -11,7 +11,238 @@
  * matching definition below rather than silence.
  */
 
+import { defineSound, type SoundSpec } from '../../audio';
 import { defineMusic } from '../../audio/music';
+import type { RunEvent } from '../../game/run';
+
+/**
+ * v4-only gameplay cues. The base names remain generic fallbacks, while these
+ * carry the edition's weapon ladder and four boss identities.
+ */
+export const V4_EVENT_SOUND_NAMES = [
+  'shot-tier-1',
+  'shot-tier-2',
+  'shot-tier-3',
+  'power-up-1',
+  'power-up-2',
+  'power-up-3',
+  'boss-enter-warden',
+  'boss-enter-magistrate',
+  'boss-enter-chancellor',
+  'boss-enter-regent',
+] as const;
+
+type V4EventSoundName = (typeof V4_EVENT_SOUND_NAMES)[number];
+
+/**
+ * Authored fallback identities for the release WAVs.
+ *
+ * These three shot gains are calibrated against the generic Tier-0 synth, so
+ * all four fallback tiers stay at effectively one loudness while pitch/noise
+ * carry the tier. Power crossings rise farther at each rung. Boss entries use
+ * four different sweep directions and noise weights, so a missing pack cannot
+ * collapse them back onto the generic engine beep.
+ */
+const V4_EVENT_SOUND_SPECS: Readonly<Record<V4EventSoundName, SoundSpec>> = {
+  'shot-tier-1': {
+    volume: 0.29,
+    polyphony: 4,
+    throttleMs: 35,
+    synth: {
+      duration: 0.06,
+      from: 1260,
+      to: 760,
+      decay: 10,
+      attack: 0.0025,
+      square: true,
+      peak: 0.605,
+    },
+  },
+  'shot-tier-2': {
+    volume: 0.28,
+    polyphony: 4,
+    throttleMs: 35,
+    synth: {
+      duration: 0.065,
+      from: 1540,
+      to: 860,
+      noise: 0.05,
+      decay: 10,
+      attack: 0.0025,
+      square: true,
+      peak: 0.627,
+    },
+  },
+  'shot-tier-3': {
+    volume: 0.27,
+    polyphony: 4,
+    throttleMs: 35,
+    synth: {
+      duration: 0.07,
+      from: 1900,
+      to: 980,
+      noise: 0.1,
+      decay: 10,
+      attack: 0.0025,
+      square: true,
+      peak: 0.616,
+    },
+  },
+  'power-up-1': {
+    volume: 0.48,
+    polyphony: 1,
+    throttleMs: 80,
+    synth: {
+      duration: 0.18,
+      from: 480,
+      to: 960,
+      decay: 4.2,
+      attack: 0.003,
+      square: true,
+      peak: 0.413,
+    },
+  },
+  'power-up-2': {
+    volume: 0.47,
+    polyphony: 1,
+    throttleMs: 80,
+    synth: {
+      duration: 0.23,
+      from: 440,
+      to: 1320,
+      noise: 0.03,
+      decay: 3.8,
+      attack: 0.003,
+      square: true,
+      peak: 0.446,
+    },
+  },
+  'power-up-3': {
+    volume: 0.46,
+    polyphony: 1,
+    throttleMs: 80,
+    synth: {
+      duration: 0.29,
+      from: 360,
+      to: 1800,
+      noise: 0.06,
+      decay: 3.4,
+      attack: 0.003,
+      square: true,
+      peak: 0.469,
+    },
+  },
+  'boss-enter-warden': {
+    volume: 0.6,
+    polyphony: 1,
+    throttleMs: 120,
+    synth: {
+      duration: 0.48,
+      from: 420,
+      to: 105,
+      noise: 0.08,
+      decay: 5,
+      attack: 0.003,
+      square: true,
+      peak: 0.55,
+    },
+  },
+  'boss-enter-magistrate': {
+    volume: 0.59,
+    polyphony: 1,
+    throttleMs: 120,
+    synth: {
+      duration: 0.7,
+      from: 280,
+      to: 2240,
+      noise: 0.16,
+      decay: 3.2,
+      attack: 0.004,
+      peak: 0.56,
+    },
+  },
+  'boss-enter-chancellor': {
+    volume: 0.58,
+    polyphony: 1,
+    throttleMs: 120,
+    synth: {
+      duration: 0.76,
+      from: 1480,
+      to: 185,
+      noise: 0.32,
+      decay: 2.8,
+      attack: 0.004,
+      square: true,
+      peak: 0.57,
+    },
+  },
+  'boss-enter-regent': {
+    volume: 0.57,
+    polyphony: 1,
+    throttleMs: 140,
+    synth: {
+      duration: 0.9,
+      from: 82,
+      to: 920,
+      noise: 0.55,
+      decay: 2.2,
+      attack: 0.005,
+      square: true,
+      peak: 0.58,
+    },
+  },
+};
+
+for (const name of V4_EVENT_SOUND_NAMES) defineSound(name, V4_EVENT_SOUND_SPECS[name]);
+
+const SHOT_TIER_SOUNDS = [
+  'shot',
+  'shot-tier-1',
+  'shot-tier-2',
+  'shot-tier-3',
+] as const;
+
+const POWER_TIER_SOUNDS = [
+  undefined,
+  'power-up-1',
+  'power-up-2',
+  'power-up-3',
+] as const;
+
+const BOSS_ENTRY_SOUNDS: Readonly<Record<string, V4EventSoundName>> = {
+  warden: 'boss-enter-warden',
+  magistrate: 'boss-enter-magistrate',
+  chancellor: 'boss-enter-chancellor',
+  regent: 'boss-enter-regent',
+};
+
+function eventTier(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) ? Math.floor(value) : undefined;
+}
+
+/**
+ * Resolve the event details v4 owns. Returning `undefined` delegates to the
+ * generic event table in the shell.
+ */
+export function v4EventSound(event: RunEvent): string | undefined {
+  if (event.type === 'shot') {
+    const tier = eventTier(event.tier) ?? 0;
+    const index = Math.min(Math.max(tier, 0), SHOT_TIER_SOUNDS.length - 1);
+    return SHOT_TIER_SOUNDS[index];
+  }
+
+  if (event.type === 'pickup') {
+    const tier = eventTier(event.tier);
+    if (tier === undefined || tier < 1) return undefined;
+    return POWER_TIER_SOUNDS[Math.min(tier, POWER_TIER_SOUNDS.length - 1)];
+  }
+
+  if (event.type === 'boss-entered') {
+    return event.name === undefined ? 'toll' : (BOSS_ENTRY_SOUNDS[event.name] ?? 'toll');
+  }
+
+  return undefined;
+}
 
 /** The title/menu score identity owned by this edition. */
 export const MENU_MUSIC = 'menu';

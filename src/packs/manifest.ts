@@ -40,6 +40,16 @@ export const SOUND_NAMES = [
   'ui-cancel',
   'ui-pause',
   'ui-advance',
+  'shot-tier-1',
+  'shot-tier-2',
+  'shot-tier-3',
+  'power-up-1',
+  'power-up-2',
+  'power-up-3',
+  'boss-enter-warden',
+  'boss-enter-magistrate',
+  'boss-enter-chancellor',
+  'boss-enter-regent',
 ] as const;
 
 export type SoundName = (typeof SOUND_NAMES)[number];

@@ -15,7 +15,7 @@ import { CONTENT_FINGERPRINT } from './v4';
 import * as THREE from 'three';
 import { Audio, overrideSound } from './audio';
 import { Music } from './audio/music';
-import { MENU_MUSIC } from './v4/audio';
+import { MENU_MUSIC, v4EventSound } from './v4/audio';
 import { Input } from './core/input';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
@@ -642,7 +642,7 @@ const loop = new Loop({
       topRun = run;
 
       for (const event of run.drainEvents()) {
-        const sound = EVENT_SOUNDS[event.type];
+        const sound = v4EventSound(event) ?? EVENT_SOUNDS[event.type];
         if (sound) audio.play(sound);
         if (event.type === 'graze') {
           grazeUiPulses.push({

@@ -19,13 +19,32 @@ import {
 } from '../src/packs/manifest';
 
 export const V4_AUDIO_SAMPLE_RATE = 22050;
-export const V4_AUDIO_GENERATOR_VERSION = 'v4-audio-pcm16-mono-22050-v1';
+export const V4_AUDIO_GENERATOR_VERSION = 'v4-audio-pcm16-mono-22050-v2';
 
 type Stance = 'absorption' | 'trance';
+type TrackArchitecture =
+  | 'menu'
+  | 'open-signal'
+  | 'descending-corridor'
+  | 'accreted-record'
+  | 'closing-vault'
+  | 'sentinel-orbit'
+  | 'warden-latch'
+  | 'magistrate-scan'
+  | 'chancellor-seal'
+  | 'regent-recapitulation'
+  | 'unmoored-signal'
+  | 'terminal-cadence';
 
 export interface V4TrackBuildSpec {
   readonly name: string;
   readonly stance: Stance;
+  /**
+   * The track's temporal/spectral grammar. Root and motif identify the shared
+   * campaign cell; architecture is what stops thirteen transpositions of one
+   * renderer from pretending to be thirteen pieces.
+   */
+  readonly architecture: TrackArchitecture;
   readonly loopSeconds: number;
   readonly volume: number;
   readonly root: number;
@@ -62,8 +81,9 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'menu',
     stance: 'absorption',
+    architecture: 'menu',
     loopSeconds: 16,
-    volume: 0.7,
+    volume: 0.56,
     root: 43,
     mode: MINOR,
     beats: 16,
@@ -73,6 +93,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'vigil',
     stance: 'absorption',
+    architecture: 'open-signal',
     loopSeconds: 16,
     volume: 0.7,
     root: 45,
@@ -84,6 +105,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'descent',
     stance: 'absorption',
+    architecture: 'descending-corridor',
     loopSeconds: 12,
     volume: 0.7,
     root: 46,
@@ -95,17 +117,19 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'precedent',
     stance: 'absorption',
+    architecture: 'accreted-record',
     loopSeconds: 16,
     volume: 0.7,
     root: 44,
     mode: DORIAN,
     beats: 16,
     motif: [0, 2, 3, 2, 0, 2, 3, 5, 0, 2, 3, 2, R, R, R, R],
-    targetPeak: 0.48,
+    targetPeak: 0.45,
   },
   {
     name: 'ordinance',
     stance: 'absorption',
+    architecture: 'closing-vault',
     loopSeconds: 14,
     volume: 0.7,
     root: 41,
@@ -117,6 +141,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'nemesis',
     stance: 'absorption',
+    architecture: 'sentinel-orbit',
     loopSeconds: 14,
     volume: 0.7,
     root: 47,
@@ -128,6 +153,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'interdict',
     stance: 'absorption',
+    architecture: 'warden-latch',
     loopSeconds: 8,
     volume: 0.7,
     root: 50,
@@ -139,6 +165,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'docket',
     stance: 'absorption',
+    architecture: 'magistrate-scan',
     loopSeconds: 16,
     volume: 0.7,
     root: 48,
@@ -150,6 +177,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'sanction',
     stance: 'absorption',
+    architecture: 'chancellor-seal',
     loopSeconds: 16,
     volume: 0.7,
     root: 52,
@@ -161,8 +189,9 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'interregnum',
     stance: 'absorption',
+    architecture: 'regent-recapitulation',
     loopSeconds: 16,
-    volume: 0.8,
+    volume: 0.7,
     root: 55,
     mode: MINOR,
     beats: 16,
@@ -172,6 +201,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'zenith',
     stance: 'trance',
+    architecture: 'unmoored-signal',
     loopSeconds: 13,
     volume: 0.7,
     root: 47,
@@ -183,6 +213,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'fiat',
     stance: 'trance',
+    architecture: 'unmoored-signal',
     loopSeconds: 17,
     volume: 0.7,
     root: 55,
@@ -194,6 +225,7 @@ export const V4_TRACK_SPECS: readonly V4TrackBuildSpec[] = [
   {
     name: 'adjourn',
     stance: 'trance',
+    architecture: 'terminal-cadence',
     loopSeconds: 24,
     volume: 0.7,
     root: 38,
@@ -225,6 +257,22 @@ export const V4_SOUND_SPECS: readonly V4SoundBuildSpec[] = [
   { name: 'ui-cancel', durationSeconds: 0.06, attackSeconds: 0.0025, releaseSeconds: 0.01, volume: 0.27, polyphony: 2, throttleMs: 40, targetPeak: 0.245 },
   { name: 'ui-pause', durationSeconds: 0.07, attackSeconds: 0.003, releaseSeconds: 0.012, volume: 0.24, polyphony: 1, throttleMs: 60, targetPeak: 0.23 },
   { name: 'ui-advance', durationSeconds: 0.04, attackSeconds: 0.0025, releaseSeconds: 0.008, volume: 0.28, polyphony: 2, throttleMs: 30, targetPeak: 0.2 },
+  // Four equal-loudness weapon tiers. Strength is encoded by internal pulse
+  // grammar and spectrum, never by turning the player's held-fire loop louder.
+  { name: 'shot-tier-1', durationSeconds: 0.06, attackSeconds: 0.0025, releaseSeconds: 0.008, volume: 0.29, polyphony: 4, throttleMs: 35, targetPeak: 0.5 },
+  { name: 'shot-tier-2', durationSeconds: 0.065, attackSeconds: 0.0025, releaseSeconds: 0.009, volume: 0.28, polyphony: 4, throttleMs: 35, targetPeak: 0.52 },
+  { name: 'shot-tier-3', durationSeconds: 0.07, attackSeconds: 0.0025, releaseSeconds: 0.01, volume: 0.27, polyphony: 4, throttleMs: 35, targetPeak: 0.54 },
+  // A tier crossing is rarer and more important than collecting one fractional
+  // power chip, so it receives a short, rising code of its own.
+  { name: 'power-up-1', durationSeconds: 0.18, attackSeconds: 0.003, releaseSeconds: 0.025, volume: 0.48, polyphony: 1, throttleMs: 80, targetPeak: 0.38 },
+  { name: 'power-up-2', durationSeconds: 0.23, attackSeconds: 0.003, releaseSeconds: 0.03, volume: 0.47, polyphony: 1, throttleMs: 80, targetPeak: 0.41 },
+  { name: 'power-up-3', durationSeconds: 0.29, attackSeconds: 0.003, releaseSeconds: 0.04, volume: 0.46, polyphony: 1, throttleMs: 80, targetPeak: 0.44 },
+  // Boss entry identities mirror their actual spatial verbs: orbit, latch,
+  // scan, seal, and the final authority's closing walls.
+  { name: 'boss-enter-warden', durationSeconds: 0.48, attackSeconds: 0.003, releaseSeconds: 0.07, volume: 0.6, polyphony: 1, throttleMs: 120, targetPeak: 0.52 },
+  { name: 'boss-enter-magistrate', durationSeconds: 0.7, attackSeconds: 0.004, releaseSeconds: 0.1, volume: 0.59, polyphony: 1, throttleMs: 120, targetPeak: 0.54 },
+  { name: 'boss-enter-chancellor', durationSeconds: 0.76, attackSeconds: 0.004, releaseSeconds: 0.11, volume: 0.58, polyphony: 1, throttleMs: 120, targetPeak: 0.56 },
+  { name: 'boss-enter-regent', durationSeconds: 0.9, attackSeconds: 0.005, releaseSeconds: 0.14, volume: 0.57, polyphony: 1, throttleMs: 140, targetPeak: 0.6 },
 ];
 
 export const V4_RELEASE_MUSIC_NAMES = V4_TRACK_SPECS.map((spec) => spec.name);
@@ -319,51 +367,327 @@ function renderTrack(spec: V4TrackBuildSpec): Float64Array {
   const surfaceFifth = snappedFrequency(spec.root * 1.5, spec.loopSeconds);
   const slotLength = count / spec.beats;
   const trance = spec.stance === 'trance';
+  let scanPhase = 0;
 
   for (let i = 0; i < count; i++) {
     const t = i / V4_AUDIO_SAMPLE_RATE;
     const loopPhase = i / count;
     const breath = 0.72 + 0.28 * sine(2 / spec.loopSeconds, t);
-
-    // surface — a low, whole-loop field. Every oscillator is cycle-snapped.
-    let sample =
-      breath *
-      (0.115 * sine(surfaceRoot, t) +
-        0.038 * sine(surfaceRoot * 2, t) +
-        0.022 * sine(surfaceFifth, t));
-
     const slot = Math.floor(i / slotLength);
     const local = (i - slot * slotLength) / slotLength;
+    const sub = Math.min(3, Math.floor(local * 4));
+    const subLocal = local * 4 - sub;
+    // Authored structures stop before the loop edge. The low continuous field
+    // carries the seam; every data pulse and scanner lands in real silence.
+    const structureGain = 1 - smoothstep((loopPhase - 0.88) / 0.08);
+
+    // Surface — every architecture owns a different low-frequency room. These
+    // are all whole-loop/cycle-snapped, so diversity does not spend the seam.
+    let sample = 0;
+    switch (spec.architecture) {
+      case 'menu':
+        sample = breath * (0.09 * sine(surfaceRoot, t) + 0.02 * sine(surfaceFifth, t));
+        break;
+      case 'open-signal':
+        sample =
+          breath *
+          (0.095 * sine(surfaceRoot, t) +
+            0.025 * sine(surfaceFifth, t) +
+            0.016 * sine(surfaceRoot * 2, t));
+        break;
+      case 'descending-corridor': {
+        const binaryLevels = [1, 0.42, 0.72, 0.18] as const;
+        const from = binaryLevels[slot % 4] ?? 0;
+        const to = binaryLevels[(slot + 1) % 4] ?? 0;
+        // Interpolate the binary word into its next cell. The data identity
+        // stays audible, but the final cell now arrives at the first cell's
+        // level so a Web Audio loop cannot expose a gain discontinuity.
+        const binaryGate = from + (to - from) * smoothstep(local);
+        sample =
+          binaryGate *
+          (0.074 * sine(surfaceRoot, t) + 0.041 * sine(surfaceRoot * 2, t));
+        break;
+      }
+      case 'accreted-record': {
+        sample = 0.067 * sine(surfaceRoot, t);
+        const layerTwo =
+          smoothstep((loopPhase - 0.12) / 0.08) *
+          (1 - smoothstep((loopPhase - 0.82) / 0.1));
+        const layerThree =
+          smoothstep((loopPhase - 0.3) / 0.08) *
+          (1 - smoothstep((loopPhase - 0.73) / 0.09));
+        const layerFour =
+          smoothstep((loopPhase - 0.48) / 0.07) *
+          (1 - smoothstep((loopPhase - 0.64) / 0.08));
+        sample += 0.035 * layerTwo * sine(surfaceFifth, t);
+        sample += 0.024 * layerThree * sine(surfaceRoot * 2, t);
+        sample += 0.014 * layerFour * sine(surfaceFifth * 2, t);
+        sample *= breath;
+        break;
+      }
+      case 'closing-vault':
+        sample =
+          breath *
+          (0.12 * sine(surfaceRoot, t) +
+            0.032 * sine(surfaceRoot * 2, t) +
+            0.018 * sine(surfaceFifth, t));
+        break;
+      case 'sentinel-orbit': {
+        const neighbour = snappedFrequency(spec.root + 1 / spec.loopSeconds, spec.loopSeconds);
+        sample =
+          breath *
+          (0.078 * sine(surfaceRoot, t) +
+            0.058 * sine(neighbour, t) +
+            0.02 * sine(surfaceFifth, t));
+        break;
+      }
+      case 'warden-latch': {
+        const latchWord = [1, 1, 0, 1, 0, 0, 1, 0] as const;
+        const from = latchWord[slot % 8] ?? 0;
+        const to = latchWord[(slot + 1) % 8] ?? 0;
+        const latched = from + (to - from) * smoothstep(local);
+        sample = latched * (0.105 * sine(surfaceRoot, t) + 0.038 * sine(surfaceRoot * 2, t));
+        break;
+      }
+      case 'magistrate-scan':
+        sample =
+          breath *
+          (0.076 * sine(surfaceRoot, t) +
+            0.041 * sine(surfaceFifth, t) +
+            0.018 * sine(surfaceRoot * 2, t));
+        break;
+      case 'chancellor-seal':
+        sample =
+          breath *
+          (0.086 * sine(surfaceRoot, t) +
+            0.032 * sine(surfaceRoot * 2, t) +
+            0.018 * sine(surfaceFifth * 2, t));
+        break;
+      case 'regent-recapitulation':
+        sample =
+          breath *
+          (0.118 * sine(surfaceRoot, t) +
+            0.034 * sine(surfaceFifth, t) +
+            0.018 * sine(surfaceRoot * 2, t));
+        break;
+      case 'unmoored-signal':
+        sample =
+          breath *
+          (0.095 * sine(surfaceRoot, t) +
+            0.03 * sine(surfaceFifth, t) +
+            0.014 * sine(surfaceRoot * 2, t));
+        break;
+      case 'terminal-cadence':
+        sample =
+          breath *
+          (0.083 * sine(surfaceRoot, t) +
+            0.025 * sine(surfaceFifth, t) +
+            0.014 * sine(surfaceRoot * 2, t));
+        break;
+    }
+
+    // Heart — the campaign cell stays related, while attack/release and partial
+    // balance follow the room it is being stated in.
     const degree = spec.motif[slot];
     if (degree !== undefined && !Number.isNaN(degree)) {
       const leadFrequency = scaleFrequency(spec.root, spec.mode, degree);
-      const leadGate = trance ? gate(local, 0.16, 0.84) : gate(local, 0.055, 0.62);
+      let attack = trance ? 0.16 : 0.055;
+      let releaseAt = trance ? 0.84 : 0.62;
+      let leadAmplitude = trance ? 0.205 : 0.195;
+      switch (spec.architecture) {
+        case 'open-signal':
+          releaseAt = 0.48;
+          break;
+        case 'descending-corridor':
+          attack = 0.025;
+          releaseAt = 0.38;
+          leadAmplitude = 0.185;
+          break;
+        case 'accreted-record':
+          releaseAt = 0.72;
+          break;
+        case 'closing-vault':
+          attack = 0.075;
+          releaseAt = 0.56;
+          leadAmplitude = 0.21;
+          break;
+        case 'sentinel-orbit':
+          releaseAt = 0.68;
+          leadAmplitude = 0.215;
+          break;
+        case 'warden-latch':
+          attack = 0.02;
+          releaseAt = 0.32;
+          leadAmplitude = 0.22;
+          break;
+        case 'magistrate-scan':
+          attack = 0.035;
+          releaseAt = 0.5;
+          break;
+        case 'chancellor-seal':
+          attack = 0.018;
+          releaseAt = 0.28;
+          leadAmplitude = 0.22;
+          break;
+        case 'regent-recapitulation':
+          attack = 0.07;
+          releaseAt = 0.66;
+          leadAmplitude = 0.22;
+          break;
+        default:
+          break;
+      }
+      const leadGate = gate(local, attack, releaseAt);
       const leadBody =
-        0.205 * sine(leadFrequency, t) +
+        leadAmplitude * sine(leadFrequency, t) +
         0.032 * sine(leadFrequency * 2, t);
-      // heart — the one memorable cell/hook.
       sample += leadBody * leadGate;
     }
 
-    if (!trance) {
-      // skeleton — dry joints on the authored grid, below the behavior band.
-      const jointEvery = spec.name === 'descent' || spec.name === 'precedent' ? 2 : 4;
-      if (slot % jointEvery === 0 && local < 0.34) {
-        const jointEnvelope =
-          smoothstep(local / 0.035) * smoothstep((0.34 - local) / 0.29);
-        const jointFrequency = 170 + (spec.root % 7) * 17;
-        sample +=
-          jointEnvelope *
-          (0.095 * sine(jointFrequency, t) + 0.028 * sine(jointFrequency * 2, t));
+    // Skeleton / mycelium — the actual per-track grammar. A tiny, deliberately
+    // supra-behaviour-band data tick (≥3.4kHz) nods to binary transcription
+    // without occupying the 1.5–3kHz lane reserved for play.
+    const microEnvelope =
+      subLocal < 0.3
+        ? smoothstep(subLocal / 0.055) * smoothstep((0.3 - subLocal) / 0.22)
+        : 0;
+    const highData = 3400 + (spec.root % 5) * 530;
+    switch (spec.architecture) {
+      case 'menu':
+        break;
+      case 'open-signal': {
+        if ((slot === 0 || slot === 8) && sub === 0) {
+          sample += structureGain * microEnvelope * 0.02 * sine(highData, t);
+        }
+        break;
       }
-    } else {
-      // mycelium — pulse floor removed; one sparse filament crosses the loop.
+      case 'descending-corridor': {
+        const code = [1, 0, 1, 1, 0, 1, 0, 0][(slot * 4 + sub) % 8] ?? 0;
+        if (code > 0) {
+          const descent = 940 - 520 * ((slot + local) / spec.beats);
+          scanPhase += (360 * descent) / V4_AUDIO_SAMPLE_RATE;
+          sample +=
+            structureGain *
+            microEnvelope *
+            (0.052 * sinDeg(scanPhase % 360) + 0.012 * sine(highData, t));
+        }
+        break;
+      }
+      case 'accreted-record': {
+        const layers = 1 + Math.min(3, Math.floor(loopPhase * 4));
+        const frequencies = [330, 495, 660, 825] as const;
+        for (let layer = 0; layer < layers; layer++) {
+          const division = layer + 2;
+          if ((slot * 4 + sub + layer) % division !== 0) continue;
+          sample +=
+            structureGain *
+            microEnvelope *
+            (0.018 / (1 + layer * 0.18)) *
+            sine(frequencies[layer] ?? 330, t);
+        }
+        break;
+      }
+      case 'closing-vault': {
+        if (slot % 4 === 0 && local < 0.34) {
+          const heart = smoothstep(local / 0.035) * smoothstep((0.34 - local) / 0.25);
+          sample += structureGain * heart * (0.072 * sine(118, t) + 0.025 * sine(236, t));
+        }
+        if ([0, 5, 11].includes(slot) && sub < 2) {
+          sample += structureGain * microEnvelope * 0.016 * sine(highData + sub * 740, t);
+        }
+        break;
+      }
+      case 'sentinel-orbit': {
+        if (slot % 2 === 0 && sub === (slot / 2) % 4) {
+          const orbit = 430 + 90 * sine(1 / spec.loopSeconds, t);
+          sample +=
+            structureGain *
+            microEnvelope *
+            (0.042 * sine(orbit, t) + 0.014 * sine(highData, t));
+        }
+        break;
+      }
+      case 'warden-latch': {
+        const latch = local < 0.18 || (local > 0.28 && local < 0.42);
+        if (latch) {
+          const latchLocal = local < 0.18 ? local / 0.18 : (local - 0.28) / 0.14;
+          const latchEnvelope =
+            smoothstep(latchLocal / 0.12) * smoothstep((1 - latchLocal) / 0.5);
+          sample +=
+            structureGain *
+            latchEnvelope *
+            (0.065 * sine(260, t) + 0.028 * sine(520, t));
+        }
+        break;
+      }
+      case 'magistrate-scan': {
+        const scanPosition = ((slot % 4) + local) / 4;
+        const scanHz = 980 - 620 * scanPosition;
+        scanPhase += (360 * scanHz) / V4_AUDIO_SAMPLE_RATE;
+        if (slot % 4 !== 3 && local < 0.72) {
+          const scanEnvelope =
+            smoothstep(local / 0.04) * smoothstep((0.72 - local) / 0.18);
+          sample +=
+            structureGain *
+            scanEnvelope *
+            (0.048 * sinDeg(scanPhase % 360) + 0.012 * sine(highData, t));
+        }
+        break;
+      }
+      case 'chancellor-seal': {
+        if ([0, 3, 7, 10].includes(slot) && local < 0.24) {
+          const stamp = smoothstep(local / 0.025) * smoothstep((0.24 - local) / 0.18);
+          sample +=
+            structureGain *
+            stamp *
+            (0.075 * sine(210, t) + 0.035 * sine(840, t) + 0.01 * sine(highData, t));
+        }
+        break;
+      }
+      case 'regent-recapitulation': {
+        const quarter = Math.min(3, Math.floor(loopPhase * 4));
+        if (quarter === 0 && slot % 2 === 0 && sub === 0) {
+          sample += structureGain * microEnvelope * 0.04 * sine(430, t);
+        } else if (quarter === 1 && (sub === 0 || sub === 1)) {
+          sample += structureGain * microEnvelope * 0.042 * sine(260, t);
+        } else if (quarter === 2) {
+          const scanHz = 900 - 470 * local;
+          scanPhase += (360 * scanHz) / V4_AUDIO_SAMPLE_RATE;
+          sample += structureGain * 0.035 * gate(local, 0.035, 0.58) * sinDeg(scanPhase % 360);
+        } else if (quarter === 3 && slot % 3 === 0) {
+          sample +=
+            structureGain *
+            gate(local, 0.025, 0.2) *
+            (0.055 * sine(210, t) + 0.022 * sine(840, t));
+        }
+        break;
+      }
+      case 'unmoored-signal': {
+        // Pulse floor removed; one sparse filament crosses the loop.
+        const branchEnvelope =
+          smoothstep(Math.min(1, loopPhase * 10)) *
+          smoothstep(Math.min(1, (1 - loopPhase) * 10));
+        const branch = snappedFrequency(3600 + (spec.root % 5) * 430, spec.loopSeconds);
+        const wander = 0.65 + 0.35 * sine(3 / spec.loopSeconds, t);
+        sample += 0.025 * branchEnvelope * wander * sine(branch, t);
+        break;
+      }
+      case 'terminal-cadence':
+        break;
+    }
+
+    if (trance && spec.architecture === 'terminal-cadence') {
+      // The ending is the one 出神 form whose direction is resolution rather
+      // than suspended data: no pulse, no high filament, only a disappearing
+      // half-speed shadow under the authored descent.
       const branchEnvelope =
         smoothstep(Math.min(1, loopPhase * 10)) *
         smoothstep(Math.min(1, (1 - loopPhase) * 10));
-      const branch = snappedFrequency(760 + (spec.root % 5) * 67, spec.loopSeconds);
-      const wander = 0.65 + 0.35 * sine(3 / spec.loopSeconds, t);
-      sample += 0.052 * branchEnvelope * wander * sine(branch, t);
+      sample +=
+        0.032 *
+        branchEnvelope *
+        (1 - loopPhase) *
+        sine(snappedFrequency(spec.root * 4, spec.loopSeconds), t);
     }
 
     out[i] = sample;
@@ -411,6 +735,39 @@ function renderSound(spec: V4SoundBuildSpec, seed: number): Float64Array {
         sample = 0.8 * sinDeg(sweepPhase % 360) + 0.2 * sinDeg((sweepPhase * 2) % 360);
         break;
       }
+      case 'shot-tier-1': {
+        const packet = p < 0.48 ? 0 : 1;
+        const local = packet === 0 ? p / 0.48 : (p - 0.48) / 0.52;
+        const hz = (packet === 0 ? 1380 : 1120) * (1 - local * 0.28);
+        sweepPhase += (360 * hz) / V4_AUDIO_SAMPLE_RATE;
+        sample =
+          0.72 * sinDeg(sweepPhase % 360) +
+          0.2 * sine(360, t) +
+          0.08 * sine(3600, t);
+        break;
+      }
+      case 'shot-tier-2': {
+        const bit = Math.min(2, Math.floor(p * 3));
+        const hz = [1740, 1320, 1040][bit] ?? 1040;
+        sweepPhase += (360 * hz) / V4_AUDIO_SAMPLE_RATE;
+        sample =
+          0.62 * sinDeg(sweepPhase % 360) +
+          0.25 * sine(420, t) +
+          0.08 * sine(4200, t) +
+          0.05 * lowNoise;
+        break;
+      }
+      case 'shot-tier-3': {
+        const bit = Math.min(3, Math.floor(p * 4));
+        const hz = [2180, 1740, 1420, 1160][bit] ?? 1160;
+        sweepPhase += (360 * hz) / V4_AUDIO_SAMPLE_RATE;
+        sample =
+          0.54 * sinDeg(sweepPhase % 360) +
+          0.27 * sine(520, t) +
+          0.11 * sine(4680 + bit * 310, t) +
+          0.08 * lowNoise;
+        break;
+      }
       case 'hit': {
         const hz = 720 * (1 - p) + 190 * p;
         sweepPhase += (360 * hz) / V4_AUDIO_SAMPLE_RATE;
@@ -437,9 +794,89 @@ function renderSound(spec: V4SoundBuildSpec, seed: number): Float64Array {
         sample = 0.57 * sinDeg(sweepPhase % 360) + 0.27 * lowNoise + 0.16 * sine(72, t);
         break;
       }
-      case 'toll':
-        sample = 0.72 * sine(154, t) + 0.2 * sine(231, t) + 0.08 * sine(462, t);
+      case 'toll': {
+        // Sentinel: two close orbital tones cross, then the low gate itself
+        // lands. The high scan stays short and above the behavior band.
+        const scan = p < 0.34 ? sine(3600 + 2200 * p, t) : 0;
+        const gate = p > 0.22 ? sine(154, t) : 0;
+        sample =
+          0.38 * sine(462, t) +
+          0.28 * sine(469, t) +
+          0.25 * gate +
+          0.09 * scan;
         break;
+      }
+      case 'boss-enter-warden': {
+        // Four dry locks: the rotating beam cross closes one arm at a time.
+        const lock = Math.min(3, Math.floor(p * 4));
+        const local = p * 4 - lock;
+        const latch = local < 0.38 ? smoothstep(local / 0.06) * smoothstep((0.38 - local) / 0.26) : 0;
+        sample =
+          latch *
+          (0.58 * sine(210 + lock * 23, t) +
+            0.27 * sine(840 + lock * 71, t) +
+            0.15 * lowNoise);
+        break;
+      }
+      case 'boss-enter-magistrate': {
+        // Three quantised downward scans end in one low docket ripple.
+        const verdict = Math.min(2, Math.floor(p * 3));
+        const local = p * 3 - verdict;
+        const hz = [1160, 820, 560][verdict] ?? 560;
+        sweepPhase += (360 * hz) / V4_AUDIO_SAMPLE_RATE;
+        const scanGate = local < 0.7 ? smoothstep(local / 0.05) * smoothstep((0.7 - local) / 0.18) : 0;
+        sample =
+          scanGate * (0.63 * sinDeg(sweepPhase % 360) + 0.12 * sine(3900, t)) +
+          (p > 0.62 ? 0.25 * sine(132, t) : 0);
+        break;
+      }
+      case 'boss-enter-chancellor': {
+        // Twelve rising data grains are cut off by a single wax-seal stamp.
+        const grain = Math.min(11, Math.floor(p * 12));
+        const local = p * 12 - grain;
+        const grainGate = local < 0.22 ? smoothstep(local / 0.045) * smoothstep((0.22 - local) / 0.13) : 0;
+        const stamp = p > 0.72 ? smoothstep((p - 0.72) / 0.035) : 0;
+        sample =
+          grainGate * (0.34 * sine(620 + grain * 47, t) + 0.1 * sine(4100 + grain * 31, t)) +
+          stamp * (0.46 * sine(188, t) + 0.1 * lowNoise);
+        break;
+      }
+      case 'boss-enter-regent': {
+        // Fourteen contour marks, every fifth weighted, close onto the absent
+        // centre. The final low half-wave is pressure, not a louder explosion.
+        const contour = Math.min(13, Math.floor(p * 14));
+        const local = p * 14 - contour;
+        const clickGate = local < 0.18 ? smoothstep(local / 0.04) * smoothstep((0.18 - local) / 0.1) : 0;
+        const major = contour % 5 === 0 ? 1 : 0.55;
+        const crown = p > 0.76 ? smoothstep((p - 0.76) / 0.04) : 0;
+        sample =
+          clickGate *
+            major *
+            (0.28 * sine(760 + contour * 29, t) + 0.13 * sine(4800 + contour * 37, t)) +
+          crown * (0.48 * sine(55, t) + 0.11 * sine(110, t));
+        break;
+      }
+      case 'power-up-1': {
+        const hz = p < 0.48 ? 920 : 1380;
+        sample = 0.82 * sine(hz, t) + 0.18 * sine(3600, t);
+        break;
+      }
+      case 'power-up-2': {
+        const step = Math.min(2, Math.floor(p * 3));
+        const hz = [820, 1180, 1660][step] ?? 1660;
+        sample = 0.72 * sine(hz, t) + 0.18 * sine(hz * 0.5, t) + 0.1 * sine(4100, t);
+        break;
+      }
+      case 'power-up-3': {
+        const step = Math.min(3, Math.floor(p * 4));
+        const hz = [760, 1080, 1520, 2040][step] ?? 2040;
+        sample =
+          0.62 * sine(hz, t) +
+          0.24 * sine(hz * 0.5, t) +
+          0.1 * sine(4600 + step * 180, t) +
+          0.04 * lowNoise;
+        break;
+      }
       case 'declare': {
         const hz = 310 + 250 * p;
         sweepPhase += (360 * hz) / V4_AUDIO_SAMPLE_RATE;
