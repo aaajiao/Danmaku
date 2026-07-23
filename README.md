@@ -1,119 +1,158 @@
 # Danmaku
 
-A bullet-hell shooter built on three.js.
+A deterministic browser bullet-hell shooter built with three.js.
 
-It began by studying [toho-like-js](https://github.com/takahirox/toho-like-js)
-by takahirox, a raw-WebGL Touhou-style shooter from 2017. That is not a port and
-upstream is not in this repository — see the licence note below. What was taken
-across is mechanism: the polar motion DSL its bullet patterns are written in,
-and a long list of things it got wrong that are documented in `CLAUDE.md` so we
-do not repeat them.
+**[Play online →](https://danmaku.t-h-e-s-p-a-c-e.com/)**
+· [Vercel mirror](https://danmaku-ebon.vercel.app/)
 
-## Running it
+The active v4 edition, **余白御寮 / THE NEGATIVE-SPACE WARD**, is an original
+four-stage campaign built around reproducible runs and a negative-space visual
+language. It plays in a desktop browser with a keyboard or gamepad, requires no
+installation, and can optionally be installed as an offline-capable PWA. Touch
+controls are not implemented.
+
+## Highlights
+
+- Four stages, sixteen enemy types, five bosses, and a complete ending.
+- Five playable characters, each with a distinct shot, option formation, and
+  identity bomb.
+- Easy, Normal, Hard, and Lunatic patterns, plus an explicit infinite-lives
+  assist.
+- A fixed-60 Hz simulation, seeded randomness, and tick-by-tick input recording
+  for reproducible runs.
+- Instanced three.js rendering, authored shader scenes, and project-owned art,
+  music, and sound.
+- An installable production build that precaches the browser bundle and
+  shippable pack tree for offline play.
+
+## Controls
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Move / navigate | Arrow keys | Left stick / D-pad |
+| Shoot / confirm / advance dialogue | `Z` | A / Cross |
+| Bomb / cancel | `X` | B / Circle or X / Square |
+| Focus | `Shift` | Shoulder button / trigger |
+| Start / pause / confirm | `Space` | Start / Options |
+
+Focus slows movement, switches to the character's focused weapon, reveals the
+lethal hit point, and widens item pickup.
+
+## Local development
+
+[Bun](https://bun.sh/) is required; this repository uses `bun.lock`.
 
 ```bash
+git clone https://github.com/aaajiao/Danmaku.git
+cd Danmaku
 bun install
 bun run dev        # http://localhost:3000
 ```
 
-| | |
-|---|---|
-| Arrows / gamepad stick | move |
-| `Z` | shoot |
-| `X` | bomb |
-| `Shift` | focus — slower, tighter, and it widens item pickup |
-| `Space` | start / confirm |
-| `B` | toggle bloom (a display setting; deliberately outside the replay log) |
+Create the production build with:
 
 ```bash
-bun test           # simulation and engine tests — no GL context needed
+bun run build      # → dist/
+```
+
+The generated `dist/` directory is ignored by Git. It contains the static game,
+the v4 presentation pack, and the generated PWA release.
+
+## Verification
+
+Run the checks before treating a change as complete:
+
+```bash
 bun run typecheck
-bun run build      # → dist/ (installable, offline-capable PWA)
+bun run typecheck:tools
+bun test
+bun run build
 ```
 
-The production build precaches the exact content-hashed browser bundle and
-shippable pack tree as one release, so an installed game can start fully
-offline. Its ordinary, maskable and Apple icons are deterministically derived
-from SCOUT's project-owned dialogue portrait; regenerate them with
-`bun run make:pwa-icons`.
-
-Three checks need a real framebuffer and so are pages you open by hand:
+The headless test suite has no GL context. Rendering work also needs the game in
+a real browser and, where relevant, one of these visual harnesses:
 
 ```bash
-bun run test:visual    # layer ordering, by pixel readback
-bun run test:assets    # atlas loading and sprite orientation
-bun run test:density   # is a single bullet still findable in a full curtain
+bun run test:visual    # layer ordering by pixel readback
+bun run test:assets    # atlas loading, padding, and sprite geometry
+bun run test:density   # bullet readability under load
+bun run test:scenes    # every background scene and cross-fade
 ```
 
-## Layout
+## Deployment
 
+Production tracks the GitHub `main` branch through Vercel's Git integration.
+Vercel installs with Bun, runs `bun run build`, and publishes `dist/` as
+configured in [`vercel.json`](./vercel.json).
+
+- Primary URL: [danmaku.t-h-e-s-p-a-c-e.com](https://danmaku.t-h-e-s-p-a-c-e.com/)
+- Vercel URL: [danmaku-ebon.vercel.app](https://danmaku-ebon.vercel.app/)
+
+## Architecture
+
+The simulation is frame-locked: one tick is one tick, and every gameplay speed
+is expressed in pixels per tick. A fixed 60 Hz accumulator drives the
+simulation; interpolation stays in the renderer. Input is sampled once per tick,
+and gameplay randomness comes from a seeded stream separate from cosmetic
+effects.
+
+Together, those rules make a run reproducible from its seed and input log.
+`src/sim/`, `src/content/`, `src/game/`, and `src/v4/gameplay/` therefore import
+no renderer values, keeping the simulation headless and testable. The hard rules
+and the failures behind them are documented in [`CLAUDE.md`](./CLAUDE.md).
+
+There are two deliberately different v4 surfaces:
+
+- [`src/v4/`](./src/v4/) is the compile-time edition: executable patterns and
+  behaviours, authored shaders and audio identity, and generated campaign data.
+- [`packs/v4/`](./packs/v4/) is the runtime-loaded, data-only presentation pack:
+  project-owned atlases, HUD art, music, and sound. It cannot inject TypeScript,
+  JavaScript, or GLSL.
+
+The generic registries, simulation, game rules, and renderer stay outside both
+edition-specific content roots.
+
+## Project structure
+
+```text
+src/core/          loop, input, seeded RNG, object pool, exact trigonometry
+src/sim/           motion DSL, collision, entities, items, effects, replay
+src/game/          run rules, state machine, and screens; no three.js
+src/render/        three.js rendering, atlases, layers, backgrounds, post FX
+src/content/       generic pattern primitives and content registries
+src/v4/            active edition gameplay, shaders, audio, and campaign data
+src/audio/         sound and music registries plus runtime synthesis
+src/packs/         data-pack validation, injection, and loading
+packs/v4/          project-owned v4 presentation pack
+public/            PWA manifest, service-worker template, and generated icons
+test/visual/       checks that require a real framebuffer
+tools/             content, art, audio, build, and fixture tooling
+src/main.ts        browser shell: input in, pixels out
+docs/              extension, asset, audio, and edition guides
 ```
-src/core/       loop, input, seeded RNG, object pool, exact trigonometry
-src/sim/        motion DSL, collision, bullets, enemies, bosses, items,
-                bombs, options, effects, replay — engine-agnostic
-src/game/       run rules, state machine, screens — game logic, no three.js
-src/render/     three.js: instanced sprite batching, atlases, layered stage,
-                post-processing, generic background engine and registries
-src/content/    generic pattern primitives plus shot/stage registries
-src/v4/         compiled edition root: gameplay vocabulary, authored shaders,
-                generated campaign data
-src/audio/      sound registry and runtime synthesis
-src/packs/      data-pack validation, injection and loading
-packs/v4/       project-owned raster/HUD art pack; data only, no TS or GLSL
-public/         PWA manifest, service-worker template and generated icons
-src/main.ts     the browser shell
-docs/           asset spec and extension guide
-```
 
-`src/v4/index.ts` is the compile-time composition root. It registers v4's
-patterns and behaviours, then its shader scenes, then the four-stage campaign;
-the generic engine and registries remain outside that directory. Nothing under
-`src/sim/`, `src/content/`, `src/game/` or `src/v4/gameplay/` imports a renderer
-value, which is what lets the whole simulation — and every determinism check —
-run with no GL context. `src/architecture.test.ts` enforces it.
+## Extending and documentation
 
-The similarly named `packs/v4` has a different job: it is a runtime-loaded,
-pure-data art pack containing project-owned atlases and HUD images. Packs may
-paint and arrange registered names, but no pack can inject TypeScript,
-JavaScript or GLSL. See [`src/v4/README.md`](./src/v4/README.md) for the ownership
-boundary and migration guarantees.
+| Goal | Read |
+|---|---|
+| Understand the non-negotiable engine rules | [`CLAUDE.md`](./CLAUDE.md) |
+| Add gameplay, patterns, enemies, bosses, stages, backgrounds, art, or 3D content | [`docs/extending.md`](./docs/extending.md) |
+| Build data-only presentation and content packs | [`docs/packs.md`](./docs/packs.md) |
+| Author images, atlases, animation strips, and other visual assets | [`docs/assets.md`](./docs/assets.md) |
+| Work on sound, music, mixing, or runtime audio | [`docs/audio.md`](./docs/audio.md) |
+| Understand the compiled-edition / runtime-pack boundary | [`src/v4/README.md`](./src/v4/README.md) |
+| Inspect the shipped v4 presentation pack | [`packs/v4/README.md`](./packs/v4/README.md) |
+| Follow the v4 visual direction | [`docs/v4-art-direction.md`](./docs/v4-art-direction.md) |
+| Follow the v4 score and sound direction | [`docs/v4-audio-direction.md`](./docs/v4-audio-direction.md) |
 
-## Documentation
+## Origins and licensing
 
-- [`CLAUDE.md`](./CLAUDE.md) — the agent contract. The determinism rules live
-  here, and they are the ones worth reading before changing anything.
-- [`docs/assets.md`](./docs/assets.md) — image asset specification and
-  generation guide.
-- [`docs/extending.md`](./docs/extending.md) — adding bullets, patterns, motion
-  behaviours, art and 3D content.
-- [`docs/v4-art-direction.md`](./docs/v4-art-direction.md) — the illustrated v4
-  source of truth: Japanese STG negative space, Ghost-layer women, the
-  project-owned projectile/UI package, unchanged authored background shaders and
-  BulletPack as a purchaser-local compatibility reference.
-- [`src/v4/README.md`](./src/v4/README.md) — where the compiled v4 edition ends,
-  where the generic engine begins, and why `packs/v4` remains data-only.
+Danmaku was informed by studying
+[toho-like-js](https://github.com/takahirox/toho-like-js) at commit `8ff780d`
+(2017-06-13), chiefly its polar motion DSL. It is not a port. No upstream code,
+art, or audio is included in this repository or its Git history; all shipped
+game assets are original, project-owned work.
 
-## The one thing to know
-
-The simulation is **frame-locked**. A tick is a tick; every speed in the content
-data is pixels *per tick*, never per second. A fixed 60 Hz accumulator drives it,
-and interpolation happens only in the view layer.
-
-Randomness comes from a seeded generator, with cosmetic effects on a separate
-stream so visual work cannot move the simulation.
-
-Together those make a run reproducible from a seed plus an input log, which is
-what makes replays, recorded patterns and any future netplay possible. Almost
-every subtle way to break this project runs through breaking one of them.
-
-## Licence
-
-MIT — see [`LICENSE`](./LICENSE). **It covers our work only.**
-
-[toho-like-js](https://github.com/takahirox/toho-like-js) is third-party code
-with no licence of its own, and its art and audio are Touhou Project derivatives.
-We hold no rights to it and cannot license it onward, so **it is not in this
-repository at all** — not in the tree and not in the history. Clone it separately
-if you want it for reference.
-
-[`NOTICE`](./NOTICE) states the scope precisely. See also `CLAUDE.md` rule 9.
+Licensing and provenance are documented in [`LICENSE`](./LICENSE),
+[`NOTICE`](./NOTICE), and the
+[v4 presentation-pack notice](./packs/v4/README.md).
