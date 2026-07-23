@@ -1,10 +1,10 @@
 /**
- * Per-character dialogue portrait framing for the committed v4 actor atlases.
+ * Per-character dialogue portrait identity for the committed v4 actor atlases.
  *
- * The field sprites keep their full-body square and pivot.  Dialogue needs a
- * different read: face, heart and the hands/implement that identify the
- * speaker.  These anchors select a deterministic closer crop from the same
- * project-owned pixels; they do not create a second character identity.
+ * The v4 pack supplies dedicated close crops so dialogue can read the face,
+ * heart and hands without enlarging a field sprite. Packs made before that
+ * fourth actor family still use the deterministic frame anchors below. Both
+ * paths are presentation-only views of the same project-owned masters.
  */
 
 import type { Region } from './atlas';
@@ -19,6 +19,32 @@ export interface V4PortraitSpec {
   readonly anchorY: number;
 }
 
+export const V4_PLAYER_PORTRAIT_STRIPS: Readonly<Record<string, string>> = {
+  scout: 'actor.portrait.player.scout',
+  lance: 'actor.portrait.player.lance',
+  hound: 'actor.portrait.player.hound',
+  spire: 'actor.portrait.player.spire',
+  maw: 'actor.portrait.player.maw',
+};
+
+export const V4_BOSS_PORTRAIT_STRIPS: Readonly<Record<string, string>> = {
+  sentinel: 'actor.portrait.boss.sentinel',
+  warden: 'actor.portrait.boss.warden',
+  magistrate: 'actor.portrait.boss.magistrate',
+  chancellor: 'actor.portrait.boss.chancellor',
+  regent: 'actor.portrait.boss.regent',
+};
+
+export function v4PortraitStrip(
+  speaker: string,
+  characterName: string,
+): string | undefined {
+  return speaker === 'player'
+    ? V4_PLAYER_PORTRAIT_STRIPS[characterName]
+    : V4_BOSS_PORTRAIT_STRIPS[speaker];
+}
+
+/** Compatibility crop ledger for packs that omit `assets.actors.portraits`. */
 export const V4_PLAYER_PORTRAITS: Readonly<Record<string, V4PortraitSpec>> = {
   scout: { pose: 2, crop: 0.56, anchorX: 0.5, anchorY: 0.34 },
   lance: { pose: 2, crop: 0.58, anchorX: 0.5, anchorY: 0.34 },

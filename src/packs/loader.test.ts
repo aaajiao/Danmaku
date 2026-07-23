@@ -271,6 +271,20 @@ describe('shared PackStrip loading', () => {
               },
             },
           },
+          portraits: {
+            sheet: 'art.png',
+            strips: {
+              'actor.portrait.player.test': {
+                x: 0,
+                y: 0,
+                frames: 1,
+                frameW: 8,
+                frameH: 6,
+                mode: 'once',
+                color: 'baked',
+              },
+            },
+          },
         },
         effects: {
           burst: {
@@ -414,6 +428,24 @@ describe('shared PackStrip loading', () => {
         },
       },
     });
+    expect(loaded.actors?.portraits).toEqual({
+      url: imageUrl,
+      strips: {
+        'actor.portrait.player.test': {
+          x: 0,
+          y: 0,
+          frameW: 8,
+          frameH: 6,
+          frames: 1,
+          stride: undefined,
+          ticksPerFrame: undefined,
+          mode: 'once',
+          color: 'baked',
+          contentW: undefined,
+          contentH: undefined,
+        },
+      },
+    });
 
     const expectedHash = await hashPack(manifestBytes, [imageBytes]);
     expect(loaded.packsMeta).toBe(`${name}@${expectedHash}`);
@@ -424,6 +456,7 @@ describe('shared PackStrip loading', () => {
     expect(report).toContain(`assets.missiles: ${name} (1 strip winner)`);
     expect(report).toContain(`assets.pickups: ${name} (1 strip winner)`);
     expect(report).toContain(`assets.actors.players: ${name}`);
+    expect(report).toContain(`assets.actors.portraits: ${name}`);
     expect(report).not.toContain('(no pack resources active — running on placeholders)');
   });
 

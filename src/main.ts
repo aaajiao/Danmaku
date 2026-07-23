@@ -71,7 +71,11 @@ import {
   v4EnemyPoseFrame,
   v4PlayerBankFrame,
 } from './render/v4-actors';
-import { v4PortraitSource, v4PortraitSpec } from './render/v4-portrait';
+import {
+  v4PortraitSource,
+  v4PortraitSpec,
+  v4PortraitStrip,
+} from './render/v4-portrait';
 import { V4StageStructure } from './v4/backgrounds/structure';
 import {
   V4_CHARACTER_UI,
@@ -232,8 +236,9 @@ const missileAtlas = await makeMissileAtlas(undefined, packs.missileStrips);
 const pickupAtlas = await makePickupAtlas(undefined, packs.pickupStrips);
 
 // Actor textures now come from the selected pack as self-describing sheets.
-// v4 supplies all three families; a different/no pack leaves them absent and
-// the ordinary ship/bullet draw paths remain the permanent floor.
+// v4 supplies all four families (field players/enemies/Bosses plus dialogue
+// close-ups); a different/no pack leaves them absent and the ordinary
+// ship/bullet/actor-crop draw paths remain the permanent floor.
 const v4Actors = await loadV4ActorAtlases(packs.actors);
 // Original engine-owned UI, independent of whichever projectile pack is live.
 const v4Ui = await loadV4UiAtlas();
@@ -281,7 +286,12 @@ for (const name of itemNames()) {
 // sheet leaves them untouched.
 if (packs.filter === 'linear') {
   const filteredAtlases: Atlas[] = [bulletAtlas, shipAtlas];
-  for (const actorAtlas of [v4Actors.players, v4Actors.enemies, v4Actors.bosses]) {
+  for (const actorAtlas of [
+    v4Actors.players,
+    v4Actors.enemies,
+    v4Actors.bosses,
+    v4Actors.portraits,
+  ]) {
     if (actorAtlas !== undefined) filteredAtlases.push(actorAtlas);
   }
   for (const atlas of filteredAtlases) {
@@ -2087,7 +2097,7 @@ const DIALOG_PORTRAIT_MAX = 112;
 const DIALOG_PORTRAIT_INSET = 32;
 const DIALOG_TEXT_INSET = 152;
 
-/** Draw a close crop from the same Ghost actor art used on the field. */
+/** Draw the v4 close-up, falling back to the field actor for older packs. */
 function drawV4Portrait(
   speaker: string,
   characterName: string,
@@ -2095,6 +2105,32 @@ function drawV4Portrait(
   y: number,
   size: number,
 ): boolean {
+  const portraitStrip = v4PortraitStrip(speaker, characterName);
+  const portraitAtlas = v4Actors.portraits;
+  if (
+    portraitStrip !== undefined &&
+    portraitAtlas !== undefined &&
+    portraitAtlas.has(portraitStrip)
+  ) {
+    const frame = portraitAtlas.frameOf(portraitAtlas.strip(portraitStrip), 0);
+    surface.save();
+    surface.imageSmoothingEnabled = true;
+    surface.imageSmoothingQuality = 'high';
+    surface.drawImage(
+      portraitAtlas.texture.image as CanvasImageSource,
+      frame.x,
+      frame.y,
+      frame.w,
+      frame.h,
+      x,
+      y,
+      size,
+      size,
+    );
+    surface.restore();
+    return true;
+  }
+
   const player = speaker === 'player' ? V4_PLAYER_ACTORS[characterName] : undefined;
   const boss = V4_BOSS_ACTORS[speaker];
   const actor = player ?? boss;

@@ -1,10 +1,10 @@
 {
   "format": 1,
   "name": "v4",
-  "version": "4.4.1",
+  "version": "4.5.0",
   "author": "Danmaku project",
   "license": "LicenseRef-Danmaku-Project-Owned",
-  "description": "Original v4 Japanese-STG presentation pack: player, enemy and corrected Boss actor atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
+  "description": "Original v4 Japanese-STG presentation pack: player, enemy, corrected Boss and dedicated high-resolution dialogue portrait atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.",
   "assets": {
     "bullets": {
       "sheet": "bullets/bullets.png",
@@ -1258,6 +1258,121 @@
             "stride": 192,
             "ticksPerFrame": 12,
             "mode": "loop",
+            "color": "baked"
+          }
+        }
+      },
+      "portraits": {
+        "sheet": "actors/portraits.png",
+        "strips": {
+          "actor.portrait.player.scout": {
+            "x": 0,
+            "y": 0,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.player.lance": {
+            "x": 256,
+            "y": 0,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.player.hound": {
+            "x": 512,
+            "y": 0,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.player.spire": {
+            "x": 768,
+            "y": 0,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.player.maw": {
+            "x": 1024,
+            "y": 0,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.boss.sentinel": {
+            "x": 0,
+            "y": 256,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.boss.warden": {
+            "x": 256,
+            "y": 256,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.boss.magistrate": {
+            "x": 512,
+            "y": 256,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.boss.chancellor": {
+            "x": 768,
+            "y": 256,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
+            "color": "baked"
+          },
+          "actor.portrait.boss.regent": {
+            "x": 1024,
+            "y": 256,
+            "frameW": 256,
+            "frameH": 256,
+            "frames": 1,
+            "stride": 256,
+            "ticksPerFrame": 1,
+            "mode": "once",
             "color": "baked"
           }
         }

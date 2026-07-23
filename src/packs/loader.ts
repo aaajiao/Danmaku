@@ -272,9 +272,9 @@ const SATURATION_ALPHA_FLOOR = 128;
 const HUD_ICON_MAX = 16;
 
 /**
- * The five fixed sheet-family slots which lead the boot-report ordering. The
+ * The six fixed sheet-family slots which lead the boot-report ordering. The
  * full canonical first-URL order files are fetched and hashed in — bullets,
- * ship, player/enemy/Boss actors, effects, lasers, missiles, pickups, sounds in
+ * ship, player/enemy/Boss/dialogue actors, effects, lasers, missiles, pickups, sounds in
  * `SOUND_NAMES` order, hud, music, then portraits (keyed
  * strip/music/portrait sections in manifest order) — and is fixed by the call
  * order of the `gather*` functions. A repeated URL occupies only its first
@@ -287,6 +287,7 @@ const RESOURCE_ORDER = [
   'assets.actors.players',
   'assets.actors.enemies',
   'assets.actors.bosses',
+  'assets.actors.portraits',
 ] as const;
 
 /* ------------------------------------------------------------------ */
@@ -497,10 +498,12 @@ function resolvedActorInputs(winners: Map<string, Winner>): V4ActorAtlasInputs |
     players: input('players'),
     enemies: input('enemies'),
     bosses: input('bosses'),
+    portraits: input('portraits'),
   };
   return actors.players !== undefined ||
     actors.enemies !== undefined ||
-    actors.bosses !== undefined
+    actors.bosses !== undefined ||
+    actors.portraits !== undefined
     ? actors
     : undefined;
 }
@@ -925,7 +928,7 @@ async function gatherActorAssets(
   files: PackFiles,
   reasons: string[],
 ): Promise<void> {
-  for (const role of ['players', 'enemies', 'bosses'] as const) {
+  for (const role of ['players', 'enemies', 'bosses', 'portraits'] as const) {
     const sheet = actors[role];
     if (sheet === undefined) continue;
     await gatherActorSheet(name, role, sheet, slots, files, reasons);

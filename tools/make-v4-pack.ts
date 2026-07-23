@@ -9,7 +9,9 @@
  * BulletPack. The generator is the source of truth for every committed pack
  * file and manifest coordinate. Actor art is also pack-owned: accepted compiled
  * player/enemy sheets are copied losslessly, while the Boss sheet is rebuilt
- * from its isolated source master by `v4-actor-assets.ts`.
+ * from its isolated source master by `v4-actor-assets.ts` and the dialogue
+ * close-ups are compiled from their full-resolution masters by
+ * `v4-portrait-assets.ts`.
  *
  * Background scenes remain engine-owned shader code and do not appear here.
  */
@@ -44,6 +46,10 @@ import {
   V4_PLAYER_ACTOR_SOURCE_SHA256,
   buildV4ActorAssets,
 } from './v4-actor-assets';
+import {
+  V4_PORTRAIT_BOSS_MASTER_SHA256,
+  V4_PORTRAIT_PLAYER_MASTER_SHA256,
+} from './v4-portrait-assets';
 
 export const V4_PACK_DIR = join(import.meta.dir, '..', 'packs', 'v4');
 export const V4_AUDIO_SOURCE_SHA256 = createHash('sha256')
@@ -1641,6 +1647,7 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Playable actors | 5 strips / 25 poses | \`actors/players.png\` |
 | Enemy actors | 16 strips / 64 poses | \`actors/enemies.png\` |
 | Boss actors | 5 strips / 25 poses | \`actors/bosses.png\` |
+| Dialogue portraits | 10 close crops | \`actors/portraits.png\` |
 | HUD life / bomb | 2 | \`hud/*.png\` |
 | Formal music tracks (5 with one-shot intro) | ${V4_TRACK_SPECS.length} | \`audio/music/*.wav\` |
 | Gameplay + menu cues | ${V4_SOUND_SPECS.length} | \`audio/sfx/*.wav\` |
@@ -1655,6 +1662,14 @@ The Boss atlas is compiled from the isolated 25-pose master recorded in
 \`${V4_BOSS_ATLAS_MASTER_SHA256}\`). The compiler assigns connected foreground
 components to semantic poses before scaling them into 192px frames with 8px
 transparent gutters. It never slices the irregular source at equal fifths.
+
+The dialogue atlas is compiled separately from the accepted player cast master
+(SHA-256 \`${V4_PORTRAIT_PLAYER_MASTER_SHA256}\`) and isolated Boss master
+(SHA-256 \`${V4_PORTRAIT_BOSS_MASTER_SHA256}\`). Ten authored 176px/192px close
+crops are pose-isolated, straight-alpha restored and bilinear-scaled into the
+240px inner area of 256px cells with 8px transparent gutters. No field-atlas
+downscale is reused before the browser reduces them into the 112px dialogue
+well.
 
 The accepted compiled player and enemy sources are copied losslessly and
 hash-locked before packing:
@@ -1763,10 +1778,10 @@ export function buildV4Pack(): V4PackBuild {
   const manifest: PackManifest = {
     format: 1,
     name: 'v4',
-    version: '4.4.1',
+    version: '4.5.0',
     author: 'Danmaku project',
     license: 'LicenseRef-Danmaku-Project-Owned',
-    description: 'Original v4 Japanese-STG presentation pack: player, enemy and corrected Boss actor atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
+    description: 'Original v4 Japanese-STG presentation pack: player, enemy, corrected Boss and dedicated high-resolution dialogue portrait atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
     assets: {
       bullets: { sheet: 'bullets/bullets.png', strips: bullets.strips },
       ship: {
@@ -1833,7 +1848,7 @@ if (import.meta.main) {
   console.log(`v4 pack: ${Object.keys(bullets.strips).length} bullets`);
   console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (${NATIVE_EFFECT_NAMES.length} native + ${PLAYER_EFFECT_SPECS.length} player)`);
   console.log(`v4 pack: ${Object.keys(assets.lasers ?? {}).length} lasers, ${Object.keys(assets.missiles ?? {}).length} missiles, ${Object.keys(assets.pickups ?? {}).length} pickups`);
-  console.log('v4 pack: 5 player, 16 enemy and 5 Boss actor strips');
+  console.log('v4 pack: 5 player, 16 enemy, 5 Boss and 10 dialogue portrait actor strips');
   console.log(`v4 pack: ${V4_TRACK_SPECS.length} music tracks, ${V4_SOUND_SPECS.length} sound cues`);
   console.log(`v4 pack: wrote ${build.files.size} files to ${V4_PACK_DIR}`);
 }

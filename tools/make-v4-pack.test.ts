@@ -328,7 +328,7 @@ describe('generated output and exact manifest', () => {
   });
 
   test('category ledgers are complete, exact and project-owned', () => {
-    expect(build.manifest.version).toBe('4.4.1');
+    expect(build.manifest.version).toBe('4.5.0');
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);
@@ -345,6 +345,9 @@ describe('generated output and exact manifest', () => {
     if (shipAsset === undefined || typeof shipAsset === 'string') throw new Error('v4 ship must be native');
     expect(shipAsset.frames).toBe(5);
     expect(shipAsset.banking).toBe('five-way');
+    expect(Object.keys(assets.actors?.portraits?.strips ?? {})).toHaveLength(10);
+    expect(assets.actors?.portraits?.sheet).toBe('actors/portraits.png');
+    expect(build.manifest.portraits).toBeUndefined();
     expect(build.manifest.hud).toEqual({ life: 'hud/life.png', bomb: 'hud/bomb.png' });
   });
 

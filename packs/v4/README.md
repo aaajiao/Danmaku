@@ -20,6 +20,7 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Playable actors | 5 strips / 25 poses | `actors/players.png` |
 | Enemy actors | 16 strips / 64 poses | `actors/enemies.png` |
 | Boss actors | 5 strips / 25 poses | `actors/bosses.png` |
+| Dialogue portraits | 10 close crops | `actors/portraits.png` |
 | HUD life / bomb | 2 | `hud/*.png` |
 | Formal music tracks (5 with one-shot intro) | 13 | `audio/music/*.wav` |
 | Gameplay + menu cues | 25 | `audio/sfx/*.wav` |
@@ -34,6 +35,14 @@ The Boss atlas is compiled from the isolated 25-pose master recorded in
 `a347c84259269c10b21100534c45614a71b307a7ae6eab240e7eeb456e8d18e7`). The compiler assigns connected foreground
 components to semantic poses before scaling them into 192px frames with 8px
 transparent gutters. It never slices the irregular source at equal fifths.
+
+The dialogue atlas is compiled separately from the accepted player cast master
+(SHA-256 `b3802eb6c125bf002031d19112b8d106d7f3664ece81c40196b81844fb1acc4a`) and isolated Boss master
+(SHA-256 `a347c84259269c10b21100534c45614a71b307a7ae6eab240e7eeb456e8d18e7`). Ten authored 176px/192px close
+crops are pose-isolated, straight-alpha restored and bilinear-scaled into the
+240px inner area of 256px cells with 8px transparent gutters. No field-atlas
+downscale is reused before the browser reduces them into the 112px dialogue
+well.
 
 The accepted compiled player and enemy sources are copied losslessly and
 hash-locked before packing:

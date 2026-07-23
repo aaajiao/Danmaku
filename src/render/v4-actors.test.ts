@@ -8,6 +8,10 @@ import {
   v4EnemyPoseFrame,
   v4PlayerBankFrame,
 } from './v4-actors';
+import {
+  V4_BOSS_PORTRAIT_STRIPS,
+  V4_PLAYER_PORTRAIT_STRIPS,
+} from './v4-portrait';
 
 describe('v4 actor ledger', () => {
   test('covers the whole shipped cast with unique strips', () => {
@@ -42,6 +46,7 @@ describe('v4 actor ledger', () => {
           players: { strips: Record<string, unknown> };
           enemies: { strips: Record<string, unknown> };
           bosses: { strips: Record<string, unknown> };
+          portraits: { strips: Record<string, unknown> };
         };
       };
     };
@@ -55,6 +60,10 @@ describe('v4 actor ledger', () => {
     expect(Object.keys(manifest.assets.actors.bosses.strips)).toEqual(
       Object.values(V4_BOSS_ACTORS).map((actor) => actor.strip),
     );
+    expect(Object.keys(manifest.assets.actors.portraits.strips)).toEqual([
+      ...Object.values(V4_PLAYER_PORTRAIT_STRIPS),
+      ...Object.values(V4_BOSS_PORTRAIT_STRIPS),
+    ]);
   });
 
   test('narrow contact actors use display boxes whose painted width covers their hit circle', () => {

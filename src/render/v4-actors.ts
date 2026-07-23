@@ -3,8 +3,9 @@
  *
  * People and the default v4 projectile/feedback pack are project-owned art. The
  * v4 pack supplies one actor texture for the five playable women, one for the
- * sixteen enemy roles, and one for the five bosses; another pack may omit any
- * family and let the ordinary ship/bullet presentation remain the floor.
+ * sixteen enemy roles, one for the five bosses, and one dialogue-only close-up
+ * sheet; another pack may omit any family and let the ordinary actor/portrait
+ * presentation remain the floor.
  * Keeping actors out of the 8k-projectile batch also keeps normal-blend,
  * baked-colour character art independent of bullet filtering and capacity.
  *
@@ -83,12 +84,14 @@ export interface V4ActorAtlasInputs {
   readonly players?: ActorSheetInput;
   readonly enemies?: ActorSheetInput;
   readonly bosses?: ActorSheetInput;
+  readonly portraits?: ActorSheetInput;
 }
 
 export interface V4ActorAtlases {
   readonly players?: Atlas;
   readonly enemies?: Atlas;
   readonly bosses?: Atlas;
+  readonly portraits?: Atlas;
 }
 
 async function loadActorAtlas(input: ActorSheetInput | undefined): Promise<Atlas | undefined> {
@@ -116,12 +119,13 @@ async function loadActorAtlas(input: ActorSheetInput | undefined): Promise<Atlas
 export async function loadV4ActorAtlases(
   inputs: V4ActorAtlasInputs | undefined,
 ): Promise<V4ActorAtlases> {
-  const [players, enemies, bosses] = await Promise.all([
+  const [players, enemies, bosses, portraits] = await Promise.all([
     loadActorAtlas(inputs?.players),
     loadActorAtlas(inputs?.enemies),
     loadActorAtlas(inputs?.bosses),
+    loadActorAtlas(inputs?.portraits),
   ]);
-  return { players, enemies, bosses };
+  return { players, enemies, bosses, portraits };
 }
 
 /**

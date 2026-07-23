@@ -526,8 +526,8 @@ describe('assets: native strip object forms (additive, zero breakage)', () => {
       color: 'baked',
     };
 
-    test('players, enemies and bosses accept self-describing sheets', () => {
-      for (const role of ['players', 'enemies', 'bosses']) {
+    test('players, enemies, bosses and portraits accept self-describing sheets', () => {
+      for (const role of ['players', 'enemies', 'bosses', 'portraits']) {
         expect(
           accepts(actors(role, { sheet: `${role}.png`, strips: { [`actor.${role}.one`]: strip } })),
         ).toBe(true);

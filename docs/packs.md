@@ -58,7 +58,8 @@ A pack **can** replace, as a reskin:
   and particle effects, plus the enemy/Boss presentation when its actor family
   is absent (see `docs/assets.md` §3.1);
 - the **player ship** sprite;
-- three independent **actor sheets** — playable characters, enemies and bosses;
+- four independent **actor sheets** — playable characters, enemies, bosses and
+  dialogue close-ups;
 - any of the twenty-five **sounds** the game plays;
 - any of the thirteen built-in **music tracks**, or add a pack-local track for
   the pack's own stage, boss or spell card;
@@ -311,11 +312,11 @@ for the bullet, ship and any actor sheets. Hard-edged pixel art wants
 art wants `"nearest"` (the default a loaded sheet already gets). The default
 matches `loadTexture`'s own behaviour.
 
-### 5.2a `assets.actors` — player, enemy and Boss sheets
+### 5.2a `assets.actors` — player, enemy, Boss and close-up sheets
 
-Actor art is pack presentation, not engine-owned. The three texture families are
-independent and optional: `players`, `enemies`, `bosses`. Each is a shared PNG
-plus explicitly placed horizontal strips:
+Actor art is pack presentation, not engine-owned. The four texture families are
+independent and optional: `players`, `enemies`, `bosses`, `portraits`. Each is a
+shared PNG plus explicitly placed horizontal strips:
 
 ```json
 "actors": {
@@ -341,6 +342,16 @@ A family that is absent, fails to load, or does not contain the strip a built-in
 actor expects uses the ordinary ship/bullet presentation instead. Actor sheets
 stay on normal-blend textures of their own and never enter the high-capacity
 projectile batch.
+
+`assets.actors.portraits` is the high-resolution close-up family for the built-in
+actor identities. Its one-frame strips use names such as
+`actor.portrait.player.scout` and `actor.portrait.boss.sentinel`; the shell maps
+the opaque dialogue speaker `player` through the selected character before
+drawing. It is deliberately distinct from the top-level `portraits` section in
+§5.5: top-level portraits remain independent 96×96, pack-qualified images for a
+content pack's own speaker names. If the close-up family is absent, the shell
+crops the matching field actor, then falls back to the ordinary portrait
+registry.
 
 ### 5.3 `sounds.<name>` — a replaced sound
 
@@ -870,6 +881,7 @@ packs: boot report
   assets.bullets: my-pack  (/packs/my-pack/bullets.png)
   assets.ship: my-pack  (/packs/my-pack/ship.png)
   assets.actors.players: my-pack  (/packs/my-pack/actors/players.png)
+  assets.actors.portraits: my-pack  (/packs/my-pack/actors/portraits.png)
   assets.filter: my-pack  (nearest)
   sounds.shot: my-pack  (/packs/my-pack/shot.wav)
   sounds.pickup: my-pack  (/packs/my-pack/pickup.wav)
