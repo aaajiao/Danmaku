@@ -28,8 +28,14 @@ bun run dev        # http://localhost:3000
 ```bash
 bun test           # simulation and engine tests — no GL context needed
 bun run typecheck
-bun run build      # → dist/
+bun run build      # → dist/ (installable, offline-capable PWA)
 ```
+
+The production build precaches the exact content-hashed browser bundle and
+shippable pack tree as one release, so an installed game can start fully
+offline. Its ordinary, maskable and Apple icons are deterministically derived
+from SCOUT's project-owned dialogue portrait; regenerate them with
+`bun run make:pwa-icons`.
 
 Three checks need a real framebuffer and so are pages you open by hand:
 
@@ -54,6 +60,7 @@ src/v4/         compiled edition root: gameplay vocabulary, authored shaders,
 src/audio/      sound registry and runtime synthesis
 src/packs/      data-pack validation, injection and loading
 packs/v4/       project-owned raster/HUD art pack; data only, no TS or GLSL
+public/         PWA manifest, service-worker template and generated icons
 src/main.ts     the browser shell
 docs/           asset spec and extension guide
 ```
