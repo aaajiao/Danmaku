@@ -1919,6 +1919,12 @@ as an unskinned bullet still draws. `PORTRAIT_SIZE` (96) is the one square a
 supplied image must be; a pack registers its portrait through the same `image`
 seam, dimension-checked at load (`docs/packs.md` §5.5).
 
+The v4 built-in cast additionally uses `assets.actors.portraits`, a
+self-describing high-resolution close-up sheet keyed by speaker plus selected
+character. That is a presentation reskin surface for the fixed cast, not a
+replacement for this open registry: missing close-up strips fall back to the
+field actor crop and then to `portraitImage(name)`.
+
 The five built-in bosses' speakers (`sentinel`, `warden`, `magistrate`,
 `chancellor`, `regent`) and `player` are pre-registered, tinted to read as that fight. The painted result
 needs a DOM, so `bun test` proves only the registry and the tint arithmetic; the

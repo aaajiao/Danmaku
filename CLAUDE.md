@@ -320,7 +320,10 @@ sounds, music tracks (a stage or boss names a track by string, exactly as it
 names a scene; the file is presentation and stays under the warn-only skin
 identity, while the track name it carries in the spec is content), and dialogue
 portraits (a `portraits` section of name→image, the face a boss's `speaker` names —
-presentation, warn-only, with a procedural silhouette as the floor). **Content**
+presentation, warn-only, with a procedural silhouette as the floor). The optional
+`assets.actors.portraits` sheet is the higher-resolution built-in-cast close-up
+surface: speaker plus selected character chooses its strip, with the field actor
+crop and then the ordinary portrait registry as floors. **Content**
 (format 2, gated by a `requires` capability) adds JSON data
 across nine sections — enemies, stages, bosses, shots, characters, options, bombs,
 effects and items: an enemy is an `EnemySpec`, a stage is waves chained into a

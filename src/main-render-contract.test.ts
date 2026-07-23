@@ -108,7 +108,9 @@ describe('the pickup glow follows the same strip-colour contract', () => {
 });
 
 describe('built-in dialogue keeps the v4 character identity', () => {
-  test('player and bosses use their Ghost actor art before the generic portrait fallback', () => {
+  test('player and bosses prefer the close-up atlas, then field art, then the generic fallback', () => {
+    expect(mainSource).toContain('v4PortraitStrip(speaker, characterName)');
+    expect(mainSource).toContain('const portraitAtlas = v4Actors.portraits');
     expect(mainSource).toContain("speaker === 'player' ? V4_PLAYER_ACTORS[characterName]");
     expect(mainSource).toContain('const boss = V4_BOSS_ACTORS[speaker]');
     expect(mainSource).toContain('v4PortraitSpec(speaker, characterName)');
@@ -129,10 +131,15 @@ describe('the Japanese STG hit point is presentation, not body geometry', () => 
     expect(mainSource).toContain('drawFocusIndicator(run)');
   });
 
-  test('v4 dialogue portraits keep nearest-neighbour pixel edges', () => {
+  test('v4 dialogue close-ups downsample smoothly while field-art fallback stays nearest', () => {
     const portraitStart = mainSource.indexOf('function drawV4Portrait(');
     const dialogueStart = mainSource.indexOf('function drawDialogue(', portraitStart);
     const portraitSource = mainSource.slice(portraitStart, dialogueStart);
+    const smooth = portraitSource.indexOf('surface.imageSmoothingEnabled = true');
+    const nearest = portraitSource.indexOf('surface.imageSmoothingEnabled = false');
+    expect(smooth).toBeGreaterThan(-1);
+    expect(nearest).toBeGreaterThan(smooth);
+    expect(portraitSource).toContain("surface.imageSmoothingQuality = 'high'");
     expect(portraitSource).toContain('surface.imageSmoothingEnabled = false');
     expect(portraitSource).toContain('surface.save()');
     expect(portraitSource).toContain('surface.restore()');

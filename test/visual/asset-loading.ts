@@ -101,6 +101,8 @@ import PLAYER_ACTORS_URL from '../../packs/v4/actors/players.png';
 import ENEMY_ACTORS_URL from '../../packs/v4/actors/enemies.png';
 // @ts-expect-error no ambient declaration for *.png
 import BOSS_ACTORS_URL from '../../packs/v4/actors/bosses.png';
+// @ts-expect-error no ambient declaration for *.png
+import PORTRAIT_ACTORS_URL from '../../packs/v4/actors/portraits.png';
 
 /**
  * The 16 cell colours of `grid-8x2.png`, in cell order.
@@ -1067,10 +1069,26 @@ const actorAtlases = await loadV4ActorAtlases({
       },
     },
   },
+  portraits: {
+    url: PORTRAIT_ACTORS_URL,
+    strips: {
+      'actor.portrait.player.scout': {
+        x: 0,
+        y: 0,
+        frameW: 256,
+        frameH: 256,
+        frames: 1,
+        stride: 256,
+        ticksPerFrame: 1,
+        mode: 'once',
+        color: 'baked',
+      },
+    },
+  },
 });
 
 interface ActorReadbackCase {
-  readonly family: 'players' | 'enemies' | 'bosses';
+  readonly family: 'players' | 'enemies' | 'bosses' | 'portraits';
   readonly atlas: Atlas;
   readonly strip: string;
   readonly frame: number;
@@ -1103,10 +1121,18 @@ const actorCases: readonly ActorReadbackCase[] = [
     expectedSheet: [960, 960],
     expectedRect: { x: 384, y: 384, w: 192, h: 192 },
   },
+  {
+    family: 'portraits',
+    atlas: actorAtlases.portraits!,
+    strip: 'actor.portrait.player.scout',
+    frame: 0,
+    expectedSheet: [1280, 512],
+    expectedRect: { x: 0, y: 0, w: 256, h: 256 },
+  },
 ];
 
 check(
-  'the three actor families decode from three independent pack textures',
+  'the four actor families decode from four independent pack textures',
   actorCases.every(({ atlas, expectedSheet }) =>
     atlas.width === expectedSheet[0] && atlas.height === expectedSheet[1]
   ) && new Set(actorCases.map(({ atlas }) => atlas.texture)).size === actorCases.length,

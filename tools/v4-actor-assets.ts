@@ -1,5 +1,5 @@
 /**
- * Build the three project-owned actor sheets shipped by `packs/v4`.
+ * Build the four project-owned actor sheets shipped by `packs/v4`.
  *
  * Player/enemy sheets are the already accepted compiled production art. The
  * Boss sheet is rebuilt from the isolated 5×5 source master below: that master
@@ -27,6 +27,10 @@ import type {
 } from '../src/packs/manifest';
 import { decodePng } from './png-decode';
 import { ColourType, encodePng, parsePng } from './png';
+import {
+  buildV4DialoguePortraitAtlas,
+  v4DialoguePortraitSheet,
+} from './v4-portrait-assets';
 
 const ROOT = join(import.meta.dir, '..');
 const PLAYER_SOURCE = join(ROOT, 'src', 'assets', 'v4', 'actors-player-v4.png');
@@ -639,11 +643,13 @@ export function buildV4ActorAssets(): V4ActorAssetsBuild {
       players: playerSheet(),
       enemies: enemySheet(),
       bosses: bossSheet(),
+      portraits: v4DialoguePortraitSheet(),
     },
     files: new Map([
       ['actors/players.png', players],
       ['actors/enemies.png', enemies],
       ['actors/bosses.png', buildV4BossActorAtlas()],
+      ['actors/portraits.png', buildV4DialoguePortraitAtlas()],
     ]),
   };
 }

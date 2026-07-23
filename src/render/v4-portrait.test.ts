@@ -1,22 +1,36 @@
 import { describe, expect, test } from 'bun:test';
 import { V4_BOSS_ACTORS, V4_PLAYER_ACTORS } from './v4-actors';
 import {
+  V4_BOSS_PORTRAIT_STRIPS,
   V4_BOSS_PORTRAITS,
+  V4_PLAYER_PORTRAIT_STRIPS,
   V4_PLAYER_PORTRAITS,
   v4PortraitSource,
   v4PortraitSpec,
+  v4PortraitStrip,
 } from './v4-portrait';
 
 describe('v4 dialogue portrait framing', () => {
   test('covers every built-in player and boss without inventing guest identities', () => {
+    expect(Object.keys(V4_PLAYER_PORTRAIT_STRIPS)).toEqual(Object.keys(V4_PLAYER_ACTORS));
+    expect(Object.keys(V4_BOSS_PORTRAIT_STRIPS)).toEqual(Object.keys(V4_BOSS_ACTORS));
     expect(Object.keys(V4_PLAYER_PORTRAITS)).toEqual(Object.keys(V4_PLAYER_ACTORS));
     expect(Object.keys(V4_BOSS_PORTRAITS)).toEqual(Object.keys(V4_BOSS_ACTORS));
+    expect(v4PortraitStrip('player', 'scout')).toBe('actor.portrait.player.scout');
+    expect(v4PortraitStrip('sentinel', 'scout')).toBe('actor.portrait.boss.sentinel');
+    expect(v4PortraitStrip('guest/speaker', 'scout')).toBeUndefined();
     expect(v4PortraitSpec('player', 'scout')).toBe(V4_PLAYER_PORTRAITS.scout);
     expect(v4PortraitSpec('sentinel', 'scout')).toBe(V4_BOSS_PORTRAITS.sentinel);
     expect(v4PortraitSpec('guest/speaker', 'scout')).toBeUndefined();
+    expect(
+      new Set([
+        ...Object.values(V4_PLAYER_PORTRAIT_STRIPS),
+        ...Object.values(V4_BOSS_PORTRAIT_STRIPS),
+      ]).size,
+    ).toBe(10);
   });
 
-  test('uses neutral players, cast bosses and a closer-than-full-body crop', () => {
+  test('legacy fallback uses neutral players, cast bosses and a close crop', () => {
     for (const spec of Object.values(V4_PLAYER_PORTRAITS)) {
       expect(spec.pose).toBe(2);
       expect(spec.crop).toBeLessThan(0.7);

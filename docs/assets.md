@@ -656,11 +656,11 @@ Two properties of the particle system that constrain what those cells can be:
   life (`src/sim/effects.ts:319`), so `glow.large` is drawn anywhere between
   51px and 10px. Detail that only exists at one size is wasted at both ends.
 
-### 3.6 Dialogue portraits — `portrait.png`, one per speaker, exactly 96×96
+### 3.6 Generic dialogue portraits — `portrait.png`, one per speaker, exactly 96×96
 
-The face drawn beside a boss's pre-fight dialogue line. It is not on any sheet and
-not tied to a grid — each portrait is its own square image, named and drawn on the
-2D overlay canvas beside the dialogue box, never batched into the field.
+This is the generic/third-party portrait registry used by content-pack speakers.
+Each portrait is its own square image, named and drawn on the 2D overlay canvas
+beside the dialogue box, never batched into the field.
 
 | Property | Value | Verified at |
 |---|---|---|
@@ -688,6 +688,15 @@ Three things set it apart from the white-and-tinted sheets above:
 The drawn box is a readability judgement — legible against the field, obeying the
 negative-space budget while the player still flies — so it is checked by eye in
 `bun run dev`, not asserted by a pixel test.
+
+The built-in v4 cast has a separate higher-resolution pack surface:
+`packs/v4/actors/portraits.png`, declared as `assets.actors.portraits`. It is a
+5×2 sheet of 256×256 one-frame close-ups selected by speaker plus the active
+player character. Those cells are generated directly from the accepted player
+and Boss masters, then reduced with high-quality Canvas2D sampling into the
+112px circular dialogue well. Missing close-up sheets fall back first to the
+field actor crop and then to this generic registry; the 96×96 third-party
+contract is unchanged.
 
 ### 3.7 v4 engine-owned UI — RGB production master to runtime atlas
 
@@ -966,12 +975,12 @@ dimensions do not divide evenly by the cell size, and a 1×1 image. Run it after
 any change to `Atlas`, `loadTexture` or the grid. A UV error found here would
 otherwise present as your art looking wrong.
 
-The same page also loads the committed v4 player, enemy and Boss actor sheets
-through their self-describing strip path, draws one nontrivial frame from each
-at 1:1, and compares asymmetric source probes with the WebGL framebuffer. This
-is the durable check for the three independent textures, strip offsets and
-top-down PNG orientation; visual quality and in-game scale still belong to
-`bun run dev`.
+The same page also loads the committed v4 player, enemy, Boss and dialogue
+close-up actor sheets through their self-describing strip path, draws one
+nontrivial frame from each at 1:1, and compares asymmetric source probes with
+the WebGL framebuffer. This is the durable check for the four independent
+textures, strip offsets and top-down PNG orientation; visual quality, circular
+portrait clipping and in-game scale still belong to `bun run dev`.
 
 **`bun run test:density` is the one that judges the art.** It drives a real
 `BulletSystem` through the real v4 emitters in

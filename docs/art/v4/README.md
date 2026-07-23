@@ -22,9 +22,9 @@ and remains recoverable from Git history.
   `enemies-stage-4-ghoststyle-master.png` — four enemy-cast masters.
 - `boss-cast-ghoststyle-master.png` — five-boss pose master.
 - `boss-cast-ghoststyle-atlas-master.png` — accepted 25-pose isolation master
-  used by `tools/v4-actor-assets.ts`; unlike the earlier flattened contact
-  sheet, every silhouette has a recoverable foreground component before runtime
-  packing.
+  used by `tools/v4-actor-assets.ts` and `tools/v4-portrait-assets.ts`; unlike
+  the earlier flattened contact sheet, every silhouette has a recoverable
+  foreground component before runtime packing.
 - `projectile-style-lock.png` — projectile and effect language.
 - `ui-style-lock.png` — UI composition and ornament language.
 - `ui-production-ornaments-master.png` — accepted six-component UI production
@@ -36,3 +36,8 @@ and remains recoverable from Git history.
 Keep originals byte-for-byte.  Derive production assets into their runtime
 locations; do not overwrite these files with crops, transparency conversions or
 packed atlases.
+
+`packs/v4/actors/portraits.png` is one such derivative: its ten close-ups are
+rebuilt deterministically from the existing player cast and isolated Boss
+masters. It is runtime pack material, not a new original, so it does not belong
+in `originals-manifest.json`.

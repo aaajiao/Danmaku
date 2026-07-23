@@ -137,11 +137,13 @@ export interface PackActorSheet {
   strips: Record<string, PackBulletStrip>;
 }
 
-/** The three actor texture families a pack may supply independently. */
+/** The four actor texture families a pack may supply independently. */
 export interface PackActorAssets {
   players?: PackActorSheet;
   enemies?: PackActorSheet;
   bosses?: PackActorSheet;
+  /** Dialogue-only close crops; absent packs fall back to their field actors. */
+  portraits?: PackActorSheet;
 }
 
 /** The object form of `assets.ship`: a native strip bank in one PNG (no x/y). */
@@ -780,7 +782,7 @@ const ASSET_FIELDS = [
   'missiles',
   'pickups',
 ] as const;
-const ACTOR_FIELDS = ['players', 'enemies', 'bosses'] as const;
+const ACTOR_FIELDS = ['players', 'enemies', 'bosses', 'portraits'] as const;
 /** The fields of one native bullet strip (`PackBulletStrip`). x/y are offsets. */
 const BULLET_STRIP_FIELDS = [
   'x',
