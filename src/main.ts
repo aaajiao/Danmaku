@@ -124,6 +124,8 @@ import {
   drawV4Ui,
   loadV4UiAtlas,
   v4CharacterActorSource,
+  v4MenuRowGeometry,
+  v4StatusMenuLayout,
   type V4UiCellName,
 } from './render/v4-ui';
 
@@ -804,10 +806,13 @@ function layoutMenuClickTargets(
   actions?: readonly (string | undefined)[],
 ): void {
   menuActions.hidden = entries.length === 0;
-  const height = Math.min(50, step - 6);
   entries.forEach((entry, visibleIndex) => {
     const button = menuActionButton(visibleIndex);
     const target = indexOffset + visibleIndex;
+    const row = v4MenuRowGeometry(
+      firstBaseline + visibleIndex * step,
+      step,
+    );
     button.hidden = false;
     button.textContent = entry;
     button.setAttribute('aria-label', entry);
@@ -821,9 +826,9 @@ function layoutMenuClickTargets(
     if (action === undefined) delete button.dataset.action;
     else button.dataset.action = action;
     button.style.left = `${x}px`;
-    button.style.top = `${firstBaseline + visibleIndex * step - height / 2 - 2}px`;
+    button.style.top = `${row.top}px`;
     button.style.width = `${width}px`;
-    button.style.height = `${height}px`;
+    button.style.height = `${row.height}px`;
   });
 
   for (let index = entries.length; index < menuActionButtons.length; index++) {
@@ -2581,7 +2586,8 @@ function drawView(view: {
       const y = 132 + index * 76;
       const active = index === view.selected;
       const seal = V4_DIFFICULTY_UI[entry as keyof typeof V4_DIFFICULTY_UI];
-      drawMenuRowFrame(148, y, 270, 50, active);
+      const row = v4MenuRowGeometry(y, 76);
+      drawMenuRowFrame(148, row.top, 270, row.height, active);
       if (seal !== undefined) drawV4Ui(surface, v4Ui, seal, 96, y - 27, { alpha: active ? 1 : 0.55 });
       else drawV4Ui(surface, v4Ui, 'ui.assist.seal', 96, y - 27, { alpha: active ? 1 : 0.55 });
       if (active) drawV4Ui(surface, v4Ui, 'ui.cursor', 73, y - 15, { rotation: (age % 80) * (Math.PI / 40) });
@@ -2680,18 +2686,57 @@ function drawView(view: {
     y += 28;
   }
   const statusEntries = view.menu ?? [];
-  const statusMenuY = Math.max(y + 18, 388);
-  drawMenuRows(statusEntries, view.selected, 112, statusMenuY, 256, 44, age);
+  const statusSelected = Math.max(
+    0,
+    Math.min(statusEntries.length - 1, view.selected ?? 0),
+  );
+  const statusMenu = v4StatusMenuLayout(
+    y,
+    statusEntries.length,
+    statusSelected,
+  );
+  const visibleStatusEntries = statusEntries.slice(
+    statusMenu.first,
+    statusMenu.first + statusMenu.visibleCount,
+  );
+  drawMenuRows(
+    visibleStatusEntries,
+    statusMenu.selected,
+    112,
+    statusMenu.firstBaseline,
+    256,
+    statusMenu.step,
+    age,
+  );
   layoutMenuClickTargets(
     view.kind,
-    statusEntries,
-    view.selected ?? 0,
+    visibleStatusEntries,
+    statusSelected,
     statusEntries.length,
     112,
-    statusMenuY,
+    statusMenu.firstBaseline,
     256,
-    44,
+    statusMenu.step,
+    statusMenu.first,
+    view.menuActions,
   );
+  surface.textAlign = 'center';
+  uiFont(9, 500);
+  surface.fillStyle = '#71808c';
+  const statusHintX = statusX + statusW - 14;
+  if (statusMenu.first > 0) {
+    surface.fillText('▲', statusHintX, statusMenu.firstBaseline + 3);
+  }
+  if (
+    statusMenu.first + statusMenu.visibleCount
+    < statusEntries.length
+  ) {
+    const lastBaseline = (
+      statusMenu.firstBaseline
+      + (statusMenu.visibleCount - 1) * statusMenu.step
+    );
+    surface.fillText('▼', statusHintX, lastBaseline + 3);
+  }
   if (view.kind === 'ending') {
     drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 470, { alpha: 0.74 });
     surface.textAlign = 'center';
@@ -2709,11 +2754,11 @@ function positionControllerMenuAction(
   width: number,
   step: number,
 ): void {
-  const height = Math.min(50, step - 6);
+  const row = v4MenuRowGeometry(baseline, step);
   controllerConnect.style.left = `${x}px`;
-  controllerConnect.style.top = `${baseline - height / 2 - 2}px`;
+  controllerConnect.style.top = `${row.top}px`;
   controllerConnect.style.width = `${width}px`;
-  controllerConnect.style.height = `${height}px`;
+  controllerConnect.style.height = `${row.height}px`;
 }
 
 function drawScreenHeading(title: string, baseline: number): void {
@@ -2735,7 +2780,8 @@ function drawMenuRows(
   entries.forEach((entry, index) => {
     const active = index === selected;
     const baseline = y + index * step;
-    drawMenuRowFrame(x + 16, baseline, width - 16, Math.min(50, step - 6), active);
+    const row = v4MenuRowGeometry(baseline, step);
+    drawMenuRowFrame(x + 16, row.top, width - 16, row.height, active);
     if (active) {
       drawV4Ui(surface, v4Ui, 'ui.cursor', x, baseline - 16, {
         alpha: 0.95,
@@ -2753,12 +2799,12 @@ function drawMenuRows(
 /** One generated row silhouette, modulated rather than replaced by selection. */
 function drawMenuRowFrame(
   x: number,
-  baselineY: number,
+  top: number,
   width: number,
   height: number,
   active: boolean,
 ): void {
-  drawV4Ui(surface, v4Ui, 'ui.menu.row', x, baselineY - height / 2 - 2, {
+  drawV4Ui(surface, v4Ui, 'ui.menu.row', x, top, {
     width,
     height,
     alpha: active ? 0.78 : 0.2,

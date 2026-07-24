@@ -302,6 +302,29 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(drawViewSource).toContain('drawV4Ui(surface, v4Ui, statusSeal');
   });
 
+  test('status-card paint and click targets share the bounded menu window', () => {
+    const drawViewStart = mainSource.indexOf('function drawView(');
+    const headingStart = mainSource.indexOf('function drawScreenHeading(', drawViewStart);
+    const drawViewSource = mainSource.slice(drawViewStart, headingStart);
+    expect(drawViewSource).toContain('const statusMenu = v4StatusMenuLayout(');
+    expect(drawViewSource).toContain('visibleStatusEntries');
+    expect(drawViewSource).toContain('statusMenu.firstBaseline');
+    expect(drawViewSource).toContain('statusMenu.step');
+    expect(drawViewSource).toContain('statusMenu.first,');
+
+    const rowStart = mainSource.indexOf('function drawMenuRows(');
+    const rowEnd = mainSource.indexOf('function drawViewLines(', rowStart);
+    expect(mainSource.slice(rowStart, rowEnd)).toContain(
+      'v4MenuRowGeometry(baseline, step)',
+    );
+    expect(mainSource).toContain(
+      'const row = v4MenuRowGeometry(\n'
+      + '      firstBaseline + visibleIndex * step,\n'
+      + '      step,\n'
+      + '    );',
+    );
+  });
+
   test('production hides diagnostics and the Bloom control', () => {
     expect(mainSource).toContain("get('debug') === '1'");
     expect(mainSource).toContain("if (!DEBUG_UI || e.code !== 'KeyB'");

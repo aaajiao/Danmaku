@@ -113,9 +113,102 @@ export const V4_UI_SCREEN = {
     menu: { x: 236, y: 142, w: 196, rowH: 48 },
     copy: { x: 334, y: 390, w: 176 },
   },
-  status: { x: 90, y: 102, w: 300, h: 436 },
+  status: {
+    x: 90,
+    y: 102,
+    w: 300,
+    h: 436,
+    menu: {
+      baseline: 388,
+      lastBaseline: 476,
+      step: 44,
+      contentGap: 18,
+      maxVisible: 4,
+      // The frame's lower heart/thorns begin below this edge. Menu paint and
+      // transparent DOM hit targets must both stop before it.
+      safeBottom: 494,
+    },
+  },
   dialogue: { x: 12, y: 464, w: 456, h: 164 },
 } as const;
+
+export interface V4MenuRowGeometry {
+  readonly top: number;
+  readonly height: number;
+  readonly bottom: number;
+}
+
+/** Shared paint/hit geometry for one authored menu row. */
+export function v4MenuRowGeometry(
+  baseline: number,
+  step: number,
+): V4MenuRowGeometry {
+  const height = Math.min(50, step - 6);
+  const top = baseline - height / 2 - 2;
+  return { top, height, bottom: top + height };
+}
+
+export interface V4StatusMenuLayout {
+  /** Index in the complete state-owned menu of the first visible row. */
+  readonly first: number;
+  readonly visibleCount: number;
+  /** Visible-row index of the state-owned selected entry. */
+  readonly selected: number;
+  readonly firstBaseline: number;
+  readonly step: number;
+}
+
+/**
+ * Window status-card menus above the authored lower ornament.
+ *
+ * Three rows retain their historical 388/432/476 baselines. A fourth row packs
+ * upward to 344 without shrinking. Content-heavy result cards expose fewer rows
+ * and scroll around selection, rather than drawing through the bottom crest.
+ */
+export function v4StatusMenuLayout(
+  contentBottom: number,
+  entryCount: number,
+  selected: number,
+): V4StatusMenuLayout {
+  const config = V4_UI_SCREEN.status.menu;
+  const count = Math.max(0, Math.floor(entryCount));
+  const selectedIndex = count === 0
+    ? 0
+    : Math.max(0, Math.min(count - 1, Math.floor(selected)));
+  const desiredStart = Math.min(
+    config.lastBaseline,
+    Math.max(0, contentBottom) + config.contentGap,
+  );
+  const capacity = Math.max(
+    1,
+    Math.floor((config.lastBaseline - desiredStart) / config.step) + 1,
+  );
+  const visibleCount = Math.min(count, config.maxVisible, capacity);
+  const packedStart = visibleCount <= 1
+    ? config.baseline
+    : config.lastBaseline - (visibleCount - 1) * config.step;
+  const firstBaseline = Math.min(
+    config.lastBaseline,
+    Math.max(desiredStart, Math.min(config.baseline, packedStart)),
+  );
+  const first = visibleCount === 0
+    ? 0
+    : Math.max(
+        0,
+        Math.min(
+          selectedIndex - Math.floor(visibleCount / 2),
+          count - visibleCount,
+        ),
+      );
+
+  return {
+    first,
+    visibleCount,
+    selected: selectedIndex - first,
+    firstBaseline,
+    step: config.step,
+  };
+}
 
 const V4_PLAYER_ACTOR_REFERENCE_FRAME = 128;
 

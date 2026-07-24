@@ -145,6 +145,12 @@ export {
   V4_DIFFICULTY_UI,
   V4_UI_CELLS,
   V4_UI_SCREEN,
+  v4MenuRowGeometry,
+  v4StatusMenuLayout,
   v4CharacterActorSource,
 } from './v4-ui-layout';
-export type { V4UiCellName } from './v4-ui-layout';
+export type {
+  V4MenuRowGeometry,
+  V4StatusMenuLayout,
+  V4UiCellName,
+} from './v4-ui-layout';

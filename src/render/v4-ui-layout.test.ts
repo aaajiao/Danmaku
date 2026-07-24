@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import type { Region } from './atlas';
-import { v4CharacterActorSource } from './v4-ui-layout';
+import {
+  V4_UI_SCREEN,
+  v4CharacterActorSource,
+  v4MenuRowGeometry,
+  v4StatusMenuLayout,
+} from './v4-ui-layout';
 
 describe('v4 character-select actor crop', () => {
   test('preserves the accepted 128px crop exactly at an offset atlas frame', () => {
@@ -48,5 +53,60 @@ describe('v4 character-select actor crop', () => {
         frame.y + frame.h,
       );
     }
+  });
+});
+
+describe('v4 status-card menu layout', () => {
+  test('keeps the screenshot-enabled pause menu above the bottom ornament', () => {
+    const layout = v4StatusMenuLayout(274, 4, 0);
+    expect(layout).toEqual({
+      first: 0,
+      visibleCount: 4,
+      selected: 0,
+      firstBaseline: 344,
+      step: 44,
+    });
+
+    const rows = Array.from({ length: layout.visibleCount }, (_, index) => (
+      v4MenuRowGeometry(
+        layout.firstBaseline + index * layout.step,
+        layout.step,
+      )
+    ));
+    expect(rows.at(-1)?.bottom).toBeLessThanOrEqual(
+      V4_UI_SCREEN.status.menu.safeBottom,
+    );
+    for (let index = 1; index < rows.length; index++) {
+      expect(rows[index - 1]!.bottom).toBeLessThanOrEqual(rows[index]!.top);
+    }
+  });
+
+  test('preserves the historical three-row baselines', () => {
+    const layout = v4StatusMenuLayout(274, 3, 0);
+    expect(layout.firstBaseline).toBe(388);
+    expect(layout.step).toBe(44);
+    expect(layout.visibleCount).toBe(3);
+  });
+
+  test('windows longer menus around selection without crossing the crest', () => {
+    const firstPage = v4StatusMenuLayout(361, 6, 0);
+    const lastPage = v4StatusMenuLayout(361, 6, 5);
+    expect(firstPage).toEqual({
+      first: 0,
+      visibleCount: 3,
+      selected: 0,
+      firstBaseline: 388,
+      step: 44,
+    });
+    expect(lastPage.first).toBe(3);
+    expect(lastPage.selected).toBe(2);
+
+    const lastBaseline = (
+      lastPage.firstBaseline
+      + (lastPage.visibleCount - 1) * lastPage.step
+    );
+    expect(v4MenuRowGeometry(lastBaseline, lastPage.step).bottom).toBeLessThanOrEqual(
+      V4_UI_SCREEN.status.menu.safeBottom,
+    );
   });
 });
