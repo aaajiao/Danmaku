@@ -924,16 +924,33 @@ const context: GameContext = {
   onReplay(replay, sessionId) {
     (globalThis as { __lastReplay?: Replay }).__lastReplay = replay;
     const id = sessionId ?? replayLibrary.begin();
+    const endReason = replay.meta?.['endReason'];
+    const savedLabel = endReason === 'retry'
+      ? 'PARTIAL REPLAY SAVED · RETRIED'
+      : endReason === 'quit'
+        ? 'PARTIAL REPLAY SAVED · QUIT'
+        : 'REPLAY SAVED';
+    const pageOnlyLabel = endReason === 'retry'
+      ? 'PARTIAL REPLAY SAVED FOR THIS PAGE ONLY · RETRIED'
+      : endReason === 'quit'
+        ? 'PARTIAL REPLAY SAVED FOR THIS PAGE ONLY · QUIT'
+        : 'REPLAY SAVED FOR THIS PAGE ONLY';
     const saved = replayLibrary.append(id, replay);
     // `append` updates memory before its first await, so result screens can
     // immediately resolve WATCH/DOWNLOAD even when IndexedDB is still writing.
     context.replaySessions = replayLibrary.sessions;
     void saved.then(() => {
       context.replaySessions = replayLibrary.sessions;
-      showShellStatus('REPLAY SAVED');
+      // Retry has already entered a new run, and a delayed bottom toast would
+      // cover the player. Its pause row said SAVE + RETRY; only failures need to
+      // interrupt the fresh attempt. Likewise, do not surface a late stage-clear
+      // success after the player has already advanced.
+      if (endReason !== 'retry' && machine.current?.name !== 'playing') {
+        showShellStatus(savedLabel);
+      }
     }).catch((error) => {
       console.warn('replay library: failed to persist recording', error);
-      showShellStatus('REPLAY SAVED FOR THIS PAGE ONLY', 'error');
+      showShellStatus(pageOnlyLabel, 'error');
     });
   },
   onImportReplay: () => {
@@ -1199,6 +1216,9 @@ const loop = new Loop({
     const exportPhaseBeforeTick = stateBeforeTick instanceof ReplayExportState
       ? stateBeforeTick.phase
       : undefined;
+    const exportRunTickBefore = stateBeforeTick instanceof ReplayExportState
+      ? stateBeforeTick.run.tickCount
+      : undefined;
     const pointerRun = stateBeforeTick?.name === 'playing'
       ? (stateBeforeTick as { readonly run?: Run }).run
       : undefined;
@@ -1239,6 +1259,9 @@ const loop = new Loop({
     if (replayExportPresentationAdvances(
       exportPhaseBeforeTick,
       exportState?.phase,
+      exportRunTickBefore === undefined
+        || exportState === undefined
+        || exportState.run.tickCount > exportRunTickBefore,
     )) {
       background.step();
       stageStructure.step();
@@ -2202,10 +2225,12 @@ function drawFocusIndicator(run: Run): void {
 function drawOverlay(run: Run | undefined): void {
   surface.clearRect(0, 0, overlay.width, overlay.height);
   hideMenuClickTargets();
+  const views = machine.views();
+  const recordingReplay = views.some((view) => view.recording === true);
 
   if (run !== undefined) drawGrazeFeedback(run);
 
-  drawHud(run);
+  drawHud(run, recordingReplay);
 
   // Highest gameplay indicator: over WebGL FX, graze arcs and the in-field HUD.
   // Dialogue and modal state panels still composite afterward, because they
@@ -2222,7 +2247,7 @@ function drawOverlay(run: Run | undefined): void {
 
   // Menus and messages are the states' own business; they describe themselves
   // and this only paints what they describe.
-  for (const view of machine.views()) {
+  for (const view of views) {
     if (view.kind === 'playing') continue;
     drawView(view);
   }
@@ -2246,7 +2271,7 @@ function drawOverlay(run: Run | undefined): void {
  * `test:density` judges readability with this HUD composited, so a change
  * here is a change to that judgement.
  */
-function drawHud(run: Run | undefined): void {
+function drawHud(run: Run | undefined, recordingReplay = false): void {
   uiFont(11, 500);
   surface.textAlign = 'left';
 
@@ -2295,6 +2320,9 @@ function drawHud(run: Run | undefined): void {
   if (run.playingBack) {
     surface.fillStyle = '#b6cfdb';
     surface.fillText('REPLAY', FIELD_W - 8, topY + 47);
+  } else if (recordingReplay) {
+    surface.fillStyle = '#d69aaa';
+    surface.fillText('● REPLAY REC', FIELD_W - 8, topY + 47);
   }
 
   // Bottom-right: diagnostics, dimmest text on screen.
@@ -2580,13 +2608,14 @@ function drawView(view: {
   }
 
   if (view.kind === 'difficulty-select') {
-    drawScreenHeading(view.title ?? 'DIFFICULTY', 78);
+    drawScreenHeading(view.title ?? 'RUN SETUP', 78);
     const difficultyEntries = view.menu ?? [];
+    const setup = V4_UI_SCREEN.setup;
     difficultyEntries.forEach((entry, index) => {
-      const y = 132 + index * 76;
+      const y = setup.firstBaseline + index * setup.step;
       const active = index === view.selected;
       const seal = V4_DIFFICULTY_UI[entry as keyof typeof V4_DIFFICULTY_UI];
-      const row = v4MenuRowGeometry(y, 76);
+      const row = v4MenuRowGeometry(y, setup.step);
       drawMenuRowFrame(148, row.top, 270, row.height, active);
       if (seal !== undefined) drawV4Ui(surface, v4Ui, seal, 96, y - 27, { alpha: active ? 1 : 0.55 });
       else drawV4Ui(surface, v4Ui, 'ui.assist.seal', 96, y - 27, { alpha: active ? 1 : 0.55 });
@@ -2602,11 +2631,11 @@ function drawView(view: {
       view.selected ?? 0,
       difficultyEntries.length,
       73,
-      132,
+      setup.firstBaseline,
       345,
-      76,
+      setup.step,
     );
-    drawViewLines(view.lines ?? [], cx, 548, 318, '#96a6b2');
+    drawViewLines(view.lines ?? [], cx, setup.blurbY, 318, '#96a6b2');
     surface.restore();
     return;
   }

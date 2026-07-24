@@ -26,6 +26,7 @@ import {
   PauseState,
   PlayingState,
   ReplayExportState,
+  type ReplayEndReason,
   ReplayLibraryState,
   ReplayPlayingState,
   replayExportPresentationAdvances,
@@ -106,6 +107,18 @@ const PENULTIMATE_STAGE = 'test-ending-penultimate';
 defineStage(PENULTIMATE_STAGE, { name: PENULTIMATE_STAGE, waves: [], next: FINAL_STAGE });
 const REPLAY_STAGE = 'test-replay-stage';
 defineStage(REPLAY_STAGE, { name: REPLAY_STAGE, waves: [], outro: 18 });
+const RECORDING_FINAL_STAGE = 'test-recording-final';
+defineStage(RECORDING_FINAL_STAGE, {
+  name: RECORDING_FINAL_STAGE,
+  waves: [],
+  outro: 18,
+});
+const RECORDING_PENULTIMATE_STAGE = 'test-recording-penultimate';
+defineStage(RECORDING_PENULTIMATE_STAGE, {
+  name: RECORDING_PENULTIMATE_STAGE,
+  waves: [],
+  next: RECORDING_FINAL_STAGE,
+});
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */
@@ -646,6 +659,28 @@ function replaySession(
   );
 }
 
+function recordPartialStage(
+  ticks: number,
+  endReason: ReplayEndReason = 'quit',
+  seed = 117,
+): { run: Run; replay: Replay } {
+  const run = new Run({
+    seed,
+    character: PILOT,
+    stage: REPLAY_STAGE,
+  });
+  for (let tick = 0; tick < ticks; tick++) run.tick(tick % 2 === 0 ? Button.Right : 0);
+  if (run.finished) throw new Error('partial replay fixture unexpectedly finished');
+  const recorded = run.finishRecording();
+  return {
+    run,
+    replay: {
+      ...recorded,
+      meta: { ...recorded.meta, endReason },
+    },
+  };
+}
+
 describe('replay library and viewer', () => {
   test('title exposes a replay library whose import row carries a shell action', () => {
     const { replay } = recordStage(REPLAY_STAGE, 101);
@@ -695,6 +730,82 @@ describe('replay library and viewer', () => {
     expect(viewer.run.finishRecording().inputs).toEqual(replay.inputs);
   });
 
+  test('an intentional QUIT prefix watches to its exact tick without a mismatch', () => {
+    const { replay } = recordPartialStage(7, 'quit');
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    const viewer = new ReplayPlayingState(ctx, session, 0);
+    ctx.machine.push(viewer);
+
+    for (let tick = 0; tick < replay.length + 2; tick++) ctx.machine.tick(Button.Shot);
+
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(viewer.run.tickCount).toBe(replay.length);
+    expect(viewer.run.finished).toBe(false);
+    expect(viewer.matchesRecording()).toBe(true);
+    expect(ctx.machine.current?.view?.().title).toBe('REPLAY ENDED · QUIT');
+
+    const detail = new ReplaySessionState(ctx, session);
+    expect(detail.view().menu?.[1]).toContain('QUIT');
+    expect(detail.view().menu?.[1]).toContain('00:00');
+  });
+
+  test('an intentional RETRIED prefix exports through the same exact matcher', () => {
+    const { replay } = recordPartialStage(9, 'retry', 118);
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    const exporting = new ReplayExportState(ctx, session, 0);
+    open(ctx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+
+    for (
+      let tick = 0;
+      tick < replay.length + 2 && exporting.phase === 'recording';
+      tick++
+    ) {
+      ctx.machine.tick(Button.Left | Button.Shot);
+    }
+
+    expect(exporting.phase).toBe('finished');
+    expect(exporting.run.tickCount).toBe(replay.length);
+    expect(exporting.run.finished).toBe(false);
+    expect(exporting.matchesRecording()).toBe(true);
+  });
+
+  test('a zero-tick quit is a valid watchable and exportable replay', () => {
+    const { replay } = recordPartialStage(0, 'quit', 119);
+    const session = replaySession([replay]);
+
+    const watchCtx = context({ replaySessions: [session] });
+    const viewer = new ReplayPlayingState(watchCtx, session, 0);
+    open(watchCtx.machine, viewer);
+    expect(watchCtx.machine.current?.name).toBe('replay-complete');
+    expect(viewer.matchesRecording()).toBe(true);
+
+    const exportCtx = context({ replaySessions: [session] });
+    const exporting = new ReplayExportState(exportCtx, session, 0);
+    open(exportCtx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+    exportCtx.machine.tick(0);
+    expect(exporting.phase).toBe('finished');
+    expect(exporting.run.tickCount).toBe(0);
+    expect(exporting.matchesRecording()).toBe(true);
+  });
+
+  test('an early-ended segment is terminal even if a file appends another stage', () => {
+    const partial = recordPartialStage(5, 'quit', 120).replay;
+    const natural = recordStage(FINAL_STAGE, 121).replay;
+    const session = replaySession([partial, natural]);
+    const ctx = context({ replaySessions: [session] });
+    const viewer = new ReplayPlayingState(ctx, session, 0, { continuous: true });
+    ctx.machine.push(viewer);
+    for (let tick = 0; tick < partial.length + 2; tick++) ctx.machine.tick(0);
+
+    expect(viewer.matchesRecording()).toBe(true);
+    expect(viewer.hasNext).toBe(false);
+    expect(ctx.machine.current?.view?.().menu).not.toContain('NEXT STAGE');
+  });
+
   test('single-stage export freezes while preparing and advances only recorded input once armed', () => {
     const { replay } = recordStage(REPLAY_STAGE, 114);
     const session = replaySession([replay]);
@@ -732,6 +843,7 @@ describe('replay library and viewer', () => {
     expect(replayExportPresentationAdvances('preparing', 'recording')).toBe(true);
     expect(replayExportPresentationAdvances('recording', 'recording')).toBe(true);
     expect(replayExportPresentationAdvances('recording', 'finished')).toBe(true);
+    expect(replayExportPresentationAdvances('recording', 'finished', false)).toBe(false);
     expect(replayExportPresentationAdvances('finished', 'finished')).toBe(false);
     expect(replayExportPresentationAdvances('finished', 'stopping')).toBe(false);
   });
@@ -940,6 +1052,40 @@ describe('replay library and viewer', () => {
     );
   });
 
+  test('early-end metadata is strict and cannot bless an arbitrary truncation', () => {
+    const { run, replay } = recordPartialStage(6, 'quit', 122);
+    const invalidReason: Replay = {
+      ...replay,
+      meta: { ...replay.meta, endReason: 'crash' },
+    };
+    const invalidOutcome: Replay = {
+      ...replay,
+      meta: { ...replay.meta, outcome: 'failed' },
+    };
+    const invalidType: Replay = {
+      ...replay,
+      meta: { ...replay.meta, endReason: 1 },
+    };
+    const { score: _score, ...withoutScore } = replay.meta ?? {};
+    const missingScore: Replay = { ...replay, meta: withoutScore };
+
+    expect(() => replayRunConfig(context(), invalidReason)).toThrow(/invalid endReason/);
+    expect(() => replayRunConfig(context(), invalidOutcome)).toThrow(
+      /must have outcome "playing"/,
+    );
+    expect(() => replayRunConfig(context(), invalidType)).toThrow(
+      /meta.endReason must be a string/,
+    );
+    expect(() => replayRunConfig(context(), missingScore)).toThrow(/must record its score/);
+
+    const unmarked = run.finishRecording();
+    const session = replaySession([unmarked]);
+    const viewer = new ReplayPlayingState(context(), session, 0);
+    for (let tick = 0; tick < unmarked.length; tick++) viewer.tick(0);
+    expect(viewer.run.finished).toBe(false);
+    expect(viewer.matchesRecording()).toBe(false);
+  });
+
   test('a bad next segment stays on the completion card and reports its error', () => {
     const first = recordStage(PENULTIMATE_STAGE, 109);
     const invalidNext: Replay = {
@@ -975,8 +1121,16 @@ describe('difficulty select', () => {
     const select = new DifficultySelectState(ctx);
     open(ctx.machine, select);
     const view = select.view();
-    // The four tiers, then the assist toggle row beneath LUNATIC (off by default).
-    expect(view.menu).toEqual(['EASY', 'NORMAL', 'HARD', 'LUNATIC', 'INFINITE LIVES  OFF']);
+    // The four tiers, then both setup toggles beneath LUNATIC (off by default).
+    expect(view.title).toBe('RUN SETUP');
+    expect(view.menu).toEqual([
+      'EASY',
+      'NORMAL',
+      'HARD',
+      'LUNATIC',
+      'INFINITE LIVES  OFF',
+      'RECORD REPLAY  OFF',
+    ]);
     // Opening on NORMAL is what keeps the default path unchanged: hold confirm
     // through the menus and the run is Normal, as it was before this screen.
     expect(view.selected).toBe(DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY));
@@ -1004,9 +1158,9 @@ describe('difficulty select', () => {
     const ctx = context();
     const select = new DifficultySelectState(ctx);
     open(ctx.machine, select);
-    const rows = select.view().menu?.length ?? 0; // four tiers plus the assist toggle
+    const rows = select.view().menu?.length ?? 0; // four tiers plus both toggles
     // Up from NORMAL (1) reaches EASY (0); another Up wraps to the last row, now
-    // the assist toggle beneath LUNATIC rather than LUNATIC itself.
+    // the replay toggle beneath the assist rather than LUNATIC itself.
     tap(ctx.machine, Button.Up);
     expect(select.view().selected).toBe(DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY) - 1);
     tap(ctx.machine, Button.Up);
@@ -1082,6 +1236,55 @@ describe('difficulty select', () => {
     expect(select.view().lines?.length).toBe(1);
   });
 
+  test('the replay toggle flips in place, persists on context, and starts off', () => {
+    const ctx = context();
+    const select = new DifficultySelectState(ctx);
+    open(ctx.machine, select);
+    expect(ctx.recordReplay ?? false).toBe(false);
+
+    // NORMAL (1) down four rows reaches RECORD REPLAY (5).
+    tap(ctx.machine, Button.Down, 4);
+    expect(select.view().selected).toBe(DIFFICULTIES.length + 1);
+    tap(ctx.machine, Button.Shot);
+
+    expect(ctx.recordReplay).toBe(true);
+    expect(ctx.machine.current).toBe(select);
+    expect(select.view().menu?.[DIFFICULTIES.length + 1]).toBe('RECORD REPLAY  ON');
+    expect(select.view().lines).toEqual([
+      'save this attempt — clears, failures, quits and retries',
+    ]);
+
+    // A fresh setup state reads the same page-session choice.
+    expect(new DifficultySelectState(ctx).view().menu?.[DIFFICULTIES.length + 1]).toBe(
+      'RECORD REPLAY  ON',
+    );
+  });
+
+  test('confirming a tier snapshots replay recording into the attempt', () => {
+    let sessions = 0;
+    const ctx = context({
+      beginReplaySession: () => `recorded-${++sessions}`,
+    });
+    const select = new DifficultySelectState(ctx);
+    open(ctx.machine, select);
+    tap(ctx.machine, Button.Down, 4); // NORMAL → RECORD REPLAY
+    tap(ctx.machine, Button.Shot);    // ON
+    tap(ctx.machine, Button.Up, 4);   // RECORD REPLAY → NORMAL
+    tap(ctx.machine, Button.Shot);    // → character select
+    tap(ctx.machine, Button.Shot);    // → playing
+
+    const playing = ctx.machine.current as PlayingState;
+    expect(playing.recordReplay).toBe(true);
+    expect(playing.sessionId).toBe('recorded-1');
+    expect(playing.view().recording).toBe(true);
+
+    // The active attempt remains armed even if an external shell mutates the
+    // setup value before its next stage.
+    ctx.recordReplay = false;
+    expect(playing.advance()?.recordReplay).toBe(true);
+    expect(playing.advance()?.sessionId).toBe('recorded-1');
+  });
+
   test('confirming a tier carries the toggle state into the run config', () => {
     // The whole wire for feature A: difficulty-select toggle → GameContext →
     // RunConfig.infiniteLives on the live run and its recording.
@@ -1112,6 +1315,9 @@ describe('difficulty select', () => {
     const playing = ctx.machine.current as PlayingState;
     expect(playing.run.config.infiniteLives).toBeUndefined();
     expect(playing.run.finishRecording().meta?.['infiniteLives']).toBeUndefined();
+    expect(playing.recordReplay).toBe(false);
+    expect(playing.sessionId).toBeUndefined();
+    expect(playing.view().recording).toBe(false);
   });
 });
 
@@ -1202,7 +1408,8 @@ describe('playing', () => {
   });
 
   test('quitting from pause empties the stack back to the title', () => {
-    const ctx = context();
+    const saved: Replay[] = [];
+    const ctx = context({ onReplay: (replay) => saved.push(replay) });
     startPlaying(ctx);
     ctx.machine.tick(0);
     tap(ctx.machine, Button.Start);
@@ -1211,6 +1418,67 @@ describe('playing', () => {
 
     expect(ctx.machine.depth).toBe(1);
     expect(ctx.machine.current?.name).toBe('title');
+    expect(saved).toEqual([]);
+  });
+
+  test('recording on saves an exact partial replay when quitting', () => {
+    const saved: Array<{ replay: Replay; sessionId?: string }> = [];
+    let ids = 0;
+    const ctx = context({
+      recordReplay: true,
+      beginReplaySession: () => `attempt-${++ids}`,
+      onReplay: (replay, sessionId) => saved.push({ replay, sessionId }),
+    });
+    const playing = startPlaying(ctx);
+    for (let tick = 0; tick < 37; tick++) ctx.machine.tick(Button.Shot);
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    const frozen = playing.run.tickCount;
+    expect((ctx.machine.current as PauseState).view().menu).toEqual([
+      'RESUME',
+      'SAVE + RETRY',
+      'SAVE + QUIT',
+    ]);
+
+    tap(ctx.machine, Button.Down, 2);
+    press(ctx.machine, Button.Shot);
+
+    expect(ctx.machine.current?.name).toBe('title');
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.sessionId).toBe('attempt-1');
+    expect(saved[0]?.replay.length).toBe(frozen);
+    expect(saved[0]?.replay.meta?.['outcome']).toBe('playing');
+    expect(saved[0]?.replay.meta?.['endReason']).toBe('quit');
+    expect(saved[0]?.replay.meta?.['score']).toBe(playing.run.player.score);
+    expect(playing.finalizeReplay('quit')).toBeUndefined();
+  });
+
+  test('recording on saves RETRIED and gives the fresh attempt a new session', () => {
+    const saved: Array<{ replay: Replay; sessionId?: string }> = [];
+    let ids = 0;
+    const ctx = context({
+      recordReplay: true,
+      beginReplaySession: () => `attempt-${++ids}`,
+      onReplay: (replay, sessionId) => saved.push({ replay, sessionId }),
+    });
+    const playing = startPlaying(ctx);
+    for (let tick = 0; tick < 23; tick++) ctx.machine.tick(Button.Right);
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    const frozen = playing.run.tickCount;
+
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+
+    const restarted = ctx.machine.current as PlayingState;
+    expect(restarted.name).toBe('playing');
+    expect(restarted.sessionId).toBe('attempt-2');
+    expect(restarted.run.tickCount).toBe(0);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.sessionId).toBe('attempt-1');
+    expect(saved[0]?.replay.length).toBe(frozen);
+    expect(saved[0]?.replay.meta?.['outcome']).toBe('playing');
+    expect(saved[0]?.replay.meta?.['endReason']).toBe('retry');
   });
 
   test('a pause menu is not transparent — it must not let play continue', () => {
@@ -1222,11 +1490,36 @@ describe('playing', () => {
 
   test('one attempt id advances with the campaign, while retry starts a new one', () => {
     let nextId = 0;
-    const ctx = context({ beginReplaySession: () => `attempt-${++nextId}` });
+    const ctx = context({
+      recordReplay: true,
+      beginReplaySession: () => `attempt-${++nextId}`,
+    });
     const playing = new PlayingState(ctx, PILOT, { stage: PENULTIMATE_STAGE });
     expect(playing.sessionId).toBe('attempt-1');
     expect(playing.advance()?.sessionId).toBe('attempt-1');
     expect(playing.restart().sessionId).toBe('attempt-2');
+  });
+
+  test('recording off creates no attempt id', () => {
+    let ids = 0;
+    const ctx = context({ beginReplaySession: () => `attempt-${++ids}` });
+    const playing = new PlayingState(ctx, PILOT, { stage: PENULTIMATE_STAGE });
+    expect(playing.recordReplay).toBe(false);
+    expect(playing.sessionId).toBeUndefined();
+    expect(ids).toBe(0);
+  });
+
+  test('the recording producer refuses contradictory finish markers', () => {
+    const playing = new PlayingState(
+      context({ recordReplay: true }),
+      PILOT,
+      { stage: REPLAY_STAGE },
+    );
+    expect(() => playing.finalizeReplay()).toThrow(/unfinished run needs an end reason/);
+    while (!playing.run.finished) playing.run.tick(0);
+    expect(() => playing.finalizeReplay('quit')).toThrow(
+      /finished run cannot have an end reason/,
+    );
   });
 
   test('the pause screenshot action captures without leaving or advancing the run', () => {
@@ -1278,7 +1571,10 @@ describe('endings', () => {
 
   test('the recording is handed over exactly once', () => {
     const saved: Replay[] = [];
-    const ctx = context({ onReplay: (replay) => saved.push(replay) });
+    const ctx = context({
+      recordReplay: true,
+      onReplay: (replay) => saved.push(replay),
+    });
     const playing = startPlaying(ctx);
     playToEnd(ctx, playing);
 
@@ -1286,6 +1582,17 @@ describe('endings', () => {
     expect(saved[0]?.seed).toBe(ctx.nextSeed());
     expect(saved[0]?.length).toBe(playing.run.tickCount);
     expect(saved[0]?.meta?.['outcome']).toBe('failed');
+    expect(playing.view().recording).toBe(false);
+  });
+
+  test('a naturally finished run is not retained while recording is off', () => {
+    const saved: Replay[] = [];
+    const ctx = context({ onReplay: (replay) => saved.push(replay) });
+    const playing = startPlaying(ctx);
+    playToEnd(ctx, playing);
+
+    expect(playing.recordReplay).toBe(false);
+    expect(saved).toEqual([]);
   });
 
   test('game over reports what the run achieved', () => {
@@ -1357,6 +1664,41 @@ describe('endings', () => {
     if (playing.run.outcome !== 'cleared') return; // pilot died; covered above
     expect(ctx.machine.current?.name).toBe('cleared');
     expect((ctx.machine.current as ClearedState).view().title).toBe('STAGE CLEAR');
+  });
+
+  test('a cleared stage and later quit share one recorded campaign session', () => {
+    const saved: Array<{ replay: Replay; sessionId?: string }> = [];
+    let ids = 0;
+    const ctx = context({
+      recordReplay: true,
+      beginReplaySession: () => `campaign-${++ids}`,
+      onReplay: (replay, sessionId) => saved.push({ replay, sessionId }),
+    });
+    const first = new PlayingState(ctx, PILOT, { stage: RECORDING_PENULTIMATE_STAGE });
+    ctx.machine.push(first);
+    for (let tick = 0; tick < 20 && !first.run.finished; tick++) ctx.machine.tick(0);
+
+    expect(ctx.machine.current?.name).toBe('cleared');
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.sessionId).toBe('campaign-1');
+    expect(saved[0]?.replay.meta?.['outcome']).toBe('cleared');
+
+    ctx.machine.tick(0); // arm the clear card's edge detector
+    press(ctx.machine, Button.Shot); // NEXT STAGE
+    const second = ctx.machine.current as PlayingState;
+    expect(second.name).toBe('playing');
+    expect(second.sessionId).toBe('campaign-1');
+    expect(ids).toBe(1);
+
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    tap(ctx.machine, Button.Down, 2);
+    press(ctx.machine, Button.Shot);
+
+    expect(ctx.machine.current?.name).toBe('title');
+    expect(saved).toHaveLength(2);
+    expect(saved[1]?.sessionId).toBe('campaign-1');
+    expect(saved[1]?.replay.meta?.['endReason']).toBe('quit');
   });
 
   test('an assist run is marked on the results screen; a plain run is not', () => {

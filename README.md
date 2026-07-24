@@ -21,8 +21,8 @@ be installed as an offline-capable PWA.
   identity bomb.
 - Easy, Normal, Hard, and Lunatic patterns, plus an explicit infinite-lives
   assist.
-- A fixed-60 Hz simulation, seeded randomness, and tick-by-tick input recording
-  for reproducible runs.
+- A fixed-60 Hz simulation, seeded randomness, and opt-in tick-by-tick replay
+  recording for reproducible runs.
 - Instanced three.js rendering, authored shader scenes, and project-owned art,
   music, and sound.
 - An installable production build that precaches the browser bundle and
@@ -46,10 +46,14 @@ Mouse steering and keyboard actions can be used together. Cursor coordinates
 are converted to fixed-tick digital directions before they reach the game, so
 recordings remain ordinary button-mask replays.
 
-Completed runs are saved locally under **REPLAYS** on the title screen. A replay
-session keeps every stage of one campaign attempt together; sessions can be
-watched stage by stage, downloaded as JSON, or imported from an existing
-session or legacy single-run replay file. Each saved stage also offers
+Turn **RECORD REPLAY** on from **RUN SETUP** before choosing a character to save
+that attempt locally under **REPLAYS** on the title screen. The switch defaults
+to off. When it is on, natural clears and failures save full stages; quitting or
+retrying from the pause menu saves the exact partial run as **QUIT** or
+**RETRIED**. A replay session keeps every stage of one campaign attempt
+together; sessions can be watched stage by stage, downloaded as JSON, or
+imported from an existing session or legacy single-run replay file. Each saved
+stage also offers
 **EXPORT … VIDEO**: the game replays that stage in real time and downloads a
 480×640 recording with its mixed music and sound effects. The browser chooses
 WebM or MP4 from the codecs it actually supports; keep the tab visible until

@@ -267,11 +267,11 @@ function playThroughGame(
   // Steps of Down needed to move the difficulty cursor from its NORMAL default
   // onto the wanted tier, wrapping — the screen opens on Normal, so a tier below
   // it is reached the long way round, exactly as a player's Downs would. The
-  // screen now carries one extra row beneath the four tiers — the infinite-lives
-  // assist toggle — and the cursor wraps over it too, so a downward wrap counts
-  // that row. The toggle is only ever *passed through* here (a Down over it moves
-  // on; only CONFIRM flips it), so the cursor still lands on the wanted tier.
-  const DIFFICULTY_ROWS = DIFFICULTIES.length + 1;
+  // screen now carries two extra rows beneath the four tiers — infinite lives
+  // and replay recording — and the cursor wraps over both, so a downward wrap
+  // counts them. They are only ever *passed through* here (Down moves on; only
+  // CONFIRM flips one), so the cursor still lands on the wanted tier.
+  const DIFFICULTY_ROWS = DIFFICULTIES.length + 2;
   const tierSteps =
     (DIFFICULTIES.indexOf(difficulty) -
       DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY) +

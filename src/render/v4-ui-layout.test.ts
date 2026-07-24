@@ -110,3 +110,26 @@ describe('v4 status-card menu layout', () => {
     );
   });
 });
+
+describe('v4 run-setup menu layout', () => {
+  test('fits four difficulties and two toggles above the blurb band', () => {
+    const setup = V4_UI_SCREEN.setup;
+    const rows = Array.from({ length: 6 }, (_, index) => (
+      v4MenuRowGeometry(
+        setup.firstBaseline + index * setup.step,
+        setup.step,
+      )
+    ));
+
+    expect(rows.map((row) => [row.top, row.bottom])).toEqual([
+      [105, 155],
+      [169, 219],
+      [233, 283],
+      [297, 347],
+      [361, 411],
+      [425, 475],
+    ]);
+    expect(rows.at(-1)?.bottom).toBe(setup.safeBottom);
+    expect(setup.blurbY - (rows.at(-1)?.bottom ?? 0)).toBeGreaterThanOrEqual(64);
+  });
+});

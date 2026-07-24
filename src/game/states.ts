@@ -137,6 +137,14 @@ export interface GameContext {
    */
   infiniteLives?: boolean;
   /**
+   * Whether the next attempt records a replay, toggled on the RUN SETUP screen.
+   *
+   * This is shell workflow, not simulation configuration: it decides whether a
+   * `PlayingState` retains the input log `Run` already produces and never enters
+   * `RunConfig` or replay determinism. Unset means off.
+   */
+  recordReplay?: boolean;
+  /**
    * Fingerprint of the bundled base content, forwarded into
    * `RunConfig.contentFingerprint`. `main.ts` sets it from the generated pack
    * constant; a string by contract, like `packs` (see `RunConfig.contentFingerprint`).
@@ -323,17 +331,21 @@ export class TitleState extends MenuState {
 
 function sessionLabel(session: ReplaySession): string {
   const first = session.segments[0];
+  const last = session.segments.at(-1);
   const character = stringMeta(first, 'character') ?? 'UNKNOWN';
   const count = session.segments.length;
   const date = session.createdAt.slice(0, 10);
-  return `${date}  ${character.toUpperCase()}  ${count} STAGE${count === 1 ? '' : 'S'}`;
+  const status = replayStatus(last);
+  return `${date}  ${character.toUpperCase()}  ${count} STAGE${count === 1 ? '' : 'S'}`
+    + `  ${status.toUpperCase()}`;
 }
 
 function segmentLabel(replay: Replay, index: number): string {
   const stage = stringMeta(replay, 'stage') ?? `STAGE ${index + 1}`;
   const difficulty = stringMeta(replay, 'difficulty') ?? DEFAULT_DIFFICULTY;
-  const outcome = stringMeta(replay, 'outcome') ?? 'recorded';
-  return `${stage.toUpperCase()}  ${difficulty.toUpperCase()}  ${outcome.toUpperCase()}`;
+  const status = replayStatus(replay);
+  return `${stage.toUpperCase()}  ${difficulty.toUpperCase()}  ${status.toUpperCase()}`
+    + `  ${replayDuration(replay.length)}`;
 }
 
 function segmentExportLabel(replay: Replay, index: number): string {
@@ -349,6 +361,24 @@ function stringMeta(replay: Replay | undefined, key: string): string | undefined
 function numberMeta(replay: Replay, key: string): number | undefined {
   const value = replay.meta?.[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function replayEndReason(replay: Replay | undefined): ReplayEndReason | undefined {
+  const reason = stringMeta(replay, 'endReason');
+  return reason === 'quit' || reason === 'retry' ? reason : undefined;
+}
+
+function replayStatus(replay: Replay | undefined): string {
+  const reason = replayEndReason(replay);
+  if (reason === 'retry') return 'retried';
+  if (reason === 'quit') return 'quit';
+  return stringMeta(replay, 'outcome') ?? 'recorded';
+}
+
+function replayDuration(ticks: number): string {
+  const seconds = Math.floor(Math.max(0, ticks) / 60);
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes.toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
 }
 
 function findSession(ctx: GameContext, id: string | undefined): ReplaySession | undefined {
@@ -525,6 +555,9 @@ const DIFFICULTY_BLURBS: Readonly<Record<Difficulty, string>> = {
 const INFINITE_LIVES_OFF = 'INFINITE LIVES  OFF';
 const INFINITE_LIVES_ON = 'INFINITE LIVES  ON';
 const INFINITE_LIVES_BLURB = 'deaths never end the run — a mark on the score says so';
+const RECORD_REPLAY_OFF = 'RECORD REPLAY  OFF';
+const RECORD_REPLAY_ON = 'RECORD REPLAY  ON';
+const RECORD_REPLAY_BLURB = 'save this attempt — clears, failures, quits and retries';
 
 /**
  * The tier screen, between title and character select.
@@ -542,17 +575,15 @@ const INFINITE_LIVES_BLURB = 'deaths never end the run — a mark on the score s
  * screens: the player releases and presses once per screen. Opening on NORMAL
  * keeps that added press a single tap of the same button with no cursor movement.
  *
- * ## The assist toggle row
+ * ## Setup toggle rows
  *
- * One extra row sits beneath the four tiers: the infinite-lives assist. It is
- * navigated like any row, but CONFIRM on it *flips it in place and stays* rather
- * than advancing — a value edited, not a destination — while CONFIRM on a tier
- * confirms and carries the toggle's current state onward. The state lives on
- * `ctx.infiniteLives` so it persists if the player backs out and returns, and it
- * is read (not held locally) so the label always reports the live value. This is
- * digital bits only, tap-latched by `Edges` like every other menu press (rule 4);
- * the alternative — a separate assist screen — was rejected for the same reason
- * this screen fought to open on NORMAL: the default path must stay cheap.
+ * Two rows sit beneath the four tiers: the infinite-lives assist and explicit
+ * replay recording. They are navigated like any row, but CONFIRM on either
+ * *flips it in place and stays* rather than advancing — values edited, not
+ * destinations — while CONFIRM on a tier confirms and carries both live values
+ * onward. Their state lives on `GameContext` so it persists if the player backs
+ * out and returns. This is digital bits only, tap-latched by `Edges` like every
+ * other menu press (rule 4); the default path stays one confirm on NORMAL.
  */
 export class DifficultySelectState extends MenuState {
   readonly name = 'difficulty-select';
@@ -564,27 +595,40 @@ export class DifficultySelectState extends MenuState {
     this.selected = DIFFICULTIES.indexOf(DEFAULT_DIFFICULTY);
   }
 
-  /** The toggle row's index: one past the last tier. */
-  private get toggleRow(): number {
+  /** The assist row's index: one past the last tier. */
+  private get infiniteLivesRow(): number {
     return DIFFICULTIES.length;
+  }
+
+  /** Replay recording sits directly beneath the assist. */
+  private get recordReplayRow(): number {
+    return DIFFICULTIES.length + 1;
   }
 
   private get infiniteLives(): boolean {
     return this.ctx.infiniteLives ?? false;
   }
 
+  private get recordReplay(): boolean {
+    return this.ctx.recordReplay ?? false;
+  }
+
   protected get entries(): readonly string[] {
     return [
       ...DIFFICULTIES.map((tier) => DIFFICULTY_LABELS[tier]),
       this.infiniteLives ? INFINITE_LIVES_ON : INFINITE_LIVES_OFF,
+      this.recordReplay ? RECORD_REPLAY_ON : RECORD_REPLAY_OFF,
     ];
   }
 
   protected confirm(index: number): void {
-    // The toggle row flips in place and stays; a tier row confirms and advances,
-    // carrying whatever the toggle currently reads.
-    if (index === this.toggleRow) {
+    // Toggle rows flip in place and stay; a tier row confirms and advances.
+    if (index === this.infiniteLivesRow) {
       this.ctx.infiniteLives = !this.infiniteLives;
+      return;
+    }
+    if (index === this.recordReplayRow) {
+      this.ctx.recordReplay = !this.recordReplay;
       return;
     }
     const tier = DIFFICULTIES[index];
@@ -600,14 +644,16 @@ export class DifficultySelectState extends MenuState {
   view(): StateView {
     const tier = DIFFICULTIES[this.selected];
     const line =
-      this.selected === this.toggleRow
+      this.selected === this.infiniteLivesRow
         ? INFINITE_LIVES_BLURB
+        : this.selected === this.recordReplayRow
+          ? RECORD_REPLAY_BLURB
         : tier === undefined
           ? undefined
           : DIFFICULTY_BLURBS[tier];
     return {
       kind: 'difficulty-select',
-      title: 'DIFFICULTY',
+      title: 'RUN SETUP',
       lines: line === undefined ? [] : [line],
       menu: this.entries,
       selected: this.selected,
@@ -687,24 +733,33 @@ export interface PlayingOptions {
   carry?: PlayerCarry;
   /** Shell-owned campaign/attempt identity; preserved only when advancing. */
   sessionId?: string;
+  /** Snapshot of the setup toggle, preserved across this attempt's stages. */
+  recordReplay?: boolean;
 }
+
+export type ReplayEndReason = 'quit' | 'retry';
 
 export class PlayingState implements GameState {
   readonly name = 'playing';
   readonly run: Run;
   readonly characterName: string;
   readonly sessionId: string | undefined;
+  /** Setup choice frozen for this attempt; never read back from the live menu. */
+  readonly recordReplay: boolean;
 
   readonly #ctx: GameContext;
   readonly #edges = new Edges();
 
-  /** The recording is taken once, on the tick the run ends. */
+  /** The recording is retained once, whether the run ends or is abandoned. */
   #recorded = false;
 
   constructor(ctx: GameContext, characterName: string, options: PlayingOptions = {}) {
     this.#ctx = ctx;
     this.characterName = characterName;
-    this.sessionId = options.sessionId ?? ctx.beginReplaySession?.();
+    this.recordReplay = options.recordReplay ?? ctx.recordReplay ?? false;
+    this.sessionId = this.recordReplay
+      ? options.sessionId ?? ctx.beginReplaySession?.()
+      : undefined;
     const stage = options.stage ?? ctx.stage;
     this.run = new Run({
       seed: options.seed ?? ctx.nextSeed(),
@@ -752,8 +807,7 @@ export class PlayingState implements GameState {
 
   #finish(): void {
     if (this.#recorded) return;
-    this.#recorded = true;
-    this.#ctx.onReplay?.(this.run.finishRecording(), this.sessionId);
+    this.finalizeReplay();
 
     // Pushed, not replaced: the ending screen is drawn over the field the run
     // ended on, and the machine renders the whole stack. Replacing would leave
@@ -784,6 +838,7 @@ export class PlayingState implements GameState {
   restart(): PlayingState {
     return new PlayingState(this.#ctx, this.characterName, {
       stage: this.run.stageName,
+      recordReplay: this.recordReplay,
     });
   }
 
@@ -799,8 +854,42 @@ export class PlayingState implements GameState {
     return new PlayingState(this.#ctx, this.characterName, {
       stage: next,
       carry: this.run.carry,
+      recordReplay: this.recordReplay,
       ...(this.sessionId === undefined ? {} : { sessionId: this.sessionId }),
     });
+  }
+
+  /**
+   * Retain the exact input prefix once.
+   *
+   * Natural endings carry no extra marker and remain byte-compatible with
+   * historical Replay v1 documents. An explicit quit/retry ends while the Run
+   * is still `playing`, so the shell-only `endReason` tells the viewer that this
+   * exact prefix is intentional rather than a damaged/truncated recording.
+   */
+  finalizeReplay(endReason?: ReplayEndReason): Replay | undefined {
+    if (this.#recorded) return undefined;
+    if (endReason === undefined && !this.run.finished) {
+      throw new Error('replay recording: an unfinished run needs an end reason');
+    }
+    if (endReason !== undefined && this.run.finished) {
+      throw new Error('replay recording: a finished run cannot have an end reason');
+    }
+    this.#recorded = true;
+    if (!this.recordReplay) return undefined;
+
+    const recorded = this.run.finishRecording();
+    const replay = endReason === undefined
+      ? recorded
+      : {
+          ...recorded,
+          meta: {
+            ...recorded.meta,
+            endReason,
+          },
+        };
+    this.#ctx.onReplay?.(replay, this.sessionId);
+    return replay;
   }
 
   /**
@@ -816,7 +905,11 @@ export class PlayingState implements GameState {
   }
 
   view(): StateView {
-    return { kind: 'playing', run: this.run };
+    return {
+      kind: 'playing',
+      run: this.run,
+      recording: this.recordReplay && !this.#recorded,
+    };
   }
 }
 
@@ -961,6 +1054,7 @@ function validateReplayViewerMeta(replay: Replay): void {
     'content',
     'packs',
     'outcome',
+    'endReason',
   ] as const;
   for (const key of stringKeys) {
     const value = meta[key];
@@ -979,6 +1073,18 @@ function validateReplayViewerMeta(replay: Replay): void {
     throw new Error(`replay viewer: invalid outcome "${outcome}"`);
   }
 
+  const endReason = meta['endReason'];
+  if (
+    typeof endReason === 'string'
+    && endReason !== 'quit'
+    && endReason !== 'retry'
+  ) {
+    throw new Error(`replay viewer: invalid endReason "${endReason}"`);
+  }
+  if (endReason !== undefined && outcome !== 'playing') {
+    throw new Error('replay viewer: an ended replay must have outcome "playing"');
+  }
+
   const score = meta['score'];
   if (
     score !== undefined
@@ -990,13 +1096,19 @@ function validateReplayViewerMeta(replay: Replay): void {
   ) {
     throw new Error('replay viewer: meta.score must be a non-negative safe integer');
   }
+  if (endReason !== undefined && score === undefined) {
+    throw new Error('replay viewer: an ended replay must record its score');
+  }
 }
 
 function replayMatchesRun(replay: Replay, run: Run): boolean {
   const expectedOutcome = stringMeta(replay, 'outcome');
   const expectedScore = numberMeta(replay, 'score');
+  const endedEarly = replayEndReason(replay) !== undefined;
   return (
-    run.finished
+    (endedEarly
+      ? !run.finished && run.outcome === 'playing' && expectedOutcome === 'playing'
+      : run.finished)
     && run.tickCount === replay.length
     && (expectedOutcome === undefined || run.outcome === expectedOutcome)
     && (expectedScore === undefined || run.player.score === expectedScore)
@@ -1013,15 +1125,20 @@ export type ReplayExportPhase =
 /**
  * Whether shell presentation should advance across this fixed tick.
  *
- * The recording -> finished tick still belongs to the replay and must step its
- * background/effects once. Subsequent tail/finalization ticks hold that exact
- * final composition.
+ * A recording -> finished tick belongs to the replay only when it consumed an
+ * input tick, and must step its background/effects once. A zero-length partial
+ * consumes none; subsequent tail/finalization ticks hold the exact composition.
  */
 export function replayExportPresentationAdvances(
   before: ReplayExportPhase | undefined,
   after: ReplayExportPhase | undefined,
+  replayTickAdvanced = true,
 ): boolean {
-  return after === undefined || before === 'recording' || after === 'recording';
+  return (
+    after === undefined
+    || after === 'recording'
+    || (before === 'recording' && replayTickAdvanced)
+  );
 }
 
 /**
@@ -1251,6 +1368,8 @@ export class ReplayPlayingState implements GameState {
     return (
       this.#continuous
       && this.matchesRecording()
+      && replayEndReason(this.#replay) === undefined
+      && stringMeta(this.#replay, 'outcome') === 'cleared'
       && this.#session.segments[this.#segmentIndex + 1] !== undefined
     );
   }
@@ -1386,9 +1505,14 @@ class ReplayCompleteState extends MenuState {
     const replay = this.#playing.replay;
     const run = this.#playing.run;
     const matches = this.#playing.matchesRecording();
+    const status = replayStatus(replay).toUpperCase();
     return {
       kind: 'replay-complete',
-      title: matches ? 'REPLAY COMPLETE' : 'REPLAY MISMATCH',
+      title: matches
+        ? replayEndReason(replay) === undefined
+          ? 'REPLAY COMPLETE'
+          : `REPLAY ENDED · ${status}`
+        : 'REPLAY MISMATCH',
       lines: [
         `${run.stageName} · ${run.tickCount} / ${replay.length} ticks`,
         ...(matches ? [] : ['recorded outcome did not reproduce exactly']),
@@ -1476,11 +1600,12 @@ export class PauseState extends MenuState {
   }
 
   protected get entries(): readonly string[] {
+    const retainingReplay = this.#playing.recordReplay;
     return [
       'RESUME',
       ...(this.ctx.onScreenshot === undefined ? [] : ['TAKE SCREENSHOT']),
-      'RETRY',
-      'QUIT',
+      retainingReplay ? 'SAVE + RETRY' : 'RETRY',
+      retainingReplay ? 'SAVE + QUIT' : 'QUIT',
     ];
   }
 
@@ -1499,10 +1624,12 @@ export class PauseState extends MenuState {
         // Queued in order: the pause leaves first, then the run beneath it is
         // swapped for a new one. Doing it the other way round would replace the
         // pause menu with a run and leave the old one buried under it.
+        this.#playing.finalizeReplay('retry');
         machine.pop();
         machine.replace(this.#playing.restart());
         return;
       default:
+        this.#playing.finalizeReplay('quit');
         machine.clear();
         machine.push(new TitleState(this.ctx));
     }

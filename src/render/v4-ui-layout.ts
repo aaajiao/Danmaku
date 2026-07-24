@@ -101,6 +101,14 @@ export const V4_UI_PANEL_CORNER = 12;
 /** Fixed screen compositions, also in 480×640 logical pixels. */
 export const V4_UI_SCREEN = {
   menu: { x: 54, y: 116, w: 372, h: 458 },
+  setup: {
+    firstBaseline: 132,
+    step: 64,
+    blurbY: 548,
+    // Six rows end at 475 through `v4MenuRowGeometry`, leaving the blurb its
+    // own lower band even when the selected option wraps to a second line.
+    safeBottom: 475,
+  },
   character: {
     frame: { x: 45, y: 104, w: 170, h: 300 },
     // Every neutral player pose paints inside this shared 80x120 crop. Cropping

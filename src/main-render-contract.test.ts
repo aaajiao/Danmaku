@@ -177,6 +177,9 @@ describe('campaign architecture follows the same scene transition clock', () => 
       'if (replayExportPresentationAdvances(\n'
       + '      exportPhaseBeforeTick,\n'
       + '      exportState?.phase,\n'
+      + '      exportRunTickBefore === undefined\n'
+      + '        || exportState === undefined\n'
+      + '        || exportState.run.tickCount > exportRunTickBefore,\n'
       + '    )) {\n'
       + '      background.step();\n'
       + '      stageStructure.step();',
@@ -271,6 +274,30 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(characterSource).toContain('actor.x,');
     expect(characterSource).toContain("drawV4Ui(surface, v4Ui, 'ui.character.frame'");
     expect(characterSource).not.toContain('46,\n        142,\n        178,\n        178');
+  });
+
+  test('run setup shares one six-row geometry with its click targets', () => {
+    const difficultyStart = mainSource.indexOf("if (view.kind === 'difficulty-select')");
+    const replayStart = mainSource.indexOf(
+      "if (view.kind === 'replay-library'",
+      difficultyStart,
+    );
+    const setupSource = mainSource.slice(difficultyStart, replayStart);
+
+    expect(setupSource).toContain('const setup = V4_UI_SCREEN.setup');
+    expect(setupSource).toContain('setup.firstBaseline + index * setup.step');
+    expect(setupSource).toContain('v4MenuRowGeometry(y, setup.step)');
+    expect(setupSource).toContain(
+      'setup.firstBaseline,\n      345,\n      setup.step,',
+    );
+    expect(setupSource).toContain('drawViewLines(view.lines ?? [], cx, setup.blurbY');
+  });
+
+  test('live recording is declared by the state view and marked in the HUD', () => {
+    expect(mainSource).toContain(
+      'const recordingReplay = views.some((view) => view.recording === true)',
+    );
+    expect(mainSource).toContain("surface.fillText('● REPLAY REC'");
   });
 
   test('dialogue uses the shared layout and clips both portrait paths to its round well', () => {

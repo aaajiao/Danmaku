@@ -160,6 +160,7 @@ function playCampaign(
     nextSeed: () => 0x51ee + seed++,
     campaigns,
     characterPacks,
+    recordReplay: true,
     onReplay: (r) => cover.replays.push(r),
   };
   machine.push(new TitleState(ctx));

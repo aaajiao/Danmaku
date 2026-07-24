@@ -79,6 +79,8 @@ export interface StateView {
    * never learns the coins are drawn from an atlas.
    */
   readonly tally?: readonly { readonly sprite: string; readonly count: number }[];
+  /** Shell-only live replay-retention marker for the in-field HUD. */
+  readonly recording?: boolean;
   /** The live simulation, if this state owns one. Typed loosely on purpose:
    *  `state.ts` must not depend on `run.ts`, or the two cannot be read apart. */
   readonly run?: unknown;
