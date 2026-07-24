@@ -60,11 +60,12 @@ confirmation step. Each saved stage offers
 WebM or MP4 from the codecs it actually supports; keep the tab visible until
 the one-second audio tail has finalized.
 
-On macOS, an installed Chrome PWA offers **CONNECT CONTROLLER** on the title
-screen when WebHID is available. It is a direct Bluetooth fallback for the Xbox
-One S Wireless Controller (`045e:02fd`): select the controller once in Chrome's
-chooser, then press a controller button to confirm input. The ordinary Gamepad
-API remains the default everywhere else.
+On macOS, browsers that provide WebHID offer **CONNECT CONTROLLER** on the title
+screen whenever no ordinary Gamepad API controller is already connected. It is
+a direct Bluetooth fallback for the Xbox One S Wireless Controller
+(`045e:02fd`): select the controller once in the browser's chooser, then press a
+controller button to confirm input. The ordinary Gamepad API remains the
+default and supports other compatible controllers without this fallback.
 
 ## Local development
 

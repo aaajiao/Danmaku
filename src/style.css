@@ -67,7 +67,7 @@ body {
 }
 
 /*
- * Installed-app controller recovery. WebHID needs a real DOM click, but its
+ * Browser controller recovery. WebHID needs a real DOM click, but its
  * visible row is drawn by the same canvas menu renderer as START. The button is
  * a transparent, accessible hit target laid over that authored row.
  */

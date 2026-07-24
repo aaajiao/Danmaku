@@ -148,10 +148,6 @@ const replayImportInput = document.getElementById('replay-import') as HTMLInputE
 /** Production keeps diagnostics and the Bloom control out of the authored UI. */
 const SEARCH = new URLSearchParams(location.search);
 const DEBUG_UI = SEARCH.get('debug') === '1';
-const OFFER_DIRECT_CONTROLLER = (
-  matchMedia('(display-mode: standalone)').matches
-  || SEARCH.get('webhid') === '1'
-);
 
 const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
 const captureCanvas = document.createElement('canvas');
@@ -641,16 +637,8 @@ function hasConnectedStandardController(): boolean {
  * click, while game menus intentionally consume only the tick-sampled mask.
  */
 function syncControllerPanel(): void {
-  if (!OFFER_DIRECT_CONTROLLER || hasConnectedStandardController()) {
+  if (webHid === undefined || hasConnectedStandardController()) {
     controllerSetup.hidden = true;
-    return;
-  }
-
-  if (webHid === undefined) {
-    controllerConnect.hidden = true;
-    controllerStatusOutput.textContent =
-      'DIRECT CONTROLLER ACCESS IS NOT AVAILABLE';
-    controllerSetup.hidden = machine.current?.name !== 'title';
     return;
   }
 
@@ -676,7 +664,7 @@ function showControllerStatus(status: XboxWebHidStatus): void {
     case 'selecting':
       controllerConnect.disabled = true;
       controllerConnect.textContent = 'SELECTING…';
-      controllerStatusOutput.textContent = 'SELECT A CONTROLLER IN CHROME';
+      controllerStatusOutput.textContent = 'SELECT A CONTROLLER IN THIS BROWSER';
       break;
     case 'opening':
       controllerConnect.disabled = true;
@@ -705,7 +693,7 @@ function showControllerStatus(status: XboxWebHidStatus): void {
         && 'name' in status.error
         && (status.error as { readonly name?: unknown }).name === 'NotAllowedError'
       )
-        ? 'ALLOW CHROME IN INPUT MONITORING'
+        ? 'ALLOW THIS BROWSER IN INPUT MONITORING'
         : 'CAN’T OPEN CONTROLLER · CLOSE OTHER MAPPERS';
       console.warn('controller: WebHID fallback failed', status.error);
       break;
@@ -713,7 +701,7 @@ function showControllerStatus(status: XboxWebHidStatus): void {
   syncControllerPanel();
 }
 
-const directController = webHid === undefined || !OFFER_DIRECT_CONTROLLER
+const directController = webHid === undefined
   ? undefined
   : new XboxWebHidInput(webHid, showControllerStatus);
 const pointerPositionInput = new PointerPositionInput(FIELD_W, FIELD_H);

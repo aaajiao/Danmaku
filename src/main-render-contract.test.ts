@@ -189,6 +189,21 @@ describe('campaign architecture follows the same scene transition clock', () => 
 });
 
 describe('v4 UI presentation stays event- and tick-driven', () => {
+  test('the direct-controller row is capability-gated, not URL-mode-gated', () => {
+    expect(mainSource).not.toContain("matchMedia('(display-mode: standalone)')");
+    expect(mainSource).not.toContain("SEARCH.get('webhid')");
+    expect(mainSource).toContain(
+      'if (webHid === undefined || hasConnectedStandardController())',
+    );
+    expect(mainSource).toContain(
+      'const directController = webHid === undefined\n'
+      + '  ? undefined\n'
+      + '  : new XboxWebHidInput(webHid, showControllerStatus);',
+    );
+    expect(mainSource).toContain('SELECT A CONTROLLER IN THIS BROWSER');
+    expect(mainSource).toContain('ALLOW THIS BROWSER IN INPUT MONITORING');
+  });
+
   test('title, difficulty and character selection use open compositions without outer panels', () => {
     const titleStart = mainSource.indexOf("if (view.kind === 'title')");
     const characterStart = mainSource.indexOf("if (view.kind === 'character-select')", titleStart);
