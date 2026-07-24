@@ -5,7 +5,7 @@
  * ×1, with `V4StageStructure` composited over the four campaign stage fields.
  * Source and structure are independent controls; raw structure mode and the
  * ×2–×4 gains are diagnostic views only. Metrics always measure the production
- * source at ×1 (hybrid for the four campaign stages, shader elsewhere); legacy raw PNG exports
+ * source at ×1 (hybrid for the five painted scenes, shader elsewhere); legacy raw PNG exports
  * remain shader-only ×1 so changing the view cannot change them.
  *
  * Automation surface (all on window):
@@ -73,11 +73,13 @@ const API_ORDER = [
   'umbra',
   'decree',
   'signal-decay',
+  'wear-field',
 ] as const;
 
 const DISPLAY_ORDER = [
   'drift',
   'signal-decay',
+  'wear-field',
   'expanse',
   'signet',
   'undertow',
@@ -108,10 +110,16 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     story: '低月与冷银水面托住标题、难度与选角；菜单层最明亮，但高光仍保持为大尺度结构。',
   },
   'signal-decay': {
-    role: 'TERMINAL',
-    owner: 'game over / ending',
-    route: '流程出口 · 结算 / GAME OVER',
-    story: 'Ghost 宽带由上而下失去连续性；只服务结局、结果与失败文字，不承载弹幕。',
+    role: 'NEUTRAL TERMINAL',
+    owner: 'game over',
+    route: '失败出口 · GAME OVER',
+    story: 'Ghost 宽带由上而下失去连续性；保持 shader-only，不继承 v4 真结局的磨损原画或逐页叙事。',
+  },
+  'wear-field': {
+    role: 'V4 ENDING',
+    owner: 'stage-4 terminal',
+    route: '真实终局 · 三页递减',
+    story: '一张原创磨损母版叠加六条固定 tick Ghost 长带；宽阔通行痕从多边进入、交叉和退出，不汇成王座、门洞或中心符号。此卡显示第一页稳定 target 0.30。',
   },
   expanse: {
     role: 'STAGE 01 · 旷野',

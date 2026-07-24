@@ -1,22 +1,23 @@
 /**
  * The GL-free half of `background.ts`: the registry and the shader assembly.
  *
- * The `Background` class itself is verified by hand — see the manual check in
- * that file's header — because a full-screen quad only proves anything against a
- * framebuffer. What is testable here is the part that would break silently: a
- * change to the standard uniform block invalidates every background ever
- * written, and the failure surfaces as a shader compile error in a browser
- * nobody has opened yet rather than as a red test.
+ * The `Background` class's pixels are verified by hand — see the manual check
+ * in that file's header — because a full-screen quad only proves anything
+ * against a framebuffer. Registry, shader assembly, and material-uniform state
+ * are GL-free and testable here.
  */
 
 import { describe, expect, test } from 'bun:test';
+import * as THREE from 'three';
 import {
+  Background,
   BACKGROUND_ART_MODE_VALUE,
   backgroundNames,
   composeFragmentShader,
   defineBackground,
   getBackgroundSpec,
 } from './background';
+import type { Stage } from './stage';
 
 describe('registry', () => {
   // Nothing here names a shipped scene. This file imports the engine and only
@@ -83,6 +84,49 @@ describe('shader assembly', () => {
   test('is pure: the same spec assembles byte-identical source twice', () => {
     const body = 'vec3 background(vec2 uv) { return vec3(0.5); }';
     expect(composeFragmentShader(body)).toBe(composeFragmentShader(body));
+  });
+});
+
+describe('runtime scalar uniforms', () => {
+  test('updates both sides of a cross-fade and ignores undeclared names', () => {
+    defineBackground('test-scalar-outgoing', {
+      fragment:
+        'uniform float uEndingArt;\nvec3 background(vec2 uv) { return vec3(uEndingArt); }',
+      uniforms: { uEndingArt: { value: 0.3 } },
+    });
+    defineBackground('test-scalar-current', {
+      fragment:
+        'uniform float uEndingArt;\nvec3 background(vec2 uv) { return vec3(uEndingArt); }',
+      uniforms: { uEndingArt: { value: 0.1 } },
+    });
+
+    const added: THREE.Object3D[] = [];
+    const stage = {
+      width: 480,
+      height: 640,
+      add(object: THREE.Object3D): void {
+        added.push(object);
+      },
+      remove(object: THREE.Object3D): void {
+        const index = added.indexOf(object);
+        if (index >= 0) added.splice(index, 1);
+      },
+    } as unknown as Stage;
+
+    const background = new Background(stage, 'test-scalar-outgoing');
+    background.transitionTo('test-scalar-current', 30);
+    background.setScalarUniform('uEndingArt', 0.16);
+
+    const current = background.mesh.material as THREE.ShaderMaterial;
+    const outgoing = (added[1] as THREE.Mesh).material as THREE.ShaderMaterial;
+    expect(current.uniforms['uEndingArt']?.value).toBe(0.16);
+    expect(outgoing.uniforms['uEndingArt']?.value).toBe(0.16);
+
+    expect(() => background.setScalarUniform('uNotDeclared', 1)).not.toThrow();
+    expect(current.uniforms['uNotDeclared']).toBeUndefined();
+    expect(outgoing.uniforms['uNotDeclared']).toBeUndefined();
+
+    background.dispose();
   });
 });
 

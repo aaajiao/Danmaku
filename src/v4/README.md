@@ -18,7 +18,8 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Motion definitions | [`gameplay/behaviours.ts`](./gameplay/behaviours.ts) | Registry, timelines and integration in [`src/sim/motion.ts`](../sim/motion.ts) |
 | Authored shader-driven scenes | [`backgrounds/`](./backgrounds), with fixed hybrid plates in [`src/assets/v4/backgrounds`](../assets/v4/backgrounds) | Registry, shared GLSL helpers, art preload, cross-fade and renderer in [`src/render/background.ts`](../render/background.ts) |
 | Campaign structure and simulation authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
-| Campaign dialogue and ending | [`content/narrative.ts`](./content/narrative.ts) | Boss dialogue transport in campaign data; generic paging and transitions in [`src/game/states.ts`](../game/states.ts) |
+| Campaign dialogue and ending copy | [`content/narrative.ts`](./content/narrative.ts) | Boss dialogue transport in campaign data; generic paging and transitions in [`src/game/states.ts`](../game/states.ts) |
+| Ending visual choreography | [`ending/`](./ending) and [`backgrounds/wear-field.ts`](./backgrounds/wear-field.ts) | The generic ending page clock in [`src/game/states.ts`](../game/states.ts), batch opacity and trace drawing in [`src/main.ts`](../main.ts), and scalar uniform application in [`src/render/background.ts`](../render/background.ts) |
 | Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay identity hashes campaign data plus compiled v4 patterns/behaviours; simulation carries only the opaque string |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
 | Audio identity and release assets | [`audio/`](./audio), [`docs/v4-audio-direction.md`](../../docs/v4-audio-direction.md), and generated release audio in [`packs/v4`](../../packs/v4) | Sound/music registries, synthesis and WebAudio playback in [`src/audio`](../audio) |
@@ -66,6 +67,9 @@ keep older imports working while ownership stays visible under this directory.
   Dialogue is assembled into campaign data, so either kind of generated-content
   change is followed by `bun run make:v4-content`. Do not hand-edit generated
   JSON or its fingerprint.
+- Ending layer targets and the presentation-only stage-4 route recorder live in
+  [`ending/`](./ending). They may change frozen rendering, never `Run`, campaign
+  bytes or replay identity.
 - Pattern and behaviour changes are ordinary reviewed TypeScript under
   [`gameplay/`](./gameplay). They remain inside the deterministic and headless
   architecture scans.
@@ -80,6 +84,28 @@ keep older imports working while ownership stays visible under this directory.
   generator and manifest. Shader-coupled background plates belong to
   `src/assets/v4/backgrounds` and are compiled with the edition. Neither path may
   be used as a route for simulation or guest shader logic.
+
+## Ending visual boundary
+
+The real stage-4 terminal ending selects the independent `wear-field` scene.
+GAME OVER keeps the neutral shader-only `signal-decay` scene, so v4's narrative
+image cannot leak into a generic failure or guest campaign.
+
+`wear-field` uses one original 1086×1448 master, deterministically compiled by
+`bun run make:v4-backgrounds` to a 480×640 runtime plate. It is not a set of
+three CGs and contains no character, throne, baked copy or pre-drawn route. The
+three authored pages subtract the painted contribution at targets `0.30`,
+`0.16` and `0.04`: first the frozen field remains as residue, then the diminished
+player and the route actually flown through stage 4 become the evidence, and
+finally body and trace leave with almost all of the plate. Fixed-tick shader
+motion remains underneath.
+
+The generic state machine exposes only page index, count and fixed-tick page age.
+[`ending/presentation.ts`](./ending/presentation.ts) owns the v4 layer mix;
+[`ending/trace.ts`](./ending/trace.ts) samples the completed run into bounded,
+death-separated presentation segments. Neither module mutates simulation state,
+draws RNG or changes replay content. That split is part of the edition boundary,
+not a generic ending style for packs to inherit.
 
 ## Ownership migration and the first authored revision
 

@@ -1852,18 +1852,30 @@ describe('the ending', () => {
     // The generic state assigns no semantics to the three pages. It selects the
     // pilot-specific second page and preserves the authored blank in the third;
     // the third CONFIRM exits to the results screen.
-    const page0 = ending.view().lines ?? [];
-    expect(page0).toEqual(['test opening one', 'test opening two']);
+    const opening = ending.view();
+    expect(opening.lines).toEqual(['test opening one', 'test opening two']);
+    expect(opening.character).toBe(PILOT);
+    expect(opening.endingPage?.index).toBe(0);
+    expect(opening.endingPage?.count).toBe(3);
+    expect(opening.endingPage?.age).toBe(opening.age);
 
-    tap(ctx.machine, Button.Shot);
-    expect((ctx.machine.current as EndingScreenState).view().lines).toEqual(['test pilot coda']);
+    // Page age is reset on the exact press tick. This is the deterministic
+    // starting point for a renderer's page-to-page transition.
+    press(ctx.machine, Button.Shot);
+    const middle = (ctx.machine.current as EndingScreenState).view();
+    expect(middle.lines).toEqual(['test pilot coda']);
+    expect(middle.endingPage).toEqual({ index: 1, count: 3, age: 0 });
+    ctx.machine.tick(0);
 
-    tap(ctx.machine, Button.Shot);
-    expect((ctx.machine.current as EndingScreenState).view().lines).toEqual([
+    press(ctx.machine, Button.Shot);
+    const closing = (ctx.machine.current as EndingScreenState).view();
+    expect(closing.lines).toEqual([
       'test closing one',
       '',
       'test closing two',
     ]);
+    expect(closing.endingPage).toEqual({ index: 2, count: 3, age: 0 });
+    ctx.machine.tick(0);
 
     // The last page's CONFIRM replaces the ending with the results card — still a
     // `cleared` screen, ALL CLEAR because this stage had no next, with the run's

@@ -67,6 +67,18 @@ export interface StateView {
    */
   readonly age?: number;
   /**
+   * Page-relative fixed-tick clock for an authored ending.
+   *
+   * Kept separate from the free-form `lines` so an edition's renderer can
+   * choreograph layers without teaching the generic game state what any page
+   * means. `index` is zero-based and `age` resets on every page change.
+   */
+  readonly endingPage?: {
+    readonly index: number;
+    readonly count: number;
+    readonly age: number;
+  };
+  /**
    * Character registry name selected by a roster view. A string across the
    * boundary; the game layer never learns whether it resolves to a sprite,
    * portrait or neither.

@@ -697,6 +697,23 @@ export class Background {
     return this.#intensity;
   }
 
+  /**
+   * Set one scene-owned numeric uniform wherever it exists in the active fade.
+   *
+   * Callers may drive a scene-specific presentation value while another scene
+   * is current: backgrounds that do not declare the uniform are a deliberate
+   * no-op. Updating both materials keeps an in-flight cross-fade continuous.
+   */
+  setScalarUniform(name: string, value: number): void {
+    const apply = (compiled: Compiled): void => {
+      const uniform = compiled.material.uniforms[name];
+      if (uniform && typeof uniform.value === 'number') uniform.value = value;
+    };
+
+    apply(this.#current);
+    if (this.#outgoing) apply(this.#outgoing);
+  }
+
   /** Select painted art, the procedural shader, or the scene-authored blend. */
   setArtMode(mode: BackgroundArtMode): void {
     this.#artMode = mode;

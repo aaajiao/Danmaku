@@ -30,6 +30,10 @@ and remains recoverable from Git history.
 - `background-vault-v4-master.png` — stage 4 black-violet pressure membrane;
   its 480×640 pixel derivative stays grid-locked while `vault`'s live domain
   field supplies the motion above it.
+- `background-wear-field-v4-master.png` — the terminal ending's worn field:
+  broad slate and muted-heart passages cross without converging on a pictured
+  seat. Its single 480×640 pixel derivative stays quiet beneath the frozen
+  curtain while the `wear-field` scene carries the fixed-tick signal motion.
 - `style-lock-ghost-layers.png` — surface / skeleton / mycelium visual grammar.
 - `player-cast-ghoststyle-master.png` — five-player pose master.
 - `enemies-stage-1-ghoststyle-master.png` through
@@ -51,10 +55,11 @@ Keep originals byte-for-byte.  Derive production assets into their runtime
 locations; do not overwrite these files with crops, transparency conversions or
 packed atlases.
 
-The four base files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
-derivatives of the four campaign-stage masters. `stratum` and `vault` sample
-their base files at runtime; the `expanse` and `undertow` bases remain
-single-frame derived references while runtime samples their sequence atlases.
+The five base files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
+derivatives of the four campaign-stage masters and the terminal wear field.
+`stratum`, `vault` and `wear-field` sample their base files at runtime; the
+`expanse` and `undertow` bases remain single-frame derived references while
+runtime samples their sequence atlases.
 `bun run make:v4-backgrounds`
 deterministically area-reduces each master to 240×320, maps it to a
 scene-authored finite Ghost palette, removes single-pixel colour islands and

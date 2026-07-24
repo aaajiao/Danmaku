@@ -110,7 +110,7 @@ flowchart BT
 | 4 穹顶 | `vault` | 选择被封闭成最后的狭缝 | 冠、宽袖与环形法具逐步合拢 | 黑漆、紫、绯红、冷灰 |
 
 所有现有 stage 与 Boss shader 的场景身份均保留，包括 `signet`、`umbra`、`cordon`、`intaglio`、`sable`、`decree`、`regnum`。v4 不以静态全屏图替换它们；允许经逐场可读性审查后做受控调频，也允许 shader 在单 pass 中采样项目自有的低频绘制母版。本轮 `signet` 的玩家活动带已降低高频法线、反光与细波纹，新的精确 hash 已重新锁定。
-当前审查不限于 `signet`：14 场的生产状态逐项记录在 8.2，其中
+当前审查不限于 `signet`：15 场的生产状态逐项记录在 8.2，其中
 `expanse` 的动态基底保持 git HEAD 原始实现，并与新的冷青 Ghost
 有限调色板像素膜层组合。
 
@@ -132,13 +132,22 @@ flowchart BT
 Spire 的三组变体只使用真实玩法事实：攀登、持线和已经磨损的步伐。她仍然
 必须回答，不能因为制度把她归档，文本本身就夺走她的声音。Regent 对白发生在
 Boss 和 `regnum` 场景显现之前，因此不得让角色指向画面上并不存在的 seat；
-空席只在战斗结束后的 ending 中揭示一次。
+空席只在战斗结束后的 ending 文本中揭示一次。画面不画王座、人物 CG 或居中的
+空洞符号；它只呈现维持空席的磨损，让缺席通过周围材料和行为被读到。
 
 结局不许承诺彻底解放。Regent 死后，四层制度及冻结的弹幕沉积仍在场上；变化
 只是玩家的 passage 变得可见，record 在此停止，而行为继续。五位内置主角各用
 自己的玩法动词得到一条 coda：SCOUT 留下 wake、LANCE 切出 passage、HOUND
 发现交叉 tracks、SPIRE 自己决定立足点、MAW 留下未被填满的 space。未知角色
 使用中性 coda，不冒充第六种内置身份。
+
+结局视觉同样采用减法，而不是为三页各画一张传统 CG。项目只保留一张原创
+`1086×1448` wear-field 母版，经确定性流程编译为 `480×640` 运行绘制层；
+`wear-field` shader 继续提供固定 tick 的信号运动。三页绘制层 target 依次为
+`0.30 → 0.16 → 0.04`：第一页保留战后制度沉积，第二页让仍在场的身体与真实
+stage-4 玩家路径成为 passage 的证据，第三页再撤去身体、路径和绝大部分绘制
+材料，只留下未闭合的信号与文字。玩家路径只由已发生的 stage-4 移动采样并在
+表现层绘制，不进入模拟、碰撞、RNG、campaign 数据或 replay 身份。
 
 英文写作遵守以下减法：
 
@@ -406,11 +415,13 @@ replay 则继续证明这次有意变更之后的逐 tick 行为。
 
 现有 shader 是 v4 的动态底层：不删除、不烘焙、不被静态图替代，也不通过 UI
 铺设不透明全屏覆盖层。03–06 四个正式关卡各有一张项目自有绘制母版，由本场
-shader 分级并在逻辑像素网格上单 pass 合成；菜单、Boss 站、出神与结算场景
-保持 shader-only。14 个 authored scene 归档在 `src/v4/backgrounds/`；
+shader 分级并在逻辑像素网格上单 pass 合成；菜单、Boss 站、出神与中性
+GAME OVER 的 `signal-decay` 保持 shader-only。真实 v4 终局另由独立
+`wear-field` 场景采样第五张绘制母版，不能把这项叙事视觉泄漏给中性结算。
+15 个 authored scene 归档在 `src/v4/backgrounds/`；
 通用 registry、全屏 quad、uniform 与 60 tick 转场引擎仍在
 `src/render/background.ts`。每一场当前的 fragment SHA-256 与
-`scrollSpeed` 都由测试锁定。2026-07-24 对 14 场完成逐场生产审查：这不是
+`scrollSpeed` 都由测试锁定。2026-07-24 对 15 场完成逐场生产审查：这不是
 把所有背景统一重画，其中 `expanse` 明确恢复并保留 git HEAD 的原始
 `lens-whisper` 作为动态基底；其余场景也以各自原算法和运动身份为起点，只在当前源码明确
 记录的色彩、空间频率、玩家活动带、速度或可见度上调整。当前结论见 8.2。
@@ -454,7 +465,7 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 ### 8.2 2026-07-24 shader 审查与生产基线
 
 本轮保持 registry 名、campaign 引用与固定 tick 时钟，并逐场从原始算法重新
-判断哪些内容应保留、降频、调色或提亮；它不意味着 14 场都经过 v4 造型重绘。
+判断哪些内容应保留、降频、调色或提亮；它不意味着 15 场都经过 v4 造型重绘。
 特别是 `expanse` 的 shader 已回到 git HEAD 原始 `lens-whisper`，现在由原创
 绘制层补充远场空间；不再把 shader 本身描述成柱体、开放通道或新造的雾场。
 下表记录当前代码与总览页元数据共同声明的生产身份：
@@ -462,7 +473,8 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 | 叙事组 | scene | 当前生产实现 |
 |---|---|---|
 | Shell | `drift` | 月轮、冷银水面与上部标题负空间；减少水纹层数和碎反光 |
-| Shell | `signal-decay` | Ghost 宽带由清晰走向解体；移除 bit-crush、RGB 边与噪点墙 |
+| Neutral GAME OVER | `signal-decay` | Ghost 宽带由清晰走向解体；移除 bit-crush、RGB 边与噪点墙；不接收 v4 终局原画或逐页叙事状态 |
+| v4 terminal ending | `wear-field` | 单张原创磨损场母版与六条固定 tick Ghost 长带合成；多边进入的宽阔通行痕互相穿过但不汇聚成王座、门洞或中心符号，逐页绘制层 target 为 `0.30 / 0.16 / 0.04` |
 | Four stages | `expanse` | 原创 Ghost 冷青膜层母版确定性派生 16 帧序列，以 12 tick/帧进行不均匀横向呼吸；五段纵向延迟、材质层抬升和左右错相共同变化，中央通道保持静止。完整周期仍为 192 tick；序列与原始 `lens-whisper` 的六个 Lissajous 光源、横向 anamorphic 拖影、宽化 bokeh 与低亮 FBM 均由固定 tick 驱动 |
 | Four stages | `undertow` | 原创靛青 Ghost 竖向膜层母版确定性派生 16 帧序列，以 10 tick/帧让两道不等幅纵向波持续下传；独立墙体压力和 16 段推/曳曲线令左右墙异步变化，中央通道保持安静。完整周期仍为 160 tick，平均帧间变化面积约为 `expanse` 的 1.8 倍；原 `tropical-heat` simplex domain warp 与冷折射继续运动，RGB 分离、彩色碎片和爆闪退场 |
 | Four stages | `stratum` | 原三中心 gradient 与 travelling wave 始终是完整发光主体，内部时钟加快 15%；原创 soot/slate Ghost 母版不再作为不透明颜色层，只转换成低频明暗浮雕与微量近等亮度色相，对下方动态 shader 做调制；完整 hybrid 锁到 480×640 逻辑像素网格，且不使用 Bayer、halftone、cross-hatch、纸板或印章图形 |
@@ -615,7 +627,7 @@ fallback。
 
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
-| shader / 舞台 | 14 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质，所有动态均由固定 tick 驱动；其余场景保留各自 shader 身份；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留 |
+| shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；独立 `wear-field` 只服务 v4 三页终局，所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
 | 弹幕生成 | `src/v4/gameplay` 已拥有 8 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名，5 位 Boss 每阶段至少两层弹幕且每位使用至少四类几何；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认迁移缺口、交织线与通道墙在 Normal/Lunatic 都保留连续安全缝 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
@@ -623,7 +635,7 @@ fallback。
 | 命中材质 | 16 类敌人和 5 位 Boss 全部显式绑定 `surface/skeleton/mycelium/heart`；四套 8 帧反馈同时有 procedural floor 与 v4 native strip；Boss 接触显示统一限频但伤害逐 tick，重击仅改变姿态/局部层；最后三分之一血量固定 tick 收缩、开裂与双搏 | 浏览器逐材质确认膜纹、骨节、菌丝回缩和心核压缩在实战尺寸仍能区分 |
 | 对话头像 | 主角与五位 Boss 已从同一 Ghost 原画母版生成独立 256px 近景图集；旧包保留 field-actor crop，第三方 pack speaker 仍走其 portrait/fallback | 浏览器检查十张圆形裁切、脸、心核、黑边和姓名板在四种 shader 上均可读 |
 | 三层 glitch | 外表/骨相/菌丝+心脏已烘焙进所有人物动作帧 | 再拆 `surface/skeleton/mycelium+heart` 同 pivot 图层，接旧作式排列组合 |
-| 负空间反馈 | 人物透明孔洞、局部暗垫、读取实际 2.5px 半径并压住 FX 的 focus、真实 graze event 短弧已完成；UI 为局部透明面板 | 评估真实移动 path 短痕是否有净收益；没有就不增加 |
+| 负空间反馈 | 人物透明孔洞、局部暗垫、读取实际 2.5px 半径并压住 FX 的 focus、真实 graze event 短弧已完成；结局只在表现层读取真实 stage-4 移动路径，并随三页递减撤去；UI 为局部透明面板 | 浏览器确认路径确实来自本次移动、不会伪装成安全指引，第三页完全退场 |
 | 原创 v4 包 | 默认包的 72 个 bullet 名、45 个 effect/player FX（含四套材质反馈、四套 Boss distress、破符 Break、五种最终身份消隐、五组专属 option 与五组专属 Bomb）、11 个 laser、13 个 missile、10 个 pickup、五档心翼与 HUD 均为项目自有像素；分类图集使用确定性 shelf packing | 浏览器逐关检查强弹层级、Boss 过渡/死亡身份和 Normal/Lunatic 密集弹幕负空间 |
 | v4 UI | `1024×768` 图集保留原 32 cells，并从一张项目自有 `1086×1448` 绿幕母版生成 6 个 production-derived cells；Title/Difficulty/Character 使用开放式构图，菜单行、Character 身份框、Dialogue、Pause/Clear/Game Over/Ending 与 Boss 条均已消费，动态文字仍由 runtime 绘制 | 浏览器检查 CJK/第三方 fallback、6 个 ornament 的软边/裁切、三类选择界面的负空间、Boss 条和四种 shader 上的局部透明度 |
 | BulletPack 兼容参考 | 本地 importer 已完成 117/117 消费者、显式五档 banking、Bomb/结算的 entity/state-age 动画、laser 无缝 body 与 painted `contentW/contentH` 尺寸；输出已从项目移除，需要时临时再生成并用 `?pack=bulletpack` 显式选择 | 保持回归测试；不把购买 PNG 或生成包纳入版本库、发布包或 v4 默认视觉身份 |
@@ -636,10 +648,11 @@ fallback。
 按真实发弹事实驱动的敌人/Boss 语义帧、逐人近景 portrait、局部暗垫、精确
 focus 核、项目自有 `packs/v4` 默认包、由单张 ornament 绿幕原画母版确定性生成的 engine-owned
 v4 UI production ornaments，以及 BulletPack 的
-117/117 本地兼容审计。默认敌我弹的危险语言已分开，14 场背景已完成逐场
+117/117 本地兼容审计。默认敌我弹的危险语言已分开，15 场背景已完成逐场
 生产审查，四关低频结构已接入并进入场景总览的默认合成；五位主角的
 loose/focus 火力、专属 option 与五种 Bomb
-也已接入；分类图集减少透明上传，发布复制会过滤 `.DS_Store`、`Thumbs.db`、
+也已接入；v4 终局使用一张 wear-field 母版、三页递减合成与只读的真实
+stage-4 path；分类图集减少透明上传，发布复制会过滤 `.DS_Store`、`Thumbs.db`、
 `desktop.ini` 与 `__MACOSX`。表现层仍不回写碰撞或 RNG；火力与 Bomb 的玩法
 变化则是有意的 simulation revision，并已更新 campaign 指纹与 golden replay。
 
@@ -653,7 +666,8 @@ loose/focus 火力、专属 option 与五种 Bomb
 1. 找回或重建可编辑的分层人物母版；仓库当前只有烘焙 PNG，没有可验证的 PSD/Krita 三层源，不能假装源资产治理已完成。
 2. 有分层母版后再拆 `surface/skeleton/mycelium+heart` 同 pivot overlay，接固定 tick/实体 age 驱动的 glitch 与低频心核脉动。
 3. 保留已完成的逐角色 option/Bomb 身份层；浏览器若证明共享 thruster 会混淆人物，再只拆 thruster，不重复拆 Bomb。
-4. 只在浏览器证明确有净收益时增加真实移动 path 短痕；focus、graze arc、暗垫和四关结构不再重复造第二套。
+4. 逐页验收已接入的 stage-4 path 短痕；若它抢占弹幕沉积或看似预画安全路线，
+   只调整表现层透明度和取样，不增加第二套装饰路径，也不让它进入 simulation。
 
 ---
 
@@ -681,6 +695,10 @@ loose/focus 火力、专属 option 与五种 Bomb
 - v4 UI 的生产原画保留在 `docs/art/v4/ui-production-ornaments-master.png`；
   `docs/art/v4/ui-screen-perimeter-master.png` 仅为已生成的外框方案研究存档，
   不进入运行资源。atlas 只能由前者通过 `bun run make:v4-ui` 派生，不手工修改。
+- v4 终局只使用
+  `docs/art/v4/background-wear-field-v4-master.png` 这一张 `1086×1448`
+  原创母版，并由 `bun run make:v4-backgrounds` 确定性派生 `480×640`
+  `wear-field-v4.png`；三页不得再各自追加人物、王座或叙事 CG。
 - 所有被声明的动画帧都能通过实际运行路径到达。
 - 原始购买包不进入版本库；生成输出带 provenance 与本地构建说明。
 
@@ -690,7 +708,7 @@ loose/focus 火力、专属 option 与五种 Bomb
 - `bun test`
 - `bun run build`
 - `src/v4/index.test.ts` 证明单一入口注册四关、完整 pattern/behaviour 与全部 shader。
-- `src/v4/backgrounds/index.test.ts` 证明 14 个 shader 的 2026-07-24 生产审查基线 fragment 哈希、组装后哈希与 scrollSpeed 未漂移。
+- `src/v4/backgrounds/index.test.ts` 证明 15 个 shader 的 2026-07-24 生产审查基线 fragment 哈希、组装后哈希与 scrollSpeed 未漂移。
 - `tools/v4-ui-atlas.test.ts` 证明 ornament 绿幕母版哈希、`1024×768` / 38-cell atlas 的字节级再生成、原 32 cells 的像素保持，以及 6 个 ornament 的透明软边与去绿结果。
 - 浏览器逐关检查 shader、稀疏结构、局部透明 UI、人物、弹幕、Boss 转场、Bomb、laser、结算动画和 console。
 - 固定 replay 在相同 tick 的人物帧、背景、弹幕与 UI 必须一致。
@@ -702,6 +720,8 @@ loose/focus 火力、专属 option 与五种 Bomb
 - 不复用 v3 的图标、房间或配色作为 v4 基础。
 - 不把女性角色缩成同一身体的换色皮肤。
 - 不用生成式整图直接覆盖现有 shader。
+- 不为三页结局制作三张传统 CG，也不绘制王座、人物立绘或具象“空席”来替代
+  wear-field 的材料磨损与真实玩家路径。
 - 不为“看起来更华丽”开启大面积 bloom、软光或粒子尘埃。
 - 不让角色动画、特效或背景反向影响模拟、命中和发弹时机。
 - 不提交或重新分发购买的 BulletPack 原始 PNG。

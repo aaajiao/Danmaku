@@ -49,9 +49,11 @@ const SHIPPED = [
   'regnum',
   'umbra',
   'decree',
-  // The terminal-screen scene: game-over and the ending declare it, the way the
-  // title sits on `drift` — the shell's scene-override idiom, not any stage's.
+  // Terminal scenes use the shell's scene-override idiom, not any stage's.
+  // `signal-decay` stays neutral for GAME OVER/results; the v4 terminal campaign
+  // ending alone enters the accepted worn field.
   'signal-decay',
+  'wear-field',
 ];
 
 /**
@@ -76,6 +78,7 @@ const REVIEWED_BASELINE: Readonly<
   umbra: { scrollSpeed: 1.1, bodySha256: 'b60bf3aaa9ffe263dfafac957be234b35a1218d5627d63a43561d66eff7945a5', assembledSha256: '6d48d4ebaebb482b679e617d4cfe06d52381d159c661520f0e491813c2eca789' },
   undertow: { scrollSpeed: 0.9, bodySha256: '61571910a7e87b06784b771215602c717c7263a57588cc26b7eeb7822cc111d8', assembledSha256: 'dce8397a0d9e7acbe6dd7c2e14576773222b29fc74d9bebe7d6fd37d886690e8' },
   vault: { scrollSpeed: 0.5, bodySha256: 'c935acacfb4356991d339ed248a907ba84d8d27a7dc82bff49a683a63184d2a9', assembledSha256: '711980dddaeaab8af467e0b178c79677147c3ee1e31714bef1557ef898854aea' },
+  'wear-field': { scrollSpeed: 0.72, bodySha256: 'cd72595e2e69f8ab145e4551d730afcfa7000c635906bb78e03b39ffacf9cd07', assembledSha256: 'bfa789006baa74bd1a8ef04a8d6fd0e1b7e64a5a27d3421f595ea8f8016fd267' },
 };
 
 const REVIEWED_ART = {
@@ -111,6 +114,14 @@ const REVIEWED_ART = {
     bytes: 29008,
     sha256: 'f3817c5b68a82aa5589627cf11ea6ef5d93d2a29266f70cf65306cd6d659a0b8',
   },
+  'wear-field': {
+    file: new URL('../../assets/v4/backgrounds/wear-field-v4.png', import.meta.url),
+    urlSuffix: '/wear-field-v4.png',
+    width: 480,
+    height: 640,
+    bytes: 20639,
+    sha256: 'a09ef575f55bfb94fcd3d9054637b478e28fe1eede651542b079aa5b489553ce',
+  },
 } as const;
 
 describe('the shipped scenes', () => {
@@ -143,7 +154,7 @@ describe('the shipped scenes', () => {
     expect(actual).toEqual(REVIEWED_BASELINE);
   });
 
-  test('the four reviewed stage scenes bind byte-locked painted runtime assets', async () => {
+  test('the reviewed stage and ending scenes bind byte-locked painted runtime assets', async () => {
     const painted = SHIPPED.filter((name) => getBackgroundSpec(name).art !== undefined);
     expect(painted).toEqual(Object.keys(REVIEWED_ART));
 
@@ -161,7 +172,7 @@ describe('the shipped scenes', () => {
     }
   });
 
-  test('every painted stage keeps a smooth shader-only branch and snaps production', () => {
+  test('every painted scene keeps a smooth shader-only branch and snaps production', () => {
     for (const name of Object.keys(REVIEWED_ART)) {
       const fragment = getBackgroundSpec(name).fragment;
       expect(fragment, name).toContain('uniform sampler2D uArt;');
@@ -175,6 +186,14 @@ describe('the shipped scenes', () => {
         expect(fragment, name).toContain('floor(safeUv * uArtRes) + 0.5');
       }
     }
+  });
+
+  test('wear-field owns a page-driven painted contribution without changing shader-only', () => {
+    const spec = getBackgroundSpec('wear-field');
+    expect(spec.uniforms?.['uEndingArt']).toEqual({ value: 0.30 });
+    expect(spec.fragment).toContain('uniform float uEndingArt;');
+    expect(spec.fragment).toContain('if (uArtMode < 0.5) return wearSignal(uv);');
+    expect(spec.fragment).toContain('hybrid += painted * uEndingArt;');
   });
 
   test('expanse and undertow own fixed-tick sixteen-frame art sequences', () => {

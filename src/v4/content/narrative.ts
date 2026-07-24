@@ -107,7 +107,7 @@ export const V4_BOSS_DIALOGUE = {
 export const V4_ENDINGS = {
   'stage-4': {
     music: 'adjourn',
-    scene: 'signal-decay',
+    scene: 'wear-field',
     pages: [
       {
         lines: [

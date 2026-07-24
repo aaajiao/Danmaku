@@ -1985,10 +1985,10 @@ export class ClearedState extends EndingState {
  * On confirming the last page it `replace`s itself with `ClearedState`, so the
  * existing ALL CLEAR results screen (score / graze / deaths, the assist marker,
  * RETRY / TITLE) still appears and the results-and-replay path is intact — the run
- * still reaches `'cleared'`. The field it ended on stays on the stack beneath, so
- * its frozen curtain and HUD keep drawing under the text. An edition may therefore
- * compose its closing words against what survived the fight rather than a blank
- * canvas; the generic state assigns that survival no meaning of its own.
+ * still reaches `'cleared'`. The field it ended on stays on the stack beneath;
+ * an edition renderer may therefore compose, diminish or hide its frozen
+ * presentation layers while the generic state assigns that survival no meaning
+ * of its own.
  *
  * `music` and `scene` are the shell-level seams: the reconcile in `main.ts` reads
  * them off the stack. A finished `Run` has already fallen back to its stage
@@ -2027,13 +2027,18 @@ export class EndingScreenState extends MenuState {
   }
 
   protected confirm(): void {
-    this.#page += 1;
-    if (this.#page >= this.#pages.length) {
+    if (this.#page + 1 >= this.#pages.length) {
       // The ALL CLEAR results screen the game already has. Replace, not push: the
       // ending is done, and the finished-run field beneath it stays put so the
       // card sits over it exactly as `ClearedState` does after a stage.
       this.ctx.machine.replace(new ClearedState(this.ctx, this.#playing));
+      return;
     }
+
+    this.#page += 1;
+    // Presentation transitions are page-relative. Reset on the exact CONFIRM
+    // tick so the shell sees the prior target as the new page's starting mix.
+    this.age = 0;
   }
 
   view(): StateView {
@@ -2043,6 +2048,12 @@ export class EndingScreenState extends MenuState {
       lines: page,
       menu: [],
       age: this.age,
+      character: this.#playing.characterName,
+      endingPage: {
+        index: this.#page,
+        count: this.#pages.length,
+        age: this.age,
+      },
     };
   }
 }

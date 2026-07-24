@@ -2822,7 +2822,7 @@ const stages: PackContent['stages'] = {
    * stage-3's, which lists its boss as a wave too. There is no midboss here, so no
    * boss wave belongs in the list. `next: null` makes this the last stage: clearing
    * it makes the run terminal, while `V4_ENDINGS['stage-4']` in the edition-owned
-   * narrative supplies the paged screen, `adjourn` and `signal-decay` before the
+   * narrative supplies the paged screen, `adjourn` and `wear-field` before the
    * neutral ALL CLEAR results.
    */
   'stage-4': {

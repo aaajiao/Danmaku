@@ -494,7 +494,7 @@ authored.
 
 Every background remains a scene-specific fragment shader. The engine owns the
 full-screen quad, fixed uniforms, painted-plate preload and cross-fade; it names
-no scene. Fourteen scene modules live under `src/v4/backgrounds/`, and each still
+no scene. Fifteen scene modules live under `src/v4/backgrounds/`, and each still
 defines:
 
 ```glsl
@@ -505,9 +505,11 @@ vec3 background(vec2 uv)
 `uScroll`, `uRes`, `uIntensity` and `uAlpha`; `uTick` advances only in
 `Background.step()`. No wall clock may enter a scene.
 
-Shell, Boss-station and utility scenes remain shader-only. Each of the four
-campaign stages also declares one project-owned opaque art texture: either a
-single plate or a scene-owned sequence atlas.
+Shell, Boss-station, trance and neutral utility scenes remain shader-only,
+including the `signal-decay` scene used by GAME OVER. Each of the four campaign
+stages declares one project-owned opaque art texture: either a single plate or a
+scene-owned sequence atlas. The real v4 terminal ending declares a fifth texture
+through its independent `wear-field` scene; neutral results never inherit it.
 
 ```ts
 import PLATE_URL from '../../assets/v4/backgrounds/example-v4.png';
@@ -530,7 +532,7 @@ starts, then supplies shared read-only textures to compiled scenes. A transition
 never begins an image request, so image completion time cannot change the tick
 on which a replay gains or loses a visual layer.
 
-The production stage hybrids are:
+The production hybrids are:
 
 | Scene | Painted contribution | Shader contribution |
 |---|---|---|
@@ -538,10 +540,17 @@ The production stage hybrids are:
 | `undertow` | sixteen 240×320 indigo membrane frames in a 960×1280 atlas; two unequal descending crests, asymmetric wall pressure and a calm central shaft | grid-snapped fixed-tick domain warp and cold refraction |
 | `stratum` | 480×640 soot/slate sediment membranes with a quiet lower basin | grid-snapped fixed-tick moving centres and travelling-wave pressure |
 | `vault` | 480×640 black-violet Ghost membranes and broad graphite support strata | grid-snapped fixed-tick domain warp and pressure lighting |
+| `wear-field` | one 480×640 slate, black-violet, bone-grey and muted-heart plate; broad routes enter from several edges and cross without resolving into a throne, aperture or central emblem | six fixed-tick signal ribbons and low-frequency floor fog; the v4 ending reduces the painted contribution page by page at `0.30`, `0.16`, then `0.04` |
 
-Their four accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
+Their five accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
 derivatives live in `src/assets/v4/backgrounds/`. These are shader-coupled
 edition assets, not pack skins and not a route for guest code.
+
+`wear-field` is one master reused through a subtractive three-page choreography,
+not three CG illustrations. It bakes no character, throne, copy or path into the
+image. The only player path shown by the ending is sampled from the completed
+stage-4 run and drawn by the presentation layer; it cannot affect collision,
+simulation RNG, campaign bytes or replay identity.
 
 #### What an artist contributes
 
@@ -552,7 +561,8 @@ in frequency and quiet through the play corridor. The accepted 1086×1448 source
 is compiled by `bun run make:v4-backgrounds`: an integer area reduction,
 scene-owned finite Ghost palette, compact-highlight cleanup and exact 2× nearest
 expansion produce the 480×640 base plate. `stratum` and `vault` sample that file
-directly; the `expanse` and `undertow` bases remain single-frame derived
+directly, as does `wear-field` with its page-owned contribution scalar; the
+`expanse` and `undertow` bases remain single-frame derived
 references while those scenes pack sixteen cleaned 240×320
 integer-displacement frames into one 960×1280 atlas and import the atlas at
 runtime. `expanse` uses a 12-tick smoother lateral breath with sectional,

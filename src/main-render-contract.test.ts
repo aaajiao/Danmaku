@@ -93,6 +93,42 @@ describe('the shell injects v4 ending data into the generic game context', () =>
   });
 });
 
+describe('the v4 ending removes information instead of covering it', () => {
+  test('drives frozen batch groups and the worn plate from the fixed page clock', () => {
+    expect(mainSource).toContain('const endingMix = endingMixFromViews(views)');
+    expect(mainSource).toContain('setEndingBatchMix(endingMix)');
+    expect(mainSource).toContain(
+      "background.setScalarUniform('uEndingArt', endingMix.art)",
+    );
+    for (const group of ['enemies', 'player', 'projectiles', 'pickups', 'effects']) {
+      expect(mainSource).toContain(`ENDING_BATCH_GROUPS.${group}`);
+    }
+  });
+
+  test('records the actual updated Run position and never feeds it back into play', () => {
+    const tick = mainSource.indexOf('machine.tick(buttons);');
+    const sample = mainSource.indexOf('endingTraceRecorder(pointerRun).sample({', tick);
+    expect(tick).toBeGreaterThan(-1);
+    expect(sample).toBeGreaterThan(tick);
+    expect(mainSource.slice(sample, sample + 360)).toContain(
+      'tick: pointerRun.tickCount',
+    );
+    expect(mainSource).toContain('const endingTraceByRun = new WeakMap<Run, EndingTraceRecorder>()');
+  });
+
+  test('uses a local copy wash while the combat HUD yields to the real trace', () => {
+    const branch = mainSource.indexOf("if (view.kind === 'ending')");
+    const status = mainSource.indexOf('const { x: statusX', branch);
+    const endingSource = mainSource.slice(branch, status);
+    expect(branch).toBeGreaterThan(-1);
+    expect(status).toBeGreaterThan(branch);
+    expect(endingSource).toContain('drawEndingView(view)');
+    expect(endingSource).not.toContain('rgba(4, 7, 12, 0.88)');
+    expect(mainSource).toContain('surface.createRadialGradient(cx, 250');
+    expect(mainSource).toContain('drawEndingTrace(run, endingMix.trace)');
+  });
+});
+
 describe('every bullet-atlas draw path honours baked colour', () => {
   test('items, legacy beams and options use the shared tint resolver too', () => {
     expect(mainSource).toContain('stripTint(bulletAtlas, item.spec.sprite, item.spec.tint)');
@@ -397,7 +433,7 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     const renderEnd = mainSource.indexOf('\\n  },\\n});', renderStart);
     const renderSource = mainSource.slice(renderStart, renderEnd);
     const webgl = renderSource.indexOf('post.render();');
-    const hud = renderSource.indexOf('drawOverlay(hud);');
+    const hud = renderSource.indexOf('drawOverlay(hud, views, endingMix);');
     const compose = renderSource.indexOf('frameCapture.compose(field, overlay);');
     const encode = renderSource.indexOf('frameCapture.png()');
     expect(webgl).toBeGreaterThan(-1);
@@ -411,7 +447,7 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     const renderEnd = mainSource.indexOf('\n  },\n});', renderStart);
     const renderSource = mainSource.slice(renderStart, renderEnd);
     const webgl = renderSource.indexOf('post.render();');
-    const hud = renderSource.indexOf('drawOverlay(hud);');
+    const hud = renderSource.indexOf('drawOverlay(hud, views, endingMix);');
     const compose = renderSource.indexOf('frameCapture.compose(field, overlay);');
     const start = renderSource.indexOf('startReplayExportRecording(exporting);');
     const stop = renderSource.indexOf('stopReplayExport(exporting);');

@@ -54,3 +54,4 @@ import './surge';
 import './umbra';
 import './undertow';
 import './vault';
+import './wear-field';

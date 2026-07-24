@@ -38,7 +38,7 @@ import {
   replayExportPresentationAdvances,
   type GameContext,
 } from './game/states';
-import { StateMachine } from './game/state';
+import { StateMachine, type StateView } from './game/state';
 import {
   EVENT_SOUNDS,
   resolveMusicTransition,
@@ -116,6 +116,11 @@ import {
   v4PortraitStrip,
 } from './render/v4-portrait';
 import { V4StageStructure } from './v4/backgrounds/structure';
+import {
+  v4EndingMix,
+  type V4EndingMix,
+} from './v4/ending/presentation';
+import { EndingTraceRecorder } from './v4/ending/trace';
 import {
   V4_CHARACTER_UI,
   V4_DIFFICULTY_UI,
@@ -570,6 +575,95 @@ const batches = {
     renderOrder: Layer.Bursts + 2,
   }),
 };
+
+/**
+ * V4's ending removes already-frozen render layers in three authored passes.
+ *
+ * This grouping is presentation-only: no Run collection is filtered or
+ * mutated. Every batch is reset to identity before a frame, then receives the
+ * page's fixed-tick multiplier while an ending view is present.
+ */
+const ENDING_BATCH_GROUPS = {
+  enemies: [
+    'actorEnemyPads',
+    'enemies',
+    'actorEnemies',
+    'actorBosses',
+    'bossBodyFx',
+  ],
+  player: [
+    'actorPlayerPads',
+    'player',
+    'actorPlayer',
+    'options',
+    'optionsFx',
+    'playerFx',
+  ],
+  projectiles: [
+    'playerShots',
+    'enemyShots',
+    'enemyShotsAdditive',
+    'missiles',
+    'beamBodies',
+    'beamCaps',
+  ],
+  pickups: [
+    'itemGlow',
+    'items',
+    'pickups',
+  ],
+  effects: [
+    'effects',
+    'bursts',
+    'burstsBack',
+    'bombFx',
+    'bossDeathFx',
+  ],
+} as const satisfies Readonly<
+  Record<
+    Exclude<keyof V4EndingMix, 'trace' | 'art'>,
+    readonly (keyof typeof batches)[]
+  >
+>;
+
+function setEndingBatchMix(mix: V4EndingMix | undefined): void {
+  for (const batch of Object.values(batches)) batch.setOpacity(1);
+  if (mix === undefined) return;
+
+  const setGroup = (
+    names: readonly (keyof typeof batches)[],
+    opacity: number,
+  ): void => {
+    for (const name of names) batches[name].setOpacity(opacity);
+  };
+
+  setGroup(ENDING_BATCH_GROUPS.enemies, mix.enemies);
+  setGroup(ENDING_BATCH_GROUPS.player, mix.player);
+  setGroup(ENDING_BATCH_GROUPS.projectiles, mix.projectiles);
+  setGroup(ENDING_BATCH_GROUPS.pickups, mix.pickups);
+  setGroup(ENDING_BATCH_GROUPS.effects, mix.effects);
+}
+
+function endingMixFromViews(views: readonly StateView[]): V4EndingMix | undefined {
+  for (let index = views.length - 1; index >= 0; index--) {
+    const view = views[index];
+    if (view?.kind === 'ending' && view.endingPage !== undefined) {
+      return v4EndingMix(view.endingPage);
+    }
+  }
+  return undefined;
+}
+
+/** Actual fixed-tick stage-4 movement, retained outside simulation and replay. */
+const endingTraceByRun = new WeakMap<Run, EndingTraceRecorder>();
+
+function endingTraceRecorder(run: Run): EndingTraceRecorder {
+  const existing = endingTraceByRun.get(run);
+  if (existing !== undefined) return existing;
+  const recorder = new EndingTraceRecorder();
+  endingTraceByRun.set(run, recorder);
+  return recorder;
+}
 
 // 199: behind every enemy/Boss body; 398: behind thruster (399), ship (400)
 // and actor (402). Enemy bullets begin at 600, so both local pads remain below
@@ -1253,6 +1347,19 @@ const loop = new Loop({
     const acted = machine.stack[machine.stack.length - 1] as { cue?: string } | undefined;
 
     machine.tick(buttons);
+    if (pointerRun !== undefined) {
+      // Capture the updated fixed-tick position, including the terminal clear
+      // tick. Death opens a gap inside the recorder, so respawn never becomes a
+      // fictional diagonal across the field. This trace is read only by the
+      // ending overlay and is neither replay input nor simulation state.
+      endingTraceRecorder(pointerRun).sample({
+        tick: pointerRun.tickCount,
+        x: pointerRun.player.x,
+        y: pointerRun.player.y,
+        alive: pointerRun.player.alive,
+        finished: pointerRun.finished,
+      });
+    }
     syncReplayExportAfterTick();
     if (machine.current !== stateBeforeTick) {
       // Do not let a menu hover target or an interrupted click sequence spill
@@ -1303,9 +1410,9 @@ const loop = new Loop({
       if (override !== undefined) track = override;
 
       // The scene's twin of the music read above — a state may declare a scene
-      // directly, with no `Run` behind it: game-over and the ending screen do, so
-      // the run's END gets its own field (`signal-decay`) even though the finished
-      // run's `run.scene` has fallen back to the stage or boss field it ended on.
+      // directly, with no `Run` behind it: game-over and an authored ending do,
+      // so each terminal state gets its own field even though the finished run's
+      // `run.scene` has fallen back to the stage or boss field it ended on.
       // Read bottom-up so the topmost declaration wins, the exact precedence music
       // uses just above and `run.scene` uses just below.
       const sceneOverride = (state as { scene?: string }).scene;
@@ -1432,6 +1539,15 @@ const loop = new Loop({
   },
 
   render() {
+    const views = machine.views();
+    const endingMix = endingMixFromViews(views);
+    setEndingBatchMix(endingMix);
+    if (endingMix !== undefined) {
+      // Only the v4 wear-field declares this scalar. The engine method is a
+      // no-op for every other scene and updates both sides of an active fade.
+      background.setScalarUniform('uEndingArt', endingMix.art);
+    }
+
     for (const batch of Object.values(batches)) batch.begin();
 
     // Bottom-first, so an overlay's base still draws beneath it.
@@ -1459,7 +1575,7 @@ const loop = new Loop({
     for (const batch of Object.values(batches)) batch.end();
 
     post.render();
-    drawOverlay(hud);
+    drawOverlay(hud, views, endingMix);
     let frameComposed = false;
     const exporting = activeReplayExport;
     if (
@@ -2229,27 +2345,77 @@ function drawFocusIndicator(run: Run): void {
   surface.restore();
 }
 
-function drawOverlay(run: Run | undefined): void {
+/**
+ * Draw the real route sampled from the terminal Run.
+ *
+ * Straight segments connect fixed-tick samples only; there is no curve fitting,
+ * endpoint ornament or invented "ideal" route. The dark under-stroke separates
+ * the quiet Ghost line from any surviving projectile residue on the first
+ * frames of page two.
+ */
+function drawEndingTrace(run: Run, opacity: number): void {
+  if (opacity <= 0.001) return;
+  const recorder = endingTraceByRun.get(run);
+  if (recorder === undefined) return;
+  const segments = recorder.segments.filter((segment) => segment.length >= 2);
+  if (segments.length === 0) return;
+
+  const strokeSegments = (): void => {
+    for (const segment of segments) {
+      const first = segment[0]!;
+      surface.beginPath();
+      surface.moveTo(first.x, first.y);
+      for (let index = 1; index < segment.length; index++) {
+        const point = segment[index]!;
+        surface.lineTo(point.x, point.y);
+      }
+      surface.stroke();
+    }
+  };
+
+  surface.save();
+  surface.lineCap = 'round';
+  surface.lineJoin = 'round';
+  surface.strokeStyle = `rgba(2, 5, 10, ${Math.min(0.62, opacity * 1.8)})`;
+  surface.lineWidth = 4.5;
+  strokeSegments();
+  surface.strokeStyle = `rgba(158, 178, 193, ${Math.min(0.42, opacity)})`;
+  surface.lineWidth = 1.25;
+  strokeSegments();
+  surface.restore();
+}
+
+function drawOverlay(
+  run: Run | undefined,
+  views: readonly StateView[],
+  endingMix: V4EndingMix | undefined,
+): void {
   surface.clearRect(0, 0, overlay.width, overlay.height);
   hideMenuClickTargets();
-  const views = machine.views();
   const recordingReplay = views.some((view) => view.recording === true);
 
-  if (run !== undefined) drawGrazeFeedback(run);
+  if (endingMix !== undefined) {
+    // The ordinary HUD would turn the ending back into a live combat read.
+    // Page two receives only the actual terminal route; the paged words follow
+    // below as the topmost layer.
+    if (run !== undefined) drawEndingTrace(run, endingMix.trace);
+  } else {
+    if (run !== undefined) drawGrazeFeedback(run);
 
-  drawHud(run, recordingReplay);
+    drawHud(run, recordingReplay);
 
-  // Highest gameplay indicator: over WebGL FX, graze arcs and the in-field HUD.
-  // Dialogue and modal state panels still composite afterward, because they
-  // intentionally suspend/cover play rather than competing inside it.
-  if (run !== undefined) drawFocusIndicator(run);
+    // Highest gameplay indicator: over WebGL FX, graze arcs and the in-field HUD.
+    // Dialogue and modal state panels still composite afterward, because they
+    // intentionally suspend/cover play rather than competing inside it.
+    if (run !== undefined) drawFocusIndicator(run);
 
-  // A pre-boss exchange is drawn over the field the player is still flying. It
-  // sits above the HUD and below any menu (a pause taken mid-exchange composites
-  // over it). `run.dialogue` is read as declared state, exactly like `scene`.
-  if (run) {
-    const line = run.dialogue;
-    if (line) drawDialogue(line, run.tickCount, run.characterName);
+    // A pre-boss exchange is drawn over the field the player is still flying. It
+    // sits above the HUD and below any menu (a pause taken mid-exchange composites
+    // over it). `run.dialogue` is read as declared state, exactly like `scene`.
+    if (run) {
+      const line = run.dialogue;
+      if (line) drawDialogue(line, run.tickCount, run.characterName);
+    }
   }
 
   // Menus and messages are the states' own business; they describe themselves
@@ -2454,17 +2620,7 @@ function drawUiBarFill(
   surface.restore();
 }
 
-function drawView(view: {
-  kind: string;
-  title?: string;
-  lines?: readonly string[];
-  menu?: readonly string[];
-  selected?: number;
-  menuActions?: readonly (string | undefined)[];
-  age?: number;
-  character?: string;
-  tally?: readonly { readonly sprite: string; readonly count: number }[];
-}): void {
+function drawView(view: StateView): void {
   surface.save();
   const age = view.age ?? 0;
   const cx = FIELD_W / 2;
@@ -2680,6 +2836,12 @@ function drawView(view: {
     return;
   }
 
+  if (view.kind === 'ending') {
+    drawEndingView(view);
+    surface.restore();
+    return;
+  }
+
   const { x: statusX, y: statusY, w: statusW, h: statusH } = V4_UI_SCREEN.status;
   // Modal/result screens now carry their own generated silhouette instead of
   // all collapsing into the same generic nine-slice. The generated source is
@@ -2704,13 +2866,11 @@ function drawView(view: {
     'replay-pause': 'ui.status.pause',
     cleared: 'ui.status.clear',
     'game-over': 'ui.status.gameover',
-    ending: 'ui.status.ending',
   };
   const statusSeal = view.kind === 'cleared' && view.title === 'ALL CLEAR'
     ? 'ui.status.result'
     : sealByKind[view.kind] ?? 'ui.status.result';
   drawV4Ui(surface, v4Ui, statusSeal, cx - 28, 132, {
-    rotation: view.kind === 'ending' ? (age % 180) * (Math.PI / 90) : undefined,
   });
   if (view.title !== undefined) drawScreenHeading(view.title, 224);
   drawV4Ui(surface, v4Ui, 'ui.divider', 110, 242, { width: 260, alpha: 0.68 });
@@ -2773,14 +2933,58 @@ function drawView(view: {
     );
     surface.fillText('▼', statusHintX, lastBaseline + 3);
   }
-  if (view.kind === 'ending') {
-    drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 470, { alpha: 0.74 });
-    surface.textAlign = 'center';
-    uiFont(10, 600);
-    surface.fillStyle = '#c2ced6';
-    surface.fillText('SHOT / START', cx, 486);
-  }
   surface.restore();
+}
+
+/**
+ * The ending is an open composition, not another opaque result card.
+ *
+ * A local radial ink wash protects only the copy. The worn field, frozen
+ * residue, pilot and real trace remain visible around it and can be removed by
+ * the page choreography instead of being hidden behind a 300×436 panel.
+ */
+function drawEndingView(view: StateView): void {
+  const page = view.endingPage;
+  const pageIndex = Math.max(0, Math.min(2, page?.index ?? 0));
+  const age = page?.age ?? view.age ?? 0;
+  const rawAppearance = Math.max(0, Math.min(1, age / 18));
+  const appearance = rawAppearance * rawAppearance * (3 - 2 * rawAppearance);
+  const cx = FIELD_W / 2;
+
+  surface.save();
+  surface.globalAlpha = appearance;
+  const wash = surface.createRadialGradient(cx, 250, 18, cx, 250, 196);
+  wash.addColorStop(0, 'rgba(3, 6, 11, 0.72)');
+  wash.addColorStop(0.56, 'rgba(3, 6, 11, 0.42)');
+  wash.addColorStop(1, 'rgba(3, 6, 11, 0)');
+  surface.fillStyle = wash;
+  surface.fillRect(42, 68, FIELD_W - 84, 398);
+  surface.restore();
+
+  const ornamentAlpha = [0.36, 0.25, 0.14][pageIndex]! * appearance;
+  drawV4Ui(surface, v4Ui, 'ui.status.ending', cx - 18, 112, {
+    width: 36,
+    height: 36,
+    alpha: ornamentAlpha,
+  });
+  drawV4Ui(surface, v4Ui, 'ui.divider', cx - 80, 168, {
+    width: 160,
+    alpha: ornamentAlpha * 1.35,
+  });
+
+  surface.save();
+  surface.globalAlpha = appearance;
+  const copyY = pageIndex === 1 ? 238 : 208;
+  drawViewLines(view.lines ?? [], cx, copyY, 306, '#aab8c2');
+  surface.restore();
+
+  drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 536, {
+    alpha: 0.34 + appearance * 0.32,
+  });
+  surface.textAlign = 'center';
+  uiFont(10, 600);
+  surface.fillStyle = `rgba(194, 206, 214, ${0.52 + appearance * 0.26})`;
+  surface.fillText('SHOT / START', cx, 552);
 }
 
 /** Align the real WebHID click target with its canvas-authored menu row. */

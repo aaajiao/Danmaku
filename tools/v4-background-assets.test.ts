@@ -208,7 +208,7 @@ describe('v4 background pixel assets', () => {
     ).toBeGreaterThanOrEqual(V4_BACKGROUND_ASSET_SPECS[name].minimumBrightSpan);
   });
 
-  test('background palettes reserve warm heart and neutral bone accents for actors', () => {
+  test('background palettes keep actor and projectile accents restrained', () => {
     // Expanse is the cold cyan Ghost register: no warm branch survives.
     expect(
       V4_BACKGROUND_PALETTES.expanse.every(([red, green, blue]) => (
@@ -235,9 +235,18 @@ describe('v4 background pixel assets', () => {
       ).toBe(true);
       expect(Math.max(...V4_BACKGROUND_PALETTES[name].map(luma))).toBeLessThan(130);
     }
+
+    // The ending may retain a trace of muted-heart wear, but not a new warm
+    // projectile register: only two subdued swatches are red-led and even the
+    // broad worn-silver tier remains far below white.
+    const wearField = V4_BACKGROUND_PALETTES['wear-field'];
+    expect(
+      wearField.filter(([red, green, blue]) => red > Math.max(green, blue)),
+    ).toHaveLength(2);
+    expect(Math.max(...wearField.map(luma))).toBeLessThan(150);
   });
 
-  test('every stage asset contract has unique paths and a valid darker fallback', () => {
+  test('every background asset contract has unique paths and a valid darker fallback', () => {
     const masters = new Set<string>();
     const outputs = new Set<string>();
     for (const name of NAMES) {

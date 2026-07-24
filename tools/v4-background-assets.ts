@@ -1,9 +1,9 @@
 /**
- * Compile the four accepted v4 stage-background masters into runtime pixel plates.
- * Expanse and Undertow additionally receive deterministic sixteen-frame atlases:
- * scene-specific integer deformation derived from each accepted master, never
- * independently generated frames, so their painted silhouettes can move
- * without visual drift or sharing one motion language.
+ * Compile the accepted v4 stage-background masters and terminal wear field into
+ * runtime pixel plates. Expanse and Undertow additionally receive deterministic
+ * sixteen-frame atlases: scene-specific integer deformation derived from each
+ * accepted master, never independently generated frames, so their painted
+ * silhouettes can move without visual drift or sharing one motion language.
  *
  * The masters remain full-resolution composition references. Runtime art is
  * deliberately a different surface: an integer area reduction to 240×320,
@@ -45,6 +45,7 @@ export const V4_BACKGROUND_ASSET_NAMES = [
   'undertow',
   'stratum',
   'vault',
+  'wear-field',
 ] as const;
 export type V4BackgroundAssetName = (typeof V4_BACKGROUND_ASSET_NAMES)[number];
 export const V4_BACKGROUND_SEQUENCE_NAMES = ['expanse', 'undertow'] as const;
@@ -155,6 +156,27 @@ export const V4_BACKGROUND_PALETTES = {
     [87, 51, 117],
     [105, 68, 132],
   ],
+  'wear-field': [
+    [3, 6, 11],
+    [7, 11, 18],
+    [11, 17, 26],
+    [16, 24, 35],
+    [22, 32, 45],
+    [29, 41, 55],
+    [38, 51, 66],
+    [49, 63, 78],
+    [62, 76, 91],
+    [77, 91, 105],
+    [94, 108, 121],
+    [113, 127, 138],
+    [134, 146, 155],
+    [24, 18, 29],
+    [37, 26, 41],
+    [52, 36, 55],
+    [70, 49, 70],
+    [90, 66, 87],
+    [111, 84, 104],
+  ],
 } as const satisfies Record<V4BackgroundAssetName, readonly RGB[]>;
 
 export const V4_BACKGROUND_ASSET_SPECS: Readonly<
@@ -220,6 +242,18 @@ export const V4_BACKGROUND_ASSET_SPECS: Readonly<
     sourceHeight: 1448,
     sourceSha256: '3c20a487fdab0c161c29164ecfe8a05e8bc9148f681396b27aa65f1d26bb7d86',
     palette: V4_BACKGROUND_PALETTES.vault,
+    brightFloor: 106,
+    minimumBrightCluster: 6,
+    minimumBrightSpan: 24,
+  },
+  'wear-field': {
+    name: 'wear-field',
+    master: join(ROOT, 'docs', 'art', 'v4', 'background-wear-field-v4-master.png'),
+    output: join(ROOT, 'src', 'assets', 'v4', 'backgrounds', 'wear-field-v4.png'),
+    sourceWidth: 1086,
+    sourceHeight: 1448,
+    sourceSha256: 'adc73524223bed522be0fd41380c9755f9bc8f006822466a143e9eecdcc7e172',
+    palette: V4_BACKGROUND_PALETTES['wear-field'],
     brightFloor: 106,
     minimumBrightCluster: 6,
     minimumBrightSpan: 24,

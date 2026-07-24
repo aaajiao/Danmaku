@@ -1,10 +1,12 @@
 /**
- * `signal-decay` — Game Over, Ending and Results.
+ * `signal-decay` — the neutral Game Over signal field.
  *
  * The scene still moves from legible harmonics at the top into dissolution at
  * the bottom, but v4 expresses that loss as broad layer displacement and missing
  * amplitude. The old bit-crush, per-scanline glitch, RGB separation, dash noise
  * and film grain were a full-screen glitch wall and fought the result text.
+ * The v4 campaign ending now owns the separate `wear-field` scene; keeping this
+ * scene neutral prevents a failed run from inheriting its worn-passage claim.
  *
  * Six long Ghost ribbons now lose coherence into a low-frequency mycelial fog.
  * Bone white owns the clean signal; heart-pink appears only as a restrained

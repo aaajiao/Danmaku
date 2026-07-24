@@ -109,6 +109,7 @@ export class SpriteBatch {
 
   #capacity: number;
   #count = 0;
+  #opacity = 1;
 
   #position!: Float32Array;
   #rotation!: Float32Array;
@@ -250,7 +251,7 @@ export class SpriteBatch {
     this.#color[i * 4] = style.r ?? 1;
     this.#color[i * 4 + 1] = style.g ?? 1;
     this.#color[i * 4 + 2] = style.b ?? 1;
-    this.#color[i * 4 + 3] = style.a ?? 1;
+    this.#color[i * 4 + 3] = (style.a ?? 1) * this.#opacity;
   }
 
   /** Upload this frame's instances. */
@@ -279,6 +280,20 @@ export class SpriteBatch {
 
   get capacity(): number {
     return this.#capacity;
+  }
+
+  /**
+   * Apply one presentation-only opacity to every subsequently drawn instance.
+   *
+   * The multiplier is written into the existing per-instance alpha attribute,
+   * so grouping batches does not add a shader variant or another draw call.
+   */
+  setOpacity(value: number): void {
+    this.#opacity = Number.isNaN(value) ? 0 : value < 0 ? 0 : value > 1 ? 1 : value;
+  }
+
+  get opacity(): number {
+    return this.#opacity;
   }
 
   setBlending(mode: BlendMode): void {

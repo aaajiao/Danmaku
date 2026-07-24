@@ -1201,6 +1201,17 @@ terminal stage with no matching edition ending goes directly to the neutral
 `ALL CLEAR` results screen; `next: null` alone does not grant v4 prose, music or
 scene to a guest campaign.
 
+That ownership extends to the ending's picture. The stage-4 ending names the
+independent `wear-field` scene; GAME OVER continues to use the neutral
+shader-only `signal-decay` scene. `wear-field` combines one original 1086×1448
+master, deterministically compiled to a 480×640 plate, with fixed-tick signal
+motion. Its three pages subtract that plate at targets `0.30`, `0.16` and
+`0.04`; they do not select three CGs or add a throne/character illustration.
+The path briefly visible there is sampled from the player's actual stage-4
+movement and drawn presentation-only. It is not campaign content, a simulation
+input or part of replay identity. A guest terminal stage gets none of this
+v4-owned choreography merely by choosing a scene with a similar name.
+
 ---
 
 ## 7. Adding a weapon, an option loadout, a bomb, or a character
@@ -1847,6 +1858,13 @@ instance, so two `Background` objects never share a uniform object.
 `BACKGROUND_NOISE_GLSL` supplies the value-noise helpers the shipped scenes use —
 three octaves, not four, because the fourth lands at a spatial frequency close to
 a bullet's.
+
+Custom scalar uniforms may be presentation controls, but they remain scene-owned.
+The shipped `wear-field` declares `uEndingArt`, and the shell updates it on both
+sides of a cross-fade with `Background.setScalarUniform()` as the edition's
+three-page ending advances. That value only changes the painted contribution;
+`uTick` remains the sole motion clock. Do not turn a page control into a generic
+ending preset or let it feed back into `Run`.
 
 ### How a scene reaches the screen
 

@@ -22,6 +22,7 @@ describe('v4 sparse stage structure', () => {
       'decree',
       'regnum',
       'signal-decay',
+      'wear-field',
     ]) {
       expect(v4StageStructureRole(scene), String(scene)).toBe(0);
     }

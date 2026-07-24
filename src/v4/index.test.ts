@@ -41,6 +41,7 @@ const V4_SCENE_NAMES = [
   'umbra',
   'decree',
   'signal-decay',
+  'wear-field',
 ] as const;
 
 describe('v4 edition composition', () => {
@@ -78,7 +79,7 @@ describe('v4 edition composition', () => {
 
     const ending = V4_ENDINGS['stage-4'];
     expect(ending.music).toBe('adjourn');
-    expect(ending.scene).toBe('signal-decay');
+    expect(ending.scene).toBe('wear-field');
     expect(ending.pages[0]?.lines).toEqual([
       'You have reached the bottom of the descent.',
       'The seat at the centre is empty.',
