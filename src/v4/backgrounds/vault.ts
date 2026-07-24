@@ -13,15 +13,31 @@
  * through the original staggered domain-warp clocks without extra translation or
  * hidden time scaling. Motion reads fixed-tick `uScroll` only (CLAUDE.md rule 1).
  *
+ * V4 hybrid pass: an original finite-palette black-violet Ghost plate supplies
+ * monumental shoulders and graphite support strata. The plate stays locked to
+ * the logical pixel grid; the procedural domain warp remains the motion source
+ * above it, so motion never smears or crawls across the authored pixel edges.
+ *
  * Spatial/material ancestry: `fluid-amber` by pbakaus/radiant, MIT. V4 lacquer
- * layering, palette, pressure lighting and gameplay calm are original here.
+ * layering, palette, pressure lighting, pixel plate and gameplay calm are
+ * original here.
  */
 
+import VAULT_ART_URL from '../../assets/v4/backgrounds/vault-v4.png';
 import { defineBackground } from '../../render/background';
 
 defineBackground('vault', {
   scrollSpeed: 0.5,
+  art: {
+    url: VAULT_ART_URL,
+    width: 480,
+    height: 640,
+  },
   fragment: /* glsl */ `
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode;  /* 0 shader, 1 painted plate, 2 production hybrid */
+
     const float EXPOSURE = 2.90;   /* production x1: lacquer folds read without gain */
 
     /* Vein-width knob: <1 coarsens the marble. 0.48 keeps all retained levels
@@ -74,7 +90,7 @@ defineBackground('vault', {
       return val;
     }
 
-    vec3 background(vec2 uv) {
+    vec3 vaultShader(vec2 uv, out vec2 q, out vec2 r) {
       /* y-down uv -> the reference's y-up centred coords, normalised by the short
          axis exactly as the reference divides by min(u_res). */
       float m = min(uRes.x, uRes.y);
@@ -85,11 +101,11 @@ defineBackground('vault', {
       float t = uScroll * 0.0055;
 
       /* Original two-stage warp, retained as the pressure source. */
-      vec2 q = vec2(fbm(p + vec2(0.0, 0.0), t),
-                    fbm(p + vec2(5.2, 1.3), t));
+      q = vec2(fbm(p + vec2(0.0, 0.0), t),
+               fbm(p + vec2(5.2, 1.3), t));
 
-      vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2), t * 1.2),
-                    fbm(p + 4.0 * q + vec2(8.3, 2.8), t * 1.2));
+      r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2), t * 1.2),
+               fbm(p + 4.0 * q + vec2(8.3, 2.8), t * 1.2));
 
       float f = fbm(p + 3.5 * r, t * 0.8);
 
@@ -151,6 +167,41 @@ defineBackground('vault', {
       float entryCalm = 0.62 + 0.38 * smoothstep(0.0, 0.24, uv.y);
       float activityCalm = 1.0 - 0.28 * smoothstep(0.58, 0.94, uv.y);
       return col * EXPOSURE * entryCalm * activityCalm;
+    }
+
+    vec2 vaultPixelUv(vec2 uv) {
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
+      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+    }
+
+    vec3 vaultArt(vec2 pixelUv) {
+      vec3 painted = texture2D(uArt, pixelUv).rgb;
+      /* Keep the Ghost membranes readable at x1 while capping bone-silver
+         supports well below the white-core bullet tier. */
+      painted = pow(max(painted, vec3(0.0)), vec3(1.08)) * 0.46;
+      return min(painted, vec3(0.34));
+    }
+
+    vec3 background(vec2 uv) {
+      if (uArtMode < 0.5) {
+        vec2 smoothQ;
+        vec2 smoothR;
+        return vaultShader(uv, smoothQ, smoothR);
+      }
+
+      /* Production modes snap the complete scene to the logical pixel grid;
+         shader-only remains the exact smooth reference for comparison. */
+      vec2 pixelUv = vaultPixelUv(uv);
+      vec3 painted = vaultArt(pixelUv);
+      if (uArtMode < 1.5) return painted;
+      vec2 q;
+      vec2 r;
+      vec3 shaderColor = vaultShader(pixelUv, q, r);
+
+      vec3 hybrid = mix(painted, shaderColor, 0.46);
+      float pressureLight = dot(shaderColor, vec3(0.2126, 0.7152, 0.0722));
+      hybrid += painted * pressureLight * 0.35;
+      return hybrid;
     }
   `,
 });

@@ -486,9 +486,12 @@ JS. Instancing addresses both.
 ### Backgrounds are scenes, and a stage names one
 
 `src/render/background.ts` is an engine and names no scene: a full-screen quad at
-`Layer.Background`, a fixed uniform set, and a cross-fade. Every scene is a
-fragment shader in its own file under `src/v4/backgrounds/`. The historical
-`src/render/backgrounds/index.ts` path is a compatibility import only.
+`Layer.Background`, a fixed uniform set, an optional preloaded painted-plate
+owner, and a cross-fade. Every scene is driven by a fragment shader in its own
+file under `src/v4/backgrounds/`. A scene may additionally sample one
+project-owned opaque plate through `BackgroundSpec.art`; the shader still owns
+the composition and all motion. The historical `src/render/backgrounds/index.ts`
+path is a compatibility import only.
 
 A stage declares where it is set with `StageSpec.background`, and a spell card
 may override it with `SpellCard.background`. Both are **strings**, because
@@ -509,7 +512,9 @@ Two constraints bind every scene, and both are in `background.ts`'s header:
   A background on a wall clock desynchronises from a replay visually while every
   test stays green, because the simulation is untouched and nothing can notice.
   `src/v4/backgrounds/index.test.ts` scans for wall-clock sources and pins each
-  migrated shader's assembled source hash and scroll rate.
+  migrated shader's assembled source hash and scroll rate. Optional painted
+  plates are decoded before the fixed-tick loop starts; their load completion
+  may never switch a live scene on an arbitrary wall-clock frame.
 - **亮到能看,暗到能玩 — bright enough to see, dark enough to play.** The fixed
   "peak near 0.1" ceiling is RETIRED: the diversity rounds proved the structure
   was present all along and only the ceiling made it invisible, so scenes ship at

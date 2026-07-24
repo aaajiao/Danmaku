@@ -490,119 +490,88 @@ the linked art-direction document. Upstream's `enemy.png` was 512×512 and used 
 Do not reserve space speculatively; add rows as enemy types are actually
 authored.
 
-### 3.4 Backgrounds — there is no image, and there is not going to be one
+### 3.4 Backgrounds — shader-driven, optionally hybrid
 
-**Backgrounds are fragment shaders.** There is no `bg-*.png`, no tiling texture
-and no plan for either. A background is a full-screen quad at `Layer.Background`
-running a shader registered with `defineBackground`
-(`src/render/background.ts:149`), one scene per file under
-`src/v4/backgrounds/`, reaching the game only because
-`src/v4/backgrounds/index.ts` imports it and the v4 composition root loads that
-index. The old `src/render/backgrounds/index.ts` path is a compatibility entry
-point only. Fourteen authored scenes exist. Six are stage/menu places, each its own shader:
-`drift`, `expanse`, `stratum`, `surge`, `undertow`, `vault`. Seven more are the
-**boss family** — `signet`, `cordon`, `intaglio`, `sable`, `regnum`, `umbra`,
-`decree` — each a per-scene near-identical port of a pbakaus/radiant reference
-(MIT). `signal-decay` is the terminal game-over/ending scene. The former
-`GOLD_GLSL` and `VEIL_GLSL` sibling sharing has been retired: every authored
-scene is now standalone, and a structural test forbids scene-to-scene imports.
-See [`docs/extending.md` §12](./extending.md#12-adding-a-background-scene),
-“One reference, one scene.”
-
-The reason is in the header of `src/render/background.ts`: upstream's background
-was a textured plane scrolled by a counter, which gives you exactly one
-background, and the only way to get a second is to edit the drawer. What this
-project wants from a background — noise fields, a receding plane, a shaft seen
-from inside — has nothing in common between scenes except that it fills the
-screen and advances with the clock. So the clock, the quad and the cross-fade
-are all the engine owns.
-
-A scene defines one entry point,
+Every background remains a scene-specific fragment shader. The engine owns the
+full-screen quad, fixed uniforms, painted-plate preload and cross-fade; it names
+no scene. Fourteen scene modules live under `src/v4/backgrounds/`, and each still
+defines:
 
 ```glsl
 vec3 background(vec2 uv)
 ```
 
-where `uv` is 0..1 across the field with **y increasing downward**, matching the
-space content is authored in. It is compiled against five standard uniforms —
-`uTick`, `uScroll`, `uRes`, `uIntensity` and `uAlpha`
-(`src/render/background.ts:227-231`) — and may declare its own, though `uAlpha` is
-the cross-fade's and a scene has no business reading it. `uTick` advances in `step()` and nowhere else; there is
-no `performance.now` in that file and there must never be one, because a
-background on a wall clock makes a replay look different on a 144Hz display
-(CLAUDE.md, rule 1).
+`uv` is 0..1 with **y increasing downward**. The wrapper supplies `uTick`,
+`uScroll`, `uRes`, `uIntensity` and `uAlpha`; `uTick` advances only in
+`Background.step()`. No wall clock may enter a scene.
 
-#### What an artist actually contributes here
+Shell, Boss-station and utility scenes remain shader-only. Each of the four
+campaign stages also declares one project-owned opaque plate:
 
-Not a file. Three things, all of which reach the screen:
+```ts
+import PLATE_URL from '../../assets/v4/backgrounds/example-v4.png';
 
-**A palette, as `vec3` constants.** Every scene is a handful of `const vec3`
-values and a mix between them, and swapping those constants changes the whole
-scene without touching a line of maths. They reach the framebuffer unmanaged,
-exactly as sprite tints do (section 1.1) — the number is the colour. The shipped
-ones, so a proposal has something to sit next to:
+defineBackground('example', {
+  scrollSpeed: 0.5,
+  art: { url: PLATE_URL, width: 480, height: 640 },
+  fragment: /* glsl */ `
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode; // 0 shader, 1 art, 2 hybrid
+    // Snap production sampling to texel centres, then compose the scene.
+  `,
+});
+```
 
-| Scene | Constants | Values (`src/v4/backgrounds/`) |
+The PNG URL is bundler-resolved. `loadBackgroundArtAssets()` deduplicates,
+decodes and dimension-checks every declared plate before the fixed-tick loop
+starts, then supplies shared read-only textures to compiled scenes. A transition
+never begins an image request, so image completion time cannot change the tick
+on which a replay gains or loses a visual layer.
+
+The production stage hybrids are:
+
+| Scene | Painted contribution | Shader contribution |
 |---|---|---|
-| `drift` | deep → lift | `(0.015, 0.022, 0.050)` → `(0.045, 0.075, 0.130)` (`drift.ts:36-37`) |
-| `expanse` | haze / sky top / sky lift / ground deep / ground lift | `(0.014, 0.020, 0.044)`, `(0.004, 0.006, 0.014)`, `(0.016, 0.034, 0.055)`, `(0.016, 0.024, 0.050)`, `(0.038, 0.104, 0.152)` (`expanse.ts:82-86`) — `SKY_LIFT`/`GROUND_LIFT` pull the scene toward cyan-ice (R/G ≈0.37), the one deliberate stage-body edit of the seal-family round, closing the hue collision with `drift` |
-| `stratum` | haze / deep / lift | `(0.006, 0.014, 0.012)`, `(0.010, 0.022, 0.019)`, `(0.035, 0.082, 0.070)` (`stratum.ts:103-105`) |
-| `surge` | base / glow | `(0.030, 0.010, 0.028)` → `(0.130, 0.028, 0.075)` (`surge.ts:40-41`) — the base campaign no longer names this scene (its boss cards name the boss-family scenes instead); kept registered as an extension surface and for temporary pack fixtures |
-| `undertow` | haze / wall deep / wall lift | `(0.018, 0.010, 0.030)`, `(0.026, 0.014, 0.044)`, `(0.100, 0.048, 0.150)` (`undertow.ts:86-88`) |
-| `vault` | haze / deep / lift | `(0.010, 0.007, 0.002)`, `(0.022, 0.016, 0.005)`, `(0.085, 0.060, 0.018)` (`vault.ts:130-132`) — analytic peak ≈0.079, still pending the live `test:visual`/`dev` measurement the other rows already carry |
+| `expanse` | 480×640 finite-palette Ghost membranes, connected edge supports and deep central negative space | grid-snapped fixed-tick anamorphic flares, bokeh and haze |
+| `undertow` | 480×640 indigo descending membranes and a calm central shaft | grid-snapped fixed-tick domain warp and cold refraction |
+| `stratum` | 480×640 soot/slate sediment membranes with a quiet lower basin | grid-snapped fixed-tick moving centres and travelling-wave pressure |
+| `vault` | 480×640 black-violet Ghost membranes and broad graphite support strata | grid-snapped fixed-tick domain warp and pressure lighting |
 
-Read the magnitudes before proposing anything. The brightest constant in the
-game is `0.155`, and it is a *lift* term multiplied by a fraction before it is
-added, so it never lands at 0.155 on screen. This is not a stylistic preference
-about moodiness; see the constraint below.
+Their four accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
+derivatives live in `src/assets/v4/backgrounds/`. These are shader-coupled
+edition assets, not pack skins and not a route for guest code.
 
-There is also a hard ceiling above these numbers. Bloom is on in the shipped game
-— `PostProcessing` defaults to disabled (`src/render/post.ts:210`) and `src/main.ts:209`
-passes `{ enabled: true }` — with a threshold of `0.95`
-(`src/render/post.ts:171-173`), chosen to catch bullet cores
-and nothing else. A background that approached it would bloom, and the bloom
-pass would then be lifting the darkest, busiest part of the frame — see the
-manual check at `src/render/post.ts:77`: if the whole screen has lifted off
-black, the threshold is too low, and a bright background is one way to make it
-so without touching the threshold at all.
+#### What an artist contributes
 
-**Reference imagery and a spatial description.** "A shaft seen from inside,
-falling forward, six flutes" is a brief a shader can be written from. A rendered
-painting is not, and cannot be loaded.
-
-**A judgement on whether a scene is finished.** That one needs eyes on the real
-thing, running, with bullets on top of it.
+For every scene: palette, spatial brief, material references and a judgement made
+against the running game. For a hybrid scene the artist may additionally supply
+one full-frame master. It must be original, opaque 8-bit RGB, exact 3:4, broad
+in frequency and quiet through the play corridor. The accepted 1086×1448 source
+is compiled by `bun run make:v4-backgrounds`: an integer area reduction,
+scene-owned finite Ghost palette, compact-highlight cleanup and exact 2× nearest
+expansion produce the 480×640 runtime plate. No stars, pinpoints, thin bright
+edges or isolated marks may counterfeit a projectile. The shader owns all
+motion and decides how the grid-locked plate is graded and combined; dropping a
+PNG onto a generic scrolling plane is not a scene.
 
 #### The two constraints a scene has to satisfy
 
-Both are gameplay constraints wearing art clothing, and both are already written
-down in the code.
+**Bright enough to see, dark enough to play — 亮到能看,暗到能玩.** Production
+`×1` must show material and motion without approaching the 1.0-white + bloom
+bullet tier. Exposure is measured per scene under real curtains; shader
+constants and painted-plate grading are tuned together.
 
-**Bright enough to see, dark enough to play — 亮到能看,暗到能玩.** The play field
-has to stay readable on top of the background at all times, but the old fixed
-"peak near 0.1" ceiling is RETIRED (see the shader-ports round). `background.ts`'s
-header now states the replacement: scenes ship at their ported reference's native
-richness with a per-scene `EXPOSURE` constant, structured peaks landing in roughly
-the 0.25-0.35 raw band, MEASURED in the acceptance pass rather than prescribed by a
-number chosen in advance. If you find yourself losing a bullet against a
-background, lower that scene's `EXPOSURE` — the sprite is not the thing to change.
+**No detail at a bullet's spatial frequency.** Procedural octaves and painted
+detail must both stay coarser than the projectile band. Runtime plates use
+nearest filtering with no mipmaps; their finite palette, 2× pixel clusters and
+minimum 48px bright-component span are build-time facts, not effects delegated
+to sampling. Hybrid shaders snap their complete production pass to the logical
+480×640 texel grid. A perspective projection must also decay structured terms
+before they alias near its horizon.
 
-**No detail at a bullet's spatial frequency.** The shared value-noise helper
-runs **three octaves, not four**, and the comment says exactly why: the fourth
-lands at a spatial frequency close to a bullet's, and a background that looks
-like sparse bullets is a gameplay bug (`src/render/background.ts:185-186`).
-
-The two perspective scenes carry a sharper version of the same problem, which is
-the closest thing here to the old tiling advice. A projection that runs to
-infinity samples noise faster than the pixel grid can carry it — adjacent pixels
-near the horizon land arbitrarily far apart in world space — and what that
-aliases into looks exactly like sparse bullets. Both `expanse` and `undertow`
-therefore decay their **structured** terms faster than their brightness, so
-what survives near the vanishing point is a smooth gradient with nothing left to
-alias. Any new scene with a perspective divide in it needs the same treatment.
-
-Broad forms, low contrast, no thin lines — the conclusion the old tiling
-specification reached was right. The mechanism was just not a texture.
+Broad forms, restrained contrast and no isolated highlights remain the rule.
+Hybrid changes the available material, not the gameplay readability contract.
 
 ### 3.5 Effects — no sheet of their own; they wear bullet cells
 
@@ -1018,7 +987,9 @@ Before adding any sheet:
 The density one is the one people skip, and it is the one that decides whether
 the game is playable.
 
-Backgrounds are not on this list because they are not files. See section 3.4.
+Hybrid background plates use their own contract in section 3.4: exact 3:4
+dimensions, opaque RGB, project-owned originals, preloaded before the tick loop,
+and reviewed in `art`, `shader` and `hybrid` modes at production `×1`.
 
 ---
 

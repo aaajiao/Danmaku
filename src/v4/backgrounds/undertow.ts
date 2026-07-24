@@ -8,15 +8,30 @@
  * The field is deliberately bright enough to read at production ×1; detail
  * softens through the lower player band while the large current remains visible.
  *
+ * V4 hybrid pass: an original indigo Ghost plate supplies the descending
+ * membrane walls and central negative space. The plate stays still; the original
+ * refractive field remains the only motion source, and the complete production
+ * blend is sampled on the 480×640 logical pixel grid.
+ *
  * Clock: fixed-tick `uScroll` only (CLAUDE.md rule 1). The noise construction is
  * derived from pbakaus/radiant `tropical-heat` (MIT).
  */
 
+import UNDERTOW_ART_URL from '../../assets/v4/backgrounds/undertow-v4.png';
 import { defineBackground } from '../../render/background';
 
 defineBackground('undertow', {
   scrollSpeed: 0.9,
+  art: {
+    url: UNDERTOW_ART_URL,
+    width: 480,
+    height: 640,
+  },
   fragment: /* glsl */ `
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode;  /* 0 shader, 1 painted plate, 2 production hybrid */
+
     const float EXPOSURE = 1.15;
     const float HEAT = 0.48;
 
@@ -68,7 +83,7 @@ defineBackground('undertow', {
       float h2 = snoise(vec2(uv.x * 7.0 - t * 0.5, uv.y * 3.0 + 2.3)) * 0.25;
       return vec2((h1 + h2) * HEAT * 0.025, (n1 + n2 + n3) * HEAT * 0.018);
     }
-    vec3 background(vec2 uv) {
+    vec3 undertowShader(vec2 uv) {
       float aspect = uRes.x / uRes.y;
       float t = uScroll * 0.012;
       float morphT = t * 0.04;
@@ -112,6 +127,35 @@ defineBackground('undertow', {
       float activityCalm = 1.0 - 0.16 * smoothstep(0.56, 0.96, uv.y);
       baseColor = baseColor / (1.0 + baseColor * 0.35);
       return max(baseColor, 0.0) * EXPOSURE * activityCalm;
+    }
+
+    vec2 undertowPixelUv(vec2 uv) {
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
+      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+    }
+
+    vec3 undertowArt(vec2 pixelUv) {
+      vec3 painted = texture2D(uArt, pixelUv).rgb;
+      /* The plate owns the deep shaft walls, not the light tier. Its brightest
+         connected bone strata remain safely below bullets and actor skeletons. */
+      painted = pow(max(painted, vec3(0.0)), vec3(1.08)) * 0.54;
+      return min(painted, vec3(0.30));
+    }
+
+    vec3 background(vec2 uv) {
+      if (uArtMode < 0.5) return undertowShader(uv);
+
+      /* Art and shader snap together; the static plate is never warped or
+         scrolled, so fixed-tick refraction remains legible against its edges. */
+      vec2 pixelUv = undertowPixelUv(uv);
+      vec3 painted = undertowArt(pixelUv);
+      if (uArtMode < 1.5) return painted;
+      vec3 shaderColor = undertowShader(pixelUv);
+
+      vec3 hybrid = mix(painted, shaderColor, 0.30);
+      float currentLight = dot(shaderColor, vec3(0.2126, 0.7152, 0.0722));
+      hybrid += painted * currentLight * 0.04;
+      return hybrid;
     }
   `,
 });

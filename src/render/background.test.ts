@@ -11,6 +11,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
+  BACKGROUND_ART_MODE_VALUE,
   backgroundNames,
   composeFragmentShader,
   defineBackground,
@@ -39,6 +40,20 @@ describe('registry', () => {
 
   test('an unknown name fails loudly, at construction rather than in the shader', () => {
     expect(() => getBackgroundSpec('test-absent')).toThrow('unknown background "test-absent"');
+  });
+
+  test('a painted plate remains URL-only registry data until browser boot', () => {
+    defineBackground('test-painted', {
+      fragment: 'vec3 background(vec2 uv) { return vec3(uv, 0.0); }',
+      art: { url: '/test-painted.png', width: 480, height: 640 },
+    });
+
+    expect(getBackgroundSpec('test-painted').art).toEqual({
+      url: '/test-painted.png',
+      width: 480,
+      height: 640,
+    });
+    expect(BACKGROUND_ART_MODE_VALUE).toEqual({ shader: 0, art: 1, hybrid: 2 });
   });
 });
 

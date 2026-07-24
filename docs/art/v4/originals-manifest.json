@@ -3,6 +3,34 @@
   "kind": "accepted-generated-v4-originals",
   "files": [
     {
+      "path": "background-expanse-v4-master.png",
+      "width": 1086,
+      "height": 1448,
+      "bytes": 2042314,
+      "sha256": "8bdcb00184337d72ce090d33207797e947faf18ccab8c480f6c2afe218570f82"
+    },
+    {
+      "path": "background-undertow-v4-master.png",
+      "width": 1086,
+      "height": 1448,
+      "bytes": 2501966,
+      "sha256": "58cadaff21e3d2765bf3a739460097c2372b96047d66cf20edc9aa3794df01f8"
+    },
+    {
+      "path": "background-stratum-v4-master.png",
+      "width": 1086,
+      "height": 1448,
+      "bytes": 2424901,
+      "sha256": "1dd319951f39c9be644fe1b53fafa818f41c18eb52a2cc403fe25baa118a0cd1"
+    },
+    {
+      "path": "background-vault-v4-master.png",
+      "width": 1086,
+      "height": 1448,
+      "bytes": 2312000,
+      "sha256": "3c20a487fdab0c161c29164ecfe8a05e8bc9148f681396b27aa65f1d26bb7d86"
+    },
+    {
       "path": "boss-cast-ghoststyle-master.png",
       "width": 887,
       "height": 1774,

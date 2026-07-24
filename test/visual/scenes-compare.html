@@ -161,7 +161,7 @@
         z-index: 10;
         top: 0;
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, auto));
+        grid-template-columns: repeat(5, minmax(0, auto));
         gap: 1px;
         width: fit-content;
         max-width: 100%;
@@ -351,6 +351,23 @@
         display: block;
       }
 
+      .art-flag {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        display: none;
+        padding: 2px 5px;
+        border: 1px solid rgba(240, 216, 226, 0.32);
+        background: rgba(3, 5, 9, 0.68);
+        color: var(--heart);
+        font-size: 8px;
+        letter-spacing: 0.12em;
+      }
+
+      .scene-card.has-art .art-flag {
+        display: block;
+      }
+
       .scene-info {
         position: absolute;
         right: 0;
@@ -389,6 +406,19 @@
         font-size: 9px;
         letter-spacing: 0.08em;
         text-align: right;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .scene-route {
+        overflow: hidden;
+        padding: 3px 6px;
+        border-left: 2px solid rgba(221, 244, 255, 0.46);
+        background: rgba(221, 244, 255, 0.045);
+        color: var(--rim);
+        font-size: 9px;
+        letter-spacing: 0.055em;
         text-overflow: ellipsis;
         text-transform: uppercase;
         white-space: nowrap;
@@ -500,12 +530,16 @@
       <header class="masthead">
         <p class="kicker">V4 FIELD ARCHIVE / FIXED-TICK REVIEW SURFACE</p>
         <h1>余白御寮 · THE NEGATIVE-SPACE WARD</h1>
-        <p class="subtitle">14 AUTHORED SHADER SCENES · ONE REFERENCE, ONE SCENE</p>
+        <p class="subtitle">
+          14 AUTHORED FIELDS · 4 STAGE HYBRIDS · ONE REFERENCE, ONE SCENE
+        </p>
       </header>
 
       <p class="note">
-        默认以实际 <strong>×1</strong> 强度显示，并为四个关卡合成正式
-        <code>V4StageStructure</code>。指标始终读取未增益的 raw shader：
+        默认以实际 <strong>×1</strong> 强度显示；03–06 四个关卡使用绘制母版与
+        shader 的 <strong>hybrid</strong> 生产合成，并叠加正式
+        <code>V4StageStructure</code>。指标始终读取未增益的 production source
+        （四关为 hybrid，其余为 shader；不含舞台结构）：
         <strong>pk</strong> 是描述值，不设统一亮度红线；<strong>mn</strong> 是 Rec.709
         均值；<strong>Δ1</strong> 是严格相邻一个 tick 的最大亮度步进，仅在超过
         0.02 时警示。
@@ -534,6 +568,17 @@
           </button>
         </div>
 
+        <div class="control-group" aria-label="field source">
+          <span class="control-label">source</span>
+          <button class="source" data-v="art" type="button" aria-pressed="false">art</button>
+          <button class="source" data-v="shader" type="button" aria-pressed="false">
+            shader
+          </button>
+          <button class="source active" data-v="hybrid" type="button" aria-pressed="true">
+            hybrid
+          </button>
+        </div>
+
         <div class="control-group" aria-label="diagnostic view gain">
           <span class="control-label">view</span>
           <button class="boost active" data-v="1" type="button" aria-pressed="true">×1</button>
@@ -559,13 +604,14 @@
         <span>tick <b id="tickReadout">0</b></span>
         <span>clock <b>60 Hz fixed</b></span>
         <span>display <b id="modeReadout">v4 composite</b></span>
+        <span>source <b id="sourceReadout">hybrid · 03/04/05/06</b></span>
         <span>gain <b id="boostReadout">×1 production</b></span>
         <span id="diagnosticReadout"></span>
       </div>
 
       <div class="section-head">
         <h2>Scene atlas</h2>
-        <p>背景是最后被读到的场；危险、余白与人物永远在它之前。</p>
+        <p>绘制母版组织空间，shader 提供固定 tick 动态；危险、余白与人物永远先被读到。</p>
       </div>
 
       <section id="grid" aria-label="all registered v4 background scenes">
@@ -576,8 +622,11 @@
       <p class="automation-note">
         Automation compatibility:
         <code>__compareReady</code>, <code>__measure()</code>, <code>__dump()</code>,
-        <code>__strips(n, stride)</code>. Composite-only additions:
-        <code>__dumpComposite()</code>, <code>__stripsComposite()</code>.
+        <code>__strips(n, stride)</code>. Source additions:
+        <code>__dumpArt()</code>, <code>__dumpHybrid()</code>. Composite additions:
+        <code>__dumpComposite()</code>, <code>__stripsComposite()</code>。
+        <code>__measure()</code> 固定读取 production source ×1；旧 raw PNG API
+        固定导出 shader ×1；composite API 固定导出 production hybrid + structure。
       </p>
     </main>
 

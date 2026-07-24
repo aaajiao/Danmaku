@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun tools/serve.ts",
     "make:v4-content": "bun tools/make-v4-content.ts",
+    "make:v4-backgrounds": "bun tools/v4-background-assets.ts",
     "make:v4-pack": "bun tools/make-v4-pack.ts",
     "make:v4-ui": "bun tools/make-v4-ui.ts",
     "make:pwa-icons": "bun tools/make-pwa-icons.ts",

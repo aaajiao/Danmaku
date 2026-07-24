@@ -1,30 +1,37 @@
 /**
  * v4 scene atlas — every registered background on one fixed-tick review surface.
  *
- * The visible atlas defaults to the production view: shader intensity ×1, with
- * `V4StageStructure` composited over the four campaign stage fields. Raw mode and
- * the ×2–×4 gains are diagnostic views only. Metrics and the legacy automation
- * exports always remain raw ×1 so changing the view cannot change their meaning.
+ * The visible atlas defaults to the production view: hybrid source at intensity
+ * ×1, with `V4StageStructure` composited over the four campaign stage fields.
+ * Source and structure are independent controls; raw structure mode and the
+ * ×2–×4 gains are diagnostic views only. Metrics always measure the production
+ * source at ×1 (hybrid for the four campaign stages, shader elsewhere); legacy raw PNG exports
+ * remain shader-only ×1 so changing the view cannot change them.
  *
  * Automation surface (all on window):
  *   __compareReady            true once the first frame rendered
- *   __measure()               {scene: {peak, mean, maxStep}} raw ×1 snapshot
+ *   __measure()               {scene: {peak, mean, maxStep}} production ×1
  *   __dump(w?, h?)            {scene: dataURL} raw ×1 PNG per scene
  *   __strips(n?, stride?)     raw ×1 temporal strips
- *   __dumpComposite(w?, h?)   production shader + stage-structure PNGs
- *   __stripsComposite(...)    production temporal strips
+ *   __dumpArt(w?, h?)         painted plates (shader fallback for other scenes)
+ *   __dumpHybrid(w?, h?)      production hybrid fields without structure
+ *   __dumpComposite(w?, h?)   production hybrid + stage-structure PNGs
+ *   __stripsComposite(...)    production hybrid temporal strips
  *
- * `maxStep` is measured between the current shader state and exactly one tick
- * before it. It therefore stays a per-tick value at ×1, ×4 and ×16 alike. The
- * page loop uses elapsed wall time only to schedule whole 60Hz ticks; no delta
- * value or wall clock ever reaches a shader uniform.
+ * `maxStep` is measured between the current production source and exactly one
+ * tick before it. It therefore stays a per-tick value at ×1, ×4 and ×16 alike.
+ * The page loop uses elapsed wall time only to schedule whole 60Hz ticks; no
+ * delta value or wall clock ever reaches a shader uniform.
  */
 
 import * as THREE from 'three';
 import {
+  BACKGROUND_ART_MODE_VALUE,
   backgroundNames,
   composeFragmentShader,
   getBackgroundSpec,
+  loadBackgroundArtAssets,
+  type BackgroundArtMode,
 } from '../../src/render/background';
 import {
   V4_STAGE_STRUCTURE_FRAGMENT,
@@ -33,14 +40,17 @@ import {
 } from '../../src/v4/backgrounds/structure';
 import '../../src/v4/backgrounds';
 
+window.__compareReady = false;
+const artAssets = await loadBackgroundArtAssets();
+
 /* --------------------------------------------------------------- catalogue */
 
 const FIELD_W = 480;
 const FIELD_H = 640;
 const TICK_MS = 1000 / 60;
 const MAX_CATCHUP_TICKS = 240;
-const METRIC_W = 216;
-const METRIC_H = 288;
+const METRIC_W = 240;
+const METRIC_H = 320;
 const METRIC_INTERVAL_TICKS = 6;
 const TEMPORAL_WARNING = 0.02;
 
@@ -85,6 +95,7 @@ const DISPLAY_ORDER = [
 interface SceneMeta {
   readonly role: string;
   readonly owner: string;
+  readonly route: string;
   readonly story: string;
   readonly className?: string;
 }
@@ -93,73 +104,87 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
   drift: {
     role: 'SHELL / TITLE',
     owner: 'neutral field',
+    route: '流程入口 · 标题 / 菜单',
     story: '低月与冷银水面托住标题、难度与选角；菜单层最明亮，但高光仍保持为大尺度结构。',
   },
   'signal-decay': {
     role: 'TERMINAL',
     owner: 'game over / ending',
+    route: '流程出口 · 结算 / GAME OVER',
     story: 'Ghost 宽带由上而下失去连续性；只服务结局、结果与失败文字，不承载弹幕。',
   },
   expanse: {
     role: 'STAGE 01 · 旷野',
     owner: 'sentinel',
-    story: '原始 lens-whisper 完整回归：六束彩色远光沿独立 Lissajous 轨迹漂移，保留横向像散与宽化 bokeh，只移除弹点光核、尘粒和颗粒。',
+    route: '主线 1/4 · 第一关背景 · SENTINEL 前',
+    story: 'V4 冷青 Ghost 像素膜层先建立空旷远场与连接边缘，lens-whisper 的六束远光再沿独立 Lissajous 轨迹漂移；完整 hybrid 锁在 480×640 逻辑像素网格。',
   },
   signet: {
     role: 'BOSS STATION',
     owner: 'sentinel',
+    route: '主线 1/4 · 第一关 BOSS · SENTINEL',
     story: '液态金属印记进入第一位守望者的稳定施术场；玩家活动带主动压低细节与反光。',
   },
   undertow: {
     role: 'STAGE 02 · 竖井',
     owner: 'warden / magistrate',
-    story: '原 tropical-heat 的全幅 simplex 域扭曲与上升折射保留；冷靛、Ghost 与弥散心色取代 RGB 分离、热色碎片和爆闪。',
+    route: '主线 2/4 · 第二关背景 · 双守卫',
+    story: 'V4 靛青 Ghost 像素膜墙建立下沉竖深与中央通道；原 tropical-heat 的 simplex 域扭曲继续提供冷折射，完整 hybrid 锁在 480×640 逻辑像素网格。',
   },
   cordon: {
     role: 'MIDBOSS STATION',
     owner: 'warden',
+    route: '主线 2/4 · 第二关 MIDBOSS · WARDEN',
     story: '原 hologram-glitch 的有机 FBM 体积与横向错位保留；扫描线、RGB 分色和噪块收束成连续 Ghost 膜。',
   },
   intaglio: {
     role: 'BOSS STATION',
     owner: 'magistrate',
+    route: '主线 2/4 · 第二关 BOSS · MAGISTRATE',
     story: '原 bass-ripple 的鼓膜波推动柔性骨银蜂巢与三向棚拍反光；静态网格退后，行进形变成为主体。',
   },
   stratum: {
     role: 'STAGE 03 · 沉积',
     owner: 'chancellor',
-    story: '原三中心 gradient 与 travelling bit-depth wave 生成连续横向沉积层；shader 不画纸板、印章或点阵，结构层另加大块档案板。',
+    route: '主线 3/4 · 第三关背景 · CHANCELLOR 前',
+    story: '原三中心 gradient 与 travelling wave 是完整动态主体并加快 15%；V4 soot/slate Ghost 像素图只提供低频浮雕和微量色相，不再作为不透明层遮挡 shader。',
   },
   sable: {
     role: 'BOSS STATION',
     owner: 'chancellor',
+    route: '主线 3/4 · 第三关 BOSS · CHANCELLOR',
     story: '冷黑玻璃内的大型封存气泡保持宽软边缘；生产 ×1 可见膜层与上升，不重新加入亮点和爆泡。',
   },
   vault: {
     role: 'STAGE 04 · 穹顶',
     owner: 'regent',
-    story: '原 fluid-amber 双重 warp 被压成全幅厚黑漆层、帝紫褶皱与绯红夹层；生产 ×1 已提亮，总时钟为原版 110%，不使用溶解边或全局平移。',
+    route: '主线 4/4 · 第四关背景 · REGENT 前',
+    story: 'V4 黑紫 Ghost 像素膜层提供侧向压力与石墨支撑，fluid-amber 双重 warp 在同一逻辑像素网格推动冷光；生产 ×1 清晰，时钟仍为固定 tick 的原版 110%。',
   },
   regnum: {
     role: 'FINAL BOSS',
     owner: 'regent',
+    route: '主线 4/4 · 最终 BOSS · REGENT',
     story: '原 topographic 的十四层自然地形完整展开；无空席或中央裂缝图形，紫、绯与冷银线随高程自行闭合。',
   },
   umbra: {
     role: 'LUNATIC · 出神',
     owner: 'sentinel',
+    route: '额外路线 · LUNATIC / 出神',
     story: 'Total Eclipse 保留无星点冷紫帷幕、漂移和遮蔽；生产 ×1 提亮后仍不产生任何独立光点。',
     className: 'unmoored',
   },
   decree: {
     role: 'LUNATIC · 出神',
     owner: 'chancellor / regent',
+    route: '额外路线 · LUNATIC / 出神',
     story: 'Fiat 与 Sine Die 由四个原始环源生成暖灰、受控琥珀与骨色 moiré；宽拍频主导，细乘积仅作材质。',
     className: 'unmoored',
   },
   surge: {
     role: 'EXTENSION SURFACE',
     owner: 'not in base campaign',
+    route: '未编入主线 · 扩展场景',
     story: '原 ink-dissolve 的双重 domain warp 与反应边保留；总时钟为原版 110%，全局平移近乎静止，运动集中在 q/r 回卷、secondary curl 与膜内溶解。',
     className: 'extension',
   },
@@ -171,6 +196,10 @@ const apiNames = [...registered].sort((a, b) => {
   const ib = API_ORDER.indexOf(b as (typeof API_ORDER)[number]);
   return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
 });
+const hybridLegacyLabel = apiNames
+  .filter((name) => getBackgroundSpec(name).art !== undefined)
+  .map((name) => String(API_ORDER.indexOf(name as (typeof API_ORDER)[number]) + 1).padStart(2, '0'))
+  .join('/');
 const displayNames = [...registered].sort((a, b) => {
   const ia = DISPLAY_ORDER.indexOf(a as (typeof DISPLAY_ORDER)[number]);
   const ib = DISPLAY_ORDER.indexOf(b as (typeof DISPLAY_ORDER)[number]);
@@ -190,6 +219,7 @@ const cardsLayer = required<HTMLDivElement>('cards');
 const canvas = required<HTMLCanvasElement>('canvas');
 const tickReadout = required<HTMLElement>('tickReadout');
 const modeReadout = required<HTMLElement>('modeReadout');
+const sourceReadout = required<HTMLElement>('sourceReadout');
 const boostReadout = required<HTMLElement>('boostReadout');
 const diagnosticReadout = required<HTMLElement>('diagnosticReadout');
 
@@ -224,6 +254,9 @@ function makeCard(key: string, meta: SceneMeta): CardRefs {
   if (key !== 'fade-lab' && v4StageStructureRole(key) !== 0) {
     element.classList.add('has-structure');
   }
+  if (key !== 'fade-lab' && getBackgroundSpec(key).art) {
+    element.classList.add('has-art');
+  }
 
   const visual = document.createElement('div');
   visual.className = 'scene-visual';
@@ -244,6 +277,11 @@ function makeCard(key: string, meta: SceneMeta): CardRefs {
   structureFlag.textContent = '+ STAGE STRUCTURE';
   visual.appendChild(structureFlag);
 
+  const artFlag = document.createElement('span');
+  artFlag.className = 'art-flag';
+  artFlag.textContent = 'ART + SHADER';
+  visual.appendChild(artFlag);
+
   const info = document.createElement('div');
   info.className = 'scene-info';
 
@@ -261,6 +299,10 @@ function makeCard(key: string, meta: SceneMeta): CardRefs {
   story.className = 'scene-story';
   story.textContent = meta.story;
 
+  const route = document.createElement('div');
+  route.className = 'scene-route';
+  route.textContent = meta.route;
+
   const metricRow = document.createElement('div');
   metricRow.className = 'metrics';
   const peak = metricItem('pk');
@@ -268,7 +310,7 @@ function makeCard(key: string, meta: SceneMeta): CardRefs {
   const step = metricItem('Δ1');
   metricRow.append(peak.root, mean.root, step.root);
 
-  info.append(identity, story, metricRow);
+  info.append(identity, route, story, metricRow);
   element.append(visual, info);
   cardsLayer.appendChild(element);
 
@@ -288,6 +330,7 @@ for (const name of displayNames) {
     makeCard(name, SCENE_META[name] ?? {
       role: 'REGISTERED SCENE',
       owner: 'extension',
+      route: '未编排 · 扩展场景',
       story: '已注册但尚未写入 v4 审查元数据；shader 仍以固定 tick 和 raw ×1 接受测量。',
       className: 'extension',
     }),
@@ -298,7 +341,8 @@ cardRefs.set(
   makeCard('fade-lab', {
     role: 'TRANSITION LAB',
     owner: 'tear + structure',
-    story: '使用真实 torn-paper outgoing alpha；composite 模式同时运行四关 structure 的 60-tick 转场。',
+    route: '工具 · 场景转场预览',
+    story: '使用真实 torn-paper outgoing alpha；hybrid source 同步驱动转场两侧，composite 模式另运行四关 structure 的 60-tick 过渡。',
   }),
 );
 
@@ -330,6 +374,7 @@ interface Cell {
   readonly name: string;
   readonly material: THREE.ShaderMaterial;
   readonly scrollSpeed: number;
+  readonly uArtMode: THREE.IUniform<number> | null;
   readonly uTick: THREE.IUniform<number>;
   readonly uScroll: THREE.IUniform<number>;
   readonly uIntensity: THREE.IUniform<number>;
@@ -339,9 +384,13 @@ interface Cell {
 
 let tick = 0;
 let viewBoost = 1;
+let sourceMode: BackgroundArtMode = 'hybrid';
 
 function compile(name: string): Cell {
   const spec = getBackgroundSpec(name);
+  const uArtMode: THREE.IUniform<number> | null = spec.art
+    ? { value: BACKGROUND_ART_MODE_VALUE[sourceMode] }
+    : null;
   const uTick: THREE.IUniform<number> = { value: tick };
   const uScroll: THREE.IUniform<number> = { value: 0 };
   const uIntensity: THREE.IUniform<number> = { value: viewBoost };
@@ -349,6 +398,11 @@ function compile(name: string): Cell {
   const uniforms: Record<string, THREE.IUniform> = {};
   for (const [key, uniform] of Object.entries(spec.uniforms ?? {})) {
     uniforms[key] = { value: uniform.value };
+  }
+  if (spec.art && uArtMode) {
+    uniforms['uArt'] = { value: artAssets.texture(spec.art.url) };
+    uniforms['uArtRes'] = { value: new THREE.Vector2(spec.art.width, spec.art.height) };
+    uniforms['uArtMode'] = uArtMode;
   }
   uniforms['uTick'] = uTick;
   uniforms['uScroll'] = uScroll;
@@ -369,6 +423,7 @@ function compile(name: string): Cell {
     name,
     material,
     scrollSpeed: spec.scrollSpeed ?? 0,
+    uArtMode,
     uTick,
     uScroll,
     uIntensity,
@@ -409,7 +464,7 @@ const structureMaterial = new THREE.ShaderMaterial({
 /* ----------------------------------------------------------------- layout */
 
 const LAYOUT_GAP = 14;
-const INFO_H = 146;
+const INFO_H = 166;
 const MAX_CELL_W = 270;
 
 interface AtlasLayout {
@@ -684,20 +739,29 @@ interface CellDrawState {
   readonly alpha: number;
 }
 
-function withCellState(cell: Cell, state: CellDrawState, intensity: number, draw: () => void): void {
+function withCellState(
+  cell: Cell,
+  state: CellDrawState,
+  intensity: number,
+  artMode: BackgroundArtMode,
+  draw: () => void,
+): void {
   const savedTick = cell.uTick.value;
   const savedScroll = cell.uScroll.value;
   const savedIntensity = cell.uIntensity.value;
   const savedAlpha = cell.uAlpha.value;
+  const savedArtMode = cell.uArtMode?.value;
   cell.uTick.value = state.tick;
   cell.uScroll.value = state.scroll;
   cell.uIntensity.value = intensity;
   cell.uAlpha.value = state.alpha;
+  if (cell.uArtMode) cell.uArtMode.value = BACKGROUND_ART_MODE_VALUE[artMode];
   draw();
   cell.uTick.value = savedTick;
   cell.uScroll.value = savedScroll;
   cell.uIntensity.value = savedIntensity;
   cell.uAlpha.value = savedAlpha;
+  if (cell.uArtMode && savedArtMode !== undefined) cell.uArtMode.value = savedArtMode;
 }
 
 function renderSceneToTarget(
@@ -707,6 +771,7 @@ function renderSceneToTarget(
   cell: Cell,
   offset: number,
   composite: boolean,
+  artMode: BackgroundArtMode,
 ): void {
   renderer.setRenderTarget(target);
   renderer.setViewport(0, 0, width, height);
@@ -721,6 +786,7 @@ function renderSceneToTarget(
       alpha: 1,
     },
     1,
+    artMode,
     () => {
       drawMaterial(cell.material, 0, 0, width, height, false);
     },
@@ -731,8 +797,20 @@ function renderSceneToTarget(
   }
 }
 
+function productionArtMode(cell: Cell): BackgroundArtMode {
+  return cell.uArtMode ? 'hybrid' : 'shader';
+}
+
 function readScenePixels(cell: Cell, offset: number, out: Uint8Array): void {
-  renderSceneToTarget(metricTarget, METRIC_W, METRIC_H, cell, offset, false);
+  renderSceneToTarget(
+    metricTarget,
+    METRIC_W,
+    METRIC_H,
+    cell,
+    offset,
+    false,
+    productionArtMode(cell),
+  );
   renderer.readRenderTargetPixels(metricTarget, 0, 0, METRIC_W, METRIC_H, out);
 }
 
@@ -771,6 +849,7 @@ function readFadePixels(offset: number, out: Uint8Array): void {
       alpha: 1,
     },
     1,
+    productionArtMode(fade.base),
     () => {
       drawMaterial(fade.base.material, 0, 0, METRIC_W, METRIC_H, false);
     },
@@ -786,6 +865,7 @@ function readFadePixels(offset: number, out: Uint8Array): void {
         alpha: outgoing.alpha,
       },
       1,
+      productionArtMode(outgoing.cell),
       () => {
         drawMaterial(outgoing.cell.material, 0, 0, METRIC_W, METRIC_H, false);
       },
@@ -1010,6 +1090,20 @@ function liveCells(): Cell[] {
   ];
 }
 
+for (const button of document.querySelectorAll<HTMLButtonElement>('button.source')) {
+  button.onclick = () => {
+    const requested = button.dataset['v'];
+    if (requested !== 'art' && requested !== 'shader' && requested !== 'hybrid') return;
+    sourceMode = requested;
+    for (const cell of liveCells()) {
+      if (cell.uArtMode) cell.uArtMode.value = BACKGROUND_ART_MODE_VALUE[sourceMode];
+    }
+    setPressed('button.source', button);
+    sourceReadout.textContent =
+      sourceMode === 'shader' ? 'shader · all' : `${sourceMode} · ${hybridLegacyLabel}`;
+  };
+}
+
 for (const button of document.querySelectorAll<HTMLButtonElement>('button.boost')) {
   button.onclick = () => {
     viewBoost = Number(button.dataset['v']);
@@ -1019,7 +1113,9 @@ for (const button of document.querySelectorAll<HTMLButtonElement>('button.boost'
     boostReadout.textContent = diagnostic;
     boostReadout.parentElement?.classList.toggle('diagnostic', viewBoost !== 1);
     diagnosticReadout.textContent =
-      viewBoost === 1 ? '' : 'diagnostic gain affects preview only · metrics stay raw ×1';
+      viewBoost === 1
+        ? ''
+        : 'diagnostic gain affects preview only · metrics stay production ×1';
     diagnosticReadout.classList.toggle('diagnostic', viewBoost !== 1);
   };
 }
@@ -1044,6 +1140,8 @@ declare global {
     __compareReady: boolean;
     __measure: () => Record<string, Metrics>;
     __dump: (w?: number, h?: number) => Record<string, string>;
+    __dumpArt: (w?: number, h?: number) => Record<string, string>;
+    __dumpHybrid: (w?: number, h?: number) => Record<string, string>;
     __strips: (frames?: number, stride?: number) => Record<string, string[]>;
     __dumpComposite: (w?: number, h?: number) => Record<string, string>;
     __stripsComposite: (frames?: number, stride?: number) => Record<string, string[]>;
@@ -1077,14 +1175,20 @@ function pixelsToDataUrl(bytes: Uint8Array, width: number, height: number): stri
   return output.toDataURL('image/png');
 }
 
-function snapshot(cell: Cell, requestedW: number, requestedH: number, composite: boolean): string {
+function snapshot(
+  cell: Cell,
+  requestedW: number,
+  requestedH: number,
+  composite: boolean,
+  artMode: BackgroundArtMode,
+): string {
   const width = Math.max(1, Math.floor(requestedW));
   const height = Math.max(1, Math.floor(requestedH));
   const target = new THREE.WebGLRenderTarget(width, height, {
     depthBuffer: false,
     stencilBuffer: false,
   });
-  renderSceneToTarget(target, width, height, cell, 0, composite);
+  renderSceneToTarget(target, width, height, cell, 0, composite, artMode);
   const bytes = new Uint8Array(width * height * 4);
   renderer.readRenderTargetPixels(target, 0, 0, width, height, bytes);
   renderer.setRenderTarget(null);
@@ -1092,25 +1196,33 @@ function snapshot(cell: Cell, requestedW: number, requestedH: number, composite:
   return pixelsToDataUrl(bytes, width, height);
 }
 
-function dump(composite: boolean, width = FIELD_W, height = FIELD_H): Record<string, string> {
+function dump(
+  composite: boolean,
+  artMode: BackgroundArtMode,
+  width = FIELD_W,
+  height = FIELD_H,
+): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const cell of cells) out[cell.name] = snapshot(cell, width, height, composite);
+  for (const cell of cells) {
+    out[cell.name] = snapshot(cell, width, height, composite, artMode);
+  }
   return out;
 }
 
 function strips(
   composite: boolean,
+  artMode: BackgroundArtMode,
   frames = 3,
   stride = 60,
 ): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const cell of cells) {
-    out[cell.name] = [snapshot(cell, FIELD_W, FIELD_H, composite)];
+    out[cell.name] = [snapshot(cell, FIELD_W, FIELD_H, composite, artMode)];
   }
   for (let frame = 1; frame < frames; frame++) {
     for (let step = 0; step < stride; step++) stepOnce();
     for (const cell of cells) {
-      out[cell.name]!.push(snapshot(cell, FIELD_W, FIELD_H, composite));
+      out[cell.name]!.push(snapshot(cell, FIELD_W, FIELD_H, composite, artMode));
     }
   }
   forceMetricRefresh = true;
@@ -1118,12 +1230,18 @@ function strips(
   return out;
 }
 
-window.__dump = (width = FIELD_W, height = FIELD_H) => dump(false, width, height);
+window.__dump = (width = FIELD_W, height = FIELD_H) =>
+  dump(false, 'shader', width, height);
+window.__dumpArt = (width = FIELD_W, height = FIELD_H) =>
+  dump(false, 'art', width, height);
+window.__dumpHybrid = (width = FIELD_W, height = FIELD_H) =>
+  dump(false, 'hybrid', width, height);
 window.__dumpComposite = (width = FIELD_W, height = FIELD_H) =>
-  dump(true, width, height);
-window.__strips = (frames = 3, stride = 60) => strips(false, frames, stride);
+  dump(true, 'hybrid', width, height);
+window.__strips = (frames = 3, stride = 60) =>
+  strips(false, 'shader', frames, stride);
 window.__stripsComposite = (frames = 3, stride = 60) =>
-  strips(true, frames, stride);
+  strips(true, 'hybrid', frames, stride);
 
 applyLayout();
 refreshMetrics(true);
