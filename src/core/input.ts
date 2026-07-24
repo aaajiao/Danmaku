@@ -27,8 +27,32 @@ export const Button = {
 
 export type Buttons = number;
 
+/**
+ * An event-fed device contributes one already-quantized digital mask per tick.
+ * `consume()` owns tap latching; `Input.sample()` remains the only place where
+ * live sources are merged for the simulation.
+ */
+export interface DigitalInputSource {
+  consume(): Buttons;
+  reset(): void;
+}
+
 /** Below this magnitude a stick reads as centred. Fixed — never make it a setting. */
-const DEADZONE = 0.5;
+export const STICK_DEADZONE = 0.5;
+
+/**
+ * Quantize a normalised left stick into the same digital directions for every
+ * live input backend. Keeping this at the device boundary is load-bearing:
+ * analog precision must never reach the simulation (CLAUDE.md, rule 4).
+ */
+export function quantizeStick(x: number, y: number): Buttons {
+  let mask = 0;
+  if (x <= -STICK_DEADZONE) mask |= Button.Left;
+  if (x >= STICK_DEADZONE) mask |= Button.Right;
+  if (y <= -STICK_DEADZONE) mask |= Button.Up;
+  if (y >= STICK_DEADZONE) mask |= Button.Down;
+  return mask;
+}
 
 const KEY_MAP: Readonly<Record<string, number>> = {
   ArrowLeft: Button.Left,
@@ -61,6 +85,7 @@ const PAD_BUTTON_MAP: ReadonlyArray<readonly [number, number]> = [
 export class Input {
   /** Keyboard state, updated by events between ticks. */
   #keys: Buttons = 0;
+  readonly #sources: readonly DigitalInputSource[];
 
   /**
    * Sticky record of every key that went down since the last `sample()`.
@@ -76,6 +101,10 @@ export class Input {
   /** The mask the sim reads. Only `sample()` may write it. */
   #current: Buttons = 0;
   #previous: Buttons = 0;
+
+  constructor(sources: readonly DigitalInputSource[] = []) {
+    this.#sources = [...sources];
+  }
 
   #onKeyDown = (e: KeyboardEvent): void => {
     const bit = KEY_MAP[e.code];
@@ -108,8 +137,16 @@ export class Input {
    * Call this once at the top of each tick — never from render.
    */
   sample(): Buttons {
+    let sourced = 0;
+    for (const source of this.#sources) sourced |= source.consume();
+
     this.#previous = this.#current;
-    this.#current = this.#keys | this.#latched | this.#pollPads();
+    this.#current = (
+      this.#keys
+      | this.#latched
+      | sourced
+      | this.#pollPads()
+    );
     this.#latched = 0;
     return this.#current;
   }
@@ -129,12 +166,7 @@ export class Input {
 
       // Left stick → digital directions. Quantized, so analog precision never
       // reaches the sim and a replay can reproduce it exactly.
-      const x = pad.axes[0] ?? 0;
-      const y = pad.axes[1] ?? 0;
-      if (x <= -DEADZONE) mask |= Button.Left;
-      if (x >= DEADZONE) mask |= Button.Right;
-      if (y <= -DEADZONE) mask |= Button.Up;
-      if (y >= DEADZONE) mask |= Button.Down;
+      mask |= quantizeStick(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
     }
 
     return mask;
@@ -178,5 +210,6 @@ export class Input {
     this.#latched = 0;
     this.#current = 0;
     this.#previous = 0;
+    for (const source of this.#sources) source.reset();
   }
 }

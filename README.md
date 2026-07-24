@@ -5,7 +5,7 @@ A deterministic browser bullet-hell shooter built with three.js.
 **[Play online →](https://danmaku.t-h-e-s-p-a-c-e.com/)**
 · [Vercel mirror](https://danmaku-ebon.vercel.app/)
 
-**Input:** keyboard or standard controller / gamepad · touch controls are not implemented
+**Input:** keyboard + mouse or standard controller / gamepad · touch controls are not implemented
 
 ![v4 Ghost-layer style lock: surface, skeleton, mycelium, and heart](./docs/art/v4/style-lock-ghost-layers.png)
 
@@ -30,16 +30,26 @@ be installed as an offline-capable PWA.
 
 ## Controls
 
-| Action | Keyboard | Controller / gamepad |
-|---|---|---|
-| Move / navigate | Arrow keys | Left stick / D-pad |
-| Shoot / confirm / advance dialogue | `Z` | A / Cross |
-| Bomb / cancel | `X` | B / Circle or X / Square |
-| Focus | `Shift` | Shoulder button / trigger |
-| Start / pause / confirm | `Space` | Start / Options |
+| Action | Keyboard | Mouse | Controller / gamepad |
+|---|---|---|---|
+| Move / navigate | Arrow keys | Move to a field position / click a menu row | Left stick / D-pad |
+| Shoot / confirm / advance dialogue | `Z` | — | A / Cross |
+| Bomb / cancel | `X` | — | B / Circle or X / Square |
+| Focus | `Shift` | — | Shoulder button / trigger |
+| Start / pause / confirm | `Space` | — | Start / Options |
 
 Focus slows movement, switches to the character's focused weapon, reveals the
 lethal hit point, and widens item pickup.
+
+Mouse steering and keyboard actions can be used together. Cursor coordinates
+are converted to fixed-tick digital directions before they reach the game, so
+recordings remain ordinary button-mask replays.
+
+On macOS, an installed Chrome PWA offers **CONNECT CONTROLLER** on the title
+screen when WebHID is available. It is a direct Bluetooth fallback for the Xbox
+One S Wireless Controller (`045e:02fd`): select the controller once in Chrome's
+chooser, then press a controller button to confirm input. The ordinary Gamepad
+API remains the default everywhere else.
 
 ## Local development
 

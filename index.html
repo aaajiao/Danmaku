@@ -23,6 +23,17 @@
     <div id="stage">
       <canvas id="field" width="480" height="640"></canvas>
       <canvas id="overlay" width="480" height="640"></canvas>
+      <!-- Canvas menus keep their authored rendering; these transparent DOM
+           buttons add direct pointer hit targets without changing game state
+           outside the fixed-tick digital input path. -->
+      <div id="menu-actions" aria-label="Game menu" hidden></div>
+      <!-- WebHID permission must be requested from a real DOM click. This
+           transparent shell action is positioned over a title-menu row drawn
+           by the canvas; it never enters the deterministic game-state menu. -->
+      <div id="controller-setup" hidden>
+        <button id="controller-connect" type="button">CONNECT CONTROLLER</button>
+        <output id="controller-status" aria-live="polite"></output>
+      </div>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

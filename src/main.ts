@@ -21,6 +21,15 @@ import { Audio, overrideSound } from './audio';
 import { Music } from './audio/music';
 import { MENU_MUSIC, V4_BOSS_MUSIC_NAMES, v4EventSound } from './v4/audio';
 import { Input } from './core/input';
+import {
+  MenuPointerInput,
+  PointerPositionInput,
+} from './core/pointer-input';
+import {
+  XboxWebHidInput,
+  browserWebHid,
+  type XboxWebHidStatus,
+} from './core/xbox-webhid';
 import { Loop } from './core/loop';
 import { TitleState, type GameContext } from './game/states';
 import { StateMachine } from './game/state';
@@ -98,11 +107,21 @@ import {
 const FIELD_W = FIELD.width;
 const FIELD_H = FIELD.height;
 
+const stageElement = document.getElementById('stage') as HTMLDivElement;
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
+const menuActions = document.getElementById('menu-actions') as HTMLDivElement;
+const controllerSetup = document.getElementById('controller-setup') as HTMLDivElement;
+const controllerConnect = document.getElementById('controller-connect') as HTMLButtonElement;
+const controllerStatusOutput = document.getElementById('controller-status') as HTMLOutputElement;
 /** Production keeps diagnostics and the Bloom control out of the authored UI. */
-const DEBUG_UI = new URLSearchParams(location.search).get('debug') === '1';
+const SEARCH = new URLSearchParams(location.search);
+const DEBUG_UI = SEARCH.get('debug') === '1';
+const OFFER_DIRECT_CONTROLLER = (
+  matchMedia('(display-mode: standalone)').matches
+  || SEARCH.get('webhid') === '1'
+);
 
 const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
 
@@ -113,10 +132,9 @@ const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
  * scaling is CSS transform only, input is already digital bits (rule 4).
  */
 function fitStage(): void {
-  const el = document.getElementById('stage')!;
   const raw = Math.min(innerWidth / FIELD_W, innerHeight / FIELD_H);
   const scale = raw >= 1 ? Math.max(1, Math.floor(raw)) : raw;
-  el.style.transform = `scale(${scale})`;
+  stageElement.style.transform = `scale(${scale})`;
 }
 addEventListener('resize', fitStage);
 fitStage();
@@ -484,10 +502,197 @@ const audio = new Audio();
 // theme on pause without touching a single SFX voice. It unlocks off the same
 // user gesture as `audio`, below.
 const music = new Music({ masterVolume: MUSIC_LEVEL });
-const input = new Input();
+const machine = new StateMachine();
+const webHid = browserWebHid();
+let directControllerStatus: XboxWebHidStatus = { phase: 'idle' };
+
+function hasConnectedStandardController(): boolean {
+  const pads = navigator.getGamepads?.() ?? [];
+  return Array.from(pads).some((pad) => pad?.connected);
+}
+
+/**
+ * The chooser is shell UI rather than a game state: WebHID requires a real
+ * click, while game menus intentionally consume only the tick-sampled mask.
+ */
+function syncControllerPanel(): void {
+  if (!OFFER_DIRECT_CONTROLLER || hasConnectedStandardController()) {
+    controllerSetup.hidden = true;
+    return;
+  }
+
+  if (webHid === undefined) {
+    controllerConnect.hidden = true;
+    controllerStatusOutput.textContent =
+      'DIRECT CONTROLLER ACCESS IS NOT AVAILABLE';
+    controllerSetup.hidden = machine.current?.name !== 'title';
+    return;
+  }
+
+  const { phase } = directControllerStatus;
+  const onTitle = machine.current?.name === 'title';
+  const visiblePhase = phase !== 'waiting' && phase !== 'ready';
+  // Never cover a live bullet field. A disconnect or error waits unobtrusively
+  // until the player returns to the title screen.
+  controllerSetup.hidden = !(onTitle && visiblePhase);
+}
+
+function showControllerStatus(status: XboxWebHidStatus): void {
+  directControllerStatus = status;
+  controllerSetup.dataset.phase = status.phase;
+  controllerConnect.hidden = false;
+
+  switch (status.phase) {
+    case 'idle':
+      controllerConnect.disabled = false;
+      controllerConnect.textContent = 'CONNECT CONTROLLER';
+      controllerStatusOutput.textContent = 'DIRECT INPUT FALLBACK';
+      break;
+    case 'selecting':
+      controllerConnect.disabled = true;
+      controllerConnect.textContent = 'SELECTING…';
+      controllerStatusOutput.textContent = 'SELECT A CONTROLLER IN CHROME';
+      break;
+    case 'opening':
+      controllerConnect.disabled = true;
+      controllerConnect.textContent = 'OPENING…';
+      controllerStatusOutput.textContent = 'OPENING CONTROLLER';
+      break;
+    case 'waiting':
+      controllerConnect.hidden = true;
+      controllerStatusOutput.textContent = 'PRESS A CONTROLLER BUTTON';
+      break;
+    case 'ready':
+      controllerConnect.hidden = true;
+      controllerStatusOutput.textContent = 'CONTROLLER READY';
+      break;
+    case 'disconnected':
+      controllerConnect.disabled = false;
+      controllerConnect.textContent = 'RECONNECT';
+      controllerStatusOutput.textContent = 'CONTROLLER DISCONNECTED';
+      break;
+    case 'error':
+      controllerConnect.disabled = false;
+      controllerConnect.textContent = 'RETRY';
+      controllerStatusOutput.textContent = (
+        typeof status.error === 'object'
+        && status.error !== null
+        && 'name' in status.error
+        && (status.error as { readonly name?: unknown }).name === 'NotAllowedError'
+      )
+        ? 'ALLOW CHROME IN INPUT MONITORING'
+        : 'CAN’T OPEN CONTROLLER · CLOSE OTHER MAPPERS';
+      console.warn('controller: WebHID fallback failed', status.error);
+      break;
+  }
+  syncControllerPanel();
+}
+
+const directController = webHid === undefined || !OFFER_DIRECT_CONTROLLER
+  ? undefined
+  : new XboxWebHidInput(webHid, showControllerStatus);
+const pointerPositionInput = new PointerPositionInput(FIELD_W, FIELD_H);
+const menuPointerInput = new MenuPointerInput();
+pointerPositionInput.attach(stageElement);
+window.addEventListener('blur', () => pointerPositionInput.clearTarget());
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pointerPositionInput.clearTarget();
+});
+const input = new Input([
+  pointerPositionInput,
+  menuPointerInput,
+  ...(directController === undefined ? [] : [directController]),
+]);
 input.attach();
 
-const machine = new StateMachine();
+controllerConnect.addEventListener('click', () => {
+  if (directController === undefined) return;
+
+  // `requestDevice()` reaches Chrome's chooser synchronously before its first
+  // await, preserving this click's required user activation.
+  const request = directController.requestDevice();
+  controllerConnect.blur();
+  void audio.unlock();
+  void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
+  void request;
+});
+const stopControllerKey = (event: Event): void => event.stopPropagation();
+controllerConnect.addEventListener('keydown', stopControllerKey);
+controllerConnect.addEventListener('keyup', stopControllerKey);
+
+const menuActionButtons: HTMLButtonElement[] = [];
+
+function menuActionButton(index: number): HTMLButtonElement {
+  const existing = menuActionButtons[index];
+  if (existing !== undefined) return existing;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'menu-action';
+  button.addEventListener('keydown', stopControllerKey);
+  button.addEventListener('keyup', stopControllerKey);
+  button.addEventListener('click', () => {
+    if (button.dataset.state !== machine.current?.name) return;
+
+    const selected = Number(button.dataset.selected);
+    const target = Number(button.dataset.target);
+    const count = Number(button.dataset.count);
+    menuPointerInput.queueSelection(selected, target, count);
+    button.blur();
+    // A direct row click is also the browser gesture that permits audio.
+    void audio.unlock();
+    void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
+  });
+  menuActions.append(button);
+  menuActionButtons.push(button);
+  return button;
+}
+
+function hideMenuClickTargets(): void {
+  menuActions.hidden = true;
+  for (const button of menuActionButtons) button.hidden = true;
+}
+
+/**
+ * Lay transparent DOM buttons over the rows the canvas just authored.
+ * Clicking one queues ordinary edge-separated direction/Shot masks; it never
+ * mutates a MenuState cursor directly (CLAUDE.md, rule 4).
+ */
+function layoutMenuClickTargets(
+  state: string,
+  entries: readonly string[],
+  selected: number,
+  count: number,
+  x: number,
+  firstBaseline: number,
+  width: number,
+  step: number,
+  indexOffset = 0,
+): void {
+  menuActions.hidden = entries.length === 0;
+  const height = Math.min(50, step - 6);
+  entries.forEach((entry, visibleIndex) => {
+    const button = menuActionButton(visibleIndex);
+    const target = indexOffset + visibleIndex;
+    button.hidden = false;
+    button.textContent = entry;
+    button.setAttribute('aria-label', entry);
+    if (target === selected) button.setAttribute('aria-current', 'true');
+    else button.removeAttribute('aria-current');
+    button.dataset.state = state;
+    button.dataset.selected = `${selected}`;
+    button.dataset.target = `${target}`;
+    button.dataset.count = `${count}`;
+    button.style.left = `${x}px`;
+    button.style.top = `${firstBaseline + visibleIndex * step - height / 2 - 2}px`;
+    button.style.width = `${width}px`;
+    button.style.height = `${height}px`;
+  });
+
+  for (let index = entries.length; index < menuActionButtons.length; index++) {
+    menuActionButtons[index]!.hidden = true;
+  }
+}
 
 /**
  * The bloom toggle listens here rather than joining `Input`.
@@ -551,6 +756,11 @@ const context: GameContext = {
 };
 
 machine.push(new TitleState(context));
+if (directController === undefined) {
+  syncControllerPanel();
+} else {
+  void directController.start();
+}
 
 /** Retry a refused audio unlock only on a fresh input gesture, never every held tick. */
 let lastUnlockButtons = 0;
@@ -589,6 +799,13 @@ const bossIdentityFx: BossIdentityFx<Run>[] = [];
 
 const loop = new Loop({
   tick() {
+    const stateBeforeTick = machine.current;
+    const pointerRun = stateBeforeTick?.name === 'playing'
+      ? (stateBeforeTick as { readonly run?: Run }).run
+      : undefined;
+    if (pointerRun === undefined) pointerPositionInput.clearOrigin();
+    else pointerPositionInput.setOrigin(pointerRun.player.x, pointerRun.player.y);
+
     const buttons = input.sample();
 
     const audioGesture = buttons !== 0 && lastUnlockButtons === 0;
@@ -606,6 +823,12 @@ const loop = new Loop({
     const acted = machine.stack[machine.stack.length - 1] as { cue?: string } | undefined;
 
     machine.tick(buttons);
+    if (machine.current !== stateBeforeTick) {
+      // Do not let a menu hover target or an interrupted click sequence spill
+      // into the state that was just entered. A later pointermove starts fresh.
+      pointerPositionInput.clearTarget();
+      menuPointerInput.reset();
+    }
     background.step();
     stageStructure.step();
     for (let i = grazeUiPulses.length - 1; i >= 0; i--) {
@@ -794,6 +1017,7 @@ const loop = new Loop({
 
     post.render();
     drawOverlay(hud);
+    syncControllerPanel();
   },
 });
 
@@ -1520,6 +1744,7 @@ function drawFocusIndicator(run: Run): void {
 
 function drawOverlay(run: Run | undefined): void {
   surface.clearRect(0, 0, overlay.width, overlay.height);
+  hideMenuClickTargets();
 
   if (run !== undefined) drawGrazeFeedback(run);
 
@@ -1764,14 +1989,45 @@ function drawView(view: {
     drawViewLines(view.lines ?? [], cx, 212, 320, '#8d9da8');
     const titleEntries = view.menu ?? [];
     const titleSelected = Math.max(0, Math.min(titleEntries.length - 1, view.selected ?? 0));
-    const titleRows = 7;
+    const showControllerAction = !controllerSetup.hidden;
+    const titleRows = showControllerAction ? 6 : 7;
     const titleFirst = Math.max(
       0,
       Math.min(titleSelected - Math.floor(titleRows / 2), titleEntries.length - titleRows),
     );
     const visibleTitleEntries = titleEntries.slice(titleFirst, titleFirst + titleRows);
-    const titleMenuH = Math.max(128, 72 + visibleTitleEntries.length * 44);
+    const controllerRows = showControllerAction ? 1 : 0;
+    const titleMenuH = Math.max(
+      128,
+      72 + (visibleTitleEntries.length + controllerRows) * 44,
+    );
     drawMenuRows(visibleTitleEntries, titleSelected - titleFirst, 74, 302, 332, 44, age);
+    layoutMenuClickTargets(
+      view.kind,
+      visibleTitleEntries,
+      titleSelected,
+      titleEntries.length,
+      74,
+      302,
+      332,
+      44,
+      titleFirst,
+    );
+    if (showControllerAction) {
+      const controllerBaseline = 302 + visibleTitleEntries.length * 44;
+      positionControllerMenuAction(74, controllerBaseline, 332, 44);
+      drawMenuRows(
+        [controllerConnect.textContent ?? 'CONNECT CONTROLLER'],
+        controllerConnect.matches(':hover, :focus-visible') && !controllerConnect.disabled
+          ? 0
+          : undefined,
+        74,
+        controllerBaseline,
+        332,
+        44,
+        age,
+      );
+    }
     surface.textAlign = 'center';
     uiFont(9, 500);
     surface.fillStyle = '#71808c';
@@ -1840,7 +2096,18 @@ function drawView(view: {
       );
     }
     const menu = characterLayout.menu;
-    drawMenuRows(view.menu ?? [], view.selected, menu.x, menu.y, menu.w, menu.rowH, age);
+    const characterEntries = view.menu ?? [];
+    drawMenuRows(characterEntries, view.selected, menu.x, menu.y, menu.w, menu.rowH, age);
+    layoutMenuClickTargets(
+      view.kind,
+      characterEntries,
+      view.selected ?? 0,
+      characterEntries.length,
+      menu.x,
+      menu.y,
+      menu.w,
+      menu.rowH,
+    );
     // Character copy owns the right-hand column below the menu. Keeping it out
     // of the full-width centre prevents even short built-in blurbs from crossing
     // the compact production card's right edge.
@@ -1852,7 +2119,8 @@ function drawView(view: {
 
   if (view.kind === 'difficulty-select') {
     drawScreenHeading(view.title ?? 'DIFFICULTY', 78);
-    (view.menu ?? []).forEach((entry, index) => {
+    const difficultyEntries = view.menu ?? [];
+    difficultyEntries.forEach((entry, index) => {
       const y = 132 + index * 76;
       const active = index === view.selected;
       const seal = V4_DIFFICULTY_UI[entry as keyof typeof V4_DIFFICULTY_UI];
@@ -1865,6 +2133,16 @@ function drawView(view: {
       surface.fillStyle = active ? '#e2ebf1' : '#71808c';
       surface.fillText(entry, 164, y + 4);
     });
+    layoutMenuClickTargets(
+      view.kind,
+      difficultyEntries,
+      view.selected ?? 0,
+      difficultyEntries.length,
+      73,
+      132,
+      345,
+      76,
+    );
     drawViewLines(view.lines ?? [], cx, 548, 318, '#96a6b2');
     surface.restore();
     return;
@@ -1910,7 +2188,19 @@ function drawView(view: {
     drawCoinTally(view.tally, cx, y, age);
     y += 28;
   }
-  drawMenuRows(view.menu ?? [], view.selected, 112, Math.max(y + 18, 388), 256, 44, age);
+  const statusEntries = view.menu ?? [];
+  const statusMenuY = Math.max(y + 18, 388);
+  drawMenuRows(statusEntries, view.selected, 112, statusMenuY, 256, 44, age);
+  layoutMenuClickTargets(
+    view.kind,
+    statusEntries,
+    view.selected ?? 0,
+    statusEntries.length,
+    112,
+    statusMenuY,
+    256,
+    44,
+  );
   if (view.kind === 'ending') {
     drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 470, { alpha: 0.74 });
     surface.textAlign = 'center';
@@ -1919,6 +2209,20 @@ function drawView(view: {
     surface.fillText('SHOT / START', cx, 486);
   }
   surface.restore();
+}
+
+/** Align the real WebHID click target with its canvas-authored menu row. */
+function positionControllerMenuAction(
+  x: number,
+  baseline: number,
+  width: number,
+  step: number,
+): void {
+  const height = Math.min(50, step - 6);
+  controllerConnect.style.left = `${x}px`;
+  controllerConnect.style.top = `${baseline - height / 2 - 2}px`;
+  controllerConnect.style.width = `${width}px`;
+  controllerConnect.style.height = `${height}px`;
 }
 
 function drawScreenHeading(title: string, baseline: number): void {

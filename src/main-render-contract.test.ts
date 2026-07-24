@@ -231,14 +231,20 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(titleSource).toContain('drawViewLines(view.lines ?? []');
   });
 
-  test('the title menu stays bounded in its open composition when the campaign list grows', () => {
+  test('the title menu and shell controller row stay bounded when the campaign list grows', () => {
     const titleStart = mainSource.indexOf("if (view.kind === 'title')");
     const characterStart = mainSource.indexOf("if (view.kind === 'character-select')", titleStart);
     const titleSource = mainSource.slice(titleStart, characterStart);
 
-    expect(titleSource).toContain('const titleRows = 7');
+    expect(titleSource).toContain('const titleRows = showControllerAction ? 6 : 7');
     expect(titleSource).toContain('titleEntries.slice(titleFirst, titleFirst + titleRows)');
-    expect(titleSource).toContain('const titleMenuH = Math.max(128, 72 + visibleTitleEntries.length * 44)');
+    expect(titleSource).toContain(
+      '72 + (visibleTitleEntries.length + controllerRows) * 44',
+    );
+    expect(titleSource).toContain('positionControllerMenuAction(74, controllerBaseline, 332, 44)');
+    expect(titleSource).toContain(
+      "[controllerConnect.textContent ?? 'CONNECT CONTROLLER']",
+    );
     expect(titleSource).toContain("if (titleFirst > 0) surface.fillText('\u25b2'");
     expect(titleSource).toContain('titleFirst + visibleTitleEntries.length < titleEntries.length');
     expect(titleSource).toContain("surface.fillText('\u25bc'");

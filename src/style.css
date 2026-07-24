@@ -33,3 +33,89 @@ body {
   inset: 0;
   z-index: 2;
 }
+
+/*
+ * Pointer hit targets over authored canvas rows. Their clicks are converted
+ * back into fixed-tick direction/confirm bits; the buttons themselves paint
+ * nothing and therefore cannot drift from the canvas visual language.
+ */
+#menu-actions {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.menu-action {
+  position: absolute;
+  appearance: none;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.menu-action:focus-visible {
+  outline: none;
+}
+
+.menu-action[hidden] {
+  display: none;
+}
+
+/*
+ * Installed-app controller recovery. WebHID needs a real DOM click, but its
+ * visible row is drawn by the same canvas menu renderer as START. The button is
+ * a transparent, accessible hit target laid over that authored row.
+ */
+#controller-setup {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+#controller-setup[hidden] {
+  display: none;
+}
+
+#controller-connect {
+  position: absolute;
+  appearance: none;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#controller-connect:focus-visible {
+  outline: none;
+}
+
+#controller-connect:disabled {
+  cursor: wait;
+}
+
+#controller-connect[hidden] {
+  display: none;
+}
+
+/* Live status remains available to assistive technology without introducing a
+   second visual language beside the authored title menu. */
+#controller-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

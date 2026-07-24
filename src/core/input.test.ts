@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { Button, Input } from './input';
+import {
+  Button,
+  Input,
+  type Buttons,
+  type DigitalInputSource,
+} from './input';
 
 /** Minimal stand-in for a KeyboardEvent — only the fields Input reads. */
 function keyEvent(type: 'keydown' | 'keyup', code: string, repeat = false): Event {
@@ -8,9 +13,9 @@ function keyEvent(type: 'keydown' | 'keyup', code: string, repeat = false): Even
   return e;
 }
 
-function harness() {
+function harness(sources: readonly DigitalInputSource[] = []) {
   const target = new EventTarget();
-  const input = new Input();
+  const input = new Input(sources);
   input.attach(target);
   return {
     input,
@@ -169,6 +174,65 @@ describe('gamepad', () => {
     const b = input.sample();
     expect(b & Button.Shot).toBeTruthy();
     expect(b & Button.Left).toBeTruthy();
+  });
+});
+
+describe('event-fed digital sources', () => {
+  function source(buttons: Buttons) {
+    let current = buttons;
+    let consumes = 0;
+    let resets = 0;
+    const digital: DigitalInputSource = {
+      consume() {
+        consumes++;
+        return current;
+      },
+      reset() {
+        resets++;
+        current = 0;
+      },
+    };
+    return {
+      digital,
+      set: (next: Buttons) => { current = next; },
+      consumes: () => consumes,
+      resets: () => resets,
+    };
+  }
+
+  test('keyboard, standard gamepad, and an event-fed source combine', () => {
+    stubPads(pad([0]));
+    const external = source(Button.Bomb);
+    const { input, down } = harness([external.digital]);
+    down('ArrowLeft');
+
+    const buttons = input.sample();
+    expect(buttons & Button.Left).toBeTruthy();
+    expect(buttons & Button.Shot).toBeTruthy();
+    expect(buttons & Button.Bomb).toBeTruthy();
+  });
+
+  test('each source is consumed exactly once per tick', () => {
+    const first = source(Button.Left);
+    const second = source(Button.Right);
+    const { input } = harness([first.digital, second.digital]);
+
+    input.sample();
+    input.sample();
+
+    expect(first.consumes()).toBe(2);
+    expect(second.consumes()).toBe(2);
+  });
+
+  test('reset clears every source before the next sample', () => {
+    const external = source(Button.Bomb);
+    const { input } = harness([external.digital]);
+    expect(input.sample() & Button.Bomb).toBeTruthy();
+
+    input.reset();
+
+    expect(external.resets()).toBe(1);
+    expect(input.sample() & Button.Bomb).toBeFalsy();
   });
 });
 
