@@ -164,6 +164,7 @@ export interface GameContext {
   /** Shell actions: file APIs and persistence never enter `src/game`. */
   onImportReplay?(): void;
   onDownloadReplay?(session: ReplaySession): void;
+  onDeleteReplaySession?(session: ReplaySession): void;
   onReplayError?(message: string): void;
   onScreenshot?(): void;
 }
@@ -453,6 +454,7 @@ export class ReplaySessionState extends MenuState {
       ...this.#session.segments.map(segmentLabel),
       ...this.#session.segments.map(segmentExportLabel),
       'DOWNLOAD SESSION',
+      ...(this.ctx.onDeleteReplaySession === undefined ? [] : ['DELETE SESSION']),
       'BACK',
     ];
   }
@@ -499,8 +501,16 @@ export class ReplaySessionState extends MenuState {
       return;
     }
 
-    if (index === this.#session.segments.length * 2 + 1) {
+    const downloadIndex = this.#session.segments.length * 2 + 1;
+    if (index === downloadIndex) {
       this.ctx.onDownloadReplay?.(this.#session);
+      return;
+    }
+    if (
+      this.ctx.onDeleteReplaySession !== undefined
+      && index === downloadIndex + 1
+    ) {
+      this.ctx.machine.replace(new ReplayDeleteConfirmState(this.ctx, this.#session));
       return;
     }
     this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
@@ -519,6 +529,56 @@ export class ReplaySessionState extends MenuState {
       lines: [
         `${character} · ${this.#session.segments.length} recorded stage${this.#session.segments.length === 1 ? '' : 's'}`,
         ...(this.#error === undefined ? [] : [this.#error]),
+      ],
+      menu: this.entries,
+      selected: this.selected,
+      age: this.age,
+    };
+  }
+}
+
+/**
+ * A deliberately separate destructive step.
+ *
+ * The cursor opens on CANCEL, so entering this screen and pressing confirm
+ * cannot erase a replay. The shell owns the actual persistence operation; this
+ * state only identifies the exact immutable session the player approved.
+ */
+export class ReplayDeleteConfirmState extends MenuState {
+  readonly name = 'replay-delete-confirm';
+  readonly #session: ReplaySession;
+
+  constructor(ctx: GameContext, session: ReplaySession) {
+    super(ctx);
+    this.#session = session;
+  }
+
+  protected get entries(): readonly string[] {
+    return ['CANCEL', 'DELETE FOREVER'];
+  }
+
+  protected confirm(index: number): void {
+    if (index === 0) {
+      this.ctx.machine.replace(new ReplaySessionState(this.ctx, this.#session));
+      return;
+    }
+    this.ctx.onDeleteReplaySession?.(this.#session);
+    this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.replace(new ReplaySessionState(this.ctx, this.#session));
+  }
+
+  view(): StateView {
+    const first = this.#session.segments[0];
+    const character = stringMeta(first, 'character') ?? 'unknown pilot';
+    return {
+      kind: 'replay-delete-confirm',
+      title: 'DELETE SESSION?',
+      lines: [
+        `${character} · ${this.#session.segments.length} recorded stage${this.#session.segments.length === 1 ? '' : 's'}`,
+        'this cannot be undone',
       ],
       menu: this.entries,
       selected: this.selected,

@@ -957,6 +957,21 @@ const context: GameContext = {
     showShellStatus('USE Z / SPACE OR CLICK IMPORT TO CHOOSE A FILE');
   },
   onDownloadReplay: downloadReplay,
+  onDeleteReplaySession: (session) => {
+    const deleted = replayLibrary.remove(session.id);
+    // `remove` updates memory before its first await, so the library screen
+    // reflects the approved action immediately.
+    context.replaySessions = replayLibrary.sessions;
+    void deleted.then((removed) => {
+      context.replaySessions = replayLibrary.sessions;
+      showShellStatus(removed ? 'REPLAY DELETED' : 'REPLAY WAS ALREADY DELETED');
+    }).catch((error) => {
+      // The library restores the session when IndexedDB refuses the deletion.
+      context.replaySessions = replayLibrary.sessions;
+      console.warn('replay library: failed to delete session', error);
+      showShellStatus('DELETE FAILED · SESSION KEPT', 'error');
+    });
+  },
   onReplayError: (message) => showShellStatus(message.toUpperCase(), 'error'),
   onScreenshot: requestScreenshot,
 };

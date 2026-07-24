@@ -27,6 +27,7 @@ import {
   PlayingState,
   ReplayExportState,
   type ReplayEndReason,
+  ReplayDeleteConfirmState,
   ReplayLibraryState,
   ReplayPlayingState,
   replayExportPresentationAdvances,
@@ -711,6 +712,57 @@ describe('replay library and viewer', () => {
     tap(ctx.machine, Button.Down);
     press(ctx.machine, Button.Shot);
     expect(imports).toBe(1);
+  });
+
+  test('deleting a session requires a cancel-first confirmation', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 123);
+    const session = replaySession([
+      replay,
+      { ...replay, seed: 124 },
+    ], 'delete-me');
+    const deleted: ReplaySession[] = [];
+    const ctx = context({
+      replaySessions: [session],
+      onDeleteReplaySession: (approved) => deleted.push(approved),
+    });
+    open(ctx.machine, new ReplaySessionState(ctx, session));
+
+    const detail = ctx.machine.current as ReplaySessionState;
+    const deleteIndex = detail.view().menu?.indexOf('DELETE SESSION') ?? -1;
+    expect(deleteIndex).toBe(6);
+    expect(detail.view().menu?.slice(-3)).toEqual([
+      'DOWNLOAD SESSION',
+      'DELETE SESSION',
+      'BACK',
+    ]);
+
+    // Entering the destructive screen lands on CANCEL, and Bomb also returns.
+    tap(ctx.machine, Button.Down, deleteIndex);
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayDeleteConfirmState);
+    expect(ctx.machine.current?.view?.()).toMatchObject({
+      title: 'DELETE SESSION?',
+      menu: ['CANCEL', 'DELETE FOREVER'],
+      selected: 0,
+    });
+    tap(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
+    expect(deleted).toEqual([]);
+
+    // A plain confirm is safe too: the cursor still rests on CANCEL.
+    tap(ctx.machine, Button.Down, deleteIndex);
+    tap(ctx.machine, Button.Shot);
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
+    expect(deleted).toEqual([]);
+
+    // Deletion needs a deliberate move to the second confirmation row.
+    tap(ctx.machine, Button.Down, deleteIndex);
+    tap(ctx.machine, Button.Shot);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(deleted).toEqual([session]);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayLibraryState);
   });
 
   test('live flight buttons never enter replay simulation and exact completion is checked', () => {

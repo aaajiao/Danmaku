@@ -52,8 +52,9 @@ to off. When it is on, natural clears and failures save full stages; quitting or
 retrying from the pause menu saves the exact partial run as **QUIT** or
 **RETRIED**. A replay session keeps every stage of one campaign attempt
 together; sessions can be watched stage by stage, downloaded as JSON, or
-imported from an existing session or legacy single-run replay file. Each saved
-stage also offers
+imported from an existing session or legacy single-run replay file. A saved
+session can also be permanently deleted from its detail screen after a
+confirmation step. Each saved stage offers
 **EXPORT … VIDEO**: the game replays that stage in real time and downloads a
 480×640 recording with its mixed music and sound effects. The browser chooses
 WebM or MP4 from the codecs it actually supports; keep the tab visible until

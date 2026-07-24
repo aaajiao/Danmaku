@@ -20,6 +20,7 @@ import {
 export interface ReplaySessionStore {
   load(): Promise<readonly ReplaySession[]>;
   put(session: ReplaySession): Promise<void>;
+  remove(id: string): Promise<void>;
   close?(): void;
 }
 
@@ -32,6 +33,10 @@ export class MemoryReplaySessionStore implements ReplaySessionStore {
 
   async put(session: ReplaySession): Promise<void> {
     this.#sessions.set(session.id, session);
+  }
+
+  async remove(id: string): Promise<void> {
+    this.#sessions.delete(id);
   }
 }
 
@@ -67,6 +72,13 @@ export class IndexedDbReplaySessionStore implements ReplaySessionStore {
     const db = await this.#database();
     const transaction = db.transaction(SESSION_STORE, 'readwrite');
     transaction.objectStore(SESSION_STORE).put(session);
+    await transactionDone(transaction);
+  }
+
+  async remove(id: string): Promise<void> {
+    const db = await this.#database();
+    const transaction = db.transaction(SESSION_STORE, 'readwrite');
+    transaction.objectStore(SESSION_STORE).delete(id);
     await transactionDone(transaction);
   }
 
@@ -182,6 +194,8 @@ export class ReplayLibrary {
   readonly #now: () => string;
   readonly #id: () => string;
   readonly #sessions = new Map<string, ReplaySession>();
+  readonly #sessionRevisions = new Map<string, number>();
+  #nextRevision = 0;
   #writes: Promise<void> = Promise.resolve();
 
   constructor(store: ReplaySessionStore, options: ReplayLibraryOptions = {}) {
@@ -193,7 +207,11 @@ export class ReplayLibrary {
   async load(): Promise<void> {
     const sessions = await this.#store.load();
     this.#sessions.clear();
-    for (const session of sessions) this.#sessions.set(session.id, session);
+    this.#sessionRevisions.clear();
+    for (const session of sessions) {
+      this.#sessions.set(session.id, session);
+      this.#markChanged(session.id);
+    }
   }
 
   /** New attempt/campaign identity. Empty sessions are not persisted. */
@@ -208,6 +226,7 @@ export class ReplayLibrary {
       ?? createReplaySession({ id: sessionId, now });
     const next = appendReplay(current, replay, now);
     this.#sessions.set(next.id, next);
+    this.#markChanged(next.id);
     await this.#persist(next);
     return next;
   }
@@ -226,6 +245,7 @@ export class ReplayLibrary {
       }
       : parsed;
     this.#sessions.set(session.id, session);
+    this.#markChanged(session.id);
     try {
       await this.#persist(session);
     } catch (error) {
@@ -236,6 +256,37 @@ export class ReplayLibrary {
     return session;
   }
 
+  /**
+   * Remove one complete attempt/campaign from memory and persistent storage.
+   *
+   * The in-memory view updates before the store finishes, matching `append`,
+   * so the menu can leave the confirmation screen immediately. Deletes share
+   * the write queue with appends: a pending final-stage write always lands
+   * before its later deletion. If storage refuses the delete, restore the
+   * session unless a newer mutation of the same id has superseded it.
+   */
+  async remove(id: string): Promise<boolean> {
+    const session = this.#sessions.get(id);
+    if (session === undefined) return false;
+    this.#sessions.delete(id);
+    const revision = this.#markChanged(id);
+
+    const write = this.#writes.then(() => this.#store.remove(id));
+    this.#writes = write.catch(() => {});
+    try {
+      await write;
+    } catch (error) {
+      // A newer append/remove of the same id owns the current truth. Restore
+      // this snapshot only when no mutation has superseded this deletion.
+      if (this.#sessionRevisions.get(id) === revision) {
+        this.#sessions.set(id, session);
+        this.#markChanged(id);
+      }
+      throw error;
+    }
+    return true;
+  }
+
   get(id: string): ReplaySession | undefined {
     return this.#sessions.get(id);
   }
@@ -244,6 +295,12 @@ export class ReplayLibrary {
     return [...this.#sessions.values()].sort((a, b) => (
       b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id)
     ));
+  }
+
+  #markChanged(id: string): number {
+    this.#nextRevision++;
+    this.#sessionRevisions.set(id, this.#nextRevision);
+    return this.#nextRevision;
   }
 
   #uniqueId(): string {

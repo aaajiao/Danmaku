@@ -48,6 +48,7 @@ describe('ReplayLibrary', () => {
       put: () => new Promise<void>((resolve) => {
         release = resolve;
       }),
+      remove: async () => {},
     };
     const replays = library(store);
     const pending = replays.append(replays.begin(), REPLAY);
@@ -57,6 +58,128 @@ describe('ReplayLibrary', () => {
     expect(release).toBeDefined();
     release?.();
     await pending;
+  });
+
+  test('deletes a complete session from memory and persistent storage', async () => {
+    const store = new MemoryReplaySessionStore();
+    const first = library(store);
+    const id = first.begin();
+    const survivor = first.begin();
+    await first.append(id, REPLAY);
+    await first.append(survivor, { ...REPLAY, seed: 6 });
+
+    expect(await first.remove(id)).toBe(true);
+    expect(first.sessions.map((session) => session.id)).toEqual([survivor]);
+    expect(await first.remove(id)).toBe(false);
+
+    const reloaded = library(store);
+    await reloaded.load();
+    expect(reloaded.sessions.map((session) => session.id)).toEqual([survivor]);
+  });
+
+  test('removes immediately, then restores the session if storage refuses deletion', async () => {
+    let failDelete = true;
+    const store: ReplaySessionStore = {
+      load: async () => [],
+      put: async () => {},
+      remove: async () => {
+        if (failDelete) {
+          failDelete = false;
+          throw new Error('storage refused delete');
+        }
+      },
+    };
+    const replays = library(store);
+    const id = replays.begin();
+    await replays.append(id, REPLAY);
+
+    const failed = replays.remove(id);
+    expect(replays.sessions).toEqual([]);
+    await expect(failed).rejects.toThrow('storage refused delete');
+    expect(replays.sessions.map((session) => session.id)).toEqual([id]);
+
+    expect(await replays.remove(id)).toBe(true);
+    expect(replays.sessions).toEqual([]);
+  });
+
+  test('queues removal behind a pending put so the old write cannot revive it', async () => {
+    const events: string[] = [];
+    let releasePut: (() => void) | undefined;
+    const store: ReplaySessionStore = {
+      load: async () => [],
+      put: async () => {
+        events.push('put');
+        await new Promise<void>((resolve) => {
+          releasePut = resolve;
+        });
+      },
+      remove: async () => {
+        events.push('remove');
+      },
+    };
+    const replays = library(store);
+    const id = replays.begin();
+    const pendingPut = replays.append(id, REPLAY);
+    await Promise.resolve();
+
+    const pendingRemove = replays.remove(id);
+    expect(replays.sessions).toEqual([]);
+    await Promise.resolve();
+    expect(events).toEqual(['put']);
+
+    releasePut?.();
+    await Promise.all([pendingPut, pendingRemove]);
+    expect(events).toEqual(['put', 'remove']);
+  });
+
+  test('a failed old removal cannot restore over a newer removal of the same id', async () => {
+    const events: string[] = [];
+    let rejectFirstRemove: (() => void) | undefined;
+    let removeCount = 0;
+    const store: ReplaySessionStore = {
+      load: async () => [],
+      put: async (session) => {
+        events.push(`put:${session.segments[0]?.seed ?? 'empty'}`);
+      },
+      remove: async () => {
+        removeCount++;
+        events.push(`remove:${removeCount}`);
+        if (removeCount === 1) {
+          await new Promise<void>((_resolve, reject) => {
+            rejectFirstRemove = () => reject(new Error('first remove failed'));
+          });
+        }
+      },
+    };
+    const replays = library(store);
+    const id = replays.begin();
+    await replays.append(id, REPLAY);
+
+    const firstRemove = replays.remove(id);
+    await Promise.resolve();
+    const newerAppend = replays.append(id, { ...REPLAY, seed: 10 });
+    const newerRemove = replays.remove(id);
+    expect(replays.sessions).toEqual([]);
+
+    expect(rejectFirstRemove).toBeDefined();
+    rejectFirstRemove?.();
+    await expect(firstRemove).rejects.toThrow('first remove failed');
+    await Promise.all([newerAppend, newerRemove]);
+    expect(replays.sessions).toEqual([]);
+    expect(events).toEqual(['put:5', 'remove:1', 'put:10', 'remove:2']);
+  });
+
+  test('removing an unknown id is an idempotent storage no-op', async () => {
+    let removes = 0;
+    const replays = library({
+      load: async () => [],
+      put: async () => {},
+      remove: async () => {
+        removes++;
+      },
+    });
+    expect(await replays.remove('missing')).toBe(false);
+    expect(removes).toBe(0);
   });
 
   test('imports bare replay files and wrapped sessions', async () => {
@@ -90,6 +213,7 @@ describe('ReplayLibrary', () => {
           });
         }
       },
+      remove: async () => {},
     };
     const replays = library(store);
     const id = replays.begin();
@@ -109,6 +233,7 @@ describe('ReplayLibrary', () => {
     const hanging: ReplaySessionStore = {
       load: () => new Promise(() => {}),
       put: async () => {},
+      remove: async () => {},
       close: () => {
         closed = true;
       },
@@ -132,6 +257,7 @@ describe('ReplayLibrary', () => {
         writes++;
         if (writes === 1) throw new Error('quota');
       },
+      remove: async () => {},
     };
     const replays = library(store);
     let failure: ReplaySessionPersistenceError | undefined;

@@ -435,6 +435,17 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(mainSource).toContain('e.stopImmediatePropagation()');
   });
 
+  test('replay deletion synchronizes the optimistic list and restores it on failure', () => {
+    const deleteStart = mainSource.indexOf('onDeleteReplaySession: (session) => {');
+    const errorStart = mainSource.indexOf('onReplayError:', deleteStart);
+    const deleteSource = mainSource.slice(deleteStart, errorStart);
+    expect(deleteStart).toBeGreaterThan(0);
+    expect(deleteSource).toContain('const deleted = replayLibrary.remove(session.id)');
+    expect(deleteSource.match(/context\.replaySessions = replayLibrary\.sessions/g))
+      .toHaveLength(3);
+    expect(deleteSource).toContain("showShellStatus('DELETE FAILED · SESSION KEPT', 'error')");
+  });
+
   test('graze art is created only from the existing RunEvent', () => {
     expect(mainSource).toContain("if (event.type === 'graze')");
     expect(mainSource).toContain('grazeUiPulses.push({');
