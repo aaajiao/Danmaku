@@ -772,8 +772,9 @@ describe('a real playthrough reaches', () => {
     // below: the two 出神 scenes (`umbra` on sentinel's Total Eclipse, `decree`
     // on the chancellor's Sealed and the regent's Sine Die) are declared ONLY on
     // Lunatic-gated cards, so a Normal playthrough never enters them — exactly as
-    // `zenith`/`fiat` sit on Lunatic-only cards for music. The five seals are all
-    // Normal-reachable via each boss's non-Lunatic cards.
+    // `zenith`/`fiat` sit on Lunatic-only cards for music. `surge` is
+    // Normal-reachable through the magistrate's Arraignment opener, and the five
+    // seal stations are Normal-reachable through their ordinary boss cards.
     const entered = new Set<string>([...COVER.scenes, ...LUNATIC.scenes]);
     expect([...entered].sort()).toEqual([...declared].sort());
   });

@@ -272,6 +272,13 @@ describe('every name the content writes down resolves', () => {
     expect(getStage('stage-3').background).toBe('stratum');
     expect(getStage('stage-4').background).toBe('vault');
   });
+
+  test('surge opens the shipped stage-2 boss on every difficulty', () => {
+    const arraignment = getBossSpec('magistrate').phases[0];
+    expect(arraignment?.name).toBe('Arraignment');
+    expect(arraignment?.background).toBe('surge');
+    expect(arraignment?.difficulties).toBeUndefined();
+  });
 });
 
 describe('the index is complete', () => {

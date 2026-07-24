@@ -1,11 +1,12 @@
 /**
- * `surge` — the extension surface, re-authored from the original ink-dissolve
- * port. Its double domain warp, drifting ink envelopes and reaction edge remain
- * the whole picture; V4 enlarges them into a Ghost membrane with a bone-silver
- * dissolution front and one diffuse heart stain. There are no inserted plates or
- * geometric cracks. The broad surface and edge are graded to read at ×1. Its
- * fixed clock is spent inside the two warp stages and membrane grain; whole-field
- * translation is intentionally almost imperceptible.
+ * `surge` — the stage-2 Magistrate entry field, re-authored from the original
+ * ink-dissolve port. Its double domain warp, drifting ink envelopes and reaction
+ * edge remain the whole picture; V4 enlarges them into the indictment's closing
+ * Ghost membrane, with a bone-silver dissolution front and one diffuse heart
+ * stain. There are no inserted plates or geometric cracks. The broad surface and
+ * edge are graded to read at ×1. Its fixed clock is spent inside the two warp
+ * stages and membrane grain; whole-field translation is intentionally almost
+ * imperceptible.
  *
  * Clock: fixed-tick `uScroll` only (CLAUDE.md rule 1). The field is derived from
  * pbakaus/radiant `ink-dissolve` (MIT).

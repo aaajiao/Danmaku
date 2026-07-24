@@ -82,6 +82,7 @@ const DISPLAY_ORDER = [
   'signet',
   'undertow',
   'cordon',
+  'surge',
   'intaglio',
   'stratum',
   'sable',
@@ -89,7 +90,6 @@ const DISPLAY_ORDER = [
   'regnum',
   'umbra',
   'decree',
-  'surge',
 ] as const;
 
 interface SceneMeta {
@@ -182,11 +182,10 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     className: 'unmoored',
   },
   surge: {
-    role: 'EXTENSION SURFACE',
-    owner: 'not in base campaign',
-    route: '未编入主线 · 扩展场景',
-    story: '原 ink-dissolve 的双重 domain warp 与反应边保留；总时钟为原版 110%，全局平移近乎静止，运动集中在 q/r 回卷、secondary curl 与膜内溶解。',
-    className: 'extension',
+    role: 'STAGE 02 · BOSS ENTRY',
+    owner: 'magistrate',
+    route: '主线 2/4 · MAGISTRATE 开场 · ARRAIGNMENT',
+    story: 'undertow 的开放竖井先收束成 ink-dissolve 的双重域扭曲膜，再进入 intaglio 的裁决印记；所有难度都会实际经过。',
   },
 };
 

@@ -429,7 +429,7 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 | Five stations | `regnum` | 原 `topographic` 的四 octave 地形与十四层解析等高线完整展开；不插入空席、中央裂缝、脸或对称徽记，紫、绯与冷银随高程自然闭合 |
 | Trance | `umbra` | `Total Eclipse` 保留无独立星点的冷紫帷幕、漂移与遮蔽；生产 `×1` 提亮后仍不生成孤立亮点 |
 | Trance | `decree` | 四个原始环源继续生成 moiré；暖灰、受控琥珀与骨色由宽拍频主导，细四向乘积只作为低增益材质 |
-| Utility | `surge` | 原 `ink-dissolve` 的内部双重 domain warp、漂移墨源与反应边保留；不插入硬板或几何裂缝，总速度为原版 `110%`，未分配到基础 campaign |
+| Stage 2 transition | `surge` | Magistrate 的全难度开场 `Arraignment`：原 `ink-dissolve` 的内部双重 domain warp、漂移墨源与反应边把 `undertow` 的开放竖井收束成墨膜，再进入 `intaglio` 的裁决印记；不插入硬板或几何裂缝，总速度为原版 `110%` |
 
 `test/visual/scenes-compare.html` 同步改成 v4 场景总览：默认显示 production
 `hybrid ×1` 与真实 `V4StageStructure` 合成，`art / shader / hybrid` source
