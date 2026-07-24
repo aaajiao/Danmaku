@@ -1025,11 +1025,82 @@ describe('with WebAudio', () => {
       const name = unique('url-preload-only');
       defineSound(name, { url: '/sfx/preload.wav' });
 
-      const { ctx } = await unlocked();
-      await settle();
+      const { audio, ctx } = await unlocked();
+      await audio.preload([name]);
 
       expect(ctx.decodes).toBeGreaterThanOrEqual(1);
       expect(ctx.sources).toHaveLength(0);
+    });
+
+    test('concurrent preload calls await the same in-flight URL sample', async () => {
+      const release = serveWhenReleased();
+      const name = unique('awaitable-preload');
+      defineSound(name, { url: '/sfx/awaitable.wav' });
+      const { audio, ctx } = await unlocked();
+
+      let resolved = 0;
+      const first = audio.preload([name]).then(() => {
+        resolved++;
+      });
+      const second = audio.preload([name]).then(() => {
+        resolved++;
+      });
+      await Promise.resolve();
+
+      expect(resolved).toBe(0);
+      expect(timesFetched('/sfx/awaitable.wav')).toBe(1);
+      expect(ctx.sources).toHaveLength(0);
+
+      release();
+      await Promise.all([first, second]);
+
+      expect(resolved).toBe(2);
+      expect(ctx.sources).toHaveLength(0);
+      audio.play(name);
+      expect(timesFetched('/sfx/awaitable.wav')).toBe(1);
+      expect(ctx.sources).toHaveLength(1);
+    });
+
+    test('a replacement URL is not blocked or overwritten by an older load', async () => {
+      const name = unique('replacement-during-load');
+      const oldUrl = '/sfx/old.wav';
+      const newUrl = '/sfx/new.wav';
+      defineSound(name, { url: oldUrl });
+
+      let releaseOld!: () => void;
+      let releaseNew!: () => void;
+      const oldGate = new Promise<void>((resolve) => {
+        releaseOld = resolve;
+      });
+      const newGate = new Promise<void>((resolve) => {
+        releaseNew = resolve;
+      });
+      scope.fetch = async (url: string) => {
+        requested.push(url);
+        if (url === oldUrl) await oldGate;
+        if (url === newUrl) await newGate;
+        return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+      };
+
+      const { audio, ctx } = await unlocked();
+      const oldLoad = audio.preload([name]);
+      overrideSound(name, { url: newUrl });
+      const newLoad = audio.preload([name]);
+      await Promise.resolve();
+
+      expect(timesFetched(oldUrl)).toBe(1);
+      expect(timesFetched(newUrl)).toBe(1);
+
+      releaseOld();
+      await oldLoad;
+      audio.play(name);
+      expect(ctx.sources).toHaveLength(0);
+
+      releaseNew();
+      await newLoad;
+      expect(ctx.sources).toHaveLength(1);
+      audio.play(name);
+      expect(ctx.sources).toHaveLength(2);
     });
 
     test('a failed fetch restores the synthesised fallback and never throws', async () => {

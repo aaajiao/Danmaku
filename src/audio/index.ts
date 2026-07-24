@@ -26,6 +26,7 @@
  */
 
 import { fx } from '../core/random';
+import { AudioOutput } from './output';
 
 /**
  * Compact procedural fallback for an authored cue.
@@ -230,38 +231,9 @@ function render(ctx: BaseAudioContext, synth: SoundSynth): AudioBuffer {
 /* Playback                                                            */
 /* ------------------------------------------------------------------ */
 
-type AudioContextCtor = new () => AudioContext;
-
-/**
- * WebAudio is looked up, never referenced directly. `bun test` has no
- * AudioContext, and a module that read the global at load time could not be
- * imported there at all.
- */
-function audioContextCtor(): AudioContextCtor | undefined {
-  const scope = globalThis as unknown as {
-    AudioContext?: AudioContextCtor;
-    webkitAudioContext?: AudioContextCtor;
-  };
-  return scope.AudioContext ?? scope.webkitAudioContext;
-}
-
 /** Wall clock for throttling. Deliberately not the sim clock — audio has no tick. */
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
-}
-
-/**
- * Throw away a context that failed to come up. Browsers cap the number of live
- * contexts per document, so a repeatedly retried unlock must not leak one each
- * time — and every step of the disposal is itself allowed to fail.
- */
-function discard(ctx: AudioContext | undefined): void {
-  try {
-    void ctx?.close().catch(() => undefined);
-  } catch {
-    // An implementation without `close`, or one refusing to close a context
-    // that never started. Nothing further is worth attempting.
-  }
 }
 
 interface Voice {
@@ -272,7 +244,24 @@ interface Voice {
   readonly endsAt: number;
 }
 
+interface BufferedSound {
+  readonly sound: Sound;
+  readonly buffer: AudioBuffer;
+}
+
+interface SoundLoad {
+  readonly sound: Sound;
+  readonly promise: Promise<void>;
+}
+
+export interface AudioOptions {
+  readonly masterVolume?: number;
+  /** Inject the same output into `Audio` and `Music` to share one context. */
+  readonly output?: AudioOutput;
+}
+
 export class Audio {
+  readonly #output: AudioOutput;
   #ctx: AudioContext | undefined;
   #master: GainNode | undefined;
   #masterVolume: number;
@@ -289,13 +278,15 @@ export class Audio {
   /** One deferred replay per URL sample, so a long load cannot release a burst. */
   #pendingLoads = new Set<string>();
 
-  #buffers = new Map<string, AudioBuffer>();
-  #loading = new Set<string>();
+  #buffers = new Map<string, BufferedSound>();
+  /** The newest in-flight definition for each name; concurrent waiters share it. */
+  #inflight = new Map<string, SoundLoad>();
   #voices: Voice[] = [];
   /** When each sound last actually started, for throttling. */
   #lastPlayed = new Map<string, number>();
 
-  constructor(options?: { masterVolume?: number }) {
+  constructor(options?: AudioOptions) {
+    this.#output = options?.output ?? new AudioOutput();
     this.#masterVolume = clamp01(options?.masterVolume, 1);
   }
 
@@ -323,29 +314,30 @@ export class Audio {
   }
 
   async #start(): Promise<void> {
-    const Ctor = audioContextCtor();
-    if (!Ctor) return;
+    const ctx = await this.#output.unlock();
+    if (!ctx) return;
 
-    let ctx: AudioContext | undefined;
     try {
-      ctx = new Ctor();
-      const master = ctx.createGain();
+      const master = this.#output.bus('sfx');
+      if (!master) return;
       master.gain.value = this.#masterVolume;
-      master.connect(ctx.destination);
-
-      // Contexts commonly start suspended even inside a gesture handler.
-      if (ctx.state === 'suspended') await ctx.resume();
 
       this.#ctx = ctx;
       this.#master = master;
-      this.#unlocked = true;
 
       // Synthesis costs milliseconds per sound. Paying it here keeps it off the
-      // frame that fires the first shot.
-      for (const [name, sound] of registry) this.#ensure(name, sound);
+      // frame that fires the first shot. URL loads are deliberately only
+      // started here; callers that need a complete export use `preload`.
+      for (const [name, sound] of registry) {
+        try {
+          this.#ensure(name, sound);
+        } catch {
+          // One malformed extension sound must not disable the whole engine.
+        }
+      }
+      this.#unlocked = true;
     } catch {
       // A refused or broken context leaves the game silent, never stopped.
-      discard(ctx);
       this.#ctx = undefined;
       this.#master = undefined;
       this.#unlocked = false;
@@ -383,6 +375,7 @@ export class Audio {
         if (this.#pendingLoads.size < 32) this.#pendingLoads.add(name);
         return;
       }
+      this.#pendingLoads.delete(name);
 
       const gain = ctx.createGain();
       gain.gain.value = sound.volume;
@@ -437,6 +430,31 @@ export class Audio {
     return this.#unlocked;
   }
 
+  /**
+   * Generate or decode named cues without playing them.
+   *
+   * URL loads already started by `unlock` are awaited rather than duplicated.
+   * Failures resolve after the synthesised fallback has been installed, keeping
+   * the audio module's total-degradation contract.
+   */
+  async preload(names: readonly string[] = soundNames()): Promise<void> {
+    if (!this.#ctx) return;
+
+    const waits: Promise<void>[] = [];
+    for (const name of names) {
+      const sound = registry.get(name);
+      if (!sound) continue;
+      try {
+        this.#ensure(name, sound);
+        const load = this.#inflight.get(name);
+        if (load?.sound === sound) waits.push(load.promise);
+      } catch {
+        // A hostile synth spec makes only that cue unavailable.
+      }
+    }
+    await Promise.allSettled(waits);
+  }
+
   /** Keep startup/load latency from growing an unbounded input backlog. */
   #queue(name: string): void {
     if (this.#pending.length < 32) this.#pending.push(name);
@@ -476,13 +494,14 @@ export class Audio {
   /** The buffer for a sound, generating or fetching it on first ask. */
   #ensure(name: string, sound: Sound): AudioBuffer | undefined {
     const cached = this.#buffers.get(name);
-    if (cached) return cached;
+    if (cached?.sound === sound) return cached.buffer;
+    if (cached) this.#buffers.delete(name);
 
     const ctx = this.#ctx;
     if (!ctx) return undefined;
 
     if (sound.url !== undefined) {
-      void this.#load(name, sound.url);
+      void this.#startLoad(name, sound, ctx);
       return undefined; // A requested cue is queued until the fetch lands.
     }
 
@@ -490,20 +509,31 @@ export class Audio {
     // rather than silence, so a sound nobody authored is noticed instead of
     // quietly missing.
     const buffer = render(ctx, sound.synth ?? SYNTHS[name] ?? DEFAULT_SYNTH);
-    this.#buffers.set(name, buffer);
+    this.#buffers.set(name, { sound, buffer });
     return buffer;
   }
 
-  async #load(name: string, url: string): Promise<void> {
-    if (this.#loading.has(name)) return;
-    this.#loading.add(name);
+  #startLoad(name: string, sound: Sound, ctx: AudioContext): Promise<void> {
+    const existing = this.#inflight.get(name);
+    if (existing?.sound === sound) return existing.promise;
 
+    let promise: Promise<void>;
+    promise = this.#load(name, sound, ctx).finally(() => {
+      if (this.#inflight.get(name)?.promise === promise) this.#inflight.delete(name);
+    });
+    this.#inflight.set(name, { sound, promise });
+    return promise;
+  }
+
+  async #load(name: string, sound: Sound, ctx: AudioContext): Promise<void> {
     try {
-      const response = await fetch(url);
+      const response = await fetch(sound.url as string);
       if (response.ok) {
         const encoded = await response.arrayBuffer();
-        const buffer = await this.#ctx?.decodeAudioData(encoded);
-        if (buffer) this.#buffers.set(name, buffer);
+        const buffer = await ctx.decodeAudioData(encoded);
+        if (this.#ctx === ctx && registry.get(name) === sound) {
+          this.#buffers.set(name, { sound, buffer });
+        }
       }
     } catch {
       // The fallback below handles network and decode failures alike. Nothing
@@ -513,21 +543,28 @@ export class Audio {
       // it disappears or cannot decode, restore the original named placeholder
       // (or the generic one for an extension name) and replay queued cues.
       try {
-        const ctx = this.#ctx;
-        if (!this.#buffers.has(name) && ctx) {
-          const registered = registry.get(name);
+        const cached = this.#buffers.get(name);
+        if (
+          cached?.sound !== sound
+          && this.#ctx === ctx
+          && registry.get(name) === sound
+        ) {
           this.#buffers.set(
             name,
-            render(ctx, registered?.synth ?? SYNTHS[name] ?? DEFAULT_SYNTH),
+            {
+              sound,
+              buffer: render(ctx, sound.synth ?? SYNTHS[name] ?? DEFAULT_SYNTH),
+            },
           );
         }
       } catch {
         // A broken WebAudio implementation may even reject buffer creation.
         // Total degradation still wins over surfacing the failure.
       }
-      this.#loading.delete(name);
-      const replay = this.#pendingLoads.delete(name);
-      if (replay && this.#buffers.has(name)) this.play(name);
+      if (registry.get(name) === sound && this.#ctx === ctx) {
+        const replay = this.#pendingLoads.delete(name);
+        if (replay && this.#buffers.get(name)?.sound === sound) this.play(name);
+      }
     }
   }
 }

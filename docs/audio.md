@@ -73,16 +73,22 @@ Three layers, and the seam for real art is in the middle one.
    registration and reachability are separate failures —
    `reachability.test.ts` checks the composed resolver and both channels.
 
-3. **Playback.** `Audio` (`src/audio/index.ts`) owns a WebAudio graph, built
-   lazily on the first input because browsers refuse one outside a user gesture.
-   Everything it does is total: `play` on an unknown name is a no-op, a refused
-   context leaves the game silent rather than stopped, and nothing it does may
-   throw into the game loop.
+3. **Playback.** `Audio` (`src/audio/index.ts`) and `Music`
+   (`src/audio/music.ts`) use independent master buses on a shared
+   `AudioOutput` graph (`src/audio/output.ts`), built lazily on the first input
+   because browsers refuse one outside a user gesture. The separate gains keep
+   music ducking independent from SFX. A replay-video export temporarily routes
+   both masters to one `MediaStreamAudioDestinationNode`, producing one mixed
+   audio track while leaving the ordinary speaker edges intact. Everything is
+   total: `play` on an unknown name is a no-op, a refused context leaves the game
+   silent rather than stopped, and nothing it does may throw into the game loop.
 
-   `Music.preload` follows the same total contract but never starts a voice.
+   `Audio.preload` and `Music.preload` follow the same total contract but never
+   start a voice. Concurrent calls await the same in-flight URL decode.
    After that first gesture the shell warms only v4's five Boss tracks, so their
    one-shot intros are decoded before arrival; the rest of the open music
-   registry remains lazy.
+   registry remains lazy during ordinary play. Video export awaits the complete
+   sound and music registries before it arms the replay.
 
 ### Audio touches no simulation state
 
@@ -333,11 +339,12 @@ interference — not a claim that the playback engine is positional.
   and nothing about what plays or when it loops feeds back into the simulation.
   Someone will want to "fix" it onto `uTick` to match backgrounds; that is the
   wrong fix, and the module header says so at length.
-- **It sits under the SFX.** Its own `AudioContext`, separate from the sound
-  engine's, is what lets the shell duck it on pause without touching a voice, and
-  its master ceiling is set well below the sound table so the theme never competes
-  with the readability of play — the audio face of the negative-space rule §5
-  measures.
+- **It sits under the SFX.** Its own master bus, separate from the sound
+  engine's bus on the same `AudioContext`, is what lets the shell duck it on
+  pause without touching a voice. The shared context also lets video export
+  capture both buses as one mixed track. Its master ceiling is set well below
+  the sound table so the theme never competes with the readability of play —
+  the audio face of the negative-space rule §5 measures.
 
 ### The composition engine — additive, three voices, one cell
 

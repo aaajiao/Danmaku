@@ -49,7 +49,11 @@ recordings remain ordinary button-mask replays.
 Completed runs are saved locally under **REPLAYS** on the title screen. A replay
 session keeps every stage of one campaign attempt together; sessions can be
 watched stage by stage, downloaded as JSON, or imported from an existing
-session or legacy single-run replay file.
+session or legacy single-run replay file. Each saved stage also offers
+**EXPORT … VIDEO**: the game replays that stage in real time and downloads a
+480×640 recording with its mixed music and sound effects. The browser chooses
+WebM or MP4 from the codecs it actually supports; keep the tab visible until
+the one-second audio tail has finalized.
 
 On macOS, an installed Chrome PWA offers **CONNECT CONTROLLER** on the title
 screen when WebHID is available. It is a direct Bluetooth fallback for the Xbox

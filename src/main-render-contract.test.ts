@@ -173,7 +173,14 @@ describe('v4 women carry bounded local contrast rather than a full-screen grade'
 describe('campaign architecture follows the same scene transition clock', () => {
   test('the sparse structure steps and cross-fades beside the authored background', () => {
     expect(mainSource).toContain("new V4StageStructure(stage, 'drift')");
-    expect(mainSource).toContain('background.step();\n    stageStructure.step();');
+    expect(mainSource).toContain(
+      'if (replayExportPresentationAdvances(\n'
+      + '      exportPhaseBeforeTick,\n'
+      + '      exportState?.phase,\n'
+      + '    )) {\n'
+      + '      background.step();\n'
+      + '      stageStructure.step();',
+    );
     expect(mainSource).toContain('background.transitionTo(scene, SCENE_FADE_TICKS);\n      stageStructure.transitionTo(scene, SCENE_FADE_TICKS);');
   });
 });
@@ -313,6 +320,61 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(hud).toBeGreaterThan(webgl);
     expect(compose).toBeGreaterThan(hud);
     expect(encode).toBeGreaterThan(compose);
+  });
+
+  test('video starts from tick-zero composition and stops only after a final composition', () => {
+    const renderStart = mainSource.indexOf('render() {');
+    const renderEnd = mainSource.indexOf('\n  },\n});', renderStart);
+    const renderSource = mainSource.slice(renderStart, renderEnd);
+    const webgl = renderSource.indexOf('post.render();');
+    const hud = renderSource.indexOf('drawOverlay(hud);');
+    const compose = renderSource.indexOf('frameCapture.compose(field, overlay);');
+    const start = renderSource.indexOf('startReplayExportRecording(exporting);');
+    const stop = renderSource.indexOf('stopReplayExport(exporting);');
+    expect(compose).toBeGreaterThan(hud);
+    expect(hud).toBeGreaterThan(webgl);
+    expect(start).toBeGreaterThan(compose);
+    expect(stop).toBeGreaterThan(compose);
+
+    const startFunction = mainSource.slice(
+      mainSource.indexOf('function startReplayExportRecording('),
+      mainSource.indexOf('function stopReplayExport(', mainSource.indexOf('function startReplayExportRecording(')),
+    );
+    const recorderStart = startFunction.indexOf('video.start()');
+    const capturedTickZero = startFunction.indexOf('frameCapture.compose(field, overlay);');
+    const arm = startFunction.indexOf('active.state.arm()');
+    expect(capturedTickZero).toBeGreaterThan(recorderStart);
+    expect(arm).toBeGreaterThan(capturedTickZero);
+  });
+
+  test('video export uses one mixed audio route and cancels when the tab hides', () => {
+    expect(mainSource).toContain('const audioOutput = new AudioOutput();');
+    expect(mainSource).toContain('new Audio({ output: audioOutput })');
+    expect(mainSource).toContain(
+      'new Music({ output: audioOutput, masterVolume: MUSIC_LEVEL })',
+    );
+    expect(mainSource).toContain('audioOutput.capture()');
+    expect(mainSource).toContain('requireAudio: true');
+    expect(mainSource).toContain(
+      'Promise.all([audioOutput.unlock(), audio.unlock(), music.unlock()])',
+    );
+    expect(mainSource).toContain(
+      '(!audio.unlocked || !music.unlocked || !audioOutput.unlocked)',
+    );
+    expect(mainSource).toContain(
+      "current.fail('video export: cancelled because the tab was hidden')",
+    );
+  });
+
+  test('an encoder that ends before requested shutdown fails even with recorded data', () => {
+    const startFunction = mainSource.slice(
+      mainSource.indexOf('function startReplayExportRecording('),
+      mainSource.indexOf('function stopReplayExport(', mainSource.indexOf('function startReplayExportRecording(')),
+    );
+    expect(startFunction).toContain(
+      'failReplayExport(active, unexpectedVideoCaptureEndError(outcome));',
+    );
+    expect(startFunction).not.toContain("outcome.status === 'recorded'");
   });
 
   test('replay import keeps the file chooser inside a direct DOM gesture', () => {

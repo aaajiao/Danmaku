@@ -49,9 +49,10 @@
  * The drone floor is low in pitch and quiet by construction: the bass register
  * does not mask a bullet's cue, which lives in the SFX band, and the master
  * ceiling here is set well under the sound effects so the theme never competes
- * with the readability of play. Its own `AudioContext`, separate from the sound
+ * with the readability of play. Its own master bus, separate from the sound
  * engine's, is what lets the shell duck music on pause without touching a single
- * SFX voice.
+ * SFX voice. The two buses may still share one `AudioContext`, which is required
+ * when a recorder needs one mixed audio track.
  *
  * ## Randomness — there is none
  *
@@ -69,6 +70,8 @@
  * `Math.sin`/`Math.imul` here reach the speakers and stop; they never integrate
  * into a position, so the exact-trig rule does not bind them — the same licence
  * `audio/index.ts` already takes. */
+
+import { AudioOutput } from './output';
 
 /**
  * A track's composition, read by the additive engine below. Every field is
@@ -477,29 +480,6 @@ function compose(
 /* Playback                                                            */
 /* ------------------------------------------------------------------ */
 
-type AudioContextCtor = new () => AudioContext;
-
-/**
- * WebAudio is looked up, never referenced directly — `bun test` has no
- * `AudioContext`, and a module reading the global at load time could not be
- * imported there. This is the exact shape `audio/index.ts` uses.
- */
-function audioContextCtor(): AudioContextCtor | undefined {
-  const scope = globalThis as unknown as {
-    AudioContext?: AudioContextCtor;
-    webkitAudioContext?: AudioContextCtor;
-  };
-  return scope.AudioContext ?? scope.webkitAudioContext;
-}
-
-function discard(ctx: AudioContext | undefined): void {
-  try {
-    void ctx?.close().catch(() => undefined);
-  } catch {
-    // No `close`, or a context that never started. Nothing further to try.
-  }
-}
-
 /** The one track currently sounding, or the one fading out under a crossfade. */
 interface Playing {
   readonly name: string;
@@ -507,7 +487,24 @@ interface Playing {
   readonly gain: GainNode;
 }
 
+interface BufferedMusic {
+  readonly music: Music_;
+  readonly buffer: AudioBuffer;
+}
+
+interface MusicLoad {
+  readonly music: Music_;
+  readonly promise: Promise<void>;
+}
+
+export interface MusicOptions {
+  readonly masterVolume?: number;
+  /** Inject the same output into `Audio` and `Music` to share one context. */
+  readonly output?: AudioOutput;
+}
+
 export class Music {
+  readonly #output: AudioOutput;
   #ctx: AudioContext | undefined;
   /** The music bus. Its ceiling sits under the SFX so the theme never buries a cue. */
   #master: GainNode | undefined;
@@ -515,8 +512,9 @@ export class Music {
   #unlocked = false;
   #unlocking: Promise<void> | undefined;
 
-  #buffers = new Map<string, AudioBuffer>();
-  #loading = new Set<string>();
+  #buffers = new Map<string, BufferedMusic>();
+  /** The newest in-flight definition per name; every waiter shares its promise. */
+  #inflight = new Map<string, MusicLoad>();
   /**
    * URL failures remembered by track name. The shell reconciles music every
    * tick; without this guard a guest track with no synth would refetch sixty
@@ -532,7 +530,8 @@ export class Music {
   /** The track this instance intends to be playing — set only once it starts. */
   #current: string | undefined;
 
-  constructor(options?: { masterVolume?: number }) {
+  constructor(options?: MusicOptions) {
+    this.#output = options?.output ?? new AudioOutput();
     this.#masterVolume = clamp01(options?.masterVolume, 0.55);
   }
 
@@ -556,17 +555,13 @@ export class Music {
   }
 
   async #start(): Promise<void> {
-    const Ctor = audioContextCtor();
-    if (!Ctor) return;
+    const ctx = await this.#output.unlock();
+    if (!ctx) return;
 
-    let ctx: AudioContext | undefined;
     try {
-      ctx = new Ctor();
-      const master = ctx.createGain();
+      const master = this.#output.bus('music');
+      if (!master) return;
       master.gain.value = this.#masterVolume;
-      master.connect(ctx.destination);
-
-      if (ctx.state === 'suspended') await ctx.resume();
 
       this.#ctx = ctx;
       this.#master = master;
@@ -576,7 +571,6 @@ export class Music {
       // starts the intended track on the first tick after unlock. That is the
       // same idempotent path a stage change takes; unlock needs no special case.
     } catch {
-      discard(ctx);
       this.#ctx = undefined;
       this.#master = undefined;
       this.#unlocked = false;
@@ -649,18 +643,22 @@ export class Music {
    * a cold cache. The shell warms the small authored boss set after unlock,
    * while guest tracks and the rest of the open registry remain lazy.
    */
-  preload(names: readonly string[]): void {
+  async preload(names: readonly string[] = musicNames()): Promise<void> {
     if (!this.#ctx) return;
+    const waits: Promise<void>[] = [];
     for (const name of names) {
       const spec = registry.get(name);
       if (!spec) continue;
       try {
         this.#ensure(name, spec);
+        const load = this.#inflight.get(name);
+        if (load?.music === spec) waits.push(load.promise);
       } catch {
         // Preloading is an optimisation. The normal play/fallback path remains
         // the authority, and no failed warm-up may escape into the game loop.
       }
     }
+    await Promise.allSettled(waits);
   }
 
   /**
@@ -743,34 +741,49 @@ export class Music {
   /** The buffer for a track, generating or fetching it on first ask. */
   #ensure(name: string, music: Music_): AudioBuffer | undefined {
     const cached = this.#buffers.get(name);
-    if (cached) return cached;
+    if (cached?.music === music) return cached.buffer;
+    if (cached) this.#buffers.delete(name);
 
     const ctx = this.#ctx;
     if (!ctx) return undefined;
 
     if (music.url !== undefined) {
-      if (this.#failedUrls.get(name) === music.url) return undefined;
-      void this.#load(name, music.url);
+      if (this.#failedUrls.get(name) === music.url) {
+        if (!music.synth) return undefined;
+        const buffer = compose(ctx, name, music.synth);
+        this.#buffers.set(name, { music, buffer });
+        return buffer;
+      }
+      void this.#startLoad(name, music, ctx);
       return undefined; // Silent until the fetch lands.
     }
 
     const buffer = compose(ctx, name, music.synth);
-    this.#buffers.set(name, buffer);
+    this.#buffers.set(name, { music, buffer });
     return buffer;
   }
 
-  async #load(name: string, url: string): Promise<void> {
-    if (this.#loading.has(name)) return;
-    this.#loading.add(name);
+  #startLoad(name: string, music: Music_, ctx: AudioContext): Promise<void> {
+    const existing = this.#inflight.get(name);
+    if (existing?.music === music) return existing.promise;
 
+    let promise: Promise<void>;
+    promise = this.#load(name, music, ctx).finally(() => {
+      if (this.#inflight.get(name)?.promise === promise) this.#inflight.delete(name);
+    });
+    this.#inflight.set(name, { music, promise });
+    return promise;
+  }
+
+  async #load(name: string, music: Music_, ctx: AudioContext): Promise<void> {
     let loaded = false;
     try {
-      const response = await fetch(url);
+      const response = await fetch(music.url as string);
       if (!response.ok) return;
       const encoded = await response.arrayBuffer();
-      const buffer = await this.#ctx?.decodeAudioData(encoded);
-      if (buffer) {
-        this.#buffers.set(name, buffer);
+      const buffer = await ctx.decodeAudioData(encoded);
+      if (this.#ctx === ctx && registry.get(name) === music) {
+        this.#buffers.set(name, { music, buffer });
         this.#failedUrls.delete(name);
         loaded = true;
       }
@@ -778,8 +791,7 @@ export class Music {
       // The fallback below is the total-degradation path. The failure never
       // reaches the caller, which runs inside a frame's reconcile step.
     } finally {
-      this.#loading.delete(name);
-      if (!loaded) this.#installFallback(name, url);
+      if (!loaded) this.#installFallback(name, music, ctx);
     }
   }
 
@@ -788,17 +800,15 @@ export class Music {
    * synthesised floor. A genuinely new URL-only track has no floor and remains
    * silent after one attempt rather than becoming a retry storm.
    */
-  #installFallback(name: string, url: string): void {
-    this.#failedUrls.set(name, url);
-
-    const ctx = this.#ctx;
-    const music = registry.get(name);
+  #installFallback(name: string, music: Music_, ctx: AudioContext): void {
     // A replacement may have landed while the old URL was in flight. Never
     // install that stale request's fallback over the newer definition.
-    if (!ctx || music?.url !== url || !music.synth) return;
+    if (this.#ctx !== ctx || registry.get(name) !== music) return;
+    this.#failedUrls.set(name, music.url as string);
+    if (!music.synth) return;
 
     try {
-      this.#buffers.set(name, compose(ctx, name, music.synth));
+      this.#buffers.set(name, { music, buffer: compose(ctx, name, music.synth) });
     } catch {
       // Even a hostile synth spec may only make this track silent.
     }

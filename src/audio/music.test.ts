@@ -310,8 +310,7 @@ describe('pack music failure fallback', () => {
 
     const music = new Music();
     await music.unlock();
-    music.preload([name, 'unknown-preload-track']);
-    await flushLoad();
+    await music.preload([name, 'unknown-preload-track']);
 
     const ctx = contexts[0] as FakeAudioContext;
     expect(fetches).toBe(1);
@@ -324,6 +323,93 @@ describe('pack music failure fallback', () => {
     expect(ctx.sources).toHaveLength(1);
     expect(ctx.sources[0]?.loopStart).toBe(1.5);
     expect(ctx.sources[0]?.loopEnd).toBe(8);
+  });
+
+  test('concurrent preload calls await one shared URL decode', async () => {
+    const name = unique('awaitable-preload');
+    defineMusic(name, { url: '/pack/awaitable.wav' });
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let fetches = 0;
+    scope.fetch = async () => {
+      fetches++;
+      await gate;
+      return {
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    };
+
+    const music = new Music();
+    await music.unlock();
+    let resolved = 0;
+    const first = music.preload([name]).then(() => {
+      resolved++;
+    });
+    const second = music.preload([name]).then(() => {
+      resolved++;
+    });
+    await Promise.resolve();
+
+    expect(fetches).toBe(1);
+    expect(resolved).toBe(0);
+    expect((contexts[0] as FakeAudioContext).sources).toHaveLength(0);
+
+    release();
+    await Promise.all([first, second]);
+
+    expect(resolved).toBe(2);
+    expect(music.current).toBeUndefined();
+    music.play(name);
+    expect(fetches).toBe(1);
+    expect(music.current).toBe(name);
+  });
+
+  test('a replacement URL can load while an older request is still in flight', async () => {
+    const name = unique('replacement-during-load');
+    const oldUrl = '/pack/old.wav';
+    const newUrl = '/pack/new.wav';
+    defineMusic(name, { url: oldUrl });
+
+    let releaseOld!: () => void;
+    let releaseNew!: () => void;
+    const oldGate = new Promise<void>((resolve) => {
+      releaseOld = resolve;
+    });
+    const newGate = new Promise<void>((resolve) => {
+      releaseNew = resolve;
+    });
+    const requested: string[] = [];
+    scope.fetch = async (url: string) => {
+      requested.push(url);
+      if (url === oldUrl) await oldGate;
+      if (url === newUrl) await newGate;
+      return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+    };
+
+    const music = new Music();
+    await music.unlock();
+    const oldLoad = music.preload([name]);
+    replaceMusic(name, { url: newUrl });
+    const newLoad = music.preload([name]);
+    await Promise.resolve();
+
+    expect(requested.filter((url) => url === oldUrl)).toHaveLength(1);
+    expect(requested.filter((url) => url === newUrl)).toHaveLength(1);
+
+    releaseOld();
+    await oldLoad;
+    music.play(name);
+    expect(music.current).toBeUndefined();
+
+    releaseNew();
+    await newLoad;
+    music.play(name);
+    expect(music.current).toBe(name);
+    expect((contexts[0] as FakeAudioContext).sources).toHaveLength(1);
   });
 });
 

@@ -336,6 +336,11 @@ function segmentLabel(replay: Replay, index: number): string {
   return `${stage.toUpperCase()}  ${difficulty.toUpperCase()}  ${outcome.toUpperCase()}`;
 }
 
+function segmentExportLabel(replay: Replay, index: number): string {
+  const stage = stringMeta(replay, 'stage') ?? `STAGE ${index + 1}`;
+  return `EXPORT ${stage.toUpperCase()} VIDEO`;
+}
+
 function stringMeta(replay: Replay | undefined, key: string): string | undefined {
   const value = replay?.meta?.[key];
   return typeof value === 'string' ? value : undefined;
@@ -416,6 +421,7 @@ export class ReplaySessionState extends MenuState {
     return [
       'WATCH SESSION',
       ...this.#session.segments.map(segmentLabel),
+      ...this.#session.segments.map(segmentExportLabel),
       'DOWNLOAD SESSION',
       'BACK',
     ];
@@ -448,7 +454,22 @@ export class ReplaySessionState extends MenuState {
       }
       return;
     }
-    if (index === this.#session.segments.length + 1) {
+
+    const exportIndex = index - this.#session.segments.length - 1;
+    if (this.#session.segments[exportIndex] !== undefined) {
+      try {
+        this.ctx.machine.replace(
+          new ReplayExportState(this.ctx, this.#session, exportIndex),
+        );
+        this.#error = undefined;
+      } catch (error) {
+        this.#error = (error as Error).message;
+        this.ctx.onReplayError?.(this.#error);
+      }
+      return;
+    }
+
+    if (index === this.#session.segments.length * 2 + 1) {
       this.ctx.onDownloadReplay?.(this.#session);
       return;
     }
@@ -971,6 +992,181 @@ function validateReplayViewerMeta(replay: Replay): void {
   }
 }
 
+function replayMatchesRun(replay: Replay, run: Run): boolean {
+  const expectedOutcome = stringMeta(replay, 'outcome');
+  const expectedScore = numberMeta(replay, 'score');
+  return (
+    run.finished
+    && run.tickCount === replay.length
+    && (expectedOutcome === undefined || run.outcome === expectedOutcome)
+    && (expectedScore === undefined || run.player.score === expectedScore)
+  );
+}
+
+export type ReplayExportPhase =
+  | 'preparing'
+  | 'recording'
+  | 'finished'
+  | 'stopping'
+  | 'done';
+
+/**
+ * Whether shell presentation should advance across this fixed tick.
+ *
+ * The recording -> finished tick still belongs to the replay and must step its
+ * background/effects once. Subsequent tail/finalization ticks hold that exact
+ * final composition.
+ */
+export function replayExportPresentationAdvances(
+  before: ReplayExportPhase | undefined,
+  after: ReplayExportPhase | undefined,
+): boolean {
+  return after === undefined || before === 'recording' || after === 'recording';
+}
+
+/**
+ * Replay-driven source for a single-stage video export.
+ *
+ * This state owns only the deterministic part: rebuilding the Run and advancing
+ * it by exactly one recorded mask per fixed tick. The browser shell owns media
+ * devices, codecs, real-time audio capture and the download. Until the shell
+ * calls `arm`, and after the exact recorded finish, the Run is frozen.
+ */
+export class ReplayExportState implements GameState {
+  readonly name = 'replay-export';
+  readonly run: Run;
+
+  readonly #ctx: GameContext;
+  readonly #session: ReplaySession;
+  readonly #segmentIndex: number;
+  readonly #replay: Replay;
+  readonly #edges = new Edges();
+  #phase: ReplayExportPhase = 'preparing';
+
+  constructor(
+    ctx: GameContext,
+    session: ReplaySession,
+    segmentIndex: number,
+  ) {
+    const replay = session.segments[segmentIndex];
+    if (replay === undefined) {
+      throw new Error(`replay export: session has no segment ${segmentIndex}`);
+    }
+    this.#ctx = ctx;
+    this.#session = session;
+    this.#segmentIndex = segmentIndex;
+    this.#replay = replay;
+    this.run = new Run(replayRunConfig(ctx, replay));
+  }
+
+  enter(): void {
+    this.#edges.reset();
+  }
+
+  tick(buttons: number): void {
+    this.#edges.update(buttons);
+    if (
+      this.#edges.pressed(Button.Start)
+      || this.#edges.pressed(Button.Bomb)
+    ) {
+      this.fail('video export cancelled');
+      return;
+    }
+
+    if (this.#phase !== 'recording') return;
+
+    if (this.run.tickCount < this.#replay.length && !this.run.finished) {
+      // Live controls belong only to cancel. The simulation reads the replay
+      // attached in `replayRunConfig`, exactly like the ordinary viewer.
+      this.run.tick(0);
+    }
+
+    if (
+      this.run.tickCount >= this.#replay.length
+      || this.run.finished
+    ) {
+      if (!this.matchesRecording()) {
+        this.fail(
+          `replay export: ${this.run.stageName} did not reproduce the recorded outcome`,
+        );
+        return;
+      }
+      this.#phase = 'finished';
+    }
+  }
+
+  /** Called by the shell only after audio is ready and tick-zero was composed. */
+  arm(): boolean {
+    if (this.#ctx.machine.current !== this || this.#phase !== 'preparing') {
+      return false;
+    }
+    this.#phase = 'recording';
+    return true;
+  }
+
+  /** Called after the shell has retained the exact final frame for its audio tail. */
+  beginStopping(): boolean {
+    if (this.#ctx.machine.current !== this || this.#phase !== 'finished') {
+      return false;
+    }
+    this.#phase = 'stopping';
+    return true;
+  }
+
+  complete(filename: string): boolean {
+    if (this.#ctx.machine.current !== this || this.#phase !== 'stopping') {
+      return false;
+    }
+    this.#phase = 'done';
+    this.#ctx.machine.replace(
+      new ReplayExportResultState(this.#ctx, this.#session, this.#segmentIndex, {
+        filename,
+      }),
+    );
+    return true;
+  }
+
+  fail(message: string): boolean {
+    if (this.#ctx.machine.current !== this || this.#phase === 'done') {
+      return false;
+    }
+    this.#phase = 'done';
+    this.#ctx.onReplayError?.(message);
+    this.#ctx.machine.replace(
+      new ReplayExportResultState(this.#ctx, this.#session, this.#segmentIndex, {
+        error: message,
+      }),
+    );
+    return true;
+  }
+
+  matchesRecording(): boolean {
+    return replayMatchesRun(this.#replay, this.run);
+  }
+
+  get phase(): ReplayExportPhase {
+    return this.#phase;
+  }
+
+  get replay(): Replay {
+    return this.#replay;
+  }
+
+  get session(): ReplaySession {
+    return this.#session;
+  }
+
+  get segmentIndex(): number {
+    return this.#segmentIndex;
+  }
+
+  view(): StateView {
+    // The export itself contains gameplay, HUD, dialogue and the existing
+    // REPLAY marker — never a preparation/progress card.
+    return { kind: 'playing', run: this.run };
+  }
+}
+
 export class ReplayPlayingState implements GameState {
   readonly name = 'replay-playing';
   readonly run: Run;
@@ -1071,15 +1267,12 @@ export class ReplayPlayingState implements GameState {
     return this.#session;
   }
 
+  get segmentIndex(): number {
+    return this.#segmentIndex;
+  }
+
   matchesRecording(): boolean {
-    const expectedOutcome = stringMeta(this.#replay, 'outcome');
-    const expectedScore = numberMeta(this.#replay, 'score');
-    return (
-      this.run.finished
-      && this.run.tickCount === this.#replay.length
-      && (expectedOutcome === undefined || this.run.outcome === expectedOutcome)
-      && (expectedScore === undefined || this.run.player.score === expectedScore)
-    );
+    return replayMatchesRun(this.#replay, this.run);
   }
 
   view(): StateView {
@@ -1147,6 +1340,7 @@ class ReplayCompleteState extends MenuState {
     return [
       ...(this.#playing.hasNext ? ['NEXT STAGE'] : []),
       'WATCH AGAIN',
+      'EXPORT VIDEO',
       'DOWNLOAD SESSION',
       'BACK',
     ];
@@ -1166,6 +1360,16 @@ class ReplayCompleteState extends MenuState {
     }
     if (this.#playing.hasNext) index -= 1;
     if (index === 1) {
+      const exporting = new ReplayExportState(
+        this.ctx,
+        this.#playing.session,
+        this.#playing.segmentIndex,
+      );
+      this.ctx.machine.pop();
+      this.ctx.machine.replace(exporting);
+      return;
+    }
+    if (index === 2) {
       this.ctx.onDownloadReplay?.(this.#playing.session);
       return;
     }
@@ -1188,6 +1392,60 @@ class ReplayCompleteState extends MenuState {
       lines: [
         `${run.stageName} · ${run.tickCount} / ${replay.length} ticks`,
         ...(matches ? [] : ['recorded outcome did not reproduce exactly']),
+      ],
+      menu: this.entries,
+      selected: this.selected,
+      age: this.age,
+    };
+  }
+}
+
+interface ReplayExportResult {
+  readonly filename?: string;
+  readonly error?: string;
+}
+
+class ReplayExportResultState extends MenuState {
+  readonly name = 'replay-export-result';
+  readonly #session: ReplaySession;
+  readonly #segmentIndex: number;
+  readonly #result: ReplayExportResult;
+
+  constructor(
+    ctx: GameContext,
+    session: ReplaySession,
+    segmentIndex: number,
+    result: ReplayExportResult,
+  ) {
+    super(ctx);
+    this.#session = session;
+    this.#segmentIndex = segmentIndex;
+    this.#result = result;
+  }
+
+  protected get entries(): readonly string[] {
+    return ['EXPORT AGAIN', 'BACK'];
+  }
+
+  protected confirm(index: number): void {
+    this.ctx.machine.replace(
+      index === 0
+        ? new ReplayExportState(this.ctx, this.#session, this.#segmentIndex)
+        : new ReplaySessionState(this.ctx, this.#session),
+    );
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.replace(new ReplaySessionState(this.ctx, this.#session));
+  }
+
+  view(): StateView {
+    const error = this.#result.error;
+    return {
+      kind: 'replay-export-result',
+      title: error === undefined ? 'VIDEO EXPORTED' : 'VIDEO EXPORT FAILED',
+      lines: [
+        error ?? this.#result.filename ?? 'video download ready',
       ],
       menu: this.entries,
       selected: this.selected,
@@ -1297,7 +1555,9 @@ abstract class EndingState extends MenuState {
 
   protected get entries(): readonly string[] {
     return [
-      ...(this.session === undefined ? [] : ['WATCH REPLAY', 'DOWNLOAD REPLAY']),
+      ...(this.session === undefined
+        ? []
+        : ['WATCH REPLAY', 'EXPORT VIDEO', 'DOWNLOAD REPLAY']),
       'RETRY',
       'TITLE',
     ];
@@ -1321,10 +1581,21 @@ abstract class EndingState extends MenuState {
         return;
       }
       if (index === 1) {
+        const segmentIndex = session.segments.length - 1;
+        try {
+          const exporting = new ReplayExportState(this.ctx, session, segmentIndex);
+          machine.pop();
+          machine.replace(exporting);
+        } catch (error) {
+          this.ctx.onReplayError?.((error as Error).message);
+        }
+        return;
+      }
+      if (index === 2) {
         this.ctx.onDownloadReplay?.(session);
         return;
       }
-      index -= 2;
+      index -= 3;
     }
     if (index === 0) {
       // Pop this card, then swap the finished run for a brand new one. `Run`

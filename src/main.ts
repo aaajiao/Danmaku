@@ -17,8 +17,9 @@ import './pwa';
 import { CONTENT_FINGERPRINT } from './v4';
 
 import * as THREE from 'three';
-import { Audio, overrideSound } from './audio';
-import { Music } from './audio/music';
+import { Audio, overrideSound, soundNames } from './audio';
+import { Music, musicNames } from './audio/music';
+import { AudioOutput, type AudioCaptureLease } from './audio/output';
 import { MENU_MUSIC, V4_BOSS_MUSIC_NAMES, v4EventSound } from './v4/audio';
 import { Input } from './core/input';
 import {
@@ -31,7 +32,12 @@ import {
   type XboxWebHidStatus,
 } from './core/xbox-webhid';
 import { Loop } from './core/loop';
-import { TitleState, type GameContext } from './game/states';
+import {
+  ReplayExportState,
+  TitleState,
+  replayExportPresentationAdvances,
+  type GameContext,
+} from './game/states';
 import { StateMachine } from './game/state';
 import {
   EVENT_SOUNDS,
@@ -91,6 +97,10 @@ import {
   isScreenshotShortcut,
   screenshotFilename,
 } from './render/capture';
+import {
+  ReplayVideoCapture,
+  unexpectedVideoCaptureEndError,
+} from './render/video-capture';
 import {
   V4_BOSS_ACTORS,
   V4_ENEMY_ACTORS,
@@ -179,7 +189,8 @@ const SCENE_FADE_TICKS = 60;
  * gains) so the theme never competes with a bullet's cue — the readability rule
  * with an audio face. Pausing ducks the theme rather than cutting it: the room
  * is still there, just quieter. The duck is an instant set on the music bus and
- * touches no SFX voice, which is the whole reason music owns a separate context.
+ * touches no SFX voice, which is why music owns a separate master bus on the
+ * shared audio context.
  */
 const MUSIC_LEVEL = 0.55;
 const MUSIC_PAUSE_LEVEL = 0.22;
@@ -210,15 +221,22 @@ const packs = await loadPacks();
 
 let shellStatusTimer: number | undefined;
 
-function showShellStatus(message: string, tone: 'info' | 'error' = 'info'): void {
+function showShellStatus(
+  message: string,
+  tone: 'info' | 'error' = 'info',
+  hideAfterMs = 4200,
+): void {
   if (shellStatusTimer !== undefined) window.clearTimeout(shellStatusTimer);
   shellStatus.textContent = message;
   shellStatus.dataset.tone = tone;
   shellStatus.hidden = false;
-  shellStatusTimer = window.setTimeout(() => {
-    shellStatus.hidden = true;
-    shellStatusTimer = undefined;
-  }, 4200);
+  shellStatusTimer = undefined;
+  if (hideAfterMs > 0) {
+    shellStatusTimer = window.setTimeout(() => {
+      shellStatus.hidden = true;
+      shellStatusTimer = undefined;
+    }, hideAfterMs);
+  }
 }
 
 let replayLibrary: ReplayLibrary;
@@ -258,6 +276,22 @@ function replayFilename(session: ReplaySession): string {
     .replaceAll(':', '')
     .replace('.000', '');
   return `danmaku-replay-${stamp}.json`;
+}
+
+function videoFilename(
+  exporting: ReplayExportState,
+  extension: 'webm' | 'mp4',
+): string {
+  const stamp = exporting.session.createdAt
+    .replaceAll('-', '')
+    .replaceAll(':', '')
+    .replace('.000', '');
+  const stage = exporting.replay.meta?.['stage'];
+  const safeStage = (typeof stage === 'string' ? stage : `stage-${exporting.segmentIndex + 1}`)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'stage';
+  return `danmaku-video-${stamp}-${safeStage}.${extension}`;
 }
 
 function downloadReplay(session: ReplaySession): void {
@@ -585,11 +619,12 @@ const post = new PostProcessing(stage, { enabled: true });
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
 
-const audio = new Audio();
-// Music owns its own context (see `audio/music.ts`) so the shell can duck the
-// theme on pause without touching a single SFX voice. It unlocks off the same
-// user gesture as `audio`, below.
-const music = new Music({ masterVolume: MUSIC_LEVEL });
+const audioOutput = new AudioOutput();
+const audio = new Audio({ output: audioOutput });
+// Independent SFX/music buses share one output context. The separate master
+// gains preserve pause ducking, while `audioOutput.capture()` can route both
+// buses into one already-mixed track for replay video.
+const music = new Music({ output: audioOutput, masterVolume: MUSIC_LEVEL });
 const machine = new StateMachine();
 const webHid = browserWebHid();
 let directControllerStatus: XboxWebHidStatus = { phase: 'idle' };
@@ -967,9 +1002,198 @@ const GRAZE_UI_TICKS = 16;
 
 const bossIdentityFx: BossIdentityFx<Run>[] = [];
 
+const REPLAY_EXPORT_TAIL_MS = 1000;
+
+interface ActiveReplayExport {
+  readonly state: ReplayExportState;
+  ready: boolean;
+  tailStartedAt?: number;
+  stopping: boolean;
+  disposed: boolean;
+  audioLease?: AudioCaptureLease;
+  video?: ReplayVideoCapture;
+}
+
+let activeReplayExport: ActiveReplayExport | undefined;
+
+function replayExportError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(`video export: ${String(error)}`);
+}
+
+function disposeReplayExport(active: ActiveReplayExport): void {
+  if (activeReplayExport === active) activeReplayExport = undefined;
+  if (active.disposed) return;
+  active.disposed = true;
+  const cancellation = active.video?.cancel();
+  active.audioLease?.release();
+  if (cancellation !== undefined) void cancellation;
+}
+
+function failReplayExport(active: ActiveReplayExport, error: unknown): void {
+  const message = replayExportError(error).message;
+  const stillCurrent = machine.current === active.state;
+  disposeReplayExport(active);
+  if (stillCurrent) active.state.fail(message);
+}
+
+async function preloadReplayExportAudio(): Promise<void> {
+  await Promise.all([audioOutput.unlock(), audio.unlock(), music.unlock()]);
+  if (!audio.unlocked || !music.unlocked || !audioOutput.unlocked) {
+    throw new Error('video export: audio output could not be unlocked');
+  }
+  await Promise.all([
+    audio.preload(soundNames()),
+    music.preload(musicNames()),
+  ]);
+}
+
+function prepareReplayExport(state: ReplayExportState): void {
+  const active: ActiveReplayExport = {
+    state,
+    ready: false,
+    stopping: false,
+    disposed: false,
+  };
+  activeReplayExport = active;
+  showShellStatus('PREPARING VIDEO · LOADING AUDIO', 'info', 0);
+
+  void preloadReplayExportAudio().then(() => {
+    if (
+      activeReplayExport !== active
+      || machine.current !== state
+      || state.phase !== 'preparing'
+    ) {
+      return;
+    }
+    active.ready = true;
+  }).catch((error) => failReplayExport(active, error));
+}
+
+function startReplayExportRecording(active: ActiveReplayExport): void {
+  if (
+    activeReplayExport !== active
+    || machine.current !== active.state
+    || active.state.phase !== 'preparing'
+    || !active.ready
+  ) {
+    return;
+  }
+
+  // Remove every pre-export menu cue and theme before opening the mixed route.
+  // The replay's own declarations restart through the ordinary reconciliation
+  // path on its first armed fixed tick.
+  audio.stopAll();
+  music.stopAll();
+
+  const audioLease = audioOutput.capture();
+  if (audioLease === undefined) {
+    failReplayExport(
+      active,
+      new Error('video export: mixed audio capture is unavailable'),
+    );
+    return;
+  }
+  active.audioLease = audioLease;
+
+  const video = new ReplayVideoCapture(frameCapture, {
+    audioStream: audioLease.stream,
+    requireAudio: true,
+  });
+  active.video = video;
+  void video.completion.then((outcome) => {
+    if (activeReplayExport !== active || active.stopping) return;
+    failReplayExport(active, unexpectedVideoCaptureEndError(outcome));
+  });
+
+  if (!video.start()) return;
+  // `captureStream()` created its track inside `start()`, so repaint the same
+  // already-composed tick-zero frame after track creation. Without this paint,
+  // the canvas track is allowed to begin on the following replay tick.
+  frameCapture.compose(field, overlay);
+  if (!active.state.arm()) {
+    disposeReplayExport(active);
+    return;
+  }
+  showShellStatus('RECORDING VIDEO · START / BOMB TO CANCEL', 'info', 0);
+}
+
+function stopReplayExport(active: ActiveReplayExport): void {
+  if (
+    active.stopping
+    || activeReplayExport !== active
+    || machine.current !== active.state
+  ) {
+    return;
+  }
+  const video = active.video;
+  if (video === undefined) {
+    failReplayExport(active, new Error('video export: recorder was not started'));
+    return;
+  }
+
+  active.stopping = true;
+  showShellStatus('FINALIZING VIDEO', 'info', 0);
+  void video.stop().then((outcome) => {
+    active.audioLease?.release();
+    active.disposed = true;
+    if (
+      activeReplayExport !== active
+      || machine.current !== active.state
+    ) {
+      return;
+    }
+    activeReplayExport = undefined;
+
+    if (outcome.status === 'recorded') {
+      const filename = videoFilename(active.state, outcome.extension);
+      downloadBlob(outcome.blob, filename);
+      if (active.state.complete(filename)) {
+        showShellStatus('VIDEO DOWNLOAD READY');
+      }
+      return;
+    }
+
+    active.state.fail(
+      outcome.status === 'failed'
+        ? outcome.error.message
+        : 'video export: recording was cancelled',
+    );
+  }).catch((error) => failReplayExport(active, error));
+}
+
+function syncReplayExportAfterTick(): void {
+  const current = machine.current;
+  if (!(current instanceof ReplayExportState)) {
+    if (activeReplayExport !== undefined) disposeReplayExport(activeReplayExport);
+    return;
+  }
+
+  if (
+    activeReplayExport !== undefined
+    && activeReplayExport.state !== current
+  ) {
+    disposeReplayExport(activeReplayExport);
+  }
+  if (activeReplayExport === undefined) prepareReplayExport(current);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  const current = machine.current;
+  const active = activeReplayExport;
+  if (current instanceof ReplayExportState) {
+    current.fail('video export: cancelled because the tab was hidden');
+  }
+  if (active !== undefined) disposeReplayExport(active);
+});
+
 const loop = new Loop({
   tick() {
     const stateBeforeTick = machine.current;
+    const exportPhaseBeforeTick = stateBeforeTick instanceof ReplayExportState
+      ? stateBeforeTick.phase
+      : undefined;
     const pointerRun = stateBeforeTick?.name === 'playing'
       ? (stateBeforeTick as { readonly run?: Run }).run
       : undefined;
@@ -980,7 +1204,11 @@ const loop = new Loop({
 
     const audioGesture = buttons !== 0 && lastUnlockButtons === 0;
     lastUnlockButtons = buttons;
-    if (audioGesture && (!audio.unlocked || !music.unlocked)) {
+    if (
+      audioGesture
+      && (!audio.unlocked || !music.unlocked || !audioOutput.unlocked)
+    ) {
+      void audioOutput.unlock();
       void audio.unlock();
       void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
     }
@@ -993,23 +1221,32 @@ const loop = new Loop({
     const acted = machine.stack[machine.stack.length - 1] as { cue?: string } | undefined;
 
     machine.tick(buttons);
+    syncReplayExportAfterTick();
     if (machine.current !== stateBeforeTick) {
       // Do not let a menu hover target or an interrupted click sequence spill
       // into the state that was just entered. A later pointermove starts fresh.
       pointerPositionInput.clearTarget();
       menuPointerInput.reset();
     }
-    background.step();
-    stageStructure.step();
-    for (let i = grazeUiPulses.length - 1; i >= 0; i--) {
-      const pulse = grazeUiPulses[i]!;
-      pulse.age++;
-      if (pulse.age >= GRAZE_UI_TICKS) grazeUiPulses.splice(i, 1);
+    const exportState = machine.current instanceof ReplayExportState
+      ? machine.current
+      : undefined;
+    if (replayExportPresentationAdvances(
+      exportPhaseBeforeTick,
+      exportState?.phase,
+    )) {
+      background.step();
+      stageStructure.step();
+      for (let i = grazeUiPulses.length - 1; i >= 0; i--) {
+        const pulse = grazeUiPulses[i]!;
+        pulse.age++;
+        if (pulse.age >= GRAZE_UI_TICKS) grazeUiPulses.splice(i, 1);
+      }
+      stepBossIdentityFx(bossIdentityFx, (name) => {
+        const identityStrip = fxAtlas.strip(name);
+        return identityStrip.frames * identityStrip.ticksPerFrame;
+      });
     }
-    stepBossIdentityFx(bossIdentityFx, (name) => {
-      const identityStrip = fxAtlas.strip(name);
-      return identityStrip.frames * identityStrip.ticksPerFrame;
-    });
 
     // Play the menu cue the ticked state named, if any (`ui-move`/`ui-confirm`/
     // `ui-cancel`). Resolved here, in the shell, because `src/game` names sounds
@@ -1188,11 +1425,37 @@ const loop = new Loop({
 
     post.render();
     drawOverlay(hud);
+    let frameComposed = false;
+    const exporting = activeReplayExport;
+    if (
+      exporting !== undefined
+      && machine.current === exporting.state
+    ) {
+      // The same authored composition feeds screenshots and video, synchronously
+      // while WebGL's non-preserved drawing buffer still contains this frame.
+      frameCapture.compose(field, overlay);
+      frameComposed = true;
+      if (exporting.ready && exporting.state.phase === 'preparing') {
+        startReplayExportRecording(exporting);
+      } else if (exporting.state.phase === 'finished') {
+        const now = performance.now();
+        if (exporting.tailStartedAt === undefined) {
+          exporting.tailStartedAt = now;
+        } else if (
+          now - exporting.tailStartedAt >= REPLAY_EXPORT_TAIL_MS
+          && exporting.state.beginStopping()
+        ) {
+          stopReplayExport(exporting);
+        }
+      } else if (exporting.state.phase === 'stopping') {
+        stopReplayExport(exporting);
+      }
+    }
     if (screenshotPending) {
       screenshotPending = false;
       // Compose synchronously while WebGL's non-preserved drawing buffer still
       // contains this exact frame. PNG encoding may finish asynchronously.
-      frameCapture.compose(field, overlay);
+      if (!frameComposed) frameCapture.compose(field, overlay);
       const filename = screenshotFilename(new Date(), hud === undefined ? {} : {
         stage: hud.stageName,
         difficulty: hud.difficulty,

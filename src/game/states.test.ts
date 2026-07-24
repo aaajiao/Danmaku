@@ -25,8 +25,10 @@ import {
   type GameContext,
   PauseState,
   PlayingState,
+  ReplayExportState,
   ReplayLibraryState,
   ReplayPlayingState,
+  replayExportPresentationAdvances,
   replayRunConfig,
   ReplaySessionState,
   TitleState,
@@ -691,6 +693,101 @@ describe('replay library and viewer', () => {
     expect(viewer.matchesRecording()).toBe(true);
     // The playback run records the file's masks, not the live mask above.
     expect(viewer.run.finishRecording().inputs).toEqual(replay.inputs);
+  });
+
+  test('single-stage export freezes while preparing and advances only recorded input once armed', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 114);
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    const exporting = new ReplayExportState(ctx, session, 0);
+    open(ctx.machine, exporting);
+
+    for (let tick = 0; tick < 12; tick++) {
+      ctx.machine.tick(Button.Shot | Button.Right | Button.Slow);
+    }
+    expect(exporting.phase).toBe('preparing');
+    expect(exporting.run.tickCount).toBe(0);
+
+    expect(exporting.arm()).toBe(true);
+    for (
+      let tick = 0;
+      tick < replay.length + 10 && exporting.phase === 'recording';
+      tick++
+    ) {
+      ctx.machine.tick(Button.Shot | Button.Right | Button.Slow);
+    }
+
+    expect(ctx.machine.current).toBe(exporting);
+    expect(exporting.phase).toBe('finished');
+    expect(exporting.matchesRecording()).toBe(true);
+    expect(exporting.run.finishRecording().inputs).toEqual(replay.inputs);
+    expect(exporting.beginStopping()).toBe(true);
+    expect(exporting.complete('danmaku-stage.webm')).toBe(true);
+    expect(ctx.machine.current?.name).toBe('replay-export-result');
+  });
+
+  test('presentation steps the final replay tick, then freezes its tail frame', () => {
+    expect(replayExportPresentationAdvances(undefined, undefined)).toBe(true);
+    expect(replayExportPresentationAdvances(undefined, 'preparing')).toBe(false);
+    expect(replayExportPresentationAdvances('preparing', 'recording')).toBe(true);
+    expect(replayExportPresentationAdvances('recording', 'recording')).toBe(true);
+    expect(replayExportPresentationAdvances('recording', 'finished')).toBe(true);
+    expect(replayExportPresentationAdvances('finished', 'finished')).toBe(false);
+    expect(replayExportPresentationAdvances('finished', 'stopping')).toBe(false);
+  });
+
+  test('session menu exposes export per stage and live Start cancels it', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 115);
+    const session = replaySession([replay]);
+    const errors: string[] = [];
+    const ctx = context({
+      replaySessions: [session],
+      onReplayError: (message) => errors.push(message),
+    });
+    const detail = new ReplaySessionState(ctx, session);
+    open(ctx.machine, detail);
+    expect(detail.view().menu?.[0]).toBe('WATCH SESSION');
+    expect(detail.view().menu?.[2]).toBe(
+      `EXPORT ${(replay.meta?.['stage'] as string).toUpperCase()} VIDEO`,
+    );
+    expect(detail.view().menu?.slice(-2)).toEqual(['DOWNLOAD SESSION', 'BACK']);
+
+    tap(ctx.machine, Button.Down, 2);
+    press(ctx.machine, Button.Shot);
+    const exporting = ctx.machine.current as ReplayExportState;
+    expect(exporting).toBeInstanceOf(ReplayExportState);
+    ctx.machine.tick(0);
+    expect(exporting.arm()).toBe(true);
+    tap(ctx.machine, Button.Start);
+    expect(ctx.machine.current?.name).toBe('replay-export-result');
+    expect(errors.at(-1)).toBe('video export cancelled');
+  });
+
+  test('video export discards a replay whose recorded result does not reproduce', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 116);
+    const mismatch: Replay = {
+      ...replay,
+      meta: {
+        ...replay.meta,
+        score: ((replay.meta?.['score'] as number | undefined) ?? 0) + 1,
+      },
+    };
+    const session = replaySession([mismatch]);
+    const errors: string[] = [];
+    const ctx = context({ onReplayError: (message) => errors.push(message) });
+    const exporting = new ReplayExportState(ctx, session, 0);
+    open(ctx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+
+    for (
+      let tick = 0;
+      tick < mismatch.length + 10 && ctx.machine.current === exporting;
+      tick++
+    ) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current?.name).toBe('replay-export-result');
+    expect(errors.at(-1)).toMatch(/did not reproduce/);
   });
 
   test('a Start bit inside the recording does not open the viewer pause menu', () => {
