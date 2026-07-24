@@ -1,4 +1,11 @@
 /**
+ * V4 integration (2026-07-24): liquid-gold survives only as Signet's molten
+ * geometry. The current scene is moon-silver/cold-cyan, three-octave, flattened
+ * at the Boss station and lower flight band. Historical gold notes below retain
+ * provenance; they do not describe the shipped v4 palette.
+ */
+
+/**
  * `signet` — sentinel's fight (the stage-1 boss). A readability-graded port of
  * pbakaus/radiant `liquid-gold` (MIT), and its ONLY home.
  *
@@ -39,14 +46,14 @@
  *     clock. The reference's unused `height` local (dead after the mouse excision)
  *     is dropped. Nothing else in the field math changed.
  *   - Clock: `t = uScroll * LG_FLOW`. At `scrollSpeed` 0.8 that advances `t` at
- *     ~0.4/s, the reference's `u_time * u_flowSpeed` rate. `uScroll` advances only
+ *     `0.048/s`, the deliberately slow v4 moon-metal rate. `uScroll` advances only
  *     in `step()` — no `performance.now`, so a replay looks identical twice
  *     (`background.ts`, rule 1). `backgrounds/index.test.ts` scans for wall clocks.
  *   - y-down 0..1 uv -> the reference's centred, y-up, min-axis-normalised coords
  *     (`(gl_FragCoord - res*0.5)/min(res)`), reconstructed from uv + aspect so the
  *     feature scale relative to the short axis matches the reference exactly.
- *   - Readability: the sixth FBM octave (about 5px on the 480px short axis) is
- *     removed. The remaining molten field starts around 10px and is progressively
+ *   - Readability: the three finest FBM octaves are removed. The remaining
+ *     molten field is progressively
  *     normal-flattened in the lower player activity band; bright specular, tension
  *     and ripple terms are attenuated there without changing the broad gold flow.
  *   - Variant seam: the palette, exposure, fill, saturation and a boss-station calm
@@ -57,37 +64,38 @@
  *
  * ## Exposure & the bullet-band grading
  *
- * Boss-station tier. EXPOSURE 0.30 is a final gain on the tone-mapped picture so
+ * Boss-station tier. EXPOSURE 0.24 is a final gain on the tone-mapped picture so
  * the structured molten peaks land ~0.24-0.28 raw [MEASURED-IN-ACCEPTANCE] — a
  * step below the stages, a calmer field for the fight, but the ported material's
  * native richness, not the retired peak~0.1 ceiling.
  *
  * Three grades keep bright detail out of the bullet band (16-30px), all in
  * `GOLD_GLSL` and labelled there:
- *   1. The sixth FBM octave is removed: its ~5px cells were below the smallest
- *      hostile silhouette and produced busy, high-frequency normal texture.
+ *   1. Three fine FBM octaves are removed; the retained three levels keep only
+ *      the broad viscous structure.
  *   2. SPECULAR EXPONENTS broadened (ref 120/80/200 -> 26/18/34) and weighted down:
  *      a tight `pow()` glint on the molten normals would drop a bullet-sized bright
  *      dot; a broad highlight is coarser than any bullet.
  *   3. The FINE RIPPLE highlight is coarsened (`noise(uv*15)` -> `*6.5`, ~32px ->
  *      ~74px cells) and kept faint. In the lower activity band, the normal is
  *      flattened and all three bright-detail terms are reduced to 35%.
- * Per-tick luminance step is small (slow flow, `t` ~0.4/s) — coherent motion, no
+ * Per-tick luminance step is small (slow flow, `t` = 0.048/s) — coherent motion, no
  * strobing.
  *
  * ## Hue — gold
  *
- * The reference gold, hue-ungraded: R > G > B off the palette.
+ * v4 keeps the molten signet geometry but drains the inherited gold into
+ * moon-silver and cold cyan, matching Sentinel rather than the old port.
  *
  * liquid-gold by pbakaus/radiant, MIT. Adapted with a fixed-tick clock, y-down
- * projection, exposure, variant seam and the readability grades documented above.
+ * projection, exposure and the v4 readability grades documented above.
  */
 
 import { defineBackground } from '../../render/background';
 
 /**
- * The ported `liquid-gold` basis. A pure function of its arguments (uv, aspect,
- * scroll) plus a small variant set; it reads no uniform, so the ticks-only clock
+ * The ported `liquid-gold` spatial basis. A pure function of its arguments; it
+ * reads no uniform, so the ticks-only clock
  * (rule 1) is always the caller's `uScroll`. Self-contained noise (the
  * reference's own hash/value-noise, prefixed `lg` so nothing collides with
  * `bgFbm` or the compose wrapper's `tear*`). GLSL `sin`/`cos` are free here —
@@ -96,7 +104,7 @@ import { defineBackground } from '../../render/background';
 const GOLD_GLSL = /* glsl */ `
   const float LG_PI   = 3.14159265359;
   const float LG_VISC = 0.6;      /* u_viscosity, baked to its shipped default */
-  const float LG_FLOW = 0.00833;  /* scroll -> t: at scrollSpeed 0.8, ~0.4/s == ref u_flowSpeed */
+  const float LG_FLOW = 0.0010;   /* v4: slow moon-metal drift, fixed ticks only */
 
   float lgHash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -113,14 +121,14 @@ const GOLD_GLSL = /* glsl */ `
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
-  /* READABILITY GRADE 1 — five octaves keep the broad molten structure while
-     dropping the sixth octave's ~5px cells on the 480px short axis. */
+  /* V4 GRADE 1 — three octaves keep the broad molten structure while dropping
+     fine levels that can counterfeit bullets on the 480px short axis. */
   float lgFbm(vec2 p, float t) {
     float val = 0.0;
     float amp = 0.5;
     float freq = 1.0;
     float decay = 0.45 + LG_VISC * 0.2;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 3; i++) {
       val += amp * lgNoise(p * freq + t);
       freq *= 2.0 + LG_VISC * 0.3;
       amp *= decay;
@@ -169,15 +177,12 @@ const GOLD_GLSL = /* glsl */ `
   }
 
   float lgFresnel(float cosTheta, float f0) {
-    return f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);   /* cosTheta clamped >=0 -> pow safe */
+    float facing = 1.0 - clamp(cosTheta, 0.0, 1.0);
+    return f0 + (1.0 - f0) * pow(facing, 5.0);
   }
 
-  /* The reference scene, with a small variant set so cordon/regnum re-use it:
-       tint      gold-family hue grade (signet vec3(1) = the reference)
-       exposure  per-scene final gain (structured peaks ~0.24-0.28 raw)
-       fill      0 reference vignette (dark rest) .. 1 fuller field (regnum, least rest)
-       sat       chroma multiply around luma (regnum > 1)
-       calm      0 none .. gentle radial dim at the boss station (cordon) */
+  /* The reference scene retained as Signet's own spatial identity. The arguments
+     are local review knobs, not a shared family for sibling scenes. */
   vec3 goldScene(
     vec2 uv, float aspect, float scroll,
     vec3 tint, float exposure, float fill, float sat, float calm
@@ -189,27 +194,27 @@ const GOLD_GLSL = /* glsl */ `
 
     float t = scroll * LG_FLOW;
 
-    float field  = lgWarp(ruv * 2.0, t);
+    float field  = lgWarp(ruv * 1.20, t);
     float meta   = lgMeta(ruv, t);
-    vec3  normal = lgNormal(ruv * 2.0, t, field);
+    vec3  normal = lgNormal(ruv * 1.20, t, field);
 
     /* READABILITY GRADE 2 — y is down, so this progressively calms the lower
        player activity band. Broad field colour survives; small normal contrast
        and bright linework do not compete with bullets near the ship. */
     float playerBandCalm = smoothstep(0.55, 0.88, uv.y);
     float detailGain = 1.0 - playerBandCalm * 0.65;
-    normal = normalize(mix(normal, vec3(0.0, 0.0, 1.0), playerBandCalm * 0.45));
+    normal = normalize(mix(normal, vec3(0.0, 0.0, 1.0), 0.62 + playerBandCalm * 0.24));
 
     vec3 viewDir   = vec3(0.0, 0.0, 1.0);
     vec3 lightDir1 = normalize(vec3(0.4, 0.5, 0.9));
     vec3 lightDir2 = normalize(vec3(-0.6, -0.3, 0.7));
     vec3 lightDir3 = normalize(vec3(0.0, 0.8, 0.5));
 
-    vec3 goldBase   = vec3(0.83, 0.61, 0.22);
-    vec3 goldBright = vec3(1.0, 0.84, 0.45);
-    vec3 goldDeep   = vec3(0.55, 0.35, 0.08);
-    vec3 goldShadow = vec3(0.18, 0.10, 0.02);
-    vec3 whiteHot   = vec3(1.0, 0.97, 0.88);
+    vec3 goldBase   = vec3(0.38, 0.52, 0.62);
+    vec3 goldBright = vec3(0.72, 0.82, 0.88);
+    vec3 goldDeep   = vec3(0.12, 0.22, 0.30);
+    vec3 goldShadow = vec3(0.020, 0.038, 0.060);
+    vec3 whiteHot   = vec3(0.86, 0.93, 0.97);
 
     float f0 = 0.8;
 
@@ -246,21 +251,21 @@ const GOLD_GLSL = /* glsl */ `
     /* Specular weights trimmed from the reference's 1.2/0.6/1.5 to 0.7/0.4/0.7
        alongside the broadened exponents, so no white-hot peak nears a bullet's
        1.0 core. */
-    vec3 specular = specColor1 * spec1 * 0.7
-                  + specColor2 * spec2 * 0.4
-                  + specColor3 * spec3 * 0.7;
+    vec3 specular = specColor1 * spec1 * 0.24
+                  + specColor2 * spec2 * 0.16
+                  + specColor3 * spec3 * 0.24;
 
-    /* Fake warm environment reflection off the surface normal. */
+    /* Cold moon-field reflection off the surface normal. */
     vec2 reflUv = normal.xy * 0.5 + 0.5;
-    vec3 envRefl = mix(vec3(0.12, 0.07, 0.02), vec3(0.45, 0.30, 0.12), reflUv.y);
-    envRefl = mix(envRefl, vec3(0.7, 0.55, 0.25), smoothstep(0.6, 1.0, reflUv.y));
+    vec3 envRefl = mix(vec3(0.018, 0.035, 0.060), vec3(0.16, 0.28, 0.38), reflUv.y);
+    envRefl = mix(envRefl, vec3(0.46, 0.60, 0.68), smoothstep(0.6, 1.0, reflUv.y));
 
     vec3 col = diffuse * 0.4 + specular * fres * detailGain + envRefl * fres * 0.5;
-    col += baseColor * 0.12;   /* warm ambient fill */
+    col += baseColor * 0.12;   /* cold ambient fill */
 
     /* Surface-tension lines where metaballs meet — low frequency, kept. */
     float metaGrad = abs(meta - 3.5);
-    float tensionLine = smoothstep(0.5, 0.0, metaGrad) * 0.3;
+    float tensionLine = (1.0 - smoothstep(0.0, 0.62, metaGrad)) * 0.10;
     col += goldBright * tensionLine * detailGain;
 
     /* BULLET-BAND KNOB 2 — the fine ripple sheen. The reference's noise(uv*15)
@@ -269,31 +274,30 @@ const GOLD_GLSL = /* glsl */ `
        a bullet. */
     float ripple = lgNoise(ruv * 6.5 + t * 2.0);
     ripple = ripple * ripple;
-    float rippleHighlight = smoothstep(0.6, 0.9, ripple) * 0.06;
+    float rippleHighlight = smoothstep(0.58, 0.92, ripple) * 0.012;
     col += whiteHot * rippleHighlight * fres * detailGain;
 
-    /* Radial vignette + central pool. fill raises the floor (less dark rest) and
-       widens the pool for regnum's fuller field; signet/cordon keep the reference
-       floor 0.35. */
+    /* Radial vignette + central pool. fill remains a local review seam; Signet
+       passes 0 so the v4 field keeps a dark rest around the pool. */
     float dist = length(ruv);
     float vignette = 1.0 - smoothstep(0.3, 1.2, dist);
-    float vigFloor = mix(0.35, 0.62, fill);
+    float vigFloor = mix(0.18, 0.45, fill);
     col *= vigFloor + vignette * (1.0 - vigFloor);
-    float poolGlow = smoothstep(0.8, 0.0, dist) * mix(0.15, 0.24, fill);
+    float poolGlow = (1.0 - smoothstep(0.0, 0.8, dist)) * mix(0.07, 0.15, fill);
     col += goldBright * poolGlow;
 
-    /* ACES-like tone map + the reference's slight warmth push. */
+    /* ACES-like tone map; the v4 palette is already authored cold. */
     col = col * (2.51 * col + 0.03) / (col * (2.43 * col + 0.59) + 0.14);
     col = pow(max(col, 0.0), vec3(0.95, 1.0, 1.08));   /* base clamped >=0 -> pow safe */
 
-    /* Gold-family hue grade (signet passes vec3(1) = the reference). */
+    /* Per-scene moon-silver grade. */
     col *= tint;
 
-    /* Saturation push (regnum) around Rec.601 luma; clamp so no channel goes neg. */
+    /* Saturation control around Rec.601 luma; clamp so no channel goes negative. */
     float luma = dot(col, vec3(0.299, 0.587, 0.114));
     col = max(mix(vec3(luma), col, sat), 0.0);
 
-    /* Gentle radial calm at the boss station (cordon): modulation only, <=1, so it
+    /* Gentle radial calm at the boss station: modulation only, <=1, so it
        only ever dims the centre-upper field where the boss and bullets read. */
     if (calm > 0.001) {
       vec2 st = (uv - vec2(0.5, 0.42)) * vec2(aspect, 1.0);
@@ -309,16 +313,16 @@ defineBackground('signet', {
   fragment: /* glsl */ `
 ${GOLD_GLSL}
 
-    const float EXPOSURE = 0.30;   /* boss-station tier; peaks ~0.24-0.28 raw */
+    const float EXPOSURE = 0.24;   /* calm Sentinel station; silver never reaches bullet white */
 
     vec3 background(vec2 uv) {
       return goldScene(
         uv, uRes.x / uRes.y, uScroll,
-        vec3(1.0),   /* the reference gold, ungraded */
+        vec3(0.86, 0.98, 1.08),   /* Sentinel moon-silver / cold cyan */
         EXPOSURE,
         0.0,         /* reference vignette (a dark rest around the pool) */
-        1.0,         /* reference saturation */
-        0.0          /* no station calm */
+        0.72,        /* v4 Ghost palette is deliberately restrained */
+        0.28         /* quiet the Boss station without hiding the signet */
       );
     }
   `,

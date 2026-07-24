@@ -1,91 +1,48 @@
 /**
- * `vault` — stage 4, the bottom of the descent, and the most crowded play field
- * in the game. A NEAR-IDENTICAL port of pbakaus/radiant `fluid-amber` (MIT): a
- * domain-warped simplex-noise field (Iñigo Quilez's "fbm of fbm") in a warm amber
- * palette — dense flowing molten marble. The flow IS the identity; its density and
- * warmth are kept as the terminal chamber's slow, heavy churn.
+ * `vault` — stage 4, the terminal pressure chamber.
  *
- * ## What was ported (verbatim in structure)
+ * The original `fluid-amber` double domain warp still supplies the material, but
+ * V4 reads it as weight rather than liquid: a full-frame black-lacquer mass folds
+ * into broad imperial-violet layers, with restrained crimson showing between
+ * compressed strata and cold grey sliding across their shoulders. There is no
+ * dissolve threshold, isolated membrane edge or fine flowing vein, so the result
+ * cannot collapse into `surge`'s ink-boundary silhouette.
  *
- * The reference's whole field math, carried across unchanged:
- *   - its exact Simplex noise (`snoise`, the Ashima/IQ `mod289`/`permute`
- *     construction — no trig, all IEEE-exact ops) and 5-octave `fbm` (freq ×2.1,
- *     `amp *= u_ampDecay`, per-octave domain offset, temporal shift `t*0.3`);
- *   - the two-stage domain warp verbatim — `q = fbm(p), fbm(p+off)`, then
- *     `r = fbm(p + 4·q + off)`, then `f = fbm(p + 3.5·r)`, with the reference's
- *     staggered clocks (`t`, `t·1.2`, `t·0.8`);
- *   - the palette verbatim — the dark base `mix` on `f·f`, the two amber lifts on
- *     `length(q)` and `length(r.x)`, the `smoothstep` highlight, and the `pow(,1.1)`
- *     grade. Constants copied exactly.
- * This is a straight port, not a re-derivation: identity comes from the reference.
+ * Three coarse octaves keep every visible change well above bullet scale. The
+ * source clock is exactly 10% faster than HEAD (`0.005 → 0.0055`) and is passed
+ * through the original staggered domain-warp clocks without extra translation or
+ * hidden time scaling. Motion reads fixed-tick `uScroll` only (CLAUDE.md rule 1).
  *
- * ## Adaptation to our surface (the only departures from the reference)
+ * V4 hybrid pass: an original finite-palette black-violet Ghost plate supplies
+ * monumental shoulders and graphite support strata. The plate stays locked to
+ * the logical pixel grid; the procedural domain warp remains the motion source
+ * above it, so motion never smears or crawls across the authored pixel edges.
  *
- *   - Uniforms: `u_timeScale` and `u_ampDecay` are baked to their reference
- *     defaults (`0.15`, `0.48`). `u_mouse` — a cursor swirl warp — is EXCISED: the
- *     reference's default resting state (`u_mouse.x < 0`) skips that block entirely,
- *     so dropping it *is* the faithful no-cursor appearance, not a substitution. No
- *     new uniform is added (rule 1 allows only the tick clock).
- *   - Clock: `t = uScroll * 0.005`. At `scrollSpeed = 0.5` that is `0.0025/tick =
- *     0.15/s`, exactly the reference's `u_time * u_timeScale` rate at 60 ticks/s
- *     (the same derivation drift uses). `uScroll` advances only in `step()`.
- *   - y-down uv → the reference's y-up centred coords (`0.5 - uv.y`), normalised by
- *     the short axis exactly as the reference divides by `min(u_res)`.
- *   - FIELD_SCALE 0.8 coarsens the marble (the bullet-band knob, below).
- *   - EXPOSURE 0.34 dims the reference's bright native output to the stage floor.
- *
- * ## Exposure & readability
- *
- * Stage-4 tier, toward the LOWER stage band because the curtain above it is the
- * heaviest in the game. The reference outputs a bright warm field (hot amber veins
- * near ~0.8 raw); EXPOSURE 0.34 brings the structured amber crests down to roughly
- * the 0.26-0.30 band on the R-dominant veins [MEASURED-IN-ACCEPTANCE] (luminance
- * lower still, amber being R>G>B), with the marble's dark inter-vein channels
- * falling to ~0.02-0.03 — the playable gaps a curtain reads through. Bullets stay
- * 1.0-white + bloom, well clear.
- *
- * ## Bullet-band grading (the marble vein width)
- *
- * The DOMINANT amber veins are the low-octave ridges of the domain warp (freq ~1-2,
- * period ~240-480px), an order of magnitude coarser than a bullet — never a
- * concern. The only structure near the play band is the finest of the 5 fbm
- * octaves: at native scale its period on the 480px short axis is ~25px, inside the
- * 16-30px bullet band. Two graders keep it from counterfeiting a bullet:
- *   - **FIELD_SCALE (the vein-width knob)** multiplies `p` by 0.8, coarsening every
- *     octave; the finest lands at ~31px, above the band. Lower it if the marble
- *     reads too fine under a curtain; raise toward 1.0 for the reference's native
- *     scale.
- *   - **Amplitude grading**: that octave carries `amp = 0.5·0.48^4 ≈ 0.027`, an
- *     order below the bright veins, and the palette's highlight term keys off the
- *     LOW-frequency warp (`f`, `r`), so the fine octave is never selectively
- *     brightened. It textures; it cannot alternate bright/dark at bullet scale.
- *
- * ## Motion
- *
- * The noise input drifts by `t·0.3 = 0.00075/tick` (per octave, not multiplied by
- * frequency), so the whole marble churns very slowly and coherently — per-tick
- * luminance step well under the strobe bound [MEASURED-IN-ACCEPTANCE].
- *
- * ## Clock
- *
- * `uScroll` only — no `performance.now`, no wall clock. A pure function of ticks,
- * so a replay looks identical twice (see `background.ts`, rule 1).
- * `backgrounds/index.test.ts` scans this file for wall-clock sources.
- *
- * fluid-amber by pbakaus/radiant, MIT. Ported near-identically; our clock, y-down
- * projection, field scale and exposure. The cursor swirl is excised (no pointer).
+ * Spatial/material ancestry: `fluid-amber` by pbakaus/radiant, MIT. V4 lacquer
+ * layering, palette, pressure lighting, pixel plate and gameplay calm are
+ * original here.
  */
 
+import VAULT_ART_URL from '../../assets/v4/backgrounds/vault-v4.png';
 import { defineBackground } from '../../render/background';
 
 defineBackground('vault', {
   scrollSpeed: 0.5,
+  art: {
+    url: VAULT_ART_URL,
+    width: 480,
+    height: 640,
+  },
   fragment: /* glsl */ `
-    const float EXPOSURE = 0.34;   /* stage 4 — terminal, heaviest curtain */
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode;  /* 0 shader, 1 painted plate, 2 production hybrid */
 
-    /* Vein-width knob: <1 coarsens the marble so the finest fbm octave clears the
-       bullet band (~25px -> ~31px at 0.8). Raise toward 1.0 for native scale. */
-    const float FIELD_SCALE = 0.8;
+    const float EXPOSURE = 2.90;   /* production x1: lacquer folds read without gain */
+
+    /* Vein-width knob: <1 coarsens the marble. 0.48 keeps all retained levels
+       comfortably broader than the bullet band. */
+    const float FIELD_SCALE = 0.48;
 
     /* Reference defaults, baked (were u_ampDecay / u_timeScale uniforms). */
     const float AMP_DECAY = 0.48;
@@ -119,14 +76,12 @@ defineBackground('vault', {
       return 130.0 * dot(m, g);
     }
 
-    /* 5-octave fbm, verbatim: freq x2.1, amp x AMP_DECAY, per-octave domain shift,
-       and the reference's temporal drift t*0.3 (added to the noise input, so the
-       churn is slow and octave-independent — no strobing). */
+    /* Three coarse octaves: material pressure, never fine liquid filaments. */
     float fbm(vec2 p, float t) {
       float val  = 0.0;
       float amp  = 0.5;
       float freq = 1.0;
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 3; i++) {
         val  += amp * snoise(p * freq + t * 0.3);
         freq *= 2.1;
         amp  *= AMP_DECAY;
@@ -135,34 +90,118 @@ defineBackground('vault', {
       return val;
     }
 
-    vec3 background(vec2 uv) {
+    vec3 vaultShader(vec2 uv, out vec2 q, out vec2 r) {
       /* y-down uv -> the reference's y-up centred coords, normalised by the short
          axis exactly as the reference divides by min(u_res). */
       float m = min(uRes.x, uRes.y);
       vec2 p = vec2((uv.x - 0.5) * uRes.x, (0.5 - uv.y) * uRes.y) / m;
       p *= FIELD_SCALE;
 
-      float t = uScroll * 0.005;   /* = 0.15/s at 60 ticks/s; ticks only (rule 1) */
+      /* HEAD was 0.005. No nested slowdown or added pan: total speed is +10%. */
+      float t = uScroll * 0.0055;
 
-      /* Two-stage domain warp — the fluid marble — carried across verbatim. */
-      vec2 q = vec2(fbm(p + vec2(0.0, 0.0), t),
-                    fbm(p + vec2(5.2, 1.3), t));
+      /* Original two-stage warp, retained as the pressure source. */
+      q = vec2(fbm(p + vec2(0.0, 0.0), t),
+               fbm(p + vec2(5.2, 1.3), t));
 
-      vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2), t * 1.2),
-                    fbm(p + 4.0 * q + vec2(8.3, 2.8), t * 1.2));
+      r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2), t * 1.2),
+               fbm(p + 4.0 * q + vec2(8.3, 2.8), t * 1.2));
 
       float f = fbm(p + 3.5 * r, t * 0.8);
 
-      /* Palette verbatim: dark warm base, two amber lifts, a broad highlight. */
-      vec3 col = mix(vec3(0.075, 0.065, 0.055), vec3(0.20, 0.14, 0.07), clamp(f * f * 2.0, 0.0, 1.0));
-      col = mix(col, vec3(0.78, 0.58, 0.24), clamp(length(q) * 0.5, 0.0, 1.0));
-      col = mix(col, vec3(0.95, 0.75, 0.35), clamp(length(r.x) * 0.6, 0.0, 1.0));
+      /*
+       * A pair of warped, near-horizontal layer coordinates turns the fluid
+       * source into thick folded lacquer. Both cover roughly one cycle over the
+       * portrait field, so they read as masses rather than repeated stripes.
+       */
+      float layerPhase = p.y * 9.0 + p.x * 2.2
+        + q.x * 1.55 - r.y * 1.05 - t * 1.10;
+      float counterPhase = p.y * 4.4 - p.x * 1.25
+        + r.x * 1.35 + q.y * 0.65 + t * 0.42;
+      float layerA = 0.5 + 0.5 * sin(layerPhase);
+      float layerB = 0.5 + 0.5 * sin(counterPhase);
+      float layerDepth = smoothstep(0.16, 0.86, layerA * 0.72 + layerB * 0.28);
 
-      float highlight = smoothstep(0.5, 1.2, f * f * 3.0 + length(r) * 0.5);
-      col += vec3(0.18, 0.12, 0.04) * highlight;
+      float pressure = clamp(
+        0.46
+        + f * 0.31
+        + (length(q) - 0.42) * 0.17
+        + (r.x - r.y) * 0.085,
+        0.0,
+        1.0
+      );
+      float underLayer = smoothstep(0.18, 0.86, layerB);
 
-      col = pow(max(col, vec3(0.0)), vec3(1.1));   /* col >= 0 -> pow safe */
-      return col * EXPOSURE;
+      /* Broad shoulder lighting; no reaction edge or narrow contour is formed. */
+      float shoulder = 1.0 - abs(layerA * 2.0 - 1.0);
+      shoulder *= shoulder;
+      float pressureLift = smoothstep(0.26, 0.88, pressure);
+      float lacquerSweep = 0.5 + 0.5 * cos(
+        layerPhase * 0.43 + counterPhase * 0.17 + t * 0.31
+      );
+      lacquerSweep *= lacquerSweep;
+
+      vec3 voidLacquer = vec3(0.017, 0.014, 0.028);
+      vec3 blackViolet = vec3(0.060, 0.033, 0.086);
+      vec3 imperialViolet = vec3(0.150, 0.066, 0.198);
+      vec3 restrainedCrimson = vec3(0.255, 0.060, 0.108);
+      vec3 coldGrey = vec3(0.420, 0.435, 0.470);
+
+      vec3 col = mix(voidLacquer, blackViolet, 0.28 + pressure * 0.62);
+      col = mix(col, imperialViolet, layerDepth * (0.24 + pressure * 0.18));
+      col = mix(
+        col,
+        restrainedCrimson,
+        underLayer * (1.0 - layerDepth * 0.52) * (0.10 + pressure * 0.14)
+      );
+      col += coldGrey * shoulder * pressureLift * 0.075;
+      col += mix(imperialViolet, coldGrey, 0.34)
+        * lacquerSweep * pressureLift * 0.052;
+
+      /* Deep compression darkens valleys instead of outlining them. */
+      float compression = smoothstep(0.12, 0.82, 1.0 - pressure);
+      col *= 1.0 - compression * (1.0 - shoulder * 0.42) * 0.24;
+
+      col = col / (1.0 + col * 0.30);
+      col = pow(max(col, vec3(0.0)), vec3(1.04));
+      float entryCalm = 0.62 + 0.38 * smoothstep(0.0, 0.24, uv.y);
+      float activityCalm = 1.0 - 0.28 * smoothstep(0.58, 0.94, uv.y);
+      return col * EXPOSURE * entryCalm * activityCalm;
+    }
+
+    vec2 vaultPixelUv(vec2 uv) {
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
+      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+    }
+
+    vec3 vaultArt(vec2 pixelUv) {
+      vec3 painted = texture2D(uArt, pixelUv).rgb;
+      /* Keep the Ghost membranes readable at x1 while capping bone-silver
+         supports well below the white-core bullet tier. */
+      painted = pow(max(painted, vec3(0.0)), vec3(1.08)) * 0.46;
+      return min(painted, vec3(0.34));
+    }
+
+    vec3 background(vec2 uv) {
+      if (uArtMode < 0.5) {
+        vec2 smoothQ;
+        vec2 smoothR;
+        return vaultShader(uv, smoothQ, smoothR);
+      }
+
+      /* Production modes snap the complete scene to the logical pixel grid;
+         shader-only remains the exact smooth reference for comparison. */
+      vec2 pixelUv = vaultPixelUv(uv);
+      vec3 painted = vaultArt(pixelUv);
+      if (uArtMode < 1.5) return painted;
+      vec2 q;
+      vec2 r;
+      vec3 shaderColor = vaultShader(pixelUv, q, r);
+
+      vec3 hybrid = mix(painted, shaderColor, 0.46);
+      float pressureLight = dot(shaderColor, vec3(0.2126, 0.7152, 0.0722));
+      hybrid += painted * pressureLight * 0.35;
+      return hybrid;
     }
   `,
 });

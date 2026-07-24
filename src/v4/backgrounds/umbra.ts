@@ -1,4 +1,11 @@
 /**
+ * V4 integration (2026-07-24): Umbra keeps the unmoored eclipse veil, but all
+ * isolated stardust is disabled and the surviving aurora is coarser, colder and
+ * lower-band calm. The eclipse remains subtractive: 出神 arrives through motion
+ * and coherence, never a brightness spike.
+ */
+
+/**
  * `umbra` — sentinel's "Total Eclipse" (Lunatic only). A NEAR-IDENTICAL port of
  * pbakaus/radiant `stardust-veil` (MIT), and its ONLY home: a dense shimmering
  * cosmic stardust curtain — a domain-warped FBM nebula in deep purples and
@@ -12,8 +19,8 @@
  * dissolved that too — `decree` is `moire-interference` now — so `umbra` alone
  * carries `stardust-veil` and `VEIL_GLSL` is internal to this file. What the
  * pair still shares is its RELATIVE DISCIPLINE, not a picture: both scenes are
- * the dimmest family in the game, unmoored from the seal grammar. Identity
- * comes from the port; the scene only grades and modulates it.
+ * unmoored from the seal grammar. Identity comes from the port; the scene only
+ * grades and modulates it.
  *
  * ## The role kept, the picture replaced
  *
@@ -23,7 +30,7 @@
  * The unmooring now reads as a cosmic veil adrift — the whole field precesses
  * slowly off-station (a gentle circular sway) and a soft eclipse shadow crosses it.
  * The 出神 threshold is crossed by COHERENCE and MOTION (the drift, the shadow, the
- * wave), never by luminance: this pair is the DIMMEST family in the game.
+ * wave), never by isolated luminance spikes.
  *
  * ## What was ported
  *
@@ -38,33 +45,23 @@
  *
  * ## Adaptation to our surface (the departures from the reference)
  *
- *   - STAR GRADING KNOB (the bullet-band guarantee). The reference draws each star
- *     as a sharp `smoothstep` core (radius ~7-17px) plus a soft glow. A bright
- *     sharp dot at 16-30px is exactly a fake bullet, so the core term is DROPPED
- *     ENTIRELY — `veilStars` emits no core, only the broad Gaussian glow: the
- *     reference's core weight (1.2) is simply gone, and what survives is the glow
- *     scaled by `VEIL_STAR_GLOW_GAIN` (the reference's 0.4 glow weight), widened
- *     ×`VEIL_STAR_GLOW_WIDEN` (1.8) and dimmed — a star becomes a soft dust blob
- *     (σ ≳ 20px), never a pinpoint. The near-star FLARE pulses (bright warm points)
- *     and the connecting THREADS (thin ~4px glowing lines) are dropped for the same
- *     reason, exactly as `expanse` dropped its cores/grain and `drift` its
- *     hyper-tight moon core. The aurora ridge FBM is reduced 4→3 octaves, trimming
- *     the finest ridge octave — but the finer surviving ridge (`rNoise2`, spatial
- *     ×4/×5, still 3 octaves) reaches near the play band, so bullet-band safety for
- *     the ribbons does NOT rest on that octave cut raising the minimum feature size;
- *     it rests on BRIGHTNESS grading — the low EXPOSURE (0.25), the small ribbon
- *     weight (0.18, with a further ×0.3 on the finer `ridged2` term), and the ridge
- *     elongation keeping every ribbon coherent and never point-like.
+ *   - The reference's complete star path is removed. Its cores (radius ~7–17px),
+ *     glows, near-star flares and connecting threads all occupy the fake-bullet
+ *     band; a zero-gain branch is not retained in the compiled source. The aurora
+ *     ridge FBM is reduced 4→3 octaves, trimming
+ *     the finest ridge octave. The finer surviving ridge (`rNoise2`, spatial
+ *     ×4/×5) is reduced to two octaves; its small weight (0.18, with a further
+ *     ×0.3 on `ridged2`) and elongated shape keep it coherent rather than
+ *     point-like even after the production ×1 lift.
  *   - Film GRAIN dropped: a per-pixel high-frequency term reads as speckle in the
  *     play band (the `expanse` lesson).
  *   - Uniforms: the reference's `u_driftSpeed` (0.4) is baked to `VEIL_DRIFT`;
- *     `u_starDensity` (1.0) folds into `STAR_GAIN`; `u_mouse` (the gravitational
+ *     `u_starDensity` disappears with the star path; `u_mouse` (the gravitational
  *     lensing) is excised — our uniform surface has no pointer and rule 1 forbids
  *     anything but a tick clock.
- *   - Clock: `t = uScroll * 0.012`, so the veil animates at roughly the reference's
- *     wall-clock-seconds rate but frame-locked; the slower rate also keeps the
- *     per-tick twinkle/wave step well under the strobe bound. `uScroll` advances
- *     only in `step()`.
+ *   - Clock: `t = uScroll * 0.014`, with the drift and eclipse clocks increased
+ *     proportionally. Animation remains frame-locked; `uScroll` advances only in
+ *     `step()`.
  *   - y-down uv → the reference's min-dimension-centred coords with the y flip
  *     retained (a vertical mirror of a near-symmetric field is cosmetic).
  *   - Palette pushed cold blue-violet — the warmth draining as the seal unmoors —
@@ -75,15 +72,10 @@
  *
  * ## Exposure & readability
  *
- * The 出神 pair is the RELATIVELY DIMMEST family of all — below `sable`, the
- * darkest stated seal. Structured aurora-ridge peaks land ~0.10-0.14 raw
- * [MEASURED-IN-ACCEPTANCE] at EXPOSURE 0.25, well under a bullet's 1.0-white +
- * bloom, and the eclipse shadow multiplies that further down as it crosses. The
- * stardust is a soft dim shimmer (glow-only, no cores), the nebula a near-black
- * deep-purple haze. Motion: field precession + shadow crossing + wave sweep + slow
- * twinkle, every per-tick step bounded [MEASURED-IN-ACCEPTANCE]. The knobs the
- * acceptance pass tunes are `EXPOSURE`, `STAR_GAIN`, and the shared
- * `VEIL_STAR_GLOW_*` constants.
+ * `EXPOSURE 1.00` makes the cold veil and eclipse readable at production ×1
+ * without restoring any isolated stardust. The shadow remains subtractive, so
+ * field precession, shadow crossing and the wave sweep carry the motion while
+ * bullets retain the only compact highlights.
  *
  * ## Clock
  *
@@ -105,33 +97,18 @@ import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background
  * prepend that before this. Its helpers are `veil`-prefixed so nothing collides
  * with the `bgHash`/`bgNoise`/`bgFbm` already in each fragment.
  *
- * `veilCompose(p, t, starGain)` returns the native-coloured veil in LINEAR space
+ * `veilCompose(p, t)` returns the native-coloured veil in LINEAR space
  * (pre-tonemap); `veilGrade` pushes it toward a role hue; `veilTonemap` applies the
  * reference's soft-S-curve. Each scene composes: `veilCompose → veilGrade →
  * role multiply → veilTonemap → * EXPOSURE`.
  */
 const VEIL_GLSL = /* glsl */ `
-  const float VEIL_PI  = 3.14159265359;
-  const float VEIL_TAU = 6.28318530718;
-
   /* Reference u_driftSpeed (0.4) baked to its default: the celestial-wind rate. */
   const float VEIL_DRIFT = 0.4;
-
-  /* THE BULLET-BAND KNOB. The reference star is a sharp smoothstep core (weight
-     1.2, radius ~7-17px — a fake bullet) PLUS a soft glow (weight 0.4). The core is
-     dropped; only the glow survives, widened so a star is a soft dust blob, never a
-     pinpoint. Raise WIDEN or lower GAIN if a star ever reads as a bullet. */
-  const float VEIL_STAR_GLOW_WIDEN = 1.8;   /* broadens the glow past the reference *4.0 */
-  const float VEIL_STAR_GLOW_GAIN  = 0.4;   /* the reference glow weight; the 1.2 core weight is gone */
 
   /* --- Hash & noise primitives (reference-faithful, veil-prefixed) --- */
   float veilHash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-  }
-  vec2 veilHash2(vec2 p) {
-    return vec2(
-      fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453),
-      fract(sin(dot(p, vec2(269.5, 183.3))) * 43758.5453));
   }
   float veilNoise(vec2 p) {
     vec2 i = floor(p);
@@ -169,9 +146,9 @@ const VEIL_GLSL = /* glsl */ `
   vec3 veilNebula(vec2 uv, float t) {
     vec2 p = uv * 1.8;
     float n1 = veilWarped(p, t);
-    vec3 deepPurple  = vec3(0.06, 0.02, 0.10);
-    vec3 midnightBlue = vec3(0.03, 0.03, 0.09);
-    vec3 darkMauve   = vec3(0.08, 0.03, 0.07);
+      vec3 deepPurple  = vec3(0.045, 0.035, 0.075);
+      vec3 midnightBlue = vec3(0.025, 0.040, 0.075);
+      vec3 darkMauve   = vec3(0.065, 0.045, 0.065);
     vec3 col = mix(deepPurple, midnightBlue, n1);
     col = mix(col, darkMauve, smoothstep(0.3, 0.7, n1) * 0.5);
     col += smoothstep(0.35, 0.65, n1) * 0.06;   /* subtle brightness variation */
@@ -179,10 +156,9 @@ const VEIL_GLSL = /* glsl */ `
   }
 
   /* --- Layer 2: aurora ribbons — ridged domain-warped noise, three bands.
-     Ridge FBM reduced 4->3 octaves (trims the finest octave); the finer surviving
-     ridge (rNoise2, x4/x5) still reaches near the play band, so band-safety here
-     rests on BRIGHTNESS — low EXPOSURE, the 0.18 / x0.3 ribbon weights, and the
-     elongated, coherent (never point-like) ribbons. Else the reference. --- */
+     Ridge FBM reduced 4->3 octaves and the finer rNoise2 branch to two; its
+     0.18 / x0.3 weights plus elongated shape keep it coherent and non-pointlike.
+     Else the reference. --- */
   vec3 veilAurora(vec2 uv, float t) {
     vec3 col = vec3(0.0);
     float drift = VEIL_DRIFT;
@@ -195,60 +171,25 @@ const VEIL_GLSL = /* glsl */ `
       float warpY = veilFbm(warpP + vec2(3.3, 7.7), 3) * 0.3;
       vec2 warped = vec2(uv.x + warpX, uv.y + warpY);
 
-      float rNoise = veilFbm(vec2(warped.x * 2.5 + t * 0.04 * drift, warped.y * 3.0 + yOffset) + fi * 5.0, 3);
+      float rNoise = veilFbm(vec2(warped.x * 1.8 + t * 0.04 * drift, warped.y * 2.2 + yOffset) + fi * 5.0, 3);
       float ridged = 1.0 - abs(rNoise * 2.0 - 1.0);
       ridged = pow(ridged, 4.0);                 /* ridged in [0,1] -> pow safe */
 
-      float rNoise2 = veilFbm(vec2(warped.x * 4.0 - t * 0.025 * drift, warped.y * 5.0 + yOffset * 1.5) + fi * 8.0, 3);
+      float rNoise2 = veilFbm(vec2(warped.x * 2.5 - t * 0.025 * drift, warped.y * 3.0 + yOffset * 1.5) + fi * 8.0, 2);
       float ridged2 = 1.0 - abs(rNoise2 * 2.0 - 1.0);
       ridged2 = pow(ridged2, 5.0);
 
       float ribbon = ridged * 0.7 + ridged2 * 0.3;
 
       vec3 bandColor;
-      if (i == 0) bandColor = vec3(0.55, 0.45, 0.80);        /* lavender */
-      else if (i == 1) bandColor = vec3(0.80, 0.50, 0.60);   /* soft pink */
-      else bandColor = vec3(0.85, 0.75, 0.50);               /* pale gold */
+      if (i == 0) bandColor = vec3(0.42, 0.52, 0.72);
+      else if (i == 1) bandColor = vec3(0.66, 0.56, 0.64);
+      else bandColor = vec3(0.58, 0.68, 0.74);
 
       float breath = 0.6 + 0.4 * sin(t * 0.08 + fi * 1.3);
       col += bandColor * ribbon * breath * 0.18;
     }
     return col;
-  }
-
-  /* --- Layers 3-5: parallax stardust. Core DROPPED (the bullet-band knob) — only
-     the broadened, dimmed Gaussian glow survives, so each star is a soft dust blob.
-     Flares and connecting threads are dropped entirely. --- */
-  float veilStars(vec2 uv, float scale, float threshold, float t, float speed, float seed) {
-    vec2 p = uv * scale;
-    p.y += t * speed * VEIL_DRIFT;
-    p.x += t * speed * VEIL_DRIFT * 0.3 + sin(t * 0.05) * 0.2;
-
-    vec2 cell = floor(p);
-    vec2 f = fract(p);
-    float stars = 0.0;
-
-    for (int dy = -1; dy <= 1; dy++) {
-      for (int dx = -1; dx <= 1; dx++) {
-        vec2 neighbor = vec2(float(dx), float(dy));
-        vec2 cellId = cell + neighbor;
-        vec2 starCenter = veilHash2(cellId + seed);
-        vec2 diff = neighbor + starCenter - f;
-        float dist = length(diff);
-
-        float present    = step(threshold, veilHash(cellId * 0.7 + seed + 77.0));
-        float brightness = veilHash(cellId * 1.3 + seed + 33.0);
-        float twPhase    = veilHash(cellId * 2.1 + seed + 99.0) * VEIL_TAU;
-        float twSpeed    = 0.8 + veilHash(cellId * 3.7 + seed + 55.0) * 2.0;
-        float twinkle    = 0.6 + 0.4 * sin(t * twSpeed + twPhase);   /* amplitude eased 0.5->0.4 */
-
-        float starSize = 0.02 + brightness * 0.02;                  /* min raised so the glow is broader */
-        float glow = exp(-dist * dist / (starSize * starSize * 4.0 * VEIL_STAR_GLOW_WIDEN));
-
-        stars += glow * VEIL_STAR_GLOW_GAIN * brightness * twinkle * present;
-      }
-    }
-    return stars;
   }
 
   /* --- Layer 7: traveling brightness wave, a slow diagonal sweep --- */
@@ -263,24 +204,18 @@ const VEIL_GLSL = /* glsl */ `
     return wave * 0.35 + wave2 * 0.2;
   }
 
-  /* Compose the veil in LINEAR space (pre-tonemap). p is the reference's
-     min-dimension-centred coord; starGain folds the reference u_starDensity and the
-     per-scene dimming into one knob. */
-  vec3 veilCompose(vec2 p, float t, float starGain) {
+  /* Compose the starless veil in LINEAR space (pre-tonemap). p is the
+     reference's min-dimension-centred coord. */
+  vec3 veilCompose(vec2 p, float t) {
     vec3 col = veilNebula(p, t);
     col += veilAurora(p, t);
-
-    col += vec3(0.65, 0.72, 0.90) * veilStars(p, 35.0, 0.35, t, 0.02, 0.0)   * 0.25 * starGain;  /* far, cool white-blue */
-    col += vec3(0.80, 0.65, 0.85) * veilStars(p, 18.0, 0.45, t, 0.06, 100.0) * 0.45 * starGain;  /* mid, pink-lavender */
-    col += vec3(0.90, 0.75, 0.60) * veilStars(p,  8.0, 0.65, t, 0.12, 200.0) * 0.55 * starGain;  /* near, warm gold-pink */
-    /* flares (bright warm pulses) and connecting threads (thin lines) dropped — both bullet-band. */
 
     float wave = veilWave(p, t);
     col *= 1.0 + wave;
     col += vec3(0.70, 0.60, 0.85) * wave * 0.04;   /* lavender wind wash */
 
     /* Faint overall shimmer — low-frequency, uses the shared bgNoise. */
-    float shimmer = bgNoise(p * 12.0 + t * 0.5) * bgNoise(p * 8.0 - t * 0.3);
+    float shimmer = bgNoise(p * 4.0 + t * 0.3) * bgNoise(p * 3.0 - t * 0.2);
     col += vec3(0.75, 0.65, 0.85) * shimmer * 0.015;
 
     /* Vignette. */
@@ -321,32 +256,32 @@ defineBackground('umbra', {
 ${BACKGROUND_NOISE_GLSL}
 ${VEIL_GLSL}
 
-    const float EXPOSURE  = 0.25;   /* 出神 pair — the dimmest family, below sable */
-    const float STAR_GAIN = 0.5;    /* stardust dimmed well under a bullet */
+    const float EXPOSURE = 1.00;   /* production x1: veil texture stays legible */
 
     /* Cold blue-violet — the warmth drained as the seal unmoors. The reference
        nebula is already blue-violet, so umbra is "the veil as-is, dimmed". */
     const vec3 VEIL_TINT = vec3(0.72, 0.80, 1.14);
 
     vec3 background(vec2 uv) {
-      float t = uScroll * 0.012;
+      float t = uScroll * 0.014;
 
       /* The whole veil precesses slowly off-station — the unmoored sway.
          sin/cos of uScroll only, a pure function of ticks, no wall clock. */
-      vec2 drift = 0.03 * vec2(cos(uScroll * 0.004), sin(uScroll * 0.004));
+      vec2 drift = 0.03 * vec2(cos(uScroll * 0.0046), sin(uScroll * 0.0046));
       vec2 p = veilCoord(uv, drift);
 
-      vec3 col = veilCompose(p, t, STAR_GAIN);
+      vec3 col = veilCompose(p, t);
       col = veilGrade(col, VEIL_TINT, 0.32);
 
       /* Total Eclipse: a soft shadow band sweeps the field on uScroll. It only ever
          MULTIPLIES down (0.55..1.0), so luminance cannot rise above the veil —
          coherence and shadow cross, brightness does not. */
-      float eclipse = 0.55 + 0.45 * (0.5 + 0.5 * sin(uScroll * 0.0025 - uv.y * 3.0));
+      float eclipse = 0.55 + 0.45 * (0.5 + 0.5 * sin(uScroll * 0.0029 - uv.y * 3.0));
       col *= eclipse;
 
       col = veilTonemap(col);
-      return col * EXPOSURE;
+      float activityCalm = 1.0 - 0.20 * smoothstep(0.62, 0.94, uv.y);
+      return col * EXPOSURE * activityCalm;
     }
   `,
 });

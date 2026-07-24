@@ -16,6 +16,18 @@ and remains recoverable from Git history.
 
 ## Accepted originals
 
+- `background-expanse-v4-master.png` — stage 1 negative-space membrane plate in
+  the Ghost surface/skeleton language; its 480×640 pixel derivative is sampled
+  by `expanse` beneath the fixed-tick anamorphic shader.
+- `background-undertow-v4-master.png` — stage 2 descending indigo membrane
+  walls and central shaft void; its static derivative anchors the original
+  fixed-tick refractive current without duplicating the structure layer.
+- `background-stratum-v4-master.png` — stage 3 soot-and-slate sediment
+  membranes with a calm lower basin; the moving-centre/wave field remains the
+  motion source above its pixel derivative.
+- `background-vault-v4-master.png` — stage 4 black-violet pressure membrane;
+  its 480×640 pixel derivative stays grid-locked while `vault`'s live domain
+  field supplies the motion above it.
 - `style-lock-ghost-layers.png` — surface / skeleton / mycelium visual grammar.
 - `player-cast-ghoststyle-master.png` — five-player pose master.
 - `enemies-stage-1-ghoststyle-master.png` through
@@ -36,6 +48,14 @@ and remains recoverable from Git history.
 Keep originals byte-for-byte.  Derive production assets into their runtime
 locations; do not overwrite these files with crops, transparency conversions or
 packed atlases.
+
+The four files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
+derivatives of the four campaign-stage masters. `bun run make:v4-backgrounds`
+deterministically area-reduces each master to 240×320, maps it to a
+scene-authored finite Ghost palette, removes single-pixel colour islands and
+undersized bright components, then nearest-neighbour expands it by exactly 2×.
+The encoder writes no colour profile or inherited master metadata. These are
+project-owned, shader-coupled assets rather than replaceable pack skins.
 
 `packs/v4/actors/portraits.png` is one such derivative: its ten close-ups are
 rebuilt deterministically from the existing player cast and isolated Boss

@@ -1,60 +1,23 @@
 /**
- * `surge` — the spell-card / pack overlay. A NEAR-IDENTICAL port of
- * pbakaus/radiant `ink-dissolve` (MIT): double domain-warped simplex tendrils
- * thresholded into an organic ink boundary, with the edge-glow living exactly on
- * the transition (`ink*(1-ink)*4`) — the ink-dissolve signature.
+ * `surge` — the stage-2 Magistrate entry field, re-authored from the original
+ * ink-dissolve port. Its double domain warp, drifting ink envelopes and reaction
+ * edge remain the whole picture; V4 enlarges them into the indictment's closing
+ * Ghost membrane, with a bone-silver dissolution front and one diffuse heart
+ * stain. There are no inserted plates or geometric cracks. The broad surface and
+ * edge are graded to read at ×1. Its fixed clock is spent inside the two warp
+ * stages and membrane grain; whole-field translation is intentionally almost
+ * imperceptible.
  *
- * ## What was ported
- *
- * The reference verbatim in structure: Ashima simplex `snoise`, the rotated
- * `fbm4`, the DOUBLE domain warp (`q = fbm(p+t); r = fbm(p+2.5q+t); field =
- * fbm(p+2.2r+t)`) that grows reaction-diffusion tendrils, the three slow drifting
- * circular ink-source envelopes plus a centre bias, the fine secondary tendrils,
- * the multi-band edge glow (soft/mid/hot), the caustic-shimmered liquid base, the
- * subsurface bleed, the ambient-from-below term, and the vignette + warm gamma.
- *
- * ## Adaptation to our surface (the only departures from the reference)
- *
- *   - Uniforms baked: `u_spread` (0.4) folds into the clock, `u_detail` (1.0) is
- *     constant; `u_mouse` (the cursor ink source) is excised — no pointer on our
- *     surface, and rule 1 permits only a tick clock.
- *   - Clock: `t = uScroll * 0.0026`, slowed below the reference's `u_time*0.4` rate
- *     because the sharp ink boundary sweeping quickly gives a large per-tick
- *     luminance step (the surviving no-strobing property wins over rate-fidelity).
- *     `uScroll` advances only in `step()`.
- *   - Palette recoloured from the reference's warm amber to surge's magenta-red
- *     (its pack-consistent role-hue, the red the stage scenes were each chosen to
- *     sit clear of) — the value ramp (dark ink -> hot edge) is preserved, only the
- *     hue is turned.
- *   - EXPOSURE 0.22: surge overlays whatever scene the stage was in and must vanish
- *     under a bullet curtain, so it is the dimmest of the "own picture" cells.
- *
- * ## Exposure & readability
- *
- * Overlay tier. The hot ink edge is the identity and crests near the exposure
- * ceiling (~0.22 raw) [MEASURED-IN-ACCEPTANCE] — bright enough to read as
- * dissolving ink, dim enough that a bullet still wins the contrast fight. The
- * threshold band is kept WIDE (`smoothstep(-0.2, 0.1, field)`, width 0.3 — the
- * reference's own band) so the glowing edge stays tens of px wide, never a
- * bullet-frequency line. Motion: ink creep, the
- * boundary velocity well under the strobe bound [MEASURED-IN-ACCEPTANCE].
- *
- * ## Clock
- *
- * `uScroll` only — no wall clock. A pure function of ticks (see `background.ts`,
- * rule 1); `backgrounds/index.test.ts` scans this file for wall-clock sources.
- *
- * ink-dissolve by pbakaus/radiant, MIT. Ported; our clock and palette.
+ * Clock: fixed-tick `uScroll` only (CLAUDE.md rule 1). The field is derived from
+ * pbakaus/radiant `ink-dissolve` (MIT).
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('surge', {
   scrollSpeed: 1.4,
   fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
-
-    const float EXPOSURE = 0.22;   /* overlay tier — must vanish under bullets */
+    const float EXPOSURE = 1.70;
 
     /* Ashima simplex 2D noise (the reference's texture). */
     vec3 idMod289(vec3 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
@@ -104,91 +67,119 @@ ${BACKGROUND_NOISE_GLSL}
 
     float inkField(vec2 p, float t) {
       vec2 q = vec2(
-        fbm4(p + vec2(0.0, 0.0) + t * 0.04),
-        fbm4(p + vec2(5.2, 1.3) + t * 0.03)
+        fbm4(p + vec2(t * 0.18, -t * 0.13)),
+        fbm4(p + vec2(5.2 - t * 0.15, 1.3 + t * 0.19))
       );
       vec2 r = vec2(
-        fbm4(p + 2.5 * q + vec2(1.7, 9.2) + t * 0.022),
-        fbm4(p + 2.5 * q + vec2(8.3, 2.8) + t * 0.032)
+        fbm4(p + 2.5 * q + vec2(1.7 - t * 0.25, 9.2 + t * 0.16)),
+        fbm4(p + 2.5 * q + vec2(8.3 + t * 0.21, 2.8 - t * 0.23))
       );
-      return fbm4(p + 2.2 * r + t * 0.015);
+      return fbm4(p + 2.2 * r + vec2(t * 0.17, -t * 0.20));
     }
 
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
-      /* Reference's centred coord (y-down is immaterial here — the field is
-         radially organic and the envelopes are symmetric about centre). */
       vec2 sc = vec2((uv.x - 0.5) * aspect, (uv.y - 0.5));
-      float t = uScroll * 0.0026;   /* slowed below the reference rate: the sharp ink
-                                       edge sweeping fast gives a large per-tick step */
+      float t = uScroll * 0.00286;
+      vec2 driftedSc = sc + vec2(t * 0.009, -t * 0.006);
 
-      float field = inkField(sc * 0.8, t);
+      /* The reference's double domain warp, enlarged rather than replaced.
+         Outer coordinates barely move; q and r counter-roll inside inkField. */
+      float field = inkField(driftedSc * 0.62, t);
 
       /* Three slow drifting ink sources + centre bias (mouse source dropped). */
       float envelope = 0.0;
       float a1 = t * 0.05;
-      envelope += smoothstep(0.95, 0.0, length(sc - vec2(cos(a1)*0.15, sin(a1*0.7)*0.12)));
+      envelope += 1.0 - smoothstep(
+        0.0,
+        0.74,
+        length(sc - vec2(cos(a1) * 0.15, sin(a1 * 0.7) * 0.12))
+      );
       float a2 = t * 0.04 + 2.2;
-      envelope += smoothstep(0.85, 0.0, length(sc - vec2(cos(a2)*0.25, sin(a2*0.6)*0.2)));
+      envelope += 1.0 - smoothstep(
+        0.0,
+        0.64,
+        length(sc - vec2(cos(a2) * 0.25, sin(a2 * 0.6) * 0.20))
+      );
       float a3 = t * 0.048 + 4.7;
-      envelope += smoothstep(0.75, 0.0, length(sc - vec2(cos(a3*0.8)*0.2, sin(a3)*0.16)));
-      envelope += smoothstep(0.65, 0.0, length(sc)) * 0.6;
+      envelope += 1.0 - smoothstep(
+        0.0,
+        0.58,
+        length(sc - vec2(cos(a3 * 0.8) * 0.20, sin(a3) * 0.16))
+      );
+      envelope += (1.0 - smoothstep(0.0, 0.62, length(sc))) * 0.45;
       envelope = clamp(envelope, 0.0, 1.0);
 
-      float inkRaw = smoothstep(-0.2, 0.1, field);
+      /* The broad boundary slowly dissolves and returns without a value jump. */
+      float dissolveBias = sin(t * 1.65 + field * 0.45) * 0.042;
+      float inkRaw = smoothstep(
+        -0.40 + dissolveBias,
+        0.30 + dissolveBias,
+        field
+      );
       float ink = inkRaw * envelope;
 
-      float fineField = fbm3(sc * 2.5 + vec2(t * 0.02, -t * 0.015));
-      float fineTendril = smoothstep(-0.1, 0.12, fineField) * envelope;
-      float combinedInk = max(ink, fineTendril * 0.35);
+      /* One faint secondary branch retains the dissolve's tendrils at a scale
+         safely broader than bullets. */
+      float secondaryGuide = fbm3(
+        driftedSc * 0.72 + vec2(4.1 - t * 0.17, 7.3 + t * 0.13)
+      );
+      vec2 secondaryCurl = vec2(
+        secondaryGuide - 0.5,
+        0.5 - fbm3(
+          driftedSc * 0.68 + vec2(8.6 + t * 0.14, 1.2 - t * 0.16)
+        )
+      );
+      float secondaryField = fbm3(
+        driftedSc * 1.05
+        + secondaryCurl * 0.72
+        + vec2(-t * 0.20, t * 0.16)
+      );
+      float secondaryInk = smoothstep(-0.24, 0.26, secondaryField) * envelope;
+      float combinedInk = max(ink, secondaryInk * 0.18);
 
       float edgeRaw = combinedInk * (1.0 - combinedInk) * 4.0;
-      float edgeSoft = smoothstep(0.05, 0.5, edgeRaw);
-      float edgeMid = smoothstep(0.25, 0.8, edgeRaw);
-      float edgeHot = smoothstep(0.6, 1.0, edgeRaw);
+      float edgeSoft = smoothstep(0.02, 0.62, edgeRaw);
+      float edgeBody = smoothstep(0.30, 0.90, edgeRaw);
 
-      float fineEdge = fineTendril * (1.0 - fineTendril) * 4.0;
-      fineEdge = smoothstep(0.3, 0.9, fineEdge) * 0.4;
+      vec3 voidInk = vec3(0.006, 0.009, 0.017);
+      vec3 ghostShadow = vec3(0.030, 0.046, 0.064);
+      vec3 ghostSurface = vec3(0.115, 0.155, 0.190);
+      vec3 bone = vec3(0.650, 0.690, 0.710);
+      vec3 heart = vec3(0.500, 0.330, 0.400);
 
-      /* Magenta-red ramp (surge role-hue) — the reference's amber value ramp,
-         hue turned toward red. */
-      vec3 inkDark   = vec3(0.020, 0.006, 0.014);
-      vec3 redDim    = vec3(0.070, 0.014, 0.040);
-      vec3 redDeep   = vec3(0.200, 0.045, 0.090);
-      vec3 redWarm   = vec3(0.460, 0.130, 0.220);
-      vec3 redGlow   = vec3(0.820, 0.320, 0.400);
-      vec3 redBright = vec3(1.000, 0.520, 0.560);
-      vec3 redHot    = vec3(1.000, 0.760, 0.720);
+      /* Two counter-moving surface samples make fibres roll within the membrane
+         instead of riding along with a camera pan. */
+      float membraneA = fbm3(
+        sc * 0.82 + vec2(t * 0.16, -t * 0.12)
+      );
+      float membraneB = fbm3(
+        sc * 0.66
+        + vec2((membraneA - 0.5) * 0.55, (0.5 - membraneA) * 0.38)
+        + vec2(6.4 - t * 0.14, 2.7 + t * 0.17)
+      );
+      float membrane = clamp(
+        0.18 + membraneA * 0.46 + membraneB * 0.42,
+        0.0,
+        1.0
+      );
+      vec3 surface = mix(ghostShadow, ghostSurface, membrane * 0.78);
+      vec3 col = mix(surface, voidInk, combinedInk * 0.94);
 
-      float liqVar = 0.5 + 0.5 * fbm3(sc * 2.0 + t * 0.03);
-      vec3 liquid = mix(redDim, redDeep, liqVar * 0.7);
+      /* The original reaction edge survives as one broad material transition. */
+      col += ghostSurface * edgeSoft * 0.16;
+      col += bone * edgeBody * 0.105;
 
-      float c1 = 0.5 + 0.5 * snoise(sc * 6.0 + vec2(t * 0.05, -t * 0.035));
-      float c2 = 0.5 + 0.5 * snoise(sc * 10.0 + vec2(-t * 0.03, t * 0.04));
-      liquid += redWarm * c1 * c2 * 0.05 * (1.0 - combinedInk);
+      vec2 heartP = sc - vec2(-0.12, -0.10);
+      float heartWash = exp(-dot(heartP, heartP) * 4.2);
+      col += heart * edgeBody * heartWash * 0.034;
 
-      vec3 col = mix(liquid, inkDark, combinedInk);
-      col += redDeep   * edgeSoft * 0.7;
-      col += redGlow   * edgeMid * 0.4;
-      col += redBright * edgeHot * 0.45;
-      col += redHot    * edgeHot * edgeHot * 0.25;
-      col += redWarm   * fineEdge * 0.3;
-      col += redGlow   * fineEdge * fineEdge * 0.15;
+      float vig = 1.0 - smoothstep(0.36, 0.78, length(sc * vec2(0.94, 0.78)));
+      col *= 0.74 + 0.26 * vig;
 
-      float inkTex = 0.5 + 0.5 * snoise(sc * 3.5 + t * 0.01);
-      col += vec3(0.015, 0.006, 0.010) * inkTex * combinedInk;
-
-      float thinInk = smoothstep(0.5, 0.1, combinedInk);
-      col += redDim * thinInk * edgeSoft * 0.3;
-
-      float vertGlow = smoothstep(0.6, -0.3, uv.y);
-      col += vec3(0.025, 0.008, 0.014) * vertGlow * (1.0 - combinedInk * 0.6);
-
-      float vig = 1.0 - smoothstep(0.35, 1.2, length(sc));
-      col *= 0.5 + 0.5 * vig;
-
-      col = pow(max(col, 0.0), vec3(0.93, 0.99, 1.02));
-      return col * EXPOSURE;
+      float activityCalm = 1.0 - 0.12 * smoothstep(0.60, 0.94, uv.y);
+      col = col / (1.0 + col * 0.42);
+      return max(col, 0.0) * EXPOSURE * activityCalm;
     }
   `,
 });

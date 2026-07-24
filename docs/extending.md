@@ -1721,8 +1721,10 @@ rather than sampling garbage.
 Swapping the generated sheet for a real PNG changes one line:
 
 ```ts
+import BULLETS_URL from '../assets/bullets.png';
+
 const atlas = await loadAtlas(
-  new URL('../assets/bullets.png', import.meta.url).href,
+  BULLETS_URL,
   BULLET_GRID,
 );
 atlas.defineGrid([...BULLET_CELLS]);
@@ -1749,17 +1751,18 @@ before. Until then, offset the draw call.
 
 ## 12. Adding a background scene
 
-A background is a full-screen fragment shader. `src/render/background.ts` owns
-only the shared part — a quad at `Layer.Background`, a fixed set of uniforms, and
+A background is driven by a full-screen fragment shader.
+`src/render/background.ts` owns only the shared part — a quad at
+`Layer.Background`, a fixed set of uniforms, optional painted-plate preload, and
 a cross-fade — and knows the name of no scene at all. The scenes live one per
 file in `src/v4/backgrounds/`. The old `src/render/backgrounds/index.ts` path is
 only a compatibility entry point; it is not the authored scene source.
 
-`BackgroundSpec` is `fragment`, plus optional `uniforms` and `scrollSpeed`
-(`src/render/background.ts:138-145`). The shader body must define the entry
-point `vec3 background(vec2 uv)`, where `uv` is 0..1 across the field with **y
-increasing downward**, matching the space content is authored in. Return linear
-colour; the wrapper applies `uIntensity` and the cross-fade alpha.
+`BackgroundSpec` is `fragment`, plus optional `uniforms`, `scrollSpeed` and
+`art`. The shader body must define the entry point
+`vec3 background(vec2 uv)`, where `uv` is 0..1 across the field with **y
+increasing downward**, matching the space content is authored in. Return
+display-referred colour; the wrapper applies `uIntensity` and cross-fade alpha.
 
 ```ts
 // src/v4/backgrounds/ashfall.ts
@@ -1779,6 +1782,46 @@ ${BACKGROUND_NOISE_GLSL}
   `,
 });
 ```
+
+For a hybrid scene, default-import an exact-size project asset and let that
+scene's shader own the composition:
+
+```ts
+import ASHFALL_ART_URL from '../../assets/v4/backgrounds/ashfall-v4.png';
+import { defineBackground } from '../../render/background';
+
+defineBackground('ashfall-hybrid', {
+  scrollSpeed: 0.5,
+  art: { url: ASHFALL_ART_URL, width: 480, height: 640 },
+  fragment: /* glsl */ `
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode; // 0 shader, 1 art, 2 production hybrid
+
+    vec3 background(vec2 uv) {
+      vec3 procedural = vec3(0.025 + 0.012 * sin(uScroll * 0.01 + uv.y * 4.0));
+      if (uArtMode < 0.5) return procedural;
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
+      vec2 pixelUv = (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+      vec3 painted = texture2D(uArt, pixelUv).rgb * 0.4;
+      if (uArtMode < 1.5) return painted;
+      vec3 pixelProcedural = vec3(
+        0.025 + 0.012 * sin(uScroll * 0.01 + pixelUv.y * 4.0)
+      );
+      return max(painted, pixelProcedural);
+    }
+  `,
+});
+```
+
+`src/main.ts` awaits `loadBackgroundArtAssets()` before constructing the
+background and starting the loop. Do not create a `TextureLoader` in a scene
+module and do not fetch inside `transitionTo()`: image completion is wall-clock
+state and must not decide which layer a replay sees on a tick. Runtime plates are
+opaque 8-bit RGB at the logical 480×640 field, exact 3:4, `NoColorSpace`,
+`NearestFilter` with no mipmaps, and checked against the declared dimensions.
+The shipped V4 plates are deterministically compiled from their accepted masters
+with `bun run make:v4-backgrounds`; do not resize them by hand.
 
 Then add `import './ashfall';` to `src/v4/backgrounds/index.ts`.
 `index.test.ts` reads the directory and fails when a file is missing from that
@@ -1817,7 +1860,7 @@ screen stays wrong until something unrelated corrects it. Reconciliation is
 idempotent, so a run that is paused, replayed or restarted needs no separate
 resynchronisation path (`src/game/run.ts:1053-1059`).
 
-### Three constraints, and the one that is not obvious
+### Four constraints, and the ones that are not obvious
 
 **`uTick` only.** It advances in `step()` and nowhere else, and there is no
 `performance.now` in `background.ts` — there must never be one. A background
@@ -1845,20 +1888,18 @@ acceptance pass (the density page and `bun run dev` under real curtains), not
 prescribed. If you find yourself losing a bullet against a background, lower that
 scene's `EXPOSURE` or coarsen its detail — the sprite is not the problem.
 
-**Perspective scenes alias into fake bullets.** This is the one that catches
-people. A projection that runs to infinity — `depth = SCALE / (uv.y - HORIZON)`
-in `expanse`, `SCALE / r` in `undertow` — makes adjacent pixels land arbitrarily
-far apart in world space as they approach the vanishing line. Noise sampled there
-aliases into exactly the fine speckle that reads as sparse bullets, in the top of
-the screen, which is where enemies enter and where the densest patterns form. So
-both shipped perspective scenes decay their *structured* terms much faster than
-their brightness: what survives near the horizon is a smooth gradient with
-nothing left to alias.
+**Optional art is loaded before tick zero.** `loadBackgroundArtAssets()` scans
+the completed registry, deduplicates URLs, awaits decoding and rejects a wrong
+size before gameplay starts. Compiled scenes borrow those textures and dispose
+only their material during a cross-fade. This prevents load timing, a slow disk
+or a transition from producing an arbitrary shader-only frame.
 
-Read `src/v4/backgrounds/expanse.ts` and `undertow.ts` before writing one.
-They carry the reasoning at length — including why `undertow` has exactly six
-flutes, which is a genuine seam problem with a non-obvious fix — and it is not
-worth repeating here.
+**Perspective and painted detail can alias into fake bullets.** A projection
+that runs to infinity makes adjacent pixels land arbitrarily far apart in world
+space near the vanishing line; source noise there aliases into sparse bullets.
+Likewise, a painted plate with stars, pinpoints or thin bright brush edges stays
+dangerous even when linearly filtered. Decay procedural structure before it
+aliases and author plates as broad, calm masses with a quiet play corridor.
 
 ### One reference, one scene: the no-repeat rule
 

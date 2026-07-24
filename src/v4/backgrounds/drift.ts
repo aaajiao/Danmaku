@@ -1,4 +1,11 @@
 /**
+ * V4 integration (2026-07-24): the inherited moon-water construction is now
+ * the Ghost-blue shell field. Its wave stack and crater texture are coarsened,
+ * reflections are restrained, and the lower flight band is subtractively calm.
+ * The historical port notes below document ancestry, not the current palette.
+ */
+
+/**
  * `drift` — the neutral/title field. A NEAR-IDENTICAL port of pbakaus/radiant
  * `moonlit-ripple` (MIT): a raymarched water plane under a low moon, lit by a
  * single analytical moon disc, Fresnel-mixing sky reflection against a dark sea.
@@ -6,7 +13,7 @@
  * ## What was ported
  *
  * The reference verbatim in structure: a perspective camera (`ro = (0,8,0)`,
- * fixed tilt), seven rotated sine-wave layers with ANALYTIC normals (each `sin`'s
+ * fixed tilt), five broad rotated sine-wave layers with ANALYTIC normals (each `sin`'s
  * derivative is a `cos` at the same phase — no `dFdx`, deterministic), a moon disc
  * with a hash crater texture and limb darkening, a broad moon bloom, and the
  * Fresnel reflection/refraction mix on the wave surface with distance fog to the
@@ -24,7 +31,7 @@
  *     sky sits at the top (the entry lane) and the lit water fills the bottom.
  *   - Palette cooled to blue-silver (the reference's own note: "hue-rotates to cool
  *     moonlit blue") — drift's neutral role-hue, kept distinct from expanse.
- *   - EXPOSURE 0.55 (menu is the brightest tier — no bullets to protect on the
+ *   - EXPOSURE 0.50 (menu is the brightest tier — no bullets to protect on the
  *     title screen); the hyper-tight `pow(moonDot,400)` core is dropped so the moon
  *     reads as a disc, never a bullet-sized pinpoint.
  *
@@ -47,30 +54,27 @@
  * palette and exposure.
  */
 
-import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
+import { defineBackground } from '../../render/background';
 
 defineBackground('drift', {
   scrollSpeed: 0.6,
   fragment: /* glsl */ `
-${BACKGROUND_NOISE_GLSL}
-
-    const float MR_PI = 3.14159265359;
-    const float EXPOSURE = 0.55;   /* menu tier — the brightest cell */
+    const float EXPOSURE = 0.50;   /* v4 menu tier — luminous, but below character rims */
 
     /* Cool moonlit palette (drift's blue-silver role-hue). */
     const vec3 MOON_COL = vec3(0.86, 0.91, 1.00);
 
     float mrHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-    /* Seven rotated sine layers; height AND analytic gradient (the core move). */
+    /* Five broad rotated sine layers; height AND analytic gradient (the core move). */
     vec4 sea(vec2 p, float t) {
       float h = 0.0;
       vec2 dh = vec2(0.0);
       float freq = 1.0;
       float amp = 0.2;
-      float decay = 0.42;   /* u_waves = 1 -> mid decay */
+      float decay = 0.38;   /* v4: broad water planes, no bullet-scale sparkle */
       float angle = 0.0;
-      for (int i = 0; i < 7; i++) {
+      for (int i = 0; i < 5; i++) {
         float c = cos(angle);
         float s = sin(angle);
         vec2 pp = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
@@ -83,7 +87,7 @@ ${BACKGROUND_NOISE_GLSL}
         float dy = freq * amp * cn;
         dh += vec2(-s * dy, c * dy);
         angle += fi + 1.2;
-        freq *= 1.3;
+        freq *= 1.24;
         amp *= decay;
       }
       vec3 N = normalize(vec3(-dh.x, 1.0, -dh.y));
@@ -100,16 +104,16 @@ ${BACKGROUND_NOISE_GLSL}
       vec3 sky = mix(skyHoriz, skyDark, max(rd.y, 0.0));
       float moonDot = max(dot(rd, md), 0.0);
       float moonAngle = acos(clamp(moonDot, 0.0, 1.0));
-      float moonRadius = 0.04;
-      float disc = smoothstep(moonRadius, moonRadius * 0.7, moonAngle);
+      float moonRadius = 0.055;
+      float disc = 1.0 - smoothstep(moonRadius * 0.7, moonRadius, moonAngle);
       if (disc > 0.0) {
         vec3 up = vec3(0.0, 1.0, 0.0);
         vec3 right = normalize(cross(up, md));
         vec3 mup = cross(md, right);
         vec2 muv = vec2(dot(rd - md, right), dot(rd - md, mup)) * 25.0;
-        float crater = mrHash(floor(muv * 2.0)) * 0.25;
-        crater += mrHash(floor(muv * 4.0)) * 0.15;
-        float darkening = 1.0 - crater * smoothstep(moonRadius * 0.9, moonRadius * 0.4, moonAngle);
+        float crater = mrHash(floor(muv * 1.5)) * 0.18;
+        float darkening =
+          1.0 - crater * (1.0 - smoothstep(moonRadius * 0.4, moonRadius * 0.9, moonAngle));
         float limb = smoothstep(0.0, moonRadius, moonAngle);
         darkening *= mix(1.0, 0.7, limb * limb);
         sky += MOON_COL * disc * 0.85 * darkening;
@@ -139,8 +143,10 @@ ${BACKGROUND_NOISE_GLSL}
       vec3 sky = skyColor(rd);
       vec3 col = sky;
 
-      float dsea = -ro.y / rd.y;
-      if (dsea > 0.0) {
+      /* At the mathematical horizon the sea is fully fogged to sky anyway. Avoid
+         dividing by a zero/near-zero ray component before evaluating distant waves. */
+      if (rd.y < -0.0001) {
+        float dsea = -ro.y / rd.y;
         vec3 wp = ro + dsea * rd;
         vec4 s = sea(wp.xz, t);
         float h = s.x;
@@ -157,7 +163,7 @@ ${BACKGROUND_NOISE_GLSL}
         vec3 seaCol2 = vec3(0.040, 0.060, 0.110);
         vec3 refr = seaCol1 + dif * MOON_COL * seaCol2 * 0.15;
 
-        col = mix(refr, 0.9 * refl, fre);
+        col = mix(refr, 0.62 * refl, fre);
 
         float atten = max(1.0 - dsea * dsea * 0.0005, 0.0);
         col += seaCol2 * (wp.y - h) * 1.5 * atten;
@@ -165,8 +171,11 @@ ${BACKGROUND_NOISE_GLSL}
         col = mix(col, sky, 1.0 - exp(-0.008 * dsea));
       }
 
-      col = pow(max(col, vec3(0.0)), vec3(0.85));   /* col >=0 -> pow safe */
-      return col * EXPOSURE;
+      col = pow(max(col, vec3(0.0)), vec3(0.88));   /* col >=0 -> pow safe */
+
+      /* The title can glow, but the lower flight band still belongs to the player. */
+      float activityCalm = 1.0 - 0.36 * smoothstep(0.58, 0.94, uv.y);
+      return col * EXPOSURE * activityCalm;
     }
   `,
 });

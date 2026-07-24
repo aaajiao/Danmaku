@@ -32,7 +32,7 @@ import {
 import type { Replay } from './sim/replay';
 import { FIELD, getCharacter, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
-import { Background } from './render/background';
+import { Background, loadBackgroundArtAssets } from './render/background';
 import {
   ACTOR_PAD_CELL,
   ACTOR_PAD_RENDER_ORDER,
@@ -149,7 +149,12 @@ const MUSIC_PAUSE_LEVEL = 0.22;
  * screen sits on, and what a run with no declared background leaves in place.
  * Stages name their own (`expanse`, `undertow`) and the tick loop reconciles.
  */
-const background = new Background(stage, 'drift');
+// V4's optional painted plates are decoded before the first fixed tick. Image
+// completion is wall-clock state; allowing a plate to arrive mid-stage would
+// make the same replay visibly switch layers on a different tick on a slower
+// device. The owner lives for the page and compiled scenes only borrow from it.
+const backgroundArtAssets = await loadBackgroundArtAssets();
+const background = new Background(stage, 'drift', { artAssets: backgroundArtAssets });
 const stageStructure = new V4StageStructure(stage, 'drift');
 
 /**

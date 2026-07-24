@@ -109,7 +109,10 @@ flowchart BT
 | 3 沉积 | `stratum` | 路径被记录、盖章并层层堆叠 | 卷轴、碑片、扇面把余白分栏 | 冷黑、灰褐、受控琥珀 |
 | 4 穹顶 | `vault` | 选择被封闭成最后的狭缝 | 冠、宽袖与环形法具逐步合拢 | 黑漆、紫、绯红、冷灰 |
 
-所有现有 stage 与 Boss shader 的场景身份均保留，包括 `signet`、`umbra`、`cordon`、`intaglio`、`sable`、`decree`、`regnum`。v4 不以静态全屏图替换它们；只允许经逐场可读性审查后做受控调频。本轮 `signet` 的玩家活动带已降低高频法线、反光与细波纹，新的精确 hash 已重新锁定。
+所有现有 stage 与 Boss shader 的场景身份均保留，包括 `signet`、`umbra`、`cordon`、`intaglio`、`sable`、`decree`、`regnum`。v4 不以静态全屏图替换它们；允许经逐场可读性审查后做受控调频，也允许 shader 在单 pass 中采样项目自有的低频绘制母版。本轮 `signet` 的玩家活动带已降低高频法线、反光与细波纹，新的精确 hash 已重新锁定。
+当前审查不限于 `signet`：14 场的生产状态逐项记录在 8.2，其中
+`expanse` 的动态基底保持 git HEAD 原始实现，并与新的冷青 Ghost
+有限调色板像素膜层组合。
 
 ---
 
@@ -322,15 +325,21 @@ replay 则继续证明这次有意变更之后的逐 tick 行为。
 
 ### 7.1 层级
 
-| 对象 | 稳态最高亮度建议 | 说明 |
-|---|---:|---|
-| shader 平均结构 | 0.05–0.10 | 已有场景保留 |
+| 对象 | 亮度约束 | 说明 |
+|---|---|---|
+| shader 场景 | 逐场标定，不设统一暗值 | 生产 `×1` 必须先看得见；以最终帧、相邻 tick 差分和真实弹幕覆盖共同验收 |
 | 稀疏舞台结构 | 0.045–0.18 alpha | 至少 65% 像素完全透明，使用近黑身份色 |
 | 角色墨线 | ≤0.05 | 与 shader 分离的暗外轮廓 |
 | 角色内侧 rim | ≥0.55 | 让轮廓跨四种背景仍成立 |
 | 角色稳态亮部 | <0.90 | 不触发主要 bloom |
 | Boss 局部命中/心核 | 0.95–1.0 | 仅接触点或低频脉搏短暂越过阈值 |
 | 敌弹/主角弹芯 | 1.0 | 永远是最高危险信息 |
+
+背景不再服从跨场统一的 `0.05–0.10` 平均值或“整体压暗”目标。各 shader
+内部的 tonemap、颜色空间和合成尾部不同，源码里的 `EXPOSURE` 常量不能横向
+比较；验收对象是总览页生产 `×1` 的最终像素、相邻固定 tick 的变化，以及
+真实游戏中人物、弹幕和 HUD 是否仍然赢得对比。低频暗场可以保留黑位，但不能
+靠诊断倍率才显形；高亮场也不能把独立小亮点或玩家活动带推成伪弹体。
 
 ### 7.2 主色
 
@@ -348,15 +357,18 @@ replay 则继续证明这次有意变更之后的逐 tick 行为。
 
 ---
 
-## 8. 背景 shader 与稀疏舞台层
+## 8. 背景 shader、绘制母版与稀疏舞台层
 
-现有 shader 是 v4 的动态底层：不删除、不烘焙、不换静态图，也不通过 UI
-铺设不透明全屏覆盖层。14 个 authored scene 归档在 `src/v4/backgrounds/`；
+现有 shader 是 v4 的动态底层：不删除、不烘焙、不被静态图替代，也不通过 UI
+铺设不透明全屏覆盖层。03–06 四个正式关卡各有一张项目自有绘制母版，由本场
+shader 分级并在逻辑像素网格上单 pass 合成；菜单、Boss 站、出神与结算场景
+保持 shader-only。14 个 authored scene 归档在 `src/v4/backgrounds/`；
 通用 registry、全屏 quad、uniform 与 60 tick 转场引擎仍在
 `src/render/background.ts`。每一场当前的 fragment SHA-256 与
-`scrollSpeed` 都由测试锁定。`signet` 是本轮唯一的审查后调整：去掉最细一层
-FBM，并在玩家活动带压低 normal/specular/tension/ripple；调整后的源码已作为
-新的精确基线，其余 13 场未重绘。
+`scrollSpeed` 都由测试锁定。2026-07-24 对 14 场完成逐场生产审查：这不是
+把所有背景统一重画，其中 `expanse` 明确恢复并保留 git HEAD 的原始
+`lens-whisper` 作为动态基底；其余场景也以各自原算法和运动身份为起点，只在当前源码明确
+记录的色彩、空间频率、玩家活动带、速度或可见度上调整。当前结论见 8.2。
 
 四关结构由 `V4StageStructure` 的单个透明 shader mesh 提供，不增加另一张大
 atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块档案板，穹顶是
@@ -393,6 +405,45 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 - 竖井：舞台物件用墨黑、靛青和灰紫；不再增加洋红/橙/青碎片。
 - 沉积：禁止网纹、细斜线和点阵；只用大块纸门、岩层或档案剪影。
 - 穹顶：背景避免金色与肤色；使用黑漆、深红、冷灰，near 层可以为空。
+
+### 8.2 2026-07-24 shader 审查与生产基线
+
+本轮保持 registry 名、campaign 引用与固定 tick 时钟，并逐场从原始算法重新
+判断哪些内容应保留、降频、调色或提亮；它不意味着 14 场都经过 v4 造型重绘。
+特别是 `expanse` 的 shader 已回到 git HEAD 原始 `lens-whisper`，现在由原创
+绘制层补充远场空间；不再把 shader 本身描述成柱体、开放通道或新造的雾场。
+下表记录当前代码与总览页元数据共同声明的生产身份：
+
+| 叙事组 | scene | 当前生产实现 |
+|---|---|---|
+| Shell | `drift` | 月轮、冷银水面与上部标题负空间；减少水纹层数和碎反光 |
+| Shell | `signal-decay` | Ghost 宽带由清晰走向解体；移除 bit-crush、RGB 边与噪点墙 |
+| Four stages | `expanse` | 原创 Ghost 冷青膜层母版建立连接边缘与中央远空；固定调色板运行图和原始 `lens-whisper` 的六个 Lissajous 光源、横向 anamorphic 拖影、宽化 bokeh 与低亮 FBM 一并锁到 480×640 逻辑像素，时钟与速度不变 |
+| Four stages | `undertow` | 原创靛青 Ghost 竖向膜层母版建立下沉深度与中央通道；静态运行图和原 `tropical-heat` simplex domain warp、冷折射一并锁到 480×640 逻辑像素，RGB 分离、彩色碎片和爆闪退场，时钟与速度不变 |
+| Four stages | `stratum` | 原三中心 gradient 与 travelling wave 始终是完整发光主体，内部时钟加快 15%；原创 soot/slate Ghost 母版不再作为不透明颜色层，只转换成低频明暗浮雕与微量近等亮度色相，对下方动态 shader 做调制；完整 hybrid 锁到 480×640 逻辑像素网格，且不使用 Bayer、halftone、cross-hatch、纸板或印章图形 |
+| Four stages | `vault` | 原创黑紫 Ghost 膜层母版提供侧向压力体量与石墨支撑带；绘制层保持 grid-locked，原 `fluid-amber` 双重 domain warp 在同一 480×640 逻辑像素网格上驱动压力光，总速度为原版 `110%` |
+| Five stations | `signet` | 月银液体印记；继续压低玩家活动带 normal/specular/ripple |
+| Five stations | `cordon` | 原 `hologram-glitch` 的有机 rotated-FBM 体积与平滑横向错位保留；RGB 分色、扫描线、grain、亮 sweep 与噪块收束为连续靛青 Ghost 膜 |
+| Five stations | `intaglio` | 原 `bass-ripple` 鼓膜波推动柔性骨银蜂巢与三向棚拍反光；网格退为材质，行进形变和宽高光成为主体 |
+| Five stations | `sable` | 冷黑玻璃中的大型封存气泡保留宽软膜边与上升；生产 `×1` 可见，不重新加入亮点、细 rim 或爆泡 |
+| Five stations | `regnum` | 原 `topographic` 的四 octave 地形与十四层解析等高线完整展开；不插入空席、中央裂缝、脸或对称徽记，紫、绯与冷银随高程自然闭合 |
+| Trance | `umbra` | `Total Eclipse` 保留无独立星点的冷紫帷幕、漂移与遮蔽；生产 `×1` 提亮后仍不生成孤立亮点 |
+| Trance | `decree` | 四个原始环源继续生成 moiré；暖灰、受控琥珀与骨色由宽拍频主导，细四向乘积只作为低增益材质 |
+| Stage 2 transition | `surge` | Magistrate 的全难度开场 `Arraignment`：原 `ink-dissolve` 的内部双重 domain warp、漂移墨源与反应边把 `undertow` 的开放竖井收束成墨膜，再进入 `intaglio` 的裁决印记；不插入硬板或几何裂缝，总速度为原版 `110%` |
+
+`test/visual/scenes-compare.html` 同步改成 v4 场景总览：默认显示 production
+`hybrid ×1` 与真实 `V4StageStructure` 合成，`art / shader / hybrid` source
+与 `scene only / composite` 结构开关相互独立，03–06 四关标记绘制层。页面按 Shell、
+四关与对应守印站、Trance、Utility 的叙事顺序排列；每张卡另列“主线
+N/4、关卡位置与对应 Boss”，避免把 shader 资源编号误读成关卡号。时间由固定 60Hz
+accumulator 推进，单帧差分严格比较相邻 tick，fade lab 默认使用游戏真实的
+60 tick。`__measure` 固定读取 production source ×1（四关 hybrid，其余
+shader）；`__dump`、`__strips` 保持 shader-only ×1 兼容语义，composite
+导出固定为 production hybrid + structure。
+
+总览的亮度数字用于逐场比较最终输出，不用于倒推出一条统一的 shader
+`EXPOSURE` 阈值。生产 `×1` 必须能够直接辨认材质和运动；诊断倍率只用于排查，
+不能成为场景可见的前提。
 
 ---
 
@@ -519,7 +570,7 @@ fallback。
 
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
-| shader / 舞台 | 14 个 authored scene 已归 `src/v4/backgrounds`；`signet` 活动带已降频并重锁 hash；四关稀疏结构与背景共用固定 tick/60-tick 转场 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留 |
+| shader / 舞台 | 14 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层，原 shader 继续负责全部动态；四张运行图由逐场固定调色板确定性编译为 480×640，完整 hybrid 锁到逻辑像素网格；其余场景保留各自 shader 身份；四关稀疏结构与背景共用固定 tick/60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留 |
 | 弹幕生成 | `src/v4/gameplay` 已拥有 8 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名，5 位 Boss 每阶段至少两层弹幕且每位使用至少四类几何；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认迁移缺口、交织线与通道墙在 Normal/Lunatic 都保留连续安全缝 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
@@ -540,8 +591,9 @@ fallback。
 按真实发弹事实驱动的敌人/Boss 语义帧、逐人近景 portrait、局部暗垫、精确
 focus 核、项目自有 `packs/v4` 默认包、由单张 ornament 绿幕原画母版确定性生成的 engine-owned
 v4 UI production ornaments，以及 BulletPack 的
-117/117 本地兼容审计。默认敌我弹的危险语言已分开，`signet` 活动带已降频，
-四关低频结构已接入；五位主角的 loose/focus 火力、专属 option 与五种 Bomb
+117/117 本地兼容审计。默认敌我弹的危险语言已分开，14 场背景已完成逐场
+生产审查，四关低频结构已接入并进入场景总览的默认合成；五位主角的
+loose/focus 火力、专属 option 与五种 Bomb
 也已接入；分类图集减少透明上传，发布复制会过滤 `.DS_Store`、`Thumbs.db`、
 `desktop.ini` 与 `__MACOSX`。表现层仍不回写碰撞或 RNG；火力与 Bomb 的玩法
 变化则是有意的 simulation revision，并已更新 campaign 指纹与 golden replay。
@@ -593,7 +645,7 @@ v4 UI production ornaments，以及 BulletPack 的
 - `bun test`
 - `bun run build`
 - `src/v4/index.test.ts` 证明单一入口注册四关、完整 pattern/behaviour 与全部 shader。
-- `src/v4/backgrounds/index.test.ts` 证明 14 个 shader 的当前审查基线 fragment 哈希与 scrollSpeed 未漂移；`signet` 的基线包含本轮可读性降频。
+- `src/v4/backgrounds/index.test.ts` 证明 14 个 shader 的 2026-07-24 生产审查基线 fragment 哈希、组装后哈希与 scrollSpeed 未漂移。
 - `tools/v4-ui-atlas.test.ts` 证明 ornament 绿幕母版哈希、`1024×768` / 38-cell atlas 的字节级再生成、原 32 cells 的像素保持，以及 6 个 ornament 的透明软边与去绿结果。
 - 浏览器逐关检查 shader、稀疏结构、局部透明 UI、人物、弹幕、Boss 转场、Bomb、laser、结算动画和 console。
 - 固定 replay 在相同 tick 的人物帧、背景、弹幕与 UI 必须一致。

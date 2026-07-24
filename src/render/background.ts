@@ -10,10 +10,11 @@
  * except that they fill the screen and advance with the clock.
  *
  * So the shared part is all this module owns: a full-screen quad at
- * `Layer.Background`, a fixed set of uniforms, and a cross-fade. Everything that
- * makes a background *look* like anything lives in a registered `BackgroundSpec`,
- * which is a file you write and import — the same shape as every other extension
- * point (see AGENTS/CLAUDE.md, "How this is extended").
+ * `Layer.Background`, a fixed set of uniforms, optional painted-plate preload,
+ * and a cross-fade. Everything that makes a background *look* like anything
+ * lives in a registered `BackgroundSpec`, which is a file you write and import
+ * — the same shape as every other extension point (see AGENTS/CLAUDE.md, "How
+ * this is extended").
  *
  * ## The clock is ticks, and only ticks
  *
@@ -52,9 +53,15 @@
  *     vec3 background(vec2 uv)
  *
  * `uv` is 0..1 across the field with **y increasing downward**, matching the
- * space content is authored in. Return linear colour; the wrapper applies
- * `uIntensity` and the cross-fade alpha. Prepend `BACKGROUND_NOISE_GLSL` if you
- * want the value-noise helpers the shipped backgrounds use.
+ * space content is authored in. Return display-referred colour; the wrapper
+ * applies `uIntensity` and the cross-fade alpha. Prepend
+ * `BACKGROUND_NOISE_GLSL` if you want the value-noise helpers the shipped
+ * backgrounds use.
+ *
+ * A scene may declare an exact-size `art` URL and sample the injected `uArt`
+ * texture. Such a scene also declares `uArtMode` (0 shader, 1 art, 2 hybrid) and
+ * owns its single-pass composition. `loadBackgroundArtAssets()` must be awaited
+ * once before the fixed-tick loop; a transition never starts image I/O.
  *
  * Bright enough to see, dark enough to play — 亮到能看,暗到能玩. The fixed
  * "peak near 0.1" ceiling is RETIRED (see the shader-ports round): the diversity
@@ -96,7 +103,8 @@
  *
  *   1. Construct after the stage, before the sprite batches:
  *
- *        const background = new Background(stage, 'drift');
+ *        const artAssets = await loadBackgroundArtAssets();
+ *        const background = new Background(stage, 'drift', { artAssets });
  *
  *      and call `background.step()` inside the fixed-tick callback, next to the
  *      simulation step — **not** in the render callback.
@@ -156,7 +164,28 @@ export interface BackgroundSpec {
   uniforms?: Record<string, { value: unknown }>;
   /** Scroll rate in "world units per tick" — frame-locked like everything. */
   scrollSpeed?: number;
+  /**
+   * Optional project-owned painted plate sampled by this scene's shader.
+   *
+   * The scene declares `uArt`, `uArtRes` and `uArtMode` in its fragment and
+   * performs its own composition. Loading stays engine-owned so module
+   * evaluation remains GL-free and transitions never wait on image I/O.
+   */
+  art?: {
+    readonly url: string;
+    readonly width: number;
+    readonly height: number;
+  };
 }
+
+export type BackgroundArtMode = 'shader' | 'art' | 'hybrid';
+
+/** Numeric values shared by runtime, scene GLSL and the visual review atlas. */
+export const BACKGROUND_ART_MODE_VALUE: Readonly<Record<BackgroundArtMode, number>> = {
+  shader: 0,
+  art: 1,
+  hybrid: 2,
+};
 
 const registry = new Map<string, BackgroundSpec>();
 
@@ -175,6 +204,123 @@ export function getBackgroundSpec(name: string): BackgroundSpec {
 
 export function backgroundNames(): readonly string[] {
   return [...registry.keys()];
+}
+
+/**
+ * App-lifetime owner for decoded painted background plates.
+ *
+ * Compiled scenes borrow these textures. A cross-fade therefore disposes only
+ * its material; retiring the outgoing scene cannot invalidate a texture still
+ * used by the incoming scene, another `Background`, or the review atlas.
+ */
+export class BackgroundArtAssets {
+  readonly #textures: ReadonlyMap<string, THREE.Texture>;
+  #disposed = false;
+
+  constructor(textures: ReadonlyMap<string, THREE.Texture>) {
+    this.#textures = textures;
+  }
+
+  texture(url: string): THREE.Texture {
+    if (this.#disposed) throw new Error('background art assets are disposed');
+    const texture = this.#textures.get(url);
+    if (!texture) throw new Error(`background art "${url}" was not preloaded`);
+    return texture;
+  }
+
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    for (const texture of this.#textures.values()) texture.dispose();
+  }
+}
+
+/**
+ * Decode every registered painted plate before the fixed-tick loop starts.
+ *
+ * Image completion time is wall-clock state, so it must not decide which visual
+ * layer a replay sees on a particular tick. The caller awaits this once during
+ * boot, then constructs `Background` with the returned immutable owner.
+ */
+export async function loadBackgroundArtAssets(): Promise<BackgroundArtAssets> {
+  const expected = new Map<string, { width: number; height: number; scenes: string[] }>();
+  for (const [name, spec] of registry) {
+    if (!spec.art) continue;
+    const prior = expected.get(spec.art.url);
+    if (prior) {
+      if (prior.width !== spec.art.width || prior.height !== spec.art.height) {
+        throw new Error(
+          `background art "${spec.art.url}" has conflicting expected dimensions: ` +
+            `${prior.width}x${prior.height} and ${spec.art.width}x${spec.art.height}`,
+        );
+      }
+      prior.scenes.push(name);
+    } else {
+      expected.set(spec.art.url, {
+        width: spec.art.width,
+        height: spec.art.height,
+        scenes: [name],
+      });
+    }
+  }
+
+  const loader = new THREE.TextureLoader();
+  const results = await Promise.all(
+    [...expected].map(async ([url, contract]) => {
+      try {
+        const texture = await loader.loadAsync(url);
+        return { ok: true as const, url, contract, texture };
+      } catch (cause) {
+        return { ok: false as const, url, contract, cause };
+      }
+    }),
+  );
+
+  const loaded = new Map<string, THREE.Texture>();
+  const failures: string[] = [];
+  for (const result of results) {
+    if (!result.ok) {
+      const detail = result.cause instanceof Error ? result.cause.message : String(result.cause);
+      failures.push(
+        `${result.contract.scenes.join(', ')}: failed to load "${result.url}" (${detail})`,
+      );
+      continue;
+    }
+
+    const image = result.texture.image as { width?: number; height?: number } | undefined;
+    if (
+      image?.width !== result.contract.width ||
+      image.height !== result.contract.height
+    ) {
+      failures.push(
+        `${result.contract.scenes.join(', ')}: "${result.url}" is ` +
+          `${image?.width ?? '?'}x${image?.height ?? '?'}, expected ` +
+          `${result.contract.width}x${result.contract.height}`,
+      );
+      result.texture.dispose();
+      continue;
+    }
+
+    // Runtime plates are authored at the logical 480×640 field and already
+    // carry their final finite palette and 2× pixel clusters. Filtering or a
+    // mip chain would blur that reviewed pixel surface back into concept art.
+    result.texture.magFilter = THREE.NearestFilter;
+    result.texture.minFilter = THREE.NearestFilter;
+    result.texture.generateMipmaps = false;
+    result.texture.wrapS = THREE.ClampToEdgeWrapping;
+    result.texture.wrapT = THREE.ClampToEdgeWrapping;
+    result.texture.flipY = false;
+    result.texture.colorSpace = THREE.NoColorSpace;
+    result.texture.needsUpdate = true;
+    loaded.set(result.url, result.texture);
+  }
+
+  if (failures.length > 0) {
+    for (const texture of loaded.values()) texture.dispose();
+    throw new Error(`background art preload failed:\n${failures.join('\n')}`);
+  }
+
+  return new BackgroundArtAssets(loaded);
 }
 
 /**
@@ -334,8 +480,16 @@ interface Compiled {
   readonly uScroll: THREE.IUniform<number>;
   readonly uIntensity: THREE.IUniform<number>;
   readonly uAlpha: THREE.IUniform<number>;
+  readonly uArtMode?: THREE.IUniform<number>;
   /** Accumulated in ticks here rather than read back off the uniform. */
   scroll: number;
+}
+
+export interface BackgroundOptions {
+  /** App-lifetime textures returned by `loadBackgroundArtAssets()`. */
+  readonly artAssets?: BackgroundArtAssets;
+  /** Production defaults to the scene-authored art + shader composition. */
+  readonly artMode?: BackgroundArtMode;
 }
 
 export class Background {
@@ -354,9 +508,13 @@ export class Background {
 
   #tick = 0;
   #intensity = 1;
+  #artMode: BackgroundArtMode;
+  readonly #artAssets: BackgroundArtAssets | undefined;
 
-  constructor(stage: Stage, name: string) {
+  constructor(stage: Stage, name: string, options: BackgroundOptions = {}) {
     this.#stage = stage;
+    this.#artAssets = options.artAssets;
+    this.#artMode = options.artMode ?? 'hybrid';
 
     // A unit quad scaled to the field, so `vUv` is 0..1 regardless of size and
     // the shaders never have to know the play field's dimensions to sample it.
@@ -392,6 +550,20 @@ export class Background {
     uniforms['uIntensity'] = uIntensity;
     uniforms['uAlpha'] = uAlpha;
 
+    let uArtMode: THREE.IUniform<number> | undefined;
+    if (spec.art) {
+      if (!this.#artAssets) {
+        throw new Error(
+          `background "${name}" requires preloaded art; ` +
+            'pass loadBackgroundArtAssets() to the Background constructor',
+        );
+      }
+      uniforms['uArt'] = { value: this.#artAssets.texture(spec.art.url) };
+      uniforms['uArtRes'] = { value: new THREE.Vector2(spec.art.width, spec.art.height) };
+      uArtMode = { value: BACKGROUND_ART_MODE_VALUE[this.#artMode] };
+      uniforms['uArtMode'] = uArtMode;
+    }
+
     const material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: composeFragmentShader(spec.fragment),
@@ -413,8 +585,15 @@ export class Background {
       uScroll,
       uIntensity,
       uAlpha,
+      uArtMode,
       scroll: 0,
     };
+  }
+
+  #disposeCompiled(compiled: Compiled): void {
+    // Painted textures are borrowed from #artAssets and outlive every compiled
+    // scene. Only the per-scene program/uniform container belongs here.
+    compiled.material.dispose();
   }
 
   /** Advance by one whole tick. The only thing that moves a background. */
@@ -459,7 +638,7 @@ export class Background {
     const incoming = this.#compile(name);
 
     if (ticks <= 0) {
-      this.#current.material.dispose();
+      this.#disposeCompiled(this.#current);
       this.#current = incoming;
       this.mesh.material = incoming.material;
       return;
@@ -500,7 +679,7 @@ export class Background {
       this.#fadeMesh.material = this.#current.material;
     }
 
-    outgoing.material.dispose();
+    this.#disposeCompiled(outgoing);
     this.#outgoing = null;
     this.#fadeElapsed = 0;
     this.#fadeTicks = 0;
@@ -516,6 +695,18 @@ export class Background {
 
   get intensity(): number {
     return this.#intensity;
+  }
+
+  /** Select the painted plate, procedural shader, or the scene-authored blend. */
+  setArtMode(mode: BackgroundArtMode): void {
+    this.#artMode = mode;
+    const value = BACKGROUND_ART_MODE_VALUE[mode];
+    if (this.#current.uArtMode) this.#current.uArtMode.value = value;
+    if (this.#outgoing?.uArtMode) this.#outgoing.uArtMode.value = value;
+  }
+
+  get artMode(): BackgroundArtMode {
+    return this.#artMode;
   }
 
   /** Whole ticks elapsed — the value the shaders see as `uTick`. */
@@ -534,7 +725,7 @@ export class Background {
     this.#stage.remove(this.mesh);
     if (this.#fadeMesh) this.#stage.remove(this.#fadeMesh);
 
-    this.#current.material.dispose();
+    this.#disposeCompiled(this.#current);
     this.#geometry.dispose();
     this.#fadeMesh = null;
   }

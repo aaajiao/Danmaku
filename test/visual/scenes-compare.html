@@ -1,100 +1,635 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <title>scenes compare</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>余白御寮 · v4 scene atlas</title>
     <style>
+      :root {
+        color-scheme: dark;
+        --void: #030509;
+        --ink: #070a12;
+        --ink-raised: #0b1019;
+        --bone-shadow: #596574;
+        --ghost: #8797a8;
+        --silver: #b9c4cf;
+        --bone: #e9f0f4;
+        --rim: #ddf4ff;
+        --heart: #f0d8e2;
+        --graze: #e64f9c;
+        --line: rgba(185, 196, 207, 0.22);
+        --line-hot: rgba(221, 244, 255, 0.7);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-width: 0;
+        background: var(--void);
+      }
+
       body {
+        min-width: 0;
         margin: 0;
-        background: #000;
-        color: #ddd;
-        font: 13px monospace;
-        padding: 12px;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 12% 0%, rgba(92, 118, 145, 0.11), transparent 34rem),
+          radial-gradient(circle at 88% 16rem, rgba(230, 79, 156, 0.05), transparent 28rem),
+          var(--void);
+        color: var(--silver);
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
-      h1 {
-        font-size: 14px;
-        font-weight: normal;
-        color: #fff;
-        margin: 0 0 4px;
+
+      button,
+      select,
+      input {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: rgba(7, 10, 18, 0.92);
+        color: var(--silver);
+        font: inherit;
       }
-      p.note {
-        color: #888;
-        max-width: 920px;
-        margin: 0 0 10px;
-      }
-      #controls {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin: 0 0 10px;
-        flex-wrap: wrap;
-      }
-      button, select, input {
-        background: #111;
-        color: #ddd;
-        border: 1px solid #444;
-        font: 13px monospace;
-        padding: 3px 10px;
+
+      button {
+        min-height: 34px;
+        padding: 5px 11px;
         cursor: pointer;
       }
-      button.active {
-        border-color: #8cf;
-        color: #8cf;
+
+      select,
+      input {
+        min-height: 34px;
+        padding: 5px 8px;
       }
+
+      button:hover,
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
+        border-color: var(--line-hot);
+        color: var(--rim);
+        outline: 1px solid rgba(221, 244, 255, 0.24);
+        outline-offset: 2px;
+      }
+
+      button.active,
+      button[aria-pressed="true"] {
+        border-color: var(--rim);
+        box-shadow: inset 0 -2px 0 rgba(221, 244, 255, 0.55);
+        color: var(--rim);
+      }
+
+      code {
+        color: var(--heart);
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 32px));
+        min-width: 0;
+        margin: 0 auto;
+        padding: 28px 0 48px;
+      }
+
+      .masthead {
+        position: relative;
+        max-width: 920px;
+        padding: 20px 0 22px 30px;
+      }
+
+      .masthead::before,
+      .masthead::after {
+        position: absolute;
+        left: 0;
+        content: "";
+      }
+
+      .masthead::before {
+        top: 9px;
+        bottom: 18px;
+        width: 1px;
+        background: linear-gradient(transparent, var(--rim) 30%, var(--graze) 74%, transparent);
+      }
+
+      .masthead::after {
+        top: 24px;
+        width: 15px;
+        height: 15px;
+        border: 1px solid var(--heart);
+        border-radius: 50%;
+        box-shadow: 0 0 18px rgba(240, 216, 226, 0.3);
+      }
+
+      .kicker {
+        margin: 0 0 5px;
+        color: var(--ghost);
+        font-size: 10px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        color: var(--bone);
+        font: 400 clamp(22px, 4vw, 38px)/1.1 system-ui, -apple-system, "PingFang SC",
+          "Noto Sans CJK SC", sans-serif;
+        letter-spacing: 0.04em;
+      }
+
+      .subtitle {
+        margin: 8px 0 0;
+        color: var(--ghost);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+      }
+
+      .note {
+        max-width: 920px;
+        margin: 0;
+        color: var(--ghost);
+      }
+
+      .note strong {
+        color: var(--bone);
+        font-weight: 500;
+      }
+
+      #controls {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, auto));
+        gap: 1px;
+        width: fit-content;
+        max-width: 100%;
+        margin: 18px 0 12px;
+        border: 1px solid var(--line);
+        background: var(--line);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      }
+
+      .control-group {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+        padding: 8px;
+        background: rgba(3, 5, 9, 0.96);
+      }
+
+      .control-label {
+        flex: 0 0 auto;
+        margin-right: 2px;
+        color: var(--bone-shadow);
+        font-size: 9px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .control-group.fade {
+        grid-column: 1 / -1;
+        flex-wrap: wrap;
+      }
+
+      .control-group.fade select {
+        width: min(170px, 34vw);
+      }
+
+      #fadeTicks {
+        width: 68px;
+      }
+
+      .status-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        margin: 0 0 20px;
+        padding: 0 0 12px;
+        border-bottom: 1px solid var(--line);
+        color: var(--bone-shadow);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .status-strip b {
+        color: var(--rim);
+        font-weight: 500;
+      }
+
+      .status-strip .diagnostic {
+        color: var(--graze);
+      }
+
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 18px;
+        margin: 28px 0 12px;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        color: var(--bone);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .section-head p {
+        margin: 0;
+        color: var(--bone-shadow);
+        font-size: 10px;
+        text-align: right;
+      }
+
       #grid {
         position: relative;
-        display: inline-block;
+        max-width: 100%;
+        margin-inline: auto;
       }
-      canvas {
-        display: block;
-        background: #000;
-      }
-      .label {
+
+      #canvas {
         position: absolute;
-        pointer-events: none;
-        font: 11px monospace;
-        color: #cde;
-        background: rgba(0, 0, 0, 0.55);
-        padding: 1px 4px;
-        white-space: pre;
+        z-index: 0;
+        inset: 0 auto auto 0;
+        display: block;
+        max-width: 100%;
+        background: var(--void);
       }
-      .label .bad {
-        color: #f66;
+
+      #cards {
+        position: absolute;
+        z-index: 1;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .scene-card {
+        position: absolute;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--silver);
+      }
+
+      .scene-card::before,
+      .scene-card::after {
+        position: absolute;
+        z-index: 3;
+        width: 22px;
+        height: 22px;
+        pointer-events: none;
+        content: "";
+      }
+
+      .scene-card::before {
+        top: 0;
+        left: 0;
+        border-top: 1px solid var(--rim);
+        border-left: 1px solid var(--rim);
+      }
+
+      .scene-card::after {
+        right: 0;
+        bottom: 0;
+        border-right: 1px solid rgba(230, 79, 156, 0.58);
+        border-bottom: 1px solid rgba(230, 79, 156, 0.58);
+      }
+
+      .scene-visual {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .scene-topline {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        left: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .scene-no,
+      .scene-role {
+        padding: 2px 5px;
+        background: rgba(3, 5, 9, 0.7);
+        color: var(--rim);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        backdrop-filter: blur(5px);
+      }
+
+      .scene-card.unmoored .scene-role,
+      .scene-card.extension .scene-role {
+        color: var(--heart);
+      }
+
+      .structure-flag {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        display: none;
+        padding: 2px 5px;
+        border: 1px solid rgba(221, 244, 255, 0.32);
+        background: rgba(3, 5, 9, 0.68);
+        color: var(--rim);
+        font-size: 8px;
+        letter-spacing: 0.12em;
+      }
+
+      body.composite-view .scene-card.has-structure .structure-flag {
+        display: block;
+      }
+
+      .art-flag {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        display: none;
+        padding: 2px 5px;
+        border: 1px solid rgba(240, 216, 226, 0.32);
+        background: rgba(3, 5, 9, 0.68);
+        color: var(--heart);
+        font-size: 8px;
+        letter-spacing: 0.12em;
+      }
+
+      .scene-card.has-art .art-flag {
+        display: block;
+      }
+
+      .scene-info {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 10px 11px 9px;
+        border-top: 1px solid var(--line);
+        background:
+          linear-gradient(105deg, rgba(221, 244, 255, 0.035), transparent 44%),
+          rgba(7, 10, 18, 0.97);
+      }
+
+      .scene-identity {
+        display: flex;
+        min-width: 0;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .scene-name {
+        overflow: hidden;
+        color: var(--bone);
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .scene-owner {
+        overflow: hidden;
+        color: var(--bone-shadow);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-align: right;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .scene-route {
+        overflow: hidden;
+        padding: 3px 6px;
+        border-left: 2px solid rgba(221, 244, 255, 0.46);
+        background: rgba(221, 244, 255, 0.045);
+        color: var(--rim);
+        font-size: 9px;
+        letter-spacing: 0.055em;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .scene-story {
+        display: -webkit-box;
+        overflow: hidden;
+        min-height: 36px;
+        margin: 0;
+        color: var(--ghost);
+        font: 11px/1.45 system-ui, -apple-system, "PingFang SC", "Noto Sans CJK SC",
+          sans-serif;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        padding-top: 5px;
+        border-top: 1px solid rgba(185, 196, 207, 0.12);
+        color: var(--bone-shadow);
+        font-size: 9px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .metrics span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .metrics b {
+        color: var(--silver);
+        font-weight: 500;
+      }
+
+      .metrics .bad b {
+        color: var(--graze);
+      }
+
+      .automation-note {
+        max-width: 940px;
+        margin: 20px 0 0;
+        color: var(--bone-shadow);
+        font-size: 10px;
+      }
+
+      @media (max-width: 940px) {
+        #controls {
+          width: 100%;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .control-group {
+          flex-wrap: wrap;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .shell {
+          width: min(100% - 20px, 1180px);
+          padding-top: 14px;
+        }
+
+        .masthead {
+          padding-left: 24px;
+        }
+
+        #controls {
+          position: relative;
+          grid-template-columns: 1fr;
+        }
+
+        .control-group,
+        .control-group.fade {
+          grid-column: 1;
+          width: 100%;
+        }
+
+        .control-group.fade select {
+          flex: 1 1 120px;
+          width: auto;
+        }
+
+        .section-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .section-head p {
+          text-align: left;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+        }
       }
     </style>
   </head>
-  <body>
-    <h1>scenes compare — every registered background, live, measured</h1>
-    <p class="note">
-      All scenes render simultaneously off the same tick clock (uTick/uScroll, exactly as
-      <code>Background#step</code> advances them). Per cell: <b>pk</b> peak luminance /
-      <b>mn</b> mean (Rec.709 on the raw framebuffer, no bloom — in-game headers still
-      re-measure) / <b>Δ</b> max per-tick luminance step (temporal law: red above 0.02).
-      The last cell is the <b>fade lab</b>: pick A→B and GO to watch the crossfade
-      (post-overhaul: the tear + stamp). Restamp zeroes every uScroll. Automation:
-      <code>__measure()</code>, <code>__dump()</code>, <code>__strips(n, stride)</code>.
-    </p>
-    <div id="controls">
-      <button id="pause"></button>
-      <button id="step">+1 tick</button>
-      speed
-      <button class="speed" data-v="1">×1</button>
-      <button class="speed" data-v="4">×4</button>
-      <button class="speed" data-v="16">×16</button>
-      <button id="restamp">restamp (uScroll=0)</button>
-      | view
-      <button class="boost" data-v="1">×1</button>
-      <button class="boost" data-v="2">×2</button>
-      <button class="boost" data-v="3">×3</button>
-      <button class="boost" data-v="4">×4</button>
-      | fade lab:
-      <select id="fadeA"></select>
-      →
-      <select id="fadeB"></select>
-      <input id="fadeTicks" type="number" value="120" min="1" style="width: 60px" />
-      <button id="fadeGo">GO</button>
-    </div>
-    <div id="grid"><canvas id="canvas"></canvas></div>
+  <body class="composite-view">
+    <main class="shell">
+      <header class="masthead">
+        <p class="kicker">V4 FIELD ARCHIVE / FIXED-TICK REVIEW SURFACE</p>
+        <h1>余白御寮 · THE NEGATIVE-SPACE WARD</h1>
+        <p class="subtitle">
+          14 AUTHORED FIELDS · 4 STAGE HYBRIDS · ONE REFERENCE, ONE SCENE
+        </p>
+      </header>
+
+      <p class="note">
+        默认以实际 <strong>×1</strong> 强度显示；03–06 四个关卡使用绘制母版与
+        shader 的 <strong>hybrid</strong> 生产合成，并叠加正式
+        <code>V4StageStructure</code>。指标始终读取未增益的 production source
+        （四关为 hybrid，其余为 shader；不含舞台结构）：
+        <strong>pk</strong> 是描述值，不设统一亮度红线；<strong>mn</strong> 是 Rec.709
+        均值；<strong>Δ1</strong> 是严格相邻一个 tick 的最大亮度步进，仅在超过
+        0.02 时警示。
+      </p>
+
+      <section id="controls" aria-label="scene review controls">
+        <div class="control-group" aria-label="clock controls">
+          <span class="control-label">clock</span>
+          <button id="pause" type="button"></button>
+          <button id="step" type="button">+1 tick</button>
+          <button id="restamp" type="button">restamp</button>
+        </div>
+
+        <div class="control-group" aria-label="tick speed">
+          <span class="control-label">rate</span>
+          <button class="speed active" data-v="1" type="button" aria-pressed="true">×1</button>
+          <button class="speed" data-v="4" type="button" aria-pressed="false">×4</button>
+          <button class="speed" data-v="16" type="button" aria-pressed="false">×16</button>
+        </div>
+
+        <div class="control-group" aria-label="scene composition">
+          <span class="control-label">layer</span>
+          <button class="mode" data-v="raw" type="button" aria-pressed="false">raw</button>
+          <button class="mode active" data-v="composite" type="button" aria-pressed="true">
+            v4 composite
+          </button>
+        </div>
+
+        <div class="control-group" aria-label="field source">
+          <span class="control-label">source</span>
+          <button class="source" data-v="art" type="button" aria-pressed="false">art</button>
+          <button class="source" data-v="shader" type="button" aria-pressed="false">
+            shader
+          </button>
+          <button class="source active" data-v="hybrid" type="button" aria-pressed="true">
+            hybrid
+          </button>
+        </div>
+
+        <div class="control-group" aria-label="diagnostic view gain">
+          <span class="control-label">view</span>
+          <button class="boost active" data-v="1" type="button" aria-pressed="true">×1</button>
+          <button class="boost" data-v="2" type="button" aria-pressed="false">×2</button>
+          <button class="boost" data-v="3" type="button" aria-pressed="false">×3</button>
+          <button class="boost" data-v="4" type="button" aria-pressed="false">×4</button>
+        </div>
+
+        <div class="control-group fade" aria-label="transition laboratory">
+          <span class="control-label">fade lab</span>
+          <label for="fadeA">from</label>
+          <select id="fadeA"></select>
+          <span aria-hidden="true">→</span>
+          <label for="fadeB">to</label>
+          <select id="fadeB"></select>
+          <label for="fadeTicks">ticks</label>
+          <input id="fadeTicks" type="number" value="60" min="1" />
+          <button id="fadeGo" type="button">GO</button>
+        </div>
+      </section>
+
+      <div class="status-strip" aria-live="polite">
+        <span>tick <b id="tickReadout">0</b></span>
+        <span>clock <b>60 Hz fixed</b></span>
+        <span>display <b id="modeReadout">v4 composite</b></span>
+        <span>source <b id="sourceReadout">hybrid · 03/04/05/06</b></span>
+        <span>gain <b id="boostReadout">×1 production</b></span>
+        <span id="diagnosticReadout"></span>
+      </div>
+
+      <div class="section-head">
+        <h2>Scene atlas</h2>
+        <p>绘制母版组织空间，shader 提供固定 tick 动态；危险、余白与人物永远先被读到。</p>
+      </div>
+
+      <section id="grid" aria-label="all registered v4 background scenes">
+        <canvas id="canvas"></canvas>
+        <div id="cards"></div>
+      </section>
+
+      <p class="automation-note">
+        Automation compatibility:
+        <code>__compareReady</code>, <code>__measure()</code>, <code>__dump()</code>,
+        <code>__strips(n, stride)</code>. Source additions:
+        <code>__dumpArt()</code>, <code>__dumpHybrid()</code>. Composite additions:
+        <code>__dumpComposite()</code>, <code>__stripsComposite()</code>。
+        <code>__measure()</code> 固定读取 production source ×1；旧 raw PNG API
+        固定导出 shader ×1；composite API 固定导出 production hybrid + structure。
+      </p>
+    </main>
+
     <script type="module" src="./scenes-compare.ts"></script>
   </body>
 </html>

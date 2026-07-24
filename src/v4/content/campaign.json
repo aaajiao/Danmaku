@@ -2776,6 +2776,7 @@
             "name": "Arraignment",
             "hpSeconds": 7,
             "isSpell": false,
+            "background": "surge",
             "timeline": [
               {
                 "count": 0,

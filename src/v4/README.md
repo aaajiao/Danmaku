@@ -16,7 +16,7 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Edition composition | [`index.ts`](./index.ts) | Browser boot in [`src/main.ts`](../main.ts) |
 | Danmaku definitions | [`gameplay/patterns.ts`](./gameplay/patterns.ts) | Registry and emitter primitives in [`src/content/pattern-registry.ts`](../content/pattern-registry.ts) |
 | Motion definitions | [`gameplay/behaviours.ts`](./gameplay/behaviours.ts) | Registry, timelines and integration in [`src/sim/motion.ts`](../sim/motion.ts) |
-| Authored shader scenes | [`backgrounds/`](./backgrounds) | Registry, shared GLSL helpers, cross-fade and renderer in [`src/render/background.ts`](../render/background.ts) |
+| Authored shader-driven scenes | [`backgrounds/`](./backgrounds), with fixed hybrid plates in [`src/assets/v4/backgrounds`](../assets/v4/backgrounds) | Registry, shared GLSL helpers, art preload, cross-fade and renderer in [`src/render/background.ts`](../render/background.ts) |
 | Campaign authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
 | Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay identity hashes campaign data plus compiled v4 patterns/behaviours; simulation carries only the opaque string |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
@@ -32,7 +32,7 @@ not become v4-specific.
 
 1. deterministic motion behaviours;
 2. deterministic danmaku patterns;
-3. authored background shaders;
+3. authored background shaders and their optional project-owned painted plates;
 4. v4 audio identity and fallback score;
 5. generated campaign data.
 
@@ -66,12 +66,16 @@ keep older imports working while ownership stays visible under this directory.
   [`gameplay/`](./gameplay). They remain inside the deterministic and headless
   architecture scans.
 - Scene changes are made in [`backgrounds/`](./backgrounds), one fragment shader
-  per file, and imported by its index. The generic background renderer remains
+  per file, and imported by its index. A scene may bind one fixed plate from
+  [`src/assets/v4/backgrounds`](../assets/v4/backgrounds); composition and motion
+  remain in that scene's shader. The generic background renderer remains
   scene-free.
 - Track identity and the emergency score floor belong in [`audio/`](./audio);
   release samples are generated into `packs/v4` under the v4 audio direction.
-- Art changes belong to the independent `packs/v4` generator and manifest. They
-  must not be used as a route for simulation or shader logic.
+- Replaceable sprite/HUD art changes belong to the independent `packs/v4`
+  generator and manifest. Shader-coupled background plates belong to
+  `src/assets/v4/backgrounds` and are compiled with the edition. Neither path may
+  be used as a route for simulation or guest shader logic.
 
 ## Ownership migration and the first authored revision
 

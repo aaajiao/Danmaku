@@ -44,16 +44,32 @@
  * `uScroll` only — no wall clock (see `background.ts`, rule 1);
  * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
+ * V4 hybrid pass: an original finite-palette Ghost plate supplies distant
+ * membrane, bone-silver support and eroded depth at the frame edges while this
+ * shader keeps the lens field alive. The plate is deliberately quiet through
+ * the central play corridor and stays on its logical pixel grid — it does not
+ * replace the fixed-tick motion.
+ *
  * lens-whisper by pbakaus/radiant, MIT. Ported; our clock, cores/grain dropped,
- * bokeh broadened, exposure ours.
+ * bokeh broadened, exposure and painted composition ours.
  */
 
+import EXPANSE_ART_URL from '../../assets/v4/backgrounds/expanse-v4.png';
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('expanse', {
   scrollSpeed: 0.7,
+  art: {
+    url: EXPANSE_ART_URL,
+    width: 480,
+    height: 640,
+  },
   fragment: /* glsl */ `
 ${BACKGROUND_NOISE_GLSL}
+
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode;  /* 0 shader, 1 painted plate, 2 production hybrid */
 
     const float LW_PI = 3.14159265359;
     const float EXPOSURE = 0.42;   /* stage 1 — most curtain headroom */
@@ -162,7 +178,7 @@ ${BACKGROUND_NOISE_GLSL}
       return streakCol + wideCol + haloCol;
     }
 
-    vec3 background(vec2 uv) {
+    vec3 expanseShader(vec2 uv) {
       float aspect = uRes.x / uRes.y;
       float t = uScroll * 0.012;
       /* Reference centred coord (min-dimension normalized, y-down retained). */
@@ -191,6 +207,36 @@ ${BACKGROUND_NOISE_GLSL}
       col = max(col, vec3(0.0));
       col = col / (col + vec3(0.6)) * 1.5;   /* reference compressive tonemap */
       return col * EXPOSURE;
+    }
+
+    vec2 expansePixelUv(vec2 uv) {
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
+      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+    }
+
+    vec3 expanseArt(vec2 pixelUv) {
+      vec3 painted = texture2D(uArt, pixelUv).rgb;
+      /* Display-referred plate: darken and gently compress its finite-palette
+         highlights into the stage band before global intensity is applied. */
+      return pow(max(painted, vec3(0.0)), vec3(1.12)) * 0.38;
+    }
+
+    vec3 background(vec2 uv) {
+      if (uArtMode < 0.5) return expanseShader(uv);
+
+      /* Production modes snap the complete scene to the logical pixel grid;
+         shader-only remains the exact smooth reference for comparison. */
+      vec2 pixelUv = expansePixelUv(uv);
+      vec3 painted = expanseArt(pixelUv);
+      if (uArtMode < 1.5) return painted;
+      vec3 shaderColor = expanseShader(pixelUv);
+
+      /* Max-composition preserves the reviewed flare peaks instead of adding
+         two full backgrounds. Their overlap gets only a restrained material
+         response, enough to seat the light inside the painted atmosphere. */
+      float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
+      vec3 seatedShader = shaderColor * (0.92 + paintedLuma * 0.40);
+      return max(painted, seatedShader) + min(painted, seatedShader) * 0.12;
     }
   `,
 });

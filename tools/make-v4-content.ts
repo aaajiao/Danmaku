@@ -1840,6 +1840,12 @@ const bosses: PackContent['bosses'] = {
         name: 'Arraignment',
         hpSeconds: 7,
         isSpell: false,
+        // `surge` is the indictment taking material form: undertow's open shaft
+        // closes into a double-warped ink membrane before the signed cards cut
+        // that surface into `intaglio`. Unlike the Lunatic-only trance fields,
+        // this opener exists on every tier, making the scene part of the shipped
+        // mainline instead of a registered-but-unreachable extension surface.
+        background: 'surge',
         timeline: [
           { count: 0, motion: { r: 1.3, theta: 0 } },
           { count: 70, motion: { r: 1.3, theta: 180 } },

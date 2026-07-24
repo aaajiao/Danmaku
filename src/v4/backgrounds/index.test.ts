@@ -38,10 +38,10 @@ const SHIPPED = [
   'undertow',
   'stratum',
   'vault',
-  // The boss scenes: per-scene near-identical ports of the pbakaus/radiant
+  // The boss scenes: independently authored v4 adaptations of distinct spatial
   // references, not one engine cell — one reference, one scene, no sharing (the
-  // no-repeat ruling; the structural test below enforces it). Each is a boss
-  // scene named by a spell card.
+  // no-repeat ruling; the structural test below enforces it). Each is named by
+  // a spell card.
   'signet',
   'cordon',
   'intaglio',
@@ -62,21 +62,52 @@ const SHIPPED = [
 const REVIEWED_BASELINE: Readonly<
   Record<string, { scrollSpeed: number; bodySha256: string; assembledSha256: string }>
 > = {
-  cordon: { scrollSpeed: 0.6, bodySha256: '795be3f0c6c7318b6da0f2b64d66574cb62e920286413b826f1ab53e2d8c8e9e', assembledSha256: '144e222f8ead0b60e6ef53cf650731ee4989555ea2c0b37228a71b4b1a46f51c' },
-  decree: { scrollSpeed: 1.2, bodySha256: '5075c1b20e66f4de06ecc993fe87f405e042f6c9a963775054271b44d1f9aa87', assembledSha256: '0ecea53ca30eb191f79d853354d8642458bfc9b22b48713d4a9484f6dccfa557' },
-  drift: { scrollSpeed: 0.6, bodySha256: '07589177b4e2ba81b94ff46f5b3e91754b8797945a71f93e3989700a719c68c2', assembledSha256: 'efc867c435db327d62acfc97ff3bb79cb8e358a3c87a2373e0744c345dcaffa6' },
-  expanse: { scrollSpeed: 0.7, bodySha256: 'e2469a82205d31b390fd4a3ed6a951bc46e859eeb013057b835094475018f3c9', assembledSha256: 'c4e93c558f8ccf012a6f4e8a0079f70d86661cd6f3e73f358f3da99bbb4efde7' },
-  intaglio: { scrollSpeed: 0.9, bodySha256: '512b3c849ca375cf35040f0211b28f5ca8fa7cd96272786f141be95e0920fabb', assembledSha256: '4be12c473d006c6e96971fcf0f30b40faff85fd6bc20492a68b578345ee7ddf5' },
-  regnum: { scrollSpeed: 0.8, bodySha256: 'ae43c4e5d32cc111f78426d55f7bf9704d9b4d966f304d8cf760a03318a9991d', assembledSha256: '91de63327f62b6ea0d7f30864d96ab9927e73c3a701a4b390c508cdcce525d87' },
-  sable: { scrollSpeed: 0.6, bodySha256: '5f57acb79a06a5172971b77cb24731259da1e1b613dc7b2d1c1751c333c8fb85', assembledSha256: '34de21aa85627244dc17609de4140942782c7ab8a4590afcf68a32830fb1bc91' },
-  'signal-decay': { scrollSpeed: 1, bodySha256: '57cec81deacc1586104562c13b9720c8992bfce512c9886d14f428b3a9b610a0', assembledSha256: '5ad40b9a823580ebd78255033507197060060fa4b843ba89499ba269ee2f824e' },
-  signet: { scrollSpeed: 0.8, bodySha256: 'f4c19ffa0394eb28fe80791a6a4b7d967c17503f54e0ab397979178a04579d35', assembledSha256: 'fcf9308f5692bc30b95a277713fb0805f5232152352a9cc00be64a957b0de36c' },
-  stratum: { scrollSpeed: 0.7, bodySha256: '4ff07b30137f8b6bfbffcc8ca9bc1197f952cfb6215867e06646b37c1fdea331', assembledSha256: 'dbc66dde2d205cc6d8c576ce29041c593d996e678121b980667f08e5f368799d' },
-  surge: { scrollSpeed: 1.4, bodySha256: '6aac92dbeeed439368cbc2029adebcb67ec421ab79abf3f2b0b652c4eb28a920', assembledSha256: 'ee320ff4f8eea42e6b84fdf2654998929ff42bdf60e93d1c50cb27ce854e1936' },
-  umbra: { scrollSpeed: 1.1, bodySha256: 'fe7c65d38275a41193e99ce2059990c7689b47589d491d475d7d54e46bb2606a', assembledSha256: 'b5f23c7321ff63d37fd2477f1a5e99df4097771a8aa3b02ea56ea97861107f36' },
-  undertow: { scrollSpeed: 0.9, bodySha256: '9d86a5c78ed10e1ee3feac2b9e84c5339e96251a87ad8a10263f85ee9b5b0091', assembledSha256: 'f0e9e9670ff1adfac0677a7c0fd3d82e82372e35d806f773e669cb240dba0fff' },
-  vault: { scrollSpeed: 0.5, bodySha256: '2c3fda58adbae58fd71a3f00d84da252961499380324dd6f5964d867dd2e3c88', assembledSha256: '2098258e6cde74139ed5a174bf113259924c97eafe67f5c4072feea152b3c2a4' },
+  cordon: { scrollSpeed: 0.6, bodySha256: '9619728977ca0a8c022a3f0b289826fe46548797edc99d839ca6755f89fcfc2c', assembledSha256: 'c99078aab9904352e96166091e2b3b6c9b8c090cff9402f7821bb3688ab2128c' },
+  decree: { scrollSpeed: 1.2, bodySha256: '0bfc1742f6ca59dfacafdd069adc5306c96c322cd397775ed040a15eff137182', assembledSha256: 'd9cef95a7ac12e9b6a29c2acbe5ca49ecf8aeb0127d88fa05ef659af84c28f6f' },
+  drift: { scrollSpeed: 0.6, bodySha256: 'cfd6c0401389ae6d7e544da6619a943e58a290a1fb6bd8a4f344240231884239', assembledSha256: 'ae507376fd29eedaf434558304066a524145027c0fdadd278a53f9e949ee0f7e' },
+  expanse: { scrollSpeed: 0.7, bodySha256: 'f4ba4f67072cc6eb4216abae0142a47fed5eda79c72550726b2f65bcacd26670', assembledSha256: 'f4ab96063849f2b5463e45e8186ffaaaf7bcdb05cc80c116b81b6679531dee52' },
+  intaglio: { scrollSpeed: 0.9, bodySha256: '6a0db83ff713031d2c69452e032d7ecd57f65364cce085a1e7baefbbdea814d8', assembledSha256: 'e962e85207947c714136e81c9a6ca67562431918504fa9f01a722dad5485a698' },
+  regnum: { scrollSpeed: 0.8, bodySha256: 'dc0790809352173a070c9c1dc4c454fa5fed60c7fa1dff74966ad0c31d6e2567', assembledSha256: 'fbd67903607eda7ec8267bc16c77a54e74bc18c3a37f2ff64fad45ac866cd83f' },
+  sable: { scrollSpeed: 0.6, bodySha256: 'f006266116b7c9608a564b88433013eeab0251d8983a38c40b21098f0568a355', assembledSha256: '1b0dda9b94ec5938a66d035166bdc57c2409f885ee887336bd06d2a652daaf83' },
+  'signal-decay': { scrollSpeed: 1, bodySha256: '3bbb5fd5d907a9d85e982d0a2b83c5c7edb13a0b86a36618c0f1cf2f7e0918c8', assembledSha256: '8fee30d65e3315e57663c144301c131f0ef51b9539479145457fd4b451c7fdca' },
+  signet: { scrollSpeed: 0.8, bodySha256: 'a86e0fd4f681a95c2981c85036bc36754df0612769b934db118872544e9eaf9d', assembledSha256: '2e8ce862554677c9642e56edaa4fdc036fde7461cb2c88400cc28d4ee92d708f' },
+  stratum: { scrollSpeed: 0.7, bodySha256: 'e8247546a079ce9233db4207abe1f89a1d0088ecba479fb490033fb6d9960c2f', assembledSha256: '60407a0e8b4efad19d8e198bc7e77d6eeb72f4868e1f0adb154c19d49f0afa28' },
+  surge: { scrollSpeed: 1.4, bodySha256: 'a9c188404e880e8a86341fa0b231baa9bbb397d35bba5588bdebd51b16ad5d33', assembledSha256: '89a7371f20da6d3b07c9144ad0cff97ef4cd3cb123e50e8dd8a72d221a74c28e' },
+  umbra: { scrollSpeed: 1.1, bodySha256: 'b60bf3aaa9ffe263dfafac957be234b35a1218d5627d63a43561d66eff7945a5', assembledSha256: '6d48d4ebaebb482b679e617d4cfe06d52381d159c661520f0e491813c2eca789' },
+  undertow: { scrollSpeed: 0.9, bodySha256: '9f09b69eb4dc9d0e6bfe27a705063857ce310ff33445cedc3a6b0bb0ac5c5d63', assembledSha256: 'a15389906d79eb9fdf1e65675972c26323e9f52a4e9fb0b3ef099173ff00702e' },
+  vault: { scrollSpeed: 0.5, bodySha256: 'c935acacfb4356991d339ed248a907ba84d8d27a7dc82bff49a683a63184d2a9', assembledSha256: '711980dddaeaab8af467e0b178c79677147c3ee1e31714bef1557ef898854aea' },
 };
+
+const REVIEWED_ART = {
+  expanse: {
+    file: new URL('../../assets/v4/backgrounds/expanse-v4.png', import.meta.url),
+    width: 480,
+    height: 640,
+    bytes: 26640,
+    sha256: '5e507b52270cae88753dd0bf88cf3b5ba3e5c15a1c7886f27cf25aa06765dc31',
+  },
+  undertow: {
+    file: new URL('../../assets/v4/backgrounds/undertow-v4.png', import.meta.url),
+    width: 480,
+    height: 640,
+    bytes: 36555,
+    sha256: 'dc2975906cf53b3c0bba1cb8892879794532a9fac22a642dc461ee3ae1049d81',
+  },
+  stratum: {
+    file: new URL('../../assets/v4/backgrounds/stratum-v4.png', import.meta.url),
+    width: 480,
+    height: 640,
+    bytes: 29362,
+    sha256: '3052cfe6d2d56ab56e451fcc4e7a7b8dd98bdee2a69ae4f97f5712a49088a8bf',
+  },
+  vault: {
+    file: new URL('../../assets/v4/backgrounds/vault-v4.png', import.meta.url),
+    width: 480,
+    height: 640,
+    bytes: 29008,
+    sha256: 'f3817c5b68a82aa5589627cf11ea6ef5d93d2a29266f70cf65306cd6d659a0b8',
+  },
+} as const;
 
 describe('the shipped scenes', () => {
   test.each(SHIPPED)('%s is registered', (name) => {
@@ -106,6 +137,44 @@ describe('the shipped scenes', () => {
       }),
     );
     expect(actual).toEqual(REVIEWED_BASELINE);
+  });
+
+  test('the four reviewed stage scenes bind byte-locked 3:4 painted plates', async () => {
+    const painted = SHIPPED.filter((name) => getBackgroundSpec(name).art !== undefined);
+    expect(painted).toEqual(Object.keys(REVIEWED_ART));
+
+    for (const [name, contract] of Object.entries(REVIEWED_ART)) {
+      const art = getBackgroundSpec(name).art;
+      expect(art).toBeDefined();
+      expect(art?.width).toBe(contract.width);
+      expect(art?.height).toBe(contract.height);
+      expect(art?.url.endsWith(`/${name}-v4.png`)).toBe(true);
+
+      const bytes = await Bun.file(contract.file).bytes();
+      expect(bytes.byteLength, name).toBe(contract.bytes);
+      expect(new Bun.CryptoHasher('sha256').update(bytes).digest('hex'), name)
+        .toBe(contract.sha256);
+    }
+  });
+
+  test('every painted stage keeps a smooth shader-only branch and snaps production', () => {
+    for (const name of Object.keys(REVIEWED_ART)) {
+      const fragment = getBackgroundSpec(name).fragment;
+      expect(fragment, name).toContain('uniform sampler2D uArt;');
+      expect(fragment, name).toContain('uniform vec2 uArtRes;');
+      expect(fragment, name).toContain('uniform float uArtMode;');
+      expect(fragment, name).toContain('if (uArtMode < 0.5)');
+      expect(fragment, name).toContain('floor(safeUv * uArtRes) + 0.5');
+    }
+  });
+
+  test('stratum production keeps the original shader as its luminous base', () => {
+    const fragment = getBackgroundSpec('stratum').fragment;
+    const production = fragment.slice(fragment.indexOf('vec3 background(vec2 uv)'));
+    expect(production).toContain('vec3 shaderColor = stratumShader(pixelUv);');
+    expect(production).toContain('vec3 hybrid = shaderColor * reliefGain;');
+    expect(production).not.toContain('stratumArtFlow');
+    expect(production).not.toContain('stratumHybridMotion');
   });
 
   // The no-repeat ruling ("不要重复"), as structure: one reference, one scene.
@@ -202,6 +271,13 @@ describe('every name the content writes down resolves', () => {
     expect(getStage('stage-2').background).toBe('undertow');
     expect(getStage('stage-3').background).toBe('stratum');
     expect(getStage('stage-4').background).toBe('vault');
+  });
+
+  test('surge opens the shipped stage-2 boss on every difficulty', () => {
+    const arraignment = getBossSpec('magistrate').phases[0];
+    expect(arraignment?.name).toBe('Arraignment');
+    expect(arraignment?.background).toBe('surge');
+    expect(arraignment?.difficulties).toBeUndefined();
   });
 });
 
