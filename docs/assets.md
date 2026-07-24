@@ -506,7 +506,8 @@ vec3 background(vec2 uv)
 `Background.step()`. No wall clock may enter a scene.
 
 Shell, Boss-station and utility scenes remain shader-only. Each of the four
-campaign stages also declares one project-owned opaque plate:
+campaign stages also declares one project-owned opaque art texture: either a
+single plate or a scene-owned sequence atlas.
 
 ```ts
 import PLATE_URL from '../../assets/v4/backgrounds/example-v4.png';
@@ -533,8 +534,8 @@ The production stage hybrids are:
 
 | Scene | Painted contribution | Shader contribution |
 |---|---|---|
-| `expanse` | 480×640 finite-palette Ghost membranes, connected edge supports and deep central negative space | grid-snapped fixed-tick anamorphic flares, bokeh and haze |
-| `undertow` | 480×640 indigo descending membranes and a calm central shaft | grid-snapped fixed-tick domain warp and cold refraction |
+| `expanse` | sixteen 240×320 finite-palette Ghost frames in a 960×1280 atlas; irregular lateral breath, five-phase vertical lag, independent material lift and a still central negative space | grid-snapped fixed-tick anamorphic flares, bokeh and haze |
+| `undertow` | sixteen 240×320 indigo membrane frames in a 960×1280 atlas; two unequal descending crests, asymmetric wall pressure and a calm central shaft | grid-snapped fixed-tick domain warp and cold refraction |
 | `stratum` | 480×640 soot/slate sediment membranes with a quiet lower basin | grid-snapped fixed-tick moving centres and travelling-wave pressure |
 | `vault` | 480×640 black-violet Ghost membranes and broad graphite support strata | grid-snapped fixed-tick domain warp and pressure lighting |
 
@@ -550,10 +551,19 @@ one full-frame master. It must be original, opaque 8-bit RGB, exact 3:4, broad
 in frequency and quiet through the play corridor. The accepted 1086×1448 source
 is compiled by `bun run make:v4-backgrounds`: an integer area reduction,
 scene-owned finite Ghost palette, compact-highlight cleanup and exact 2× nearest
-expansion produce the 480×640 runtime plate. No stars, pinpoints, thin bright
-edges or isolated marks may counterfeit a projectile. The shader owns all
-motion and decides how the grid-locked plate is graded and combined; dropping a
-PNG onto a generic scrolling plane is not a scene.
+expansion produce the 480×640 base plate. `stratum` and `vault` sample that file
+directly; the `expanse` and `undertow` bases remain single-frame derived
+references while those scenes pack sixteen cleaned 240×320
+integer-displacement frames into one 960×1280 atlas and import the atlas at
+runtime. `expanse` uses a 12-tick smoother lateral breath with sectional,
+material and left/right phase offsets; `undertow` uses a 10-tick descending
+wave with sixteen distinct push/drag cadences and an independent wall-pressure
+cycle. Their complete loops remain 192 and 160 ticks respectively, while an
+Undertow frame edge changes about 1.8× as much material as Expanse.
+Their scene shaders interpolate adjacent frames from `uTick`. No stars,
+pinpoints, thin bright edges or isolated marks may counterfeit a projectile.
+The shader owns the clock and composition; dropping a PNG onto a generic
+scrolling plane is not a scene.
 
 #### The two constraints a scene has to satisfy
 
@@ -567,8 +577,10 @@ detail must both stay coarser than the projectile band. Runtime plates use
 nearest filtering with no mipmaps; their finite palette, 2× pixel clusters and
 minimum 48px bright-component span are build-time facts, not effects delegated
 to sampling. Hybrid shaders snap their complete production pass to the logical
-480×640 texel grid. A perspective projection must also decay structured terms
-before they alias near its horizon.
+480×640 texel grid. Sequence atlases store each 240×320 frame once and sample it
+as deliberate 2× logical-pixel clusters; single-frame stage plates store their
+2× clusters directly at 480×640. A perspective projection must also decay
+structured terms before they alias near its horizon.
 
 Broad forms, restrained contrast and no isolated highlights remain the rule.
 Hybrid changes the available material, not the gameplay readability contract.
@@ -987,9 +999,11 @@ Before adding any sheet:
 The density one is the one people skip, and it is the one that decides whether
 the game is playable.
 
-Hybrid background plates use their own contract in section 3.4: exact 3:4
-dimensions, opaque RGB, project-owned originals, preloaded before the tick loop,
-and reviewed in `art`, `shader` and `hybrid` modes at production `×1`.
+Hybrid background textures use their own contract in section 3.4: a single plate
+is exact 3:4, while a sequence atlas declares its scene-owned grid and frame
+dimensions. Both are opaque RGB, derived from project-owned originals, preloaded
+before the tick loop, and reviewed in `art`, `shader` and `hybrid` modes at
+production `×1`.
 
 ---
 

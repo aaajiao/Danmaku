@@ -17,11 +17,13 @@ and remains recoverable from Git history.
 ## Accepted originals
 
 - `background-expanse-v4-master.png` — stage 1 negative-space membrane plate in
-  the Ghost surface/skeleton language; its 480×640 pixel derivative is sampled
-  by `expanse` beneath the fixed-tick anamorphic shader.
+  the Ghost surface/skeleton language; its deterministic sixteen-frame pixel
+  sequence flexes laterally with sectional and material phase lag beneath the
+  fixed-tick anamorphic shader.
 - `background-undertow-v4-master.png` — stage 2 descending indigo membrane
-  walls and central shaft void; its static derivative anchors the original
-  fixed-tick refractive current without duplicating the structure layer.
+  walls and central shaft void; its deterministic sixteen-frame sequence sends
+  two unequal travelling crests and an independent pressure cycle down both
+  walls around the fixed-tick refractive current.
 - `background-stratum-v4-master.png` — stage 3 soot-and-slate sediment
   membranes with a calm lower basin; the moving-centre/wave field remains the
   motion source above its pixel derivative.
@@ -49,13 +51,21 @@ Keep originals byte-for-byte.  Derive production assets into their runtime
 locations; do not overwrite these files with crops, transparency conversions or
 packed atlases.
 
-The four files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
-derivatives of the four campaign-stage masters. `bun run make:v4-backgrounds`
+The four base files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
+derivatives of the four campaign-stage masters. `stratum` and `vault` sample
+their base files at runtime; the `expanse` and `undertow` bases remain
+single-frame derived references while runtime samples their sequence atlases.
+`bun run make:v4-backgrounds`
 deterministically area-reduces each master to 240×320, maps it to a
 scene-authored finite Ghost palette, removes single-pixel colour islands and
 undersized bright components, then nearest-neighbour expands it by exactly 2×.
-The encoder writes no colour profile or inherited master metadata. These are
-project-owned, shader-coupled assets rather than replaceable pack skins.
+For `expanse` and `undertow`, the same command also derives sixteen
+integer-warped, cleaned 240×320 frames and packs them 4×4 into a 960×1280
+sequence atlas. They do not share a motion profile: `expanse` uses an irregular
+sectional lateral breath with independent material lift, while `undertow` uses
+two faster descending wall crests plus asymmetric pressure. The encoder writes
+no colour profile or inherited master metadata. These are project-owned,
+shader-coupled assets rather than replaceable pack skins.
 
 `packs/v4/actors/portraits.png` is one such derivative: its ten close-ups are
 rebuilt deterministically from the existing player cast and isolated Boss

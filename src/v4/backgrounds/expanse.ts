@@ -25,8 +25,9 @@
  *     eased likewise. Everything else is the reference.
  *   - Uniforms baked: `u_flareSpread` (1.0), `u_driftSpeed` (0.5 -> the clock);
  *     `u_mouse` (the cursor light) is excised.
- *   - Clock: `t = uScroll * 0.012`, matching the reference's `u_time*0.5` rate at
- *     60 ticks/s. `uScroll` advances only in `step()`.
+ *   - Clock: the lens field uses `t = uScroll * 0.012`, matching the reference's
+ *     `u_time*0.5` rate at 60 ticks/s; the painted sequence indexes `uTick`.
+ *     Both uniforms advance only in `step()`.
  *   - EXPOSURE 0.42 over the compressive tonemap: stage 1 opens the game, so it is
  *     the dimmest of the "own picture" scenes and leaves the most curtain headroom
  *     of the stages — the field is near-black between flares.
@@ -41,28 +42,32 @@
  *
  * ## Clock
  *
- * `uScroll` only — no wall clock (see `background.ts`, rule 1);
+ * Fixed-tick `uScroll` and `uTick` only — no wall clock (see `background.ts`,
+ * rule 1);
  * `backgrounds/index.test.ts` scans this file for wall-clock sources.
  *
- * V4 hybrid pass: an original finite-palette Ghost plate supplies distant
+ * V4 hybrid pass: an original finite-palette Ghost sequence supplies distant
  * membrane, bone-silver support and eroded depth at the frame edges while this
- * shader keeps the lens field alive. The plate is deliberately quiet through
- * the central play corridor and stays on its logical pixel grid — it does not
- * replace the fixed-tick motion.
+ * shader keeps the lens field alive. Sixteen deterministic 240×320 frames flex
+ * the outer banks with a slow lateral breath, five-phase vertical lag,
+ * material-layer delay and offset left/right timing around a still central
+ * play corridor. A fixed-tick smootherstep gives each inhale and exhale a soft
+ * rest without a slideshow cut. The original lens field remains the luminous
+ * base.
  *
  * lens-whisper by pbakaus/radiant, MIT. Ported; our clock, cores/grain dropped,
  * bokeh broadened, exposure and painted composition ours.
  */
 
-import EXPANSE_ART_URL from '../../assets/v4/backgrounds/expanse-v4.png';
+import EXPANSE_ART_URL from '../../assets/v4/backgrounds/expanse-v4-sequence.png';
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('expanse', {
   scrollSpeed: 0.7,
   art: {
     url: EXPANSE_ART_URL,
-    width: 480,
-    height: 640,
+    width: 960,
+    height: 1280,
   },
   fragment: /* glsl */ `
 ${BACKGROUND_NOISE_GLSL}
@@ -209,34 +214,67 @@ ${BACKGROUND_NOISE_GLSL}
       return col * EXPOSURE;
     }
 
-    vec2 expansePixelUv(vec2 uv) {
-      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
-      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+    const vec2 EXPANSE_ATLAS_GRID = vec2(4.0, 4.0);
+    const float EXPANSE_ART_FRAMES = 16.0;
+    const float EXPANSE_FRAME_TICKS = 12.0;
+
+    vec2 expanseScenePixelUv(vec2 uv) {
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uRes);
+      return (floor(safeUv * uRes) + 0.5) / uRes;
     }
 
-    vec3 expanseArt(vec2 pixelUv) {
-      vec3 painted = texture2D(uArt, pixelUv).rgb;
+    vec2 expanseArtPixelUv(vec2 uv) {
+      vec2 frameRes = uArtRes / EXPANSE_ATLAS_GRID;
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / frameRes);
+      return (floor(safeUv * frameRes) + 0.5) / frameRes;
+    }
+
+    vec3 expanseArtFrame(vec2 pixelUv, float frame) {
+      float wrapped = mod(frame, EXPANSE_ART_FRAMES);
+      vec2 tile = vec2(mod(wrapped, EXPANSE_ATLAS_GRID.x),
+                       floor(wrapped / EXPANSE_ATLAS_GRID.x));
+      vec2 atlasUv = (tile + pixelUv) / EXPANSE_ATLAS_GRID;
+      vec3 painted = texture2D(uArt, atlasUv).rgb;
       /* Display-referred plate: darken and gently compress its finite-palette
          highlights into the stage band before global intensity is applied. */
       return pow(max(painted, vec3(0.0)), vec3(1.12)) * 0.38;
     }
 
+    vec3 expanseArt(vec2 pixelUv) {
+      float phase = mod(uTick / EXPANSE_FRAME_TICKS, EXPANSE_ART_FRAMES);
+      float frame = floor(phase);
+      float travel = fract(phase);
+      /* Slow fifth-order inhale/exhale: zero velocity at each authored pose,
+         unlike Undertow's continuously pulling vertical current. */
+      float blend = travel * travel * travel
+                  * (travel * (travel * 6.0 - 15.0) + 10.0);
+      return mix(
+        expanseArtFrame(pixelUv, frame),
+        expanseArtFrame(pixelUv, frame + 1.0),
+        blend
+      );
+    }
+
     vec3 background(vec2 uv) {
       if (uArtMode < 0.5) return expanseShader(uv);
 
-      /* Production modes snap the complete scene to the logical pixel grid;
-         shader-only remains the exact smooth reference for comparison. */
-      vec2 pixelUv = expansePixelUv(uv);
-      vec3 painted = expanseArt(pixelUv);
+      /* The image sequence keeps its authored 240×320 pixel blocks while the
+         procedural field retains the reviewed 480×640 production sampling. */
+      vec2 scenePixelUv = expanseScenePixelUv(uv);
+      vec2 artPixelUv = expanseArtPixelUv(uv);
+      vec3 painted = expanseArt(artPixelUv);
       if (uArtMode < 1.5) return painted;
-      vec3 shaderColor = expanseShader(pixelUv);
+      vec3 shaderColor = expanseShader(scenePixelUv);
 
-      /* Max-composition preserves the reviewed flare peaks instead of adding
-         two full backgrounds. Their overlap gets only a restrained material
-         response, enough to seat the light inside the painted atmosphere. */
+      /* Shader-first composition: the live lens field owns light and motion.
+         The animated plate contributes low-frequency material and a restrained
+         relief response instead of winning every pixel through max(). */
       float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
-      vec3 seatedShader = shaderColor * (0.92 + paintedLuma * 0.40);
-      return max(painted, seatedShader) + min(painted, seatedShader) * 0.12;
+      vec3 hybrid = shaderColor * (0.94 + paintedLuma * 0.30);
+      hybrid += painted * 0.38;
+      /* Preserve projectile headroom when a lens streak crosses a pale bone
+         bank; this is a smooth display-referred shoulder, not a hard clamp. */
+      return hybrid / (vec3(1.0) + hybrid * 0.35);
     }
   `,
 });

@@ -13,7 +13,7 @@
  *   __measure()               {scene: {peak, mean, maxStep}} production ×1
  *   __dump(w?, h?)            {scene: dataURL} raw ×1 PNG per scene
  *   __strips(n?, stride?)     raw ×1 temporal strips
- *   __dumpArt(w?, h?)         painted plates (shader fallback for other scenes)
+ *   __dumpArt(w?, h?)         painted textures (shader fallback for other scenes)
  *   __dumpHybrid(w?, h?)      production hybrid fields without structure
  *   __dumpComposite(w?, h?)   production hybrid + stage-structure PNGs
  *   __stripsComposite(...)    production hybrid temporal strips
@@ -117,19 +117,19 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     role: 'STAGE 01 · 旷野',
     owner: 'sentinel',
     route: '主线 1/4 · 第一关背景 · SENTINEL 前',
-    story: 'V4 冷青 Ghost 像素膜层先建立空旷远场与连接边缘，lens-whisper 的六束远光再沿独立 Lissajous 轨迹漂移；完整 hybrid 锁在 480×640 逻辑像素网格。',
+    story: 'V4 冷青 Ghost 膜层以 16 帧、12 tick/帧作不均匀横向呼吸；五段纵向延迟、材质层抬升与左右错相带来更多局部张弛，中央战斗通道保持安静。完整周期仍为 192 tick，lens-whisper 六束远光继续沿独立 Lissajous 轨迹漂移。',
   },
   signet: {
     role: 'BOSS STATION',
     owner: 'sentinel',
     route: '主线 1/4 · 第一关 BOSS · SENTINEL',
-    story: '液态金属印记进入第一位守望者的稳定施术场；玩家活动带主动压低细节与反光。',
+    story: '液态月银印记的宽尺度流场提高到初版 400%，高光法线维持 120% 稳定速度；明暗分离更清楚，同时避免用闪烁伪造动态。',
   },
   undertow: {
     role: 'STAGE 02 · 竖井',
     owner: 'warden / magistrate',
     route: '主线 2/4 · 第二关背景 · 双守卫',
-    story: 'V4 靛青 Ghost 像素膜墙建立下沉竖深与中央通道；原 tropical-heat 的 simplex 域扭曲继续提供冷折射，完整 hybrid 锁在 480×640 逻辑像素网格。',
+    story: 'V4 靛青 Ghost 膜墙以 16 帧、10 tick/帧让两道不等幅纵向波持续下传；独立墙体压力与 16 段不同推/曳曲线让两侧异步变化，完整周期仍为 160 tick。中央通道保持安静，原 tropical-heat simplex 域扭曲继续提供冷折射。',
   },
   cordon: {
     role: 'MIDBOSS STATION',

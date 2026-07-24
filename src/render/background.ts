@@ -10,7 +10,7 @@
  * except that they fill the screen and advance with the clock.
  *
  * So the shared part is all this module owns: a full-screen quad at
- * `Layer.Background`, a fixed set of uniforms, optional painted-plate preload,
+ * `Layer.Background`, a fixed set of uniforms, optional painted-art preload,
  * and a cross-fade. Everything that makes a background *look* like anything
  * lives in a registered `BackgroundSpec`, which is a file you write and import
  * — the same shape as every other extension point (see AGENTS/CLAUDE.md, "How
@@ -165,7 +165,7 @@ export interface BackgroundSpec {
   /** Scroll rate in "world units per tick" — frame-locked like everything. */
   scrollSpeed?: number;
   /**
-   * Optional project-owned painted plate sampled by this scene's shader.
+   * Optional project-owned painted plate or atlas sampled by this scene's shader.
    *
    * The scene declares `uArt`, `uArtRes` and `uArtMode` in its fragment and
    * performs its own composition. Loading stays engine-owned so module
@@ -207,7 +207,7 @@ export function backgroundNames(): readonly string[] {
 }
 
 /**
- * App-lifetime owner for decoded painted background plates.
+ * App-lifetime owner for decoded painted background textures.
  *
  * Compiled scenes borrow these textures. A cross-fade therefore disposes only
  * its material; retiring the outgoing scene cannot invalidate a texture still
@@ -236,7 +236,7 @@ export class BackgroundArtAssets {
 }
 
 /**
- * Decode every registered painted plate before the fixed-tick loop starts.
+ * Decode every registered painted texture before the fixed-tick loop starts.
  *
  * Image completion time is wall-clock state, so it must not decide which visual
  * layer a replay sees on a particular tick. The caller awaits this once during
@@ -301,9 +301,9 @@ export async function loadBackgroundArtAssets(): Promise<BackgroundArtAssets> {
       continue;
     }
 
-    // Runtime plates are authored at the logical 480×640 field and already
-    // carry their final finite palette and 2× pixel clusters. Filtering or a
-    // mip chain would blur that reviewed pixel surface back into concept art.
+    // Runtime plates and scene-owned sequence atlases already carry their final
+    // finite palette. Scenes map their texels onto the logical pixel grid;
+    // filtering or a mip chain would blur that reviewed surface into concept art.
     result.texture.magFilter = THREE.NearestFilter;
     result.texture.minFilter = THREE.NearestFilter;
     result.texture.generateMipmaps = false;
@@ -697,7 +697,7 @@ export class Background {
     return this.#intensity;
   }
 
-  /** Select the painted plate, procedural shader, or the scene-authored blend. */
+  /** Select painted art, the procedural shader, or the scene-authored blend. */
   setArtMode(mode: BackgroundArtMode): void {
     this.#artMode = mode;
     const value = BACKGROUND_ART_MODE_VALUE[mode];

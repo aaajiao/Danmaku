@@ -489,9 +489,11 @@ JS. Instancing addresses both.
 `Layer.Background`, a fixed uniform set, an optional preloaded painted-plate
 owner, and a cross-fade. Every scene is driven by a fragment shader in its own
 file under `src/v4/backgrounds/`. A scene may additionally sample one
-project-owned opaque plate through `BackgroundSpec.art`; the shader still owns
-the composition and all motion. The historical `src/render/backgrounds/index.ts`
-path is a compatibility import only.
+project-owned opaque texture through `BackgroundSpec.art`: either one full-frame
+plate or a scene-owned frame atlas. The scene shader owns its atlas layout,
+fixed-tick frame selection, composition and every motion clock; the generic
+engine only preloads the declared texture. The historical
+`src/render/backgrounds/index.ts` path is a compatibility import only.
 
 A stage declares where it is set with `StageSpec.background`, and a spell card
 may override it with `SpellCard.background`. Both are **strings**, because
