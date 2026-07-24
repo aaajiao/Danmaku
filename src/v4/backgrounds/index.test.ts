@@ -65,36 +65,39 @@ const REVIEWED_BASELINE: Readonly<
   cordon: { scrollSpeed: 0.6, bodySha256: '9619728977ca0a8c022a3f0b289826fe46548797edc99d839ca6755f89fcfc2c', assembledSha256: 'c99078aab9904352e96166091e2b3b6c9b8c090cff9402f7821bb3688ab2128c' },
   decree: { scrollSpeed: 1.2, bodySha256: '0bfc1742f6ca59dfacafdd069adc5306c96c322cd397775ed040a15eff137182', assembledSha256: 'd9cef95a7ac12e9b6a29c2acbe5ca49ecf8aeb0127d88fa05ef659af84c28f6f' },
   drift: { scrollSpeed: 0.6, bodySha256: 'cfd6c0401389ae6d7e544da6619a943e58a290a1fb6bd8a4f344240231884239', assembledSha256: 'ae507376fd29eedaf434558304066a524145027c0fdadd278a53f9e949ee0f7e' },
-  expanse: { scrollSpeed: 0.7, bodySha256: 'f4ba4f67072cc6eb4216abae0142a47fed5eda79c72550726b2f65bcacd26670', assembledSha256: 'f4ab96063849f2b5463e45e8186ffaaaf7bcdb05cc80c116b81b6679531dee52' },
+  expanse: { scrollSpeed: 0.7, bodySha256: 'e7a75f480a80b87c20b7801c5776195b5d9ddc5ab1ec77aa2a19539d4e740501', assembledSha256: '38aa7acfd69997e2fb9804ecf2e55bdd23f3cd748addaaf198efe67ef755e171' },
   intaglio: { scrollSpeed: 0.9, bodySha256: '6a0db83ff713031d2c69452e032d7ecd57f65364cce085a1e7baefbbdea814d8', assembledSha256: 'e962e85207947c714136e81c9a6ca67562431918504fa9f01a722dad5485a698' },
   regnum: { scrollSpeed: 0.8, bodySha256: 'dc0790809352173a070c9c1dc4c454fa5fed60c7fa1dff74966ad0c31d6e2567', assembledSha256: 'fbd67903607eda7ec8267bc16c77a54e74bc18c3a37f2ff64fad45ac866cd83f' },
   sable: { scrollSpeed: 0.6, bodySha256: 'f006266116b7c9608a564b88433013eeab0251d8983a38c40b21098f0568a355', assembledSha256: '1b0dda9b94ec5938a66d035166bdc57c2409f885ee887336bd06d2a652daaf83' },
   'signal-decay': { scrollSpeed: 1, bodySha256: '3bbb5fd5d907a9d85e982d0a2b83c5c7edb13a0b86a36618c0f1cf2f7e0918c8', assembledSha256: '8fee30d65e3315e57663c144301c131f0ef51b9539479145457fd4b451c7fdca' },
-  signet: { scrollSpeed: 0.8, bodySha256: 'a86e0fd4f681a95c2981c85036bc36754df0612769b934db118872544e9eaf9d', assembledSha256: '2e8ce862554677c9642e56edaa4fdc036fde7461cb2c88400cc28d4ee92d708f' },
+  signet: { scrollSpeed: 0.8, bodySha256: '1c9ed84ae695232dd716e3a931c9b879d3eaed5dfe626aca6134528a5e88e3fc', assembledSha256: 'af88df04ac6b39d715e5c9b083b5adf1a027bd003b4ad5d7c58956091262d970' },
   stratum: { scrollSpeed: 0.7, bodySha256: 'e8247546a079ce9233db4207abe1f89a1d0088ecba479fb490033fb6d9960c2f', assembledSha256: '60407a0e8b4efad19d8e198bc7e77d6eeb72f4868e1f0adb154c19d49f0afa28' },
   surge: { scrollSpeed: 1.4, bodySha256: 'a9c188404e880e8a86341fa0b231baa9bbb397d35bba5588bdebd51b16ad5d33', assembledSha256: '89a7371f20da6d3b07c9144ad0cff97ef4cd3cb123e50e8dd8a72d221a74c28e' },
   umbra: { scrollSpeed: 1.1, bodySha256: 'b60bf3aaa9ffe263dfafac957be234b35a1218d5627d63a43561d66eff7945a5', assembledSha256: '6d48d4ebaebb482b679e617d4cfe06d52381d159c661520f0e491813c2eca789' },
-  undertow: { scrollSpeed: 0.9, bodySha256: '9f09b69eb4dc9d0e6bfe27a705063857ce310ff33445cedc3a6b0bb0ac5c5d63', assembledSha256: 'a15389906d79eb9fdf1e65675972c26323e9f52a4e9fb0b3ef099173ff00702e' },
+  undertow: { scrollSpeed: 0.9, bodySha256: '61571910a7e87b06784b771215602c717c7263a57588cc26b7eeb7822cc111d8', assembledSha256: 'dce8397a0d9e7acbe6dd7c2e14576773222b29fc74d9bebe7d6fd37d886690e8' },
   vault: { scrollSpeed: 0.5, bodySha256: 'c935acacfb4356991d339ed248a907ba84d8d27a7dc82bff49a683a63184d2a9', assembledSha256: '711980dddaeaab8af467e0b178c79677147c3ee1e31714bef1557ef898854aea' },
 };
 
 const REVIEWED_ART = {
   expanse: {
-    file: new URL('../../assets/v4/backgrounds/expanse-v4.png', import.meta.url),
-    width: 480,
-    height: 640,
-    bytes: 26640,
-    sha256: '5e507b52270cae88753dd0bf88cf3b5ba3e5c15a1c7886f27cf25aa06765dc31',
+    file: new URL('../../assets/v4/backgrounds/expanse-v4-sequence.png', import.meta.url),
+    urlSuffix: '/expanse-v4-sequence.png',
+    width: 960,
+    height: 1280,
+    bytes: 154773,
+    sha256: '526ad516e4e2922878b519a8a08bae8b11ff5dc40d5bfefc9a09ad4acab302a0',
   },
   undertow: {
-    file: new URL('../../assets/v4/backgrounds/undertow-v4.png', import.meta.url),
-    width: 480,
-    height: 640,
-    bytes: 36555,
-    sha256: 'dc2975906cf53b3c0bba1cb8892879794532a9fac22a642dc461ee3ae1049d81',
+    file: new URL('../../assets/v4/backgrounds/undertow-v4-sequence.png', import.meta.url),
+    urlSuffix: '/undertow-v4-sequence.png',
+    width: 960,
+    height: 1280,
+    bytes: 231854,
+    sha256: '55e1b1681b4324680f5eef2f09afd05dbb63d4701dfec695c3b536b9bc8be112',
   },
   stratum: {
     file: new URL('../../assets/v4/backgrounds/stratum-v4.png', import.meta.url),
+    urlSuffix: '/stratum-v4.png',
     width: 480,
     height: 640,
     bytes: 29362,
@@ -102,6 +105,7 @@ const REVIEWED_ART = {
   },
   vault: {
     file: new URL('../../assets/v4/backgrounds/vault-v4.png', import.meta.url),
+    urlSuffix: '/vault-v4.png',
     width: 480,
     height: 640,
     bytes: 29008,
@@ -139,7 +143,7 @@ describe('the shipped scenes', () => {
     expect(actual).toEqual(REVIEWED_BASELINE);
   });
 
-  test('the four reviewed stage scenes bind byte-locked 3:4 painted plates', async () => {
+  test('the four reviewed stage scenes bind byte-locked painted runtime assets', async () => {
     const painted = SHIPPED.filter((name) => getBackgroundSpec(name).art !== undefined);
     expect(painted).toEqual(Object.keys(REVIEWED_ART));
 
@@ -148,7 +152,7 @@ describe('the shipped scenes', () => {
       expect(art).toBeDefined();
       expect(art?.width).toBe(contract.width);
       expect(art?.height).toBe(contract.height);
-      expect(art?.url.endsWith(`/${name}-v4.png`)).toBe(true);
+      expect(art?.url.endsWith(contract.urlSuffix)).toBe(true);
 
       const bytes = await Bun.file(contract.file).bytes();
       expect(bytes.byteLength, name).toBe(contract.bytes);
@@ -164,8 +168,42 @@ describe('the shipped scenes', () => {
       expect(fragment, name).toContain('uniform vec2 uArtRes;');
       expect(fragment, name).toContain('uniform float uArtMode;');
       expect(fragment, name).toContain('if (uArtMode < 0.5)');
-      expect(fragment, name).toContain('floor(safeUv * uArtRes) + 0.5');
+      if (name === 'expanse' || name === 'undertow') {
+        expect(fragment, name).toContain('floor(safeUv * frameRes) + 0.5');
+        expect(fragment, name).toContain('texture2D(uArt, atlasUv)');
+      } else {
+        expect(fragment, name).toContain('floor(safeUv * uArtRes) + 0.5');
+      }
     }
+  });
+
+  test('expanse and undertow own fixed-tick sixteen-frame art sequences', () => {
+    for (const name of ['expanse', 'undertow']) {
+      const fragment = getBackgroundSpec(name).fragment;
+      expect(fragment, name).toContain('ART_FRAMES = 16.0');
+      expect(fragment, name).toContain('uTick /');
+      expect(fragment, name).toContain('frame + 1.0');
+      expect(fragment, name).toContain('vec2(4.0, 4.0)');
+      expect(fragment, name).not.toContain('performance.now');
+    }
+  });
+
+  test('expanse breath and undertow descent keep distinct motion profiles', () => {
+    const expanse = getBackgroundSpec('expanse').fragment;
+    const undertow = getBackgroundSpec('undertow').fragment;
+
+    expect(expanse).toContain('EXPANSE_FRAME_TICKS = 12.0');
+    expect(expanse).toContain('travel * travel * travel');
+    expect(expanse).toContain('travel * 6.0 - 15.0');
+    expect(expanse).not.toContain('undertowCadence');
+
+    expect(undertow).toContain('UNDERTOW_FRAME_TICKS = 10.0');
+    expect(undertow).toContain('undertowCadence(frame)');
+    expect(undertow).toContain('if (phase < 3.0) return 0.020;');
+    expect(undertow).toContain('if (phase < 8.0) return -0.020;');
+    expect(undertow).toContain('cadenceWave * cadenceWave');
+    expect(undertow).not.toContain('mod(frame, 2.0)');
+    expect(undertow).not.toContain('travel * 6.0 - 15.0');
   });
 
   test('stratum production keeps the original shader as its luminous base', () => {

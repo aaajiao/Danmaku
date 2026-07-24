@@ -5,19 +5,28 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   buildV4BackgroundAsset,
+  buildV4BackgroundSequenceAsset,
   V4_BACKGROUND_ASSET_NAMES,
   V4_BACKGROUND_ASSET_SPECS,
   V4_BACKGROUND_HEIGHT,
   V4_BACKGROUND_PALETTES,
+  V4_BACKGROUND_SEQUENCE_COLUMNS,
+  V4_BACKGROUND_SEQUENCE_FRAMES,
+  V4_BACKGROUND_SEQUENCE_HEIGHT,
+  V4_BACKGROUND_SEQUENCE_MOTION_PROFILES,
+  V4_BACKGROUND_SEQUENCE_NAMES,
+  V4_BACKGROUND_SEQUENCE_WIDTH,
   V4_BACKGROUND_WIDTH,
   V4_BACKGROUND_WORK_HEIGHT,
   V4_BACKGROUND_WORK_WIDTH,
   type V4BackgroundAssetName,
+  type V4BackgroundSequenceName,
 } from './v4-background-assets';
 import { decodePng } from './png-decode';
 import { ColourType, parsePng } from './png';
 
 const NAMES: V4BackgroundAssetName[] = [...V4_BACKGROUND_ASSET_NAMES];
+const SEQUENCE_NAMES: V4BackgroundSequenceName[] = [...V4_BACKGROUND_SEQUENCE_NAMES];
 
 function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
@@ -41,6 +50,14 @@ function ihdr(bytes: Uint8Array): {
 
 function luma(colour: readonly [number, number, number]): number {
   return (54 * colour[0] + 183 * colour[1] + 19 * colour[2] + 128) >> 8;
+}
+
+function frameChangeRatio(current: Uint8Array, next: Uint8Array): number {
+  let changed = 0;
+  for (let pixel = 0; pixel < current.length; pixel++) {
+    if (current[pixel] !== next[pixel]) changed++;
+  }
+  return changed / current.length;
 }
 
 function brightComponents(
@@ -111,7 +128,7 @@ describe('v4 background pixel assets', () => {
     expect(png.width * 4).toBe(png.height * 3);
   });
 
-  test.each(NAMES)('%s committed runtime plate is generator-exact RGB without metadata', (name) => {
+  test.each(NAMES)('%s committed base plate is generator-exact RGB without metadata', (name) => {
     const spec = V4_BACKGROUND_ASSET_SPECS[name];
     const generated = buildV4BackgroundAsset(name);
     const committed = readFileSync(spec.output);
@@ -238,5 +255,204 @@ describe('v4 background pixel assets', () => {
     const source = readFileSync(V4_BACKGROUND_ASSET_SPECS[name].master);
     expect(buildV4BackgroundAsset(name, source).bytes)
       .toEqual(buildV4BackgroundAsset(name, source).bytes);
+  });
+
+  test.each(SEQUENCE_NAMES)(
+    '%s committed sequence is the exact sixteen-frame 4×4 RGB atlas',
+    (name) => {
+      const spec = V4_BACKGROUND_ASSET_SPECS[name];
+      expect(spec.sequenceOutput).toBeDefined();
+      const generated = buildV4BackgroundSequenceAsset(name);
+      const committed = readFileSync(spec.sequenceOutput!);
+      expect(generated.bytes).toEqual(committed);
+      expect(generated.workFrames).toHaveLength(V4_BACKGROUND_SEQUENCE_FRAMES);
+
+      const png = parsePng(committed);
+      expect([png.width, png.height]).toEqual([
+        V4_BACKGROUND_SEQUENCE_WIDTH,
+        V4_BACKGROUND_SEQUENCE_HEIGHT,
+      ]);
+      expect(png.bitDepth).toBe(8);
+      expect(png.colourType).toBe(ColourType.RGB);
+      expect(png.chunks).toEqual(['IHDR', 'IDAT', 'IEND']);
+    },
+  );
+
+  test('sixteen-frame motion profiles add authored phases instead of interpolated filler', () => {
+    for (
+      const [name, profile]
+      of Object.entries(V4_BACKGROUND_SEQUENCE_MOTION_PROFILES)
+    ) {
+      for (const [layer, curve] of Object.entries(profile)) {
+        let authoredOddPhases = 0;
+        for (let phase = 1; phase < curve.length; phase += 2) {
+          const previous = curve[phase - 1]!;
+          const next = curve[(phase + 1) % curve.length]!;
+          const midpoint = (previous + next) / 2;
+          if (
+            curve[phase] !== Math.floor(midpoint)
+            && curve[phase] !== Math.ceil(midpoint)
+          ) {
+            authoredOddPhases++;
+          }
+        }
+        expect(
+          authoredOddPhases,
+          `${name} ${layer} only densifies an eight-frame curve`,
+        ).toBeGreaterThanOrEqual(4);
+      }
+    }
+  });
+
+  test.each(SEQUENCE_NAMES)(
+    '%s owns sixteen unique poses with a materially different second half',
+    (name) => {
+      const frames = buildV4BackgroundSequenceAsset(name).workFrames;
+      const hashes = frames.map((frame) => sha256(frame));
+      expect(new Set(hashes).size).toBe(V4_BACKGROUND_SEQUENCE_FRAMES);
+
+      const halfCycleFloor = name === 'expanse' ? 0.20 : 0.23;
+      for (let frame = 0; frame < frames.length / 2; frame++) {
+        expect(
+          frameChangeRatio(frames[frame]!, frames[frame + frames.length / 2]!),
+          `${name} frame ${frame} repeats its half-cycle partner`,
+        ).toBeGreaterThan(halfCycleFloor);
+      }
+    },
+  );
+
+  test.each(SEQUENCE_NAMES)(
+    '%s sequence frames stay opaque, finite-palette and bright-component safe',
+    (name) => {
+      const spec = V4_BACKGROUND_ASSET_SPECS[name];
+      const build = buildV4BackgroundSequenceAsset(name);
+      const decoded = decodePng(build.bytes);
+      const palette = new Set(spec.palette.map((colour) => colour.join(',')));
+
+      for (let frame = 0; frame < V4_BACKGROUND_SEQUENCE_FRAMES; frame++) {
+        const tileX = frame % V4_BACKGROUND_SEQUENCE_COLUMNS;
+        const tileY = Math.floor(frame / V4_BACKGROUND_SEQUENCE_COLUMNS);
+        const indices = build.workFrames[frame]!;
+        const components = brightComponents(name, indices);
+        expect(components.length, `${name} frame ${frame} lost every highlight`)
+          .toBeGreaterThan(0);
+        expect(
+          Math.min(...components.map(({ size }) => size)),
+          `${name} frame ${frame} contains an isolated bright cluster`,
+        ).toBeGreaterThanOrEqual(spec.minimumBrightCluster);
+        expect(
+          Math.min(...components.map(({ span }) => span)),
+          `${name} frame ${frame} contains a short bright component`,
+        ).toBeGreaterThanOrEqual(spec.minimumBrightSpan);
+
+        const nonPalette: string[] = [];
+        const mismatched: string[] = [];
+        let transparent = 0;
+        for (let y = 0; y < V4_BACKGROUND_WORK_HEIGHT; y++) {
+          for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+            const atlasX = tileX * V4_BACKGROUND_WORK_WIDTH + x;
+            const atlasY = tileY * V4_BACKGROUND_WORK_HEIGHT + y;
+            const at = (atlasY * decoded.width + atlasX) * 4;
+            const colour = [
+              decoded.rgba[at]!,
+              decoded.rgba[at + 1]!,
+              decoded.rgba[at + 2]!,
+            ] as const;
+            if (!palette.has(colour.join(',')) && nonPalette.length < 8) {
+              nonPalette.push(`${x},${y}:${colour.join(',')}`);
+            }
+            if (decoded.rgba[at + 3] !== 255) transparent++;
+            const paletteIndex = indices[y * V4_BACKGROUND_WORK_WIDTH + x]!;
+            const expected = spec.palette[paletteIndex]!;
+            if (
+              (colour[0] !== expected[0]
+                || colour[1] !== expected[1]
+                || colour[2] !== expected[2])
+              && mismatched.length < 8
+            ) {
+              mismatched.push(`${x},${y}`);
+            }
+          }
+        }
+        expect(nonPalette, `${name} frame ${frame} has non-palette colours`).toEqual([]);
+        expect(mismatched, `${name} frame ${frame} does not match its work indices`)
+          .toEqual([]);
+        expect(transparent, `${name} frame ${frame} is not opaque`).toBe(0);
+      }
+    },
+  );
+
+  test.each(SEQUENCE_NAMES)(
+    '%s sequence changes broad material on every edge of its seamless loop',
+    (name) => {
+      const frames = buildV4BackgroundSequenceAsset(name).workFrames;
+      const corridorThreshold = name === 'expanse' ? 80 : 72;
+      const changeBand = name === 'expanse'
+        ? { minimum: 0.06, maximum: 0.28 }
+        : { minimum: 0.27, maximum: 0.32 };
+      for (let frame = 0; frame < frames.length; frame++) {
+        const current = frames[frame]!;
+        const next = frames[(frame + 1) % frames.length]!;
+        let changed = 0;
+        let changedInCorridor = 0;
+        for (let pixel = 0; pixel < current.length; pixel++) {
+          if (current[pixel] === next[pixel]) continue;
+          changed++;
+          const x = pixel % V4_BACKGROUND_WORK_WIDTH;
+          if (Math.abs(x * 2 - (V4_BACKGROUND_WORK_WIDTH - 1)) < corridorThreshold) {
+            changedInCorridor++;
+          }
+        }
+        const ratio = changed / current.length;
+        expect(ratio, `${name} ${frame}→${(frame + 1) % frames.length} is static`)
+          .toBeGreaterThan(changeBand.minimum);
+        expect(ratio, `${name} ${frame}→${(frame + 1) % frames.length} hard-cuts`)
+          .toBeLessThan(changeBand.maximum);
+        const corridorMessage =
+          `${name} ${frame}→${(frame + 1) % frames.length} moves the play corridor`;
+        if (name === 'expanse') {
+          expect(changedInCorridor, corridorMessage).toBe(0);
+        } else {
+          /*
+           * Undertow's component cleanup can settle ten edge-adjacent work
+           * texels while keeping every moving source sample outside the shaft.
+           */
+          expect(changedInCorridor, corridorMessage).toBeLessThanOrEqual(10);
+        }
+      }
+    },
+  );
+
+  test('expanse breath and undertow descent have different material-change cadence', () => {
+    const edgeChanges = (name: V4BackgroundSequenceName): number[] => {
+      const frames = buildV4BackgroundSequenceAsset(name).workFrames;
+      return frames.map((frame, index) => (
+        frameChangeRatio(frame, frames[(index + 1) % frames.length]!)
+      ));
+    };
+
+    const breathEdges = edgeChanges('expanse');
+    const descentEdges = edgeChanges('undertow');
+    const breathChange = breathEdges.reduce((sum, value) => sum + value, 0)
+      / breathEdges.length;
+    const descentChange = descentEdges.reduce((sum, value) => sum + value, 0)
+      / descentEdges.length;
+    expect(breathChange).toBeGreaterThan(0.15);
+    expect(breathChange).toBeLessThan(0.19);
+    expect(descentChange).toBeGreaterThan(0.28);
+    expect(descentChange).toBeLessThan(0.31);
+    expect(Math.max(...breathEdges) - Math.min(...breathEdges))
+      .toBeGreaterThan(0.15);
+    expect(Math.max(...descentEdges) - Math.min(...descentEdges))
+      .toBeGreaterThan(0.02);
+    expect(Math.max(...descentEdges) - Math.min(...descentEdges))
+      .toBeLessThan(0.05);
+    expect(descentChange - breathChange).toBeGreaterThan(0.12);
+  });
+
+  test.each(SEQUENCE_NAMES)('%s sequence generation is byte deterministic', (name) => {
+    const source = readFileSync(V4_BACKGROUND_ASSET_SPECS[name].master);
+    expect(buildV4BackgroundSequenceAsset(name, source).bytes)
+      .toEqual(buildV4BackgroundSequenceAsset(name, source).bytes);
   });
 });

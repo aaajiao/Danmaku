@@ -418,11 +418,11 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 |---|---|---|
 | Shell | `drift` | 月轮、冷银水面与上部标题负空间；减少水纹层数和碎反光 |
 | Shell | `signal-decay` | Ghost 宽带由清晰走向解体；移除 bit-crush、RGB 边与噪点墙 |
-| Four stages | `expanse` | 原创 Ghost 冷青膜层母版建立连接边缘与中央远空；固定调色板运行图和原始 `lens-whisper` 的六个 Lissajous 光源、横向 anamorphic 拖影、宽化 bokeh 与低亮 FBM 一并锁到 480×640 逻辑像素，时钟与速度不变 |
-| Four stages | `undertow` | 原创靛青 Ghost 竖向膜层母版建立下沉深度与中央通道；静态运行图和原 `tropical-heat` simplex domain warp、冷折射一并锁到 480×640 逻辑像素，RGB 分离、彩色碎片和爆闪退场，时钟与速度不变 |
+| Four stages | `expanse` | 原创 Ghost 冷青膜层母版确定性派生 16 帧序列，以 12 tick/帧进行不均匀横向呼吸；五段纵向延迟、材质层抬升和左右错相共同变化，中央通道保持静止。完整周期仍为 192 tick；序列与原始 `lens-whisper` 的六个 Lissajous 光源、横向 anamorphic 拖影、宽化 bokeh 与低亮 FBM 均由固定 tick 驱动 |
+| Four stages | `undertow` | 原创靛青 Ghost 竖向膜层母版确定性派生 16 帧序列，以 10 tick/帧让两道不等幅纵向波持续下传；独立墙体压力和 16 段推/曳曲线令左右墙异步变化，中央通道保持安静。完整周期仍为 160 tick，平均帧间变化面积约为 `expanse` 的 1.8 倍；原 `tropical-heat` simplex domain warp 与冷折射继续运动，RGB 分离、彩色碎片和爆闪退场 |
 | Four stages | `stratum` | 原三中心 gradient 与 travelling wave 始终是完整发光主体，内部时钟加快 15%；原创 soot/slate Ghost 母版不再作为不透明颜色层，只转换成低频明暗浮雕与微量近等亮度色相，对下方动态 shader 做调制；完整 hybrid 锁到 480×640 逻辑像素网格，且不使用 Bayer、halftone、cross-hatch、纸板或印章图形 |
 | Four stages | `vault` | 原创黑紫 Ghost 膜层母版提供侧向压力体量与石墨支撑带；绘制层保持 grid-locked，原 `fluid-amber` 双重 domain warp 在同一 480×640 逻辑像素网格上驱动压力光，总速度为原版 `110%` |
-| Five stations | `signet` | 月银液体印记；继续压低玩家活动带 normal/specular/ripple |
+| Five stations | `signet` | 月银液体印记；宽尺度流场提高到初版的 400%，normal/metaball/ripple 保持 120% 稳定速度，以低频对比加强宽折面而不让高光闪烁 |
 | Five stations | `cordon` | 原 `hologram-glitch` 的有机 rotated-FBM 体积与平滑横向错位保留；RGB 分色、扫描线、grain、亮 sweep 与噪块收束为连续靛青 Ghost 膜 |
 | Five stations | `intaglio` | 原 `bass-ripple` 鼓膜波推动柔性骨银蜂巢与三向棚拍反光；网格退为材质，行进形变和宽高光成为主体 |
 | Five stations | `sable` | 冷黑玻璃中的大型封存气泡保留宽软膜边与上升；生产 `×1` 可见，不重新加入亮点、细 rim 或爆泡 |
@@ -570,7 +570,7 @@ fallback。
 
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
-| shader / 舞台 | 14 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层，原 shader 继续负责全部动态；四张运行图由逐场固定调色板确定性编译为 480×640，完整 hybrid 锁到逻辑像素网格；其余场景保留各自 shader 身份；四关稀疏结构与背景共用固定 tick/60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留 |
+| shader / 舞台 | 14 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质，所有动态均由固定 tick 驱动；其余场景保留各自 shader 身份；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留 |
 | 弹幕生成 | `src/v4/gameplay` 已拥有 8 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名，5 位 Boss 每阶段至少两层弹幕且每位使用至少四类几何；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认迁移缺口、交织线与通道墙在 Normal/Lunatic 都保留连续安全缝 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |

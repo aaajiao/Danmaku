@@ -45,10 +45,12 @@
  *     our uniform surface has no pointer and rule 1 forbids anything but a tick
  *     clock. The reference's unused `height` local (dead after the mouse excision)
  *     is dropped. Nothing else in the field math changed.
- *   - Clock: `t = uScroll * LG_FLOW`. At `scrollSpeed` 0.8 that advances `t` at
- *     `0.048/s`, the deliberately slow v4 moon-metal rate. `uScroll` advances only
- *     in `step()` — no `performance.now`, so a replay looks identical twice
- *     (`background.ts`, rule 1). `backgrounds/index.test.ts` scans for wall clocks.
+ *   - Clock: broad material uses `uScroll * LG_FLOW` at `0.192/s`, four times
+ *     the over-calmed first v4 pass and still below half the original port.
+ *     Lighting normals, metaballs and ripple use `LG_LIGHT_FLOW` at `0.0576/s`
+ *     so the visible field can travel without turning a glint into a strobe.
+ *     Both read the same fixed `uScroll`; there is no wall clock (`background.ts`,
+ *     rule 1), and `backgrounds/index.test.ts` scans for one.
  *   - y-down 0..1 uv -> the reference's centred, y-up, min-axis-normalised coords
  *     (`(gl_FragCoord - res*0.5)/min(res)`), reconstructed from uv + aspect so the
  *     feature scale relative to the short axis matches the reference exactly.
@@ -64,10 +66,10 @@
  *
  * ## Exposure & the bullet-band grading
  *
- * Boss-station tier. EXPOSURE 0.24 is a final gain on the tone-mapped picture so
- * the structured molten peaks land ~0.24-0.28 raw [MEASURED-IN-ACCEPTANCE] — a
- * step below the stages, a calmer field for the fight, but the ported material's
- * native richness, not the retired peak~0.1 ceiling.
+ * Boss-station tier. EXPOSURE 0.30 is a final gain on the tone-mapped picture;
+ * after the low-frequency contrast and highlight smoothing, structured molten
+ * peaks land around 0.14-0.17 raw [MEASURED-IN-ACCEPTANCE]. The station remains
+ * calmer than a stage while its broad folds stay visible at production ×1.
  *
  * Three grades keep bright detail out of the bullet band (16-30px), all in
  * `GOLD_GLSL` and labelled there:
@@ -78,9 +80,9 @@
  *      dot; a broad highlight is coarser than any bullet.
  *   3. The FINE RIPPLE highlight is coarsened (`noise(uv*15)` -> `*6.5`, ~32px ->
  *      ~74px cells) and kept faint. In the lower activity band, the normal is
- *      flattened and all three bright-detail terms are reduced to 35%.
- * Per-tick luminance step is small (slow flow, `t` = 0.048/s) — coherent motion, no
- * strobing.
+ *      flattened and all three bright-detail terms retain 35%.
+ * Broad material motion is deliberately legible at production ×1; the fixed-tick
+ * clock and coarse highlights keep it coherent rather than strobing.
  *
  * ## Hue — gold
  *
@@ -104,7 +106,8 @@ import { defineBackground } from '../../render/background';
 const GOLD_GLSL = /* glsl */ `
   const float LG_PI   = 3.14159265359;
   const float LG_VISC = 0.6;      /* u_viscosity, baked to its shipped default */
-  const float LG_FLOW = 0.0010;   /* v4: slow moon-metal drift, fixed ticks only */
+  const float LG_FLOW = 0.0040;         /* broad moon-metal flow */
+  const float LG_LIGHT_FLOW = 0.0012;   /* stable normals / metaballs / ripple */
 
   float lgHash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -193,17 +196,19 @@ const GOLD_GLSL = /* glsl */ `
     else               ruv = vec2((uv.x - 0.5) * aspect, 0.5 - uv.y);
 
     float t = scroll * LG_FLOW;
+    float lightT = scroll * LG_LIGHT_FLOW;
 
     float field  = lgWarp(ruv * 1.20, t);
-    float meta   = lgMeta(ruv, t);
-    vec3  normal = lgNormal(ruv * 1.20, t, field);
+    float lightField = lgWarp(ruv * 1.20, lightT);
+    float meta   = lgMeta(ruv, lightT);
+    vec3  normal = lgNormal(ruv * 1.20, lightT, lightField);
 
     /* READABILITY GRADE 2 — y is down, so this progressively calms the lower
        player activity band. Broad field colour survives; small normal contrast
        and bright linework do not compete with bullets near the ship. */
     float playerBandCalm = smoothstep(0.55, 0.88, uv.y);
     float detailGain = 1.0 - playerBandCalm * 0.65;
-    normal = normalize(mix(normal, vec3(0.0, 0.0, 1.0), 0.62 + playerBandCalm * 0.24));
+    normal = normalize(mix(normal, vec3(0.0, 0.0, 1.0), 0.74 + playerBandCalm * 0.20));
 
     vec3 viewDir   = vec3(0.0, 0.0, 1.0);
     vec3 lightDir1 = normalize(vec3(0.4, 0.5, 0.9));
@@ -248,12 +253,11 @@ const GOLD_GLSL = /* glsl */ `
     vec3 specColor2 = mix(goldBright, whiteHot, spec2 * 0.5);
     vec3 specColor3 = mix(goldBright, whiteHot, spec3);
 
-    /* Specular weights trimmed from the reference's 1.2/0.6/1.5 to 0.7/0.4/0.7
-       alongside the broadened exponents, so no white-hot peak nears a bullet's
-       1.0 core. */
-    vec3 specular = specColor1 * spec1 * 0.24
-                  + specColor2 * spec2 * 0.16
-                  + specColor3 * spec3 * 0.24;
+    /* Specular weights trimmed to 0.14/0.09/0.14 alongside the broadened
+       exponents, so no white-hot peak nears a bullet's 1.0 core. */
+    vec3 specular = specColor1 * spec1 * 0.14
+                  + specColor2 * spec2 * 0.09
+                  + specColor3 * spec3 * 0.14;
 
     /* Cold moon-field reflection off the surface normal. */
     vec2 reflUv = normal.xy * 0.5 + 0.5;
@@ -265,16 +269,16 @@ const GOLD_GLSL = /* glsl */ `
 
     /* Surface-tension lines where metaballs meet — low frequency, kept. */
     float metaGrad = abs(meta - 3.5);
-    float tensionLine = (1.0 - smoothstep(0.0, 0.62, metaGrad)) * 0.10;
+    float tensionLine = (1.0 - smoothstep(0.0, 0.62, metaGrad)) * 0.06;
     col += goldBright * tensionLine * detailGain;
 
     /* BULLET-BAND KNOB 2 — the fine ripple sheen. The reference's noise(uv*15)
        lands its bright specks near 32px (dead in the bullet band); coarsened to
        *6.5 (~74px cells) and kept faint (fres-gated) so a speck can never read as
        a bullet. */
-    float ripple = lgNoise(ruv * 6.5 + t * 2.0);
+    float ripple = lgNoise(ruv * 6.5 + lightT * 2.0);
     ripple = ripple * ripple;
-    float rippleHighlight = smoothstep(0.58, 0.92, ripple) * 0.012;
+    float rippleHighlight = smoothstep(0.58, 0.92, ripple) * 0.008;
     col += whiteHot * rippleHighlight * fres * detailGain;
 
     /* Radial vignette + central pool. fill remains a local review seam; Signet
@@ -304,6 +308,9 @@ const GOLD_GLSL = /* glsl */ `
       col *= 1.0 - calm * exp(-dot(st, st) * 10.0);
     }
 
+    /* Scene-wide low-frequency contrast, pivoted before exposure. It separates
+       the broad molten folds without increasing ripple or specular frequency. */
+    col = max((col - vec3(0.20)) * 1.10 + vec3(0.20), vec3(0.0));
     return col * exposure;
   }
 `;
@@ -313,7 +320,7 @@ defineBackground('signet', {
   fragment: /* glsl */ `
 ${GOLD_GLSL}
 
-    const float EXPOSURE = 0.24;   /* calm Sentinel station; silver never reaches bullet white */
+    const float EXPOSURE = 0.30;   /* visible Sentinel folds; silver never reaches bullet white */
 
     vec3 background(vec2 uv) {
       return goldScene(

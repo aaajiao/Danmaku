@@ -8,24 +8,28 @@
  * The field is deliberately bright enough to read at production ×1; detail
  * softens through the lower player band while the large current remains visible.
  *
- * V4 hybrid pass: an original indigo Ghost plate supplies the descending
- * membrane walls and central negative space. The plate stays still; the original
- * refractive field remains the only motion source, and the complete production
- * blend is sampled on the 480×640 logical pixel grid.
+ * V4 hybrid pass: an original indigo Ghost sequence supplies the descending
+ * membrane walls and central negative space. Sixteen deterministic 240×320
+ * frames send two unequal, asymmetrically phased fold crests down the walls
+ * around a calm shaft while a slower pressure cycle flexes their width.
+ * Sixteen fixed-tick push/drag cadences keep the descent continuous without
+ * repeating one odd/even rhythm, while the original refractive field remains
+ * visible at the 480×640 logical grid.
  *
- * Clock: fixed-tick `uScroll` only (CLAUDE.md rule 1). The noise construction is
+ * Clock: fixed-tick `uScroll` for the refractive field and `uTick` for the
+ * sequence (CLAUDE.md rule 1), never a wall clock. The noise construction is
  * derived from pbakaus/radiant `tropical-heat` (MIT).
  */
 
-import UNDERTOW_ART_URL from '../../assets/v4/backgrounds/undertow-v4.png';
+import UNDERTOW_ART_URL from '../../assets/v4/backgrounds/undertow-v4-sequence.png';
 import { defineBackground } from '../../render/background';
 
 defineBackground('undertow', {
   scrollSpeed: 0.9,
   art: {
     url: UNDERTOW_ART_URL,
-    width: 480,
-    height: 640,
+    width: 960,
+    height: 1280,
   },
   fragment: /* glsl */ `
     uniform sampler2D uArt;
@@ -98,10 +102,15 @@ defineBackground('undertow', {
       );
       float rising = snoise(vec2(p.x * 1.05 + flow * 0.22, p.y * 1.42 + t * 0.24));
 
-      float body = smoothstep(-0.58, 0.64, flow * 0.82 + shoulder * 0.30);
-      float undertow = smoothstep(-0.72, 0.54, rising - flow * 0.22);
+      /* Preserve each field's midpoint while widening its shoulder. This
+         removes rare slow-phase luma spikes without changing clock speed. */
+      float body = smoothstep(-0.76, 0.82, flow * 0.82 + shoulder * 0.30);
+      float undertow = smoothstep(-0.90, 0.72, rising - flow * 0.22);
       float fold = abs(flow - shoulder);
-      float refraction = smoothstep(0.24, 0.82, fold);
+      /* Broaden the moving fold shoulder: the descending painted wave supplies
+         silhouette contrast, so refraction can stay broad instead of flashing
+         a narrow edge as simplex cells cross the logical pixel grid. */
+      float refraction = smoothstep(0.04, 1.08, fold);
 
       vec3 ink = vec3(0.012, 0.018, 0.034);
       vec3 indigo = vec3(0.075, 0.125, 0.245);
@@ -111,7 +120,7 @@ defineBackground('undertow', {
 
       vec3 baseColor = mix(ink, indigo, 0.30 + body * 0.70);
       baseColor = mix(baseColor, ghost, undertow * 0.44);
-      baseColor += bone * refraction * (0.07 + 0.08 * body);
+      baseColor += bone * refraction * (0.025 + 0.032 * body);
 
       /* A diffuse remnant of tropical heat, never a coloured point or flash. */
       vec2 heartP = p - vec2(-0.16, -0.08);
@@ -129,33 +138,88 @@ defineBackground('undertow', {
       return max(baseColor, 0.0) * EXPOSURE * activityCalm;
     }
 
-    vec2 undertowPixelUv(vec2 uv) {
-      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uArtRes);
-      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+    const vec2 UNDERTOW_ATLAS_GRID = vec2(4.0, 4.0);
+    const float UNDERTOW_ART_FRAMES = 16.0;
+    const float UNDERTOW_FRAME_TICKS = 10.0;
+
+    vec2 undertowScenePixelUv(vec2 uv) {
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / uRes);
+      return (floor(safeUv * uRes) + 0.5) / uRes;
     }
 
-    vec3 undertowArt(vec2 pixelUv) {
-      vec3 painted = texture2D(uArt, pixelUv).rgb;
+    vec2 undertowArtPixelUv(vec2 uv) {
+      vec2 frameRes = uArtRes / UNDERTOW_ATLAS_GRID;
+      vec2 safeUv = clamp(uv, vec2(0.0), vec2(1.0) - 0.5 / frameRes);
+      return (floor(safeUv * frameRes) + 0.5) / frameRes;
+    }
+
+    vec3 undertowArtFrame(vec2 pixelUv, float frame) {
+      float wrapped = mod(frame, UNDERTOW_ART_FRAMES);
+      vec2 tile = vec2(mod(wrapped, UNDERTOW_ATLAS_GRID.x),
+                       floor(wrapped / UNDERTOW_ATLAS_GRID.x));
+      vec2 atlasUv = (tile + pixelUv) / UNDERTOW_ATLAS_GRID;
+      vec3 painted = texture2D(uArt, atlasUv).rgb;
       /* The plate owns the deep shaft walls, not the light tier. Its brightest
          connected bone strata remain safely below bullets and actor skeletons. */
       painted = pow(max(painted, vec3(0.0)), vec3(1.08)) * 0.54;
       return min(painted, vec3(0.30));
     }
 
+    float undertowCadence(float frame) {
+      float phase = mod(frame, UNDERTOW_ART_FRAMES);
+      if (phase < 1.0) return 0.010;
+      if (phase < 2.0) return 0.017;
+      if (phase < 3.0) return 0.020;
+      if (phase < 4.0) return 0.013;
+      if (phase < 5.0) return 0.003;
+      if (phase < 6.0) return -0.008;
+      if (phase < 7.0) return -0.017;
+      if (phase < 8.0) return -0.020;
+      if (phase < 9.0) return -0.013;
+      if (phase < 10.0) return -0.002;
+      if (phase < 11.0) return 0.008;
+      if (phase < 12.0) return 0.015;
+      if (phase < 13.0) return 0.012;
+      if (phase < 14.0) return 0.002;
+      if (phase < 15.0) return -0.010;
+      return -0.015;
+    }
+
+    vec3 undertowArt(vec2 pixelUv) {
+      float phase = mod(uTick / UNDERTOW_FRAME_TICKS, UNDERTOW_ART_FRAMES);
+      float frame = floor(phase);
+      float travel = fract(phase);
+      /* Each authored span gets its own push/drag amount. sin² returns both
+         value and derivative to the linear path at every frame boundary, while
+         the bounded ±0.02 cadence stays monotonic and never stops to breathe. */
+      float cadenceWave = sin(3.14159265 * travel);
+      float blend = travel
+                  + undertowCadence(frame) * cadenceWave * cadenceWave;
+      return mix(
+        undertowArtFrame(pixelUv, frame),
+        undertowArtFrame(pixelUv, frame + 1.0),
+        blend
+      );
+    }
+
     vec3 background(vec2 uv) {
       if (uArtMode < 0.5) return undertowShader(uv);
 
-      /* Art and shader snap together; the static plate is never warped or
-         scrolled, so fixed-tick refraction remains legible against its edges. */
-      vec2 pixelUv = undertowPixelUv(uv);
-      vec3 painted = undertowArt(pixelUv);
+      vec2 scenePixelUv = undertowScenePixelUv(uv);
+      vec2 artPixelUv = undertowArtPixelUv(uv);
+      vec3 painted = undertowArt(artPixelUv);
       if (uArtMode < 1.5) return painted;
-      vec3 shaderColor = undertowShader(pixelUv);
+      vec3 shaderColor = undertowShader(scenePixelUv);
 
-      vec3 hybrid = mix(painted, shaderColor, 0.30);
+      /* The sequence owns silhouette and most visible motion. Low-weight live
+         refraction preserves the original field, while a fixed indigo floor
+         restores production ×1 visibility without amplifying temporal spikes. */
+      float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
+      vec3 hybrid = shaderColor * (0.08 + paintedLuma * 0.03);
+      hybrid += painted * 0.60;
       float currentLight = dot(shaderColor, vec3(0.2126, 0.7152, 0.0722));
-      hybrid += painted * currentLight * 0.04;
-      return hybrid;
+      hybrid += painted * currentLight * 0.02;
+      return hybrid * 1.30 + vec3(0.016, 0.026, 0.044);
     }
   `,
 });

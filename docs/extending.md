@@ -1817,11 +1817,17 @@ defineBackground('ashfall-hybrid', {
 `src/main.ts` awaits `loadBackgroundArtAssets()` before constructing the
 background and starting the loop. Do not create a `TextureLoader` in a scene
 module and do not fetch inside `transitionTo()`: image completion is wall-clock
-state and must not decide which layer a replay sees on a tick. Runtime plates are
-opaque 8-bit RGB at the logical 480×640 field, exact 3:4, `NoColorSpace`,
-`NearestFilter` with no mipmaps, and checked against the declared dimensions.
-The shipped V4 plates are deterministically compiled from their accepted masters
-with `bun run make:v4-backgrounds`; do not resize them by hand.
+state and must not decide which layer a replay sees on a tick. Runtime plates and
+scene-owned atlases are opaque 8-bit RGB, `NoColorSpace`, `NearestFilter` with no
+mipmaps, and checked against their declared dimensions. A sequence layout and
+its fixed-tick frame interpolation belong to its scene shader; the generic engine
+only preloads the exact texture. Shipped V4 assets are deterministically compiled
+from accepted masters with `bun run make:v4-backgrounds`; do not resize them by
+hand. Sequence timing is part of scene identity, not a shared preset: the shipped
+`expanse` atlas rests between sectional lateral breaths, while `undertow` drives
+an asymmetrically phased travelling wave down its walls. Do not give two stages
+the same phase table, easing and frame cadence merely because their atlases share
+a 4×4 layout.
 
 Then add `import './ashfall';` to `src/v4/backgrounds/index.ts`.
 `index.test.ts` reads the directory and fails when a file is missing from that

@@ -1,5 +1,9 @@
 /**
  * Compile the four accepted v4 stage-background masters into runtime pixel plates.
+ * Expanse and Undertow additionally receive deterministic sixteen-frame atlases:
+ * scene-specific integer deformation derived from each accepted master, never
+ * independently generated frames, so their painted silhouettes can move
+ * without visual drift or sharing one motion language.
  *
  * The masters remain full-resolution composition references. Runtime art is
  * deliberately a different surface: an integer area reduction to 240×320,
@@ -26,6 +30,14 @@ export const V4_BACKGROUND_WORK_WIDTH = 240;
 export const V4_BACKGROUND_WORK_HEIGHT = 320;
 export const V4_BACKGROUND_WIDTH = 480;
 export const V4_BACKGROUND_HEIGHT = 640;
+export const V4_BACKGROUND_SEQUENCE_COLUMNS = 4;
+export const V4_BACKGROUND_SEQUENCE_ROWS = 4;
+export const V4_BACKGROUND_SEQUENCE_FRAMES =
+  V4_BACKGROUND_SEQUENCE_COLUMNS * V4_BACKGROUND_SEQUENCE_ROWS;
+export const V4_BACKGROUND_SEQUENCE_WIDTH =
+  V4_BACKGROUND_WORK_WIDTH * V4_BACKGROUND_SEQUENCE_COLUMNS;
+export const V4_BACKGROUND_SEQUENCE_HEIGHT =
+  V4_BACKGROUND_WORK_HEIGHT * V4_BACKGROUND_SEQUENCE_ROWS;
 
 type RGB = readonly [number, number, number];
 export const V4_BACKGROUND_ASSET_NAMES = [
@@ -35,11 +47,14 @@ export const V4_BACKGROUND_ASSET_NAMES = [
   'vault',
 ] as const;
 export type V4BackgroundAssetName = (typeof V4_BACKGROUND_ASSET_NAMES)[number];
+export const V4_BACKGROUND_SEQUENCE_NAMES = ['expanse', 'undertow'] as const;
+export type V4BackgroundSequenceName = (typeof V4_BACKGROUND_SEQUENCE_NAMES)[number];
 
 interface V4BackgroundAssetSpec {
   readonly name: V4BackgroundAssetName;
   readonly master: string;
   readonly output: string;
+  readonly sequenceOutput?: string;
   readonly sourceWidth: number;
   readonly sourceHeight: number;
   readonly sourceSha256: string;
@@ -149,6 +164,14 @@ export const V4_BACKGROUND_ASSET_SPECS: Readonly<
     name: 'expanse',
     master: join(ROOT, 'docs', 'art', 'v4', 'background-expanse-v4-master.png'),
     output: join(ROOT, 'src', 'assets', 'v4', 'backgrounds', 'expanse-v4.png'),
+    sequenceOutput: join(
+      ROOT,
+      'src',
+      'assets',
+      'v4',
+      'backgrounds',
+      'expanse-v4-sequence.png',
+    ),
     sourceWidth: 1086,
     sourceHeight: 1448,
     sourceSha256: '8bdcb00184337d72ce090d33207797e947faf18ccab8c480f6c2afe218570f82',
@@ -161,6 +184,14 @@ export const V4_BACKGROUND_ASSET_SPECS: Readonly<
     name: 'undertow',
     master: join(ROOT, 'docs', 'art', 'v4', 'background-undertow-v4-master.png'),
     output: join(ROOT, 'src', 'assets', 'v4', 'backgrounds', 'undertow-v4.png'),
+    sequenceOutput: join(
+      ROOT,
+      'src',
+      'assets',
+      'v4',
+      'backgrounds',
+      'undertow-v4-sequence.png',
+    ),
     sourceWidth: 1086,
     sourceHeight: 1448,
     sourceSha256: '58cadaff21e3d2765bf3a739460097c2372b96047d66cf20edc9aa3794df01f8',
@@ -200,6 +231,13 @@ export interface V4BackgroundAssetBuild {
   readonly bytes: Uint8Array;
   /** Quantized 240×320 palette indices, exposed for structural tests. */
   readonly workIndices: Uint8Array;
+}
+
+export interface V4BackgroundSequenceBuild {
+  readonly name: V4BackgroundSequenceName;
+  readonly bytes: Uint8Array;
+  /** Sixteen quantized 240×320 frames, packed four across by four down. */
+  readonly workFrames: readonly Uint8Array[];
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -470,6 +508,37 @@ function foldSmallBrightComponents(
   return output;
 }
 
+function compileWorkIndices(
+  sourceRgb: Uint8Array,
+  spec: V4BackgroundAssetSpec,
+): Uint8Array {
+  let indices = quantize(sourceRgb, spec.palette);
+  indices = foldSingletons(
+    sourceRgb,
+    indices,
+    spec.palette,
+    V4_BACKGROUND_WORK_WIDTH,
+    V4_BACKGROUND_WORK_HEIGHT,
+  );
+  indices = foldSmallBrightComponents(
+    sourceRgb,
+    indices,
+    spec.palette,
+    V4_BACKGROUND_WORK_WIDTH,
+    V4_BACKGROUND_WORK_HEIGHT,
+    spec.brightFloor,
+    spec.minimumBrightCluster,
+    spec.minimumBrightSpan,
+  );
+  return foldSingletons(
+    sourceRgb,
+    indices,
+    spec.palette,
+    V4_BACKGROUND_WORK_WIDTH,
+    V4_BACKGROUND_WORK_HEIGHT,
+  );
+}
+
 function encodeNearest2x(indices: Uint8Array, palette: readonly RGB[]): Uint8Array {
   return encodePng(
     V4_BACKGROUND_WIDTH,
@@ -479,6 +548,262 @@ function encodeNearest2x(indices: Uint8Array, palette: readonly RGB[]): Uint8Arr
       const sourceX = x >> 1;
       const sourceY = y >> 1;
       const colour = palette[indices[sourceY * V4_BACKGROUND_WORK_WIDTH + sourceX]!]!;
+      return [colour[0], colour[1], colour[2], 255];
+    },
+  );
+}
+
+/**
+ * The two stage plates deliberately do not share a motion loop.
+ *
+ * Expanse is a slow lateral breath with a slightly uneven inhale/exhale. Its
+ * phase is offset down the frame so the distant banks flex in sections rather
+ * than translating like one card. Undertow is a travelling vertical pulse:
+ * subtracting its phase down the wall makes the fold crest descend and wrap
+ * through the sixteen-frame loop. Both curves close without a duplicate frame.
+ */
+type SequenceCurve = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+const EXPANSE_BREATH_CURVE = [
+  -3, -3, -1, 1, 3, 4, 3, 3,
+  1, 1, -1, -2, -4, -4, -2, -2,
+] as const satisfies SequenceCurve;
+
+const EXPANSE_LIFT_CURVE = [
+  0, 0, 2, 2, 0, 0, -2, -2,
+  0, 0, 2, 2, 0, 1, -1, 1,
+] as const satisfies SequenceCurve;
+
+const UNDERTOW_FALL_CURVE = [
+  -3, -3, -1, 1, 3, 3, 1, -1,
+  -3, -3, -1, 2, 4, 4, 2, -1,
+] as const satisfies SequenceCurve;
+
+const UNDERTOW_PRESSURE_CURVE = [
+  0, 0, 1, 1, -1, -1, 0, 0,
+  1, 1, -1, -2, -1, -1, 1, 1,
+] as const satisfies SequenceCurve;
+
+export const V4_BACKGROUND_SEQUENCE_MOTION_PROFILES = {
+  expanse: {
+    primary: EXPANSE_BREATH_CURVE,
+    secondary: EXPANSE_LIFT_CURVE,
+  },
+  undertow: {
+    primary: UNDERTOW_FALL_CURVE,
+    secondary: UNDERTOW_PRESSURE_CURVE,
+  },
+} as const;
+
+function wrapSequencePhase(phase: number): number {
+  return ((phase % V4_BACKGROUND_SEQUENCE_FRAMES)
+    + V4_BACKGROUND_SEQUENCE_FRAMES) % V4_BACKGROUND_SEQUENCE_FRAMES;
+}
+
+function divideRoundNearest(value: number, divisor: number): number {
+  if (value < 0) {
+    return -Math.floor((-value + Math.floor(divisor / 2)) / divisor);
+  }
+  return Math.floor((value + Math.floor(divisor / 2)) / divisor);
+}
+
+/**
+ * Read a discrete loop along the plate height with integer interpolation.
+ * `direction = -1` produces a downward-travelling crest as frames advance.
+ */
+function sampleCurveDownPlate(
+  curve: SequenceCurve,
+  frame: number,
+  y: number,
+  phaseSpan: number,
+  direction: 1 | -1,
+): number {
+  const scaled = y * phaseSpan;
+  const wholePhase = Math.floor(scaled / V4_BACKGROUND_WORK_HEIGHT);
+  const remainder = scaled % V4_BACKGROUND_WORK_HEIGHT;
+  const phase = frame + direction * wholePhase;
+  const nextPhase = phase + direction;
+  const current = curve[wrapSequencePhase(phase)]!;
+  const next = curve[wrapSequencePhase(nextPhase)]!;
+  return divideRoundNearest(
+    current * (V4_BACKGROUND_WORK_HEIGHT - remainder) + next * remainder,
+    V4_BACKGROUND_WORK_HEIGHT,
+  );
+}
+
+function rampDisplacement(
+  value: number,
+  distanceFromCentre: number,
+  corridor: number,
+  rampWidth: number,
+): number {
+  const amount = Math.max(0, Math.min(rampWidth, distanceFromCentre - corridor));
+  return divideRoundNearest(value * amount, rampWidth);
+}
+
+function halfTowardZero(value: number): number {
+  return value < 0 ? Math.ceil(value / 2) : Math.floor(value / 2);
+}
+
+function workRgbLuma(rgb: Uint8Array, x: number, y: number): number {
+  const at = (y * V4_BACKGROUND_WORK_WIDTH + x) * 3;
+  return (
+    54 * rgb[at]!
+    + 183 * rgb[at + 1]!
+    + 19 * rgb[at + 2]!
+    + 128
+  ) >> 8;
+}
+
+function copyWorkRgbPixel(
+  source: Uint8Array,
+  output: Uint8Array,
+  destinationX: number,
+  destinationY: number,
+  sourceX: number,
+  sourceY: number,
+): void {
+  const x = Math.max(0, Math.min(V4_BACKGROUND_WORK_WIDTH - 1, sourceX));
+  const y = Math.max(0, Math.min(V4_BACKGROUND_WORK_HEIGHT - 1, sourceY));
+  const from = (y * V4_BACKGROUND_WORK_WIDTH + x) * 3;
+  const to = (destinationY * V4_BACKGROUND_WORK_WIDTH + destinationX) * 3;
+  output[to] = source[from]!;
+  output[to + 1] = source[from + 1]!;
+  output[to + 2] = source[from + 2]!;
+}
+
+/**
+ * Animate the authored membranes, not the camera.
+ *
+ * Both warp profiles leave their central play corridor untouched. Expanse's
+ * left and right cloud/bone banks breathe laterally with a five-phase
+ * top-to-bottom lag, independent material timing and a small opposed lift.
+ * Undertow instead sends a two-crest, sixteen-phase descending wave through
+ * asymmetrically timed walls. Bright
+ * material receives the full displacement while dark mass receives a smaller
+ * one, creating restrained parallax strata from the same accepted master
+ * without inventing new marks. Palette cleanup may settle a few Undertow
+ * corridor-boundary texels; the output test caps that residue explicitly.
+ */
+function warpSequenceFrame(
+  name: V4BackgroundSequenceName,
+  reducedRgb: Uint8Array,
+  frame: number,
+): Uint8Array {
+  const output = new Uint8Array(reducedRgb.length);
+
+  for (let y = 0; y < V4_BACKGROUND_WORK_HEIGHT; y++) {
+    for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+      const distanceFromCentre = Math.abs(x * 2 - (V4_BACKGROUND_WORK_WIDTH - 1));
+      const isLeft = x * 2 < V4_BACKGROUND_WORK_WIDTH;
+      const side = isLeft ? 1 : -1;
+      const materialLuma = workRgbLuma(reducedRgb, x, y);
+      let sourceX = x;
+      let sourceY = y;
+
+      if (name === 'expanse') {
+        // 80-work-pixel / 160-screen-pixel central negative-space corridor.
+        if (distanceFromCentre >= 80) {
+          const bright = materialLuma >= 82;
+          const sidePhase = frame + (isLeft ? 0 : 2) + (bright ? 0 : -1);
+          const breath = sampleCurveDownPlate(
+            EXPANSE_BREATH_CURVE,
+            sidePhase,
+            y,
+            5,
+            1,
+          );
+          const lift = EXPANSE_LIFT_CURVE[
+            wrapSequencePhase(frame + (isLeft ? 0 : 8))
+          ]!;
+          const materialX = bright ? breath : halfTowardZero(breath);
+          const materialY = bright ? lift : halfTowardZero(lift);
+          const dx = rampDisplacement(materialX, distanceFromCentre, 80, 48);
+          const dy = rampDisplacement(materialY, distanceFromCentre, 80, 32);
+          sourceX += side * dx;
+          sourceY += dy;
+        }
+      } else {
+        // 72-work-pixel / 144-screen-pixel shaft stays calm. A full travelling
+        // phase crosses the wall height; the right wall and bright strata lag,
+        // so this reads as a descending undertow rather than Expanse's breath.
+        if (distanceFromCentre >= 72) {
+          const bright = materialLuma >= 72;
+          const wallPhase = frame + (isLeft ? 0 : 5) + (bright ? 2 : 0);
+          const fall = sampleCurveDownPlate(
+            UNDERTOW_FALL_CURVE,
+            wallPhase,
+            y,
+            16,
+            -1,
+          );
+          const pressure = sampleCurveDownPlate(
+            UNDERTOW_PRESSURE_CURVE,
+            frame + (isLeft ? 0 : 8),
+            y,
+            8,
+            -1,
+          );
+          const materialY = bright
+            ? fall
+            : divideRoundNearest(fall * 2, 3);
+          const dx = rampDisplacement(
+            pressure,
+            distanceFromCentre,
+            72,
+            36,
+          );
+          const dy = rampDisplacement(
+            materialY,
+            distanceFromCentre,
+            72,
+            28,
+          );
+          sourceX += side * dx;
+          sourceY += dy;
+        }
+      }
+
+      copyWorkRgbPixel(reducedRgb, output, x, y, sourceX, sourceY);
+    }
+  }
+  return output;
+}
+
+function encodeSequenceAtlas(
+  frames: readonly Uint8Array[],
+  palette: readonly RGB[],
+): Uint8Array {
+  return encodePng(
+    V4_BACKGROUND_SEQUENCE_WIDTH,
+    V4_BACKGROUND_SEQUENCE_HEIGHT,
+    ColourType.RGB,
+    (x, y) => {
+      const tileX = Math.floor(x / V4_BACKGROUND_WORK_WIDTH);
+      const tileY = Math.floor(y / V4_BACKGROUND_WORK_HEIGHT);
+      const frame = tileY * V4_BACKGROUND_SEQUENCE_COLUMNS + tileX;
+      const workX = x % V4_BACKGROUND_WORK_WIDTH;
+      const workY = y % V4_BACKGROUND_WORK_HEIGHT;
+      const colour = palette[
+        frames[frame]![workY * V4_BACKGROUND_WORK_WIDTH + workX]!
+      ]!;
       return [colour[0], colour[1], colour[2], 255];
     },
   );
@@ -521,31 +846,7 @@ export function buildV4BackgroundAsset(
     V4_BACKGROUND_WORK_WIDTH,
     V4_BACKGROUND_WORK_HEIGHT,
   );
-  let indices = quantize(reduced, spec.palette);
-  indices = foldSingletons(
-    reduced,
-    indices,
-    spec.palette,
-    V4_BACKGROUND_WORK_WIDTH,
-    V4_BACKGROUND_WORK_HEIGHT,
-  );
-  indices = foldSmallBrightComponents(
-    reduced,
-    indices,
-    spec.palette,
-    V4_BACKGROUND_WORK_WIDTH,
-    V4_BACKGROUND_WORK_HEIGHT,
-    spec.brightFloor,
-    spec.minimumBrightCluster,
-    spec.minimumBrightSpan,
-  );
-  indices = foldSingletons(
-    reduced,
-    indices,
-    spec.palette,
-    V4_BACKGROUND_WORK_WIDTH,
-    V4_BACKGROUND_WORK_HEIGHT,
-  );
+  const indices = compileWorkIndices(reduced, spec);
 
   const bytes = encodeNearest2x(indices, spec.palette);
   const verified = parsePng(bytes);
@@ -565,6 +866,48 @@ export function buildV4BackgroundAsset(
   return { name, bytes, workIndices: indices };
 }
 
+/** Build one fixed-tick art sequence atlas from an accepted stage master. */
+export function buildV4BackgroundSequenceAsset(
+  name: V4BackgroundSequenceName,
+  masterBytes: Uint8Array = readFileSync(V4_BACKGROUND_ASSET_SPECS[name].master),
+): V4BackgroundSequenceBuild {
+  const spec = V4_BACKGROUND_ASSET_SPECS[name];
+  const actualSourceSha256 = sha256(masterBytes);
+  if (actualSourceSha256 !== spec.sourceSha256) {
+    throw new Error(
+      `${name} master SHA-256 ${actualSourceSha256}; expected ${spec.sourceSha256}`,
+    );
+  }
+
+  const source = decodePng(masterBytes);
+  validateSource(source, spec);
+  const reduced = areaReduceOpaque(
+    source,
+    V4_BACKGROUND_WORK_WIDTH,
+    V4_BACKGROUND_WORK_HEIGHT,
+  );
+  const workFrames = Array.from(
+    { length: V4_BACKGROUND_SEQUENCE_FRAMES },
+    (_, frame) => compileWorkIndices(warpSequenceFrame(name, reduced, frame), spec),
+  );
+  const bytes = encodeSequenceAtlas(workFrames, spec.palette);
+  const verified = parsePng(bytes);
+  if (
+    verified.width !== V4_BACKGROUND_SEQUENCE_WIDTH
+    || verified.height !== V4_BACKGROUND_SEQUENCE_HEIGHT
+    || verified.bitDepth !== 8
+    || verified.colourType !== ColourType.RGB
+    || verified.chunks.join(',') !== 'IHDR,IDAT,IEND'
+  ) {
+    throw new Error(
+      `${name} sequence PNG verify failed: ${verified.width}×${verified.height}, `
+      + `bit depth ${verified.bitDepth}, colour type ${verified.colourType}, `
+      + `chunks ${verified.chunks.join('/')}`,
+    );
+  }
+  return { name, bytes, workFrames };
+}
+
 export function writeV4BackgroundAssets(): void {
   for (const name of V4_BACKGROUND_ASSET_NAMES) {
     const spec = V4_BACKGROUND_ASSET_SPECS[name];
@@ -575,6 +918,19 @@ export function writeV4BackgroundAssets(): void {
       `${name.padEnd(7)} ${V4_BACKGROUND_WORK_WIDTH}×${V4_BACKGROUND_WORK_HEIGHT} `
       + `→ ${V4_BACKGROUND_WIDTH}×${V4_BACKGROUND_HEIGHT} RGB  `
       + `${spec.palette.length} swatches  ${sha256(build.bytes)}`,
+    );
+  }
+  for (const name of V4_BACKGROUND_SEQUENCE_NAMES) {
+    const spec = V4_BACKGROUND_ASSET_SPECS[name];
+    if (!spec.sequenceOutput) throw new Error(`${name} has no sequence output`);
+    const build = buildV4BackgroundSequenceAsset(name);
+    mkdirSync(dirname(spec.sequenceOutput), { recursive: true });
+    writeFileSync(spec.sequenceOutput, build.bytes);
+    console.log(
+      `${name.padEnd(7)} ${V4_BACKGROUND_SEQUENCE_FRAMES}× `
+      + `${V4_BACKGROUND_WORK_WIDTH}×${V4_BACKGROUND_WORK_HEIGHT} `
+      + `→ ${V4_BACKGROUND_SEQUENCE_WIDTH}×${V4_BACKGROUND_SEQUENCE_HEIGHT} RGB  `
+      + `${sha256(build.bytes)}`,
     );
   }
 }
