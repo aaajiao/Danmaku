@@ -4,9 +4,16 @@ import { Button } from '../core/input';
 import { defineBomb } from '../sim/bomb';
 import { defineOptions } from '../sim/option';
 import type { Replay } from '../sim/replay';
+import { createReplaySession, type ReplaySession } from '../replay/session';
 import { defineStage } from '../content/stage';
 import { Edges, type GameState, StateMachine, type StateView } from './state';
-import { characterNames, defineCharacter, getCharacter, type Run } from './run';
+import {
+  characterNames,
+  defineCharacter,
+  getCharacter,
+  Run,
+  type PlayerCarry,
+} from './run';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES } from '../sim/difficulty';
 import {
   CharacterSelectState,
@@ -18,6 +25,10 @@ import {
   type GameContext,
   PauseState,
   PlayingState,
+  ReplayLibraryState,
+  ReplayPlayingState,
+  replayRunConfig,
+  ReplaySessionState,
   TitleState,
 } from './states';
 
@@ -91,6 +102,8 @@ const FINAL_STAGE = 'test-ending-final';
 defineStage(FINAL_STAGE, { name: FINAL_STAGE, waves: [] });
 const PENULTIMATE_STAGE = 'test-ending-penultimate';
 defineStage(PENULTIMATE_STAGE, { name: PENULTIMATE_STAGE, waves: [], next: FINAL_STAGE });
+const REPLAY_STAGE = 'test-replay-stage';
+defineStage(REPLAY_STAGE, { name: REPLAY_STAGE, waves: [], outro: 18 });
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */
@@ -575,6 +588,284 @@ describe('screens', () => {
     expect(ctx.packsData).toBeUndefined();
     expect((ctx.machine.current as PlayingState).characterName).not.toBe(PACK_CHARACTER);
   });
+
+  test('a pack character unions its identity with a different pack campaign', () => {
+    const ctx = context({
+      stage: REPLAY_STAGE,
+      packsData: 'alpha@111111111111',
+      characterPacks: [{
+        character: PACK_CHARACTER,
+        packsData: 'beta@222222222222',
+      }],
+    });
+    const select = new CharacterSelectState(ctx);
+    open(ctx.machine, select);
+    const target = characterNames().indexOf(PACK_CHARACTER);
+    tap(ctx.machine, Button.Down, target);
+    press(ctx.machine, Button.Shot);
+
+    expect(ctx.packsData).toBe('alpha@111111111111,beta@222222222222');
+    expect((ctx.machine.current as PlayingState).run.config.packsData).toBe(
+      'alpha@111111111111,beta@222222222222',
+    );
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Replay library and viewer                                           */
+/* ------------------------------------------------------------------ */
+
+function recordStage(
+  stage: string,
+  seed: number,
+  buttonsAt: (tick: number) => number = () => 0,
+  carry?: PlayerCarry,
+): { run: Run; replay: Replay } {
+  const run = new Run({
+    seed,
+    character: PILOT,
+    stage,
+    ...(carry === undefined ? {} : { carry }),
+  });
+  for (let tick = 0; tick < 1000 && !run.finished; tick++) {
+    run.tick(buttonsAt(tick));
+  }
+  if (!run.finished) throw new Error(`test replay stage "${stage}" did not finish`);
+  return { run, replay: run.finishRecording() };
+}
+
+function replaySession(
+  segments: readonly Replay[],
+  id = 'test-session',
+): ReplaySession {
+  return createReplaySession(
+    { id, now: '2026-07-24T10:20:30.000Z' },
+    segments,
+  );
+}
+
+describe('replay library and viewer', () => {
+  test('title exposes a replay library whose import row carries a shell action', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 101);
+    const session = replaySession([replay]);
+    let imports = 0;
+    const ctx = context({
+      replaySessions: [session],
+      onImportReplay: () => imports++,
+    });
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    expect(title.view().menu).toEqual(['START', 'REPLAYS']);
+
+    tap(ctx.machine, Button.Down);
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayLibraryState);
+    const library = ctx.machine.current as ReplayLibraryState;
+    expect(library.view().menu?.at(-2)).toBe('IMPORT REPLAY');
+    expect(library.view().menuActions?.at(-2)).toBe('import-replay');
+
+    // Open the session, then cancel back to the library.
+    tap(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
+    tap(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayLibraryState);
+
+    // One saved session means the next row is IMPORT.
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(imports).toBe(1);
+  });
+
+  test('live flight buttons never enter replay simulation and exact completion is checked', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 102);
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    const viewer = new ReplayPlayingState(ctx, session, 0);
+    ctx.machine.push(viewer);
+
+    for (let tick = 0; tick < 100 && ctx.machine.current?.name === 'replay-playing'; tick++) {
+      ctx.machine.tick(Button.Shot | Button.Right | Button.Slow);
+    }
+
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(viewer.matchesRecording()).toBe(true);
+    // The playback run records the file's masks, not the live mask above.
+    expect(viewer.run.finishRecording().inputs).toEqual(replay.inputs);
+  });
+
+  test('a Start bit inside the recording does not open the viewer pause menu', () => {
+    const { replay } = recordStage(
+      REPLAY_STAGE,
+      103,
+      (tick) => tick === 3 ? Button.Start : 0,
+    );
+    expect(replay.inputs.some((entry) => (entry.buttons & Button.Start) !== 0)).toBe(true);
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    ctx.machine.push(new ReplayPlayingState(ctx, session, 0));
+
+    const visited: string[] = [];
+    for (let tick = 0; tick < 100 && ctx.machine.current?.name === 'replay-playing'; tick++) {
+      ctx.machine.tick(0);
+      visited.push(ctx.machine.current?.name ?? '');
+    }
+    expect(visited).not.toContain('replay-pause');
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+  });
+
+  test('live Start freezes replay playback and live Bomb exits to its session', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 104);
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    const viewer = new ReplayPlayingState(ctx, session, 0);
+    ctx.machine.push(viewer);
+    ctx.machine.tick(0);
+
+    tap(ctx.machine, Button.Start);
+    expect(ctx.machine.current?.name).toBe('replay-pause');
+    const frozen = viewer.run.tickCount;
+    for (let tick = 0; tick < 10; tick++) ctx.machine.tick(0);
+    expect(viewer.run.tickCount).toBe(frozen);
+
+    press(ctx.machine, Button.Start);
+    expect(ctx.machine.current?.name).toBe('replay-playing');
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
+  });
+
+  test('continuous watch verifies and carries the actual prior-stage resources', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 105);
+    const second = recordStage(FINAL_STAGE, 106, () => 0, first.run.carry);
+    const session = replaySession([first.replay, second.replay]);
+    const ctx = context({ replaySessions: [session] });
+    ctx.machine.push(new ReplayPlayingState(ctx, session, 0, { continuous: true }));
+
+    for (let tick = 0; tick < 100 && ctx.machine.current?.name === 'replay-playing'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Shot);
+
+    const next = ctx.machine.current as ReplayPlayingState;
+    expect(next.name).toBe('replay-playing');
+    expect(next.run.stageName).toBe(FINAL_STAGE);
+    expect(next.run.config.carry).toEqual(first.run.carry);
+  });
+
+  test('strict data-pack identity is checked against the running build', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 107);
+    const incompatible: Replay = {
+      ...replay,
+      meta: { ...replay.meta, packsData: 'missing@abcdef012345' },
+    };
+    const session = replaySession([incompatible]);
+    expect(() => new ReplayPlayingState(context(), session, 0)).toThrow(
+      /packsData.*missing@abcdef012345.*not loaded/,
+    );
+  });
+
+  test('one loaded pack identity cannot certify another pack’s stage', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 108);
+    const forged: Replay = {
+      ...replay,
+      meta: {
+        ...replay.meta,
+        stage: 'alpha/later',
+        packsData: 'beta@222222222222',
+      },
+    };
+    const ctx = context({
+      campaigns: [
+        { label: 'alpha', stage: 'alpha/entry', packsData: 'alpha@111111111111' },
+        { label: 'beta', stage: 'beta/entry', packsData: 'beta@222222222222' },
+      ],
+    });
+    expect(() => replayRunConfig(ctx, forged)).toThrow(
+      /does not include.*alpha@111111111111/,
+    );
+  });
+
+  test('different campaign and character packs are both certified', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 111);
+    const crossPack: Replay = {
+      ...replay,
+      meta: {
+        ...replay.meta,
+        stage: 'alpha/later',
+        character: PACK_CHARACTER,
+        packsData: 'alpha@111111111111,beta@222222222222',
+      },
+    };
+    const ctx = context({
+      campaigns: [
+        { label: 'alpha', stage: 'alpha/entry', packsData: 'alpha@111111111111' },
+      ],
+      characterPacks: [
+        { character: PACK_CHARACTER, packsData: 'beta@222222222222' },
+      ],
+    });
+    expect(replayRunConfig(ctx, crossPack).packsData).toBe(
+      'alpha@111111111111,beta@222222222222',
+    );
+  });
+
+  test('a guest campaign identity survives a bare built-in next stage', () => {
+    const { replay } = recordStage(FINAL_STAGE, 112);
+    const continued: Replay = {
+      ...replay,
+      meta: { ...replay.meta, packsData: 'alpha@111111111111' },
+    };
+    const ctx = context({
+      campaigns: [
+        { label: 'alpha', stage: 'alpha/entry', packsData: 'alpha@111111111111' },
+      ],
+    });
+    expect(replayRunConfig(ctx, continued).packsData).toBe('alpha@111111111111');
+  });
+
+  test('present but ill-typed outcome and score metadata are refused', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 113);
+    const badOutcome: Replay = {
+      ...replay,
+      meta: { ...replay.meta, outcome: 1 },
+    };
+    const badScore: Replay = {
+      ...replay,
+      meta: { ...replay.meta, score: '999' },
+    };
+    expect(() => replayRunConfig(context(), badOutcome)).toThrow(
+      /meta.outcome must be a string/,
+    );
+    expect(() => replayRunConfig(context(), badScore)).toThrow(
+      /meta.score must be a non-negative safe integer/,
+    );
+  });
+
+  test('a bad next segment stays on the completion card and reports its error', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 109);
+    const invalidNext: Replay = {
+      ...first.replay,
+      seed: 110,
+      meta: { ...first.replay.meta, stage: 'missing/replay-stage' },
+    };
+    const session = replaySession([first.replay, invalidNext]);
+    const errors: string[] = [];
+    const ctx = context({
+      replaySessions: [session],
+      onReplayError: (message) => errors.push(message),
+    });
+    ctx.machine.push(new ReplayPlayingState(ctx, session, 0, { continuous: true }));
+    for (let tick = 0; tick < 100 && ctx.machine.current?.name === 'replay-playing'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(errors.at(-1)).toMatch(/missing\/replay-stage|content-pack identity/);
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -830,6 +1121,37 @@ describe('playing', () => {
     const playing = startPlaying(ctx);
     const pause = new PauseState(ctx, playing);
     expect(pause.transparent).toBe(false);
+  });
+
+  test('one attempt id advances with the campaign, while retry starts a new one', () => {
+    let nextId = 0;
+    const ctx = context({ beginReplaySession: () => `attempt-${++nextId}` });
+    const playing = new PlayingState(ctx, PILOT, { stage: PENULTIMATE_STAGE });
+    expect(playing.sessionId).toBe('attempt-1');
+    expect(playing.advance()?.sessionId).toBe('attempt-1');
+    expect(playing.restart().sessionId).toBe('attempt-2');
+  });
+
+  test('the pause screenshot action captures without leaving or advancing the run', () => {
+    let captures = 0;
+    const ctx = context({ onScreenshot: () => captures++ });
+    const playing = startPlaying(ctx);
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    const pause = ctx.machine.current as PauseState;
+    expect(pause.view().menu).toEqual([
+      'RESUME',
+      'TAKE SCREENSHOT',
+      'RETRY',
+      'QUIT',
+    ]);
+
+    const frozen = playing.run.tickCount;
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(captures).toBe(1);
+    expect(ctx.machine.current).toBe(pause);
+    expect(playing.run.tickCount).toBe(frozen);
   });
 });
 

@@ -173,9 +173,10 @@ export interface RunConfig {
    */
   packs?: string;
   /**
-   * Identity of the data pack whose campaign this run entered: `name@hash`,
-   * `''` for a built-in campaign even with data packs loaded. Recorded into
-   * replay meta, and on playback a mismatch REFUSES rather than warns.
+   * Identity of every data pack whose content this run entered: canonical,
+   * comma-joined `name@hash` values, or `''` for a wholly built-in run. Usually
+   * one; two when one pack's character flies another pack's campaign. Recorded
+   * into replay meta, and on playback a mismatch REFUSES rather than warns.
    *
    * This is the strict counterpart to `packs`, and the split is the point: a
    * presentation pack changes how a run *looked* and can be swapped under a
@@ -258,10 +259,58 @@ export interface PlayerCarry {
 }
 
 /** Compact, stable, and comparable as a string — see `RunConfig.carry`. */
-function encodeCarry(carry: PlayerCarry | undefined): string {
+export function encodeCarry(carry: PlayerCarry | undefined): string {
   if (carry === undefined) return '';
   const { score, lives, bombs, power, graze, deathCount } = carry;
   return `${score}:${lives}:${bombs}:${power}:${graze}:${deathCount}`;
+}
+
+/**
+ * Recover the stage-entry resources recorded in replay metadata.
+ *
+ * This is deliberately the inverse of `encodeCarry`, including its canonical
+ * spelling. A replay viewer must not smuggle NaN, infinities, fractional stocks
+ * or an alternate numeric spelling into `RunConfig` and then let the metadata
+ * compare against a value other than the one it parsed.
+ */
+export function decodeCarry(encoded: string): PlayerCarry | undefined {
+  if (encoded === '') return undefined;
+  const parts = encoded.split(':');
+  if (parts.length !== 6) {
+    throw new Error(`run: replay carry must have 6 fields, got ${parts.length}`);
+  }
+  const values = parts.map(Number);
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new Error(`run: replay carry contains a non-finite value "${encoded}"`);
+  }
+  const [score, lives, bombs, power, graze, deathCount] = values as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  if (
+    !Number.isSafeInteger(score)
+    || !Number.isSafeInteger(lives)
+    || !Number.isSafeInteger(bombs)
+    || !Number.isSafeInteger(graze)
+    || !Number.isSafeInteger(deathCount)
+    || score < 0
+    || lives < 0
+    || bombs < 0
+    || power < 0
+    || graze < 0
+    || deathCount < 0
+  ) {
+    throw new Error(`run: replay carry contains an invalid resource value "${encoded}"`);
+  }
+  const carry = { score, lives, bombs, power, graze, deathCount };
+  if (encodeCarry(carry) !== encoded) {
+    throw new Error(`run: replay carry is not canonically encoded "${encoded}"`);
+  }
+  return carry;
 }
 
 export type RunOutcome = 'playing' | 'cleared' | 'failed';

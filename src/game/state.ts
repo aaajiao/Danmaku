@@ -54,6 +54,14 @@ export interface StateView {
   /** Index into `menu`. */
   readonly selected?: number;
   /**
+   * Optional shell-only actions aligned with `menu`.
+   *
+   * Used for browser gestures such as opening a file chooser. The game names an
+   * opaque action string; the shell resolves it from the real DOM click/keydown
+   * before the fixed-tick menu path consumes the gesture.
+   */
+  readonly menuActions?: readonly (string | undefined)[];
+  /**
    * Fixed-tick age of a presentation state.  Used only for deterministic UI
    * animation (cursor pulse, result coins); it never enters a Run or replay.
    */

@@ -1614,10 +1614,11 @@ is the same shape as everything else in the game reaching content by name:
 
 A reskin cannot change the simulation, so a skin mismatch on replay **warns**
 (§11 below, `RunConfig.packs`). **Content can** — different enemies fire different
-bullets — so a replay recorded under a content pack records `RunConfig.packsData`
-(`name@hash` of the pack whose content the run entered) and **refuses** to play
-back under different content, exactly as it refuses a mismatched character, stage,
-boss or **difficulty tier**. That last is not a pack key — the tier rides its own
+bullets — so a replay recorded under content packs records `RunConfig.packsData`
+(the canonical, comma-joined `name@hash` identities whose content the run
+entered) and **refuses** to play back under different content, exactly as it
+refuses a mismatched character, stage, boss or **difficulty tier**. That last is
+not a pack key — the tier rides its own
 strict meta field (`RunConfig.difficulty`) recorded for *every* run, pack or
 built-in — but the reasoning is identical: a tier changes which bullets are in the
 air (§9.2), so a replay across tiers is a different run.
@@ -1632,6 +1633,10 @@ air (§9.2), so a replay across tiers is a different run.
   flown with one is still a pack run. Without this a replay flown with a pack ship
   would record `''` and replay under different content — the one subtle strictness
   this tier turns on, and `full-pack-play.test.ts` proves it end to end.
+
+When those two paths enter different packs, the identities are deduplicated,
+sorted and comma-joined. Neither pack may overwrite the other: the stage and the
+ship both change the run, so playback must certify both.
 
 A wholly built-in run — a built-in character on a built-in campaign — records `''`
 even with content packs loaded, because injected content a built-in stage and ship
@@ -1801,9 +1806,11 @@ keys with two policies:
   captured with one bullet skin plays back identically with another or with none.
   The warning exists so a viewer knows the run *looked* different from how it was
   recorded — nothing more.
-- **`RunConfig.packsData`** — the **content** identity: `name@hash` of the pack
-  whose content this run entered — its campaign, or its character flown off any row
-  (§9.6) — and `''` for a wholly built-in run, even with content packs loaded.
+- **`RunConfig.packsData`** — the **content** identity: the canonical,
+  comma-joined `name@hash` values of the packs whose content this run entered —
+  its campaign and/or its character flown off any row (§9.6) — and `''` for a
+  wholly built-in run, even with content packs loaded. It is normally one value;
+  a character from one pack flying another pack's campaign records both.
   Because content changes what the game *does*, a mismatch here **refuses**, exactly
   as a mismatched character, stage, boss or difficulty tier does. This is the strict
   path the v1 spec reserved and format 2 made real.

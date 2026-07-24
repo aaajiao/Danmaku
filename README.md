@@ -37,6 +37,7 @@ be installed as an offline-capable PWA.
 | Bomb / cancel | `X` | — | B / Circle or X / Square |
 | Focus | `Shift` | — | Shoulder button / trigger |
 | Start / pause / confirm | `Space` | — | Start / Options |
+| Save screenshot | `C` | Pause menu: TAKE SCREENSHOT | — |
 
 Focus slows movement, switches to the character's focused weapon, reveals the
 lethal hit point, and widens item pickup.
@@ -44,6 +45,11 @@ lethal hit point, and widens item pickup.
 Mouse steering and keyboard actions can be used together. Cursor coordinates
 are converted to fixed-tick digital directions before they reach the game, so
 recordings remain ordinary button-mask replays.
+
+Completed runs are saved locally under **REPLAYS** on the title screen. A replay
+session keeps every stage of one campaign attempt together; sessions can be
+watched stage by stage, downloaded as JSON, or imported from an existing
+session or legacy single-run replay file.
 
 On macOS, an installed Chrome PWA offers **CONNECT CONTROLLER** on the title
 screen when WebHID is available. It is a direct Bluetooth fallback for the Xbox

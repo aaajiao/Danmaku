@@ -39,6 +39,17 @@ import {
   shouldPlayRunEventSound,
 } from './game/cues';
 import type { Replay } from './sim/replay';
+import {
+  IndexedDbReplaySessionStore,
+  loadReplayLibraryWithFallback,
+  MemoryReplaySessionStore,
+  ReplayLibrary,
+  ReplaySessionPersistenceError,
+} from './replay/library';
+import {
+  serializeReplaySession,
+  type ReplaySession,
+} from './replay/session';
 import { FIELD, getCharacter, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
 import { Background, loadBackgroundArtAssets } from './render/background';
@@ -75,6 +86,11 @@ import {
 import { portraitImage, tintFor } from './render/portrait';
 import { SpriteBatch } from './render/sprite-batch';
 import { Layer, Stage } from './render/stage';
+import {
+  FrameCapture,
+  isScreenshotShortcut,
+  screenshotFilename,
+} from './render/capture';
 import {
   V4_BOSS_ACTORS,
   V4_ENEMY_ACTORS,
@@ -115,6 +131,8 @@ const menuActions = document.getElementById('menu-actions') as HTMLDivElement;
 const controllerSetup = document.getElementById('controller-setup') as HTMLDivElement;
 const controllerConnect = document.getElementById('controller-connect') as HTMLButtonElement;
 const controllerStatusOutput = document.getElementById('controller-status') as HTMLOutputElement;
+const shellStatus = document.getElementById('shell-status') as HTMLOutputElement;
+const replayImportInput = document.getElementById('replay-import') as HTMLInputElement;
 /** Production keeps diagnostics and the Bloom control out of the authored UI. */
 const SEARCH = new URLSearchParams(location.search);
 const DEBUG_UI = SEARCH.get('debug') === '1';
@@ -124,6 +142,10 @@ const OFFER_DIRECT_CONTROLLER = (
 );
 
 const stage = new Stage({ canvas: field, width: FIELD_W, height: FIELD_H });
+const captureCanvas = document.createElement('canvas');
+captureCanvas.width = FIELD_W;
+captureCanvas.height = FIELD_H;
+const frameCapture = new FrameCapture(captureCanvas);
 
 /**
  * Fit the fixed 480×640 logical frame to the viewport. Integer scales above
@@ -185,6 +207,72 @@ const stageStructure = new V4StageStructure(stage, 'drift');
  * the game runs. See `packs/loader.ts` and `docs/packs.md`.
  */
 const packs = await loadPacks();
+
+let shellStatusTimer: number | undefined;
+
+function showShellStatus(message: string, tone: 'info' | 'error' = 'info'): void {
+  if (shellStatusTimer !== undefined) window.clearTimeout(shellStatusTimer);
+  shellStatus.textContent = message;
+  shellStatus.dataset.tone = tone;
+  shellStatus.hidden = false;
+  shellStatusTimer = window.setTimeout(() => {
+    shellStatus.hidden = true;
+    shellStatusTimer = undefined;
+  }, 4200);
+}
+
+let replayLibrary: ReplayLibrary;
+if (typeof indexedDB === 'undefined') {
+  replayLibrary = new ReplayLibrary(new MemoryReplaySessionStore());
+  await replayLibrary.load();
+  showShellStatus('REPLAYS WILL LAST FOR THIS PAGE ONLY', 'error');
+} else {
+  const loaded = await loadReplayLibraryWithFallback(
+    new IndexedDbReplaySessionStore(indexedDB),
+    new MemoryReplaySessionStore(),
+  );
+  replayLibrary = loaded.library;
+  if (loaded.degraded) {
+    console.warn('replay library: persistent storage unavailable', loaded.error);
+    showShellStatus('REPLAYS WILL LAST FOR THIS PAGE ONLY', 'error');
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = href;
+  anchor.download = filename;
+  anchor.hidden = true;
+  document.body.append(anchor);
+  anchor.click();
+  window.setTimeout(() => {
+    anchor.remove();
+    URL.revokeObjectURL(href);
+  }, 0);
+}
+
+function replayFilename(session: ReplaySession): string {
+  const stamp = session.createdAt
+    .replaceAll('-', '')
+    .replaceAll(':', '')
+    .replace('.000', '');
+  return `danmaku-replay-${stamp}.json`;
+}
+
+function downloadReplay(session: ReplaySession): void {
+  downloadBlob(
+    new Blob([serializeReplaySession(session)], { type: 'application/json' }),
+    replayFilename(session),
+  );
+  showShellStatus('REPLAY DOWNLOAD READY');
+}
+
+function openReplayImport(): void {
+  // Re-selecting the same file must still produce a `change` event.
+  replayImportInput.value = '';
+  replayImportInput.click();
+}
 
 // Apply any sounds a pack replaced, BEFORE the first `audio.unlock()` in
 // the loop can fire. `Audio.unlock` pre-renders every registered sound's buffer
@@ -634,6 +722,16 @@ function menuActionButton(index: number): HTMLButtonElement {
   button.addEventListener('click', () => {
     if (button.dataset.state !== machine.current?.name) return;
 
+    // File pickers must open synchronously inside the real click. Do not queue
+    // this through the fixed-tick menu mask, where user activation has expired.
+    if (button.dataset.action === 'import-replay') {
+      openReplayImport();
+      button.blur();
+      void audio.unlock();
+      void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
+      return;
+    }
+
     const selected = Number(button.dataset.selected);
     const target = Number(button.dataset.target);
     const count = Number(button.dataset.count);
@@ -668,6 +766,7 @@ function layoutMenuClickTargets(
   width: number,
   step: number,
   indexOffset = 0,
+  actions?: readonly (string | undefined)[],
 ): void {
   menuActions.hidden = entries.length === 0;
   const height = Math.min(50, step - 6);
@@ -683,6 +782,9 @@ function layoutMenuClickTargets(
     button.dataset.selected = `${selected}`;
     button.dataset.target = `${target}`;
     button.dataset.count = `${count}`;
+    const action = actions?.[target];
+    if (action === undefined) delete button.dataset.action;
+    else button.dataset.action = action;
     button.style.left = `${x}px`;
     button.style.top = `${firstBaseline + visibleIndex * step - height / 2 - 2}px`;
     button.style.width = `${width}px`;
@@ -703,10 +805,40 @@ function layoutMenuClickTargets(
  * game did. `KeyB` is deliberately absent from `input.ts`'s `KEY_MAP`, so this
  * and the simulation cannot collide.
  */
+let screenshotPending = false;
+
+function requestScreenshot(): void {
+  screenshotPending = true;
+}
+
 window.addEventListener('keydown', (e) => {
+  if (isScreenshotShortcut(e)) {
+    e.preventDefault();
+    requestScreenshot();
+    return;
+  }
+
+  const view = machine.current?.view?.();
+  const action = view?.menuActions?.[view.selected ?? -1];
+  const directConfirm = (
+    !e.repeat
+    && !e.altKey
+    && !e.ctrlKey
+    && !e.metaKey
+    && (e.code === 'KeyZ' || e.code === 'Space')
+  );
+  if (action === 'import-replay' && directConfirm) {
+    // Capture phase outranks the focused transparent menu button and Input's
+    // ordinary key listener, preserving this keydown's browser activation.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    openReplayImport();
+    return;
+  }
+
   if (!DEBUG_UI || e.code !== 'KeyB' || e.repeat) return;
   post.enabled = !post.enabled;
-});
+}, { capture: true });
 
 // Exposed for the by-eye checks documented in `render/post.ts` and in
 // `render/background.ts` — those headers tell you to build, step and cross-fade
@@ -747,13 +879,51 @@ const context: GameContext = {
   // arms strict `packsData` from it when a pack ship is flown off the plain START
   // row, where no campaign armed it. Same plain-data crossing as `campaigns`.
   characterPacks: packs.characterPacks,
-  onReplay(replay) {
-    // Kept only in memory, and exposed so a finished run can be inspected or
-    // saved from the console. Persisting these is the natural next step; the
-    // format is already serialisable and versioned.
+  replaySessions: replayLibrary.sessions,
+  beginReplaySession: () => replayLibrary.begin(),
+  onReplay(replay, sessionId) {
     (globalThis as { __lastReplay?: Replay }).__lastReplay = replay;
+    const id = sessionId ?? replayLibrary.begin();
+    const saved = replayLibrary.append(id, replay);
+    // `append` updates memory before its first await, so result screens can
+    // immediately resolve WATCH/DOWNLOAD even when IndexedDB is still writing.
+    context.replaySessions = replayLibrary.sessions;
+    void saved.then(() => {
+      context.replaySessions = replayLibrary.sessions;
+      showShellStatus('REPLAY SAVED');
+    }).catch((error) => {
+      console.warn('replay library: failed to persist recording', error);
+      showShellStatus('REPLAY SAVED FOR THIS PAGE ONLY', 'error');
+    });
   },
+  onImportReplay: () => {
+    showShellStatus('USE Z / SPACE OR CLICK IMPORT TO CHOOSE A FILE');
+  },
+  onDownloadReplay: downloadReplay,
+  onReplayError: (message) => showShellStatus(message.toUpperCase(), 'error'),
+  onScreenshot: requestScreenshot,
 };
+
+replayImportInput.addEventListener('change', () => {
+  const file = replayImportInput.files?.[0];
+  if (file === undefined) return;
+
+  void file.text().then((text) => replayLibrary.import(text)).then(() => {
+    context.replaySessions = replayLibrary.sessions;
+    showShellStatus('REPLAY IMPORTED');
+  }).catch((error) => {
+    context.replaySessions = replayLibrary.sessions;
+    if (error instanceof ReplaySessionPersistenceError) {
+      console.warn('replay library: imported for this page only', error.cause);
+      showShellStatus('REPLAY IMPORTED FOR THIS PAGE ONLY', 'error');
+    } else {
+      console.warn('replay library: import failed', error);
+      showShellStatus(`IMPORT FAILED · ${(error as Error).message}`.toUpperCase(), 'error');
+    }
+  }).finally(() => {
+    replayImportInput.value = '';
+  });
+});
 
 machine.push(new TitleState(context));
 if (directController === undefined) {
@@ -978,7 +1148,8 @@ const loop = new Loop({
     // quieter. Pause is a non-transparent state on top of a run (`states.ts`);
     // the shell reads it off the stack the same way it folds `run.music` above,
     // since no `Run` exposes "am I paused" (the pause lives one level up).
-    const paused = machine.stack[machine.stack.length - 1]?.name === 'pause';
+    const topName = machine.stack[machine.stack.length - 1]?.name;
+    const paused = topName === 'pause' || topName === 'replay-pause';
     music.masterVolume = paused ? MUSIC_PAUSE_LEVEL : MUSIC_LEVEL;
 
     // `ui-pause` on the rising edge only — the tick the pause menu appears, not
@@ -1017,6 +1188,24 @@ const loop = new Loop({
 
     post.render();
     drawOverlay(hud);
+    if (screenshotPending) {
+      screenshotPending = false;
+      // Compose synchronously while WebGL's non-preserved drawing buffer still
+      // contains this exact frame. PNG encoding may finish asynchronously.
+      frameCapture.compose(field, overlay);
+      const filename = screenshotFilename(new Date(), hud === undefined ? {} : {
+        stage: hud.stageName,
+        difficulty: hud.difficulty,
+        tick: hud.tickCount,
+      });
+      void frameCapture.png().then((blob) => {
+        downloadBlob(blob, filename);
+        showShellStatus('SCREENSHOT DOWNLOAD READY');
+      }).catch((error) => {
+        console.warn('capture: screenshot failed', error);
+        showShellStatus('SCREENSHOT FAILED', 'error');
+      });
+    }
     syncControllerPanel();
   },
 });
@@ -1835,6 +2024,10 @@ function drawHud(run: Run | undefined): void {
   // down within this cluster", which would be `#6f6f78`.)
   surface.fillStyle = '#687783';
   surface.fillText(run.difficulty.toUpperCase(), FIELD_W - 8, topY + 31);
+  if (run.playingBack) {
+    surface.fillStyle = '#b6cfdb';
+    surface.fillText('REPLAY', FIELD_W - 8, topY + 47);
+  }
 
   // Bottom-right: diagnostics, dimmest text on screen.
   if (DEBUG_UI) {
@@ -1964,6 +2157,7 @@ function drawView(view: {
   lines?: readonly string[];
   menu?: readonly string[];
   selected?: number;
+  menuActions?: readonly (string | undefined)[];
   age?: number;
   character?: string;
   tally?: readonly { readonly sprite: string; readonly count: number }[];
@@ -2148,6 +2342,39 @@ function drawView(view: {
     return;
   }
 
+  if (view.kind === 'replay-library' || view.kind === 'replay-session') {
+    drawScreenHeading(view.title ?? 'REPLAYS', 76);
+    drawViewLines(view.lines ?? [], cx, 118, 336, '#8d9da8');
+    const entries = view.menu ?? [];
+    const selected = Math.max(0, Math.min(entries.length - 1, view.selected ?? 0));
+    const visibleRows = 8;
+    const first = Math.max(
+      0,
+      Math.min(selected - Math.floor(visibleRows / 2), entries.length - visibleRows),
+    );
+    const visible = entries.slice(first, first + visibleRows);
+    drawMenuRows(visible, selected - first, 64, 208, 352, 48, age);
+    layoutMenuClickTargets(
+      view.kind,
+      visible,
+      selected,
+      entries.length,
+      64,
+      208,
+      352,
+      48,
+      first,
+      view.menuActions,
+    );
+    surface.textAlign = 'center';
+    uiFont(9, 500);
+    surface.fillStyle = '#71808c';
+    if (first > 0) surface.fillText('▲', cx, 176);
+    if (first + visible.length < entries.length) surface.fillText('▼', cx, 612);
+    surface.restore();
+    return;
+  }
+
   const { x: statusX, y: statusY, w: statusW, h: statusH } = V4_UI_SCREEN.status;
   // Modal/result screens now carry their own generated silhouette instead of
   // all collapsing into the same generic nine-slice. The generated source is
@@ -2169,6 +2396,7 @@ function drawView(view: {
   });
   const sealByKind: Partial<Record<string, V4UiCellName>> = {
     pause: 'ui.status.pause',
+    'replay-pause': 'ui.status.pause',
     cleared: 'ui.status.clear',
     'game-over': 'ui.status.gameover',
     ending: 'ui.status.ending',

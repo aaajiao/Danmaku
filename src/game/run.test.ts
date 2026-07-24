@@ -16,7 +16,9 @@ import { deserialize, serialize, type Replay } from '../sim/replay';
 import { type Difficulty } from '../sim/difficulty';
 import {
   characterNames,
+  decodeCarry,
   defineCharacter,
+  encodeCarry,
   getCharacter,
   Run,
   type RunConfig,
@@ -24,6 +26,29 @@ import {
 } from './run';
 
 const SEED = 0x5747a1;
+
+describe('replay carry encoding', () => {
+  test('round-trips the exact stage-entry resources', () => {
+    const carry = {
+      score: 12345,
+      lives: 2,
+      bombs: 1,
+      power: 2.75,
+      graze: 67,
+      deathCount: 3,
+    };
+    expect(decodeCarry(encodeCarry(carry))).toEqual(carry);
+    expect(decodeCarry('')).toBeUndefined();
+  });
+
+  test('refuses non-canonical or impossible resource values', () => {
+    expect(() => decodeCarry('01:2:1:2.75:67:3')).toThrow(/canonically encoded/);
+    expect(() => decodeCarry('1:2.5:1:2.75:67:3')).toThrow(/invalid resource/);
+    expect(() => decodeCarry('1:-1:1:2.75:67:3')).toThrow(/invalid resource/);
+    expect(() => decodeCarry('1:2:1:NaN:67:3')).toThrow(/non-finite/);
+    expect(() => decodeCarry('1:2:1:2.75:67')).toThrow(/6 fields/);
+  });
+});
 
 /**
  * A local player loadout, and why one is needed now.

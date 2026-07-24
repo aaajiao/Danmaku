@@ -301,6 +301,28 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(mainSource).toContain('if (DEBUG_UI) {');
   });
 
+  test('screenshot capture reads the fully composited frame before encoding', () => {
+    const renderStart = mainSource.indexOf('render() {');
+    const renderEnd = mainSource.indexOf('\\n  },\\n});', renderStart);
+    const renderSource = mainSource.slice(renderStart, renderEnd);
+    const webgl = renderSource.indexOf('post.render();');
+    const hud = renderSource.indexOf('drawOverlay(hud);');
+    const compose = renderSource.indexOf('frameCapture.compose(field, overlay);');
+    const encode = renderSource.indexOf('frameCapture.png()');
+    expect(webgl).toBeGreaterThan(-1);
+    expect(hud).toBeGreaterThan(webgl);
+    expect(compose).toBeGreaterThan(hud);
+    expect(encode).toBeGreaterThan(compose);
+  });
+
+  test('replay import keeps the file chooser inside a direct DOM gesture', () => {
+    expect(mainSource).toContain("button.dataset.action === 'import-replay'");
+    expect(mainSource).toContain('openReplayImport();');
+    expect(mainSource).toContain("}, { capture: true });");
+    expect(mainSource).not.toContain('event.stopImmediatePropagation()');
+    expect(mainSource).toContain('e.stopImmediatePropagation()');
+  });
+
   test('graze art is created only from the existing RunEvent', () => {
     expect(mainSource).toContain("if (event.type === 'graze')");
     expect(mainSource).toContain('grazeUiPulses.push({');

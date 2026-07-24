@@ -20,10 +20,18 @@
 
 import { Button } from '../core/input';
 import { getStage } from '../content/stage';
+import type { ReplaySession } from '../replay/session';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES, type Difficulty } from '../sim/difficulty';
 import type { Replay } from '../sim/replay';
 import { Edges, type GameState, type StateMachine, type StateView } from './state';
-import { characterNames, getCharacter, Run, type PlayerCarry } from './run';
+import {
+  characterNames,
+  decodeCarry,
+  getCharacter,
+  Run,
+  type PlayerCarry,
+  type RunConfig,
+} from './run';
 
 /**
  * What every state needs and none of them should construct for itself.
@@ -37,10 +45,10 @@ import { characterNames, getCharacter, Run, type PlayerCarry } from './run';
  * One selectable campaign, all plain data.
  *
  * `stage` is the qualified entry-stage name (`<pack>/<entry>`) the run starts
- * on; `packsData` is the entering pack's `name@hash`, recorded strictly into
- * replay meta (see `RunConfig.packsData`). The identity travels on the campaign,
- * not on the context, because that is what lets the plain START row record `''`:
- * a run only carries a pack's identity when it entered that pack's campaign.
+ * on; `packsData` is this campaign pack's `name@hash`, later unioned with a pack
+ * character identity when necessary and recorded strictly into replay meta (see
+ * `RunConfig.packsData`). The identity travels on the campaign because that is
+ * what lets the plain START row record `''`.
  *
  * Declared here rather than imported from `src/packs`, because `src/game` must
  * not import that tree at all (`architecture.test.ts` enforces it). A campaign
@@ -94,11 +102,10 @@ export interface GameContext {
    */
   packs?: string;
   /**
-   * Identity of the data pack whose campaign this run entered (`name@hash`),
-   * armed by `TitleState` when a campaign row is chosen and forwarded into
-   * `RunConfig.packsData`. Unset for a built-in run, so it records `''` — a
-   * data pack changes the simulation, and that mismatch REFUSES a replay where
-   * `packs` only warns (see `RunConfig.packsData`).
+   * Canonical comma-joined identity of data packs whose content this run uses.
+   * A campaign arms its pack; a pack character unions in its owner. Unset for a
+   * wholly built-in run, so it records `''` — content mismatch REFUSES where
+   * presentation-only `packs` merely warns (see `RunConfig.packsData`).
    */
   packsData?: string;
   /**
@@ -112,7 +119,8 @@ export interface GameContext {
    * owns each — one entry per `<pack>/<name>` character on the SELECT screen,
    * empty or unset for a built-in-only build. `main.ts` fills it from the loader
    * as plain data (mirroring `campaigns`). `CharacterSelectState` reads it to arm
-   * strict `packsData` when a pack character is flown off the plain START row.
+   * strict `packsData` when a pack character is flown off the plain START row,
+   * or union its owner with a different pack campaign.
    */
   characterPacks?: readonly CharacterPack[];
   /**
@@ -135,8 +143,21 @@ export interface GameContext {
    * Unset for a shell that opted out — nothing is recorded and nothing is checked.
    */
   contentFingerprint?: string;
-  /** Handed the recording when a run ends. */
-  onReplay?(replay: Replay): void;
+  /**
+   * Sessions currently available to the player. `undefined` means this shell
+   * has no replay-library surface; an empty array means the library is enabled
+   * and offers IMPORT/BACK even before the first run has been saved.
+   */
+  replaySessions?: readonly ReplaySession[];
+  /** A fresh attempt/campaign id. Advanced stages keep the same id. */
+  beginReplaySession?(): string;
+  /** Handed the recording when a run ends, with its shell-owned session id. */
+  onReplay?(replay: Replay, sessionId?: string): void;
+  /** Shell actions: file APIs and persistence never enter `src/game`. */
+  onImportReplay?(): void;
+  onDownloadReplay?(session: ReplaySession): void;
+  onReplayError?(message: string): void;
+  onScreenshot?(): void;
 }
 
 /** Buttons that mean "yes" everywhere. Start alone is not enough on a menu. */
@@ -253,17 +274,27 @@ export class TitleState extends MenuState {
   protected get entries(): readonly string[] {
     // START, then one row per campaign. An empty (or unset) list spreads to
     // nothing, so a built-in-only build renders `['START']` byte-identically.
-    return ['START', ...(this.ctx.campaigns ?? []).map((c) => c.label)];
+    return [
+      'START',
+      ...(this.ctx.campaigns ?? []).map((c) => c.label),
+      ...(this.ctx.replaySessions === undefined ? [] : ['REPLAYS']),
+    ];
   }
 
   protected confirm(index: number): void {
+    const campaigns = this.ctx.campaigns ?? [];
+    if (this.ctx.replaySessions !== undefined && index === campaigns.length + 1) {
+      this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
+      return;
+    }
+
     // Row 0 is START: it steers nothing, so `ctx.stage`/`ctx.packsData` are
     // left exactly as they were and a built-in run records `packsData: ''`.
     // Every later row is a campaign (index - 1 into the list); selecting one
     // arms both the qualified stage and the entering pack's identity before the
     // normal character-select flow, the same way a boss override is left on the
     // context to steer the run that starts later.
-    const campaign = (this.ctx.campaigns ?? [])[index - 1];
+    const campaign = campaigns[index - 1];
     if (campaign !== undefined) {
       this.ctx.stage = campaign.stage;
       this.ctx.packsData = campaign.packsData;
@@ -279,6 +310,165 @@ export class TitleState extends MenuState {
       kind: 'title',
       title: 'DANMAKU',
       lines: ['press start'],
+      menu: this.entries,
+      selected: this.selected,
+      age: this.age,
+    };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Replay library                                                      */
+/* ------------------------------------------------------------------ */
+
+function sessionLabel(session: ReplaySession): string {
+  const first = session.segments[0];
+  const character = stringMeta(first, 'character') ?? 'UNKNOWN';
+  const count = session.segments.length;
+  const date = session.createdAt.slice(0, 10);
+  return `${date}  ${character.toUpperCase()}  ${count} STAGE${count === 1 ? '' : 'S'}`;
+}
+
+function segmentLabel(replay: Replay, index: number): string {
+  const stage = stringMeta(replay, 'stage') ?? `STAGE ${index + 1}`;
+  const difficulty = stringMeta(replay, 'difficulty') ?? DEFAULT_DIFFICULTY;
+  const outcome = stringMeta(replay, 'outcome') ?? 'recorded';
+  return `${stage.toUpperCase()}  ${difficulty.toUpperCase()}  ${outcome.toUpperCase()}`;
+}
+
+function stringMeta(replay: Replay | undefined, key: string): string | undefined {
+  const value = replay?.meta?.[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function numberMeta(replay: Replay, key: string): number | undefined {
+  const value = replay.meta?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function findSession(ctx: GameContext, id: string | undefined): ReplaySession | undefined {
+  if (id === undefined) return undefined;
+  return ctx.replaySessions?.find((session) => session.id === id);
+}
+
+export class ReplayLibraryState extends MenuState {
+  readonly name = 'replay-library';
+
+  constructor(ctx: GameContext) {
+    super(ctx);
+  }
+
+  protected get entries(): readonly string[] {
+    return [
+      ...(this.ctx.replaySessions ?? []).map(sessionLabel),
+      'IMPORT REPLAY',
+      'BACK',
+    ];
+  }
+
+  protected confirm(index: number): void {
+    const sessions = this.ctx.replaySessions ?? [];
+    const session = sessions[index];
+    if (session !== undefined) {
+      this.ctx.machine.replace(new ReplaySessionState(this.ctx, session));
+      return;
+    }
+    if (index === sessions.length) {
+      this.ctx.onImportReplay?.();
+      return;
+    }
+    this.ctx.machine.replace(new TitleState(this.ctx));
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.replace(new TitleState(this.ctx));
+  }
+
+  view(): StateView {
+    const count = this.ctx.replaySessions?.length ?? 0;
+    return {
+      kind: 'replay-library',
+      title: 'REPLAYS',
+      lines: [count === 0 ? 'no saved runs — import a replay file' : `${count} saved session${count === 1 ? '' : 's'}`],
+      menu: this.entries,
+      selected: this.selected,
+      menuActions: [
+        ...(this.ctx.replaySessions ?? []).map(() => undefined),
+        'import-replay',
+        undefined,
+      ],
+      age: this.age,
+    };
+  }
+}
+
+export class ReplaySessionState extends MenuState {
+  readonly name = 'replay-session';
+  readonly #session: ReplaySession;
+  #error: string | undefined;
+
+  constructor(ctx: GameContext, session: ReplaySession) {
+    super(ctx);
+    this.#session = session;
+  }
+
+  protected get entries(): readonly string[] {
+    return [
+      'WATCH SESSION',
+      ...this.#session.segments.map(segmentLabel),
+      'DOWNLOAD SESSION',
+      'BACK',
+    ];
+  }
+
+  protected confirm(index: number): void {
+    if (index === 0) {
+      try {
+        this.ctx.machine.replace(new ReplayPlayingState(this.ctx, this.#session, 0, {
+          continuous: true,
+        }));
+        this.#error = undefined;
+      } catch (error) {
+        this.#error = (error as Error).message;
+        this.ctx.onReplayError?.(this.#error);
+      }
+      return;
+    }
+
+    const replay = this.#session.segments[index - 1];
+    if (replay !== undefined) {
+      try {
+        this.ctx.machine.replace(
+          new ReplayPlayingState(this.ctx, this.#session, index - 1),
+        );
+        this.#error = undefined;
+      } catch (error) {
+        this.#error = (error as Error).message;
+        this.ctx.onReplayError?.(this.#error);
+      }
+      return;
+    }
+    if (index === this.#session.segments.length + 1) {
+      this.ctx.onDownloadReplay?.(this.#session);
+      return;
+    }
+    this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
+  }
+
+  view(): StateView {
+    const first = this.#session.segments[0];
+    const character = stringMeta(first, 'character') ?? 'unknown pilot';
+    return {
+      kind: 'replay-session',
+      title: 'REPLAY SESSION',
+      lines: [
+        `${character} · ${this.#session.segments.length} recorded stage${this.#session.segments.length === 1 ? '' : 's'}`,
+        ...(this.#error === undefined ? [] : [this.#error]),
+      ],
       menu: this.entries,
       selected: this.selected,
       age: this.age,
@@ -435,7 +625,12 @@ export class CharacterSelectState extends MenuState {
     // empty. A built-in character (no owner) touches nothing, so it still records
     // whatever the campaign left — `''` off START.
     const owner = (this.ctx.characterPacks ?? []).find((c) => c.character === name);
-    if (owner !== undefined) this.ctx.packsData = owner.packsData;
+    if (owner !== undefined) {
+      // A pack ship may fly another pack's campaign. Both packs then change the
+      // simulation, so the strict identity is their canonical union rather than
+      // one silently overwriting the other.
+      this.ctx.packsData = mergeContentIdentities(this.ctx.packsData, owner.packsData);
+    }
     this.ctx.machine.replace(new PlayingState(this.ctx, name));
   }
 
@@ -469,12 +664,15 @@ export interface PlayingOptions {
   stage?: string;
   /** Resources carried in from the stage before. */
   carry?: PlayerCarry;
+  /** Shell-owned campaign/attempt identity; preserved only when advancing. */
+  sessionId?: string;
 }
 
 export class PlayingState implements GameState {
   readonly name = 'playing';
   readonly run: Run;
   readonly characterName: string;
+  readonly sessionId: string | undefined;
 
   readonly #ctx: GameContext;
   readonly #edges = new Edges();
@@ -485,6 +683,7 @@ export class PlayingState implements GameState {
   constructor(ctx: GameContext, characterName: string, options: PlayingOptions = {}) {
     this.#ctx = ctx;
     this.characterName = characterName;
+    this.sessionId = options.sessionId ?? ctx.beginReplaySession?.();
     const stage = options.stage ?? ctx.stage;
     this.run = new Run({
       seed: options.seed ?? ctx.nextSeed(),
@@ -533,7 +732,7 @@ export class PlayingState implements GameState {
   #finish(): void {
     if (this.#recorded) return;
     this.#recorded = true;
-    this.#ctx.onReplay?.(this.run.finishRecording());
+    this.#ctx.onReplay?.(this.run.finishRecording(), this.sessionId);
 
     // Pushed, not replaced: the ending screen is drawn over the field the run
     // ended on, and the machine renders the whole stack. Replacing would leave
@@ -579,6 +778,7 @@ export class PlayingState implements GameState {
     return new PlayingState(this.#ctx, this.characterName, {
       stage: next,
       carry: this.run.carry,
+      ...(this.sessionId === undefined ? {} : { sessionId: this.sessionId }),
     });
   }
 
@@ -596,6 +796,403 @@ export class PlayingState implements GameState {
 
   view(): StateView {
     return { kind: 'playing', run: this.run };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Replay playback                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reconstruct one recorded Run against the identities loaded RIGHT NOW.
+ *
+ * Character/stage/carry describe what the file asks to watch. Content and pack
+ * identities come from the live environment, never copied back out of the file:
+ * feeding a recording its own fingerprint would let it certify itself and turn
+ * every strict mismatch check in `Run` into theatre.
+ */
+export function replayRunConfig(
+  ctx: GameContext,
+  replay: Replay,
+  carryOverride?: PlayerCarry,
+): RunConfig {
+  validateReplayViewerMeta(replay);
+  const recordedDifficulty = stringMeta(replay, 'difficulty');
+  if (
+    recordedDifficulty !== undefined
+    && !(DIFFICULTIES as readonly string[]).includes(recordedDifficulty)
+  ) {
+    throw new Error(`replay viewer: unsupported difficulty "${recordedDifficulty}"`);
+  }
+
+  const carryText = stringMeta(replay, 'carry');
+  const assistText = stringMeta(replay, 'infiniteLives');
+  if (assistText !== undefined && assistText !== 'true' && assistText !== 'false') {
+    throw new Error(`replay viewer: invalid infiniteLives marker "${assistText}"`);
+  }
+
+  const recordedData = stringMeta(replay, 'packsData');
+  const character = stringMeta(replay, 'character');
+  const stage = stringMeta(replay, 'stage');
+  const stageNamespace = contentNamespace(stage);
+  const stageOwner = stageNamespace === undefined
+    ? undefined
+    : (ctx.campaigns ?? []).find(
+      (campaign) => contentNamespace(campaign.stage) === stageNamespace,
+    )?.packsData;
+  const characterOwner = character === undefined
+    ? undefined
+    : (ctx.characterPacks ?? []).find(
+      (candidate) => candidate.character === character,
+    )?.packsData;
+
+  const availableData = new Set(
+    [
+      ...(ctx.campaigns ?? []).map((campaign) => campaign.packsData),
+      ...(ctx.characterPacks ?? []).map((candidate) => candidate.packsData),
+    ].flatMap(contentIdentities),
+  );
+  const requiredData = new Set(
+    [stageOwner, characterOwner].flatMap(contentIdentities),
+  );
+  const recordedIdentities = contentIdentities(recordedData);
+  const canonicalRecorded = canonicalContentIdentities(recordedIdentities);
+  if (recordedData !== undefined && recordedData !== canonicalRecorded) {
+    throw new Error(`replay viewer: packsData "${recordedData}" is not canonically encoded`);
+  }
+  if (requiredData.size > 0 && recordedData === undefined) {
+    throw new Error(
+      `replay viewer: ${stage ?? character ?? 'recording'} is missing its content-pack identity`,
+    );
+  }
+  const unavailable = recordedIdentities.find((identity) => !availableData.has(identity));
+  if (unavailable !== undefined) {
+    throw new Error(
+      `replay viewer: recorded packsData "${unavailable}" is not loaded`,
+    );
+  }
+  const missing = [...requiredData].find((identity) => !recordedIdentities.includes(identity));
+  if (missing !== undefined) {
+    throw new Error(
+      `replay viewer: recorded packsData "${recordedData ?? ''}" does not include `
+      + `the loaded stage/character identity "${missing}"`,
+    );
+  }
+
+  const carry = carryOverride ?? (
+    carryText === undefined || carryText === ''
+      ? undefined
+      : decodeCarry(carryText)
+  );
+  return {
+    seed: replay.seed,
+    replay,
+    ...(character === undefined ? {} : { character }),
+    ...(stage === undefined ? {} : { stage }),
+    ...(carry === undefined ? {} : { carry }),
+    ...(ctx.packs === undefined ? {} : { packs: ctx.packs }),
+    packsData: recordedData ?? '',
+    difficulty: (recordedDifficulty as Difficulty | undefined) ?? DEFAULT_DIFFICULTY,
+    ...(assistText === 'true' ? { infiniteLives: true } : {}),
+    ...(ctx.contentFingerprint === undefined
+      ? {}
+      : { contentFingerprint: ctx.contentFingerprint }),
+  };
+}
+
+function contentNamespace(name: string | undefined): string | undefined {
+  if (name === undefined) return undefined;
+  const slash = name.indexOf('/');
+  return slash <= 0 ? undefined : name.slice(0, slash);
+}
+
+function contentIdentities(encoded: string | undefined): string[] {
+  if (encoded === undefined || encoded === '') return [];
+  return encoded.split(',').filter((identity) => identity !== '');
+}
+
+function canonicalContentIdentities(identities: readonly string[]): string {
+  return [...new Set(identities)].sort().join(',');
+}
+
+function mergeContentIdentities(
+  current: string | undefined,
+  added: string,
+): string {
+  return canonicalContentIdentities([
+    ...contentIdentities(current),
+    ...contentIdentities(added),
+  ]);
+}
+
+function validateReplayViewerMeta(replay: Replay): void {
+  const meta = replay.meta;
+  if (meta === undefined) return;
+
+  const stringKeys = [
+    'character',
+    'stage',
+    'boss',
+    'carry',
+    'packsData',
+    'difficulty',
+    'infiniteLives',
+    'content',
+    'packs',
+    'outcome',
+  ] as const;
+  for (const key of stringKeys) {
+    const value = meta[key];
+    if (value !== undefined && typeof value !== 'string') {
+      throw new Error(`replay viewer: meta.${key} must be a string`);
+    }
+  }
+
+  const outcome = meta['outcome'];
+  if (
+    typeof outcome === 'string'
+    && outcome !== 'playing'
+    && outcome !== 'cleared'
+    && outcome !== 'failed'
+  ) {
+    throw new Error(`replay viewer: invalid outcome "${outcome}"`);
+  }
+
+  const score = meta['score'];
+  if (
+    score !== undefined
+    && (
+      typeof score !== 'number'
+      || !Number.isSafeInteger(score)
+      || score < 0
+    )
+  ) {
+    throw new Error('replay viewer: meta.score must be a non-negative safe integer');
+  }
+}
+
+export class ReplayPlayingState implements GameState {
+  readonly name = 'replay-playing';
+  readonly run: Run;
+
+  readonly #ctx: GameContext;
+  readonly #session: ReplaySession;
+  readonly #segmentIndex: number;
+  readonly #replay: Replay;
+  readonly #continuous: boolean;
+  readonly #entryCarry: PlayerCarry | undefined;
+  readonly #edges = new Edges();
+  #completed = false;
+
+  constructor(
+    ctx: GameContext,
+    session: ReplaySession,
+    segmentIndex: number,
+    options: { readonly continuous?: boolean; readonly carry?: PlayerCarry } = {},
+  ) {
+    const replay = session.segments[segmentIndex];
+    if (replay === undefined) {
+      throw new Error(`replay viewer: session has no segment ${segmentIndex}`);
+    }
+    this.#ctx = ctx;
+    this.#session = session;
+    this.#segmentIndex = segmentIndex;
+    this.#replay = replay;
+    this.#continuous = options.continuous ?? false;
+    this.#entryCarry = options.carry;
+    this.run = new Run(replayRunConfig(ctx, replay, options.carry));
+  }
+
+  tick(buttons: number): void {
+    this.#edges.update(buttons);
+    if (this.#edges.pressed(Button.Start)) {
+      this.#ctx.machine.push(new ReplayPauseState(this.#ctx, this));
+      return;
+    }
+    if (this.#edges.pressed(Button.Bomb)) {
+      this.#ctx.machine.replace(this.back());
+      return;
+    }
+
+    if (this.run.tickCount < this.#replay.length && !this.run.finished) {
+      // The Run reads the recorded mask internally. Live input belongs solely
+      // to viewer controls above and never reaches the simulated flight.
+      this.run.tick(0);
+    }
+    if (
+      !this.#completed
+      && (this.run.tickCount >= this.#replay.length || this.run.finished)
+    ) {
+      this.#completed = true;
+      if (!this.matchesRecording()) {
+        this.#ctx.onReplayError?.(
+          `replay viewer: ${this.run.stageName} did not reproduce the recorded outcome`,
+        );
+      }
+      this.#ctx.machine.push(new ReplayCompleteState(this.#ctx, this));
+    }
+  }
+
+  restart(): ReplayPlayingState {
+    return new ReplayPlayingState(this.#ctx, this.#session, this.#segmentIndex, {
+      continuous: this.#continuous,
+      ...(this.#entryCarry === undefined ? {} : { carry: this.#entryCarry }),
+    });
+  }
+
+  next(): ReplayPlayingState | undefined {
+    if (!this.hasNext) return undefined;
+    const nextIndex = this.#segmentIndex + 1;
+    // Use what the preceding segment ACTUALLY ended with. Run's strict carry
+    // metadata check then verifies that the session chain is honest.
+    return new ReplayPlayingState(this.#ctx, this.#session, nextIndex, {
+      continuous: true,
+      carry: this.run.carry,
+    });
+  }
+
+  get hasNext(): boolean {
+    return (
+      this.#continuous
+      && this.matchesRecording()
+      && this.#session.segments[this.#segmentIndex + 1] !== undefined
+    );
+  }
+
+  back(): ReplaySessionState {
+    return new ReplaySessionState(this.#ctx, this.#session);
+  }
+
+  get replay(): Replay {
+    return this.#replay;
+  }
+
+  get session(): ReplaySession {
+    return this.#session;
+  }
+
+  matchesRecording(): boolean {
+    const expectedOutcome = stringMeta(this.#replay, 'outcome');
+    const expectedScore = numberMeta(this.#replay, 'score');
+    return (
+      this.run.finished
+      && this.run.tickCount === this.#replay.length
+      && (expectedOutcome === undefined || this.run.outcome === expectedOutcome)
+      && (expectedScore === undefined || this.run.player.score === expectedScore)
+    );
+  }
+
+  view(): StateView {
+    // `playing` makes the shell skip a second menu overlay while still finding
+    // this state's public `run` for the ordinary field/HUD renderer.
+    return { kind: 'playing', run: this.run };
+  }
+}
+
+class ReplayPauseState extends MenuState {
+  readonly name = 'replay-pause';
+  readonly transparent = false;
+  readonly #playing: ReplayPlayingState;
+
+  constructor(ctx: GameContext, playing: ReplayPlayingState) {
+    super(ctx);
+    this.#playing = playing;
+  }
+
+  protected get entries(): readonly string[] {
+    return ['RESUME', 'RESTART REPLAY', 'EXIT REPLAY'];
+  }
+
+  protected confirm(index: number): void {
+    if (index === 0) {
+      this.ctx.machine.pop();
+      return;
+    }
+    this.ctx.machine.pop();
+    this.ctx.machine.replace(index === 1 ? this.#playing.restart() : this.#playing.back());
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.pop();
+  }
+
+  protected override intercept(): boolean {
+    if (!this.edges.pressed(Button.Start)) return false;
+    this.ctx.machine.pop();
+    return true;
+  }
+
+  view(): StateView {
+    return {
+      kind: 'replay-pause',
+      title: 'REPLAY PAUSED',
+      menu: this.entries,
+      selected: this.selected,
+      age: this.age,
+    };
+  }
+}
+
+class ReplayCompleteState extends MenuState {
+  readonly name = 'replay-complete';
+  readonly transparent = false;
+  readonly #playing: ReplayPlayingState;
+
+  constructor(ctx: GameContext, playing: ReplayPlayingState) {
+    super(ctx);
+    this.#playing = playing;
+  }
+
+  protected get entries(): readonly string[] {
+    return [
+      ...(this.#playing.hasNext ? ['NEXT STAGE'] : []),
+      'WATCH AGAIN',
+      'DOWNLOAD SESSION',
+      'BACK',
+    ];
+  }
+
+  protected confirm(index: number): void {
+    if (this.#playing.hasNext && index === 0) {
+      try {
+        const next = this.#playing.next();
+        if (next === undefined) return;
+        this.ctx.machine.pop();
+        this.ctx.machine.replace(next);
+      } catch (error) {
+        this.ctx.onReplayError?.((error as Error).message);
+      }
+      return;
+    }
+    if (this.#playing.hasNext) index -= 1;
+    if (index === 1) {
+      this.ctx.onDownloadReplay?.(this.#playing.session);
+      return;
+    }
+    this.ctx.machine.pop();
+    this.ctx.machine.replace(index === 0 ? this.#playing.restart() : this.#playing.back());
+  }
+
+  protected override cancel(): void {
+    this.ctx.machine.pop();
+    this.ctx.machine.replace(this.#playing.back());
+  }
+
+  view(): StateView {
+    const replay = this.#playing.replay;
+    const run = this.#playing.run;
+    const matches = this.#playing.matchesRecording();
+    return {
+      kind: 'replay-complete',
+      title: matches ? 'REPLAY COMPLETE' : 'REPLAY MISMATCH',
+      lines: [
+        `${run.stageName} · ${run.tickCount} / ${replay.length} ticks`,
+        ...(matches ? [] : ['recorded outcome did not reproduce exactly']),
+      ],
+      menu: this.entries,
+      selected: this.selected,
+      age: this.age,
+    };
   }
 }
 
@@ -621,11 +1218,21 @@ export class PauseState extends MenuState {
   }
 
   protected get entries(): readonly string[] {
-    return ['RESUME', 'RETRY', 'QUIT'];
+    return [
+      'RESUME',
+      ...(this.ctx.onScreenshot === undefined ? [] : ['TAKE SCREENSHOT']),
+      'RETRY',
+      'QUIT',
+    ];
   }
 
   protected confirm(index: number): void {
     const machine = this.ctx.machine;
+    if (this.ctx.onScreenshot !== undefined && index === 1) {
+      this.ctx.onScreenshot();
+      return;
+    }
+    if (this.ctx.onScreenshot !== undefined && index > 1) index -= 1;
     switch (index) {
       case 0:
         machine.pop();
@@ -689,11 +1296,36 @@ abstract class EndingState extends MenuState {
   }
 
   protected get entries(): readonly string[] {
-    return ['RETRY', 'TITLE'];
+    return [
+      ...(this.session === undefined ? [] : ['WATCH REPLAY', 'DOWNLOAD REPLAY']),
+      'RETRY',
+      'TITLE',
+    ];
   }
 
   protected confirm(index: number): void {
     const machine = this.ctx.machine;
+    const session = this.session;
+    if (session !== undefined) {
+      if (index === 0) {
+        const segmentIndex = session.segments.length - 1;
+        try {
+          const replay = new ReplayPlayingState(this.ctx, session, segmentIndex);
+          // The result card leaves, then the finished live run beneath it is
+          // replaced by the viewer. Same two-step stack discipline as RETRY.
+          machine.pop();
+          machine.replace(replay);
+        } catch (error) {
+          this.ctx.onReplayError?.((error as Error).message);
+        }
+        return;
+      }
+      if (index === 1) {
+        this.ctx.onDownloadReplay?.(session);
+        return;
+      }
+      index -= 2;
+    }
     if (index === 0) {
       // Pop this card, then swap the finished run for a brand new one. `Run`
       // is not reused: a retry that inherited a single counter would be a run
@@ -704,6 +1336,10 @@ abstract class EndingState extends MenuState {
     }
     machine.clear();
     machine.push(new TitleState(this.ctx));
+  }
+
+  private get session(): ReplaySession | undefined {
+    return findSession(this.ctx, this.playing.sessionId);
   }
 
   protected scoreLines(): readonly string[] {

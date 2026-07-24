@@ -34,6 +34,17 @@
         <button id="controller-connect" type="button">CONNECT CONTROLLER</button>
         <output id="controller-status" aria-live="polite"></output>
       </div>
+      <!-- Replay import must originate in a real DOM gesture. The authored
+           canvas row opens this hidden picker through its transparent button. -->
+      <input
+        id="replay-import"
+        type="file"
+        accept=".json,application/json"
+        hidden
+      />
+      <!-- Browser-owned success/error feedback sits outside both capture
+           canvases, so screenshots contain only the authored game frame. -->
+      <output id="shell-status" aria-live="polite" hidden></output>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
