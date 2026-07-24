@@ -64,7 +64,7 @@
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
-import './v4';
+import { V4_ENDINGS } from './v4';
 // The v4 campaign data, walked by the beam-sweep coupling test below. Read as data
 // here (root/composition layer) because `src/content` may not import `src/packs`
 // at all — the pack boundary is total (architecture.test.ts) — so the invariant
@@ -261,7 +261,11 @@ function playThroughGame(
 ): Coverage {
   const machine = new StateMachine();
   let seed = 1;
-  const ctx: GameContext = { machine, nextSeed: () => 0x51ee + seed++ };
+  const ctx: GameContext = {
+    machine,
+    nextSeed: () => 0x51ee + seed++,
+    campaignEndings: V4_ENDINGS,
+  };
   machine.push(new TitleState(ctx));
 
   // Steps of Down needed to move the difficulty cursor from its NORMAL default
@@ -794,12 +798,17 @@ describe('a real playthrough reaches', () => {
     // loops the phases too, the way the scene test does. All are the same
     // string-across-a-boundary — `musicNames` is audio-side, reachable from
     // `src/game`, while the sim never learns a track exists.
-    // `adjourn` is the ending track, declared at the shell level exactly as
-    // `MENU_MUSIC` is: no stage, boss or card names it — `EndingScreenState`
-    // sounds it (read off the stack in `main.ts`), and the ending is what reaches
-    // it. Unlike `MENU_MUSIC` it *is* entered by a real run (the probe clears the
-    // final stage and pages the ending), so it is not excepted from the check below.
-    const declared = new Set<string>([MENU_MUSIC, 'adjourn']);
+    // An edition ending may own a track at the shell level exactly as
+    // `MENU_MUSIC` is: no stage, boss or card names it. The probe receives the
+    // real v4 ending map, clears its exact terminal stage and captures the state
+    // declaration above, so ending music joins this set from its authoring data
+    // rather than from a generic-engine literal.
+    const declared = new Set<string>([
+      MENU_MUSIC,
+      ...Object.values(V4_ENDINGS)
+        .map((ending) => ending.music)
+        .filter((track) => track !== undefined),
+    ]);
     for (const stage of content(stageNames())) {
       const track = getStage(stage).music;
       if (track !== undefined) declared.add(track);
@@ -948,10 +957,10 @@ describe('a real playthrough reaches', () => {
   });
 
   test('every state screen', () => {
-    // `ending` joins the set: clearing a stage that declares no `next` raises
-    // `EndingScreenState` before the ALL CLEAR results card. `cleared` stays —
-    // non-final stage clears reach it directly, and the ending replaces itself
-    // with it on the last page, so both are touched by a full playthrough.
+    // `ending` joins the set because this probe receives v4's stage-keyed ending
+    // map and clears its exact `stage-4` target before the ALL CLEAR results card.
+    // `cleared` stays — non-final stage clears reach it directly, and the ending
+    // replaces itself with it on the last page, so both are touched by a full run.
     expect([...COVER.states].sort()).toEqual(
       ['character-select', 'cleared', 'difficulty-select', 'ending', 'playing', 'title'].sort(),
     );

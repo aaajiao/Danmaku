@@ -1,11 +1,12 @@
 /**
  * Drift guard for the generated v4 campaign.
  *
- * `src/v4/content/campaign.json` is committed, and `tools/make-v4-content.ts` is the
- * source of truth it is generated from — the design commentary lives in the
- * generator, the JSON is machinery. If someone edits the JSON by hand, or edits
- * the generator without regenerating, the two diverge and the commentary stops
- * describing the shipped pack. This regenerates in memory and byte-diffs.
+ * `src/v4/content/campaign.json` is committed, and `tools/make-v4-content.ts`
+ * assembles it from structural/simulation authoring plus the edition-owned words
+ * in `src/v4/content/narrative.ts` — the JSON is machinery. If someone edits the
+ * JSON by hand, or edits either source without regenerating, the two diverge and
+ * the commentary stops describing the shipped pack. This regenerates in memory
+ * and byte-diffs.
  *
  * A failure means exactly one action: run `bun tools/make-v4-content.ts` and
  * commit the result (having first confirmed the change was intended — the replay
@@ -133,6 +134,31 @@ test('every boss has several pattern families and every phase has its own signat
       signatures.add(signature);
     }
     expect(signatures.size).toBe(boss.phases.length);
+  }
+});
+
+test('every authored boss exchange leaves the player a voice', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: {
+      bosses: Record<string, {
+        dialogue?: readonly { speaker: string; text: string }[];
+        dialogueFor?: Readonly<Record<string, readonly { speaker: string; text: string }[]>>;
+      }>;
+    };
+  };
+
+  for (const [bossName, boss] of Object.entries(pack.content.bosses)) {
+    const exchanges = [
+      ['default', boss.dialogue] as const,
+      ...Object.entries(boss.dialogueFor ?? {}),
+    ];
+    for (const [variant, lines] of exchanges) {
+      expect(lines?.length ?? 0, `${bossName}/${variant}`).toBeGreaterThan(0);
+      expect(
+        lines?.some((line) => line.speaker === 'player'),
+        `${bossName}/${variant}`,
+      ).toBe(true);
+    }
   }
 });
 

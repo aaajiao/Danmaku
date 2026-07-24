@@ -1,10 +1,14 @@
 /**
- * The bundled v4 campaign — the game's own campaign, injected as pack data.
+ * The bundled v4 campaign and its edition-owned ending.
  *
  * All four stages, sixteen enemy types, five bosses and the complete player
  * side now live in `campaign.json` (authored by `tools/make-v4-content.ts`) and
  * register through the same validate+inject pipeline as any fetched pack. The
- * manifest's old stage-1/stage-2 description is deliberately frozen for this
+ * English words are authored in `narrative.ts`: boss exchanges are assembled
+ * into that JSON, while the stage-keyed ending is exported as plain data for the
+ * generic shell. Downloadable terminal stages therefore never inherit it.
+ *
+ * The manifest's old stage-1/stage-2 description is deliberately frozen for this
  * ownership-only migration: changing those JSON bytes would change the replay
  * fingerprint without changing gameplay.
  *
@@ -63,6 +67,7 @@ export const BASE_PACK_NAME = 'base';
 // danmaku identity in replay meta, a plain string the sim carries opaquely (see
 // RunConfig.contentFingerprint).
 export { CONTENT_FINGERPRINT } from './campaign.fingerprint';
+export { V4_ENDINGS } from './narrative';
 
 const manifest = campaignJson as unknown as PackManifest;
 

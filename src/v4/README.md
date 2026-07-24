@@ -17,7 +17,8 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Danmaku definitions | [`gameplay/patterns.ts`](./gameplay/patterns.ts) | Registry and emitter primitives in [`src/content/pattern-registry.ts`](../content/pattern-registry.ts) |
 | Motion definitions | [`gameplay/behaviours.ts`](./gameplay/behaviours.ts) | Registry, timelines and integration in [`src/sim/motion.ts`](../sim/motion.ts) |
 | Authored shader-driven scenes | [`backgrounds/`](./backgrounds), with fixed hybrid plates in [`src/assets/v4/backgrounds`](../assets/v4/backgrounds) | Registry, shared GLSL helpers, art preload, cross-fade and renderer in [`src/render/background.ts`](../render/background.ts) |
-| Campaign authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
+| Campaign structure and simulation authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
+| Campaign dialogue and ending | [`content/narrative.ts`](./content/narrative.ts) | Boss dialogue transport in campaign data; generic paging and transitions in [`src/game/states.ts`](../game/states.ts) |
 | Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay identity hashes campaign data plus compiled v4 patterns/behaviours; simulation carries only the opaque string |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
 | Audio identity and release assets | [`audio/`](./audio), [`docs/v4-audio-direction.md`](../../docs/v4-audio-direction.md), and generated release audio in [`packs/v4`](../../packs/v4) | Sound/music registries, synthesis and WebAudio playback in [`src/audio`](../audio) |
@@ -34,7 +35,7 @@ not become v4-specific.
 2. deterministic danmaku patterns;
 3. authored background shaders and their optional project-owned painted plates;
 4. v4 audio identity and fallback score;
-5. generated campaign data.
+5. generated campaign data and the stage-keyed v4 ending.
 
 [`src/main.ts`](../main.ts) imports that root before it calls the runtime pack
 loader. Campaign injection can therefore resolve every pattern, behaviour,
@@ -59,9 +60,12 @@ keep older imports working while ownership stays visible under this directory.
 
 ## Editing the edition
 
-- Campaign changes start in
-  [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts), followed by
-  `bun run make:v4-content`. Do not hand-edit generated JSON or its fingerprint.
+- Structural and simulation campaign changes start in
+  [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts). English dialogue
+  and ending changes start in [`content/narrative.ts`](./content/narrative.ts).
+  Dialogue is assembled into campaign data, so either kind of generated-content
+  change is followed by `bun run make:v4-content`. Do not hand-edit generated
+  JSON or its fingerprint.
 - Pattern and behaviour changes are ordinary reviewed TypeScript under
   [`gameplay/`](./gameplay). They remain inside the deterministic and headless
   architecture scans.
@@ -98,8 +102,10 @@ actual firing signatures, and regenerates the eight Normal/Lunatic traces. The
 generated `CONTENT_FINGERPRINT` now hashes campaign JSON together with the exact
 `patterns.ts` and `behaviours.ts` bytes, closing the migration-era hole where
 compiled danmaku could change under an unchanged replay identity. Its current
-value is `ffcf706d0622`; player focus stances and five identity bombs are part of
-that intentional gameplay revision too.
+value is `7ec721e82129`. The negative-space dialogue revision changed authored
+campaign bytes, and therefore replay identity, while deliberately preserving
+every exchange's line count and the golden traces. Player focus stances and five
+identity bombs remain part of the earlier intentional gameplay revision.
 
 `campaign.json` still contains the description “stage-1 and stage-2, their cast
 and bosses.” That string is stale historical metadata: the actual edition has

@@ -1181,20 +1181,25 @@ title menu grows a row per entry, so a pack stage is reachable without touching
 **The base game's own stages are that pack data.** `stage-1`, `stage-2`,
 `stage-3` and `stage-4` are no longer `defineStage` calls in `src/content/stage.ts`
 — that file keeps only the machinery. They are generated JSON in
-`src/v4/content/campaign.json`, authored in `tools/make-v4-content.ts`, and
-injected bare by `src/v4/content/index.ts` (no campaign row: the entry stage
-takes the plain START row). So extending the base campaign — a new stage, or a
-new wave in an existing one — is a generator edit; `docs/packs.md` §9.7
-covers how it round-trips byte-for-byte and the drift test that holds it. Do not
-hand-edit `campaign.json`; it is generated, replay-guarded output.
+`src/v4/content/campaign.json`; its structure and simulation are authored in
+`tools/make-v4-content.ts`, while its English dialogue is authored in
+`src/v4/content/narrative.ts`. It is injected bare by
+`src/v4/content/index.ts` (no campaign row: the entry stage takes the plain
+START row). So extending the base campaign — a new stage, or a new wave in an
+existing one — is a generator edit; dialogue and ending prose are narrative
+edits. `docs/packs.md` §9.7 covers how generated campaign data round-trips
+byte-for-byte and the drift test that holds it. Do not hand-edit
+`campaign.json`; it is generated, replay-guarded output.
 The worked example is **`stage-3`** (`tools/make-v4-content.ts`): its
 wave arc and its `boss: 'chancellor'` handoff are the same `StageSpec` fields
 above, authored in the generator's JSON rather than through `defineStage`. It is
 no longer the campaign's last stage — its `next` names `stage-4`, whose own
-`boss: 'regent'` and `next: null` are what close the campaign now. Clearing a
-stage whose `next` is `null` raises the ending screen before the results screen
-(§9 above and `docs/packs.md` §9.7 note the same behaviour); the closing stage
-is content, the ending screen it triggers is not.
+`boss: 'regent'` and `next: null` are what close the campaign now. The v4
+composition root separately supplies the paged ending from
+`src/v4/content/narrative.ts`, keyed to that exact bare `stage-4` name. A
+terminal stage with no matching edition ending goes directly to the neutral
+`ALL CLEAR` results screen; `next: null` alone does not grant v4 prose, music or
+scene to a guest campaign.
 
 ---
 

@@ -71,7 +71,12 @@ describe('sentinel speaks its authored variant to spire and the default to every
 
     // A fresh Shot press advances to the variant's second line.
     run.tick(Button.Shot);
-    expect(run.dialogue).toEqual({ speaker: 'player', text: 'The climb is the summit.', index: 1, count: 2 });
+    expect(run.dialogue).toEqual({
+      speaker: 'player',
+      text: 'Then watch what the climb leaves behind.',
+      index: 1,
+      count: 2,
+    });
 
     // Releasing and pressing again passes the last line: the exchange ends and the
     // held boss enters — a two-line variant, one line shorter than the default.

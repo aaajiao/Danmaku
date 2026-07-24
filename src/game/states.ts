@@ -6,8 +6,10 @@
  * reached for a renderer could not be driven in a test, and the states are where
  * "retry produces a genuinely fresh run" either holds or quietly stops holding.
  *
- * Text is placeholder. These are labels — screen furniture — not dialogue, which
- * is out of scope by the owner's decision.
+ * Text here is screen furniture, never an edition's authored narrative. Boss
+ * exchanges arrive on boss content; campaign endings arrive as plain
+ * `CampaignEnding` data. `EndingScreenState` owns only paging and transition
+ * mechanics, so a guest campaign can never inherit v4's voice by accident.
  *
  * ## Why states hold the machine
  *
@@ -65,6 +67,34 @@ export interface Campaign {
 }
 
 /**
+ * One page of an edition-owned campaign ending.
+ *
+ * `lines` is the fallback for every character. `linesFor` may replace the whole
+ * page for a named ship, mirroring boss `dialogueFor` without making the generic
+ * game layer know what a coda is. Empty strings inside either array are authored
+ * vertical punctuation and must survive to the renderer.
+ */
+export interface CampaignEndingPage {
+  readonly lines: readonly string[];
+  readonly linesFor?: Readonly<Record<string, readonly string[]>>;
+}
+
+/**
+ * A terminal campaign's presentation, supplied by an edition as plain data.
+ *
+ * Music and scene are names across the same shell boundary used by stages and
+ * bosses. The state machine neither imports nor resolves either registry.
+ */
+export interface CampaignEnding {
+  readonly pages: readonly CampaignEndingPage[];
+  readonly music?: string;
+  readonly scene?: string;
+}
+
+/** Terminal stage name → that edition's ending. */
+export type CampaignEndings = Readonly<Record<string, CampaignEnding>>;
+
+/**
  * A pack character and the identity of the pack that owns it, all plain data.
  *
  * A pack character (`<pack>/<name>`) drives the simulation with pack content —
@@ -114,6 +144,15 @@ export interface GameContext {
    * the loader as plain data. Empty means today's menu, exactly.
    */
   campaigns?: readonly Campaign[];
+  /**
+   * Edition-owned endings keyed by the exact terminal stage name.
+   *
+   * `PlayingState` looks up the stage it actually cleared, not the title-menu
+   * selection that once launched it. Built-in `stage-4` therefore receives v4's
+   * ending while a fetched `pack/finale` with no entry here goes directly to the
+   * neutral ALL CLEAR results screen.
+   */
+  campaignEndings?: CampaignEndings;
   /**
    * The pack characters this build registered and the identity of the pack that
    * owns each — one entry per `<pack>/<name>` character on the SELECT screen,
@@ -873,20 +912,23 @@ export class PlayingState implements GameState {
     // ended on, and the machine renders the whole stack. Replacing would leave
     // a game-over card floating on nothing.
     //
-    // A cleared run forks on whether a stage follows. The ordinary case is
-    // another `ClearedState` (STAGE CLEAR / NEXT STAGE). But clearing a stage
-    // that declares no `next` — a `null` on the last stage of a campaign — is the
-    // *game's* ending, not a stage's, so it raises `EndingScreenState` first: the
-    // apparatus going quiet, in the game's own voice, before the ALL CLEAR
-    // results screen that `EndingScreenState` replaces itself with on the last
-    // page. `nextStage === undefined` is the same "no next stage" the
-    // `ClearedState` below already reads (`advance`/`#hasNext`); this only splits
-    // the terminal case out ahead of the results card.
+    // A cleared run forks on whether the exact terminal stage has an
+    // edition-owned ending. A stage with `next` still raises STAGE CLEAR. A
+    // terminal stage with matching `campaignEndings` data pages through that
+    // presentation before ALL CLEAR; a terminal stage without one goes straight
+    // to the neutral results card. Looking up `run.stageName` rather than a
+    // remembered menu choice keeps direct launches, retries and namespaced guest
+    // campaigns honest.
+    const nextStage = this.nextStage;
+    const campaignEnding =
+      nextStage === undefined
+        ? this.#ctx.campaignEndings?.[this.run.stageName]
+        : undefined;
     const ending =
       this.run.outcome === 'cleared'
-        ? this.nextStage === undefined
-          ? new EndingScreenState(this.#ctx, this)
-          : new ClearedState(this.#ctx, this)
+        ? campaignEnding === undefined
+          ? new ClearedState(this.#ctx, this)
+          : new EndingScreenState(this.#ctx, this, campaignEnding)
         : new GameOverState(this.#ctx, this);
     this.#ctx.machine.push(ending);
   }
@@ -1926,56 +1968,8 @@ export class ClearedState extends EndingState {
 /* ------------------------------------------------------------------ */
 
 /**
- * The game's own closing words, before the coda and the results screen. Cold and
- * archetypal — a *seat*, a *descent*, a *gate* — so they read true for the base
- * campaign and acceptably for any descent-shaped guest campaign that declares an
- * end, without naming a single boss. This is the game's institutional voice, never
- * the final boss's: an administrator with a death-speech would contradict the whole
- * reveal, and a dead empty seat cannot speak. The apparatus simply goes quiet.
- */
-const ENDING_OPENING: readonly string[] = [
-  'You have reached the bottom of the descent.',
-  'The seat at the centre is empty.',
-  'It was never occupied — only kept.',
-];
-
-/**
- * The closing block. The blank middle line is intentional — a beat before the last
- * words — carried as an empty string through `lines`. "No one is watching the gate"
- * answers the campaign's opening "The gate is me": four strata later, no one is.
- */
-const ENDING_CLOSING: readonly string[] = [
-  'The strata stand open. No one is watching the gate.',
-  '',
-  'Adjourned, sine die.',
-];
-
-/**
- * The per-character coda, keyed off the ship that flew the run. Pure data
- * selection off `PlayingState.characterName` — the same shape `dialogueFor` uses,
- * no new field. A character the map does not name (a guest ship, a test pilot) gets
- * a neutral archetypal line rather than nothing, so the ending always has its
- * middle page.
- *
- * Exported for `states.test.ts`: the four base ships live in the bundled pack,
- * which a `src/game` test may not import, so the selection is proved against the
- * literal names here rather than by flying a registered ship.
- */
-const ENDING_CODAS: Readonly<Record<string, string>> = {
-  scout: 'You were only ever passing through.',
-  lance: 'Nothing down here yields. You leave it standing.',
-  hound: 'You found the source. There was nothing to hold it.',
-  spire: 'The seat is empty. You climbed anyway.',
-};
-
-const ENDING_CODA_DEFAULT = 'You reached the centre, and no one answered.';
-
-export function endingCoda(characterName: string): string {
-  return ENDING_CODAS[characterName] ?? ENDING_CODA_DEFAULT;
-}
-
-/**
- * The game's ending, shown on clearing a stage that declares no `next`.
+ * An edition-owned ending, shown only when the exact terminal stage has a
+ * `CampaignEnding` entry.
  *
  * A menu-layer screen over a finished run: it holds no sim state and does not tick
  * the simulation, so a recorded run replays to the same clear tick exactly and the
@@ -1984,40 +1978,29 @@ export function endingCoda(characterName: string): string {
  * extends `MenuState` purely to reuse the latched `edges.pressed(CONFIRM)` every
  * menu and the pre-fight dialogue already read, so the same input vocabulary pages
  * it through. Its `entries` are empty: it is paged text, not a cursor, so it holds
- * its own `#page` counter and ignores the `index` a confirm carries.
+ * its own `#page` counter and ignores the `index` a confirm carries. Each page
+ * selects `linesFor[character] ?? lines` once in the constructor; the generic
+ * state does not know which page is an opening, a coda or a closing.
  *
  * On confirming the last page it `replace`s itself with `ClearedState`, so the
  * existing ALL CLEAR results screen (score / graze / deaths, the assist marker,
  * RETRY / TITLE) still appears and the results-and-replay path is intact — the run
  * still reaches `'cleared'`. The field it ended on stays on the stack beneath, so
- * the emptied play field and HUD keep drawing under the text.
+ * its frozen curtain and HUD keep drawing under the text. An edition may therefore
+ * compose its closing words against what survived the fight rather than a blank
+ * canvas; the generic state assigns that survival no meaning of its own.
  *
- * `music` is the one shell-level seam: the reconcile in `main.ts` reads it off the
- * stack the same way it reads `MENU_MUSIC` as the no-run fallback, so entering this
- * screen crossfades whatever the fight sounded to `adjourn` — the apparatus going
- * quiet, which is the reveal. A `Run` cannot express this (after the boss dies it
- * falls back to the stage track), which is why it is a state-level field rather than
- * `run.music`.
+ * `music` and `scene` are the shell-level seams: the reconcile in `main.ts` reads
+ * them off the stack. A finished `Run` has already fallen back to its stage
+ * declarations, so an ending's own presentation has to live on this state. The
+ * values themselves remain edition data.
  */
 export class EndingScreenState extends MenuState {
   readonly name = 'ending';
 
-  /**
-   * Read by `main.ts`'s music reconcile off the stack, exactly as `MENU_MUSIC` is
-   * the no-run fallback. Independent of any `Run`: a finished run's `run.music`
-   * has fallen back to the stage theme, so the ending's track has to live here.
-   */
-  readonly music = 'adjourn';
-
-  /**
-   * The scene the shell reconciles to for the ending, the visual twin of `music`
-   * above and read off the stack exactly the same way (`main.ts`'s scene
-   * reconcile, mirroring music precedence). The finished run's own `run.scene`
-   * reports the field it cleared on; the ending wants its own — `signal-decay`,
-   * the apparatus decaying into noise as it goes quiet. A string, resolved in the
-   * shell, because `src/game` may not import the renderer.
-   */
-  readonly scene = 'signal-decay';
+  /** Optional edition declarations, read by the shell off the state stack. */
+  readonly music?: string;
+  readonly scene?: string;
 
   readonly #playing: PlayingState;
 
@@ -2026,14 +2009,17 @@ export class EndingScreenState extends MenuState {
 
   readonly #pages: readonly (readonly string[])[];
 
-  constructor(ctx: GameContext, playing: PlayingState) {
+  constructor(ctx: GameContext, playing: PlayingState, ending: CampaignEnding) {
     super(ctx);
     this.#playing = playing;
-    this.#pages = [
-      ENDING_OPENING,
-      [endingCoda(playing.characterName)],
-      ENDING_CLOSING,
-    ];
+    if (ending.pages.length === 0) {
+      throw new Error(`campaign ending for "${playing.run.stageName}" has no pages`);
+    }
+    if (ending.music !== undefined) this.music = ending.music;
+    if (ending.scene !== undefined) this.scene = ending.scene;
+    this.#pages = ending.pages.map((page) => [
+      ...(page.linesFor?.[playing.characterName] ?? page.lines),
+    ]);
   }
 
   protected get entries(): readonly string[] {

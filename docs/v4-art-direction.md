@@ -114,6 +114,51 @@ flowchart BT
 `expanse` 的动态基底保持 git HEAD 原始实现，并与新的冷青 Ghost
 有限调色板像素膜层组合。
 
+### 2.1 对白与结局：行为如何把空席维持为空
+
+对白不是替作品解释“负空间”的说明书。这里的空席也不等于“无人治理”：
+真正需要显影的是守门、穿越、躲避、命名、归档和重复通行等行为，如何被制度
+压成门、判词、卷宗和既成秩序。v4 的叙事链因此固定为
+`cross → hold → record → file → wear`：
+
+| 站点 | 对白必须显露的行为 | 不能写成 |
+|---|---|---|
+| Sentinel | 她监视的不是玩家说了什么，而是玩家如何穿过 gate | 一位自足、全能的主权者 |
+| Warden | 关闭需要身体持续把持；门不会自行保持关闭 | 没有劳动者的自动系统 |
+| Magistrate | 玩家走过的每一步进入 record，再被命名为 trespass / evasion / persistence | 与行为无关的抽象判词 |
+| Chancellor | 档案只保存 trace，不保存 crossing；玩家继续移动就是裂缝 | 把术语或符卡名当理论台词 |
+| Regent | order 由所有既往通行者共同磨进空间；同一行为既可能磨开，也可能加深 groove | “无人决定，所以系统完美有效”的封闭总体 |
+
+Spire 的三组变体只使用真实玩法事实：攀登、持线和已经磨损的步伐。她仍然
+必须回答，不能因为制度把她归档，文本本身就夺走她的声音。Regent 对白发生在
+Boss 和 `regnum` 场景显现之前，因此不得让角色指向画面上并不存在的 seat；
+空席只在战斗结束后的 ending 中揭示一次。
+
+结局不许承诺彻底解放。Regent 死后，四层制度及冻结的弹幕沉积仍在场上；变化
+只是玩家的 passage 变得可见，record 在此停止，而行为继续。五位内置主角各用
+自己的玩法动词得到一条 coda：SCOUT 留下 wake、LANCE 切出 passage、HOUND
+发现交叉 tracks、SPIRE 自己决定立足点、MAW 留下未被填满的 space。未知角色
+使用中性 coda，不冒充第六种内置身份。
+
+英文写作遵守以下减法：
+
+- 每组保持 2–5 句，每句只承载一个动作或图像；
+- 不在对白中直说 Internet Void、metadata、algorithm、入神或出神；
+- 不用“explores / interrogates / engages with”一类艺术说明词，也不以生僻
+  法律术语替代人物声音；
+- 玩家回应必须留下选择，但不宣布胜利已经永久修复制度；
+- `GAME OVER`、`STAGE CLEAR`、`ALL CLEAR`、统计和 replay 菜单仍是功能 UI，
+  不为追求“完整世界观”强塞第二套叙事结局。
+
+全部英文对白、三页 ending 与五条 coda 的作者真值统一在
+[`src/v4/content/narrative.ts`](../src/v4/content/narrative.ts)。
+`tools/make-v4-content.ts` 只把 Boss 对白装配进确定性生成的 `campaign.json`；
+v4 composition root 则把 ending 以纯数据注入通用状态机，并只绑定真实终局
+`stage-4`。`src/game/states.ts` 不再保存任何 v4 英文，只负责按角色选择页面、
+翻页和进入 `ALL CLEAR`。因此 `pack/finale` 一类 guest 终局若没有自己的
+edition 注入，会直接进入中性的统计页，不再继承 descent / strata、
+`adjourn` 或 `signal-decay`。
+
 ---
 
 ## 3. 五位可选主角

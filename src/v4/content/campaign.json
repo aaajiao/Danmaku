@@ -1809,11 +1809,11 @@
           },
           {
             "speaker": "player",
-            "text": "The gate is behind you."
+            "text": "The gate is behind me."
           },
           {
             "speaker": "sentinel",
-            "text": "The gate is me."
+            "text": "I was watching how you crossed."
           }
         ],
         "dialogueFor": {
@@ -1824,7 +1824,7 @@
             },
             {
               "speaker": "player",
-              "text": "The climb is the summit."
+              "text": "Then watch what the climb leaves behind."
             }
           ]
         },
@@ -2340,11 +2340,11 @@
           },
           {
             "speaker": "player",
-            "text": "Open it."
+            "text": "Then why are you still holding it?"
           },
           {
             "speaker": "warden",
-            "text": "I open nothing. I only hold."
+            "text": "Nothing stays closed by itself."
           }
         ],
         "phases": [
@@ -2756,19 +2756,19 @@
         "dialogue": [
           {
             "speaker": "magistrate",
-            "text": "You have come a long way to be sentenced."
+            "text": "Every step is in the record."
           },
           {
             "speaker": "player",
-            "text": "Read the charge, then."
+            "text": "Then read what I did."
           },
           {
             "speaker": "magistrate",
-            "text": "Trespass. Persistence. The verdict is the same."
+            "text": "Trespass. Evasion. Persistence."
           },
           {
             "speaker": "player",
-            "text": "Then I appeal."
+            "text": "Call my next step an appeal."
           }
         ],
         "phases": [
@@ -3422,30 +3422,30 @@
         "dialogue": [
           {
             "speaker": "chancellor",
-            "text": "Appeals are heard here."
+            "text": "Every crossing is filed here."
           },
           {
             "speaker": "player",
-            "text": "I did not come to be heard."
+            "text": "You filed the trace, not the crossing."
           },
           {
             "speaker": "chancellor",
-            "text": "They are not granted."
+            "text": "The trace is enough."
           },
           {
-            "speaker": "chancellor",
-            "text": "No. You came to be filed."
+            "speaker": "player",
+            "text": "Only if I stop moving."
           }
         ],
         "dialogueFor": {
           "spire": [
             {
               "speaker": "chancellor",
-              "text": "You already stand still."
+              "text": "You held one line all the way here."
             },
             {
-              "speaker": "chancellor",
-              "text": "You are half-filed. Estoppel does the rest."
+              "speaker": "player",
+              "text": "I held a path. You named it law."
             }
           ]
         },
@@ -4168,38 +4168,38 @@
         "dialogue": [
           {
             "speaker": "regent",
-            "text": "Nothing is filed here. Everything already is."
+            "text": "No order was issued here. It was worn into place."
           },
           {
             "speaker": "player",
-            "text": "Then who decided it."
+            "text": "By whom?"
           },
           {
             "speaker": "regent",
-            "text": "No one. That is what makes it binding."
+            "text": "By everyone who passed through."
           },
           {
             "speaker": "player",
-            "text": "Show me the one who signs."
+            "text": "Then we can wear it open."
           },
           {
             "speaker": "regent",
-            "text": "You are looking at the signature."
+            "text": "Or deepen the groove."
           }
         ],
         "dialogueFor": {
           "spire": [
             {
               "speaker": "regent",
-              "text": "You climbed for a seat. Look at it."
+              "text": "The steps behind you are worn deep."
             },
             {
               "speaker": "player",
-              "text": "It is empty."
+              "text": "The next one need not be."
             },
             {
               "speaker": "regent",
-              "text": "It has always been empty. The climbing is what fills it."
+              "text": "Then stop here."
             }
           ]
         },

@@ -14,7 +14,7 @@ import './pwa';
 // The compiled v4 edition installs its deterministic patterns and behaviours,
 // byte-pinned shaders, and four-stage campaign in dependency order. Arbitrary
 // asset packs remain data-only and load afterward.
-import { CONTENT_FINGERPRINT } from './v4';
+import { CONTENT_FINGERPRINT, V4_ENDINGS } from './v4';
 
 import * as THREE from 'three';
 import { Audio, overrideSound, soundNames } from './audio';
@@ -901,6 +901,10 @@ const context: GameContext = {
   // `RunConfig.contentFingerprint` and recorded into replay meta — so a replay
   // made on this build is caught when replayed against drifted base content.
   contentFingerprint: CONTENT_FINGERPRINT,
+  // Edition narrative crosses into the generic state machine as plain data,
+  // keyed by the exact terminal stage. A namespaced guest finale is absent and
+  // therefore reaches the neutral ALL CLEAR card without inheriting v4's voice.
+  campaignEndings: V4_ENDINGS,
   campaigns: packs.campaigns,
   // The pack characters this build registered, each with its owning pack's
   // identity — the character path's mirror of `campaigns`. `CharacterSelectState`
@@ -2855,6 +2859,13 @@ function drawViewLines(
   surface.fillStyle = colour;
   let y = startY;
   for (const value of lines) {
+    // An authored empty line is vertical punctuation, not absent data. The ending
+    // uses one as a visible beat before its last words; `wrapText('')` quite
+    // correctly returns no glyph rows, so reserve the baseline explicitly.
+    if (value === '') {
+      y += 17;
+      continue;
+    }
     for (const row of wrapText(value, maxWidth)) {
       surface.fillText(row, cx, y);
       y += 17;

@@ -15,6 +15,7 @@ import { stageNames } from '../content/stage';
 import { backgroundNames } from '../render/background';
 import { behaviourNames } from '../sim/motion';
 import { CONTENT_FINGERPRINT } from './content';
+import { V4_BOSS_DIALOGUE, V4_ENDINGS } from './content/narrative';
 import { V4_PATTERN_NAMES } from './gameplay/patterns';
 
 const V4_BEHAVIOUR_NAMES = [
@@ -58,8 +59,48 @@ describe('v4 edition composition', () => {
     );
   });
 
+  test('owns the campaign dialogue and terminal ending inside v4', () => {
+    expect(Object.keys(V4_BOSS_DIALOGUE)).toEqual([
+      'sentinel',
+      'warden',
+      'magistrate',
+      'chancellor',
+      'regent',
+    ]);
+    for (const exchange of Object.values(V4_BOSS_DIALOGUE)) {
+      expect(exchange.dialogue.some((line) => line.speaker === 'player')).toBe(true);
+      const variants: readonly (readonly { readonly speaker: string }[])[] =
+        'dialogueFor' in exchange ? Object.values(exchange.dialogueFor) : [];
+      for (const variant of variants) {
+        expect(variant.some((line) => line.speaker === 'player')).toBe(true);
+      }
+    }
+
+    const ending = V4_ENDINGS['stage-4'];
+    expect(ending.music).toBe('adjourn');
+    expect(ending.scene).toBe('signal-decay');
+    expect(ending.pages[0]?.lines).toEqual([
+      'You have reached the bottom of the descent.',
+      'The seat at the centre is empty.',
+      'The floor around it is worn smooth.',
+    ]);
+    expect(ending.pages[1]?.linesFor).toEqual({
+      scout: ['You were passing through. The field still carries your wake.'],
+      lance: ['You cut a passage. It has not closed yet.'],
+      hound: ['You found no source, only tracks crossing yours.'],
+      spire: ['You reached no summit. You still choose where to stand.'],
+      maw: ['What you swallowed left a space. You leave it unfilled.'],
+    });
+    expect(ending.pages[2]?.lines).toEqual([
+      'The strata remain. Your passage remains open.',
+      '',
+      'The record ends here. You keep moving.',
+      'Adjourned sine die.',
+    ]);
+  });
+
   test('pins the current data plus executable-danmaku replay identity', () => {
-    expect(CONTENT_FINGERPRINT).toBe('cc3ed0769b55');
+    expect(CONTENT_FINGERPRINT).toBe('7ec721e82129');
   });
 
   test('keeps the historical import facades live without a second registration', async () => {

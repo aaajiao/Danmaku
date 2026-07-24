@@ -19,9 +19,9 @@ import {
   CharacterSelectState,
   ClearedState,
   DifficultySelectState,
-  endingCoda,
   EndingScreenState,
   GameOverState,
+  type CampaignEndings,
   type GameContext,
   PauseState,
   PlayingState,
@@ -104,6 +104,8 @@ defineCharacter(PACK_CHARACTER, {
  */
 const FINAL_STAGE = 'test-ending-final';
 defineStage(FINAL_STAGE, { name: FINAL_STAGE, waves: [] });
+const UNAUTHORED_FINAL_STAGE = 'test-ending-unowned';
+defineStage(UNAUTHORED_FINAL_STAGE, { name: UNAUTHORED_FINAL_STAGE, waves: [] });
 const PENULTIMATE_STAGE = 'test-ending-penultimate';
 defineStage(PENULTIMATE_STAGE, { name: PENULTIMATE_STAGE, waves: [], next: FINAL_STAGE });
 const REPLAY_STAGE = 'test-replay-stage';
@@ -120,6 +122,24 @@ defineStage(RECORDING_PENULTIMATE_STAGE, {
   waves: [],
   next: RECORDING_FINAL_STAGE,
 });
+
+/** Generic ending fixture: deliberately no v4 words or presentation names. */
+const TEST_CAMPAIGN_ENDINGS = {
+  [FINAL_STAGE]: {
+    music: 'test-ending-music',
+    scene: 'test-ending-scene',
+    pages: [
+      { lines: ['test opening one', 'test opening two'] },
+      {
+        lines: ['test fallback coda'],
+        linesFor: {
+          [PILOT]: ['test pilot coda'],
+        },
+      },
+      { lines: ['test closing one', '', 'test closing two'] },
+    ],
+  },
+} as const satisfies CampaignEndings;
 
 /* ------------------------------------------------------------------ */
 /* Harness                                                             */
@@ -169,6 +189,7 @@ function context(overrides: Partial<GameContext> = {}): GameContext {
     // Constant, so a test that retries twice gets the same run both times and
     // any difference it sees is a real one rather than a new seed.
     nextSeed: () => 0x5747a1,
+    campaignEndings: TEST_CAMPAIGN_ENDINGS,
     ...overrides,
   };
 }
@@ -1795,7 +1816,7 @@ describe('the ending', () => {
     expect((ctx.machine.current as ClearedState).view().title).toBe('STAGE CLEAR');
   });
 
-  test('clearing a stage with no next raises the ending screen instead', () => {
+  test('clearing a terminal stage with matching edition data raises the ending screen', () => {
     const ctx = context();
     const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
     ctx.machine.push(playing);
@@ -1807,6 +1828,18 @@ describe('the ending', () => {
     expect(ctx.machine.views().map((v) => v.kind)).toEqual(['playing', 'ending']);
   });
 
+  test('a terminal stage with no owned ending goes straight to neutral ALL CLEAR', () => {
+    const ctx = context();
+    const playing = new PlayingState(ctx, PILOT, { stage: UNAUTHORED_FINAL_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    expect(playing.run.outcome).toBe('cleared');
+    expect(ctx.machine.current?.name).toBe('cleared');
+    expect((ctx.machine.current as ClearedState).view().title).toBe('ALL CLEAR');
+    expect(ctx.machine.views().map((v) => v.kind)).toEqual(['playing', 'cleared']);
+  });
+
   test('CONFIRM pages through the ending and then shows the ALL CLEAR results', () => {
     const ctx = context();
     const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
@@ -1816,20 +1849,21 @@ describe('the ending', () => {
     const ending = ctx.machine.current as EndingScreenState;
     expect(ending.name).toBe('ending');
 
-    // Page 0: the opening. Page 1: the coda. Page 2: the closing. Three CONFIRM
-    // edges page through them; the third exits to the results screen.
+    // The generic state assigns no semantics to the three pages. It selects the
+    // pilot-specific second page and preserves the authored blank in the third;
+    // the third CONFIRM exits to the results screen.
     const page0 = ending.view().lines ?? [];
-    expect(page0[0]).toBe('You have reached the bottom of the descent.');
+    expect(page0).toEqual(['test opening one', 'test opening two']);
+
+    tap(ctx.machine, Button.Shot);
+    expect((ctx.machine.current as EndingScreenState).view().lines).toEqual(['test pilot coda']);
 
     tap(ctx.machine, Button.Shot);
     expect((ctx.machine.current as EndingScreenState).view().lines).toEqual([
-      endingCoda(PILOT),
+      'test closing one',
+      '',
+      'test closing two',
     ]);
-
-    tap(ctx.machine, Button.Shot);
-    expect((ctx.machine.current as EndingScreenState).view().lines?.at(-1)).toBe(
-      'Adjourned, sine die.',
-    );
 
     // The last page's CONFIRM replaces the ending with the results card — still a
     // `cleared` screen, ALL CLEAR because this stage had no next, with the run's
@@ -1856,28 +1890,27 @@ describe('the ending', () => {
     );
   });
 
-  test('the ending sounds the adjourn track for the shell to reconcile', () => {
+  test('the ending exposes its edition-owned music and scene to the shell', () => {
     const ctx = context();
     const playing = new PlayingState(ctx, PILOT, { stage: FINAL_STAGE });
     ctx.machine.push(playing);
     clearRun(ctx, playing);
 
-    // The state-level field `main.ts` reads off the stack, exactly as it reads the
-    // menu fallback — the one seam a finished `Run` cannot express.
-    expect((ctx.machine.current as { music?: string }).music).toBe('adjourn');
+    const ending = ctx.machine.current as { music?: string; scene?: string };
+    expect(ending.music).toBe('test-ending-music');
+    expect(ending.scene).toBe('test-ending-scene');
   });
 
-  test('each character selects its own coda, and an unknown ship a neutral one', () => {
-    // The four base ships live in the bundled pack, which this `src/game` test may
-    // not import, so the selection is proved against the literal names rather than
-    // by flying a registered ship.
-    expect(endingCoda('scout')).toBe('You were only ever passing through.');
-    expect(endingCoda('lance')).toBe('Nothing down here yields. You leave it standing.');
-    expect(endingCoda('hound')).toBe('You found the source. There was nothing to hold it.');
-    expect(endingCoda('spire')).toBe('The seat is empty. You climbed anyway.');
-    // A guest ship, or this file's test pilot, still gets a middle page.
-    expect(endingCoda('demo/raider')).toBe('You reached the centre, and no one answered.');
-    expect(endingCoda(PILOT)).toBe('You reached the centre, and no one answered.');
+  test('an unlisted character receives the page fallback', () => {
+    const ctx = context();
+    const playing = new PlayingState(ctx, PACK_CHARACTER, { stage: FINAL_STAGE });
+    ctx.machine.push(playing);
+    clearRun(ctx, playing);
+
+    tap(ctx.machine, Button.Shot);
+    expect((ctx.machine.current as EndingScreenState).view().lines).toEqual([
+      'test fallback coda',
+    ]);
   });
 });
 

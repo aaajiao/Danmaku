@@ -2,4 +2,4 @@
 // SHA-256 (first 12 hex) of campaign.json plus v4 gameplay patterns and
 // behaviours: the bundled edition's simulation identity in replay meta.
 // tools/make-v4-content.test.ts byte-diffs this against the generator.
-export const CONTENT_FINGERPRINT = 'cc3ed0769b55';
+export const CONTENT_FINGERPRINT = '7ec721e82129';

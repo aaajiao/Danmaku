@@ -74,6 +74,25 @@ describe('the ending tally consumes its pickup-atlas strips', () => {
   });
 });
 
+describe('authored ending pauses survive text layout', () => {
+  test('an empty view line reserves one baseline instead of disappearing', () => {
+    const start = mainSource.indexOf('function drawViewLines(');
+    const end = mainSource.indexOf('const TALLY_COIN_BOX', start);
+    const source = mainSource.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(source).toContain("if (value === '')");
+    expect(source).toContain('y += 17');
+  });
+});
+
+describe('the shell injects v4 ending data into the generic game context', () => {
+  test('wires the edition map instead of relying on engine-owned prose', () => {
+    expect(mainSource).toContain("import { CONTENT_FINGERPRINT, V4_ENDINGS } from './v4'");
+    expect(mainSource).toContain('campaignEndings: V4_ENDINGS');
+  });
+});
+
 describe('every bullet-atlas draw path honours baked colour', () => {
   test('items, legacy beams and options use the shared tint resolver too', () => {
     expect(mainSource).toContain('stripTint(bulletAtlas, item.spec.sprite, item.spec.tint)');

@@ -7,14 +7,13 @@
  * format eating the game's own content — the final proof the data surface is
  * complete while executable edition design stays compiled under `src/v4`.
  *
- * This file is the authoring source. The design commentary that used to sit
- * beside the specs in those four modules survives here as comments (a pack's
- * JSON cannot carry them), and the file emits `src/v4/content/campaign.json`
+ * This file is the structural and simulation authoring source. Edition words
+ * live beside the edition in `src/v4/content/narrative.ts` and are assembled
+ * here as ordinary pack data; the file emits `src/v4/content/campaign.json`
  * deterministically — stable key order, `JSON.stringify(..., null, 2)`. A drift
- * test (`tools/make-v4-content.test.ts`) regenerates and byte-diffs against
- * the checked-in file, so the JSON can never drift from this source
- * unnoticed. The authoring rule is one-way: code may generate data; data never
- * carries code.
+ * test (`tools/make-v4-content.test.ts`) regenerates and byte-diffs against the
+ * checked-in file, so the JSON can never drift from either source unnoticed.
+ * The authoring rule is one-way: code may generate data; data never carries code.
  *
  * ## hpSeconds, not hp
  *
@@ -44,6 +43,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateManifest, type PackContent, type PackManifest } from '../src/packs/manifest';
+import { V4_BOSS_DIALOGUE } from '../src/v4/content/narrative';
 
 /* ================================================================== */
 /* Ammunition — the bullet specs enemies and bosses fire.             */
@@ -1493,23 +1493,10 @@ const bosses: PackContent['bosses'] = {
     // gems, its signature colour, worth 3×2000 = 6000 — the same 12×500 = 6000 the
     // old score chips paid. The `big-power`/`bomb` rows are untouched.
     spoils: [['big-power', 4], ['gem.green', 3], ['bomb', 1]],
-    // Speakers are portrait names: the boss's own, and 'player' for the ship.
-    dialogue: [
-      { speaker: 'sentinel', text: 'Far enough.' },
-      { speaker: 'player', text: 'The gate is behind you.' },
-      { speaker: 'sentinel', text: 'The gate is me.' },
-    ],
-    // One per-character variant, for the built-in `spire`: the exchange keyed by
-    // a character name is used in place of `dialogue` when that ship flies the
-    // fight, every other character keeping the default above. Same sparse voice,
-    // fewer lines — a variant may differ in count, which changes only spire's
-    // timeline (why a replay pins the character).
-    dialogueFor: {
-      spire: [
-        { speaker: 'sentinel', text: 'You climb without a summit.' },
-        { speaker: 'player', text: 'The climb is the summit.' },
-      ],
-    },
+    // Edition words are owned beside the v4 campaign. The `spire` variant has a
+    // different line count, which changes that character's timeline and is why
+    // replay identity still includes the generated campaign bytes.
+    ...V4_BOSS_DIALOGUE.sentinel,
     phases: [
       {
         name: 'Approach',
@@ -1686,11 +1673,7 @@ const bosses: PackContent['bosses'] = {
     // midboss's signature colour (3×2000 = 6000, holding the old 12×500 = 6000), plus
     // one bomb. The variety spike of stage 2: warden pays yellow, magistrate cyan.
     spoils: [['big-power', 4], ['gem.yellow', 3], ['bomb', 1]],
-    dialogue: [
-      { speaker: 'warden', text: 'This corridor is closed.' },
-      { speaker: 'player', text: 'Open it.' },
-      { speaker: 'warden', text: 'I open nothing. I only hold.' },
-    ],
+    ...V4_BOSS_DIALOGUE.warden,
     phases: [
       {
         name: 'Patrol',
@@ -1807,10 +1790,11 @@ const bosses: PackContent['bosses'] = {
   },
 
   /**
-   * The stage-2 boss and the last fight before the final stage. Four phases: the same three
-   * ideas the stage taught, then all at once. About fifty seconds, escalating
-   * 7/12/14/17. Phase 3's clock is the tightest relative to its health — the last
-   * card should be survivable, but not by standing still and waiting it out.
+   * The stage-2 boss, closing the campaign's vertical corridor before stage 3
+   * begins recording the route. Four phases: the same three ideas the stage
+   * taught, then all at once. About fifty seconds, escalating 7/12/14/17. Phase
+   * 3's clock is the tightest relative to its health — the last card should be
+   * survivable, but not by standing still and waiting it out.
    */
   magistrate: {
     sprite: 'halo',
@@ -1829,12 +1813,7 @@ const bosses: PackContent['bosses'] = {
     // home). Two handed-back lives across the whole game keeps the extend genuinely
     // rare; the mid-stage bombs are the generous channel, lives are not.
     spoils: [['big-power', 4], ['gem.cyan', 3], ['coin.gold', 1], ['bomb', 1], ['life', 1]],
-    dialogue: [
-      { speaker: 'magistrate', text: 'You have come a long way to be sentenced.' },
-      { speaker: 'player', text: 'Read the charge, then.' },
-      { speaker: 'magistrate', text: 'Trespass. Persistence. The verdict is the same.' },
-      { speaker: 'player', text: 'Then I appeal.' },
-    ],
+    ...V4_BOSS_DIALOGUE.magistrate,
     phases: [
       {
         name: 'Arraignment',
@@ -2062,22 +2041,9 @@ const bosses: PackContent['bosses'] = {
     // A fat pink-gem shower is its signature: 4×2000 = 8000, holding the old
     // 16×500 = 8000 exactly. `big-power`/`life`/`bomb` rows untouched.
     spoils: [['big-power', 4], ['life', 1], ['gem.pink', 4], ['bomb', 1]],
-    dialogue: [
-      { speaker: 'chancellor', text: 'Appeals are heard here.' },
-      { speaker: 'player', text: 'I did not come to be heard.' },
-      { speaker: 'chancellor', text: 'They are not granted.' },
-      { speaker: 'chancellor', text: 'No. You came to be filed.' },
-    ],
-    // The per-character variant, for the built-in `spire`: estoppel bars you from
-    // changing a stated position, and `spire` is the ship built to hold one — so
-    // the line is mechanically true of how that ship fights and names the phase-4
-    // card. `sentinel` already authors a spire variant, so this is precedent.
-    dialogueFor: {
-      spire: [
-        { speaker: 'chancellor', text: 'You already stand still.' },
-        { speaker: 'chancellor', text: 'You are half-filed. Estoppel does the rest.' },
-      ],
-    },
+    // `spire`'s sustained beam makes the edition-owned variant's held line
+    // mechanically true; the generator only places that authored exchange.
+    ...V4_BOSS_DIALOGUE.chancellor,
     phases: [
       {
         name: 'Appeal',
@@ -2331,12 +2297,12 @@ const bosses: PackContent['bosses'] = {
    * would be contradicted by a new verb, so every card composes existing patterns
    * (the one allowed new-pattern slot is spent nowhere).
    *
-   * Wan gold — the chancellor's amber, a shade darker in the vault. Cards stamp
-   * the regent's seal `regnum` (the cell resolved and FILLED, crimson — the seal
-   * finally pressed into the empty seat) EXCEPT the terminal Sine Die, which comes
-   * unmoored to the shared 出神 scene `decree` (the fill draining out), the same
-   * scene the chancellor's 'Sealed' takes — one scene for the one `fiat` track.
-   * Sizing is `hpSeconds`
+   * Wan gold — the chancellor's amber, a shade darker against the vault's
+   * black-purple pressure. Cards move into `regnum`: an organic topographic field
+   * whose repeated contours make accumulated order visible without drawing a
+   * throne, seat, face or emblem. The terminal Sine Die instead comes unmoored to
+   * the shared 出神 scene `decree`, the same scene the chancellor's 'Sealed' takes
+   * — one scene for the one `fiat` track. Sizing is `hpSeconds`
    * against REFERENCE_DPS; the lunatic total (80s) is the longest fight in the
    * game, +17s over the chancellor, without bloat.
    */
@@ -2358,25 +2324,9 @@ const bosses: PackContent['bosses'] = {
     // retained silver `score` here also keeps that chip reachable off a guaranteed
     // boss, so converting every other `score` drop to gems cannot strand it.
     spoils: [['big-power', 6], ['life', 1], ['bar.gold', 1], ['gem.purple', 1], ['score', 4], ['bomb', 1]],
-    // Cold, flat, the reveal delivered without weight. The last line answers the
-    // sentinel's opening "The gate is me."
-    dialogue: [
-      { speaker: 'regent', text: 'Nothing is filed here. Everything already is.' },
-      { speaker: 'player', text: 'Then who decided it.' },
-      { speaker: 'regent', text: 'No one. That is what makes it binding.' },
-      { speaker: 'player', text: 'Show me the one who signs.' },
-      { speaker: 'regent', text: 'You are looking at the signature.' },
-    ],
-    // The per-character variant, for the built-in `spire` — the ship whose arc the
-    // sentinel opened ("You climb without a summit") and the chancellor continued.
-    // The regent is that absent summit made literal, so the payoff belongs to it.
-    dialogueFor: {
-      spire: [
-        { speaker: 'regent', text: 'You climbed for a seat. Look at it.' },
-        { speaker: 'player', text: 'It is empty.' },
-        { speaker: 'regent', text: 'It has always been empty. The climbing is what fills it.' },
-      ],
-    },
+    // Cold and flat: no sovereign signs are visible during this exchange. The
+    // v4 narrative source names only passage and wear, including `spire`'s arc.
+    ...V4_BOSS_DIALOGUE.regent,
     phases: [
       {
         // Baseline rhythm, and the difficulty-honesty opener: the aimed-fan and
@@ -2384,8 +2334,9 @@ const bosses: PackContent['bosses'] = {
         name: 'Session',
         hpSeconds: 8,
         isSpell: false,
-        // 'regnum' — the seal resolved and filled, crimson on the empty seat
-        // (src/v4/backgrounds/regnum.ts). Against vault's gold.
+        // 'regnum' — accumulated order worn into an organic topographic field;
+        // explicitly no literal seat or sovereign emblem
+        // (src/v4/backgrounds/regnum.ts).
         background: 'regnum',
         // A slow horizontal pace, reversed so it stations rather than leaves —
         // aimed streams from a moving source, the chancellor's opener recalled.
@@ -2423,7 +2374,7 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 12,
         isSpell: true,
         bonus: 300000,
-        // 'regnum' — the regent's resolved seal.
+        // 'regnum' — the Regent's repeated contours, not a literal seal.
         background: 'regnum',
         patterns: [
           {
@@ -2456,7 +2407,7 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 13,
         isSpell: true,
         bonus: 400000,
-        // 'regnum' — the regent's resolved seal.
+        // 'regnum' — the Regent's repeated contours, not a literal seal.
         background: 'regnum',
         patterns: [
           {
@@ -2504,7 +2455,7 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 14,
         isSpell: true,
         bonus: 500000,
-        // 'regnum' — the regent's resolved seal.
+        // 'regnum' — the Regent's repeated contours, not a literal seal.
         background: 'regnum',
         patterns: [
           {
@@ -2548,7 +2499,7 @@ const bosses: PackContent['bosses'] = {
         hpSeconds: 15,
         isSpell: true,
         bonus: 600000,
-        // 'regnum' — the regent's resolved seal, held to the fight's normal end.
+        // 'regnum' — the Regent's repeated contours, held to the fight's normal end.
         background: 'regnum',
         patterns: [
           {
@@ -2870,8 +2821,9 @@ const stages: PackContent['stages'] = {
    * outro are spent and the field is clear — the STAGE-2 wiring (magistrate), NOT
    * stage-3's, which lists its boss as a wave too. There is no midboss here, so no
    * boss wave belongs in the list. `next: null` makes this the last stage: clearing
-   * it raises the ENDING screen (`EndingScreenState`, on `next === undefined`)
-   * before the ALL CLEAR results, and the shell crossfades to `adjourn`.
+   * it makes the run terminal, while `V4_ENDINGS['stage-4']` in the edition-owned
+   * narrative supplies the paged screen, `adjourn` and `signal-decay` before the
+   * neutral ALL CLEAR results.
    */
   'stage-4': {
     entry: false,
@@ -2923,8 +2875,9 @@ const stages: PackContent['stages'] = {
       { at: 1260, enemy: 'usher', x: LEFT, y: ENTRY_Y, count: 3, interval: 26 },
       { at: 1280, enemy: 'usher', x: RIGHT, y: ENTRY_Y, count: 3, interval: 26 },
 
-      /* The big rest. Field clears, the gold oculus steadies, the regent enters
-         on the downbeat after the outro — the last boss of the game. */
+      /* The big rest. Field clears, the vault's pressure field steadies, and the
+         regent enters on the downbeat after the outro — the last boss of the
+         game. */
       { at: 1440, enemy: 'grunt', x: CENTRE, y: ENTRY_Y, count: 2, interval: 40 },
     ],
   },

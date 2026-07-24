@@ -309,6 +309,10 @@ describe('the in-memory full pack fixture is reachable and its content runs', ()
     expect(cover.states.has('cleared')).toBe(true);
   });
 
+  test('the guest terminal stage does not inherit an edition ending', () => {
+    expect(cover.states.has('ending')).toBe(false);
+  });
+
   test('SELECT offered the pack character and the run flew it, not a built-in', () => {
     expect(characterNames()).toContain(PACK_CHARACTER);
     expect(cover.characters.has(PACK_CHARACTER)).toBe(true);

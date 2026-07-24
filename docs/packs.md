@@ -1075,12 +1075,12 @@ holds the schedule until the fight ends, exactly as a built-in `BossWave` does
   nor reachable by some pack stage's `next` is dead content (§9.3).
 - **`next`** chains stages. A string names the next stage; `null` states "this is
   the last stage" explicitly, where a built-in `StageSpec` leaves the field
-  `undefined`. Clearing a stage whose `next` is `null`/`undefined` no longer
-  drops straight to the results screen: the shell raises the **ending** screen
-  first (`EndingScreenState`, `src/game/states.ts`), a short paged coda that
-  crossfades to its own music track before replacing itself with the results
-  screen on the final page. This is engine behaviour keyed off the absence of a
-  next stage — no pack field controls it.
+  `undefined`. A terminal stage goes to the neutral **ALL CLEAR** results screen.
+  An edition compiled with the game may additionally provide paged ending data
+  keyed to that exact terminal stage name; v4 does this only for bare `stage-4`.
+  The current public pack schema has no ending field, so a namespaced
+  `example/ashfall` neither supplies its own coda nor inherits v4's prose, music
+  or scene merely because its `next` is `null`.
 - **`background`** and **`music`** name the scene and track the stage is set to,
   resolved like every other reference (§9.3): a background is always a built-in
   (shaders are engine code), but a track may be one this pack's own `music`
