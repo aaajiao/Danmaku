@@ -119,7 +119,7 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     role: 'V4 ENDING',
     owner: 'stage-4 terminal',
     route: '真实终局 · 三页递减',
-    story: '一张原创磨损母版叠加六条固定 tick Ghost 长带；宽阔通行痕从多边进入、交叉和退出，不汇成王座、门洞或中心符号。此卡显示第一页稳定 target 0.30。',
+    story: '原创磨损母版派生 16 帧、11 tick/帧序列；左右与下方通行痕独立显影、错位和褪去，中央结局文字区保持静止，再叠加六条固定 tick Ghost 长带。此卡显示第一页 target 0.30。',
   },
   expanse: {
     role: 'STAGE 01 · 旷野',
@@ -137,7 +137,7 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     role: 'STAGE 02 · 竖井',
     owner: 'warden / magistrate',
     route: '主线 2/4 · 第二关背景 · 双守卫',
-    story: 'V4 靛青 Ghost 膜墙以 16 帧、10 tick/帧让两道不等幅纵向波持续下传；独立墙体压力与 16 段不同推/曳曲线让两侧异步变化，完整周期仍为 160 tick。中央通道保持安静，原 tropical-heat simplex 域扭曲继续提供冷折射。',
+    story: 'V4 靛青 Ghost 膜墙以 16 帧、10 tick/帧让两道不等幅纵向波持续下传；独立墙体压力与 16 段不同推/曳曲线让两侧异步变化，完整周期仍为 160 tick。原 tropical-heat 冷折射明确合成在绘制层上方，中央通道保持安静。',
   },
   cordon: {
     role: 'MIDBOSS STATION',
@@ -173,7 +173,7 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     role: 'FINAL BOSS',
     owner: 'regent',
     route: '主线 4/4 · 最终 BOSS · REGENT',
-    story: '原 topographic 的十四层自然地形完整展开；无空席或中央裂缝图形，紫、绯与冷银线随高程自行闭合。',
+    story: '原 topographic 的十四层自然地形完整展开；焦黑漆、灰烬玫瑰与暖骨珍珠随高程连成根系般的磨损场，顶部为 REGENT 的根冠、骨相与心核保留低对比空间。',
   },
   umbra: {
     role: 'LUNATIC · 出神',

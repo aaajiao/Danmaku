@@ -2,9 +2,11 @@
  * `regnum` — the Regent's field, re-authored from the original topographic port.
  * The unfurled four-octave terrain and fourteen analytic contour levels again
  * generate the whole picture; no throne, face, seat or bilateral emblem is
- * inserted into the elevation. V4 supplies a visible lacquer relief beneath
- * violet/crimson/cold-silver lines, widens their shoulders and grades crowded
- * pitches down. The organic map remains legible at production ×1.
+ * inserted into the elevation. V4 supplies a visible charred-lacquer relief
+ * beneath continuous ash-rose and warm-bone elevation grades drawn from the
+ * Regent's Ghost body, root crown and restrained heart core. Broad slope
+ * lighting exposes the existing four-octave detail while softened contour
+ * shoulders keep the organic map legible at production ×1.
  *
  * Clock: fixed-tick `uScroll` only (CLAUDE.md rule 1). The source image and
  * analytic iso-line technique derive from pbakaus/radiant `topographic` (MIT).
@@ -16,7 +18,7 @@ defineBackground('regnum', {
   scrollSpeed: 0.8,
   fragment: /* glsl */ `
     /* Final-boss station: clearly present at ×1, still below actors and bullets. */
-    const float EXPOSURE = 1.80;
+    const float EXPOSURE = 1.72;
 
     /* Preserve the original renderer's defining fourteen elevations. */
     const float LEVELS = 14.0;
@@ -28,17 +30,22 @@ defineBackground('regnum', {
     /* Contours crowded near bullet-scale pitch remain present but subordinate. */
     const float TIGHT_MIN = 26.0;
     const float TIGHT_OK  = 56.0;
-    const float TIGHT_FLOOR = 0.34;
+    const float TIGHT_FLOOR = 0.20;
 
     /* Wide bright lines move slowly enough to remain continuous at production ×1. */
     const float TOPO_TIME = 0.0017;
 
-    const vec3 BASE        = vec3(0.008, 0.007, 0.016);
-    const vec3 WASH_LOW    = vec3(0.070, 0.050, 0.130);
-    const vec3 WASH_HIGH   = vec3(0.180, 0.045, 0.105);
-    const vec3 LINE_LOW    = vec3(0.300, 0.105, 0.390);
-    const vec3 LINE_MID    = vec3(0.690, 0.150, 0.305);
-    const vec3 LINE_HIGH   = vec3(0.610, 0.735, 0.850);
+    /* REGENT's runtime body is cold Ghost-grey with bone-white roots and one
+       small pale heart. The field therefore uses charred lacquer, ash rose and
+       warm pearl—not the legacy fallback's royal purple/gold registers. */
+    const vec3 BASE        = vec3(0.012, 0.007, 0.011);
+    const vec3 WASH_LOW    = vec3(0.075, 0.034, 0.048);
+    const vec3 WASH_MID    = vec3(0.180, 0.060, 0.080);
+    const vec3 WASH_ASH    = vec3(0.120, 0.110, 0.120);
+    const vec3 LINE_LOW    = vec3(0.320, 0.080, 0.140);
+    const vec3 LINE_MID    = vec3(0.580, 0.180, 0.270);
+    const vec3 LINE_HEART  = vec3(0.680, 0.400, 0.480);
+    const vec3 LINE_PEARL  = vec3(0.620, 0.560, 0.590);
 
     /* Compact 3D value noise (tp* so nothing collides with bgFbm or the tear* in
        the compose wrapper). Pure arithmetic — deterministic across GPUs. */
@@ -80,9 +87,28 @@ defineBackground('regnum', {
       return clamp((val / sum - 0.5) * FIELD_STRETCH + 0.5, 0.0, 1.0);
     }
 
+    vec3 regnumWash(float height) {
+      if (height < 0.46) {
+        return mix(WASH_LOW, WASH_MID, smoothstep(0.06, 0.46, height));
+      }
+      return mix(WASH_MID, WASH_ASH, smoothstep(0.46, 0.92, height));
+    }
+
+    vec3 regnumLine(float height) {
+      if (height < 0.40) {
+        return mix(LINE_LOW, LINE_MID, smoothstep(0.04, 0.40, height));
+      }
+      if (height < 0.68) {
+        return mix(LINE_MID, LINE_HEART, smoothstep(0.40, 0.68, height));
+      }
+      return mix(LINE_HEART, LINE_PEARL, smoothstep(0.68, 0.96, height));
+    }
+
     vec3 background(vec2 uv) {
       float aspect = uRes.x / uRes.y;
-      float t = uScroll * TOPO_TIME;
+      /* A non-integer fixed phase avoids value-noise's zero-derivative start.
+         Scroll speed and morph rate remain unchanged. */
+      float t = 0.37 + uScroll * TOPO_TIME;
 
       /* Field, and its analytic gradient by one-pixel finite differences (no dFdx,
          deterministic). |df| per pixel drives constant-width strokes and the pitch. */
@@ -97,44 +123,89 @@ defineBackground('regnum', {
       float level = floor(g + 0.5);
       float distG = abs(g - level);                         /* to nearest line, g-units */
       float dgdpx = gradMag * (LEVELS + 1.0);               /* g change per pixel */
-      float distPx = distG / max(dgdpx, 1e-6);              /* pixel distance to line */
+      /* Flat terrain can move an iso-line many pixels for a tiny field change.
+         A minimum rendering gradient turns that would-be temporal pop into a
+         broad shoulder; spacing still uses the true gradient for its grade. */
+      float renderDgdpx = max(dgdpx, 0.060);
+      float distPx = distG / renderDgdpx;                   /* pixel distance to line */
       float spacingPx = 1.0 / max(dgdpx, 1e-6);             /* pitch to the neighbour */
 
-      /* A low-frequency lacquer fill makes the relief readable before a line is
-         encountered; its largest variation spans the whole field. */
+      /* Two slow, unequal fixed-tick curves let material bands pass through the
+         same connected relief without pretending to know the kill-speed-dependent
+         boss phase. The first twenty seconds gently finish unfurling the range. */
+      float sceneTick = uScroll / 0.8;
+      float paletteA = sin(sceneTick * 0.0031 + fc * 5.6);
+      float paletteB = sin(sceneTick * 0.0017 - fc * 3.8 + 1.4);
+      float settle = smoothstep(0.0, 1200.0, sceneTick);
+      float paletteH = clamp(
+        fc
+          + paletteA * 0.030
+          + paletteB * 0.014
+          + (fc - 0.5) * 0.035 * settle,
+        0.0,
+        1.0
+      );
+
+      /* A low-frequency lacquer fill carries more of the picture than the line
+         spines. Existing finite differences provide broad slope light, revealing
+         the four authored octaves without adding a finer noise register. */
       float relief = smoothstep(0.12, 0.88, fc);
-      vec3 wash = mix(WASH_LOW, WASH_HIGH, smoothstep(0.38, 0.76, fc));
-      vec3 col = BASE + wash * (0.16 + relief * 0.18);
+      vec3 wash = regnumWash(paletteH);
+      vec3 col = BASE + wash * (0.27 + relief * 0.25);
+      float slope = dot(
+        vec2(fx - fc, fy - fc) * uRes,
+        vec2(-0.26, 0.18)
+      );
+      float facing = smoothstep(-0.85, 0.85, slope);
+      col *= 0.90 + 0.20 * facing;
+      /* A cool shadow is kept inside the lacquer rather than promoted to a
+         bright cyan line; the Regent's bone and projectile cores stay unique. */
+      col += vec3(0.025, 0.034, 0.052)
+        * (1.0 - facing)
+        * (0.025 + relief * 0.035);
+      /* One broad, connected pearl reflection makes the whole worn system read
+         as final-boss material even when no contour spine crosses the viewport.
+         It follows the authored slope and stays quiet in the player band. */
+      float pearlGlaze = pow(facing, 2.2)
+        * (0.024 + relief * 0.036)
+        * (1.0 - 0.30 * smoothstep(0.62, 0.94, uv.y));
+      col += LINE_PEARL * pearlGlaze;
+
+      /* Her crown, face and distress heart occupy the upper station. Reserve
+         contrast there without carving a centered symbol into the field. */
+      float stationQuiet = smoothstep(0.20, 0.36, uv.y);
+      col *= mix(0.72, 1.0, stationQuiet);
 
       /* Only the interior thresholds (1..LEVELS) carry a line, exactly as the
          reference's (c+1)/(LEVELS+1) for c in 0..LEVELS-1. */
       if (level >= 1.0 && level <= LEVELS) {
         float threshold = level / (LEVELS + 1.0);
 
-        /* Imperial violet → restrained crimson → cold silver by elevation. */
-        vec3 lineColor = threshold < 0.5
-          ? mix(LINE_LOW, LINE_MID, threshold * 2.0)
-          : mix(LINE_MID, LINE_HIGH, (threshold - 0.5) * 2.0);
+        /* Charred pomegranate rises through ash rose into warm-bone pearl. The
+           true #F0D8E2 heart colour remains exclusive to the actor. */
+        vec3 lineColor = regnumLine(paletteH);
 
         /* Centre-bright / extreme-dim alpha; the original every-fifth major line. */
         float distFromCenter = abs(threshold - 0.5) * 2.0;
-        float baseAlpha = 0.28 + (1.0 - distFromCenter) * 0.38;
+        float baseAlpha = 0.25 + (1.0 - distFromCenter) * 0.32;
         float isMajor = mod(level - 1.0, 5.0) < 0.5 ? 1.0 : 0.0;
 
         /* A visible shoulder plus a continuous spine. Width, not diagnostic gain,
            makes the lines survive the 480×640 production view. */
-        float glowWidth  = mix(6.5, 10.0, isMajor);
-        float sharpWidth = mix(2.4, 4.0, isMajor);
-        float glowAlpha  = baseAlpha * 0.18;
-        float sharpAlpha = baseAlpha * mix(0.34, 0.50, isMajor);
+        float glowWidth  = mix(10.5, 15.5, isMajor);
+        float sharpWidth = mix(5.0, 7.2, isMajor);
+        float glowAlpha  = baseAlpha * 0.13;
+        float sharpAlpha = baseAlpha * mix(0.15, 0.20, isMajor);
         float glow  = 1.0 - smoothstep(glowWidth * 0.5 - 1.5, glowWidth * 0.5 + 1.5, distPx);
         float sharp = 1.0 - smoothstep(sharpWidth * 0.5 - 1.4, sharpWidth * 0.5 + 1.4, distPx);
-        float lineTerm = glow * glowAlpha + sharp * sharpAlpha;
+        float phaseGuard = 1.0 - smoothstep(0.30, 0.49, distG);
+        float lineTerm = (glow * glowAlpha + sharp * sharpAlpha) * phaseGuard;
 
         /* Grade crowded lines without deleting the field. In the lower activity
-           band the same continuous contours remain, at 72% of their upper contrast. */
+           band the same continuous contours remain at one fifth contrast. */
         lineTerm *= mix(TIGHT_FLOOR, 1.0, smoothstep(TIGHT_MIN, TIGHT_OK, spacingPx));
-        lineTerm *= 1.0 - 0.28 * smoothstep(0.62, 0.94, uv.y);
+        lineTerm *= mix(0.52, 1.0, stationQuiet);
+        lineTerm *= 1.0 - 0.34 * smoothstep(0.62, 0.94, uv.y);
 
         col += lineColor * lineTerm;
       }

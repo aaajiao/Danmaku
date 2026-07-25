@@ -271,7 +271,11 @@ ${BACKGROUND_NOISE_GLSL}
          relief response instead of winning every pixel through max(). */
       float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
       vec3 hybrid = shaderColor * (0.94 + paintedLuma * 0.30);
-      hybrid += painted * 0.38;
+      /* The plate was already reduced to 38% in expanseArtFrame; a second 38%
+         multiplier made its authored banks nearly disappear in the real game.
+         Restore their material presence without letting them replace the live
+         lens field or changing the sixteen-frame motion. */
+      hybrid += painted * 0.54;
       /* Preserve projectile headroom when a lens streak crosses a pale bone
          bank; this is a smooth display-referred shoulder, not a hard clamp. */
       return hybrid / (vec3(1.0) + hybrid * 0.35);

@@ -540,17 +540,18 @@ The production hybrids are:
 | `undertow` | sixteen 240×320 indigo membrane frames in a 960×1280 atlas; two unequal descending crests, asymmetric wall pressure and a calm central shaft | grid-snapped fixed-tick domain warp and cold refraction |
 | `stratum` | 480×640 soot/slate sediment membranes with a quiet lower basin | grid-snapped fixed-tick moving centres and travelling-wave pressure |
 | `vault` | 480×640 black-violet Ghost membranes and broad graphite support strata | grid-snapped fixed-tick domain warp and pressure lighting |
-| `wear-field` | one 480×640 slate, black-violet, bone-grey and muted-heart plate; broad routes enter from several edges and cross without resolving into a throne, aperture or central emblem | six fixed-tick signal ribbons and low-frequency floor fog; the v4 ending reduces the painted contribution page by page at `0.30`, `0.16`, then `0.04` |
+| `wear-field` | sixteen 240×320 slate, bone-grey and muted-heart frames in a 960×1280 atlas; independent left/right/lower path sections reveal, misregister and fade around a still ending-copy zone | six fixed-tick signal ribbons and low-frequency floor fog; the v4 ending reduces the painted sequence contribution page by page at `0.30`, `0.16`, then `0.04` |
 
 Their five accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
 derivatives live in `src/assets/v4/backgrounds/`. These are shader-coupled
 edition assets, not pack skins and not a route for guest code.
 
 `wear-field` is one master reused through a subtractive three-page choreography,
-not three CG illustrations. It bakes no character, throne, copy or path into the
-image. The only player path shown by the ending is sampled from the completed
-stage-4 run and drawn by the presentation layer; it cannot affect collision,
-simulation RNG, campaign bytes or replay identity.
+not three CG illustrations. Its sequence derives only broad material wear from
+that master; it bakes no character, throne, copy or recorded player route into
+the image. The only player path shown by the ending is sampled from the
+completed stage-4 run and drawn by the presentation layer; it cannot affect
+collision, simulation RNG, campaign bytes or replay identity.
 
 #### What an artist contributes
 
@@ -561,15 +562,18 @@ in frequency and quiet through the play corridor. The accepted 1086×1448 source
 is compiled by `bun run make:v4-backgrounds`: an integer area reduction,
 scene-owned finite Ghost palette, compact-highlight cleanup and exact 2× nearest
 expansion produce the 480×640 base plate. `stratum` and `vault` sample that file
-directly, as does `wear-field` with its page-owned contribution scalar; the
-`expanse` and `undertow` bases remain single-frame derived
-references while those scenes pack sixteen cleaned 240×320
-integer-displacement frames into one 960×1280 atlas and import the atlas at
-runtime. `expanse` uses a 12-tick smoother lateral breath with sectional,
-material and left/right phase offsets; `undertow` uses a 10-tick descending
-wave with sixteen distinct push/drag cadences and an independent wall-pressure
-cycle. Their complete loops remain 192 and 160 ticks respectively, while an
-Undertow frame edge changes about 1.8× as much material as Expanse.
+directly; the `expanse`, `undertow` and `wear-field` bases remain single-frame
+derived references while those scenes pack sixteen cleaned 240×320 frames into
+one 960×1280 atlas and import the atlas at runtime. `expanse` uses a 12-tick
+smoother lateral breath with sectional, material and left/right phase offsets;
+`undertow` uses a 10-tick descending wave with sixteen distinct push/drag
+cadences and an independent wall-pressure cycle. `wear-field` uses an 11-tick
+section hand-off: the left, right and two lower passages independently reveal,
+shift by at most two logical pixels and recede while its 124×128-work-pixel
+ending-copy rectangle remains byte-still. Their complete loops are 192, 160 and
+176 ticks respectively. Wear Field's runtime grade adds moderate exposure and
+luma-preserving chroma density rather than an additive white lift; its
+page-owned `uEndingArt` targets remain `0.30`, `0.16` and `0.04`.
 Their scene shaders interpolate adjacent frames from `uTick`. No stars,
 pinpoints, thin bright edges or isolated marks may counterfeit a projectile.
 The shader owns the clock and composition; dropping a PNG onto a generic

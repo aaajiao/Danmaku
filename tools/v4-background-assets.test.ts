@@ -320,7 +320,11 @@ describe('v4 background pixel assets', () => {
       const hashes = frames.map((frame) => sha256(frame));
       expect(new Set(hashes).size).toBe(V4_BACKGROUND_SEQUENCE_FRAMES);
 
-      const halfCycleFloor = name === 'expanse' ? 0.20 : 0.23;
+      const halfCycleFloor = name === 'expanse'
+        ? 0.20
+        : name === 'undertow'
+          ? 0.23
+          : 0.25;
       for (let frame = 0; frame < frames.length / 2; frame++) {
         expect(
           frameChangeRatio(frames[frame]!, frames[frame + frames.length / 2]!),
@@ -395,21 +399,37 @@ describe('v4 background pixel assets', () => {
     '%s sequence changes broad material on every edge of its seamless loop',
     (name) => {
       const frames = buildV4BackgroundSequenceAsset(name).workFrames;
-      const corridorThreshold = name === 'expanse' ? 80 : 72;
       const changeBand = name === 'expanse'
         ? { minimum: 0.06, maximum: 0.28 }
-        : { minimum: 0.27, maximum: 0.32 };
+        : name === 'undertow'
+          ? { minimum: 0.27, maximum: 0.32 }
+          : { minimum: 0.28, maximum: 0.32 };
       for (let frame = 0; frame < frames.length; frame++) {
         const current = frames[frame]!;
         const next = frames[(frame + 1) % frames.length]!;
         let changed = 0;
         let changedInCorridor = 0;
+        let changedInEndingCopy = 0;
         for (let pixel = 0; pixel < current.length; pixel++) {
           if (current[pixel] === next[pixel]) continue;
           changed++;
           const x = pixel % V4_BACKGROUND_WORK_WIDTH;
-          if (Math.abs(x * 2 - (V4_BACKGROUND_WORK_WIDTH - 1)) < corridorThreshold) {
+          const y = Math.floor(pixel / V4_BACKGROUND_WORK_WIDTH);
+          const corridorThreshold = name === 'expanse' ? 80 : 72;
+          if (
+            name !== 'wear-field'
+            && Math.abs(x * 2 - (V4_BACKGROUND_WORK_WIDTH - 1)) < corridorThreshold
+          ) {
             changedInCorridor++;
+          }
+          if (
+            name === 'wear-field'
+            && x >= 58
+            && x < 182
+            && y >= 40
+            && y < 168
+          ) {
+            changedInEndingCopy++;
           }
         }
         const ratio = changed / current.length;
@@ -421,18 +441,23 @@ describe('v4 background pixel assets', () => {
           `${name} ${frame}→${(frame + 1) % frames.length} moves the play corridor`;
         if (name === 'expanse') {
           expect(changedInCorridor, corridorMessage).toBe(0);
-        } else {
+        } else if (name === 'undertow') {
           /*
            * Undertow's component cleanup can settle ten edge-adjacent work
            * texels while keeping every moving source sample outside the shaft.
            */
           expect(changedInCorridor, corridorMessage).toBeLessThanOrEqual(10);
+        } else {
+          expect(
+            changedInEndingCopy,
+            `${name} ${frame}→${(frame + 1) % frames.length} moves the ending copy`,
+          ).toBe(0);
         }
       }
     },
   );
 
-  test('expanse breath and undertow descent have different material-change cadence', () => {
+  test('the three sequence atlases keep distinct material-change cadence', () => {
     const edgeChanges = (name: V4BackgroundSequenceName): number[] => {
       const frames = buildV4BackgroundSequenceAsset(name).workFrames;
       return frames.map((frame, index) => (
@@ -442,10 +467,13 @@ describe('v4 background pixel assets', () => {
 
     const breathEdges = edgeChanges('expanse');
     const descentEdges = edgeChanges('undertow');
+    const wearEdges = edgeChanges('wear-field');
     const breathChange = breathEdges.reduce((sum, value) => sum + value, 0)
       / breathEdges.length;
     const descentChange = descentEdges.reduce((sum, value) => sum + value, 0)
       / descentEdges.length;
+    const wearChange = wearEdges.reduce((sum, value) => sum + value, 0)
+      / wearEdges.length;
     expect(breathChange).toBeGreaterThan(0.15);
     expect(breathChange).toBeLessThan(0.19);
     expect(descentChange).toBeGreaterThan(0.28);
@@ -457,6 +485,64 @@ describe('v4 background pixel assets', () => {
     expect(Math.max(...descentEdges) - Math.min(...descentEdges))
       .toBeLessThan(0.05);
     expect(descentChange - breathChange).toBeGreaterThan(0.12);
+    expect(wearChange).toBeGreaterThan(0.29);
+    expect(wearChange).toBeLessThan(0.31);
+    expect(Math.max(...wearEdges) - Math.min(...wearEdges))
+      .toBeLessThan(0.02);
+    expect(wearChange - breathChange).toBeGreaterThan(0.11);
+  });
+
+  test('wear-field animates three worn edges while its ending-copy zone stays still', () => {
+    const frames = buildV4BackgroundSequenceAsset('wear-field').workFrames;
+    const base = buildV4BackgroundAsset('wear-field').workIndices;
+    const edgeZones = [
+      { name: 'left', x0: 0, x1: 92, y0: 72, y1: V4_BACKGROUND_WORK_HEIGHT },
+      {
+        name: 'right',
+        x0: 148,
+        x1: V4_BACKGROUND_WORK_WIDTH,
+        y0: 116,
+        y1: V4_BACKGROUND_WORK_HEIGHT,
+      },
+      {
+        name: 'bottom',
+        x0: 0,
+        x1: V4_BACKGROUND_WORK_WIDTH,
+        y0: 198,
+        y1: V4_BACKGROUND_WORK_HEIGHT,
+      },
+    ] as const;
+
+    let changedInCopy = 0;
+    for (const frame of frames) {
+      for (let y = 40; y < 168; y++) {
+        for (let x = 58; x < 182; x++) {
+          const pixel = y * V4_BACKGROUND_WORK_WIDTH + x;
+          if (frame[pixel] !== base[pixel]) changedInCopy++;
+        }
+      }
+    }
+    expect(changedInCopy, 'wear-field moves the ending-copy zone').toBe(0);
+
+    for (const zone of edgeZones) {
+      let changed = 0;
+      let measured = 0;
+      for (let frame = 0; frame < frames.length; frame++) {
+        const current = frames[frame]!;
+        const next = frames[(frame + 1) % frames.length]!;
+        for (let y = zone.y0; y < zone.y1; y++) {
+          for (let x = zone.x0; x < zone.x1; x++) {
+            const pixel = y * V4_BACKGROUND_WORK_WIDTH + x;
+            measured++;
+            if (current[pixel] !== next[pixel]) changed++;
+          }
+        }
+      }
+      expect(
+        changed / measured,
+        `wear-field ${zone.name} path does not materially animate`,
+      ).toBeGreaterThan(0.44);
+    }
   });
 
   test.each(SEQUENCE_NAMES)('%s sequence generation is byte deterministic', (name) => {

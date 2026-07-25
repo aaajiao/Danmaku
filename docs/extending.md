@@ -1204,9 +1204,11 @@ scene to a guest campaign.
 That ownership extends to the ending's picture. The stage-4 ending names the
 independent `wear-field` scene; GAME OVER continues to use the neutral
 shader-only `signal-decay` scene. `wear-field` combines one original 1086×1448
-master, deterministically compiled to a 480×640 plate, with fixed-tick signal
-motion. Its three pages subtract that plate at targets `0.30`, `0.16` and
-`0.04`; they do not select three CGs or add a throne/character illustration.
+master, deterministically compiled to a sixteen-frame 960×1280 atlas, with
+fixed-tick signal motion. Its worn edge paths reveal, misregister and fade
+around a still ending-copy zone; its three pages subtract that sequence at
+targets `0.30`, `0.16` and `0.04`. They do not select three CGs or add a
+throne/character illustration.
 The path briefly visible there is sampled from the player's actual stage-4
 movement and drawn presentation-only. It is not campaign content, a simulation
 input or part of replay identity. A guest terminal stage gets none of this
@@ -1841,9 +1843,12 @@ only preloads the exact texture. Shipped V4 assets are deterministically compile
 from accepted masters with `bun run make:v4-backgrounds`; do not resize them by
 hand. Sequence timing is part of scene identity, not a shared preset: the shipped
 `expanse` atlas rests between sectional lateral breaths, while `undertow` drives
-an asymmetrically phased travelling wave down its walls. Do not give two stages
-the same phase table, easing and frame cadence merely because their atlases share
-a 4×4 layout.
+an asymmetrically phased travelling wave down its walls. The terminal
+`wear-field` instead hands off irregular sections of the master's existing
+left, right and lower worn paths, with only local two-pixel registration slips
+and no motion in the ending-copy rectangle. Do not give two scenes the same
+phase table, easing and frame cadence merely because their atlases share a 4×4
+layout.
 
 Then add `import './ashfall';` to `src/v4/backgrounds/index.ts`.
 `index.test.ts` reads the directory and fails when a file is missing from that

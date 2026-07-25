@@ -1,9 +1,11 @@
 /**
  * `wear-field` — the v4 terminal ending.
  *
- * The accepted plate records broad passages worn into slate and muted-heart
- * material. They enter from several edges and cross without resolving into a
- * throne, aperture or single source. The centre remains low-information so the
+ * The accepted master records broad passages worn into slate and muted-heart
+ * material. A deterministic sixteen-frame sequence lets independent sections
+ * of its left, right and lower paths emerge, slip out of register and recede.
+ * Unlike Expanse's horizontal breath or Undertow's vertical current, no camera
+ * or whole wall moves; the centre remains byte-still and low-information so the
  * ending text and the frozen curtain beneath it retain priority.
  *
  * Its motion keeps the terminal screen's signal grammar: six long Ghost ribbons
@@ -11,10 +13,10 @@
  * separate implementation rather than an import from `signal-decay`, because
  * the ending's worn material and GAME OVER's dissolving signal are distinct
  * pictures even when they share a broad visual verb. Every change is a pure
- * function of fixed-tick `uScroll` (CLAUDE.md rule 1).
+ * function of fixed-tick `uScroll` or `uTick` (CLAUDE.md rule 1).
  */
 
-import WEAR_FIELD_ART_URL from '../../assets/v4/backgrounds/wear-field-v4.png';
+import WEAR_FIELD_ART_URL from '../../assets/v4/backgrounds/wear-field-v4-sequence.png';
 import { BACKGROUND_NOISE_GLSL, defineBackground } from '../../render/background';
 
 defineBackground('wear-field', {
@@ -27,8 +29,8 @@ defineBackground('wear-field', {
   },
   art: {
     url: WEAR_FIELD_ART_URL,
-    width: 480,
-    height: 640,
+    width: 960,
+    height: 1280,
   },
   fragment: /* glsl */ `
 ${BACKGROUND_NOISE_GLSL}
@@ -40,6 +42,9 @@ ${BACKGROUND_NOISE_GLSL}
 
     const float WF_EXPOSURE = 0.38;
     const float WF_TAU = 6.28318530718;
+    const vec2 WF_ATLAS_GRID = vec2(4.0, 4.0);
+    const float WF_ART_FRAMES = 16.0;
+    const float WF_FRAME_TICKS = 11.0;
 
     float wearRibbon(float y, float centre, float width) {
       float d = abs(y - centre);
@@ -48,21 +53,57 @@ ${BACKGROUND_NOISE_GLSL}
       return core * 0.38 + haze;
     }
 
-    vec2 wearPixelUv(vec2 uv) {
+    vec2 wearScenePixelUv(vec2 uv) {
       vec2 safeUv = clamp(
         uv,
-        0.5 / uArtRes,
-        vec2(1.0) - 0.5 / uArtRes
+        vec2(0.0),
+        vec2(1.0) - 0.5 / uRes
       );
-      return (floor(safeUv * uArtRes) + 0.5) / uArtRes;
+      return (floor(safeUv * uRes) + 0.5) / uRes;
+    }
+
+    vec2 wearArtPixelUv(vec2 uv) {
+      vec2 frameRes = uArtRes / WF_ATLAS_GRID;
+      vec2 safeUv = clamp(
+        uv,
+        vec2(0.0),
+        vec2(1.0) - 0.5 / frameRes
+      );
+      return (floor(safeUv * frameRes) + 0.5) / frameRes;
+    }
+
+    vec3 wearArtFrame(vec2 pixelUv, float frame) {
+      float wrapped = mod(frame, WF_ART_FRAMES);
+      vec2 tile = vec2(
+        mod(wrapped, WF_ATLAS_GRID.x),
+        floor(wrapped / WF_ATLAS_GRID.x)
+      );
+      vec2 atlasUv = (tile + pixelUv) / WF_ATLAS_GRID;
+      vec3 painted = texture2D(uArt, atlasUv).rgb;
+
+      /* Material density rises through moderate exposure and luma-preserving
+         chroma, not an additive white floor. Silver/heart separation therefore
+         reads at x1 while the frozen projectile and ending-copy tiers still win. */
+      painted = pow(max(painted, vec3(0.0)), vec3(1.04)) * 0.55;
+      float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
+      vec3 chroma = painted - vec3(paintedLuma);
+      painted = vec3(paintedLuma) + chroma * 1.28;
+      return min(max(painted, vec3(0.0)), vec3(0.36));
     }
 
     vec3 wearArt(vec2 pixelUv) {
-      vec3 painted = texture2D(uArt, pixelUv).rgb;
-      /* The accepted master is material, not light. Keep its worn silver and
-         muted-heart crossings below the frozen projectile and text tiers. */
-      painted = pow(max(painted, vec3(0.0)), vec3(1.08)) * 0.44;
-      return min(painted, vec3(0.30));
+      float phase = mod(uTick / WF_FRAME_TICKS, WF_ART_FRAMES);
+      float frame = floor(phase);
+      float travel = fract(phase);
+      /* A short rest brackets each section hand-off. The atlas owns the
+         reveal/misregistration/fade; interpolation only removes hard cuts. */
+      float transfer = clamp((travel - 0.08) / 0.84, 0.0, 1.0);
+      float blend = transfer * transfer * (3.0 - 2.0 * transfer);
+      return mix(
+        wearArtFrame(pixelUv, frame),
+        wearArtFrame(pixelUv, frame + 1.0),
+        blend
+      );
     }
 
     vec3 wearSignal(vec2 uv) {
@@ -130,12 +171,13 @@ ${BACKGROUND_NOISE_GLSL}
     vec3 background(vec2 uv) {
       if (uArtMode < 0.5) return wearSignal(uv);
 
-      /* Production is locked to the accepted 480x640 plate. Shader-only keeps
-         its smooth diagnostic branch; art and hybrid preserve reviewed texels. */
-      vec2 pixelUv = wearPixelUv(uv);
-      vec3 painted = wearArt(pixelUv);
+      /* Shader-only keeps its smooth diagnostic branch. Art samples deliberate
+         240x320 blocks; production keeps the signal on the 480x640 scene grid. */
+      vec2 scenePixelUv = wearScenePixelUv(uv);
+      vec2 artPixelUv = wearArtPixelUv(uv);
+      vec3 painted = wearArt(artPixelUv);
       if (uArtMode < 1.5) return painted;
-      vec3 signal = wearSignal(pixelUv);
+      vec3 signal = wearSignal(scenePixelUv);
 
       float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
       vec3 hybrid = signal * (1.0 + paintedLuma * uEndingArt * 0.34);

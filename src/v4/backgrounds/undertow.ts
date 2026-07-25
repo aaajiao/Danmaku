@@ -211,14 +211,16 @@ defineBackground('undertow', {
       if (uArtMode < 1.5) return painted;
       vec3 shaderColor = undertowShader(scenePixelUv);
 
-      /* The sequence owns silhouette and most visible motion. Low-weight live
-         refraction preserves the original field, while a fixed indigo floor
-         restores production ×1 visibility without amplifying temporal spikes. */
+      /* The sequence is the base plate; live refraction is explicitly composited
+         above it with a restrained screen/over pass. Give the shader most room
+         in the dark central shaft, while the screen shoulder keeps bright moving
+         membrane walls from stacking both peaks. */
       float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
-      vec3 hybrid = shaderColor * (0.08 + paintedLuma * 0.03);
-      hybrid += painted * 0.60;
-      float currentLight = dot(shaderColor, vec3(0.2126, 0.7152, 0.0722));
-      hybrid += painted * currentLight * 0.02;
+      float darkArt = 1.0 - smoothstep(0.04, 0.20, paintedLuma);
+      float shaderGain = 0.18 + darkArt * 0.05;
+      vec3 paintedBase = painted * 0.58;
+      vec3 shaderTop = shaderColor * shaderGain;
+      vec3 hybrid = paintedBase + shaderTop * (vec3(1.0) - paintedBase);
       return hybrid * 1.30 + vec3(0.016, 0.026, 0.044);
     }
   `,

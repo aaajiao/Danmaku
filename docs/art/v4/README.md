@@ -32,8 +32,9 @@ and remains recoverable from Git history.
   field supplies the motion above it.
 - `background-wear-field-v4-master.png` — the terminal ending's worn field:
   broad slate and muted-heart passages cross without converging on a pictured
-  seat. Its single 480×640 pixel derivative stays quiet beneath the frozen
-  curtain while the `wear-field` scene carries the fixed-tick signal motion.
+  seat. Its deterministic sixteen-frame sequence reveals, misregisters and
+  fades independent edge-path sections around a byte-still ending-copy zone
+  while `wear-field` carries the separate fixed-tick signal motion.
 - `style-lock-ghost-layers.png` — surface / skeleton / mycelium visual grammar.
 - `player-cast-ghoststyle-master.png` — five-player pose master.
 - `enemies-stage-1-ghoststyle-master.png` through
@@ -57,20 +58,22 @@ packed atlases.
 
 The five base files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
 derivatives of the four campaign-stage masters and the terminal wear field.
-`stratum`, `vault` and `wear-field` sample their base files at runtime; the
-`expanse` and `undertow` bases remain single-frame derived references while
+`stratum` and `vault` sample their base files at runtime; the `expanse`,
+`undertow` and `wear-field` bases remain single-frame derived references while
 runtime samples their sequence atlases.
 `bun run make:v4-backgrounds`
 deterministically area-reduces each master to 240×320, maps it to a
 scene-authored finite Ghost palette, removes single-pixel colour islands and
 undersized bright components, then nearest-neighbour expands it by exactly 2×.
-For `expanse` and `undertow`, the same command also derives sixteen
-integer-warped, cleaned 240×320 frames and packs them 4×4 into a 960×1280
-sequence atlas. They do not share a motion profile: `expanse` uses an irregular
-sectional lateral breath with independent material lift, while `undertow` uses
-two faster descending wall crests plus asymmetric pressure. The encoder writes
-no colour profile or inherited master metadata. These are project-owned,
-shader-coupled assets rather than replaceable pack skins.
+For `expanse`, `undertow` and `wear-field`, the same command also derives
+sixteen cleaned 240×320 frames and packs them 4×4 into a 960×1280 sequence
+atlas. They do not share a motion profile: `expanse` uses an irregular
+sectional lateral breath with independent material lift; `undertow` uses two
+faster descending wall crests plus asymmetric pressure; `wear-field` reveals,
+locally misregisters and fades pre-existing worn passages from three edges
+without moving its central copy area. The encoder writes no colour profile or
+inherited master metadata. These are project-owned, shader-coupled assets
+rather than replaceable pack skins.
 
 `packs/v4/actors/portraits.png` is one such derivative: its ten close-ups are
 rebuilt deterministically from the existing player cast and isolated Boss

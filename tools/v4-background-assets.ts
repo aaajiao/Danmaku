@@ -1,9 +1,10 @@
 /**
  * Compile the accepted v4 stage-background masters and terminal wear field into
- * runtime pixel plates. Expanse and Undertow additionally receive deterministic
- * sixteen-frame atlases: scene-specific integer deformation derived from each
- * accepted master, never independently generated frames, so their painted
- * silhouettes can move without visual drift or sharing one motion language.
+ * runtime pixel plates. Expanse, Undertow and Wear Field additionally receive
+ * deterministic sixteen-frame atlases: scene-specific integer deformation
+ * derived from each accepted master, never independently generated frames, so
+ * their painted silhouettes can move without visual drift or sharing one
+ * motion language.
  *
  * The masters remain full-resolution composition references. Runtime art is
  * deliberately a different surface: an integer area reduction to 240×320,
@@ -48,7 +49,11 @@ export const V4_BACKGROUND_ASSET_NAMES = [
   'wear-field',
 ] as const;
 export type V4BackgroundAssetName = (typeof V4_BACKGROUND_ASSET_NAMES)[number];
-export const V4_BACKGROUND_SEQUENCE_NAMES = ['expanse', 'undertow'] as const;
+export const V4_BACKGROUND_SEQUENCE_NAMES = [
+  'expanse',
+  'undertow',
+  'wear-field',
+] as const;
 export type V4BackgroundSequenceName = (typeof V4_BACKGROUND_SEQUENCE_NAMES)[number];
 
 interface V4BackgroundAssetSpec {
@@ -250,6 +255,14 @@ export const V4_BACKGROUND_ASSET_SPECS: Readonly<
     name: 'wear-field',
     master: join(ROOT, 'docs', 'art', 'v4', 'background-wear-field-v4-master.png'),
     output: join(ROOT, 'src', 'assets', 'v4', 'backgrounds', 'wear-field-v4.png'),
+    sequenceOutput: join(
+      ROOT,
+      'src',
+      'assets',
+      'v4',
+      'backgrounds',
+      'wear-field-v4-sequence.png',
+    ),
     sourceWidth: 1086,
     sourceHeight: 1448,
     sourceSha256: 'adc73524223bed522be0fd41380c9755f9bc8f006822466a143e9eecdcc7e172',
@@ -588,13 +601,16 @@ function encodeNearest2x(indices: Uint8Array, palette: readonly RGB[]): Uint8Arr
 }
 
 /**
- * The two stage plates deliberately do not share a motion loop.
+ * The three sequenced plates deliberately do not share a motion loop.
  *
  * Expanse is a slow lateral breath with a slightly uneven inhale/exhale. Its
  * phase is offset down the frame so the distant banks flex in sections rather
  * than translating like one card. Undertow is a travelling vertical pulse:
  * subtracting its phase down the wall makes the fold crest descend and wrap
- * through the sixteen-frame loop. Both curves close without a duplicate frame.
+ * through the sixteen-frame loop. Wear Field does not move either wall or
+ * camera: independent path sections emerge, misregister by a few logical
+ * pixels, then recede while the ending-copy rectangle stays byte-still. Every
+ * curve closes without a duplicate frame.
  */
 type SequenceCurve = readonly [
   number,
@@ -635,6 +651,16 @@ const UNDERTOW_PRESSURE_CURVE = [
   1, 1, -1, -2, -1, -1, 1, 1,
 ] as const satisfies SequenceCurve;
 
+const WEAR_REVEAL_CURVE = [
+  -1, -1, 0, 1, 0, -1, 0, 1,
+  0, 1, 1, -1, 0, -1, 1, 0,
+] as const satisfies SequenceCurve;
+
+const WEAR_MISREGISTER_CURVE = [
+  0, 1, 1, -1, 2, 0, -2, -1,
+  0, 2, -1, 1, 0, -2, 1, -1,
+] as const satisfies SequenceCurve;
+
 export const V4_BACKGROUND_SEQUENCE_MOTION_PROFILES = {
   expanse: {
     primary: EXPANSE_BREATH_CURVE,
@@ -643,6 +669,10 @@ export const V4_BACKGROUND_SEQUENCE_MOTION_PROFILES = {
   undertow: {
     primary: UNDERTOW_FALL_CURVE,
     secondary: UNDERTOW_PRESSURE_CURVE,
+  },
+  'wear-field': {
+    primary: WEAR_REVEAL_CURVE,
+    secondary: WEAR_MISREGISTER_CURVE,
   },
 } as const;
 
@@ -723,10 +753,181 @@ function copyWorkRgbPixel(
   output[to + 2] = source[from + 2]!;
 }
 
+const WEAR_COOL_LAST = 12;
+const WEAR_HEART_FIRST = 13;
+const WEAR_TEXT_LEFT = 58;
+const WEAR_TEXT_RIGHT = 182;
+const WEAR_TEXT_TOP = 40;
+const WEAR_TEXT_BOTTOM = 168;
+const WEAR_SECTION_JITTER = [
+  -7, 3, -2, 8, 0, -5, 6, 2,
+  -4, 7, -1, 4, -6, 1, 5, -3,
+] as const satisfies SequenceCurve;
+
+function inWearTextQuietZone(x: number, y: number): boolean {
+  return (
+    x >= WEAR_TEXT_LEFT
+    && x < WEAR_TEXT_RIGHT
+    && y >= WEAR_TEXT_TOP
+    && y < WEAR_TEXT_BOTTOM
+  );
+}
+
+function wearSectionJitter(value: number, stride: number, phase: number): number {
+  const index = wrapSequencePhase(Math.floor(value / stride) + phase);
+  return WEAR_SECTION_JITTER[index]!;
+}
+
+/**
+ * Assign one of four worn routes and a coarse section along it.
+ *
+ * These are deliberately broad partitions, not painted lines: a left-edge scar,
+ * a right-edge crossing and two bottom passages divide the master's existing
+ * material into independently timed sections. `-1` leaves the accepted plate
+ * alone. The central ending-copy rectangle never receives a route.
+ */
+function wearRouteSection(x: number, y: number): number {
+  if (inWearTextQuietZone(x, y)) return -1;
+  const leftEdge = 78 + wearSectionJitter(y, 28, 1);
+  if (x < leftEdge && y >= 72) {
+    return Math.min(
+      7,
+      Math.max(0, Math.floor((y - 72 + wearSectionJitter(x, 13, 4)) / 34)),
+    );
+  }
+  const rightEdge = 162 + wearSectionJitter(y, 31, 7);
+  if (x >= rightEdge && y >= 116) {
+    return 8 + Math.min(
+      7,
+      Math.max(
+        0,
+        Math.floor((y - 116 + wearSectionJitter(x, 15, 10)) / 32),
+      ),
+    );
+  }
+  const bottomEdge = 208 + wearSectionJitter(x, 24, 12);
+  if (y >= bottomEdge && x < 110) {
+    return 16 + Math.min(
+      7,
+      Math.max(0, Math.floor((x + wearSectionJitter(y, 17, 2)) / 24)),
+    );
+  }
+  if (y >= bottomEdge && x >= 134) {
+    return 24 + Math.min(
+      7,
+      Math.max(
+        0,
+        Math.floor(
+          (V4_BACKGROUND_WORK_WIDTH - 1 - x + wearSectionJitter(y, 19, 6)) / 24,
+        ),
+      ),
+    );
+  }
+  return -1;
+}
+
+function shiftWearPaletteIndex(index: number, delta: number): number {
+  if (index < WEAR_HEART_FIRST) {
+    return Math.max(0, Math.min(WEAR_COOL_LAST, index + delta));
+  }
+  return Math.max(
+    WEAR_HEART_FIRST,
+    Math.min(V4_BACKGROUND_PALETTES['wear-field'].length - 1, index + delta),
+  );
+}
+
+function workIndicesRgb(
+  indices: Uint8Array,
+  palette: readonly RGB[],
+): Uint8Array {
+  const rgb = new Uint8Array(indices.length * 3);
+  for (let pixel = 0; pixel < indices.length; pixel++) {
+    const colour = palette[indices[pixel]!]!;
+    const at = pixel * 3;
+    rgb[at] = colour[0];
+    rgb[at + 1] = colour[1];
+    rgb[at + 2] = colour[2];
+  }
+  return rgb;
+}
+
+/**
+ * Reveal, misregister and fade the existing worn paths section by section.
+ *
+ * Palette-index motion stays within either the cool-silver or muted-heart ramp,
+ * so a reveal increases material density without drifting toward white. Small
+ * route-aligned source offsets create a damaged registration rather than
+ * Expanse's horizontal breath or Undertow's vertical current. Dark void and the
+ * central ending-copy rectangle remain fixed.
+ */
+function wearSequenceFrame(
+  baseIndices: Uint8Array,
+  frame: number,
+  spec: V4BackgroundAssetSpec,
+): Uint8Array {
+  const staged = baseIndices.slice();
+
+  for (let y = 0; y < V4_BACKGROUND_WORK_HEIGHT; y++) {
+    for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+      const at = y * V4_BACKGROUND_WORK_WIDTH + x;
+      const baseIndex = baseIndices[at]!;
+      const routeSection = wearRouteSection(x, y);
+      if (routeSection < 0 || luma(spec.palette[baseIndex]!) < 49) continue;
+
+      const route = Math.floor(routeSection / 8);
+      const section = routeSection % 8;
+      const revealPhase = wrapSequencePhase(frame + route * 3 + section * 2);
+      const offsetPhase = wrapSequencePhase(frame + route * 5 + section);
+      const reveal = WEAR_REVEAL_CURVE[revealPhase]!;
+      const offset = WEAR_MISREGISTER_CURVE[offsetPhase]!;
+
+      let sourceX = x;
+      let sourceY = y;
+      if (route === 0) {
+        sourceX += offset;
+      } else if (route === 1) {
+        sourceX -= offset;
+        sourceY += offset;
+      } else if (route === 2) {
+        sourceX += offset;
+        sourceY -= offset;
+      } else {
+        sourceX -= offset;
+        sourceY -= offset;
+      }
+      sourceX = Math.max(0, Math.min(V4_BACKGROUND_WORK_WIDTH - 1, sourceX));
+      sourceY = Math.max(0, Math.min(V4_BACKGROUND_WORK_HEIGHT - 1, sourceY));
+      if (inWearTextQuietZone(sourceX, sourceY)) {
+        sourceX = x;
+        sourceY = y;
+      }
+
+      const sampled = baseIndices[sourceY * V4_BACKGROUND_WORK_WIDTH + sourceX]!;
+      const materialSample = luma(spec.palette[sampled]!) >= 40 ? sampled : baseIndex;
+      staged[at] = shiftWearPaletteIndex(materialSample, reveal);
+    }
+  }
+
+  /*
+   * Re-run the same cleanup as a base plate after registration shifts, then
+   * restore the copy zone exactly. The restoration is safe because that region
+   * is already cleanup-approved in `baseIndices`.
+   */
+  const cleaned = compileWorkIndices(workIndicesRgb(staged, spec.palette), spec);
+  for (let y = WEAR_TEXT_TOP; y < WEAR_TEXT_BOTTOM; y++) {
+    for (let x = WEAR_TEXT_LEFT; x < WEAR_TEXT_RIGHT; x++) {
+      const at = y * V4_BACKGROUND_WORK_WIDTH + x;
+      cleaned[at] = baseIndices[at]!;
+    }
+  }
+  return cleaned;
+}
+
 /**
  * Animate the authored membranes, not the camera.
  *
- * Both warp profiles leave their central play corridor untouched. Expanse's
+ * The two stage warp profiles leave their central play corridor untouched.
+ * Expanse's
  * left and right cloud/bone banks breathe laterally with a five-phase
  * top-to-bottom lag, independent material timing and a small opposed lift.
  * Undertow instead sends a two-crest, sixteen-phase descending wave through
@@ -774,7 +975,7 @@ function warpSequenceFrame(
           sourceX += side * dx;
           sourceY += dy;
         }
-      } else {
+      } else if (name === 'undertow') {
         // 72-work-pixel / 144-screen-pixel shaft stays calm. A full travelling
         // phase crosses the wall height; the right wall and bright strata lag,
         // so this reads as a descending undertow rather than Expanse's breath.
@@ -813,6 +1014,8 @@ function warpSequenceFrame(
           sourceX += side * dx;
           sourceY += dy;
         }
+      } else {
+        throw new Error('wear-field uses its sectioned palette sequence');
       }
 
       copyWorkRgbPixel(reducedRgb, output, x, y, sourceX, sourceY);
@@ -900,7 +1103,7 @@ export function buildV4BackgroundAsset(
   return { name, bytes, workIndices: indices };
 }
 
-/** Build one fixed-tick art sequence atlas from an accepted stage master. */
+/** Build one fixed-tick art sequence atlas from an accepted project master. */
 export function buildV4BackgroundSequenceAsset(
   name: V4BackgroundSequenceName,
   masterBytes: Uint8Array = readFileSync(V4_BACKGROUND_ASSET_SPECS[name].master),
@@ -920,9 +1123,14 @@ export function buildV4BackgroundSequenceAsset(
     V4_BACKGROUND_WORK_WIDTH,
     V4_BACKGROUND_WORK_HEIGHT,
   );
+  const baseIndices = compileWorkIndices(reduced, spec);
   const workFrames = Array.from(
     { length: V4_BACKGROUND_SEQUENCE_FRAMES },
-    (_, frame) => compileWorkIndices(warpSequenceFrame(name, reduced, frame), spec),
+    (_, frame) => (
+      name === 'wear-field'
+        ? wearSequenceFrame(baseIndices, frame, spec)
+        : compileWorkIndices(warpSequenceFrame(name, reduced, frame), spec)
+    ),
   );
   const bytes = encodeSequenceAtlas(workFrames, spec.palette);
   const verified = parsePng(bytes);

@@ -67,18 +67,18 @@ const REVIEWED_BASELINE: Readonly<
   cordon: { scrollSpeed: 0.6, bodySha256: '9619728977ca0a8c022a3f0b289826fe46548797edc99d839ca6755f89fcfc2c', assembledSha256: 'c99078aab9904352e96166091e2b3b6c9b8c090cff9402f7821bb3688ab2128c' },
   decree: { scrollSpeed: 1.2, bodySha256: '0bfc1742f6ca59dfacafdd069adc5306c96c322cd397775ed040a15eff137182', assembledSha256: 'd9cef95a7ac12e9b6a29c2acbe5ca49ecf8aeb0127d88fa05ef659af84c28f6f' },
   drift: { scrollSpeed: 0.6, bodySha256: 'cfd6c0401389ae6d7e544da6619a943e58a290a1fb6bd8a4f344240231884239', assembledSha256: 'ae507376fd29eedaf434558304066a524145027c0fdadd278a53f9e949ee0f7e' },
-  expanse: { scrollSpeed: 0.7, bodySha256: 'e7a75f480a80b87c20b7801c5776195b5d9ddc5ab1ec77aa2a19539d4e740501', assembledSha256: '38aa7acfd69997e2fb9804ecf2e55bdd23f3cd748addaaf198efe67ef755e171' },
+  expanse: { scrollSpeed: 0.7, bodySha256: 'ef3cbfa6e2c83d463cc41e875c4f27ceb8b402d28a194cf98e831583dd3e900d', assembledSha256: 'ff45c1c79449eed5a8d209cf820fa2b6851e8b968025c13fb1f1ff4359f35656' },
   intaglio: { scrollSpeed: 0.9, bodySha256: '6a0db83ff713031d2c69452e032d7ecd57f65364cce085a1e7baefbbdea814d8', assembledSha256: 'e962e85207947c714136e81c9a6ca67562431918504fa9f01a722dad5485a698' },
-  regnum: { scrollSpeed: 0.8, bodySha256: 'dc0790809352173a070c9c1dc4c454fa5fed60c7fa1dff74966ad0c31d6e2567', assembledSha256: 'fbd67903607eda7ec8267bc16c77a54e74bc18c3a37f2ff64fad45ac866cd83f' },
+  regnum: { scrollSpeed: 0.8, bodySha256: '115c53c2f28313575c97fac0063b52183d162f3ce87e94329faeb221639de8fe', assembledSha256: '874f1f3dc5f369b401f8af549088b3e8d144788d63bca877d07a61f5548ba7ff' },
   sable: { scrollSpeed: 0.6, bodySha256: 'f006266116b7c9608a564b88433013eeab0251d8983a38c40b21098f0568a355', assembledSha256: '1b0dda9b94ec5938a66d035166bdc57c2409f885ee887336bd06d2a652daaf83' },
   'signal-decay': { scrollSpeed: 1, bodySha256: '3bbb5fd5d907a9d85e982d0a2b83c5c7edb13a0b86a36618c0f1cf2f7e0918c8', assembledSha256: '8fee30d65e3315e57663c144301c131f0ef51b9539479145457fd4b451c7fdca' },
   signet: { scrollSpeed: 0.8, bodySha256: '1c9ed84ae695232dd716e3a931c9b879d3eaed5dfe626aca6134528a5e88e3fc', assembledSha256: 'af88df04ac6b39d715e5c9b083b5adf1a027bd003b4ad5d7c58956091262d970' },
   stratum: { scrollSpeed: 0.7, bodySha256: 'e8247546a079ce9233db4207abe1f89a1d0088ecba479fb490033fb6d9960c2f', assembledSha256: '60407a0e8b4efad19d8e198bc7e77d6eeb72f4868e1f0adb154c19d49f0afa28' },
   surge: { scrollSpeed: 1.4, bodySha256: 'a9c188404e880e8a86341fa0b231baa9bbb397d35bba5588bdebd51b16ad5d33', assembledSha256: '89a7371f20da6d3b07c9144ad0cff97ef4cd3cb123e50e8dd8a72d221a74c28e' },
   umbra: { scrollSpeed: 1.1, bodySha256: 'b60bf3aaa9ffe263dfafac957be234b35a1218d5627d63a43561d66eff7945a5', assembledSha256: '6d48d4ebaebb482b679e617d4cfe06d52381d159c661520f0e491813c2eca789' },
-  undertow: { scrollSpeed: 0.9, bodySha256: '61571910a7e87b06784b771215602c717c7263a57588cc26b7eeb7822cc111d8', assembledSha256: 'dce8397a0d9e7acbe6dd7c2e14576773222b29fc74d9bebe7d6fd37d886690e8' },
+  undertow: { scrollSpeed: 0.9, bodySha256: '012f425d8588998593dc1bfd1f16fc3c043aa08517f4a6c52dfeed2162ebbc25', assembledSha256: '3e46aa16fc4988f6ceb0ba1a1195ea502853a97ac9e2b6ca6a6798b8d3cd2f10' },
   vault: { scrollSpeed: 0.5, bodySha256: 'c935acacfb4356991d339ed248a907ba84d8d27a7dc82bff49a683a63184d2a9', assembledSha256: '711980dddaeaab8af467e0b178c79677147c3ee1e31714bef1557ef898854aea' },
-  'wear-field': { scrollSpeed: 0.72, bodySha256: 'cd72595e2e69f8ab145e4551d730afcfa7000c635906bb78e03b39ffacf9cd07', assembledSha256: 'bfa789006baa74bd1a8ef04a8d6fd0e1b7e64a5a27d3421f595ea8f8016fd267' },
+  'wear-field': { scrollSpeed: 0.72, bodySha256: 'ec2b14b2c8f9dbe16e06599c1572e0de9ed2bdc47d72f02ef312336d446ddbee', assembledSha256: 'b641c1fcb0f4b70296cd0b65422e2616d3dd811362c4c60145848d365ced1bbb' },
 };
 
 const REVIEWED_ART = {
@@ -115,12 +115,15 @@ const REVIEWED_ART = {
     sha256: 'f3817c5b68a82aa5589627cf11ea6ef5d93d2a29266f70cf65306cd6d659a0b8',
   },
   'wear-field': {
-    file: new URL('../../assets/v4/backgrounds/wear-field-v4.png', import.meta.url),
-    urlSuffix: '/wear-field-v4.png',
-    width: 480,
-    height: 640,
-    bytes: 20639,
-    sha256: 'a09ef575f55bfb94fcd3d9054637b478e28fe1eede651542b079aa5b489553ce',
+    file: new URL(
+      '../../assets/v4/backgrounds/wear-field-v4-sequence.png',
+      import.meta.url,
+    ),
+    urlSuffix: '/wear-field-v4-sequence.png',
+    width: 960,
+    height: 1280,
+    bytes: 160162,
+    sha256: 'f33c5c1031833fa942e4bd0fa86936d2dd310aeefa6e5ffa98ec6eddbac85106',
   },
 } as const;
 
@@ -179,7 +182,7 @@ describe('the shipped scenes', () => {
       expect(fragment, name).toContain('uniform vec2 uArtRes;');
       expect(fragment, name).toContain('uniform float uArtMode;');
       expect(fragment, name).toContain('if (uArtMode < 0.5)');
-      if (name === 'expanse' || name === 'undertow') {
+      if (name === 'expanse' || name === 'undertow' || name === 'wear-field') {
         expect(fragment, name).toContain('floor(safeUv * frameRes) + 0.5');
         expect(fragment, name).toContain('texture2D(uArt, atlasUv)');
       } else {
@@ -196,8 +199,8 @@ describe('the shipped scenes', () => {
     expect(spec.fragment).toContain('hybrid += painted * uEndingArt;');
   });
 
-  test('expanse and undertow own fixed-tick sixteen-frame art sequences', () => {
-    for (const name of ['expanse', 'undertow']) {
+  test('sequenced scenes own fixed-tick sixteen-frame art atlases', () => {
+    for (const name of ['expanse', 'undertow', 'wear-field']) {
       const fragment = getBackgroundSpec(name).fragment;
       expect(fragment, name).toContain('ART_FRAMES = 16.0');
       expect(fragment, name).toContain('uTick /');

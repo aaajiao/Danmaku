@@ -142,8 +142,10 @@ Boss 和 `regnum` 场景显现之前，因此不得让角色指向画面上并�
 使用中性 coda，不冒充第六种内置身份。
 
 结局视觉同样采用减法，而不是为三页各画一张传统 CG。项目只保留一张原创
-`1086×1448` wear-field 母版，经确定性流程编译为 `480×640` 运行绘制层；
-`wear-field` shader 继续提供固定 tick 的信号运动。三页绘制层 target 依次为
+`1086×1448` wear-field 母版，经确定性流程编译为 `960×1280`、4×4 排列的
+16 帧运行序列；左右与下方既有磨损路径分段显影、局部错位和褪去，中央文字区
+保持不动。`wear-field` shader 继续提供另一层固定 tick 信号运动。三页绘制层
+target 依次为
 `0.30 → 0.16 → 0.04`：第一页保留战后制度沉积，第二页让仍在场的身体与真实
 stage-4 玩家路径成为 passage 的证据，第三页再撤去身体、路径和绝大部分绘制
 材料，只留下未闭合的信号与文字。玩家路径只由已发生的 stage-4 移动采样并在
@@ -474,7 +476,7 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 |---|---|---|
 | Shell | `drift` | 月轮、冷银水面与上部标题负空间；减少水纹层数和碎反光 |
 | Neutral GAME OVER | `signal-decay` | Ghost 宽带由清晰走向解体；移除 bit-crush、RGB 边与噪点墙；不接收 v4 终局原画或逐页叙事状态 |
-| v4 terminal ending | `wear-field` | 单张原创磨损场母版与六条固定 tick Ghost 长带合成；多边进入的宽阔通行痕互相穿过但不汇聚成王座、门洞或中心符号，逐页绘制层 target 为 `0.30 / 0.16 / 0.04` |
+| v4 terminal ending | `wear-field` | 单张原创磨损场母版确定性派生 16 帧、4×4 序列；左右与下方通行痕独立显影、局部错位和褪去，中央结局文字区保持静止，再与六条固定 tick Ghost 长带合成；逐页绘制层 target 为 `0.30 / 0.16 / 0.04` |
 | Four stages | `expanse` | 原创 Ghost 冷青膜层母版确定性派生 16 帧序列，以 12 tick/帧进行不均匀横向呼吸；五段纵向延迟、材质层抬升和左右错相共同变化，中央通道保持静止。完整周期仍为 192 tick；序列与原始 `lens-whisper` 的六个 Lissajous 光源、横向 anamorphic 拖影、宽化 bokeh 与低亮 FBM 均由固定 tick 驱动 |
 | Four stages | `undertow` | 原创靛青 Ghost 竖向膜层母版确定性派生 16 帧序列，以 10 tick/帧让两道不等幅纵向波持续下传；独立墙体压力和 16 段推/曳曲线令左右墙异步变化，中央通道保持安静。完整周期仍为 160 tick，平均帧间变化面积约为 `expanse` 的 1.8 倍；原 `tropical-heat` simplex domain warp 与冷折射继续运动，RGB 分离、彩色碎片和爆闪退场 |
 | Four stages | `stratum` | 原三中心 gradient 与 travelling wave 始终是完整发光主体，内部时钟加快 15%；原创 soot/slate Ghost 母版不再作为不透明颜色层，只转换成低频明暗浮雕与微量近等亮度色相，对下方动态 shader 做调制；完整 hybrid 锁到 480×640 逻辑像素网格，且不使用 Bayer、halftone、cross-hatch、纸板或印章图形 |
@@ -483,7 +485,7 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 | Five stations | `cordon` | 原 `hologram-glitch` 的有机 rotated-FBM 体积与平滑横向错位保留；RGB 分色、扫描线、grain、亮 sweep 与噪块收束为连续靛青 Ghost 膜 |
 | Five stations | `intaglio` | 原 `bass-ripple` 鼓膜波推动柔性骨银蜂巢与三向棚拍反光；网格退为材质，行进形变和宽高光成为主体 |
 | Five stations | `sable` | 冷黑玻璃中的大型封存气泡保留宽软膜边与上升；生产 `×1` 可见，不重新加入亮点、细 rim 或爆泡 |
-| Five stations | `regnum` | 原 `topographic` 的四 octave 地形与十四层解析等高线完整展开；不插入空席、中央裂缝、脸或对称徽记，紫、绯与冷银随高程自然闭合 |
+| Five stations | `regnum` | 原 `topographic` 的四 octave 地形与十四层解析等高线完整展开；不插入空席、中央裂缝、脸或对称徽记，焦黑漆、灰烬玫瑰与暖骨珍珠随高程自然闭合，顶部为 REGENT 的根冠、骨相与心核保留低对比空间 |
 | Trance | `umbra` | `Total Eclipse` 保留无独立星点的冷紫帷幕、漂移与遮蔽；生产 `×1` 提亮后仍不生成孤立亮点 |
 | Trance | `decree` | 四个原始环源继续生成 moiré；暖灰、受控琥珀与骨色由宽拍频主导，细四向乘积只作为低增益材质 |
 | Stage 2 transition | `surge` | Magistrate 的全难度开场 `Arraignment`：原 `ink-dissolve` 的内部双重 domain warp、漂移墨源与反应边把 `undertow` 的开放竖井收束成墨膜，再进入 `intaglio` 的裁决印记；不插入硬板或几何裂缝，总速度为原版 `110%` |
@@ -627,7 +629,7 @@ fallback。
 
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
-| shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；独立 `wear-field` 只服务 v4 三页终局，所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
+| shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；独立 `wear-field` 也从唯一母版派生 16 帧，但只让多边磨损路径分段显影、错位、褪去并锁住文字区，服务 v4 三页终局；所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
 | 弹幕生成 | `src/v4/gameplay` 已拥有 8 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名，5 位 Boss 每阶段至少两层弹幕且每位使用至少四类几何；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认迁移缺口、交织线与通道墙在 Normal/Lunatic 都保留连续安全缝 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
@@ -697,8 +699,9 @@ stage-4 path；分类图集减少透明上传，发布复制会过滤 `.DS_Store
   不进入运行资源。atlas 只能由前者通过 `bun run make:v4-ui` 派生，不手工修改。
 - v4 终局只使用
   `docs/art/v4/background-wear-field-v4-master.png` 这一张 `1086×1448`
-  原创母版，并由 `bun run make:v4-backgrounds` 确定性派生 `480×640`
-  `wear-field-v4.png`；三页不得再各自追加人物、王座或叙事 CG。
+  原创母版，并由 `bun run make:v4-backgrounds` 确定性派生 16 帧、4×4、
+  `960×1280` 的 `wear-field-v4-sequence.png`；三页不得再各自追加人物、
+  王座或叙事 CG。
 - 所有被声明的动画帧都能通过实际运行路径到达。
 - 原始购买包不进入版本库；生成输出带 provenance 与本地构建说明。
 
