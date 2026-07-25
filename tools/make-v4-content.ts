@@ -50,8 +50,8 @@ import { V4_BOSS_DIALOGUE } from '../src/v4/content/narrative';
 /*                                                                    */
 /* Each is a BulletSpec inlined at a pattern slot's `options.spec`.    */
 /* The sprite names are bullet-sheet cells; the behaviour names        */
-/* (`waver`, `homing`, `orbit`, `accelerate-to`) are engine code the   */
-/* pattern resolves by name — a pack never ships them.                 */
+/* (`waver`, `homing`, `orbit`, `accelerate-to`, `beam-sweep`) are     */
+/* engine code resolved by the pattern — a pack never ships them.      */
 /* ================================================================== */
 
 /** Stage-1's plain shot. */
@@ -717,7 +717,6 @@ const EDICT = {
  * skin's painted extent ≈ 2·radius of the bullet it lands on) is enforced by that
  * placement, re-checked on `bun run test:density` (no automated honesty test). */
 const SHARD_TITHE = { ...SHARD, style: { ...SHARD.style, sprite: 'needle.tithe' } };
-const SHARD_VIGIL = { ...SHARD, style: { ...SHARD.style, sprite: 'needle.vigil' } };
 const PETAL_VIGIL = { ...PETAL, style: { ...PETAL.style, sprite: 'petal.vigil' } };
 const PETAL_ECLIPSE = { ...PETAL, style: { ...PETAL.style, sprite: 'petal.eclipse' } };
 const ENEMY_BEACON = { ...ENEMY_SHOT, style: { ...ENEMY_SHOT.style, sprite: 'orb.small.beacon' } };
@@ -1480,6 +1479,112 @@ const enemies: PackContent['enemies'] = {
 /* player's damage does. Write seconds; let the arithmetic size it.     */
 /* ================================================================== */
 
+/**
+ * Main-Boss movement is authored as four edition-owned choreographies, not as
+ * interchangeable relative ping-pongs. Each behaviour follows an absolute
+ * upper-field route with a capped step, so a phase can begin wherever the
+ * previous card was cleared and still recover its own fighting station rather
+ * than freezing (or accumulating loop drift) at that inherited coordinate.
+ *
+ * The 4096-tick window exceeds every shipped card clock. Keeping it explicit in
+ * data preserves the v4 behaviour module's finite-window rule.
+ */
+const BOSS_MOTION_DURATION = 4096;
+
+function lunarArc(
+  centerY: number,
+  spanX: number,
+  spanY: number,
+  period: number,
+  maxSpeed: number,
+): Record<string, unknown> {
+  return {
+    r: 0,
+    behaviour: 'lunar-arc',
+    options: {
+      centerX: 240,
+      centerY,
+      spanX,
+      spanY,
+      period,
+      maxSpeed,
+      duration: BOSS_MOTION_DURATION,
+    },
+  };
+}
+
+function verdictDash(
+  centerY: number,
+  spanX: number,
+  spanY: number,
+  interval: number,
+  travel: number,
+  maxSpeed: number,
+): Record<string, unknown> {
+  return {
+    r: 0,
+    behaviour: 'verdict-dash',
+    options: {
+      centerX: 240,
+      centerY,
+      spanX,
+      spanY,
+      interval,
+      travel,
+      maxSpeed,
+      duration: BOSS_MOTION_DURATION,
+    },
+  };
+}
+
+function archiveStamp(
+  centerY: number,
+  spanX: number,
+  spanY: number,
+  interval: number,
+  travel: number,
+  maxSpeed: number,
+): Record<string, unknown> {
+  return {
+    r: 0,
+    behaviour: 'archive-stamp',
+    options: {
+      centerX: 240,
+      centerY,
+      spanX,
+      spanY,
+      interval,
+      travel,
+      maxSpeed,
+      duration: BOSS_MOTION_DURATION,
+    },
+  };
+}
+
+function memoryLoom(
+  centerY: number,
+  spanX: number,
+  spanY: number,
+  period: number,
+  lobes: number,
+  maxSpeed: number,
+): Record<string, unknown> {
+  return {
+    r: 0,
+    behaviour: 'memory-loom',
+    options: {
+      centerX: 240,
+      centerY,
+      spanX,
+      spanY,
+      period,
+      lobes,
+      maxSpeed,
+      duration: BOSS_MOTION_DURATION,
+    },
+  };
+}
+
 const bosses: PackContent['bosses'] = {
   /**
    * The stage-1 boss. Three phases are the three jobs a fight does: a non-spell
@@ -1520,17 +1625,21 @@ const bosses: PackContent['bosses'] = {
         // Six seconds: an opener, not a wall.
         hpSeconds: 6,
         isSpell: false,
-        // A slow horizontal drift, reversed by the timeline so it paces rather
-        // than leaves. Aimed fire from a moving source is the whole lesson.
-        timeline: [
-          { count: 0, motion: { r: 0.9, theta: 0 } },
-          { count: 90, motion: { r: 0.9, theta: 180 } },
-          { count: 180, jump: 0 },
-        ],
+        // A shallow lunar arc. Its 288-tick circuit is four gate declarations:
+        // every crossing therefore arrives from a visibly different moon point.
+        motion: lunarArc(120, 64, 10, 288, 2.2),
         patterns: [
           {
-            pattern: 'alternating-fan',
-            options: { spec: SHARD, count: 5, spread: 28, swing: 13, period: 48 },
+            pattern: 'moon-gate',
+            options: {
+              spec: SHARD,
+              form: 'scan',
+              role: 'sweep',
+              count: 5,
+              spread: 28,
+              swing: 13,
+              period: 48,
+            },
             difficulty: {
               easy: { count: 3, period: 60 },
               hard: { count: 7, spread: 40, period: 40 },
@@ -1544,6 +1653,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'moon-gate',
             options: {
               spec: SHARD,
+              form: 'scan',
+              role: 'wheel',
+              anchor: 1,
               count: 15,
               gates: 3,
               gap: 34,
@@ -1568,9 +1680,9 @@ const bosses: PackContent['bosses'] = {
         // 'signet' is sentinel's seal — the cell stated plainly, stamped over the
         // stage field when the first card lands (see src/v4/backgrounds/signet.ts).
         background: 'signet',
-        // Stationary: the card is a shape to be read, and a moving source would
-        // smear it into noise.
-        motion: { r: 0 },
+        // The corolla opens on a rounder 224-tick tide, exactly four 56-tick
+        // petals. Movement is part of the readable object rather than smearing it.
+        motion: lunarArc(108, 50, 18, 224, 2.4),
         patterns: [
           // The corolla is one complete three-gated object rather than two
           // generic rings. Its larger declaration radius makes the openings
@@ -1579,6 +1691,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'moon-gate',
             options: {
               spec: PETAL,
+              form: 'corolla',
+              role: 'tide',
+              anchor: 1,
               count: 27,
               gates: 3,
               gap: 40,
@@ -1595,8 +1710,16 @@ const bosses: PackContent['bosses'] = {
           },
           // One aimed volley per cycle, so standing in a gap is not free.
           {
-            pattern: 'alternating-fan',
-            options: { spec: NEEDLE, count: 3, spread: 14, swing: 9, period: 96 },
+            pattern: 'moon-gate',
+            options: {
+              spec: NEEDLE,
+              form: 'corolla',
+              role: 'stamen',
+              count: 3,
+              spread: 14,
+              swing: 9,
+              period: 96,
+            },
             startAt: 60,
             difficulty: {
               easy: { count: 1 },
@@ -1615,16 +1738,20 @@ const bosses: PackContent['bosses'] = {
         // reverts to the stage scene mid-fight (the R1 defect). Once the seal is
         // stamped on Tidal Corolla it stays down through Vigil Unbroken.
         background: 'signet',
-        // Sways through the top of the field, so the spiral's origin moves and
-        // its arms cannot be memorised as fixed lanes.
-        timeline: [
-          { count: 0, motion: { r: 1.4, theta: 0, w: 2.2 } },
-          { count: 160, jump: 0 },
-        ],
+        // Three 86-tick declarations complete one wider vigil. Unlike the old
+        // 352-degree velocity loop, this absolute path closes and cannot drift.
+        motion: lunarArc(96, 74, 24, 258, 3),
         patterns: [
           {
-            pattern: 'spiral',
-            options: { spec: NEEDLE, arms: 4, step: 13, period: 4 },
+            pattern: 'moon-gate',
+            options: {
+              spec: NEEDLE,
+              form: 'vigil',
+              role: 'iris',
+              arms: 4,
+              step: 13,
+              period: 4,
+            },
             difficulty: {
               easy: { arms: 2, period: 6 },
               hard: { arms: 5, period: 3 },
@@ -1633,11 +1760,14 @@ const bosses: PackContent['bosses'] = {
           },
           // The moving source carries its three crossings with it. This layer is
           // present from the declaration, so the card's identity is never a late
-          // generic add-on after the spiral.
+          // visual add-on after the moving iris.
           {
             pattern: 'moon-gate',
             options: {
               spec: PETAL_VIGIL,
+              form: 'vigil',
+              role: 'wheel',
+              anchor: 1,
               count: 24,
               gates: 3,
               gap: 38,
@@ -1653,8 +1783,16 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'alternating-fan',
-            options: { spec: SHARD_VIGIL, count: 7, spread: 42, swing: 12, period: 75 },
+            pattern: 'moon-gate',
+            options: {
+              spec: NEEDLE,
+              form: 'vigil',
+              role: 'crosshair',
+              count: 7,
+              spread: 42,
+              swing: 12,
+              period: 75,
+            },
             startAt: 420,
             difficulty: {
               easy: { count: 4 },
@@ -1681,13 +1819,28 @@ const bosses: PackContent['bosses'] = {
         // own theme for its duration, overriding sentinel's `nemesis` exactly as
         // `background` overrides the stage scene. Reached only on Lunatic.
         music: 'zenith',
-        motion: { r: 0 },
+        // The widest and fastest lunar route: three 62-tick closures form one
+        // complete eclipse cycle while remaining inside the upper battle band.
+        motion: lunarArc(84, 86, 30, 186, 3.8),
         patterns: [
-          { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
+          {
+            pattern: 'moon-gate',
+            options: {
+              spec: NEEDLE,
+              form: 'eclipse',
+              role: 'corona',
+              arms: 6,
+              step: 11,
+              period: 3,
+            },
+          },
           {
             pattern: 'moon-gate',
             options: {
               spec: PETAL_ECLIPSE,
+              form: 'eclipse',
+              role: 'closure',
+              anchor: 1,
               count: 36,
               gates: 3,
               gap: 30,
@@ -1697,7 +1850,19 @@ const bosses: PackContent['bosses'] = {
               period: 62,
             },
           },
-          { pattern: 'alternating-fan', options: { spec: SHARD_TITHE, count: 7, spread: 38, swing: 14, period: 60 }, startAt: 90 },
+          {
+            pattern: 'moon-gate',
+            options: {
+              spec: SHARD_TITHE,
+              form: 'eclipse',
+              role: 'occlusion',
+              count: 7,
+              spread: 38,
+              swing: 14,
+              period: 60,
+            },
+            startAt: 90,
+          },
         ],
       },
     ],
@@ -1875,15 +2040,21 @@ const bosses: PackContent['bosses'] = {
         // this opener exists on every tier, making the scene part of the shipped
         // mainline instead of a registered-but-unreachable extension surface.
         background: 'surge',
-        timeline: [
-          { count: 0, motion: { r: 1.3, theta: 0 } },
-          { count: 70, motion: { r: 1.3, theta: 180 } },
-          { count: 140, jump: 0 },
-        ],
+        // A verdict is declared from a settled bench, then the final 26 ticks of
+        // each 78-tick interval carry the Magistrate to the next seat.
+        motion: verdictDash(132, 78, 0, 78, 26, 5),
         patterns: [
           {
-            pattern: 'alternating-fan',
-            options: { spec: SPARK_ARRAIGNMENT, count: 5, spread: 30, swing: 12, period: 44 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: SPARK_ARRAIGNMENT,
+              form: 'arraignment',
+              role: 'summons',
+              count: 5,
+              spread: 30,
+              swing: 12,
+              period: 44,
+            },
             difficulty: {
               easy: { count: 3, period: 56 },
               hard: { count: 7, spread: 42, period: 38 },
@@ -1891,8 +2062,15 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'spiral',
-            options: { spec: SPARK_ARRAIGNMENT, arms: 3, step: 14, period: 6 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: SPARK_ARRAIGNMENT,
+              form: 'arraignment',
+              role: 'docket',
+              arms: 3,
+              step: 14,
+              period: 6,
+            },
             startAt: 90,
             difficulty: {
               easy: { arms: 2, period: 8 },
@@ -1907,6 +2085,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'verdict-shear',
             options: {
               spec: SPARK_ARRAIGNMENT,
+              form: 'arraignment',
+              role: 'ruling',
+              anchor: 1,
               columns: 9,
               gapWidth: 124,
               shear: 4,
@@ -1929,13 +2110,23 @@ const bosses: PackContent['bosses'] = {
         // 'intaglio' — the seal inverted: the rosette is the cut void, the ground
         // the fill (src/v4/backgrounds/intaglio.ts). Bone over undertow's indigo.
         background: 'intaglio',
-        motion: { r: 0 },
+        // Pursuit alternates four settled benches, adding a shallow vertical
+        // appeal step without moving while the writs make their declaration.
+        motion: verdictDash(118, 90, 12, 88, 32, 4.8),
         patterns: [
-          // A ring of seekers: every bullet flies straight for 18 ticks and then
-          // all of them turn inward together.
+          // Pursuit hooks alternate between the two court rails. Every seeker
+          // commits to its rail first, then all of them turn inward together.
           {
-            pattern: 'gap-ring',
-            options: { spec: SEEKER_PURSUIT, count: 14, period: 78, rotation: 13, gap: 40 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: SEEKER_PURSUIT,
+              form: 'pursuit',
+              role: 'hooks',
+              count: 14,
+              period: 78,
+              rotation: 13,
+              gap: 40,
+            },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 18, period: 68 },
@@ -1948,6 +2139,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'verdict-shear',
             options: {
               spec: SEEKER_ESCROW,
+              form: 'pursuit',
+              role: 'escrow',
+              anchor: 1,
               columns: 9,
               gapWidth: 132,
               shear: 4,
@@ -1961,12 +2155,19 @@ const bosses: PackContent['bosses'] = {
             },
           },
           // "Summary Judgment" — a homing salvo of judgment writs read against the
-          // seeker ring and chaff, the missiles the boss's whole card is named for
-          // (design §b.1). Mid-tier detonations; the seeker ring above still owns
-          // the density axis, so this is a flat aimed-fan of three.
+          // pursuit hooks and chaff, the missiles the boss's whole card is named
+          // for (design §b.1). Mid-tier detonations; the hooks above still own
+          // the density axis, so this is a sparse rail-issued judgment of three.
           {
-            pattern: 'aimed-fan',
-            options: { spec: JUDGMENT, count: 3, spread: 40, period: 74 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: JUDGMENT,
+              form: 'pursuit',
+              role: 'judgment',
+              count: 3,
+              spread: 40,
+              period: 74,
+            },
             startAt: 24,
             difficulty: {
               easy: { count: 2, period: 92 },
@@ -1983,19 +2184,33 @@ const bosses: PackContent['bosses'] = {
         bonus: 250000,
         // 'intaglio' again — magistrate's inverted seal held across the fight.
         background: 'intaglio',
-        // Stationary, for the same reason 'Picket Line' is.
-        motion: { r: 0 },
+        // The opening interval carries the Magistrate to the first side bench.
+        // From phase tick 132 onward, COLUMN lives 108 ticks at a settled
+        // station; the remaining 24 ticks in each interval are the only window
+        // used to change benches before the next declaration.
+        motion: verdictDash(108, 70, 0, 132, 24, 4.5),
         patterns: [
-          // Six columns, 17° a volley. COLUMN.life is 108 and the period is 132,
-          // so exactly one set is live at a time and the room reconfigures.
+          // Six columns, 17° a volley. The first declaration waits until phase
+          // tick 132, when the opening dash has reached its bench. COLUMN.life
+          // is 108 and the period is 132, so exactly one set is live at a time
+          // and every following dash occupies a beam-free reconfiguration.
           {
-            pattern: 'gap-ring',
-            options: { spec: COLUMN_BLUE, count: 6, period: 132, rotation: 17, gap: 52 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: COLUMN_BLUE,
+              form: 'colonnade',
+              role: 'columns',
+              count: 6,
+              period: 132,
+              rotation: 17,
+              gap: 52,
+            },
             difficulty: {
               easy: { count: 4 },
               hard: { count: 7 },
               lunatic: { count: 8, rotation: 21 },
             },
+            startAt: 132,
           },
           // Assize scales hang as a divided ruling, then every row accelerates
           // through the beam's dead time at once.
@@ -2003,6 +2218,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'verdict-shear',
             options: {
               spec: SHELL_ASSIZE,
+              form: 'colonnade',
+              role: 'hardening',
+              anchor: 1,
               columns: 9,
               gapWidth: 128,
               shear: 3,
@@ -2023,16 +2241,21 @@ const bosses: PackContent['bosses'] = {
         bonus: 600000,
         // 'intaglio' — magistrate's inverted seal, held to the last word.
         background: 'intaglio',
-        // Sways through the top of the field so the spiral's origin moves — but
-        // slowly, because beams are also in the air.
-        timeline: [
-          { count: 0, motion: { r: 0.9, theta: 0, w: 2.4 } },
-          { count: 150, jump: 0 },
-        ],
+        // Assize preserves the same beam promise after an opening bench change:
+        // the first declaration is phase tick 150, then 108 live ticks and a
+        // 42-tick movement window before every following declaration.
+        motion: verdictDash(96, 96, 16, 150, 42, 4.2),
         patterns: [
           {
-            pattern: 'spiral',
-            options: { spec: SPARK_ARRAIGNMENT, arms: 4, step: 12, period: 5 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: SPARK_ARRAIGNMENT,
+              form: 'assize',
+              role: 'docket',
+              arms: 4,
+              step: 12,
+              period: 5,
+            },
             difficulty: {
               easy: { arms: 2, period: 7 },
               hard: { arms: 5, period: 4 },
@@ -2040,8 +2263,16 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'gap-ring',
-            options: { spec: EMBER_VERDICT, count: 10, period: 90, rotation: 19, gap: 54 },
+            pattern: 'verdict-shear',
+            options: {
+              spec: EMBER_VERDICT,
+              form: 'assize',
+              role: 'seal',
+              count: 10,
+              period: 90,
+              rotation: 19,
+              gap: 54,
+            },
             startAt: 30,
             difficulty: {
               easy: { count: 7 },
@@ -2049,12 +2280,21 @@ const bosses: PackContent['bosses'] = {
               lunatic: { count: 18, period: 74 },
             },
           },
-          // Four columns rather than six: the field already has a spiral and a
-          // mill in it, and the beams are the thing that must stay readable.
+          // Four columns rather than six: the field already has a two-rail
+          // docket and seal in it, and the beams are the thing that must stay
+          // readable.
           {
-            pattern: 'gap-ring',
-            options: { spec: COLUMN_ASSIZE, count: 4, period: 150, rotation: 26, gap: 62 },
-            startAt: 120,
+            pattern: 'verdict-shear',
+            options: {
+              spec: COLUMN_ASSIZE,
+              form: 'assize',
+              role: 'columns',
+              count: 4,
+              period: 150,
+              rotation: 26,
+              gap: 62,
+            },
+            startAt: 150,
             difficulty: {
               easy: { count: 3 },
               hard: { count: 5 },
@@ -2065,6 +2305,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'verdict-shear',
             options: {
               spec: SEEKER_ASSIZE,
+              form: 'assize',
+              role: 'scissor',
+              anchor: 1,
               columns: 9,
               gapWidth: 128,
               shear: 4,
@@ -2088,15 +2331,15 @@ const bosses: PackContent['bosses'] = {
    * appeal is heard, and filed. Six phases (Normal fights five; the sixth is
    * Lunatic-only), escalating 7/12/13/15/14/17 seconds — heavier than the
    * magistrate's four — and the law of every one of them is the stage's thesis:
-   * hold a *moving* lane. So the tiers change the rate you must move to keep the
-   * lane (aim speed, wall tightness, ring density, sweep rate), never whether the
-   * lane exists. A Lunatic curtain is denser and never solid.
+   * hold a *moving* lane. So the tiers change the delay, history depth, archive
+   * spacing and sweep rate, never whether the lane exists. A Lunatic curtain is
+   * denser and never solid.
    *
-   * Every phase now files the player's earlier crossing through `archive-trace`:
-   * parallel folio spines aim at a bounded, phase-local history sample. Existing
-   * spiral, seal and beam compositions remain, but the delayed record is the
-   * chancellor's unmistakable verb in all of them. "Sweeping Assay" still owns
-   * the laser round's one new behaviour (`beam-sweep`).
+   * Every attack slot now belongs to `archive-trace`: one, two or three retained
+   * crossings are bound, stamped, raked or redacted from a phase-local history.
+   * The Chancellor no longer borrows another Boss's centre spiral/ring grammar.
+   * "Sweeping Assay" still owns the laser round's one new behaviour
+   * (`beam-sweep`).
    */
   chancellor: {
     sprite: 'halo',
@@ -2126,18 +2369,17 @@ const bosses: PackContent['bosses'] = {
         // 'sable' — the seal darkened: pressed nearly shut, oxblood, the darkest
         // scene (src/v4/backgrounds/sable.ts). Against stratum's verdigris.
         background: 'sable',
-        // A slow horizontal drift, reversed so it paces rather than leaves —
-        // aimed streams you weave against, from a moving source.
-        timeline: [
-          { count: 0, motion: { r: 0.8, theta: 0 } },
-          { count: 90, motion: { r: 0.8, theta: 180 } },
-          { count: 180, jump: 0 },
-        ],
+        // The filing point changes once per 64-tick trace: hold a page corner,
+        // stamp the archived crossing, then travel to the next one.
+        motion: archiveStamp(104, 54, 12, 64, 22, 4),
         patterns: [
           {
             pattern: 'archive-trace',
             options: {
               spec: WRIT_BRIEF,
+              form: 'appeal',
+              role: 'trace',
+              anchor: 1,
               delay: 48,
               folios: 3,
               spacing: 24,
@@ -2151,8 +2393,16 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'gap-ring',
-            options: { spec: DECREE_LEDGER, count: 12, period: 72, rotation: 6, gap: 46 },
+            pattern: 'archive-trace',
+            options: {
+              spec: DECREE_LEDGER,
+              form: 'appeal',
+              role: 'margins',
+              count: 12,
+              period: 72,
+              rotation: 6,
+              gap: 46,
+            },
             difficulty: {
               easy: { count: 10, period: 84 },
               hard: { count: 14, period: 60 },
@@ -2162,26 +2412,29 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // THE THESIS CARD: the escalation mandate as a single spell. `spiral`
-        // punishes standing still; `aimed-fan` punishes the direction you flee —
-        // so you weave against the rotation while the fan predicts the weave,
-        // which is "weaving under aim," the reason the whole stage exists. It is
-        // the card the headless honesty assertion targets. Composition #1.
+        // THE THESIS CARD: the live crossing becomes binding only after it is
+        // filed. One archive layer inscribes the page while a second binds old
+        // and older samples into a delayed chain; movement changes the page
+        // corner each declaration. It is the card the headless honesty assertion
+        // targets. Composition #1.
         name: 'Sign "Binding Precedent"',
         hpSeconds: 12,
         isSpell: true,
         bonus: 250000,
         // 'sable' — chancellor's darkened seal held across the fight.
         background: 'sable',
-        timeline: [
-          { count: 0, motion: { r: 0.7, theta: 0 } },
-          { count: 100, motion: { r: 0.7, theta: 180 } },
-          { count: 200, jump: 0 },
-        ],
+        motion: archiveStamp(100, 64, 16, 58, 22, 5),
         patterns: [
           {
-            pattern: 'spiral',
-            options: { spec: LEVY_DOCKET, arms: 3, step: 9, period: 3 },
+            pattern: 'archive-trace',
+            options: {
+              spec: LEVY_DOCKET,
+              form: 'precedent',
+              role: 'binding',
+              arms: 3,
+              step: 9,
+              period: 3,
+            },
             difficulty: {
               easy: { arms: 2, step: 7 },
               hard: { arms: 4, step: 10 },
@@ -2192,6 +2445,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'archive-trace',
             options: {
               spec: WRIT_PRECEDENT,
+              form: 'precedent',
+              role: 'chain',
+              anchor: 1,
               delay: 60,
               folios: 5,
               spacing: 22,
@@ -2207,23 +2463,29 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // THE GRAZE CARD. The seal is pressed: a ring flies out, holds on a fixed
-        // circle about the boss's station, and releases tangentially all at once.
-        // The safe pocket sits at the seal's rim — hug it through the stalled
-        // window and it racks graze; a light aimed-fan keeps you honest. Tiers
-        // change ring *count* only, so the rim lane tightens Easy->Lunatic but
-        // never closes. `ring` composed with the `orbit` behaviour remains the
-        // seal layer; `archive-trace` supplies this Boss's delayed record.
+        // THE GRAZE CARD. A retained crossing is pressed into a seal, held on a
+        // fixed rim and released tangentially; a second old point witnesses it
+        // while service arrives from a filed page edge. Tiers change imprint
+        // count only, so the rim lane tightens Easy->Lunatic but never closes.
         name: 'Seal Sign "Wax and Witness"',
         hpSeconds: 13,
         isSpell: true,
         bonus: 300000,
         // 'sable' — chancellor's darkened seal.
         background: 'sable',
+        motion: archiveStamp(104, 48, 22, 68, 22, 4),
         patterns: [
           {
-            pattern: 'gap-ring',
-            options: { spec: SEAL_WITNESS, count: 16, period: 80, rotation: 0, gap: 42 },
+            pattern: 'archive-trace',
+            options: {
+              spec: SEAL_WITNESS,
+              form: 'wax',
+              role: 'imprint',
+              count: 16,
+              period: 80,
+              rotation: 0,
+              gap: 42,
+            },
             difficulty: {
               easy: { count: 12 },
               hard: { count: 20 },
@@ -2234,6 +2496,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'archive-trace',
             options: {
               spec: WRIT_WAX,
+              form: 'wax',
+              role: 'witness',
+              anchor: 1,
               delay: 72,
               folios: 5,
               spacing: 20,
@@ -2253,8 +2518,15 @@ const bosses: PackContent['bosses'] = {
           // rests on their on-field burn-out: DOCKET is slow and short-lived (life
           // 150) so it self-destructs near mid-field, well inside the 640-tall frame.
           {
-            pattern: 'aimed-fan',
-            options: { spec: DOCKET, count: 2, spread: 34, period: 96 },
+            pattern: 'archive-trace',
+            options: {
+              spec: DOCKET,
+              form: 'wax',
+              role: 'service',
+              count: 2,
+              spread: 34,
+              period: 96,
+            },
             startAt: 30,
             difficulty: {
               easy: { count: 1, period: 120 },
@@ -2282,25 +2554,48 @@ const bosses: PackContent['bosses'] = {
         // stays under chancellor's scene, and it names a scene that already exists
         // (src/v4/backgrounds/sable.ts) — no new shader.
         background: 'sable',
-        // Stationary. A beam's telegraph is a promise about where the line will be,
-        // and a moving muzzle breaks it — the same law 'Picket Line' and
-        // 'Colonnade' obey.
-        motion: { r: 0, theta: 90 },
+        // The rake emitter records from phase tick 0 but history-gates its first
+        // actual beam until tick 300. At that tick the Chancellor has reached
+        // the next stamp while the muzzle comes from the retained prior station.
+        // The Boss holds there through tick 537; the beam turns from lethal to
+        // decay on 537, and ticks 538..599 are the movement/dead window before
+        // the next retained-source declaration at tick 600.
+        motion: archiveStamp(96, 60, 14, 300, 62, 4),
         patterns: [
           // The rake: one beam aimed at the player, holding through the telegraph,
-          // then sweeping. A pair on the higher tiers, so the count moves in ones.
+          // then sweeping. It starts recording immediately; the two-generation
+          // archive makes tick 300 the first actual emission, from the preceding
+          // stamp rather than the Boss's newly reached one. A pair on the higher
+          // tiers, so the count moves in ones.
           {
-            pattern: 'alternating-fan',
-            options: { spec: RAKE, count: 1, spread: 0, swing: 0, period: 300 },
+            pattern: 'archive-trace',
+            options: {
+              spec: RAKE,
+              form: 'assay',
+              role: 'rake',
+              count: 1,
+              spread: 0,
+              swing: 0,
+              period: 300,
+            },
             difficulty: {
               hard: { count: 2, spread: 60 },
-              lunatic: { count: 2, spread: 76, period: 260 },
+              lunatic: { count: 2, spread: 76 },
             },
           },
-          // The wall of streams behind the rake: a rotating ring that reconfigures.
+          // Filed staves blink behind the rake, each declaration reconfiguring
+          // the old route rather than building another centre ring.
           {
-            pattern: 'gap-ring',
-            options: { spec: STREAM_WALL, count: 5, period: 120, rotation: 12, gap: 58 },
+            pattern: 'archive-trace',
+            options: {
+              spec: STREAM_WALL,
+              form: 'assay',
+              role: 'staves',
+              count: 5,
+              period: 120,
+              rotation: 12,
+              gap: 58,
+            },
             startAt: 40,
             difficulty: {
               easy: { count: 3 },
@@ -2314,6 +2609,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'archive-trace',
             options: {
               spec: WRIT_ASSAY_TRACE,
+              form: 'assay',
+              role: 'trace',
+              anchor: 1,
               delay: 66,
               folios: 3,
               spacing: 28,
@@ -2329,8 +2627,16 @@ const bosses: PackContent['bosses'] = {
           // A light stream curtain keeps the laser skin reachable and gives the
           // archived folios a slow luminous staff to be read against.
           {
-            pattern: 'alternating-fan',
-            options: { spec: STREAM, count: 3, spread: 34, swing: 14, period: 150 },
+            pattern: 'archive-trace',
+            options: {
+              spec: STREAM,
+              form: 'assay',
+              role: 'underline',
+              count: 3,
+              spread: 34,
+              swing: 14,
+              period: 150,
+            },
             startAt: 90,
             difficulty: {
               easy: { count: 2, period: 180 },
@@ -2341,9 +2647,9 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // Normal's final card. "You are barred from re-arguing." A dense decree
-        // ring closes retreats while briefs converge on the player's filed
-        // position — the tightest-feeling card relative to its health, still
+        // Normal's final card. "You are barred from re-arguing." Filed margin
+        // bars close retreats while a second delayed trace redacts the player's
+        // old route — the tightest-feeling card relative to its health, still
         // lane-carrying. Its name is the hinge the `spire` dialogue turns on.
         name: 'Sign "Estoppel"',
         hpSeconds: 14,
@@ -2351,10 +2657,19 @@ const bosses: PackContent['bosses'] = {
         bonus: 500000,
         // 'sable' — chancellor's darkened seal, held to the fight's normal end.
         background: 'sable',
+        motion: archiveStamp(96, 44, 18, 48, 18, 4.5),
         patterns: [
           {
-            pattern: 'gap-ring',
-            options: { spec: DECREE_LEDGER, count: 20, period: 46, rotation: 8, gap: 34 },
+            pattern: 'archive-trace',
+            options: {
+              spec: DECREE_LEDGER,
+              form: 'estoppel',
+              role: 'bars',
+              count: 20,
+              period: 46,
+              rotation: 8,
+              gap: 34,
+            },
             difficulty: {
               easy: { count: 14, period: 58 },
               hard: { count: 24, period: 40 },
@@ -2365,6 +2680,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'archive-trace',
             options: {
               spec: WRIT_ESTOPPEL,
+              form: 'estoppel',
+              role: 'redaction',
+              anchor: 1,
               delay: 54,
               folios: 5,
               spacing: 20,
@@ -2382,9 +2700,9 @@ const bosses: PackContent['bosses'] = {
       {
         // TIER-GATED, Lunatic only — the genre's extra card, gated exactly as
         // sentinel's "Total Eclipse" is, so on every other tier the fight ends on
-        // 'Estoppel'. The decree the appeal is denied by: the full combination at
-        // once — spiral, archived folios and a rotating ring — but the authored
-        // lane never closes (readable at the 2000-bullet budget, never the 5000 soup).
+        // 'Estoppel'. The decree the appeal is denied by: three archive depths
+        // at once — overprint, trace and closure — but the authored lane never
+        // closes (readable at the 2000-bullet budget, never the 5000 soup).
         // It lifts to its own drier, closer track for its duration, on the shared
         // 出神 scene `decree` (the seal draining, src/v4/backgrounds/decree.ts),
         // exactly as 'Total Eclipse' pairs `zenith`+`umbra`. `decree` is shared by
@@ -2397,12 +2715,26 @@ const bosses: PackContent['bosses'] = {
         bonus: 800000,
         background: 'decree',
         music: 'fiat',
+        motion: archiveStamp(88, 70, 26, 60, 26, 4.8),
         patterns: [
-          { pattern: 'spiral', options: { spec: LEVY_DOCKET, arms: 4, step: 12, period: 2 } },
+          {
+            pattern: 'archive-trace',
+            options: {
+              spec: LEVY_DOCKET,
+              form: 'sealed',
+              role: 'overprint',
+              arms: 4,
+              step: 12,
+              period: 2,
+            },
+          },
           {
             pattern: 'archive-trace',
             options: {
               spec: WRIT_SEALED,
+              form: 'sealed',
+              role: 'trace',
+              anchor: 1,
               delay: 42,
               folios: 7,
               spacing: 18,
@@ -2410,7 +2742,18 @@ const bosses: PackContent['bosses'] = {
               period: 60,
             },
           },
-          { pattern: 'gap-ring', options: { spec: DECREE_LEDGER, count: 20, period: 60, rotation: 5, gap: 34 } },
+          {
+            pattern: 'archive-trace',
+            options: {
+              spec: DECREE_LEDGER,
+              form: 'sealed',
+              role: 'closure',
+              count: 20,
+              period: 60,
+              rotation: 5,
+              gap: 34,
+            },
+          },
         ],
       },
     ],
@@ -2420,10 +2763,11 @@ const bosses: PackContent['bosses'] = {
    * The regent — the final authority, and the office's absent centre. Not another
    * officer in the sentinel -> warden -> magistrate -> chancellor line but the
    * vacancy they all enforced downward from: authority with no content but its own
-   * seal. Its SIX cards still recapitulate earlier lessons, but every one now wears
-   * the player's own prior passage into `memory-groove`: a delayed wall opening
-   * keeps the direction of that old route. The final authority therefore quotes
-   * everything while turning the player's accumulated history into its own law.
+   * seal. Its SIX cards still recapitulate earlier lessons, but they no longer
+   * copy those Bosses' ring/fan/spiral topology. Every slot translates the
+   * player's prior passage into `memory-groove`: retained contours, lattices,
+   * warrants and peeled history. The final authority quotes everything only
+   * after turning the player's accumulated route into its own law.
    *
    * Wan gold — the chancellor's amber, a shade darker against the vault's
    * black-purple pressure. Cards move into `regnum`: an organic topographic field
@@ -2466,17 +2810,21 @@ const bosses: PackContent['bosses'] = {
         // explicitly no literal seat or sovereign emblem
         // (src/v4/backgrounds/regnum.ts).
         background: 'regnum',
-        // A slow horizontal pace, reversed so it stations rather than leaves —
-        // aimed streams from a moving source, the chancellor's opener recalled.
-        timeline: [
-          { count: 0, motion: { r: 0.8, theta: 0 } },
-          { count: 90, motion: { r: 0.8, theta: 180 } },
-          { count: 180, jump: 0 },
-        ],
+        // A compact two-lobed memory route: four 64-tick groove declarations
+        // complete one closed path through the upper field.
+        motion: memoryLoom(104, 34, 10, 256, 2, 2),
         patterns: [
           {
-            pattern: 'alternating-fan',
-            options: { spec: REGENT_SESSION, count: 5, spread: 32, swing: 13, period: 50 },
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_SESSION,
+              form: 'session',
+              role: 'pressure',
+              count: 5,
+              spread: 32,
+              swing: 13,
+              period: 50,
+            },
             difficulty: {
               easy: { count: 3, period: 64 },
               hard: { count: 6, spread: 42, period: 42 },
@@ -2487,6 +2835,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'memory-groove',
             options: {
               spec: REGENT_SESSION,
+              form: 'session',
+              role: 'groove',
+              anchor: 1,
               delay: 40,
               trail: 12,
               columns: 9,
@@ -2505,19 +2856,28 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // SENTINEL recalled: two orbiting seals where the sentinel had one, turning
-        // against each other — the stage-1 lateral dodge, doubled. `ring` composed
-        // with the `orbit` behaviour, two specs of opposite `angularSpeed`.
+        // SENTINEL recalled without copying its moon wheel: two differently aged
+        // retained contours turn against one another, making the player's own
+        // earlier lateral dodge return as a doubled crown.
         name: 'Seal Sign "Corolla Regnant"',
         hpSeconds: 12,
         isSpell: true,
         bonus: 300000,
         // 'regnum' — the Regent's repeated contours, not a literal seal.
         background: 'regnum',
+        motion: memoryLoom(100, 48, 14, 328, 2, 2),
         patterns: [
           {
-            pattern: 'gap-ring',
-            options: { spec: CROWN_MANDAMUS, count: 12, period: 90, rotation: 4, gap: 48 },
+            pattern: 'memory-groove',
+            options: {
+              spec: CROWN_MANDAMUS,
+              form: 'corolla',
+              role: 'inner',
+              count: 12,
+              period: 90,
+              rotation: 4,
+              gap: 48,
+            },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 15 },
@@ -2525,8 +2885,16 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'gap-ring',
-            options: { spec: CROWN_CCW, count: 12, period: 90, rotation: -4, gap: 48 },
+            pattern: 'memory-groove',
+            options: {
+              spec: CROWN_CCW,
+              form: 'corolla',
+              role: 'outer',
+              count: 12,
+              period: 90,
+              rotation: -4,
+              gap: 48,
+            },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 15 },
@@ -2537,6 +2905,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'memory-groove',
             options: {
               spec: REGENT_COROLLA,
+              form: 'corolla',
+              role: 'groove',
+              anchor: 1,
               delay: 48,
               trail: 14,
               columns: 9,
@@ -2565,11 +2936,14 @@ const bosses: PackContent['bosses'] = {
         bonus: 400000,
         // 'regnum' — the Regent's repeated contours, not a literal seal.
         background: 'regnum',
+        motion: memoryLoom(104, 40, 18, 216, 3, 3),
         patterns: [
           {
-            pattern: 'lane-wall',
+            pattern: 'memory-groove',
             options: {
               spec: LATTICE_TENURE,
+              form: 'portcullis',
+              role: 'lattice',
               columns: 9,
               gapColumn: 2,
               gapWidth: 2,
@@ -2587,6 +2961,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'memory-groove',
             options: {
               spec: LATTICE,
+              form: 'portcullis',
+              role: 'groove',
+              anchor: 1,
               delay: 42,
               trail: 12,
               columns: 9,
@@ -2605,20 +2982,29 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // MAGISTRATE recalled, and the game's hardest single read: a ring of homing
-        // warrants (seekers) laid over a static aimed-fan colonnade. You cannot
-        // stand still (the seekers find you) AND cannot run free (the colonnade
-        // predicts the flee) — seekers and beam-walls at once, with a moving lane.
+        // MAGISTRATE recalled without its court rails: warrants grow from the two
+        // endpoints of a retained route while the old groove hardens between
+        // them. You cannot stand still (the roots find the old crossing) or run
+        // free (the retained contour predicts the flee).
         name: 'Writ Sign "Attainder"',
         hpSeconds: 14,
         isSpell: true,
         bonus: 500000,
         // 'regnum' — the Regent's repeated contours, not a literal seal.
         background: 'regnum',
+        motion: memoryLoom(100, 58, 20, 248, 2, 2.5),
         patterns: [
           {
-            pattern: 'gap-ring',
-            options: { spec: WARRANT, count: 8, period: 64, rotation: 5, gap: 54 },
+            pattern: 'memory-groove',
+            options: {
+              spec: WARRANT,
+              form: 'attainder',
+              role: 'warrants',
+              count: 8,
+              period: 64,
+              rotation: 5,
+              gap: 54,
+            },
             difficulty: {
               easy: { count: 6, period: 80 },
               hard: { count: 10, period: 54 },
@@ -2629,6 +3015,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'memory-groove',
             options: {
               spec: REGENT_ATTAINDER,
+              form: 'attainder',
+              role: 'groove',
+              anchor: 1,
               delay: 48,
               trail: 12,
               columns: 9,
@@ -2652,15 +3041,22 @@ const bosses: PackContent['bosses'] = {
           // mid-field). One per volley on a long period keeps it a landmark, not a
           // wall; the tier bumps the seeker ring above, not this.
           {
-            pattern: 'aimed-fan',
-            options: { spec: EDICT, count: 1, spread: 0, period: 120 },
+            pattern: 'memory-groove',
+            options: {
+              spec: EDICT,
+              form: 'attainder',
+              role: 'edict',
+              count: 1,
+              spread: 0,
+              period: 120,
+            },
             startAt: 30,
           },
         ],
       },
       {
-        // CHANCELLOR recalled: decree ring and spiral remain on the field while
-        // the Regent hardens the player's earlier route between them. Normal's
+        // CHANCELLOR recalled without copying the archive: three generations of
+        // the player's route become wheel, groove and inscription. Normal's
         // final card; counts are capped so the peak stays a curtain-with-a-lane
         // at the ~2000 readable budget, never the soup.
         name: 'Sign "Statute"',
@@ -2669,10 +3065,19 @@ const bosses: PackContent['bosses'] = {
         bonus: 600000,
         // 'regnum' — the Regent's repeated contours, held to the fight's normal end.
         background: 'regnum',
+        motion: memoryLoom(96, 68, 24, 208, 3, 3.5),
         patterns: [
           {
-            pattern: 'gap-ring',
-            options: { spec: DECREE_MANDAMUS, count: 18, period: 52, rotation: 6, gap: 36 },
+            pattern: 'memory-groove',
+            options: {
+              spec: DECREE_MANDAMUS,
+              form: 'statute',
+              role: 'wheel',
+              count: 18,
+              period: 52,
+              rotation: 6,
+              gap: 36,
+            },
             difficulty: {
               easy: { count: 12, period: 64 },
               hard: { count: 22, period: 46 },
@@ -2683,6 +3088,9 @@ const bosses: PackContent['bosses'] = {
             pattern: 'memory-groove',
             options: {
               spec: REGENT_STATUTE,
+              form: 'statute',
+              role: 'groove',
+              anchor: 1,
               delay: 54,
               trail: 14,
               columns: 11,
@@ -2699,8 +3107,15 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'spiral',
-            options: { spec: REGENT_WEAR, arms: 3, step: 10, period: 3 },
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_WEAR,
+              form: 'statute',
+              role: 'inscribe',
+              arms: 3,
+              step: 10,
+              period: 3,
+            },
             difficulty: {
               easy: { arms: 2, step: 8 },
               hard: { arms: 4, step: 11 },
@@ -2711,8 +3126,9 @@ const bosses: PackContent['bosses'] = {
       },
       {
         // LUNATIC-ONLY finale — the decree that never reconvenes. The composed
-        // maximum: spiral, retained route and rotating ring at once, with a
-        // designed lane. Gated exactly as the chancellor's 'Fiat "Sealed"' is, so on every
+        // maximum reads the retained route in reverse: unwind, deepest groove
+        // and outward peel at once, with a designed lane. Gated exactly as the
+        // chancellor's 'Fiat "Sealed"' is, so on every
         // other tier the fight ends on 'Statute'. It is the terminal beat: the
         // seal comes unmoored to the shared 出神 scene `decree` — the same scene
         // the chancellor's 'Sealed' takes, one scene for the one `fiat` track —
@@ -2728,12 +3144,26 @@ const bosses: PackContent['bosses'] = {
         bonus: 1000000,
         background: 'decree',
         music: 'fiat',
+        motion: memoryLoom(88, 82, 30, 176, 3, 4.5),
         patterns: [
-          { pattern: 'spiral', options: { spec: REGENT_WEAR, arms: 4, step: 12, period: 2 } },
+          {
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_WEAR,
+              form: 'sine-die',
+              role: 'unwind',
+              arms: 4,
+              step: 12,
+              period: 2,
+            },
+          },
           {
             pattern: 'memory-groove',
             options: {
               spec: REGENT_SINE_DIE,
+              form: 'sine-die',
+              role: 'groove',
+              anchor: 1,
               delay: 42,
               trail: 10,
               columns: 15,
@@ -2744,7 +3174,18 @@ const bosses: PackContent['bosses'] = {
               period: 44,
             },
           },
-          { pattern: 'gap-ring', options: { spec: DECREE_MANDAMUS, count: 22, period: 58, rotation: 5, gap: 32 } },
+          {
+            pattern: 'memory-groove',
+            options: {
+              spec: DECREE_MANDAMUS,
+              form: 'sine-die',
+              role: 'peel',
+              count: 22,
+              period: 58,
+              rotation: 5,
+              gap: 32,
+            },
+          },
         ],
       },
     ],

@@ -1833,29 +1833,22 @@
             "name": "Approach",
             "hpSeconds": 6,
             "isSpell": false,
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 0.9,
-                  "theta": 0
-                }
-              },
-              {
-                "count": 90,
-                "motion": {
-                  "r": 0.9,
-                  "theta": 180
-                }
-              },
-              {
-                "count": 180,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "lunar-arc",
+              "options": {
+                "centerX": 240,
+                "centerY": 120,
+                "spanX": 64,
+                "spanY": 10,
+                "period": 288,
+                "maxSpeed": 2.2,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
-                "pattern": "alternating-fan",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -1871,6 +1864,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "scan",
+                  "role": "sweep",
                   "count": 5,
                   "spread": 28,
                   "swing": 13,
@@ -1910,6 +1905,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "scan",
+                  "role": "wheel",
+                  "anchor": 1,
                   "count": 15,
                   "gates": 3,
                   "gap": 34,
@@ -1945,7 +1943,17 @@
             "bonus": 200000,
             "background": "signet",
             "motion": {
-              "r": 0
+              "r": 0,
+              "behaviour": "lunar-arc",
+              "options": {
+                "centerX": 240,
+                "centerY": 108,
+                "spanX": 50,
+                "spanY": 18,
+                "period": 224,
+                "maxSpeed": 2.4,
+                "duration": 4096
+              }
             },
             "patterns": [
               {
@@ -1968,6 +1976,9 @@
                       }
                     }
                   },
+                  "form": "corolla",
+                  "role": "tide",
+                  "anchor": 1,
                   "count": 27,
                   "gates": 3,
                   "gap": 40,
@@ -1995,7 +2006,7 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -2015,6 +2026,8 @@
                       "length": 26
                     }
                   },
+                  "form": "corolla",
+                  "role": "stamen",
                   "count": 3,
                   "spread": 14,
                   "swing": 9,
@@ -2044,23 +2057,22 @@
             "isSpell": true,
             "bonus": 500000,
             "background": "signet",
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 1.4,
-                  "theta": 0,
-                  "w": 2.2
-                }
-              },
-              {
-                "count": 160,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "lunar-arc",
+              "options": {
+                "centerX": 240,
+                "centerY": 96,
+                "spanX": 74,
+                "spanY": 24,
+                "period": 258,
+                "maxSpeed": 3,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
-                "pattern": "spiral",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -2080,6 +2092,8 @@
                       "length": 26
                     }
                   },
+                  "form": "vigil",
+                  "role": "iris",
                   "arms": 4,
                   "step": 13,
                   "period": 4
@@ -2119,6 +2133,9 @@
                       }
                     }
                   },
+                  "form": "vigil",
+                  "role": "wheel",
+                  "anchor": 1,
                   "count": 24,
                   "gates": 3,
                   "gap": 38,
@@ -2146,22 +2163,28 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
                       "sprite": "needle.vigil",
-                      "r": 0.6,
-                      "g": 0.85,
-                      "b": 1,
-                      "orientToHeading": true
+                      "r": 1,
+                      "g": 0.9,
+                      "b": 0.5,
+                      "orientToHeading": true,
+                      "additive": true
                     },
-                    "radius": 4,
+                    "radius": 2,
                     "motion": {
-                      "r": 2.2,
+                      "r": 3.4,
                       "theta": 90
+                    },
+                    "blade": {
+                      "length": 26
                     }
                   },
+                  "form": "vigil",
+                  "role": "crosshair",
                   "count": 7,
                   "spread": 42,
                   "swing": 12,
@@ -2196,11 +2219,21 @@
             "background": "umbra",
             "music": "zenith",
             "motion": {
-              "r": 0
+              "r": 0,
+              "behaviour": "lunar-arc",
+              "options": {
+                "centerX": 240,
+                "centerY": 84,
+                "spanX": 86,
+                "spanY": 30,
+                "period": 186,
+                "maxSpeed": 3.8,
+                "duration": 4096
+              }
             },
             "patterns": [
               {
-                "pattern": "spiral",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -2220,6 +2253,8 @@
                       "length": 26
                     }
                   },
+                  "form": "eclipse",
+                  "role": "corona",
                   "arms": 6,
                   "step": 11,
                   "period": 3
@@ -2245,6 +2280,9 @@
                       }
                     }
                   },
+                  "form": "eclipse",
+                  "role": "closure",
+                  "anchor": 1,
                   "count": 36,
                   "gates": 3,
                   "gap": 30,
@@ -2255,7 +2293,7 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -2271,6 +2309,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "eclipse",
+                  "role": "occlusion",
                   "count": 7,
                   "spread": 38,
                   "swing": 14,
@@ -2758,29 +2798,23 @@
             "hpSeconds": 7,
             "isSpell": false,
             "background": "surge",
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 1.3,
-                  "theta": 0
-                }
-              },
-              {
-                "count": 70,
-                "motion": {
-                  "r": 1.3,
-                  "theta": 180
-                }
-              },
-              {
-                "count": 140,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "verdict-dash",
+              "options": {
+                "centerX": 240,
+                "centerY": 132,
+                "spanX": 78,
+                "spanY": 0,
+                "interval": 78,
+                "travel": 26,
+                "maxSpeed": 5,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
-                "pattern": "alternating-fan",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -2801,6 +2835,8 @@
                       }
                     }
                   },
+                  "form": "arraignment",
+                  "role": "summons",
                   "count": 5,
                   "spread": 30,
                   "swing": 12,
@@ -2824,7 +2860,7 @@
                 }
               },
               {
-                "pattern": "spiral",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -2845,6 +2881,8 @@
                       }
                     }
                   },
+                  "form": "arraignment",
+                  "role": "docket",
                   "arms": 3,
                   "step": 14,
                   "period": 6
@@ -2887,6 +2925,9 @@
                       }
                     }
                   },
+                  "form": "arraignment",
+                  "role": "ruling",
+                  "anchor": 1,
                   "columns": 9,
                   "gapWidth": 124,
                   "shear": 4,
@@ -2923,11 +2964,22 @@
             "bonus": 150000,
             "background": "intaglio",
             "motion": {
-              "r": 0
+              "r": 0,
+              "behaviour": "verdict-dash",
+              "options": {
+                "centerX": 240,
+                "centerY": 118,
+                "spanX": 90,
+                "spanY": 12,
+                "interval": 88,
+                "travel": 32,
+                "maxSpeed": 4.8,
+                "duration": 4096
+              }
             },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -2952,6 +3004,8 @@
                       }
                     }
                   },
+                  "form": "pursuit",
+                  "role": "hooks",
                   "count": 14,
                   "period": 78,
                   "rotation": 13,
@@ -2997,6 +3051,9 @@
                       }
                     }
                   },
+                  "form": "pursuit",
+                  "role": "escrow",
+                  "anchor": 1,
                   "columns": 9,
                   "gapWidth": 132,
                   "shear": 4,
@@ -3025,7 +3082,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -3055,6 +3112,8 @@
                       }
                     }
                   },
+                  "form": "pursuit",
+                  "role": "judgment",
                   "count": 3,
                   "spread": 40,
                   "period": 74
@@ -3086,11 +3145,22 @@
             "bonus": 250000,
             "background": "intaglio",
             "motion": {
-              "r": 0
+              "r": 0,
+              "behaviour": "verdict-dash",
+              "options": {
+                "centerX": 240,
+                "centerY": 108,
+                "spanX": 70,
+                "spanY": 0,
+                "interval": 132,
+                "travel": 24,
+                "maxSpeed": 4.5,
+                "duration": 4096
+              }
             },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -3116,6 +3186,8 @@
                     },
                     "life": 108
                   },
+                  "form": "colonnade",
+                  "role": "columns",
                   "count": 6,
                   "period": 132,
                   "rotation": 17,
@@ -3132,7 +3204,8 @@
                     "count": 8,
                     "rotation": 21
                   }
-                }
+                },
+                "startAt": 132
               },
               {
                 "pattern": "verdict-shear",
@@ -3157,6 +3230,9 @@
                       }
                     }
                   },
+                  "form": "colonnade",
+                  "role": "hardening",
+                  "anchor": 1,
                   "columns": 9,
                   "gapWidth": 128,
                   "shear": 3,
@@ -3191,23 +3267,23 @@
             "isSpell": true,
             "bonus": 600000,
             "background": "intaglio",
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 0.9,
-                  "theta": 0,
-                  "w": 2.4
-                }
-              },
-              {
-                "count": 150,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "verdict-dash",
+              "options": {
+                "centerX": 240,
+                "centerY": 96,
+                "spanX": 96,
+                "spanY": 16,
+                "interval": 150,
+                "travel": 42,
+                "maxSpeed": 4.2,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
-                "pattern": "spiral",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -3228,6 +3304,8 @@
                       }
                     }
                   },
+                  "form": "assize",
+                  "role": "docket",
                   "arms": 4,
                   "step": 12,
                   "period": 5
@@ -3248,7 +3326,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -3271,6 +3349,8 @@
                       }
                     }
                   },
+                  "form": "assize",
+                  "role": "seal",
                   "count": 10,
                   "period": 90,
                   "rotation": 19,
@@ -3292,7 +3372,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
@@ -3318,12 +3398,14 @@
                     },
                     "life": 108
                   },
+                  "form": "assize",
+                  "role": "columns",
                   "count": 4,
                   "period": 150,
                   "rotation": 26,
                   "gap": 62
                 },
-                "startAt": 120,
+                "startAt": 150,
                 "difficulty": {
                   "easy": {
                     "count": 3
@@ -3362,6 +3444,9 @@
                       }
                     }
                   },
+                  "form": "assize",
+                  "role": "scissor",
+                  "anchor": 1,
                   "columns": 9,
                   "gapWidth": 128,
                   "shear": 4,
@@ -3465,26 +3550,20 @@
             "hpSeconds": 7,
             "isSpell": false,
             "background": "sable",
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 0.8,
-                  "theta": 0
-                }
-              },
-              {
-                "count": 90,
-                "motion": {
-                  "r": 0.8,
-                  "theta": 180
-                }
-              },
-              {
-                "count": 180,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "archive-stamp",
+              "options": {
+                "centerX": 240,
+                "centerY": 104,
+                "spanX": 54,
+                "spanY": 12,
+                "interval": 64,
+                "travel": 22,
+                "maxSpeed": 4,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
                 "pattern": "archive-trace",
@@ -3502,6 +3581,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "appeal",
+                  "role": "trace",
+                  "anchor": 1,
                   "delay": 48,
                   "folios": 3,
                   "spacing": 24,
@@ -3527,7 +3609,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3542,6 +3624,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "appeal",
+                  "role": "margins",
                   "count": 12,
                   "period": 72,
                   "rotation": 6,
@@ -3570,29 +3654,23 @@
             "isSpell": true,
             "bonus": 250000,
             "background": "sable",
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 0.7,
-                  "theta": 0
-                }
-              },
-              {
-                "count": 100,
-                "motion": {
-                  "r": 0.7,
-                  "theta": 180
-                }
-              },
-              {
-                "count": 200,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "archive-stamp",
+              "options": {
+                "centerX": 240,
+                "centerY": 100,
+                "spanX": 64,
+                "spanY": 16,
+                "interval": 58,
+                "travel": 22,
+                "maxSpeed": 5,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
-                "pattern": "spiral",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3608,6 +3686,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "precedent",
+                  "role": "binding",
                   "arms": 3,
                   "step": 9,
                   "period": 3
@@ -3644,6 +3724,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "precedent",
+                  "role": "chain",
+                  "anchor": 1,
                   "delay": 60,
                   "folios": 5,
                   "spacing": 22,
@@ -3676,9 +3759,23 @@
             "isSpell": true,
             "bonus": 300000,
             "background": "sable",
+            "motion": {
+              "r": 0,
+              "behaviour": "archive-stamp",
+              "options": {
+                "centerX": 240,
+                "centerY": 104,
+                "spanX": 48,
+                "spanY": 22,
+                "interval": 68,
+                "travel": 22,
+                "maxSpeed": 4,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3702,6 +3799,8 @@
                       }
                     }
                   },
+                  "form": "wax",
+                  "role": "imprint",
                   "count": 16,
                   "period": 80,
                   "rotation": 0,
@@ -3735,6 +3834,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "wax",
+                  "role": "witness",
+                  "anchor": 1,
                   "delay": 72,
                   "folios": 5,
                   "spacing": 20,
@@ -3760,7 +3862,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3790,6 +3892,8 @@
                       }
                     }
                   },
+                  "form": "wax",
+                  "role": "service",
                   "count": 2,
                   "spread": 34,
                   "period": 96
@@ -3822,11 +3926,21 @@
             "background": "sable",
             "motion": {
               "r": 0,
-              "theta": 90
+              "behaviour": "archive-stamp",
+              "options": {
+                "centerX": 240,
+                "centerY": 96,
+                "spanX": 60,
+                "spanY": 14,
+                "interval": 300,
+                "travel": 62,
+                "maxSpeed": 4,
+                "duration": 4096
+              }
             },
             "patterns": [
               {
-                "pattern": "alternating-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3861,6 +3975,8 @@
                     },
                     "life": 260
                   },
+                  "form": "assay",
+                  "role": "rake",
                   "count": 1,
                   "spread": 0,
                   "swing": 0,
@@ -3873,13 +3989,12 @@
                   },
                   "lunatic": {
                     "count": 2,
-                    "spread": 76,
-                    "period": 260
+                    "spread": 76
                   }
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3906,6 +4021,8 @@
                     },
                     "life": 96
                   },
+                  "form": "assay",
+                  "role": "staves",
                   "count": 5,
                   "period": 120,
                   "rotation": 12,
@@ -3941,6 +4058,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "assay",
+                  "role": "trace",
+                  "anchor": 1,
                   "delay": 66,
                   "folios": 3,
                   "spacing": 28,
@@ -3965,7 +4085,7 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3992,6 +4112,8 @@
                     },
                     "life": 84
                   },
+                  "form": "assay",
+                  "role": "underline",
                   "count": 3,
                   "spread": 34,
                   "swing": 14,
@@ -4023,9 +4145,23 @@
             "isSpell": true,
             "bonus": 500000,
             "background": "sable",
+            "motion": {
+              "r": 0,
+              "behaviour": "archive-stamp",
+              "options": {
+                "centerX": 240,
+                "centerY": 96,
+                "spanX": 44,
+                "spanY": 18,
+                "interval": 48,
+                "travel": 18,
+                "maxSpeed": 4.5,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -4040,6 +4176,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "estoppel",
+                  "role": "bars",
                   "count": 20,
                   "period": 46,
                   "rotation": 8,
@@ -4076,6 +4214,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "estoppel",
+                  "role": "redaction",
+                  "anchor": 1,
                   "delay": 54,
                   "folios": 5,
                   "spacing": 20,
@@ -4112,9 +4253,23 @@
             "bonus": 800000,
             "background": "decree",
             "music": "fiat",
+            "motion": {
+              "r": 0,
+              "behaviour": "archive-stamp",
+              "options": {
+                "centerX": 240,
+                "centerY": 88,
+                "spanX": 70,
+                "spanY": 26,
+                "interval": 60,
+                "travel": 26,
+                "maxSpeed": 4.8,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "spiral",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -4130,6 +4285,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "sealed",
+                  "role": "overprint",
                   "arms": 4,
                   "step": 12,
                   "period": 2
@@ -4151,6 +4308,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "sealed",
+                  "role": "trace",
+                  "anchor": 1,
                   "delay": 42,
                   "folios": 7,
                   "spacing": 18,
@@ -4159,7 +4319,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -4174,6 +4334,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "sealed",
+                  "role": "closure",
                   "count": 20,
                   "period": 60,
                   "rotation": 5,
@@ -4272,29 +4434,23 @@
             "hpSeconds": 8,
             "isSpell": false,
             "background": "regnum",
-            "timeline": [
-              {
-                "count": 0,
-                "motion": {
-                  "r": 0.8,
-                  "theta": 0
-                }
-              },
-              {
-                "count": 90,
-                "motion": {
-                  "r": 0.8,
-                  "theta": 180
-                }
-              },
-              {
-                "count": 180,
-                "jump": 0
+            "motion": {
+              "r": 0,
+              "behaviour": "memory-loom",
+              "options": {
+                "centerX": 240,
+                "centerY": 104,
+                "spanX": 34,
+                "spanY": 10,
+                "period": 256,
+                "lobes": 2,
+                "maxSpeed": 2,
+                "duration": 4096
               }
-            ],
+            },
             "patterns": [
               {
-                "pattern": "alternating-fan",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4309,6 +4465,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "session",
+                  "role": "pressure",
                   "count": 5,
                   "spread": 32,
                   "swing": 13,
@@ -4347,6 +4505,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "session",
+                  "role": "groove",
+                  "anchor": 1,
                   "delay": 40,
                   "trail": 12,
                   "columns": 9,
@@ -4384,9 +4545,23 @@
             "isSpell": true,
             "bonus": 300000,
             "background": "regnum",
+            "motion": {
+              "r": 0,
+              "behaviour": "memory-loom",
+              "options": {
+                "centerX": 240,
+                "centerY": 100,
+                "spanX": 48,
+                "spanY": 14,
+                "period": 328,
+                "lobes": 2,
+                "maxSpeed": 2,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4410,6 +4585,8 @@
                       }
                     }
                   },
+                  "form": "corolla",
+                  "role": "inner",
                   "count": 12,
                   "period": 90,
                   "rotation": 4,
@@ -4428,7 +4605,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4452,6 +4629,8 @@
                       }
                     }
                   },
+                  "form": "corolla",
+                  "role": "outer",
                   "count": 12,
                   "period": 90,
                   "rotation": -4,
@@ -4485,6 +4664,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "corolla",
+                  "role": "groove",
+                  "anchor": 1,
                   "delay": 48,
                   "trail": 14,
                   "columns": 9,
@@ -4522,9 +4704,23 @@
             "isSpell": true,
             "bonus": 400000,
             "background": "regnum",
+            "motion": {
+              "r": 0,
+              "behaviour": "memory-loom",
+              "options": {
+                "centerX": 240,
+                "centerY": 104,
+                "spanX": 40,
+                "spanY": 18,
+                "period": 216,
+                "lobes": 3,
+                "maxSpeed": 3,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "lane-wall",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4539,6 +4735,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "portcullis",
+                  "role": "lattice",
                   "columns": 9,
                   "gapColumn": 2,
                   "gapWidth": 2,
@@ -4582,6 +4780,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "portcullis",
+                  "role": "groove",
+                  "anchor": 1,
                   "delay": 42,
                   "trail": 12,
                   "columns": 9,
@@ -4619,9 +4820,23 @@
             "isSpell": true,
             "bonus": 500000,
             "background": "regnum",
+            "motion": {
+              "r": 0,
+              "behaviour": "memory-loom",
+              "options": {
+                "centerX": 240,
+                "centerY": 100,
+                "spanX": 58,
+                "spanY": 20,
+                "period": 248,
+                "lobes": 2,
+                "maxSpeed": 2.5,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4647,6 +4862,8 @@
                       }
                     }
                   },
+                  "form": "attainder",
+                  "role": "warrants",
                   "count": 8,
                   "period": 64,
                   "rotation": 5,
@@ -4683,6 +4900,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "attainder",
+                  "role": "groove",
+                  "anchor": 1,
                   "delay": 48,
                   "trail": 12,
                   "columns": 9,
@@ -4713,7 +4933,7 @@
                 }
               },
               {
-                "pattern": "aimed-fan",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4743,6 +4963,8 @@
                       }
                     }
                   },
+                  "form": "attainder",
+                  "role": "edict",
                   "count": 1,
                   "spread": 0,
                   "period": 120
@@ -4757,9 +4979,23 @@
             "isSpell": true,
             "bonus": 600000,
             "background": "regnum",
+            "motion": {
+              "r": 0,
+              "behaviour": "memory-loom",
+              "options": {
+                "centerX": 240,
+                "centerY": 96,
+                "spanX": 68,
+                "spanY": 24,
+                "period": 208,
+                "lobes": 3,
+                "maxSpeed": 3.5,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4774,6 +5010,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "statute",
+                  "role": "wheel",
                   "count": 18,
                   "period": 52,
                   "rotation": 6,
@@ -4810,6 +5048,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "statute",
+                  "role": "groove",
+                  "anchor": 1,
                   "delay": 54,
                   "trail": 14,
                   "columns": 11,
@@ -4840,7 +5081,7 @@
                 }
               },
               {
-                "pattern": "spiral",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4856,6 +5097,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "statute",
+                  "role": "inscribe",
                   "arms": 3,
                   "step": 10,
                   "period": 3
@@ -4888,9 +5131,23 @@
             "bonus": 1000000,
             "background": "decree",
             "music": "fiat",
+            "motion": {
+              "r": 0,
+              "behaviour": "memory-loom",
+              "options": {
+                "centerX": 240,
+                "centerY": 88,
+                "spanX": 82,
+                "spanY": 30,
+                "period": 176,
+                "lobes": 3,
+                "maxSpeed": 4.5,
+                "duration": 4096
+              }
+            },
             "patterns": [
               {
-                "pattern": "spiral",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4906,6 +5163,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "sine-die",
+                  "role": "unwind",
                   "arms": 4,
                   "step": 12,
                   "period": 2
@@ -4927,6 +5186,9 @@
                       "theta": 90
                     }
                   },
+                  "form": "sine-die",
+                  "role": "groove",
+                  "anchor": 1,
                   "delay": 42,
                   "trail": 10,
                   "columns": 15,
@@ -4938,7 +5200,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4953,6 +5215,8 @@
                       "theta": 90
                     }
                   },
+                  "form": "sine-die",
+                  "role": "peel",
                   "count": 22,
                   "period": 58,
                   "rotation": 5,

@@ -270,12 +270,12 @@ Warden 是关内教学中 Boss；四个关底主 Boss 另外各占有一条不�
 属性是共同语法，不是把整场战斗压成一套循环：同一 Boss 的每个 phase 也必须
 凭首帧轮廓、材质和序列动作互相区分。
 
-| 主 Boss | 专属空间动词 | phase 数 | 整场不变量 |
-|---|---|---:|---|
-| `sentinel` | `moon-gate`：围绕身体生成三开口月轮，连续波次切向相反 | 4 | 银青膜眼与月缺；从观察、涨潮、不眠到食蚀逐步闭合 |
-| `magistrate` | `verdict-shear`：按玩家当前 x 锁定申诉通道，两侧裁决面交替剪切 | 4 | 菱封、判刃与申诉中线；从列罪、追诉、柱廊到终审逐步定形 |
-| `chancellor` | `archive-trace`：固定延迟读取 phase 内玩家旧坐标，多条卷脊向记录点汇合 | 6 | 琥珀/绿见证眼、页脊与书写行；从记录到封档再到过印溶解 |
-| `regent` | `memory-groove`：旧 x 成为墙洞，更旧样本把当时移动方向保留成整体漂移 | 6 | 帝紫晶格、绯红根心与 retained contour；从初痕积累到最终脱锚 |
+| 主 Boss | 专属空间动词 | 专属位移语法 | phase 数 | 整场不变量 |
+|---|---|---|---:|---|
+| `sentinel` | `moon-gate`：围绕身体生成三开口月轮，连续波次切向相反 | `lunar-arc`：沿闭合月弧持续移动，门位读取移动圆心的领先/拖尾 | 4 | 银青膜眼与月缺；从观察、涨潮、不眠到食蚀逐步闭合 |
+| `magistrate` | `verdict-shear`：按玩家当前 x 与 Boss 换席量锁定申诉通道，两侧裁决面交替剪切 | `verdict-dash`：中席—左席—中席—右席，停驻宣判后才在空窗换席 | 4 | 菱封、判刃与申诉中线；从列罪、追诉、柱廊到终审逐步定形 |
+| `chancellor` | `archive-trace`：同时保存玩家旧坐标与发射源旧页角，以一至三层延迟回写 | `archive-stamp`：中、左、上、右、下五个档案站位，盖章后换页 | 6 | 琥珀/绿见证眼、页脊与书写行；从记录到封档再到过印溶解 |
+| `regent` | `memory-groove`：把一至三代旧路线连同 Boss 源偏移沉积成晶格、冠环与剥离层 | `memory-loom`：围绕绝对中心走闭合 8 字/多叶织轨 | 6 | 帝紫晶格、绯红根心与 retained contour；从初痕积累到最终脱锚 |
 
 Boss 稳态不应把五帧当普通循环。最少需要三类展示状态：
 
@@ -431,8 +431,12 @@ src/v4/content/campaign.json
   `alternating-fan`、`gap-ring`、`weave`、`lane-wall` 八个通用确定性几何词，
   以及四个主 Boss 专属词：Sentinel 的三开口 `moon-gate`、Magistrate 的
   全场 `verdict-shear`、Chancellor 的延迟 `archive-trace`、Regent 的旧路线
-  `memory-groove`；
-- `behaviours.ts` 提供 `homing`、`waver`、`accelerate-to`、`orbit`、`beam-sweep` 五个运动词；
+  `memory-groove`。四个主 Boss 的全部 attack slot 只引用各自专属词，并以
+  phase `form` 与有序 `role` 细分 20 套进攻；通用八词只留给杂兵、Warden
+  与 pack 扩展；
+- `behaviours.ts` 提供通用弹体运动 `homing`、`waver`、`accelerate-to`、`orbit`、
+  `beam-sweep`，以及四个主 Boss 专属位移 `lunar-arc`、`verdict-dash`、
+  `archive-stamp`、`memory-loom`；
 - 通用 registry、Emitter、运动积分和碰撞仍在 `src/content/pattern-registry.ts` 与 `src/sim/`，不被某一版美术占有；
 - `packs/v4` 只给上述语法提供可见身体。任意下载 pack 可以按名字组合已注册词汇，但不能注入 TypeScript、GLSL 或新的模拟规则。
 
@@ -700,7 +704,7 @@ fallback。
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
 | shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；最终 Boss `regnum` 从唯一母版派生 16 帧、14 tick/帧的异步漆面错层，顶部 Boss 与底部玩家安全带不动，十四层 shader 保持在上方；独立 `wear-field` 也从唯一母版派生 16 帧，但只让多边磨损路径分段显影、错位、褪去并锁住文字区，服务 v4 三页终局；所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
-| 弹幕生成 | `src/v4/gameplay` 已拥有 12 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名；Warden 保留关内教学组合，四个主 Boss 在每个阶段携带自己的专属空间词，并由共享 phase 视觉表把二十个实际 phase 分别绑定到 exact 弹体锚点；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认月门、裁决剪切、延迟归档与路线磨槽在 Normal/Lunatic 都保留连续安全缝，并盲分同 Boss 的相邻卡 |
+| 弹幕生成 | `src/v4/gameplay` 已拥有 12 个 pattern 与 9 个 behaviour（5 个弹体行为 + 4 个 Boss 位移）；16 类敌人各有唯一 `pattern+弹体` 签名；Warden 保留关内教学组合，四个主 Boss 在每个阶段携带自己的专属空间词，并由共享 phase 视觉表把二十个实际 phase 分别绑定到 exact 弹体锚点；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认月门、裁决剪切、延迟归档与路线磨槽在 Normal/Lunatic 都保留连续安全缝，并盲分同 Boss 的相邻卡 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
 | 多帧 | 玩家 banking 已由默认 pack 的 `banking: five-way` 接通；敌人 attack/recover 与 Boss 五语义姿态读取真实成功发弹及 phase 事实；四主 Boss 的二十个 phase 各自拥有 native 弹体帧数/节奏与 exact-name recipe，phase 开始按实际 phase index 播放二十套仅表现层的 `boss.cast.<boss>.<id>` 宣告序列 | 浏览器确认 ×1 下无需依赖颜色即可区分四个 Boss，也能在同 Boss 内凭锚点轮廓、材质与动作辨认当前卡；宣告 FX 位于 Boss 身体上方、敌弹下方 |
@@ -723,7 +727,9 @@ v4 UI production ornaments，以及 BulletPack 的
 117/117 本地兼容审计。默认敌我弹的危险语言已分开，15 场背景已完成逐场
 生产审查，四关低频结构已接入并进入场景总览的默认合成；五位主角的
 loose/focus 火力、专属 option 与五种 Bomb
-也已接入；最终 Boss `regnum` 已接入 16 帧异步漆面序列并保留上层动态等高线，
+也已接入；四个关底 Boss 的全部攻击槽已分别收束进月轮、裁决、档案与记忆
+四套互斥 family，20 个 phase 各有独立 form/role 组合，并由月弧、换席、
+盖章与记忆织轨四种位移语法驱动；最终 Boss `regnum` 已接入 16 帧异步漆面序列并保留上层动态等高线，
 v4 终局使用一张 wear-field 母版、三页递减合成与只读的真实 stage-4 path；
 分类图集减少透明上传，发布复制会过滤 `.DS_Store`、`Thumbs.db`、
 `desktop.ini` 与 `__MACOSX`。表现层仍不回写碰撞或 RNG；火力与 Bomb 的玩法

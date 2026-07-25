@@ -29,7 +29,7 @@
  * - **Pre-boss squeeze [1180, 1600)** — the genuinely densest trash curtain of the
  *   stage and its worst case: the `notary` + `marshal` at `at: 1180`, the two `usher`
  *   banks at `1260`/`1280` and the `grunt` pair at `1440` stack, and the `notary`'s
- *   `spiral` under the marshal ring-wall is the peak (615 concurrent @tick 1396). The
+ *   `spiral` under the marshal ring-wall is the peak (521 concurrent). The
  *   window runs past the last wave and short of the boss hand-off.
  *
  * ## Two boss windows — the Regent's composed finale cards
@@ -40,12 +40,11 @@
  * residual fly off-field and the card reach steady state, so the measured peak is the
  * card's *own* sustained population, not an artifact of how it was reached.
  *
- * - **Statute (phase 4)** — `ring` + `spray` + `spiral` at once, the chancellor recap:
- *   all three primitive curtains on the field together, the densest general card (484
- *   concurrent on lunatic).
- * - **Sine Die (phase 5, lunatic-only finale)** — `spiral` + `aimed-fan` + `ring`, the
- *   composed maximum with a designed lane (437 concurrent). It exists only on lunatic,
- *   so it is measured there alone.
+ * - **Statute (phase 4)** — three generations of retained movement return as wheel,
+ *   groove and inscription: the densest general card (714 concurrent on lunatic).
+ * - **Sine Die (phase 5, lunatic-only finale)** — old movement is read backwards as
+ *   unwind, deepest groove and outward peel (436 concurrent). It exists only on
+ *   lunatic, so it is measured there alone.
  *
  * Both cards cap their counts by design so the peak stays a curtain-with-a-lane; this
  * is the headless proof of that cap.
@@ -53,20 +52,20 @@
  * ## Measured peaks (concurrent live bullets, lunatic the worst-case tier)
  *
  *                    normal   lunatic
- *   mid [760,1040)     243       465
- *   squeeze [1180,)    332       615
- *   Statute (card 4)   256       484
- *   Sine Die (card 5)   —        437   (lunatic-only)
+ *   mid [760,1040)     228       445
+ *   squeeze [1180,)    272       521
+ *   Statute (card 4)   371       714
+ *   Sine Die (card 5)   —        436   (lunatic-only)
  *
  * ## Budgets
  *
  * Each ceiling sits between the measured lunatic peak and the doctrine's readable
- * 2000, with ~33-36% headroom above the peak (never near 2000):
+ * 2000, with about 35% headroom above the peak (never near 2000):
  *
- *   mid      : 465 * 1.35 ≈ 628  → budget 630  (35% over peak, 32% of the 2000 limit)
- *   squeeze  : 615 * 1.35 ≈ 830  → budget 830  (35% over peak, 42% of the 2000 limit)
- *   Statute  : 484 * 1.35 ≈ 653  → budget 655  (35% over peak, 33% of the 2000 limit)
- *   Sine Die : 437 * 1.35 ≈ 590  → budget 590  (35% over peak, 30% of the 2000 limit)
+ *   mid      : 445 * 1.35 ≈ 601  → budget 605  (36% over peak, 30% of the 2000 limit)
+ *   squeeze  : 521 * 1.35 ≈ 703  → budget 705  (35% over peak, 35% of the 2000 limit)
+ *   Statute  : 714 * 1.35 ≈ 964  → budget 965  (35% over peak, 48% of the 2000 limit)
+ *   Sine Die : 436 * 1.35 ≈ 589  → budget 590  (35% over peak, 30% of the 2000 limit)
  *
  * A re-authored wave or card that thickens any window past its budget fails here,
  * named, before it ever reaches the density page. The floors (well below each peak,
@@ -171,17 +170,17 @@ describe('stage-4 curtain stays readable', () => {
   // eslint-disable-next-line no-console
   console.log(
     'stage-4 mid composite [760,1040) peak:',
-    `normal=${midNormal}  lunatic=${midLunatic}  (budget 630, limit ${READABLE_LIMIT})`,
+    `normal=${midNormal}  lunatic=${midLunatic}  (budget 605, limit ${READABLE_LIMIT})`,
   );
   // eslint-disable-next-line no-console
   console.log(
     'stage-4 pre-boss squeeze [1180,1600) peak:',
-    `normal=${squeezeNormal}  lunatic=${squeezeLunatic}  (budget 830, limit ${READABLE_LIMIT})`,
+    `normal=${squeezeNormal}  lunatic=${squeezeLunatic}  (budget 705, limit ${READABLE_LIMIT})`,
   );
   // eslint-disable-next-line no-console
   console.log(
     'regent Statute (card 4) peak:',
-    `normal=${statuteNormal}  lunatic=${statuteLunatic}  (budget 655, limit ${READABLE_LIMIT})`,
+    `normal=${statuteNormal}  lunatic=${statuteLunatic}  (budget 965, limit ${READABLE_LIMIT})`,
   );
   // eslint-disable-next-line no-console
   console.log(
@@ -189,9 +188,9 @@ describe('stage-4 curtain stays readable', () => {
     `lunatic=${sineDieLunatic}  (budget 590, limit ${READABLE_LIMIT})`,
   );
 
-  // CEILING: the mid composite — measured lunatic peak 465, budget 630, ~35%.
+  // CEILING: the mid composite — measured lunatic peak 445, budget 605, ~36%.
   test('the mid composite stays under its readability budget on lunatic', () => {
-    const budget = 630;
+    const budget = 605;
     expect(budget).toBeLessThan(READABLE_LIMIT); // the budget itself honours the doctrine
     expect(
       `mid lunatic peak=${midLunatic} <= budget ${budget}: ${midLunatic <= budget}`,
@@ -199,26 +198,26 @@ describe('stage-4 curtain stays readable', () => {
   });
 
   // CEILING: the pre-boss squeeze — the densest trash curtain of the stage, measured
-  // lunatic peak 615, budget 830, ~35%. This is the worst case for trash readability.
+  // lunatic peak 521, budget 705, ~35%. This is the worst case for trash readability.
   test('the pre-boss squeeze stays under its readability budget on lunatic', () => {
-    const budget = 830;
+    const budget = 705;
     expect(budget).toBeLessThan(READABLE_LIMIT);
     expect(
       `squeeze lunatic peak=${squeezeLunatic} <= budget ${budget}: ${squeezeLunatic <= budget}`,
     ).toBe(`squeeze lunatic peak=${squeezeLunatic} <= budget ${budget}: true`);
   });
 
-  // CEILING: Statute — the densest general boss card (ring + spray + spiral at once),
-  // measured lunatic peak 484, budget 655, ~35%.
+  // CEILING: Statute — the densest general Boss card (three retained generations),
+  // measured lunatic peak 714, budget 965, ~35%.
   test('the Statute card stays under its readability budget on lunatic', () => {
-    const budget = 655;
+    const budget = 965;
     expect(budget).toBeLessThan(READABLE_LIMIT);
     expect(
       `Statute lunatic peak=${statuteLunatic} <= budget ${budget}: ${statuteLunatic <= budget}`,
     ).toBe(`Statute lunatic peak=${statuteLunatic} <= budget ${budget}: true`);
   });
 
-  // CEILING: Sine Die — the lunatic-only composed finale, measured peak 437, budget
+  // CEILING: Sine Die — the lunatic-only composed finale, measured peak 436, budget
   // 590, ~35%. Its whole design is maximum density with a lane; this proves the cap.
   test('the Sine Die finale card stays under its readability budget on lunatic', () => {
     const budget = 590;
@@ -233,10 +232,10 @@ describe('stage-4 curtain stays readable', () => {
   // leaves a window empty, its peak collapses toward zero and this fails, so the
   // ceilings above can never pass by measuring nothing.
   test('all four windows actually fire — the probe is not scanning an empty field', () => {
-    const midFloor = 160; // 34% of the measured 465
-    const squeezeFloor = 200; // 33% of the measured 615
-    const statuteFloor = 160; // 33% of the measured 484
-    const sineDieFloor = 150; // 34% of the measured 437
+    const midFloor = 160; // 36% of the measured 445
+    const squeezeFloor = 200; // 38% of the measured 521
+    const statuteFloor = 235; // 33% of the measured 714
+    const sineDieFloor = 150; // 34% of the measured 436
     expect(
       `mid=${midLunatic}>=${midFloor} squeeze=${squeezeLunatic}>=${squeezeFloor} ` +
         `statute=${statuteLunatic}>=${statuteFloor} sinedie=${sineDieLunatic}>=${sineDieFloor}: ` +

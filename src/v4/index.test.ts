@@ -23,6 +23,10 @@ const V4_BEHAVIOUR_NAMES = [
   'waver',
   'accelerate-to',
   'orbit',
+  'lunar-arc',
+  'verdict-dash',
+  'archive-stamp',
+  'memory-loom',
   'beam-sweep',
 ] as const;
 
@@ -101,7 +105,7 @@ describe('v4 edition composition', () => {
   });
 
   test('pins the current data plus executable-danmaku replay identity', () => {
-    expect(CONTENT_FINGERPRINT).toBe('496049ac5fcd');
+    expect(CONTENT_FINGERPRINT).toBe('611826dd8015');
   });
 
   test('keeps the historical import facades live without a second registration', async () => {

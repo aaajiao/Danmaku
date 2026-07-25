@@ -128,11 +128,11 @@ function stage4OpeningPopulation(tier: Difficulty, ticks: number): number {
 /**
  * Bullets `chancellor`'s thesis card emits over the window on `tier`.
  *
- * The card the honesty bar targets is the second phase, not the opener: `spiral`
- * laid over `aimed-fan`, the "weaving under aim" thesis. Reaching it headlessly
- * means draining the opening `Appeal` phase — one large hit, since overkill is
- * discarded — after the fly-in settles. Emission is counted from the tick the
- * thesis card is armed, so the opener's bullets are excluded.
+ * The card the honesty bar targets is the second phase, not the opener:
+ * `archive-trace` binding laid over a two-generation chain. Reaching it
+ * headlessly means draining the opening `Appeal` phase — one large hit, since
+ * overkill is discarded — after the fly-in settles. Emission is counted from
+ * the tick the thesis card is armed, so the opener's bullets are excluded.
  */
 function chancellorCardPopulation(tier: Difficulty, ticks: number): number {
   const bullets = new BulletSystem({ bounds: BOUNDS, initial: 4000 });
@@ -251,10 +251,11 @@ describe('difficulty is real, not a menu that changes nothing', () => {
   });
 
   test("chancellor's thesis card fires strictly more bullets as the tier rises", () => {
-    // 'Binding Precedent' is the escalation thesis as a card — `spiral` over
-    // `aimed-fan`, weaving under aim. Its tier blocks rise (fan 3/5/6/7; spiral
-    // arms 2/3/4/4 with lunatic's period 2 carrying the hard->lunatic step). The
-    // card is reached by draining the opener, so this measures the thesis itself.
+    // 'Binding Precedent' is the escalation thesis as a card — a live filing
+    // layer over a two-generation archive chain. Its tier blocks rise (chain
+    // folios 3/5/7/9; binding arms 2/3/4/4 with Lunatic's period 2 carrying the
+    // Hard→Lunatic step). The card is reached by draining the opener, so this
+    // measures the thesis itself.
     const line = DIFFICULTIES.map((t) => `${t}=${chancellorCard[t]}`).join(' ');
     const rising =
       chancellorCard.easy < chancellorCard.normal &&

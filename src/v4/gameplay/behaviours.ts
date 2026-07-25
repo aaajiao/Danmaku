@@ -218,6 +218,222 @@ defineBehaviour('orbit', (vector: MoveVector, context: MotionContext) => {
   vector.r = Math.sqrt(stepX * stepX + stepY * stepY);
 });
 
+/* -------------------------------------------------------------------------- */
+/* Boss position grammars                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The shipped Boss paths are absolute rather than relative.
+ *
+ * A phase may be cleared at any point in its predecessor's route, and
+ * `Boss.beginPhase` deliberately preserves the live position. A relative
+ * velocity loop would therefore make the next card's authored station depend on
+ * when the player happened to drain the previous one. These behaviours instead
+ * name a field-space centre and continuously solve for the bounded step toward
+ * the next point on their path. `maxSpeed` makes that correction readable when a
+ * phase begins away from its centre.
+ *
+ * The behaviours still obey this module's finite-window rule. The v4 campaign
+ * writes `duration: 4096`, beyond its longest 2170-tick card; the same value is
+ * the safe default for another caller that omits it.
+ */
+const BOSS_PATH_DURATION = 4096;
+
+/** Aim the vector at one absolute point without moving more than `maxSpeed`. */
+function trackAbsolute(
+  vector: MoveVector,
+  context: MotionContext,
+  targetX: number,
+  targetY: number,
+  maxSpeed: number,
+): void {
+  const dx = targetX - context.x;
+  const dy = targetY - context.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const speed = Math.max(0, maxSpeed);
+  if (distance === 0 || speed === 0) {
+    vector.r = 0;
+    return;
+  }
+
+  vector.theta = atan2Deg(dy, dx);
+  vector.r = Math.min(distance, speed);
+}
+
+/** Positive integer option used by clocks and station indices. */
+function positiveTicks(options: Options, key: string, fallback: number): number {
+  return Math.max(1, Math.floor(option(options, key, fallback)));
+}
+
+/** Magnitudes are authored as spans; a negative input must not invert the path. */
+function span(options: Options, key: string, fallback: number): number {
+  return Math.abs(option(options, key, fallback));
+}
+
+/**
+ * Sentinel: one closed lunar arc around an authored upper-field station.
+ *
+ * `x` follows one sine while `y` follows a lifted cosine. The result starts at
+ * the named centre, opens downward like a crescent, and returns exactly to the
+ * centre once per `period`; consecutive moon-gate declarations therefore braid
+ * around a moving origin without accumulating drift.
+ *
+ * Options: `centerX`/`centerY` (default 240/120), `spanX`/`spanY` (64/12),
+ * `period` (240), `maxSpeed` (3), `duration` (4096).
+ */
+defineBehaviour('lunar-arc', (vector: MoveVector, context: MotionContext) => {
+  const options = vector.options;
+  const duration = Math.max(0, Math.floor(option(options, 'duration', BOSS_PATH_DURATION)));
+  if (!inWindow(vector.age, 0, duration)) return;
+
+  const period = positiveTicks(options, 'period', 240);
+  const phase = (360 * ((vector.age + 1) % period)) / period;
+  const centerX = option(options, 'centerX', 240);
+  const centerY = option(options, 'centerY', 120);
+  const targetX = centerX + span(options, 'spanX', 64) * sinDeg(phase);
+  const targetY = centerY + span(options, 'spanY', 12) * (1 - cosDeg(phase));
+  trackAbsolute(vector, context, targetX, targetY, option(options, 'maxSpeed', 3));
+});
+
+const VERDICT_STATION_X = [0, -1, 0, 1] as const;
+const VERDICT_STATION_Y = [0, -1, 0, 1] as const;
+const ARCHIVE_STATION_X = [0, -1, 0, 1, 0] as const;
+const ARCHIVE_STATION_Y = [0, 0, -1, 0, 1] as const;
+
+/**
+ * Resolve a hold-then-travel path.
+ *
+ * The entity stays on station for `interval - travel` ticks, then advances
+ * linearly during the final `travel` ticks. The last travel tick targets the
+ * destination itself, so a sufficiently authored `maxSpeed` has the Boss
+ * settled before the next interval's volley is emitted.
+ */
+function trackStations(
+  vector: MoveVector,
+  context: MotionContext,
+  xSteps: readonly number[],
+  ySteps: readonly number[],
+  defaults: {
+    readonly spanX: number;
+    readonly spanY: number;
+    readonly interval: number;
+    readonly travel: number;
+    readonly maxSpeed: number;
+  },
+): void {
+  const options = vector.options;
+  const interval = positiveTicks(options, 'interval', defaults.interval);
+  const travel = Math.min(
+    interval,
+    positiveTicks(options, 'travel', defaults.travel),
+  );
+  const station = Math.floor(vector.age / interval);
+  const within = vector.age % interval;
+  const travelStart = interval - travel;
+  const progress = within < travelStart
+    ? 0
+    : (within - travelStart + 1) / travel;
+
+  const from = station % xSteps.length;
+  const to = (station + 1) % xSteps.length;
+  const centerX = option(options, 'centerX', 240);
+  const centerY = option(options, 'centerY', 120);
+  const spanX = span(options, 'spanX', defaults.spanX);
+  const spanY = span(options, 'spanY', defaults.spanY);
+  const fromX = centerX + (xSteps[from] ?? 0) * spanX;
+  const fromY = centerY + (ySteps[from] ?? 0) * spanY;
+  const toX = centerX + (xSteps[to] ?? 0) * spanX;
+  const toY = centerY + (ySteps[to] ?? 0) * spanY;
+  const targetX = fromX + (toX - fromX) * progress;
+  const targetY = fromY + (toY - fromY) * progress;
+
+  trackAbsolute(
+    vector,
+    context,
+    targetX,
+    targetY,
+    option(options, 'maxSpeed', defaults.maxSpeed),
+  );
+}
+
+/**
+ * Magistrate: bilateral verdict stations.
+ *
+ * The sequence is centre → left → centre → right. Each interval holds its
+ * ruling, then spends only its final `travel` ticks changing station, which lets
+ * content align a dash with the dead time between verdict rows or planted
+ * beams.
+ *
+ * Options: `centerX`/`centerY` (240/120), `spanX`/`spanY` (72/10),
+ * `interval` (90), `travel` (24), `maxSpeed` (5), `duration` (4096).
+ */
+defineBehaviour('verdict-dash', (vector: MoveVector, context: MotionContext) => {
+  const duration = Math.max(
+    0,
+    Math.floor(option(vector.options, 'duration', BOSS_PATH_DURATION)),
+  );
+  if (!inWindow(vector.age, 0, duration)) return;
+  trackStations(
+    vector,
+    context,
+    VERDICT_STATION_X,
+    VERDICT_STATION_Y,
+    { spanX: 72, spanY: 10, interval: 90, travel: 24, maxSpeed: 5 },
+  );
+});
+
+/**
+ * Chancellor: a five-station archive stamp.
+ *
+ * Centre → left → up → right → down reads as a filed cross rather than another
+ * lateral patrol. As with `verdict-dash`, movement occupies the end of the
+ * interval so an archive volley can be delivered from a settled page corner.
+ *
+ * Options: `centerX`/`centerY` (240/104), `spanX`/`spanY` (56/16),
+ * `interval` (72), `travel` (24), `maxSpeed` (5), `duration` (4096).
+ */
+defineBehaviour('archive-stamp', (vector: MoveVector, context: MotionContext) => {
+  const duration = Math.max(
+    0,
+    Math.floor(option(vector.options, 'duration', BOSS_PATH_DURATION)),
+  );
+  if (!inWindow(vector.age, 0, duration)) return;
+  trackStations(
+    vector,
+    context,
+    ARCHIVE_STATION_X,
+    ARCHIVE_STATION_Y,
+    { spanX: 56, spanY: 16, interval: 72, travel: 24, maxSpeed: 5 },
+  );
+});
+
+/**
+ * Regent: a closed Lissajous memory loom.
+ *
+ * One horizontal cycle crosses `lobes` vertical cycles. With the safe default
+ * `lobes: 2` the route is a figure eight that repeatedly passes through the
+ * absent centre; higher authored values add retained grooves without turning
+ * the movement into an unbounded orbit.
+ *
+ * Options: `centerX`/`centerY` (240/104), `spanX`/`spanY` (48/16),
+ * `period` (240), `lobes` (2, clamped to at least 2), `maxSpeed` (4),
+ * `duration` (4096).
+ */
+defineBehaviour('memory-loom', (vector: MoveVector, context: MotionContext) => {
+  const options = vector.options;
+  const duration = Math.max(0, Math.floor(option(options, 'duration', BOSS_PATH_DURATION)));
+  if (!inWindow(vector.age, 0, duration)) return;
+
+  const period = positiveTicks(options, 'period', 240);
+  const lobes = Math.max(2, Math.floor(option(options, 'lobes', 2)));
+  const phase = (360 * ((vector.age + 1) % period)) / period;
+  const centerX = option(options, 'centerX', 240);
+  const centerY = option(options, 'centerY', 104);
+  const targetX = centerX + span(options, 'spanX', 48) * sinDeg(phase);
+  const targetY = centerY + span(options, 'spanY', 16) * sinDeg(phase * lobes);
+  trackAbsolute(vector, context, targetX, targetY, option(options, 'maxSpeed', 4));
+});
+
 /**
  * Hold the aimed heading through the telegraph, then sweep it — the laser verb.
  *

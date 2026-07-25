@@ -150,6 +150,18 @@ movement, collision, damage, RNG or the numerical trace. Because the phase
 anchor sprite names live in generated campaign JSON, those presentation names
 still change replay compatibility identity; the content generator synchronizes
 the new fingerprint with that vocabulary.
+
+The choreography revision closes the remaining gameplay gap. Every attack slot
+on a main Boss now belongs to that Boss's family — no main Boss falls back to the
+shared `spiral`, fan, ring or lane-wall topology — and each phase selects an
+explicit `form` plus ordered `role`s inside the family. Four absolute, capped
+movement behaviours pair with those attacks: Sentinel's `lunar-arc`,
+Magistrate's settle-then-move `verdict-dash`, Chancellor's five-station
+`archive-stamp`, and Regent's closed `memory-loom`. Absolute centres let a new
+phase recover from the exact point where the previous one was cleared instead
+of inheriting a stationary accident or accumulating a relative-loop drift. This
+is another declared simulation revision, so the campaign identity and all eight
+golden replays move with it.
 Player focus stances and five identity bombs remain part of the earlier
 intentional gameplay revision.
 

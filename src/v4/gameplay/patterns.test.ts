@@ -21,6 +21,96 @@ const BOSS_PATTERNS = [
 ] as const;
 const DETERMINISTIC_PATTERNS = [...NEW_PATTERNS, ...BOSS_PATTERNS] as const;
 
+interface FamilyCase {
+  readonly pattern: (typeof BOSS_PATTERNS)[number];
+  readonly form: string;
+  readonly role: string;
+}
+
+const FAMILY_ROLES: readonly FamilyCase[] = [
+  { pattern: 'moon-gate', form: 'scan', role: 'sweep' },
+  { pattern: 'moon-gate', form: 'scan', role: 'wheel' },
+  { pattern: 'moon-gate', form: 'corolla', role: 'tide' },
+  { pattern: 'moon-gate', form: 'corolla', role: 'stamen' },
+  { pattern: 'moon-gate', form: 'vigil', role: 'iris' },
+  { pattern: 'moon-gate', form: 'vigil', role: 'wheel' },
+  { pattern: 'moon-gate', form: 'vigil', role: 'crosshair' },
+  { pattern: 'moon-gate', form: 'eclipse', role: 'corona' },
+  { pattern: 'moon-gate', form: 'eclipse', role: 'closure' },
+  { pattern: 'moon-gate', form: 'eclipse', role: 'occlusion' },
+
+  { pattern: 'verdict-shear', form: 'arraignment', role: 'summons' },
+  { pattern: 'verdict-shear', form: 'arraignment', role: 'docket' },
+  { pattern: 'verdict-shear', form: 'arraignment', role: 'ruling' },
+  { pattern: 'verdict-shear', form: 'pursuit', role: 'hooks' },
+  { pattern: 'verdict-shear', form: 'pursuit', role: 'escrow' },
+  { pattern: 'verdict-shear', form: 'pursuit', role: 'judgment' },
+  { pattern: 'verdict-shear', form: 'colonnade', role: 'columns' },
+  { pattern: 'verdict-shear', form: 'colonnade', role: 'hardening' },
+  { pattern: 'verdict-shear', form: 'assize', role: 'docket' },
+  { pattern: 'verdict-shear', form: 'assize', role: 'seal' },
+  { pattern: 'verdict-shear', form: 'assize', role: 'columns' },
+  { pattern: 'verdict-shear', form: 'assize', role: 'scissor' },
+
+  { pattern: 'archive-trace', form: 'appeal', role: 'trace' },
+  { pattern: 'archive-trace', form: 'appeal', role: 'margins' },
+  { pattern: 'archive-trace', form: 'precedent', role: 'binding' },
+  { pattern: 'archive-trace', form: 'precedent', role: 'chain' },
+  { pattern: 'archive-trace', form: 'wax', role: 'imprint' },
+  { pattern: 'archive-trace', form: 'wax', role: 'witness' },
+  { pattern: 'archive-trace', form: 'wax', role: 'service' },
+  { pattern: 'archive-trace', form: 'assay', role: 'rake' },
+  { pattern: 'archive-trace', form: 'assay', role: 'staves' },
+  { pattern: 'archive-trace', form: 'assay', role: 'trace' },
+  { pattern: 'archive-trace', form: 'assay', role: 'underline' },
+  { pattern: 'archive-trace', form: 'estoppel', role: 'bars' },
+  { pattern: 'archive-trace', form: 'estoppel', role: 'redaction' },
+  { pattern: 'archive-trace', form: 'sealed', role: 'overprint' },
+  { pattern: 'archive-trace', form: 'sealed', role: 'trace' },
+  { pattern: 'archive-trace', form: 'sealed', role: 'closure' },
+
+  { pattern: 'memory-groove', form: 'session', role: 'pressure' },
+  { pattern: 'memory-groove', form: 'session', role: 'groove' },
+  { pattern: 'memory-groove', form: 'corolla', role: 'inner' },
+  { pattern: 'memory-groove', form: 'corolla', role: 'outer' },
+  { pattern: 'memory-groove', form: 'corolla', role: 'groove' },
+  { pattern: 'memory-groove', form: 'portcullis', role: 'lattice' },
+  { pattern: 'memory-groove', form: 'portcullis', role: 'groove' },
+  { pattern: 'memory-groove', form: 'attainder', role: 'warrants' },
+  { pattern: 'memory-groove', form: 'attainder', role: 'groove' },
+  { pattern: 'memory-groove', form: 'attainder', role: 'edict' },
+  { pattern: 'memory-groove', form: 'statute', role: 'wheel' },
+  { pattern: 'memory-groove', form: 'statute', role: 'groove' },
+  { pattern: 'memory-groove', form: 'statute', role: 'inscribe' },
+  { pattern: 'memory-groove', form: 'sine-die', role: 'unwind' },
+  { pattern: 'memory-groove', form: 'sine-die', role: 'groove' },
+  { pattern: 'memory-groove', form: 'sine-die', role: 'peel' },
+] as const;
+
+/** One presentation-anchor role per authored main-Boss phase, in campaign order. */
+const PHASE_FORMS: readonly FamilyCase[] = [
+  { pattern: 'moon-gate', form: 'scan', role: 'wheel' },
+  { pattern: 'moon-gate', form: 'corolla', role: 'tide' },
+  { pattern: 'moon-gate', form: 'vigil', role: 'wheel' },
+  { pattern: 'moon-gate', form: 'eclipse', role: 'closure' },
+  { pattern: 'verdict-shear', form: 'arraignment', role: 'ruling' },
+  { pattern: 'verdict-shear', form: 'pursuit', role: 'escrow' },
+  { pattern: 'verdict-shear', form: 'colonnade', role: 'hardening' },
+  { pattern: 'verdict-shear', form: 'assize', role: 'scissor' },
+  { pattern: 'archive-trace', form: 'appeal', role: 'trace' },
+  { pattern: 'archive-trace', form: 'precedent', role: 'chain' },
+  { pattern: 'archive-trace', form: 'wax', role: 'witness' },
+  { pattern: 'archive-trace', form: 'assay', role: 'trace' },
+  { pattern: 'archive-trace', form: 'estoppel', role: 'redaction' },
+  { pattern: 'archive-trace', form: 'sealed', role: 'trace' },
+  { pattern: 'memory-groove', form: 'session', role: 'groove' },
+  { pattern: 'memory-groove', form: 'corolla', role: 'groove' },
+  { pattern: 'memory-groove', form: 'portcullis', role: 'groove' },
+  { pattern: 'memory-groove', form: 'attainder', role: 'groove' },
+  { pattern: 'memory-groove', form: 'statute', role: 'groove' },
+  { pattern: 'memory-groove', form: 'sine-die', role: 'groove' },
+] as const;
+
 function system(capacity = 256): BulletSystem {
   return new BulletSystem({
     bounds: { width: 480, height: 640, margin: 48 },
@@ -64,6 +154,109 @@ function drive(
 
 function headings(bullets: BulletSystem): number[] {
   return bullets.bullets.map((bullet) => bullet.vector.theta);
+}
+
+function familyOptions(entry: FamilyCase): Record<string, unknown> {
+  return {
+    spec: SPEC,
+    form: entry.form,
+    role: entry.role,
+    period: 1,
+    delay: 2,
+    trail: 1,
+    count: 7,
+    arms: 4,
+    columns: 9,
+    folios: 5,
+    gates: 3,
+    gap: 32,
+    gapWidth: entry.form === 'portcullis' && entry.role === 'lattice' ? 2 : 72,
+    radius: 34,
+    rotation: 7,
+    twist: 5,
+    spread: 36,
+    swing: 11,
+    step: 9,
+    spacing: 14,
+    stagger: 3,
+    speed: 2,
+    driftScale: 3,
+    maxDrift: 14,
+    left: 0,
+    right: 480,
+  };
+}
+
+/**
+ * A style-free spatial trace. It deliberately records only simulation facts,
+ * so two forms cannot pass by changing a sprite/tint while emitting the same
+ * attack.
+ */
+function familyTrace(
+  entry: FamilyCase,
+  movingSource = true,
+  seed = 0x51a7,
+  ticks = 18,
+  optionOverrides: Readonly<Record<string, unknown>> = {},
+  normalizeTranslation = false,
+): string {
+  const bullets = system(8192);
+  const rng = new Random(seed);
+  const pattern = createPattern(entry.pattern, {
+    ...familyOptions(entry),
+    ...optionOverrides,
+  });
+  const trace: (number | boolean)[][] = [];
+
+  for (let age = 0; age < ticks; age++) {
+    const before = bullets.count;
+    const x = movingSource ? 170 + ((age * 17) % 140) : 240;
+    const y = movingSource ? 88 + ((age * 5) % 24) : 96;
+    pattern(context(bullets, age, {
+      x,
+      y,
+      targetX: 60 + ((age * 29) % 360),
+      targetY: 500 - ((age * 7) % 120),
+      rng,
+    }));
+    for (const bullet of bullets.bullets.slice(before)) {
+      trace.push([
+        age,
+        bullet.x,
+        bullet.y,
+        bullet.vector.theta,
+        bullet.vector.r,
+        bullet.radius,
+        bullet.laser !== undefined,
+        bullet.missile !== undefined,
+      ]);
+    }
+  }
+
+  if (normalizeTranslation && trace.length > 0) {
+    const originX = trace[0]![1] as number;
+    const originY = trace[0]![2] as number;
+    return JSON.stringify(trace.map((row) => [
+      row[0],
+      (row[1] as number) - originX,
+      (row[2] as number) - originY,
+      ...row.slice(3),
+    ]));
+  }
+
+  return JSON.stringify(trace);
+}
+
+/**
+ * Removes only one global x/y translation from an executed trace. Relative
+ * spawn geometry, timing, headings, speed and collision shape all remain, so a
+ * phase cannot claim a unique attack merely by moving the same row downward.
+ */
+function normalizedFamilyTrace(
+  entry: FamilyCase,
+  optionOverrides: Readonly<Record<string, unknown>> = {},
+): string {
+  return familyTrace(entry, true, 0x51a7, 18, optionOverrides, true);
 }
 
 describe('v4 spatial pattern vocabulary', () => {
@@ -261,6 +454,339 @@ describe('v4 spatial pattern vocabulary', () => {
 
     expect(bullets.bullets.map((bullet) => bullet.x)).toEqual([10, 30, 50]);
     expect(headings(bullets)).toEqual([102, 102, 102]);
+  });
+
+  test('each memory-groove generation retains and reverses its own route drift', () => {
+    const cases = [
+      { form: 'session', generations: 1 },
+      { form: 'corolla', generations: 2 },
+      { form: 'statute', generations: 3 },
+    ] as const;
+
+    const run = (form: string, generations: number, routeStep: number): number[] => {
+      const bullets = system();
+      const pattern = createPattern('memory-groove', {
+        spec: SPEC,
+        form,
+        role: 'groove',
+        period: 1,
+        delay: 2,
+        trail: 2,
+        columns: 5,
+        gapWidth: 1,
+        left: 0,
+        right: 480,
+        driftScale: 1,
+        maxDrift: 20,
+      });
+      const result: number[] = [];
+
+      for (let age = 0; age < 40 && result.length < generations; age++) {
+        const before = bullets.count;
+        pattern(context(bullets, age, {
+          x: 240,
+          y: 100,
+          targetX: 240 + routeStep * age,
+          targetY: 500,
+        }));
+        const first = bullets.bullets[before];
+        if (first !== undefined) result.push(first.vector.theta);
+      }
+
+      return result;
+    };
+
+    for (const { form, generations } of cases) {
+      const increasing = run(form, generations, 4);
+      const stationary = run(form, generations, 0);
+      const decreasing = run(form, generations, -4);
+
+      expect(increasing, `${form} deterministic route trace`).toEqual(
+        run(form, generations, 4),
+      );
+      expect(increasing).toHaveLength(generations);
+      expect(stationary).toHaveLength(generations);
+      expect(decreasing).toHaveLength(generations);
+
+      for (let generation = 0; generation < generations; generation++) {
+        const forwardDrift = increasing[generation]! - stationary[generation]!;
+        const reverseDrift = decreasing[generation]! - stationary[generation]!;
+        expect(forwardDrift, `${form} generation ${generation}`).toBeGreaterThan(0);
+        expect(reverseDrift, `${form} generation ${generation}`).toBeLessThan(0);
+        expect(forwardDrift).toBe(-reverseDrift);
+      }
+    }
+  });
+
+  test('built-in family forms still require one validated spec and a legal role', () => {
+    for (const entry of PHASE_FORMS) {
+      expect(() => createPattern(entry.pattern, {
+        form: entry.form,
+        role: entry.role,
+      })).toThrow(`pattern "${entry.pattern}" requires a "spec" option`);
+    }
+
+    expect(() => createPattern('moon-gate', {
+      spec: SPEC,
+      form: 'scan',
+      role: 'spiral',
+    })).toThrow('pattern "moon-gate" form "scan" requires role sweep | wheel');
+    expect(() => createPattern('memory-groove', {
+      spec: SPEC,
+      form: 'throne',
+      role: 'groove',
+    })).toThrow('pattern "memory-groove" does not support form "throne"');
+  });
+
+  test('all 54 authored family form/role slots have a live spatial implementation', () => {
+    expect(FAMILY_ROLES).toHaveLength(54);
+    for (const entry of FAMILY_ROLES) {
+      expect(
+        familyTrace(entry),
+        `${entry.pattern}/${entry.form}.${entry.role}`,
+      ).not.toBe('[]');
+    }
+  });
+
+  test('all 20 phase-anchor forms have distinct translation-normalized style-free traces', () => {
+    expect(PHASE_FORMS).toHaveLength(20);
+    const traces = PHASE_FORMS.map((entry) => normalizedFamilyTrace(entry));
+    expect(new Set(traces).size).toBe(PHASE_FORMS.length);
+  });
+
+  test('authored family geometry options change executed style-free traces', () => {
+    const cases: readonly {
+      readonly entry: FamilyCase;
+      readonly option: string;
+      readonly low: number;
+      readonly high: number;
+    }[] = [
+      {
+        entry: { pattern: 'moon-gate', form: 'corolla', role: 'stamen' },
+        option: 'swing',
+        low: 0,
+        high: 17,
+      },
+      {
+        entry: { pattern: 'moon-gate', form: 'eclipse', role: 'occlusion' },
+        option: 'swing',
+        low: 0,
+        high: 19,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'colonnade', role: 'columns' },
+        option: 'rotation',
+        low: 0,
+        high: 21,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'pursuit', role: 'hooks' },
+        option: 'rotation',
+        low: 0,
+        high: 18,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'pursuit', role: 'hooks' },
+        option: 'gap',
+        low: 12,
+        high: 80,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'colonnade', role: 'columns' },
+        option: 'gap',
+        low: 24,
+        high: 160,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'assize', role: 'seal' },
+        option: 'rotation',
+        low: 3,
+        high: 27,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'assize', role: 'seal' },
+        option: 'gap',
+        low: 12,
+        high: 72,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'assize', role: 'columns' },
+        option: 'rotation',
+        low: 0,
+        high: 26,
+      },
+      {
+        entry: { pattern: 'verdict-shear', form: 'assize', role: 'columns' },
+        option: 'gap',
+        low: 24,
+        high: 160,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'assay', role: 'staves' },
+        option: 'rotation',
+        low: 2,
+        high: 16,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'appeal', role: 'margins' },
+        option: 'gap',
+        low: 12,
+        high: 70,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'assay', role: 'rake' },
+        option: 'swing',
+        low: 0,
+        high: 18,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'assay', role: 'staves' },
+        option: 'gap',
+        low: 12,
+        high: 70,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'assay', role: 'underline' },
+        option: 'swing',
+        low: 0,
+        high: 18,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'estoppel', role: 'bars' },
+        option: 'rotation',
+        low: 2,
+        high: 14,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'estoppel', role: 'bars' },
+        option: 'gap',
+        low: 12,
+        high: 58,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'sealed', role: 'closure' },
+        option: 'rotation',
+        low: 2,
+        high: 10,
+      },
+      {
+        entry: { pattern: 'archive-trace', form: 'sealed', role: 'closure' },
+        option: 'gap',
+        low: 12,
+        high: 58,
+      },
+      {
+        entry: { pattern: 'memory-groove', form: 'portcullis', role: 'lattice' },
+        option: 'gapColumn',
+        low: 1,
+        high: 6,
+      },
+      {
+        entry: { pattern: 'memory-groove', form: 'portcullis', role: 'lattice' },
+        option: 'shift',
+        low: 0,
+        high: 3,
+      },
+      {
+        entry: { pattern: 'memory-groove', form: 'attainder', role: 'warrants' },
+        option: 'rotation',
+        low: 0,
+        high: 11,
+      },
+      {
+        entry: { pattern: 'memory-groove', form: 'attainder', role: 'warrants' },
+        option: 'gap',
+        low: 24,
+        high: 68,
+      },
+      {
+        entry: { pattern: 'memory-groove', form: 'sine-die', role: 'peel' },
+        option: 'rotation',
+        low: 0,
+        high: 9,
+      },
+      {
+        entry: { pattern: 'memory-groove', form: 'sine-die', role: 'peel' },
+        option: 'gap',
+        low: 24,
+        high: 120,
+      },
+    ];
+
+    for (const { entry, option, low, high } of cases) {
+      expect(
+        normalizedFamilyTrace(entry, { [option]: low }),
+        `${entry.pattern}/${entry.form}.${entry.role} ${option}`,
+      ).not.toBe(normalizedFamilyTrace(entry, { [option]: high }));
+    }
+  });
+
+  test('all 20 phase-anchor forms change when the Boss source moves', () => {
+    for (const entry of PHASE_FORMS) {
+      expect(
+        familyTrace(entry, true),
+        `${entry.pattern}/${entry.form}.${entry.role}`,
+      ).not.toBe(familyTrace(entry, false));
+    }
+  });
+
+  test('family clocks advance even when each volley is truncated by the pool', () => {
+    const cases: readonly FamilyCase[] = [
+      { pattern: 'moon-gate', form: 'eclipse', role: 'closure' },
+      { pattern: 'verdict-shear', form: 'assize', role: 'scissor' },
+      { pattern: 'archive-trace', form: 'sealed', role: 'overprint' },
+      { pattern: 'memory-groove', form: 'corolla', role: 'inner' },
+    ];
+
+    for (const entry of cases) {
+      const bullets = system(1);
+      const pattern = createPattern(entry.pattern, familyOptions(entry));
+      const accepted: string[] = [];
+      for (let age = 0; age < 18 && accepted.length < 2; age++) {
+        pattern(context(bullets, age, {
+          x: 240,
+          y: 96,
+          targetX: 320,
+          targetY: 520,
+        }));
+        const bullet = bullets.bullets[0];
+        if (bullet !== undefined) {
+          accepted.push(JSON.stringify([bullet.x, bullet.y, bullet.vector.theta]));
+          bullets.clear();
+        }
+      }
+
+      expect(accepted, `${entry.pattern}/${entry.form}.${entry.role}`).toHaveLength(2);
+      expect(accepted[1]).not.toBe(accepted[0]);
+    }
+  });
+
+  test('every built-in family role leaves the supplied RNG stream untouched', () => {
+    for (const entry of FAMILY_ROLES) {
+      const bullets = system(8192);
+      const rng = new Random(0xc0ffee);
+      const before = rng.getState();
+      const pattern = createPattern(entry.pattern, familyOptions(entry));
+      for (let age = 0; age < 18; age++) {
+        pattern(context(bullets, age, {
+          x: 180 + age * 3,
+          y: 96,
+          targetX: 80 + age * 11,
+          targetY: 520,
+          rng,
+        }));
+      }
+      expect(bullets.count, `${entry.pattern}/${entry.form}.${entry.role}`).toBeGreaterThan(0);
+      expect(rng.getState()).toEqual(before);
+    }
+  });
+
+  test('identical source and target paths reproduce all 20 family forms exactly', () => {
+    for (const entry of PHASE_FORMS) {
+      expect(familyTrace(entry, true, 314159)).toBe(
+        familyTrace(entry, true, 314159),
+      );
+    }
   });
 
   test('all eight spatial patterns leave the supplied RNG stream untouched', () => {

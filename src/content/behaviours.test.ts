@@ -378,6 +378,175 @@ describe('orbit', () => {
   });
 });
 
+describe('Boss position grammars', () => {
+  const CENTER = { centerX: 200, centerY: 100 };
+
+  const GRAMMARS: readonly MotionParams[] = [
+    {
+      r: 0,
+      behaviour: 'lunar-arc',
+      options: {
+        ...CENTER, spanX: 50, spanY: 12, period: 120, maxSpeed: 10, duration: 600,
+      },
+    },
+    {
+      r: 0,
+      behaviour: 'verdict-dash',
+      options: {
+        ...CENTER, spanX: 40, spanY: 10, interval: 20, travel: 5,
+        maxSpeed: 20, duration: 600,
+      },
+    },
+    {
+      r: 0,
+      behaviour: 'archive-stamp',
+      options: {
+        ...CENTER, spanX: 40, spanY: 20, interval: 20, travel: 5,
+        maxSpeed: 20, duration: 600,
+      },
+    },
+    {
+      r: 0,
+      behaviour: 'memory-loom',
+      options: {
+        ...CENTER, spanX: 50, spanY: 20, period: 120, lobes: 2,
+        maxSpeed: 10, duration: 600,
+      },
+    },
+  ];
+
+  test('lunar-arc draws one closed crescent and returns to its absolute centre', () => {
+    const samples = fly(GRAMMARS[0]!, 120, { x: 200, y: 100 });
+
+    // Cardinal samples pin the geometry, not merely the fact that it moved:
+    // centre → right/lower shoulder → bottom → left/lower shoulder → centre.
+    expect([at(samples, 29).x, at(samples, 29).y]).toEqual([250, 112]);
+    expect([at(samples, 59).x, at(samples, 59).y]).toEqual([200, 124]);
+    expect([at(samples, 89).x, at(samples, 89).y]).toEqual([150, 112]);
+    expect(at(samples, 119).x).toBeCloseTo(200, 10);
+    expect(at(samples, 119).y).toBeCloseTo(100, 10);
+  });
+
+  test('verdict-dash holds, travels, and lands centre/left/centre/right on interval boundaries', () => {
+    const samples = fly(GRAMMARS[1]!, 80, { x: 200, y: 100 });
+
+    // Hold fifteen ticks, travel for five, and be fully settled before the next
+    // interval's volley. The two side stations are deliberately bilateral.
+    expect([at(samples, 14).x, at(samples, 14).y]).toEqual([200, 100]);
+    expect(at(samples, 19).x).toBeCloseTo(160, 10);
+    expect(at(samples, 19).y).toBeCloseTo(90, 10);
+    expect(at(samples, 20).x).toBeCloseTo(160, 10);
+    expect(at(samples, 20).y).toBeCloseTo(90, 10);
+    expect(at(samples, 39).x).toBeCloseTo(200, 10);
+    expect(at(samples, 39).y).toBeCloseTo(100, 10);
+    expect(at(samples, 59).x).toBeCloseTo(240, 10);
+    expect(at(samples, 59).y).toBeCloseTo(110, 10);
+    expect(at(samples, 60).x).toBeCloseTo(240, 10);
+    expect(at(samples, 60).y).toBeCloseTo(110, 10);
+  });
+
+  test('archive-stamp visits centre/left/up/right/down in authored order', () => {
+    const samples = fly(GRAMMARS[2]!, 100, { x: 200, y: 100 });
+
+    expect(at(samples, 19).x).toBeCloseTo(160, 10);
+    expect(at(samples, 19).y).toBeCloseTo(100, 10);
+    expect(at(samples, 39).x).toBeCloseTo(200, 10);
+    expect(at(samples, 39).y).toBeCloseTo(80, 10);
+    expect(at(samples, 59).x).toBeCloseTo(240, 10);
+    expect(at(samples, 59).y).toBeCloseTo(100, 10);
+    expect(at(samples, 79).x).toBeCloseTo(200, 10);
+    expect(at(samples, 79).y).toBeCloseTo(120, 10);
+    expect(at(samples, 99).x).toBeCloseTo(200, 10);
+    expect(at(samples, 99).y).toBeCloseTo(100, 10);
+  });
+
+  test('memory-loom is a closed figure eight that crosses its absent centre', () => {
+    const samples = fly(GRAMMARS[3]!, 120, { x: 200, y: 100 });
+
+    expect([at(samples, 29).x, at(samples, 29).y]).toEqual([250, 100]);
+    expect(at(samples, 59).x).toBeCloseTo(200, 10);
+    expect(at(samples, 59).y).toBeCloseTo(100, 10);
+    expect([at(samples, 89).x, at(samples, 89).y]).toEqual([150, 100]);
+    expect(at(samples, 119).x).toBeCloseTo(200, 10);
+    expect(at(samples, 119).y).toBeCloseTo(100, 10);
+    // A quarter-period sample distinguishes the two lobes from a plain ellipse.
+    expect(at(samples, 14).x).toBeGreaterThan(230);
+    expect(at(samples, 14).y).toBe(120);
+    expect(at(samples, 74).x).toBeLessThan(170);
+    expect(at(samples, 74).y).toBe(120);
+  });
+
+  test('safe defaults stay in the upper-field envelope and respect maxSpeed', () => {
+    const defaults = [
+      'lunar-arc',
+      'verdict-dash',
+      'archive-stamp',
+      'memory-loom',
+    ] as const;
+
+    for (const behaviour of defaults) {
+      const samples = fly({ r: 0, behaviour }, 720, { x: 240, y: 120 });
+      let previous = { x: 240, y: 120 };
+      for (const sample of samples) {
+        expect(sample.x, behaviour).toBeGreaterThanOrEqual(160);
+        expect(sample.x, behaviour).toBeLessThanOrEqual(320);
+        expect(sample.y, behaviour).toBeGreaterThanOrEqual(80);
+        expect(sample.y, behaviour).toBeLessThanOrEqual(150);
+        expect(
+          Math.hypot(sample.x - previous.x, sample.y - previous.y),
+          behaviour,
+        ).toBeLessThanOrEqual(5 + 1e-9);
+        previous = sample;
+      }
+    }
+  });
+
+  test('the four grammars have distinct full-trajectory signatures', () => {
+    const signatures = GRAMMARS.map((params) => (
+      fly(params, 240, { x: 200, y: 100 })
+        .filter((_, tick) => tick % 7 === 0)
+        .map((sample) => `${sample.x.toFixed(8)},${sample.y.toFixed(8)}`)
+        .join('|')
+    ));
+    expect(new Set(signatures).size).toBe(4);
+  });
+
+  test('identical inputs reproduce every Boss path exactly, tick for tick', () => {
+    for (const params of GRAMMARS) {
+      expect(fly(params, 300, { x: 200, y: 100 }))
+        .toEqual(fly(params, 300, { x: 200, y: 100 }));
+    }
+  });
+
+  test('all four Boss paths leave the supplied RNG stream untouched', () => {
+    const rng = new Random(19);
+    const before = rng.random();
+
+    for (const params of GRAMMARS) {
+      const vector = new MoveVector();
+      vector.init(params, rng);
+      const context: MotionContext = {
+        age: 0,
+        x: 200,
+        y: 100,
+        targetX: 300,
+        targetY: 500,
+      };
+      for (let tick = 0; tick < 300; tick++) {
+        context.age = tick;
+        vector.step(context, rng);
+        context.x += vector.moveX();
+        context.y += vector.moveY();
+      }
+    }
+
+    const control = new Random(19);
+    control.random();
+    expect(rng.random()).toBe(control.random());
+    expect(before).toBe(new Random(19).random());
+  });
+});
+
 describe('beam-sweep', () => {
   // A beam is aimed once (through `aimed-fan`, which sets `theta`), then held
   // through its telegraph, then swept. So every case fixes `w: 0` — the spec's
@@ -516,7 +685,17 @@ describe('beam-sweep', () => {
 
 describe('registration', () => {
   test('every behaviour this module provides is reachable by name', () => {
-    for (const name of ['homing', 'waver', 'accelerate-to', 'orbit', 'beam-sweep']) {
+    for (const name of [
+      'homing',
+      'waver',
+      'accelerate-to',
+      'orbit',
+      'lunar-arc',
+      'verdict-dash',
+      'archive-stamp',
+      'memory-loom',
+      'beam-sweep',
+    ]) {
       expect(() => new MoveVector().init({ behaviour: name })).not.toThrow();
     }
   });
@@ -543,6 +722,38 @@ describe('determinism', () => {
       theta: 0,
       behaviour: 'orbit',
       options: { centerX: 190, centerY: 140, radius: 55, angularSpeed: 7, duration: 90 },
+    },
+    {
+      r: 0,
+      behaviour: 'lunar-arc',
+      options: {
+        centerX: 240, centerY: 120, spanX: 64, spanY: 12,
+        period: 240, maxSpeed: 3, duration: 4096,
+      },
+    },
+    {
+      r: 0,
+      behaviour: 'verdict-dash',
+      options: {
+        centerX: 240, centerY: 118, spanX: 90, spanY: 12,
+        interval: 88, travel: 32, maxSpeed: 4.8, duration: 4096,
+      },
+    },
+    {
+      r: 0,
+      behaviour: 'archive-stamp',
+      options: {
+        centerX: 240, centerY: 100, spanX: 64, spanY: 16,
+        interval: 58, travel: 22, maxSpeed: 5, duration: 4096,
+      },
+    },
+    {
+      r: 0,
+      behaviour: 'memory-loom',
+      options: {
+        centerX: 240, centerY: 100, spanX: 48, spanY: 14,
+        period: 328, lobes: 2, maxSpeed: 2, duration: 4096,
+      },
     },
   ];
 

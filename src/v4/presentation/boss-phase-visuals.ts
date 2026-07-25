@@ -1,9 +1,10 @@
 /**
  * V4's presentation-only contract for the four main Boss fights.
  *
- * Every phase owns one projectile anchor and one declaration strip. The
- * campaign puts the projectile name on that Boss's exclusive spatial verb;
- * render/tooling resolves the two strings into pixels and fixed-tick animation.
+ * Every phase owns one projectile anchor and one declaration strip. All main
+ * Boss attack slots use that Boss's exclusive spatial family; exactly one slot
+ * carries `options.anchor: 1`, and its projectile name is the phase anchor.
+ * Render/tooling resolves the two strings into pixels and fixed-tick animation.
  * None of these values participate in movement, collision, damage or RNG.
  */
 
@@ -22,7 +23,7 @@ export interface BossPhaseVisual {
   readonly phaseIndex: number;
   /** Stable presentation id; it is not player-facing spell-card copy. */
   readonly id: string;
-  /** Bullet/laser skin carried by this phase's exclusive spatial verb. */
+  /** Bullet/laser skin carried by this phase's marked family-role anchor. */
   readonly projectile: string;
   /** Once-strip played when this exact phase begins. */
   readonly castStrip: `boss.cast.${BossPhaseBoss}.${string}`;

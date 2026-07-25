@@ -64,13 +64,139 @@ test('the replay identity changes for data and executable danmaku independently'
 
 interface PatternSlotProbe {
   pattern: string;
-  options?: { spec?: { style?: { sprite?: string } } };
+  options?: {
+    [key: string]: unknown;
+    spec?: {
+      [key: string]: unknown;
+      style?: { [key: string]: unknown; sprite?: string };
+    };
+    form?: string;
+    role?: string;
+    anchor?: number;
+  };
+  difficulty?: unknown;
+  startAt?: number;
+  stopAt?: number;
+}
+
+interface BossPhaseProbe {
+  name: string;
+  patterns: PatternSlotProbe[];
+  motion?: {
+    r?: number;
+    behaviour?: string;
+    options?: Record<string, unknown>;
+  };
 }
 
 function spatialSignature(patterns: readonly PatternSlotProbe[]): string {
   return patterns.map((slot) => (
     `${slot.pattern}:${slot.options?.spec?.style?.sprite ?? '<no-sprite>'}`
   )).join('|');
+}
+
+/**
+ * Canonical simulation-bearing shape of a value.
+ *
+ * Bullet `style` and the `anchor` marker are presentation only: changing a
+ * projectile cell or moving the one visual anchor must not make two identical
+ * attacks look distinct to this guard. Everything else — pattern/form/role,
+ * bullet motion and collision geometry, tier overrides and slot timing — stays.
+ */
+function simulationShape(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(simulationShape);
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      if (key === 'style' || key === 'anchor') continue;
+      const field = (value as Record<string, unknown>)[key];
+      if (field !== undefined) out[key] = simulationShape(field);
+    }
+    return out;
+  }
+  return value;
+}
+
+function simulationSignature(value: unknown): string {
+  return JSON.stringify(simulationShape(value));
+}
+
+function phaseAttackSignature(patterns: readonly PatternSlotProbe[]): string {
+  return simulationSignature(patterns.map((slot) => ({
+    pattern: slot.pattern,
+    options: slot.options,
+    difficulty: slot.difficulty,
+    startAt: slot.startAt,
+    stopAt: slot.stopAt,
+  })));
+}
+
+const SHARED_PATTERN_NAMES = new Set([
+  'ring',
+  'spiral',
+  'aimed-fan',
+  'spray',
+  'alternating-fan',
+  'gap-ring',
+  'weave',
+  'lane-wall',
+]);
+
+const MAIN_BOSS_CONTRACT = {
+  sentinel: {
+    family: 'moon-gate',
+    movement: 'lunar-arc',
+    phases: [
+      { form: 'scan', roles: ['sweep', 'wheel'], anchor: 'wheel' },
+      { form: 'corolla', roles: ['tide', 'stamen'], anchor: 'tide' },
+      { form: 'vigil', roles: ['iris', 'wheel', 'crosshair'], anchor: 'wheel' },
+      { form: 'eclipse', roles: ['corona', 'closure', 'occlusion'], anchor: 'closure' },
+    ],
+  },
+  magistrate: {
+    family: 'verdict-shear',
+    movement: 'verdict-dash',
+    phases: [
+      { form: 'arraignment', roles: ['summons', 'docket', 'ruling'], anchor: 'ruling' },
+      { form: 'pursuit', roles: ['hooks', 'escrow', 'judgment'], anchor: 'escrow' },
+      { form: 'colonnade', roles: ['columns', 'hardening'], anchor: 'hardening' },
+      { form: 'assize', roles: ['docket', 'seal', 'columns', 'scissor'], anchor: 'scissor' },
+    ],
+  },
+  chancellor: {
+    family: 'archive-trace',
+    movement: 'archive-stamp',
+    phases: [
+      { form: 'appeal', roles: ['trace', 'margins'], anchor: 'trace' },
+      { form: 'precedent', roles: ['binding', 'chain'], anchor: 'chain' },
+      { form: 'wax', roles: ['imprint', 'witness', 'service'], anchor: 'witness' },
+      { form: 'assay', roles: ['rake', 'staves', 'trace', 'underline'], anchor: 'trace' },
+      { form: 'estoppel', roles: ['bars', 'redaction'], anchor: 'redaction' },
+      { form: 'sealed', roles: ['overprint', 'trace', 'closure'], anchor: 'trace' },
+    ],
+  },
+  regent: {
+    family: 'memory-groove',
+    movement: 'memory-loom',
+    phases: [
+      { form: 'session', roles: ['pressure', 'groove'], anchor: 'groove' },
+      { form: 'corolla', roles: ['inner', 'outer', 'groove'], anchor: 'groove' },
+      { form: 'portcullis', roles: ['lattice', 'groove'], anchor: 'groove' },
+      { form: 'attainder', roles: ['warrants', 'groove', 'edict'], anchor: 'groove' },
+      { form: 'statute', roles: ['wheel', 'groove', 'inscribe'], anchor: 'groove' },
+      { form: 'sine-die', roles: ['unwind', 'groove', 'peel'], anchor: 'groove' },
+    ],
+  },
+} as const;
+
+type MainBossName = keyof typeof MAIN_BOSS_CONTRACT;
+const MAIN_BOSS_NAMES = Object.keys(MAIN_BOSS_CONTRACT) as MainBossName[];
+
+function finiteOption(options: Record<string, unknown>, name: string, where: string): number {
+  const value = options[name];
+  expect(typeof value, `${where}.${name}`).toBe('number');
+  expect(Number.isFinite(value), `${where}.${name}`).toBe(true);
+  return value as number;
 }
 
 test('all sixteen enemy roles have a distinct authored danmaku signature', () => {
@@ -112,64 +238,177 @@ test('every shipped actor has a closed hit material and the four profiles are re
   });
 });
 
-test('every main Boss carries one exclusive spatial verb through every phase', () => {
+test('attack signatures ignore projectile presentation rather than blessing a reskin', () => {
+  const base: PatternSlotProbe[] = [{
+    pattern: 'moon-gate',
+    options: {
+      form: 'scan',
+      role: 'wheel',
+      anchor: 1,
+      count: 18,
+      spec: {
+        radius: 4,
+        motion: { r: 2, theta: 90 },
+        style: { sprite: 'petal.blue', r: 0.5, g: 0.8, b: 1 },
+      },
+    },
+  }];
+  const reskin: PatternSlotProbe[] = [{
+    pattern: 'moon-gate',
+    options: {
+      form: 'scan',
+      role: 'wheel',
+      count: 18,
+      spec: {
+        radius: 4,
+        motion: { r: 2, theta: 90 },
+        style: { sprite: 'needle.red', r: 1, g: 0.2, b: 0.2 },
+      },
+    },
+  }];
+  const changedGeometry: PatternSlotProbe[] = [{
+    ...reskin[0]!,
+    options: {
+      ...reskin[0]!.options,
+      count: 19,
+    },
+  }];
+
+  expect(phaseAttackSignature(base)).toBe(phaseAttackSignature(reskin));
+  expect(phaseAttackSignature(base)).not.toBe(phaseAttackSignature(changedGeometry));
+});
+
+test('the four main Bosses own disjoint attack and movement vocabularies in every phase', () => {
   const pack = JSON.parse(buildV4ContentJson()) as {
     content: {
-      bosses: Record<string, { phases: { name: string; patterns: PatternSlotProbe[] }[] }>;
+      bosses: Record<string, { phases: BossPhaseProbe[] }>;
     };
   };
-  const signatures = {
-    sentinel: 'moon-gate',
-    magistrate: 'verdict-shear',
-    chancellor: 'archive-trace',
-    regent: 'memory-groove',
-  } as const;
-  const signatureNames = new Set<string>(Object.values(signatures));
-  const spriteOwner = new Map<string, string>();
 
   expect(Object.keys(pack.content.bosses)).toHaveLength(5);
-  for (const [bossName, boss] of Object.entries(pack.content.bosses)) {
-    expect(boss.phases.length).toBeGreaterThanOrEqual(3);
+  expect(new Set(MAIN_BOSS_NAMES.map((name) => MAIN_BOSS_CONTRACT[name].family)).size)
+    .toBe(MAIN_BOSS_NAMES.length);
+  expect(new Set(MAIN_BOSS_NAMES.map((name) => MAIN_BOSS_CONTRACT[name].movement)).size)
+    .toBe(MAIN_BOSS_NAMES.length);
 
-    const phaseSignatures = new Set<string>();
-    for (const phase of boss.phases) {
-      expect(phase.patterns.length).toBeGreaterThanOrEqual(2);
-      const signature = spatialSignature(phase.patterns);
-      expect(phaseSignatures.has(signature)).toBe(false);
-      phaseSignatures.add(signature);
+  const ownerFamilies = new Set<string>(
+    MAIN_BOSS_NAMES.map((name) => MAIN_BOSS_CONTRACT[name].family),
+  );
+  const warden = pack.content.bosses['warden'];
+  expect(warden).toBeDefined();
+  for (const phase of warden?.phases ?? []) {
+    expect(
+      phase.patterns.some((slot) => ownerFamilies.has(slot.pattern)),
+      `warden/${phase.name} must not consume a main-Boss family`,
+    ).toBe(false);
+  }
 
-      if (bossName === 'warden') {
-        expect(phase.patterns.some((slot) => signatureNames.has(slot.pattern))).toBe(false);
-        continue;
+  const allAttackSignatures = new Map<string, string>();
+  for (const bossName of MAIN_BOSS_NAMES) {
+    const boss = pack.content.bosses[bossName];
+    const contract = MAIN_BOSS_CONTRACT[bossName];
+    expect(boss, bossName).toBeDefined();
+    expect(boss!.phases, bossName).toHaveLength(contract.phases.length);
+
+    const attackSignatures = new Set<string>();
+    const movementSignatures = new Set<string>();
+    for (let phaseIndex = 0; phaseIndex < contract.phases.length; phaseIndex++) {
+      const phase = boss!.phases[phaseIndex];
+      const expected = contract.phases[phaseIndex];
+      const where = `${bossName}/${phase?.name ?? `phase-${phaseIndex}`}`;
+      expect(phase, where).toBeDefined();
+      expect(phase!.patterns, where).toHaveLength(expected!.roles.length);
+
+      expect(
+        phase!.patterns.map((slot) => slot.pattern),
+        `${where} pattern family`,
+      ).toEqual(new Array(expected!.roles.length).fill(contract.family));
+      expect(
+        phase!.patterns.some((slot) => SHARED_PATTERN_NAMES.has(slot.pattern)),
+        `${where} must not fall back to shared attack vocabulary`,
+      ).toBe(false);
+      expect(
+        phase!.patterns.map((slot) => slot.options?.form),
+        `${where} form`,
+      ).toEqual(new Array(expected!.roles.length).fill(expected!.form));
+      expect(
+        phase!.patterns.map((slot) => slot.options?.role),
+        `${where} role order`,
+      ).toEqual([...expected!.roles]);
+
+      const anchors = phase!.patterns.filter((slot) => slot.options?.anchor === 1);
+      expect(anchors, `${where} visual anchor`).toHaveLength(1);
+      expect(anchors[0]!.options?.role, `${where} anchor role`).toBe(expected!.anchor);
+      for (const slot of phase!.patterns) {
+        const marked = slot.options?.role === expected!.anchor;
+        expect(
+          slot.options?.anchor,
+          `${where}/${slot.options?.role ?? '<missing-role>'} anchor marker`,
+        ).toBe(marked ? 1 : undefined);
       }
 
-      const own = signatures[bossName as keyof typeof signatures];
-      const identitySlots = phase.patterns.filter((slot) => signatureNames.has(slot.pattern));
-      expect(identitySlots, `${bossName}/${phase.name}`).toHaveLength(1);
-      expect(identitySlots[0]!.pattern, `${bossName}/${phase.name}`).toBe(own);
+      const attackSignature = phaseAttackSignature(phase!.patterns);
+      expect(attackSignatures.has(attackSignature), `${where} repeats an attack geometry`).toBe(false);
+      const priorAttack = allAttackSignatures.get(attackSignature);
+      expect(priorAttack, `${where} repeats ${priorAttack ?? '<none>'}`).toBeUndefined();
+      attackSignatures.add(attackSignature);
+      allAttackSignatures.set(attackSignature, where);
 
-      const sprite = identitySlots[0]!.options?.spec?.style?.sprite;
-      expect(typeof sprite, `${bossName}/${phase.name}`).toBe('string');
-      const prior = spriteOwner.get(sprite!);
-      expect(prior === undefined || prior === bossName, `${sprite} is shared by ${prior} and ${bossName}`).toBe(true);
-      spriteOwner.set(sprite!, bossName);
+      const motion = phase!.motion;
+      expect(motion, `${where} movement`).toBeDefined();
+      expect(motion?.behaviour, `${where} movement family`).toBe(contract.movement);
+      const options = motion?.options;
+      expect(options, `${where} movement options`).toBeDefined();
+      if (options === undefined) continue;
+
+      finiteOption(options, 'centerX', `${where}.motion.options`);
+      finiteOption(options, 'centerY', `${where}.motion.options`);
+      const spanX = finiteOption(options, 'spanX', `${where}.motion.options`);
+      const spanY = finiteOption(options, 'spanY', `${where}.motion.options`);
+      const maxSpeed = finiteOption(options, 'maxSpeed', `${where}.motion.options`);
+      expect(spanX, `${where}.motion.options.spanX`).toBeGreaterThanOrEqual(0);
+      expect(spanY, `${where}.motion.options.spanY`).toBeGreaterThanOrEqual(0);
+      expect(
+        spanX > 0 || spanY > 0,
+        `${where} must author a non-zero movement span`,
+      ).toBe(true);
+      expect(maxSpeed, `${where}.motion.options.maxSpeed`).toBeGreaterThan(0);
+      expect(finiteOption(options, 'duration', `${where}.motion.options`)).toBe(4096);
+
+      if (contract.movement === 'lunar-arc' || contract.movement === 'memory-loom') {
+        const period = finiteOption(options, 'period', `${where}.motion.options`);
+        expect(Number.isInteger(period), `${where}.motion.options.period`).toBe(true);
+        expect(period, `${where}.motion.options.period`).toBeGreaterThan(0);
+      }
+      if (contract.movement === 'verdict-dash' || contract.movement === 'archive-stamp') {
+        const interval = finiteOption(options, 'interval', `${where}.motion.options`);
+        const travel = finiteOption(options, 'travel', `${where}.motion.options`);
+        expect(Number.isInteger(interval), `${where}.motion.options.interval`).toBe(true);
+        expect(Number.isInteger(travel), `${where}.motion.options.travel`).toBe(true);
+        expect(interval, `${where}.motion.options.interval`).toBeGreaterThan(0);
+        expect(travel, `${where}.motion.options.travel`).toBeGreaterThan(0);
+        expect(travel, `${where}.motion.options.travel <= interval`).toBeLessThanOrEqual(interval);
+      }
+      if (contract.movement === 'memory-loom') {
+        const lobes = finiteOption(options, 'lobes', `${where}.motion.options`);
+        expect(Number.isInteger(lobes), `${where}.motion.options.lobes`).toBe(true);
+        expect(lobes, `${where}.motion.options.lobes`).toBeGreaterThanOrEqual(2);
+      }
+
+      movementSignatures.add(simulationSignature(options));
     }
-    expect(phaseSignatures.size).toBe(boss.phases.length);
+    expect(attackSignatures.size, `${bossName} attack signatures`).toBe(contract.phases.length);
+    expect(movementSignatures.size, `${bossName} movement options`).toBe(contract.phases.length);
   }
+  expect(allAttackSignatures.size).toBe(V4_BOSS_PHASE_VISUALS.length);
 });
 
 test('all 20 main Boss phases fire their unique presentation anchor', () => {
   const pack = JSON.parse(buildV4ContentJson()) as {
     content: {
-      bosses: Record<string, { phases: { name: string; patterns: PatternSlotProbe[] }[] }>;
+      bosses: Record<string, { phases: BossPhaseProbe[] }>;
     };
   };
-  const signatures = {
-    sentinel: 'moon-gate',
-    magistrate: 'verdict-shear',
-    chancellor: 'archive-trace',
-    regent: 'memory-groove',
-  } as const;
 
   expect(V4_BOSS_PHASE_VISUALS).toHaveLength(20);
   expect(new Set(V4_BOSS_PHASE_VISUALS.map((visual) => visual.projectile)).size).toBe(20);
@@ -186,12 +425,10 @@ test('all 20 main Boss phases fire their unique presentation anchor', () => {
   for (const visual of V4_BOSS_PHASE_VISUALS) {
     const phase = pack.content.bosses[visual.boss]?.phases[visual.phaseIndex];
     expect(phase, `${visual.boss} phase ${visual.phaseIndex}`).toBeDefined();
-    const identity = phase!.patterns.filter(
-      (slot) => slot.pattern === signatures[visual.boss],
-    );
-    expect(identity, `${visual.boss}/${phase!.name}`).toHaveLength(1);
+    const anchors = phase!.patterns.filter((slot) => slot.options?.anchor === 1);
+    expect(anchors, `${visual.boss}/${phase!.name}`).toHaveLength(1);
     expect(
-      identity[0]?.options?.spec?.style?.sprite,
+      anchors[0]?.options?.spec?.style?.sprite,
       `${visual.boss}/${phase!.name}`,
     ).toBe(visual.projectile);
   }
