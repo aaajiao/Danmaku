@@ -22,6 +22,8 @@ export interface V4ActorSpec {
   readonly strip: string;
   /** Square display box in logical 480×640 pixels. */
   readonly size: number;
+  /** Optional v4-only phase-declaration strip on the shared FX atlas. */
+  readonly castStrip?: string;
   /** Optional v4-only final-death identity strip on the shared FX atlas. */
   readonly deathStrip?: string;
 }
@@ -54,11 +56,31 @@ export const V4_ENEMY_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
 };
 
 export const V4_BOSS_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
-  sentinel: { strip: 'actor.boss.sentinel', size: 88, deathStrip: 'boss.death.sentinel' },
+  sentinel: {
+    strip: 'actor.boss.sentinel',
+    size: 88,
+    castStrip: 'boss.cast.sentinel',
+    deathStrip: 'boss.death.sentinel',
+  },
   warden: { strip: 'actor.boss.warden', size: 88, deathStrip: 'boss.death.warden' },
-  magistrate: { strip: 'actor.boss.magistrate', size: 95, deathStrip: 'boss.death.magistrate' },
-  chancellor: { strip: 'actor.boss.chancellor', size: 96, deathStrip: 'boss.death.chancellor' },
-  regent: { strip: 'actor.boss.regent', size: 110, deathStrip: 'boss.death.regent' },
+  magistrate: {
+    strip: 'actor.boss.magistrate',
+    size: 95,
+    castStrip: 'boss.cast.magistrate',
+    deathStrip: 'boss.death.magistrate',
+  },
+  chancellor: {
+    strip: 'actor.boss.chancellor',
+    size: 96,
+    castStrip: 'boss.cast.chancellor',
+    deathStrip: 'boss.death.chancellor',
+  },
+  regent: {
+    strip: 'actor.boss.regent',
+    size: 110,
+    castStrip: 'boss.cast.regent',
+    deathStrip: 'boss.death.regent',
+  },
 };
 
 export interface ActorStripInput {

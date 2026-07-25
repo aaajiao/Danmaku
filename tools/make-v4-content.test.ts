@@ -111,29 +111,49 @@ test('every shipped actor has a closed hit material and the four profiles are re
   });
 });
 
-test('every boss has several pattern families and every phase has its own signature', () => {
+test('every main Boss carries one exclusive spatial verb through every phase', () => {
   const pack = JSON.parse(buildV4ContentJson()) as {
     content: {
       bosses: Record<string, { phases: { name: string; patterns: PatternSlotProbe[] }[] }>;
     };
   };
+  const signatures = {
+    sentinel: 'moon-gate',
+    magistrate: 'verdict-shear',
+    chancellor: 'archive-trace',
+    regent: 'memory-groove',
+  } as const;
+  const signatureNames = new Set<string>(Object.values(signatures));
+  const spriteOwner = new Map<string, string>();
 
   expect(Object.keys(pack.content.bosses)).toHaveLength(5);
-  for (const boss of Object.values(pack.content.bosses)) {
+  for (const [bossName, boss] of Object.entries(pack.content.bosses)) {
     expect(boss.phases.length).toBeGreaterThanOrEqual(3);
-    const families = new Set(boss.phases.flatMap((phase) => (
-      phase.patterns.map((slot) => slot.pattern)
-    )));
-    expect(families.size).toBeGreaterThanOrEqual(4);
 
-    const signatures = new Set<string>();
+    const phaseSignatures = new Set<string>();
     for (const phase of boss.phases) {
       expect(phase.patterns.length).toBeGreaterThanOrEqual(2);
       const signature = spatialSignature(phase.patterns);
-      expect(signatures.has(signature)).toBe(false);
-      signatures.add(signature);
+      expect(phaseSignatures.has(signature)).toBe(false);
+      phaseSignatures.add(signature);
+
+      if (bossName === 'warden') {
+        expect(phase.patterns.some((slot) => signatureNames.has(slot.pattern))).toBe(false);
+        continue;
+      }
+
+      const own = signatures[bossName as keyof typeof signatures];
+      const identitySlots = phase.patterns.filter((slot) => signatureNames.has(slot.pattern));
+      expect(identitySlots, `${bossName}/${phase.name}`).toHaveLength(1);
+      expect(identitySlots[0]!.pattern, `${bossName}/${phase.name}`).toBe(own);
+
+      const sprite = identitySlots[0]!.options?.spec?.style?.sprite;
+      expect(typeof sprite, `${bossName}/${phase.name}`).toBe('string');
+      const prior = spriteOwner.get(sprite!);
+      expect(prior === undefined || prior === bossName, `${sprite} is shared by ${prior} and ${bossName}`).toBe(true);
+      spriteOwner.set(sprite!, bossName);
     }
-    expect(signatures.size).toBe(boss.phases.length);
+    expect(phaseSignatures.size).toBe(boss.phases.length);
   }
 });
 

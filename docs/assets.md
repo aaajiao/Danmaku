@@ -547,6 +547,12 @@ The production hybrids are:
 Their six accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
 derivatives live in `src/assets/v4/backgrounds/`. These are shader-coupled
 edition assets, not pack skins and not a route for guest code.
+They remain bundler-resolved imports in source; the production build then moves
+the closed V4 background/UI inventory into `dist/packs/v4/assets/` after the
+source pack is staged, and rewrites Bun's emitted URLs before the PWA precache is
+generated. A new edition-owned image must be added to that build inventory
+explicitly, so it cannot silently scatter into the publish root or create a
+second top-level V4 ownership boundary.
 
 `wear-field` is one master reused through a subtractive three-page choreography,
 not three CG illustrations. Its sequence derives only broad material wear from

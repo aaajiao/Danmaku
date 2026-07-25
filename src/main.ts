@@ -85,6 +85,11 @@ import { PostProcessing } from './render/post';
 import { focusIndicatorLayout } from './render/focus-indicator';
 import { bossFeedbackLayout } from './render/boss-feedback';
 import {
+  stepBossCastFx,
+  visibleBossCastFx,
+  type BossCastFx,
+} from './render/boss-cast-fx';
+import {
   stepBossIdentityFx,
   visibleBossIdentityFx,
   type BossIdentityFx,
@@ -1124,6 +1129,7 @@ const grazeUiPulses: GrazeUiPulse[] = [];
 const GRAZE_UI_TICKS = 16;
 
 const bossIdentityFx: BossIdentityFx<Run>[] = [];
+const bossCastFx: BossCastFx<Run>[] = [];
 
 const REPLAY_EXPORT_TAIL_MS = 1000;
 
@@ -1388,6 +1394,10 @@ const loop = new Loop({
         const identityStrip = fxAtlas.strip(name);
         return identityStrip.frames * identityStrip.ticksPerFrame;
       });
+      stepBossCastFx(bossCastFx, (name) => {
+        const castStrip = fxAtlas.strip(name);
+        return castStrip.frames * castStrip.ticksPerFrame;
+      });
     }
 
     // Play the menu cue the ticked state named, if any (`ui-move`/`ui-confirm`/
@@ -1456,12 +1466,30 @@ const loop = new Loop({
             bossIdentityFx.push({ run, strip, x: event.x, y: event.y, age: 0 });
           }
         }
+        if (event.type === 'boss-phase') {
+          // `event.name` is the card just armed, not the Boss registry name.
+          // Resolve the current Boss only after the sim has completed the phase
+          // transition, then retain just its identity and Run in this view queue.
+          const activeBoss = run.boss.boss;
+          const strip = activeBoss === undefined
+            ? undefined
+            : V4_BOSS_ACTORS[activeBoss.name]?.castStrip;
+          if (activeBoss !== undefined && strip !== undefined && fxAtlas.has(strip)) {
+            bossCastFx.push({
+              run,
+              bossName: activeBoss.name,
+              strip,
+              age: 0,
+            });
+          }
+        }
       }
     }
 
     if (topRun === undefined) {
       grazeUiPulses.length = 0;
       bossIdentityFx.length = 0;
+      bossCastFx.length = 0;
     }
 
     // Dialogue advance is shell-side edge detection, not a run event: a fresh
@@ -1845,6 +1873,15 @@ function drawRun(run: Run): void {
         height: boss.spec.height,
         scale: feedback.bodyScale,
         ...tint,
+      });
+    }
+    for (const cast of visibleBossCastFx(bossCastFx, run, boss.name)) {
+      const strip = fxAtlas.strip(cast.strip);
+      const life = strip.frames * strip.ticksPerFrame;
+      const castTint = stripTint(fxAtlas, cast.strip, tintFor(boss.name));
+      drawStrip(batches.bossBodyFx, fxAtlas, drawX, drawY, cast.strip, cast.age, {
+        ...castTint,
+        a: Math.min(1, Math.max(0, (life - cast.age) / 6)),
       });
     }
     if (feedback.distress > 0) {

@@ -17,6 +17,9 @@ be installed as an offline-capable PWA.
 ## Highlights
 
 - Four stages, sixteen enemy types, five bosses, and a complete ending.
+- Four stage-end Bosses with exclusive spatial patterns, native projectile
+  silhouettes and animation cadences: lunar eyes, verdict blades, archive
+  seals, and rooted crown crystals, plus distinct phase declarations.
 - Five playable characters, each with a distinct shot, option formation, and
   identity bomb.
 - Easy, Normal, Hard, and Lunatic patterns, plus an explicit infinite-lives
@@ -85,7 +88,8 @@ bun run build      # → dist/
 ```
 
 The generated `dist/` directory is ignored by Git. It contains the static game,
-the v4 presentation pack, and the generated PWA release.
+the V4 presentation pack plus compiled shader/UI art under `packs/v4/`, and the
+generated PWA release.
 
 ## Verification
 

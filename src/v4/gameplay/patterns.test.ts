@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { createPattern, type EmitContext, type Pattern } from '../../content/pattern-registry';
 import { Random } from '../../core/random';
+import { atan2Deg } from '../../core/trig';
 import { BulletSystem, type BulletSpec } from '../../sim/bullet';
 import { V4_PATTERN_NAMES } from './patterns';
 
@@ -12,6 +13,13 @@ const SPEC: BulletSpec = {
 };
 
 const NEW_PATTERNS = ['alternating-fan', 'gap-ring', 'weave', 'lane-wall'] as const;
+const BOSS_PATTERNS = [
+  'moon-gate',
+  'verdict-shear',
+  'archive-trace',
+  'memory-groove',
+] as const;
+const DETERMINISTIC_PATTERNS = [...NEW_PATTERNS, ...BOSS_PATTERNS] as const;
 
 function system(capacity = 256): BulletSystem {
   return new BulletSystem({
@@ -59,14 +67,14 @@ function headings(bullets: BulletSystem): number[] {
 }
 
 describe('v4 spatial pattern vocabulary', () => {
-  test('the public inventory includes all four negative-space patterns', () => {
+  test('the public inventory includes the shared and Boss-exclusive spatial patterns', () => {
     expect(V4_PATTERN_NAMES).toEqual(
-      expect.arrayContaining([...NEW_PATTERNS]),
+      expect.arrayContaining([...DETERMINISTIC_PATTERNS]),
     );
   });
 
   test('every new pattern fails loudly when its bullet spec is missing', () => {
-    for (const name of NEW_PATTERNS) {
+    for (const name of DETERMINISTIC_PATTERNS) {
       expect(() => createPattern(name)).toThrow(
         `pattern "${name}" requires a "spec" option`,
       );
@@ -167,14 +175,107 @@ describe('v4 spatial pattern vocabulary', () => {
     expect(bullets.bullets.map((bullet) => bullet.x)).toEqual([10, 30, 50]);
   });
 
-  test('all four geometry patterns leave the supplied RNG stream untouched', () => {
-    for (const name of NEW_PATTERNS) {
+  test('moon-gate declares three offset openings and a tangential tide', () => {
+    const bullets = system();
+    const pattern = createPattern('moon-gate', {
+      spec: SPEC,
+      count: 12,
+      gates: 3,
+      gap: 20,
+      radius: 32,
+      rotation: 0,
+      twist: 7,
+      period: 1,
+    });
+
+    pattern(context(bullets, 0, { targetX: 200, targetY: 100 }));
+
+    expect(bullets.count).toBe(9);
+    expect(headings(bullets)).toEqual([37, 67, 97, 157, 187, 217, 277, 307, 337]);
+    expect(bullets.bullets.every((bullet) => bullet.x !== 100 || bullet.y !== 100)).toBe(true);
+  });
+
+  test('verdict-shear locks an appeal lane and reverses both rulings', () => {
+    const bullets = system();
+    const pattern = createPattern('verdict-shear', {
+      spec: SPEC,
+      columns: 7,
+      gapWidth: 41,
+      shear: 20,
+      left: 0,
+      right: 140,
+      period: 1,
+    });
+
+    pattern(context(bullets, 0, { targetX: 70 }));
+    expect(bullets.bullets.map((bullet) => bullet.x)).toEqual([10, 30, 110, 130]);
+    expect(headings(bullets)).toEqual([70, 70, 110, 110]);
+
+    bullets.clear();
+    pattern(context(bullets, 1, { targetX: 70 }));
+    expect(headings(bullets)).toEqual([110, 110, 70, 70]);
+  });
+
+  test('archive-trace files the exact delayed player position from parallel folios', () => {
+    const bullets = system();
+    const pattern = createPattern('archive-trace', {
+      spec: SPEC,
+      delay: 2,
+      folios: 3,
+      spacing: 20,
+      stagger: 0,
+      period: 1,
+    });
+
+    pattern(context(bullets, 0, { targetX: 120, targetY: 200 }));
+    pattern(context(bullets, 1, { targetX: 200, targetY: 220 }));
+    pattern(context(bullets, 2, { targetX: 300, targetY: 240 }));
+
+    expect(bullets.bullets.map((bullet) => bullet.x)).toEqual([80, 100, 120]);
+    expect(headings(bullets)).toEqual([
+      atan2Deg(100, 40),
+      atan2Deg(100, 20),
+      atan2Deg(100, 0),
+    ]);
+  });
+
+  test('memory-groove replays an old crossing and preserves its bounded drift', () => {
+    const bullets = system();
+    const pattern = createPattern('memory-groove', {
+      spec: SPEC,
+      delay: 2,
+      trail: 1,
+      columns: 5,
+      gapWidth: 25,
+      left: 0,
+      right: 100,
+      driftScale: 4,
+      maxDrift: 12,
+      period: 1,
+    });
+
+    pattern(context(bullets, 0, { targetX: 40 }));
+    pattern(context(bullets, 1, { targetX: 80 }));
+    pattern(context(bullets, 2, { targetX: 120 }));
+    pattern(context(bullets, 3, { targetX: 160 }));
+
+    expect(bullets.bullets.map((bullet) => bullet.x)).toEqual([10, 30, 50]);
+    expect(headings(bullets)).toEqual([102, 102, 102]);
+  });
+
+  test('all eight spatial patterns leave the supplied RNG stream untouched', () => {
+    for (const name of DETERMINISTIC_PATTERNS) {
       const bullets = system();
       const rng = new Random(0xc0ffee);
       const before = rng.getState();
-      const pattern = createPattern(name, { spec: SPEC, period: 1 });
+      const pattern = createPattern(name, {
+        spec: SPEC,
+        period: 1,
+        delay: 2,
+        trail: 1,
+      });
 
-      drive(pattern, bullets, 12, { rng });
+      drive(pattern, bullets, 16, { rng });
 
       expect(bullets.count).toBeGreaterThan(0);
       expect(rng.getState()).toEqual(before);
@@ -182,14 +283,19 @@ describe('v4 spatial pattern vocabulary', () => {
   });
 
   test('identical seeds and inputs reproduce every new pattern exactly', () => {
-    const run = (name: (typeof NEW_PATTERNS)[number]): number[] => {
+    const run = (name: (typeof DETERMINISTIC_PATTERNS)[number]): number[] => {
       const bullets = system(1024);
       const rng = new Random(314159);
-      const pattern = createPattern(name, { spec: SPEC, period: 2 });
+      const pattern = createPattern(name, {
+        spec: SPEC,
+        period: 2,
+        delay: 2,
+        trail: 1,
+      });
       drive(pattern, bullets, 40, { rng, targetX: 360, targetY: 520 });
       return headings(bullets);
     };
 
-    for (const name of NEW_PATTERNS) expect(run(name)).toEqual(run(name));
+    for (const name of DETERMINISTIC_PATTERNS) expect(run(name)).toEqual(run(name));
   });
 });

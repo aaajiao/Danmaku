@@ -27,6 +27,7 @@ import {
   V4_OWNER_IDS,
   V4_OWNER_PALETTES,
   V4_OWNER_PROJECTILES,
+  V4_BOSS_BULLET_SEQUENCES,
   V4_GHOST_FX_PALETTE,
   V4_BULLET_NAMES,
   V4_EFFECT_SPECS,
@@ -40,6 +41,7 @@ import {
   bulletAnatomyLayer,
   buildV4Pack,
   bulletExtentClass,
+  mainBossBulletOwner,
   paletteForEffect,
   paletteForProjectile,
   projectileFaction,
@@ -171,6 +173,31 @@ function alphaMaskHash(
     }
   }
   return hash.toString(16);
+}
+
+function centredAlphaMask(
+  image: DecodedImage,
+  strip: { x?: number; y?: number; frameW: number; frameH: number; stride?: number },
+  frame = 0,
+): Set<string> {
+  const x0 = (strip.x ?? 0) + frame * (strip.stride ?? strip.frameW);
+  const y0 = strip.y ?? 0;
+  const cx = Math.floor(strip.frameW / 2);
+  const cy = Math.floor(strip.frameH / 2);
+  const out = new Set<string>();
+  for (let y = 0; y < strip.frameH; y++) {
+    for (let x = 0; x < strip.frameW; x++) {
+      if (rgbaAt(image, x0 + x, y0 + y)[3] > 0) out.add(`${x - cx},${y - cy}`);
+    }
+  }
+  return out;
+}
+
+function alphaDifference(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
+  const union = new Set([...a, ...b]);
+  let shared = 0;
+  for (const point of a) if (b.has(point)) shared++;
+  return (union.size - shared) / union.size;
 }
 
 function longestOpaqueRun(values: readonly number[]): number {
@@ -315,6 +342,29 @@ function containsRgb(image: DecodedImage, rgb: readonly [number, number, number]
   return false;
 }
 
+function stripContainsRgb(
+  image: DecodedImage,
+  strip: PackStrip,
+  rgb: readonly [number, number, number],
+): boolean {
+  for (let frame = 0; frame < (strip.frames ?? 1); frame++) {
+    const frameX = (strip.x ?? 0) + frame * (strip.stride ?? strip.frameW);
+    const frameY = strip.y ?? 0;
+    for (let y = 0; y < strip.frameH; y++) {
+      for (let x = 0; x < strip.frameW; x++) {
+        const rgba = rgbaAt(image, frameX + x, frameY + y);
+        if (
+          rgba[0] === rgb[0]
+          && rgba[1] === rgb[1]
+          && rgba[2] === rgb[2]
+          && rgba[3] > 0
+        ) return true;
+      }
+    }
+  }
+  return false;
+}
+
 describe('generated output and exact manifest', () => {
   test('the committed tree is the exact generator inventory and every file is byte-identical', () => {
     expect(diskFiles(V4_PACK_DIR)).toEqual([...build.files.keys()].sort());
@@ -332,12 +382,12 @@ describe('generated output and exact manifest', () => {
     expect(build.manifest.author).toBe('Danmaku project');
     expect(build.manifest.license).toBe('LicenseRef-Danmaku-Project-Owned');
     expect(Object.keys(bullets.strips)).toEqual([...V4_BULLET_NAMES]);
-    expect(Object.keys(bullets.strips)).toHaveLength(72);
+    expect(Object.keys(bullets.strips)).toHaveLength(77);
 
     const nativeEffects = Object.keys(FX_STRIPS).filter((name) => name !== 'pulse');
     expect(V4_EFFECT_SPECS.slice(0, nativeEffects.length).map((spec) => spec.name)).toEqual(nativeEffects);
     expect(Object.keys(assets.effects ?? {})).toEqual(V4_EFFECT_SPECS.map((spec) => spec.name));
-    expect(Object.keys(assets.effects ?? {})).toHaveLength(45);
+    expect(Object.keys(assets.effects ?? {})).toHaveLength(49);
     expect(Object.keys(assets.lasers ?? {})).toEqual([...LASER_STRIP_CELLS]);
     expect(Object.keys(assets.missiles ?? {})).toEqual([...MISSILE_STRIP_CELLS]);
     expect(Object.keys(assets.pickups ?? {})).toEqual([...PICKUP_STRIP_CELLS]);
@@ -417,6 +467,29 @@ describe('generated output and exact manifest', () => {
     }
     expect(savedAtlases).toBeGreaterThanOrEqual(2);
   });
+
+  test('the variable-size bullet atlas is deterministic non-overlapping shelf packing', () => {
+    const image = png(bullets.sheet);
+    const entries = Object.entries(bullets.strips);
+    for (let i = 0; i < entries.length; i++) {
+      const [aName, a] = entries[i]!;
+      for (let j = i + 1; j < entries.length; j++) {
+        const [bName, b] = entries[j]!;
+        const aWidth = a.frameW * (a.frames ?? 1);
+        const bWidth = b.frameW * (b.frames ?? 1);
+        const overlaps =
+          a.x < b.x + bWidth
+          && a.x + aWidth > b.x
+          && a.y < b.y + b.frameH
+          && a.y + a.frameH > b.y;
+        expect(overlaps, `${aName} overlaps ${bName}`).toBe(false);
+      }
+    }
+    const linearHeight = entries.reduce((sum, [, strip]) => sum + strip.frameH, 0);
+    expect(image.height).toBeLessThan(linearHeight);
+    expect(new Set(entries.map(([, strip]) => `${strip.frameW}x${strip.frameH}`)).size)
+      .toBeGreaterThan(1);
+  });
 });
 
 describe('runtime consumer ownership', () => {
@@ -463,7 +536,7 @@ describe('runtime consumer ownership', () => {
 
     const semanticBullets = V4_BULLET_NAMES.filter((name) => !(BULLET_CELLS as readonly string[]).includes(name));
     expect(semanticBullets.filter((name) => projectileFaction(name) === 'player')).toHaveLength(21);
-    expect(semanticBullets.filter((name) => projectileFaction(name) === 'hostile')).toHaveLength(35);
+    expect(semanticBullets.filter((name) => projectileFaction(name) === 'hostile')).toHaveLength(40);
     expect(semanticBullets.filter((name) => projectileFaction(name) === 'neutral')).toEqual([]);
     expect(semanticBullets.filter((name) => projectileFaction(name) === 'shared')).toEqual([]);
   });
@@ -586,10 +659,13 @@ describe('bullet geometry and colour', () => {
         const frameX = strip.x + frame * (strip.stride ?? strip.frameW);
         const cx = frameX + Math.floor(strip.frameW / 2);
         const cy = strip.y + Math.floor(strip.frameH / 2);
-        const diagonalX = base === 'spark' && frame % 2 === 1
+        const diagonalSpark = base === 'spark'
+          && frame % 2 === 1
+          && mainBossBulletOwner(name) === undefined;
+        const diagonalX = diagonalSpark
           ? Math.round((keylineOffset * 6) / 8)
           : 0;
-        const diagonalY = base === 'spark' && frame % 2 === 1
+        const diagonalY = diagonalSpark
           ? Math.round((-keylineOffset * 6) / 8)
           : 0;
         const keyline = diagonalX > 0
@@ -655,6 +731,87 @@ describe('bullet geometry and colour', () => {
     expect(new Set(V4_BULLET_NAMES.map(bulletAnatomyLayer))).toEqual(
       new Set(['surface', 'skeleton', 'mycelium', 'heart']),
     );
+  });
+
+  test('the four main Bosses have exclusive animation cadence and alpha choreography', () => {
+    const representatives = {
+      'boss.sentinel': 'scale.shard',
+      'boss.magistrate': 'orb.small.arraignment',
+      'boss.chancellor': 'orb.small.brief',
+      'boss.regent': 'orb.small.session',
+    } as const;
+    const temporalMasks = new Set<string>();
+    for (const [owner, name] of Object.entries(representatives) as [
+      keyof typeof representatives,
+      string,
+    ][]) {
+      const strip = bullets.strips[name]!;
+      const sequence = V4_BOSS_BULLET_SEQUENCES[owner];
+      expect(mainBossBulletOwner(name), name).toBe(owner);
+      expect({
+        frameW: strip.frameW,
+        frameH: strip.frameH,
+        frames: strip.frames,
+        ticksPerFrame: strip.ticksPerFrame,
+      }).toEqual(sequence);
+      temporalMasks.add(Array.from(
+        { length: strip.frames ?? 1 },
+        (_, frame) => alphaMaskHash(sheet, strip, frame),
+      ).join(':'));
+    }
+    expect(new Set(Object.values(V4_BOSS_BULLET_SEQUENCES).map((sequence) =>
+      `${sequence.frameW}x${sequence.frameH}/${sequence.frames}@${sequence.ticksPerFrame}`,
+    )).size).toBe(4);
+    expect(temporalMasks.size).toBe(4);
+  });
+
+  test('main Boss bodies are dedicated silhouettes, not decorated generic floors', () => {
+    const representatives = {
+      'scale.shard': 'scale',
+      'orb.small.arraignment': 'orb.small',
+      'orb.medium.ledger': 'orb.medium',
+      'orb.medium.mandamus': 'orb.medium',
+    } as const;
+    for (const [name, floor] of Object.entries(representatives)) {
+      const dedicated = centredAlphaMask(sheet, bullets.strips[name]!);
+      const generic = centredAlphaMask(sheet, bullets.strips[floor]!);
+      expect(alphaDifference(dedicated, generic), name).toBeGreaterThan(0.3);
+    }
+  });
+
+  test('main Boss owner colour dominates bone-white structure', () => {
+    for (const [name, strip] of Object.entries(bullets.strips)) {
+      if (mainBossBulletOwner(name) === undefined) continue;
+      const p = paletteForProjectile(name);
+      for (let frame = 0; frame < (strip.frames ?? 1); frame++) {
+        const frameX = strip.x + frame * (strip.stride ?? strip.frameW);
+        let bone = 0;
+        let chromatic = 0;
+        for (let y = 0; y < strip.frameH; y++) {
+          for (let x = 0; x < strip.frameW; x++) {
+            const rgba = rgbaAt(sheet, frameX + x, strip.y + y);
+            if (rgba[3] === 0) continue;
+            if (rgba.slice(0, 3).every((channel, index) => channel === p.bone[index])) bone++;
+            if (Math.max(rgba[0], rgba[1], rgba[2]) - Math.min(rgba[0], rgba[1], rgba[2]) >= 36) {
+              chromatic++;
+            }
+          }
+        }
+        expect(chromatic, `${name} frame ${frame}`).toBeGreaterThan(bone);
+      }
+    }
+  });
+
+  test('every ordinary strip owned by one main Boss uses that Boss sequence', () => {
+    for (const [name, strip] of Object.entries(bullets.strips)) {
+      const owner = mainBossBulletOwner(name);
+      if (owner === undefined) continue;
+      const sequence = V4_BOSS_BULLET_SEQUENCES[owner];
+      expect(strip.frames, name).toBe(sequence.frames);
+      expect(strip.ticksPerFrame, name).toBe(sequence.ticksPerFrame);
+      expect(strip.frameW, name).toBe(sequence.frameW);
+      expect(strip.frameH, name).toBe(sequence.frameH);
+    }
   });
 });
 
@@ -741,6 +898,38 @@ test('the five v4 boss final-death strips have distinct silhouettes', () => {
   expect(new Set(hashes).size).toBe(names.length);
 });
 
+test('the four main Boss declarations have distinct sequences, silhouettes and palettes', () => {
+  const sheet = png('effects/effects.png');
+  const owners = {
+    sentinel: 'boss.sentinel',
+    magistrate: 'boss.magistrate',
+    chancellor: 'boss.chancellor',
+    regent: 'boss.regent',
+  } as const;
+  const contracts = {
+    sentinel: [12, 2, 128, 128],
+    magistrate: [10, 3, 144, 96],
+    chancellor: [16, 2, 144, 128],
+    regent: [14, 2, 144, 144],
+  } as const;
+  const hashes = new Set<string>();
+
+  for (const [name, owner] of Object.entries(owners)) {
+    const key = `boss.cast.${name}`;
+    const strip = assets.effects?.[key];
+    expect(strip, key).toBeDefined();
+    if (strip === undefined) continue;
+    expect(
+      [strip.frames, strip.ticksPerFrame, strip.frameW, strip.frameH],
+      key,
+    ).toEqual([...contracts[name as keyof typeof contracts]]);
+    expect(paletteForEffect(key), key).toBe(V4_OWNER_PALETTES[owner]);
+    hashes.add(alphaMaskHash(sheet, strip));
+  }
+
+  expect(hashes.size).toBe(4);
+});
+
 test('native boss identity paint preserves the procedural display footprint', () => {
   const names = ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent'] as const;
   for (const name of names) {
@@ -789,6 +978,25 @@ describe('missile anatomy', () => {
       }
     }
   });
+
+  test('Magistrate and Chancellor missiles use their dedicated shape-lock families', () => {
+    const verdict = strips['missile.4']!;
+    const witness = strips['missile.9']!;
+    expect(stripContainsRgb(sheet, verdict, [244, 61, 155])).toBe(true);
+    expect(stripContainsRgb(sheet, witness, [247, 173, 45])).toBe(true);
+    expect(stripContainsRgb(sheet, witness, [59, 191, 132])).toBe(true);
+    expect(alphaMaskHash(sheet, verdict)).not.toBe(alphaMaskHash(sheet, witness));
+
+    for (let frame = 0; frame < (verdict.frames ?? 1); frame++) {
+      const frameX = (verdict.x ?? 0) + frame * (verdict.stride ?? verdict.frameW);
+      const frameY = verdict.y ?? 0;
+      const nose = frameX + verdict.frameW - 3;
+      const cy = frameY + Math.floor(verdict.frameH / 2);
+      expect(rgbaAt(sheet, nose, cy - 2)[3], `missile.4 frame ${frame} upper fork`).toBeGreaterThan(0);
+      expect(rgbaAt(sheet, nose, cy + 2)[3], `missile.4 frame ${frame} lower fork`).toBeGreaterThan(0);
+      expect(rgbaAt(sheet, nose, cy)[3], `missile.4 frame ${frame} appeal gap`).toBe(0);
+    }
+  });
 });
 
 describe('laser seam contract', () => {
@@ -827,6 +1035,48 @@ describe('laser seam contract', () => {
       expectAnimated(frames);
       expectExactContent(strip, frames);
     }
+  });
+
+  test('dedicated verdict and archive beams preserve their presentation grammar', () => {
+    const verdict = strips['beam.blue']!;
+    expect(stripContainsRgb(sheet, verdict, [244, 61, 155])).toBe(true);
+    for (let frame = 0; frame < (verdict.frames ?? 1); frame++) {
+      const frameX = (verdict.x ?? 0) + frame * (verdict.stride ?? verdict.frameW);
+      const frameY = verdict.y ?? 0;
+      const cy = frameY + Math.floor(verdict.frameH / 2);
+      for (let gap = -1; gap <= 1; gap++) {
+        for (let x = 0; x < verdict.frameW; x++) {
+          const channel = rgbaAt(sheet, frameX + x, cy + gap);
+          expect(channel[3], `beam.blue frame ${frame} collision honesty`).toBeGreaterThan(0);
+          expect(channel[3], `beam.blue frame ${frame} appeal channel`).toBeLessThan(
+            rgbaAt(sheet, frameX + x, cy - 3)[3],
+          );
+        }
+      }
+      expect(rgbaAt(sheet, frameX, cy - 3)[3]).toBeGreaterThan(0);
+      expect(rgbaAt(sheet, frameX, cy + 3)[3]).toBeGreaterThan(0);
+    }
+
+    const archiveNames = ['beam.warm', 'beam.v3.stream', 'beam.stream'] as const;
+    const hashes = new Set<string>();
+    for (const name of archiveNames) {
+      const strip = strips[name]!;
+      expect(stripContainsRgb(sheet, strip, [247, 173, 45]), name).toBe(true);
+      expect(stripContainsRgb(sheet, strip, [59, 191, 132]), name).toBe(true);
+      for (let frame = 0; frame < (strip.frames ?? 1); frame++) {
+        const frameX = (strip.x ?? 0) + frame * (strip.stride ?? strip.frameW);
+        const frameY = strip.y ?? 0;
+        const cy = frameY + Math.floor(strip.frameH / 2);
+        const half = name === 'beam.v3.stream' ? 8 : 6;
+        for (let y = cy - half; y <= cy + half; y++) {
+          expect(rgbaAt(sheet, frameX, y)[3], `${name} frame ${frame} collision honesty`)
+            .toBeGreaterThan(0);
+        }
+      }
+      hashes.add(stripFrames(sheet, strip).map((frame) => frame.hash).join(':'));
+    }
+    expect(hashes.size).toBe(archiveNames.length);
+    expect(stripContainsRgb(sheet, strips['beam.cyan']!, [244, 61, 155])).toBe(false);
   });
 });
 
@@ -928,9 +1178,9 @@ describe('base campaign name reachability', () => {
     expect([...used].filter((name) => !reachable.has(name))).toEqual([]);
   });
 
-  test('the 72-name bullet ledger is exactly floors plus currently reached variants', () => {
+  test('the 77-name bullet ledger is exactly floors plus currently reached variants', () => {
     const variants = V4_BULLET_NAMES.filter((name) => name in BULLET_VARIANTS);
     expect(V4_BULLET_NAMES.slice(0, BULLET_CELLS.length)).toEqual([...BULLET_CELLS]);
-    expect(variants).toHaveLength(56);
+    expect(variants).toHaveLength(61);
   });
 });

@@ -10,8 +10,8 @@
       "sheet": "bullets/bullets.png",
       "strips": {
         "orb.small": {
-          "x": 0,
-          "y": 0,
+          "x": 128,
+          "y": 904,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -24,7 +24,7 @@
         },
         "orb.medium": {
           "x": 128,
-          "y": 0,
+          "y": 872,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -36,8 +36,8 @@
           "contentH": 19
         },
         "orb.large": {
-          "x": 256,
-          "y": 0,
+          "x": 0,
+          "y": 872,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -49,8 +49,8 @@
           "contentH": 27
         },
         "ring": {
-          "x": 384,
-          "y": 0,
+          "x": 256,
+          "y": 1032,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -62,8 +62,8 @@
           "contentH": 27
         },
         "kunai": {
-          "x": 512,
-          "y": 0,
+          "x": 256,
+          "y": 712,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -75,8 +75,8 @@
           "contentH": 9
         },
         "scale": {
-          "x": 640,
-          "y": 0,
+          "x": 0,
+          "y": 1064,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -88,8 +88,8 @@
           "contentH": 11
         },
         "star": {
-          "x": 768,
-          "y": 0,
+          "x": 256,
+          "y": 1160,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -101,8 +101,8 @@
           "contentH": 27
         },
         "shard": {
-          "x": 896,
-          "y": 0,
+          "x": 128,
+          "y": 1128,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -115,7 +115,7 @@
         },
         "glow.small": {
           "x": 0,
-          "y": 32,
+          "y": 648,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -127,8 +127,8 @@
           "contentH": 13
         },
         "glow.medium": {
-          "x": 128,
-          "y": 32,
+          "x": 256,
+          "y": 520,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -141,7 +141,7 @@
         },
         "glow.large": {
           "x": 256,
-          "y": 32,
+          "y": 456,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -153,8 +153,8 @@
           "contentH": 27
         },
         "halo": {
-          "x": 384,
-          "y": 32,
+          "x": 0,
+          "y": 712,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -166,8 +166,8 @@
           "contentH": 27
         },
         "needle": {
-          "x": 512,
-          "y": 32,
+          "x": 256,
+          "y": 744,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -179,8 +179,8 @@
           "contentH": 5
         },
         "petal": {
-          "x": 640,
-          "y": 32,
+          "x": 256,
+          "y": 1000,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -192,8 +192,8 @@
           "contentH": 11
         },
         "spark": {
-          "x": 768,
-          "y": 32,
+          "x": 256,
+          "y": 1128,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -205,8 +205,8 @@
           "contentH": 21
         },
         "mote": {
-          "x": 896,
-          "y": 32,
+          "x": 128,
+          "y": 744,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -218,8 +218,8 @@
           "contentH": 9
         },
         "orb.small.chaff": {
-          "x": 0,
-          "y": 64,
+          "x": 256,
+          "y": 936,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -231,8 +231,8 @@
           "contentH": 11
         },
         "scale.heavy": {
-          "x": 128,
-          "y": 64,
+          "x": 0,
+          "y": 1096,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -244,47 +244,47 @@
           "contentH": 11
         },
         "scale.shard": {
-          "x": 256,
-          "y": 64,
+          "x": 0,
+          "y": 520,
           "frameW": 32,
           "frameH": 32,
-          "frames": 4,
+          "frames": 8,
           "stride": 32,
-          "ticksPerFrame": 5,
+          "ticksPerFrame": 3,
           "mode": "loop",
           "color": "baked",
           "contentW": 19,
           "contentH": 11
         },
         "petal.corolla": {
-          "x": 384,
-          "y": 64,
+          "x": 0,
+          "y": 488,
           "frameW": 32,
           "frameH": 32,
-          "frames": 4,
+          "frames": 8,
           "stride": 32,
-          "ticksPerFrame": 5,
+          "ticksPerFrame": 3,
           "mode": "loop",
           "color": "baked",
           "contentW": 19,
           "contentH": 11
         },
         "needle.vigil": {
-          "x": 512,
-          "y": 64,
+          "x": 0,
+          "y": 456,
           "frameW": 32,
           "frameH": 32,
-          "frames": 4,
+          "frames": 8,
           "stride": 32,
-          "ticksPerFrame": 5,
+          "ticksPerFrame": 3,
           "mode": "loop",
           "color": "baked",
           "contentW": 25,
           "contentH": 5
         },
         "orb.small.spark": {
-          "x": 640,
-          "y": 64,
+          "x": 0,
+          "y": 1000,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -296,8 +296,8 @@
           "contentH": 11
         },
         "kunai.seeker": {
-          "x": 768,
-          "y": 64,
+          "x": 0,
+          "y": 744,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -309,8 +309,8 @@
           "contentH": 9
         },
         "needle.lance": {
-          "x": 896,
-          "y": 64,
+          "x": 128,
+          "y": 776,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -323,7 +323,7 @@
         },
         "needle.column": {
           "x": 0,
-          "y": 96,
+          "y": 776,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -335,8 +335,8 @@
           "contentH": 5
         },
         "petal.ember": {
-          "x": 128,
-          "y": 96,
+          "x": 0,
+          "y": 1032,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -349,7 +349,7 @@
         },
         "scale.shell": {
           "x": 256,
-          "y": 96,
+          "y": 1096,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -361,8 +361,8 @@
           "contentH": 11
         },
         "orb.small.writ": {
-          "x": 384,
-          "y": 96,
+          "x": 128,
+          "y": 1000,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -374,8 +374,8 @@
           "contentH": 11
         },
         "orb.medium.slab": {
-          "x": 512,
-          "y": 96,
+          "x": 0,
+          "y": 904,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -387,8 +387,8 @@
           "contentH": 19
         },
         "needle.subpoena": {
-          "x": 640,
-          "y": 96,
+          "x": 256,
+          "y": 840,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -400,8 +400,8 @@
           "contentH": 5
         },
         "spark.levy": {
-          "x": 768,
-          "y": 96,
+          "x": 128,
+          "y": 1160,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -412,22 +412,9 @@
           "contentW": 21,
           "contentH": 21
         },
-        "orb.medium.decree": {
-          "x": 896,
-          "y": 96,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
-          "mode": "loop",
-          "color": "baked",
-          "contentW": 19,
-          "contentH": 19
-        },
         "needle.picket": {
           "x": 0,
-          "y": 128,
+          "y": 808,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -439,8 +426,8 @@
           "contentH": 5
         },
         "orb.medium.bulwark": {
-          "x": 128,
-          "y": 128,
+          "x": 256,
+          "y": 872,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -452,8 +439,8 @@
           "contentH": 19
         },
         "halo.signet": {
-          "x": 256,
-          "y": 128,
+          "x": 128,
+          "y": 712,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -465,47 +452,47 @@
           "contentH": 27
         },
         "halo.diadem": {
-          "x": 384,
-          "y": 128,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "x": 0,
+          "y": 0,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
           "mode": "loop",
           "color": "baked",
           "contentW": 27,
           "contentH": 27
         },
         "needle.warrant": {
-          "x": 512,
-          "y": 128,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "x": 0,
+          "y": 72,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
           "mode": "loop",
           "color": "baked",
           "contentW": 25,
           "contentH": 5
         },
         "orb.medium.lattice": {
-          "x": 640,
-          "y": 128,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "x": 0,
+          "y": 108,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
           "mode": "loop",
           "color": "baked",
           "contentW": 19,
           "contentH": 19
         },
         "glow.small.bolt": {
-          "x": 768,
-          "y": 128,
+          "x": 128,
+          "y": 648,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -517,8 +504,8 @@
           "contentH": 13
         },
         "needle.pin": {
-          "x": 896,
-          "y": 128,
+          "x": 128,
+          "y": 808,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -531,7 +518,7 @@
         },
         "scale.tracker": {
           "x": 0,
-          "y": 160,
+          "y": 1128,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -543,8 +530,8 @@
           "contentH": 11
         },
         "glow.small.spray": {
-          "x": 128,
-          "y": 160,
+          "x": 256,
+          "y": 648,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -557,7 +544,7 @@
         },
         "orb.small.satellite": {
           "x": 256,
-          "y": 160,
+          "y": 968,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -569,8 +556,8 @@
           "contentH": 11
         },
         "scale.satellite": {
-          "x": 384,
-          "y": 160,
+          "x": 128,
+          "y": 1096,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -582,8 +569,8 @@
           "contentH": 11
         },
         "orb.small.battery": {
-          "x": 512,
-          "y": 160,
+          "x": 0,
+          "y": 936,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -595,8 +582,8 @@
           "contentH": 11
         },
         "orb.small.clinch": {
-          "x": 640,
-          "y": 160,
+          "x": 0,
+          "y": 968,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -608,8 +595,8 @@
           "contentH": 11
         },
         "glow.medium.bolt": {
-          "x": 768,
-          "y": 160,
+          "x": 204,
+          "y": 616,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -621,8 +608,8 @@
           "contentH": 21
         },
         "glow.large.bolt": {
-          "x": 896,
-          "y": 160,
+          "x": 256,
+          "y": 488,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -634,8 +621,8 @@
           "contentH": 27
         },
         "needle.pin.t0": {
-          "x": 0,
-          "y": 192,
+          "x": 256,
+          "y": 808,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -647,8 +634,8 @@
           "contentH": 5
         },
         "needle.pin.t1": {
-          "x": 128,
-          "y": 192,
+          "x": 0,
+          "y": 840,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -660,8 +647,8 @@
           "contentH": 5
         },
         "needle.pin.t2": {
-          "x": 256,
-          "y": 192,
+          "x": 128,
+          "y": 840,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -673,8 +660,8 @@
           "contentH": 5
         },
         "bolt.hyper": {
-          "x": 384,
-          "y": 192,
+          "x": 256,
+          "y": 424,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -686,8 +673,8 @@
           "contentH": 27
         },
         "scale.chase": {
-          "x": 512,
-          "y": 192,
+          "x": 128,
+          "y": 1064,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -699,8 +686,8 @@
           "contentH": 11
         },
         "scale.chase.hi": {
-          "x": 640,
-          "y": 192,
+          "x": 256,
+          "y": 1064,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -712,8 +699,8 @@
           "contentH": 11
         },
         "glow.small.spray.t1": {
-          "x": 768,
-          "y": 192,
+          "x": 0,
+          "y": 680,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -725,8 +712,8 @@
           "contentH": 13
         },
         "glow.small.spray.t2": {
-          "x": 896,
-          "y": 192,
+          "x": 128,
+          "y": 680,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -738,8 +725,8 @@
           "contentH": 13
         },
         "glow.small.spray.t3": {
-          "x": 0,
-          "y": 224,
+          "x": 256,
+          "y": 680,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -751,21 +738,21 @@
           "contentH": 13
         },
         "needle.tithe": {
-          "x": 128,
-          "y": 224,
+          "x": 0,
+          "y": 424,
           "frameW": 32,
           "frameH": 32,
-          "frames": 4,
+          "frames": 8,
           "stride": 32,
-          "ticksPerFrame": 5,
+          "ticksPerFrame": 3,
           "mode": "loop",
           "color": "baked",
           "contentW": 25,
           "contentH": 5
         },
         "orb.small.beacon": {
-          "x": 256,
-          "y": 224,
+          "x": 128,
+          "y": 936,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -777,8 +764,8 @@
           "contentH": 11
         },
         "needle.lien": {
-          "x": 384,
-          "y": 224,
+          "x": 256,
+          "y": 776,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -790,8 +777,8 @@
           "contentH": 5
         },
         "orb.small.fee": {
-          "x": 512,
-          "y": 224,
+          "x": 128,
+          "y": 968,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -803,8 +790,8 @@
           "contentH": 11
         },
         "petal.pyre": {
-          "x": 640,
-          "y": 224,
+          "x": 128,
+          "y": 1032,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -816,8 +803,8 @@
           "contentH": 11
         },
         "orb.small.assay": {
-          "x": 768,
-          "y": 224,
+          "x": 256,
+          "y": 904,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -829,13 +816,65 @@
           "contentH": 11
         },
         "scale.escrow": {
-          "x": 896,
-          "y": 224,
-          "frameW": 32,
+          "x": 0,
+          "y": 616,
+          "frameW": 34,
           "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "frames": 6,
+          "stride": 34,
+          "ticksPerFrame": 4,
+          "mode": "loop",
+          "color": "baked",
+          "contentW": 19,
+          "contentH": 11
+        },
+        "orb.small.arraignment": {
+          "x": 204,
+          "y": 552,
+          "frameW": 34,
+          "frameH": 32,
+          "frames": 6,
+          "stride": 34,
+          "ticksPerFrame": 4,
+          "mode": "loop",
+          "color": "baked",
+          "contentW": 11,
+          "contentH": 11
+        },
+        "kunai.pursuit": {
+          "x": 0,
+          "y": 552,
+          "frameW": 34,
+          "frameH": 32,
+          "frames": 6,
+          "stride": 34,
+          "ticksPerFrame": 4,
+          "mode": "loop",
+          "color": "baked",
+          "contentW": 23,
+          "contentH": 9
+        },
+        "scale.assize": {
+          "x": 204,
+          "y": 584,
+          "frameW": 34,
+          "frameH": 32,
+          "frames": 6,
+          "stride": 34,
+          "ticksPerFrame": 4,
+          "mode": "loop",
+          "color": "baked",
+          "contentW": 19,
+          "contentH": 11
+        },
+        "petal.verdict": {
+          "x": 0,
+          "y": 584,
+          "frameW": 34,
+          "frameH": 32,
+          "frames": 6,
+          "stride": 34,
+          "ticksPerFrame": 4,
           "mode": "loop",
           "color": "baked",
           "contentW": 19,
@@ -843,11 +882,11 @@
         },
         "orb.small.brief": {
           "x": 0,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
+          "y": 356,
+          "frameW": 36,
+          "frameH": 34,
+          "frames": 10,
+          "stride": 36,
           "ticksPerFrame": 5,
           "mode": "loop",
           "color": "baked",
@@ -855,12 +894,12 @@
           "contentH": 11
         },
         "orb.medium.ledger": {
-          "x": 128,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
+          "x": 0,
+          "y": 322,
+          "frameW": 36,
+          "frameH": 34,
+          "frames": 10,
+          "stride": 36,
           "ticksPerFrame": 5,
           "mode": "loop",
           "color": "baked",
@@ -868,12 +907,12 @@
           "contentH": 19
         },
         "halo.witness": {
-          "x": 256,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
+          "x": 0,
+          "y": 288,
+          "frameW": 36,
+          "frameH": 34,
+          "frames": 10,
+          "stride": 36,
           "ticksPerFrame": 5,
           "mode": "loop",
           "color": "baked",
@@ -881,12 +920,12 @@
           "contentH": 27
         },
         "spark.docket": {
-          "x": 384,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
+          "x": 0,
+          "y": 390,
+          "frameW": 36,
+          "frameH": 34,
+          "frames": 10,
+          "stride": 36,
           "ticksPerFrame": 5,
           "mode": "loop",
           "color": "baked",
@@ -894,8 +933,8 @@
           "contentH": 21
         },
         "spark.duty": {
-          "x": 512,
-          "y": 256,
+          "x": 0,
+          "y": 1160,
           "frameW": 32,
           "frameH": 32,
           "frames": 4,
@@ -907,43 +946,69 @@
           "contentH": 21
         },
         "orb.medium.tenure": {
-          "x": 640,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "x": 0,
+          "y": 180,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
           "mode": "loop",
           "color": "baked",
           "contentW": 19,
           "contentH": 19
         },
         "orb.medium.mandamus": {
-          "x": 768,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "x": 0,
+          "y": 144,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
           "mode": "loop",
           "color": "baked",
           "contentW": 19,
           "contentH": 19
         },
         "halo.mandamus": {
-          "x": 896,
-          "y": 256,
-          "frameW": 32,
-          "frameH": 32,
-          "frames": 4,
-          "stride": 32,
-          "ticksPerFrame": 5,
+          "x": 0,
+          "y": 36,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
           "mode": "loop",
           "color": "baked",
           "contentW": 27,
           "contentH": 27
+        },
+        "orb.small.session": {
+          "x": 0,
+          "y": 216,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
+          "mode": "loop",
+          "color": "baked",
+          "contentW": 11,
+          "contentH": 11
+        },
+        "spark.wear": {
+          "x": 0,
+          "y": 252,
+          "frameW": 34,
+          "frameH": 36,
+          "frames": 12,
+          "stride": 34,
+          "ticksPerFrame": 2,
+          "mode": "loop",
+          "color": "baked",
+          "contentW": 21,
+          "contentH": 21
         }
       }
     },
@@ -1382,8 +1447,8 @@
     "effects": {
       "burst": {
         "src": "effects/effects.png",
-        "x": 1536,
-        "y": 872,
+        "x": 512,
+        "y": 1368,
         "frames": 8,
         "frameW": 64,
         "frameH": 64,
@@ -1397,7 +1462,7 @@
       "burst.big": {
         "src": "effects/effects.png",
         "x": 1152,
-        "y": 640,
+        "y": 1136,
         "frames": 12,
         "frameW": 96,
         "frameH": 96,
@@ -1411,7 +1476,7 @@
       "material.surface": {
         "src": "effects/effects.png",
         "x": 2048,
-        "y": 128,
+        "y": 272,
         "frames": 8,
         "frameW": 48,
         "frameH": 48,
@@ -1425,7 +1490,7 @@
       "material.skeleton": {
         "src": "effects/effects.png",
         "x": 2208,
-        "y": 984,
+        "y": 1480,
         "frames": 8,
         "frameW": 24,
         "frameH": 24,
@@ -1439,7 +1504,7 @@
       "material.mycelium": {
         "src": "effects/effects.png",
         "x": 2048,
-        "y": 512,
+        "y": 656,
         "frames": 8,
         "frameW": 32,
         "frameH": 32,
@@ -1453,7 +1518,7 @@
       "material.heart": {
         "src": "effects/effects.png",
         "x": 2232,
-        "y": 736,
+        "y": 1232,
         "frames": 8,
         "frameW": 24,
         "frameH": 24,
@@ -1466,8 +1531,8 @@
       },
       "boss.distress.surface": {
         "src": "effects/effects.png",
-        "x": 1024,
-        "y": 872,
+        "x": 0,
+        "y": 1368,
         "frames": 8,
         "frameW": 64,
         "frameH": 64,
@@ -1480,8 +1545,8 @@
       },
       "boss.distress.skeleton": {
         "src": "effects/effects.png",
-        "x": 512,
-        "y": 872,
+        "x": 1440,
+        "y": 1040,
         "frames": 8,
         "frameW": 64,
         "frameH": 64,
@@ -1494,8 +1559,8 @@
       },
       "boss.distress.mycelium": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 872,
+        "x": 1536,
+        "y": 912,
         "frames": 8,
         "frameW": 64,
         "frameH": 64,
@@ -1508,7 +1573,7 @@
       },
       "boss.distress.crack": {
         "src": "effects/effects.png",
-        "x": 2048,
+        "x": 2016,
         "y": 0,
         "frames": 4,
         "frameW": 64,
@@ -1523,7 +1588,7 @@
       "boss.distress.heart": {
         "src": "effects/effects.png",
         "x": 2048,
-        "y": 384,
+        "y": 528,
         "frames": 8,
         "frameW": 32,
         "frameH": 32,
@@ -1537,7 +1602,7 @@
       "boss.break": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 640,
+        "y": 1136,
         "frames": 12,
         "frameW": 96,
         "frameH": 96,
@@ -1551,7 +1616,7 @@
       "boss.death.sentinel": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 384,
+        "y": 656,
         "frames": 16,
         "frameW": 128,
         "frameH": 128,
@@ -1565,7 +1630,7 @@
       "boss.death.warden": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 512,
+        "y": 784,
         "frames": 16,
         "frameW": 128,
         "frameH": 128,
@@ -1579,7 +1644,7 @@
       "boss.death.magistrate": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 128,
+        "y": 400,
         "frames": 16,
         "frameW": 128,
         "frameH": 128,
@@ -1593,7 +1658,7 @@
       "boss.death.chancellor": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 0,
+        "y": 272,
         "frames": 16,
         "frameW": 128,
         "frameH": 128,
@@ -1607,7 +1672,7 @@
       "boss.death.regent": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 256,
+        "y": 528,
         "frames": 16,
         "frameW": 128,
         "frameH": 128,
@@ -1618,10 +1683,66 @@
         "contentW": 101,
         "contentH": 93
       },
+      "boss.cast.sentinel": {
+        "src": "effects/effects.png",
+        "x": 0,
+        "y": 912,
+        "frames": 12,
+        "frameW": 128,
+        "frameH": 128,
+        "stride": 128,
+        "ticksPerFrame": 2,
+        "mode": "once",
+        "color": "baked",
+        "contentW": 98,
+        "contentH": 90
+      },
+      "boss.cast.magistrate": {
+        "src": "effects/effects.png",
+        "x": 0,
+        "y": 1040,
+        "frames": 10,
+        "frameW": 144,
+        "frameH": 96,
+        "stride": 144,
+        "ticksPerFrame": 3,
+        "mode": "once",
+        "color": "baked",
+        "contentW": 135,
+        "contentH": 87
+      },
+      "boss.cast.chancellor": {
+        "src": "effects/effects.png",
+        "x": 0,
+        "y": 144,
+        "frames": 16,
+        "frameW": 144,
+        "frameH": 128,
+        "stride": 144,
+        "ticksPerFrame": 2,
+        "mode": "once",
+        "color": "baked",
+        "contentW": 98,
+        "contentH": 79
+      },
+      "boss.cast.regent": {
+        "src": "effects/effects.png",
+        "x": 0,
+        "y": 0,
+        "frames": 14,
+        "frameW": 144,
+        "frameH": 144,
+        "stride": 144,
+        "ticksPerFrame": 2,
+        "mode": "once",
+        "color": "baked",
+        "contentW": 105,
+        "contentH": 98
+      },
       "missile.pop.tiny": {
         "src": "effects/effects.png",
-        "x": 1920,
-        "y": 1032,
+        "x": 1952,
+        "y": 1040,
         "frames": 11,
         "frameW": 36,
         "frameH": 28,
@@ -1635,7 +1756,7 @@
       "missile.pop.mid": {
         "src": "effects/effects.png",
         "x": 2048,
-        "y": 872,
+        "y": 784,
         "frames": 9,
         "frameW": 36,
         "frameH": 28,
@@ -1648,8 +1769,8 @@
       },
       "missile.pop.big": {
         "src": "effects/effects.png",
-        "x": 1716,
-        "y": 1080,
+        "x": 2048,
+        "y": 912,
         "frames": 8,
         "frameW": 36,
         "frameH": 28,
@@ -1662,8 +1783,8 @@
       },
       "boom.elite": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 1032,
+        "x": 1024,
+        "y": 1368,
         "frames": 28,
         "frameW": 48,
         "frameH": 48,
@@ -1677,7 +1798,7 @@
       "boom.elite.spray": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 1080,
+        "y": 1528,
         "frames": 39,
         "frameW": 44,
         "frameH": 44,
@@ -1691,7 +1812,7 @@
       "boom.boss.back": {
         "src": "effects/effects.png",
         "x": 1152,
-        "y": 736,
+        "y": 1232,
         "frames": 15,
         "frameW": 72,
         "frameH": 72,
@@ -1705,7 +1826,7 @@
       "boom.boss.top": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 736,
+        "y": 1232,
         "frames": 16,
         "frameW": 72,
         "frameH": 72,
@@ -1719,7 +1840,7 @@
       "boom.player": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 808,
+        "y": 1304,
         "frames": 38,
         "frameW": 64,
         "frameH": 64,
@@ -1732,8 +1853,8 @@
       },
       "debris": {
         "src": "effects/effects.png",
-        "x": 144,
-        "y": 1124,
+        "x": 296,
+        "y": 1572,
         "frames": 12,
         "frameW": 8,
         "frameH": 8,
@@ -1746,8 +1867,8 @@
       },
       "player.option": {
         "src": "effects/effects.png",
-        "x": 2304,
-        "y": 384,
+        "x": 2336,
+        "y": 400,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1760,8 +1881,8 @@
       },
       "player.option.scout": {
         "src": "effects/effects.png",
-        "x": 2004,
-        "y": 1080,
+        "x": 2304,
+        "y": 1136,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1775,7 +1896,7 @@
       "player.option.lance": {
         "src": "effects/effects.png",
         "x": 2304,
-        "y": 640,
+        "y": 656,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1789,7 +1910,7 @@
       "player.option.hound": {
         "src": "effects/effects.png",
         "x": 2304,
-        "y": 512,
+        "y": 528,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1802,8 +1923,8 @@
       },
       "player.option.spire": {
         "src": "effects/effects.png",
-        "x": 2100,
-        "y": 1080,
+        "x": 2292,
+        "y": 1528,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1816,8 +1937,8 @@
       },
       "player.option.maw": {
         "src": "effects/effects.png",
-        "x": 2316,
-        "y": 1032,
+        "x": 2336,
+        "y": 912,
         "frames": 4,
         "frameW": 24,
         "frameH": 24,
@@ -1830,8 +1951,8 @@
       },
       "player.thruster.up": {
         "src": "effects/effects.png",
-        "x": 2336,
-        "y": 256,
+        "x": 2304,
+        "y": 144,
         "frames": 4,
         "frameW": 20,
         "frameH": 28,
@@ -1844,8 +1965,8 @@
       },
       "player.thruster.cruise": {
         "src": "effects/effects.png",
-        "x": 2196,
-        "y": 1080,
+        "x": 2348,
+        "y": 1040,
         "frames": 4,
         "frameW": 20,
         "frameH": 24,
@@ -1858,8 +1979,8 @@
       },
       "player.thruster.down": {
         "src": "effects/effects.png",
-        "x": 2348,
-        "y": 1080,
+        "x": 72,
+        "y": 1572,
         "frames": 4,
         "frameW": 20,
         "frameH": 20,
@@ -1872,8 +1993,8 @@
       },
       "player.thruster.particle.0": {
         "src": "effects/effects.png",
-        "x": 0,
-        "y": 1124,
+        "x": 152,
+        "y": 1572,
         "frames": 6,
         "frameW": 12,
         "frameH": 16,
@@ -1886,8 +2007,8 @@
       },
       "player.thruster.particle.1": {
         "src": "effects/effects.png",
-        "x": 72,
-        "y": 1124,
+        "x": 224,
+        "y": 1572,
         "frames": 6,
         "frameW": 12,
         "frameH": 16,
@@ -1900,7 +2021,7 @@
       },
       "player.bomb.missile": {
         "src": "effects/effects.png",
-        "x": 2304,
+        "x": 2272,
         "y": 0,
         "frames": 8,
         "frameW": 16,
@@ -1914,8 +2035,8 @@
       },
       "player.bomb.projectile": {
         "src": "effects/effects.png",
-        "x": 2276,
-        "y": 1080,
+        "x": 0,
+        "y": 1572,
         "frames": 6,
         "frameW": 12,
         "frameH": 24,
@@ -1929,7 +2050,7 @@
       "player.bomb.field": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 936,
+        "y": 1432,
         "frames": 30,
         "frameW": 48,
         "frameH": 48,
@@ -1943,7 +2064,7 @@
       "player.bomb.scout-tide": {
         "src": "effects/effects.png",
         "x": 0,
-        "y": 984,
+        "y": 1480,
         "frames": 30,
         "frameW": 48,
         "frameH": 48,
@@ -1957,7 +2078,7 @@
       "player.bomb.lance-pierce": {
         "src": "effects/effects.png",
         "x": 2048,
-        "y": 256,
+        "y": 400,
         "frames": 12,
         "frameW": 24,
         "frameH": 48,
@@ -1970,8 +2091,8 @@
       },
       "player.bomb.hound-pack": {
         "src": "effects/effects.png",
-        "x": 1344,
-        "y": 1032,
+        "x": 1716,
+        "y": 1528,
         "frames": 12,
         "frameW": 48,
         "frameH": 40,
@@ -1985,7 +2106,7 @@
       "player.bomb.spire-field": {
         "src": "effects/effects.png",
         "x": 1440,
-        "y": 936,
+        "y": 1432,
         "frames": 20,
         "frameW": 48,
         "frameH": 48,
@@ -1999,7 +2120,7 @@
       "player.bomb.maw-devour": {
         "src": "effects/effects.png",
         "x": 1440,
-        "y": 984,
+        "y": 1480,
         "frames": 16,
         "frameW": 48,
         "frameH": 48,
@@ -2066,7 +2187,7 @@
         "mode": "loop",
         "color": "baked",
         "contentW": 48,
-        "contentH": 13
+        "contentH": 15
       },
       "beam.cyan": {
         "src": "lasers/lasers.png",
@@ -2306,7 +2427,7 @@
         "mode": "loop",
         "color": "baked",
         "contentW": 27,
-        "contentH": 11
+        "contentH": 8
       },
       "missile.10": {
         "src": "missiles/missiles.png",

@@ -42,6 +42,18 @@ describe('boss feedback stays local and below bullet danger', () => {
     expect(mainSource).toContain('a: Math.max(0, 1 - identity.age / life)');
   });
 
+  test('a phase event queues the current Boss declaration and follows its live body', () => {
+    expect(mainSource).toContain("if (event.type === 'boss-phase')");
+    expect(mainSource).toContain('V4_BOSS_ACTORS[activeBoss.name]?.castStrip');
+    expect(mainSource).toContain('bossCastFx.push({');
+    expect(mainSource).toContain('stepBossCastFx(bossCastFx');
+    expect(mainSource).toContain('visibleBossCastFx(bossCastFx, run, boss.name)');
+    expect(mainSource).toContain(
+      'drawStrip(batches.bossBodyFx, fxAtlas, drawX, drawY, cast.strip, cast.age',
+    );
+    expect(Layer.Enemies + 3).toBeLessThan(Layer.EnemyShots);
+  });
+
   test('guest boss distress follows its actual atlas display geometry', () => {
     expect(mainSource).toContain('const legacyStrip = actor === undefined ? bulletAtlas.strip(boss.spec.sprite) : undefined');
     expect(mainSource).toContain('legacyStrip?.displayW');

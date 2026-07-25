@@ -10,8 +10,8 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 
 | Surface | Count | File |
 |---|---:|---|
-| Native bullet names (16 neutral floors + 56 current base variants) | 72 | `bullets/bullets.png` |
-| Native effects | 26 | `effects/effects.png` |
+| Native bullet names (16 neutral floors + 61 current base variants) | 77 | `bullets/bullets.png` |
+| Native effects | 30 | `effects/effects.png` |
 | Player option / thrust / bomb effects | 19 | `effects/effects.png` |
 | Laser bodies + caps | 11 | `lasers/lasers.png` |
 | Missile bodies | 13 | `missiles/missiles.png` |
@@ -92,10 +92,21 @@ heart core. They deliberately do not inherit the saturated enemy projectile
 palette. The five Boss death strips preserve identity as lunar fragments, a
 seal cage, twin blades, archive tablets with script, and a rooted crown/dome.
 
-Hostile bullets carry an opaque bone-white keyline and a five-pixel threat core;
-player bullets keep an opaque identity-colour keyline. This faction grammar is
-independent of the semantic anatomy above and remains readable against every
-stage palette.
+Shared hostile bullets carry an opaque bone-white keyline and a five-pixel
+threat core; player bullets keep an opaque identity-colour keyline. The four
+main-Boss families deliberately replace the all-white outline with owner-chroma
+silhouettes while preserving the same five-pixel threat core and one east glint:
+Sentinel opens silver-cyan membrane eyes and moon gates; Magistrate forks
+magenta verdict blades around diamond seals; Chancellor writes amber/indigo-green
+eye stamps and comet traces; Regent wears imperial-purple crystals, crimson
+roots and abraded crown rings.
+
+That shape lock continues through each Boss's unique heavy presentation:
+`beam.blue` is a twin verdict rail around a low-alpha appeal channel and `missile.4`
+is a bifurcated judgment blade; Chancellor's warm/stream beams are seamless
+amber-green page spines with moving writing rows and `missile.9` is a witness
+eye towing archival page corners. Shared `beam.cyan`, every cap and Regent's
+massive writ remain unchanged.
 
 All oriented bullet and missile art points east (+x), matching CLAUDE.md rule 7.
 Small bullets paint 6–14px, medium bullets 16–22px, large bullets 24–28px;

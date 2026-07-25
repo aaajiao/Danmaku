@@ -265,6 +265,16 @@ Boss 的人物身份必须先于几何弹幕身份。五位 Boss 的服装从开
 | `chancellor` | 档案宰辅 | 卷轴和浮碑层叠，但脸与双手保持空 | idle / prepare / cast / expand / close | 96×96 |
 | `regent` | 穹顶摄政者 | 冠环与宽袖逐帧闭合成最后狭缝 | idle / prepare / cast / expand / close | 110×110 |
 
+Warden 是关内教学中 Boss；四个关底主 Boss 另外各占有一套不能交换的
+`pattern → 普通弹序列 → phase 宣告` 身份链：
+
+| 主 Boss | 专属空间动词 | 普通弹序列 | phase 宣告 |
+|---|---|---|---|
+| `sentinel` | `moon-gate`：围绕身体生成三开口月轮，连续波次切向相反 | 32×32、8 帧、3 tick/帧；开口接缝沿弹体移动 | 三段月弧从身体外展开 |
+| `magistrate` | `verdict-shear`：按玩家当前 x 锁定申诉通道，两侧裁决面交替剪切 | 34×32、6 帧、4 tick/帧；双侧斜线交换闭合方向 | 双刃从场边压向中央未触碰线 |
+| `chancellor` | `archive-trace`：固定延迟读取 phase 内玩家旧坐标，多条卷脊向记录点汇合 | 36×34、10 帧、5 tick/帧；页角与书写行逐步保留 | 三册档案依次显影并复写旧轨迹 |
+| `regent` | `memory-groove`：旧 x 成为墙洞，更旧样本把当时移动方向保留成整体漂移 | 34×36、12 帧、2 tick/帧；旧等高线不消失，新轮廓磨过其上 | 多层磨损冠环与根系逐层固化 |
+
 Boss 稳态不应把五帧当普通循环。最少需要三类展示状态：
 
 - `idle`：非符卡或移动；
@@ -327,6 +337,22 @@ HOUND 翡翠/黄绿/金橙，SPIRE 紫罗兰/电青/银白，MAW 朱橙/桃红/�
 发出的弹幕。杂兵与 Boss 按四关推进为银青、靛绿、琥珀玫红、帝紫绯红；
 第四关征用的旧角色仍保留原身份色，不随场景强制换紫。
 
+`projectile-style-lock.png` 的丰富性不能只停留在概念图，也不能被压成“同一颗
+白色线稿弹换四种颜色”。四位主 Boss 的运行弹体因此固定投影为四套形态语法：
+
+| Boss | 从风格母版继承的形态 | 运行弹体语法 | 序列动作 |
+|---|---|---|---|
+| Sentinel | 银青月轮、膜环、开合眼瓣 | 有缺口的月片、潮汐眼瓣、细长月针 | 眼裂开合，月缺沿外缘移动，与 `moon-gate` 的三道开口同向呼吸 |
+| Magistrate | 裁决枪、菱形封印、成排晶刃 | 实心判刃、分叉长枪、菱封与双裁决轨 | 左侧闭合 → 中央申诉线 → 右侧闭合，对应 `verdict-shear` |
+| Chancellor | 琥珀/绿见证眼、彗尾种子、页脊 | 眼印、卷宗核、带旧轨迹的彗尾与多行书写流 | 页角出现，记录逐行累积，旧轨迹回写到 `archive-trace` 的延迟目标 |
+| Regent | 帝紫晶柱、绯红根心、磨损冠环 | 晶格、根化心核、冠轮与 retained contour | 旧轮廓保留，新轮廓错位磨过，与 `memory-groove` 的历史路线叠写 |
+
+上述主 Boss 普通弹在 native V4 pack 中直接进入各自 painter，不再先绘制通用
+`orb / scale / petal / needle` 后添加一层小标记。骨白只保留五像素危险核心、
+朝向 glint 和极少结构高光；身份色必须主导外轮廓与填充，使四套弹体在灰度看
+轮廓、彩色看材质时都能分辨。风格母版仍只作为形态与色彩依据，不直接裁切或
+缩放进运行 atlas。
+
 ### 6.3 STG 实际尺寸
 
 下表全部是 `480×640` 逻辑战场在 ×1 显示时的像素。尺寸以**可见内容**计，
@@ -363,7 +389,10 @@ src/v4/content/campaign.json
 
 - `campaign.json` 决定四关何时、从哪里、用什么参数发射；
 - `patterns.ts` 提供 `ring`、`spiral`、`aimed-fan`、`spray`、
-  `alternating-fan`、`gap-ring`、`weave`、`lane-wall` 八个确定性几何词；
+  `alternating-fan`、`gap-ring`、`weave`、`lane-wall` 八个通用确定性几何词，
+  以及四个主 Boss 专属词：Sentinel 的三开口 `moon-gate`、Magistrate 的
+  全场 `verdict-shear`、Chancellor 的延迟 `archive-trace`、Regent 的旧路线
+  `memory-groove`；
 - `behaviours.ts` 提供 `homing`、`waver`、`accelerate-to`、`orbit`、`beam-sweep` 五个运动词；
 - 通用 registry、Emitter、运动积分和碰撞仍在 `src/content/pattern-registry.ts` 与 `src/sim/`，不被某一版美术占有；
 - `packs/v4` 只给上述语法提供可见身体。任意下载 pack 可以按名字组合已注册词汇，但不能注入 TypeScript、GLSL 或新的模拟规则。
@@ -632,15 +661,15 @@ fallback。
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
 | shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；最终 Boss `regnum` 从唯一母版派生 16 帧、14 tick/帧的异步漆面错层，顶部 Boss 与底部玩家安全带不动，十四层 shader 保持在上方；独立 `wear-field` 也从唯一母版派生 16 帧，但只让多边磨损路径分段显影、错位、褪去并锁住文字区，服务 v4 三页终局；所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
-| 弹幕生成 | `src/v4/gameplay` 已拥有 8 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名，5 位 Boss 每阶段至少两层弹幕且每位使用至少四类几何；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认迁移缺口、交织线与通道墙在 Normal/Lunatic 都保留连续安全缝 |
+| 弹幕生成 | `src/v4/gameplay` 已拥有 12 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名；Warden 保留关内教学组合，四个主 Boss 则在每个阶段只携带自己的专属空间词，彼此不可互换；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认月门、裁决剪切、延迟归档与路线磨槽在 Normal/Lunatic 都保留连续安全缝 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
-| 多帧 | 玩家 banking 已由默认 pack 的 `banking: five-way` 接通；敌人 attack/recover 与 Boss 五语义姿态读取真实成功发弹及 phase 事实 | 浏览器确认小尺寸动作有辨识度且不掩盖发弹 |
+| 多帧 | 玩家 banking 已由默认 pack 的 `banking: five-way` 接通；敌人 attack/recover 与 Boss 五语义姿态读取真实成功发弹及 phase 事实；四主 Boss 的普通弹分别使用 `8@3`、`6@4`、`10@5`、`12@2` 的独占帧节奏，并直接进入月轮眼瓣、裁决枪刃、见证眼印、根心冠环四套 native painter；phase 开始另播放四套仅表现层的 `boss.cast.*` 宣告序列 | 浏览器确认 ×1 下无需依赖颜色即可区分四套外轮廓，身份色像素主导而骨白不重新吞没弹体，宣告 FX 位于 Boss 身体上方、敌弹下方 |
 | 命中材质 | 16 类敌人和 5 位 Boss 全部显式绑定 `surface/skeleton/mycelium/heart`；四套 8 帧反馈同时有 procedural floor 与 v4 native strip；Boss 接触显示统一限频但伤害逐 tick，重击仅改变姿态/局部层；最后三分之一血量固定 tick 收缩、开裂与双搏 | 浏览器逐材质确认膜纹、骨节、菌丝回缩和心核压缩在实战尺寸仍能区分 |
 | 对话头像 | 主角与五位 Boss 已从同一 Ghost 原画母版生成独立 256px 近景图集；旧包保留 field-actor crop，第三方 pack speaker 仍走其 portrait/fallback | 浏览器检查十张圆形裁切、脸、心核、黑边和姓名板在四种 shader 上均可读 |
 | 三层 glitch | 外表/骨相/菌丝+心脏已烘焙进所有人物动作帧 | 再拆 `surface/skeleton/mycelium+heart` 同 pivot 图层，接旧作式排列组合 |
 | 负空间反馈 | 人物透明孔洞、局部暗垫、读取实际 2.5px 半径并压住 FX 的 focus、真实 graze event 短弧已完成；结局只在表现层读取真实 stage-4 移动路径，并随三页递减撤去；UI 为局部透明面板 | 浏览器确认路径确实来自本次移动、不会伪装成安全指引，第三页完全退场 |
-| 原创 v4 包 | 默认包的 72 个 bullet 名、45 个 effect/player FX（含四套材质反馈、四套 Boss distress、破符 Break、五种最终身份消隐、五组专属 option 与五组专属 Bomb）、11 个 laser、13 个 missile、10 个 pickup、五档心翼与 HUD 均为项目自有像素；分类图集使用确定性 shelf packing | 浏览器逐关检查强弹层级、Boss 过渡/死亡身份和 Normal/Lunatic 密集弹幕负空间 |
+| 原创 v4 包 | 默认包的 77 个 bullet 名、49 个 effect/player FX（含四套材质反馈、四套 Boss distress、破符 Break、四套主 Boss phase 宣告、五种最终身份消隐、五组专属 option 与五组专属 Bomb）、11 个 laser、13 个 missile、10 个 pickup、五档心翼与 HUD 均为项目自有像素；普通弹与其他分类图集均使用确定性 shelf packing，允许 strip 自有尺寸/帧数/节奏 | 浏览器逐关检查强弹层级、Boss 过渡/死亡身份和 Normal/Lunatic 密集弹幕负空间 |
 | v4 UI | `1024×768` 图集保留原 32 cells，并从一张项目自有 `1086×1448` 绿幕母版生成 6 个 production-derived cells；Title/Difficulty/Character 使用开放式构图，菜单行、Character 身份框、Dialogue、Pause/Clear/Game Over/Ending 与 Boss 条均已消费，动态文字仍由 runtime 绘制 | 浏览器检查 CJK/第三方 fallback、6 个 ornament 的软边/裁切、三类选择界面的负空间、Boss 条和四种 shader 上的局部透明度 |
 | BulletPack 兼容参考 | 本地 importer 已完成 117/117 消费者、显式五档 banking、Bomb/结算的 entity/state-age 动画、laser 无缝 body 与 painted `contentW/contentH` 尺寸；输出已从项目移除，需要时临时再生成并用 `?pack=bulletpack` 显式选择 | 保持回归测试；不把购买 PNG 或生成包纳入版本库、发布包或 v4 默认视觉身份 |
 
@@ -689,6 +718,11 @@ v4 终局使用一张 wear-field 母版、三页递减合成与只读的真实 s
 ### 12.2 余白与弹幕
 
 - Normal 与 Lunatic 都能在不盯单颗弹的情况下看见连续安全缝隙。
+- Sentinel、Magistrate、Chancellor、Regent 的每个 phase 都能仅凭空间动词与
+  弹体序列辨认归属；四者不共享专属 pattern、普通弹节奏或 phase 宣告轮廓。
+- 四位主 Boss 的签名弹在首帧灰度剪影上即可盲分；一个周期至少两帧产生可见
+  外轮廓变化，而不是只改心核颜色或移动 1px 内部标记。身份色像素不得少于
+  骨白像素，骨白只承担危险核心、方向 glint 与局部结构高光。
 - 背景不产生任何可误判为 6–28px 弹体的孤立亮结构。
 - 聚焦时判定点与角色身体尺寸的差异明确。
 - Graze 反馈诱导玩家靠近危险，但不遮住下一条逃生路径。

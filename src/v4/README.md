@@ -21,6 +21,7 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Campaign dialogue and ending copy | [`content/narrative.ts`](./content/narrative.ts) | Boss dialogue transport in campaign data; generic paging and transitions in [`src/game/states.ts`](../game/states.ts) |
 | Ending visual choreography | [`ending/`](./ending) and [`backgrounds/wear-field.ts`](./backgrounds/wear-field.ts) | The generic ending page clock in [`src/game/states.ts`](../game/states.ts), batch opacity and trace drawing in [`src/main.ts`](../main.ts), and scalar uniform application in [`src/render/background.ts`](../render/background.ts) |
 | Generated campaign | [`content/campaign.json`](./content/campaign.json) and [`content/campaign.fingerprint.ts`](./content/campaign.fingerprint.ts) | Replay identity hashes campaign data plus compiled v4 patterns/behaviours; simulation carries only the opaque string |
+| Compiled edition images | [`src/assets/v4`](../assets/v4) | Bun resolves imports; [`tools/relocate-v4-assets.ts`](../../tools/relocate-v4-assets.ts) closes the production inventory inside the presentation-pack boundary at `dist/packs/v4/assets/` |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
 | Audio identity and release assets | [`audio/`](./audio), [`docs/v4-audio-direction.md`](../../docs/v4-audio-direction.md), and generated release audio in [`packs/v4`](../../packs/v4) | Sound/music registries, synthesis and WebAudio playback in [`src/audio`](../audio) |
 
@@ -127,11 +128,18 @@ adds `alternating-fan`, `gap-ring`, `weave` and `lane-wall`, reauthors the cast'
 actual firing signatures, and regenerates the eight Normal/Lunatic traces. The
 generated `CONTENT_FINGERPRINT` now hashes campaign JSON together with the exact
 `patterns.ts` and `behaviours.ts` bytes, closing the migration-era hole where
-compiled danmaku could change under an unchanged replay identity. Its current
-value is `7ec721e82129`. The negative-space dialogue revision changed authored
-campaign bytes, and therefore replay identity, while deliberately preserving
-every exchange's line count and the golden traces. Player focus stances and five
-identity bombs remain part of the earlier intentional gameplay revision.
+compiled danmaku could change under an unchanged replay identity.
+
+The current Boss-identity revision is also intentional simulation drift. It adds
+`moon-gate`, `verdict-shear`, `archive-trace` and `memory-groove`; carries one
+exclusive verb through every phase of Sentinel, Magistrate, Chancellor and
+Regent; and regenerates all eight Normal/Lunatic traces. Their ordinary bullets
+also use four exclusive atlas cadences and dedicated V4-style painters—lunar
+eyes, verdict blades, archive eye-seals, and rooted crown crystals—rather than
+decorated generic floors; `boss-phase` raises four view-only declaration
+sequences. The resulting replay fingerprint is `6299ed3e66aa`.
+Player focus stances and five identity bombs remain part of the earlier
+intentional gameplay revision.
 
 `campaign.json` still contains the description “stage-1 and stage-2, their cast
 and bosses.” That string is stale historical metadata: the actual edition has

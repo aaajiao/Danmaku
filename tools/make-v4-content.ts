@@ -411,13 +411,12 @@ const SEAL = {
 
 /*
  * Stage 4 is the recapitulation — every card and every trash type quotes a prior
- * stage, and the ammunition follows suit. The regent's generic curtains REUSE the
- * chancellor's bullets (`WRIT` aimed/spray, `DECREE` ring, `LEVY` spiral): "the
- * decree returning at the source, harder" is the fiction, and reusing the exact
- * gold bullets is that fiction made literal — no new colour is introduced where
- * an old one already carries the meaning. The specs below exist only where a
- * behaviour the earlier bullets do not have is needed: the counter-rotating
- * orbit, the regent's seeker, and the slow wall bars the new trash lay.
+ * stage, and its underlying motion specs still carry that lineage. The Regent's
+ * ordinary curtains now use dedicated `session` / `wear` / `mandamus` skins,
+ * however: accumulated authority must remain visually distinguishable from the
+ * Chancellor whose record it consumes. The specs below exist where a behaviour
+ * the earlier bullets do not have is needed: the counter-rotating orbit, the
+ * Regent's seeker, and the slow wall bars the new trash lay.
  */
 
 /**
@@ -725,6 +724,10 @@ const SPARK_FEE = { ...SPARK, style: { ...SPARK.style, sprite: 'orb.small.fee' }
 const EMBER_PYRE = { ...EMBER, style: { ...EMBER.style, sprite: 'petal.pyre' } };
 const SHELL_ASSAY = { ...SHELL, style: { ...SHELL.style, sprite: 'orb.small.assay' } };
 const SEEKER_ESCROW = { ...SEEKER, style: { ...SEEKER.style, sprite: 'scale.escrow' } };
+const SPARK_ARRAIGNMENT = { ...SPARK, style: { ...SPARK.style, sprite: 'orb.small.arraignment' } };
+const SEEKER_PURSUIT = { ...SEEKER, style: { ...SEEKER.style, sprite: 'kunai.pursuit' } };
+const SHELL_ASSIZE = { ...SHELL, style: { ...SHELL.style, sprite: 'scale.assize' } };
+const EMBER_VERDICT = { ...EMBER, style: { ...EMBER.style, sprite: 'petal.verdict' } };
 const WRIT_BRIEF = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.brief' } };
 const DECREE_LEDGER = { ...DECREE, style: { ...DECREE.style, sprite: 'orb.medium.ledger' } };
 const SEAL_WITNESS = { ...SEAL, style: { ...SEAL.style, sprite: 'halo.witness' } };
@@ -733,6 +736,8 @@ const LEVY_DUTY = { ...LEVY, style: { ...LEVY.style, sprite: 'spark.duty' } };
 const LATTICE_TENURE = { ...LATTICE, style: { ...LATTICE.style, sprite: 'orb.medium.tenure' } };
 const DECREE_MANDAMUS = { ...DECREE, style: { ...DECREE.style, sprite: 'orb.medium.mandamus' } };
 const CROWN_MANDAMUS = { ...CROWN_CW, style: { ...CROWN_CW.style, sprite: 'halo.mandamus' } };
+const REGENT_SESSION = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.session' } };
+const REGENT_WEAR = { ...LEVY, style: { ...LEVY.style, sprite: 'spark.wear' } };
 
 /* ================================================================== */
 /* Enemies                                                            */
@@ -1520,14 +1525,25 @@ const bosses: PackContent['bosses'] = {
               lunatic: { count: 9, spread: 46, period: 36 },
             },
           },
+          // Sentinel does not emit from a point: it declares an already-open
+          // lunar wheel around itself. Three crossings turn with the patrol,
+          // while alternating tangent sends successive tides past each other.
           {
-            pattern: 'spray',
-            options: { spec: SHARD, count: 2, period: 30, spread: 70 },
-            startAt: 120,
+            pattern: 'moon-gate',
+            options: {
+              spec: SHARD,
+              count: 15,
+              gates: 3,
+              gap: 34,
+              radius: 30,
+              rotation: 9,
+              twist: 7,
+              period: 72,
+            },
             difficulty: {
-              easy: { count: 1, period: 40 },
-              hard: { count: 3, period: 24 },
-              lunatic: { count: 4, period: 20 },
+              easy: { count: 12, gap: 40, period: 88 },
+              hard: { count: 18, gap: 32, period: 62 },
+              lunatic: { count: 21, gap: 30, period: 54 },
             },
           },
         ],
@@ -1544,25 +1560,25 @@ const bosses: PackContent['bosses'] = {
         // smear it into noise.
         motion: { r: 0 },
         patterns: [
-          // Two counter-rotating rings. Their offsets drift apart at different
-          // rates, so the safe gaps sweep instead of standing still.
+          // The corolla is one complete three-gated object rather than two
+          // generic rings. Its larger declaration radius makes the openings
+          // readable before the braking petals begin to hang in the field.
           {
-            pattern: 'gap-ring',
-            options: { spec: PETAL, count: 18, period: 42, rotation: 9, gap: 44 },
-            difficulty: {
-              easy: { count: 12 },
-              hard: { count: 22, period: 36 },
-              lunatic: { count: 26, period: 33 },
+            pattern: 'moon-gate',
+            options: {
+              spec: PETAL,
+              count: 27,
+              gates: 3,
+              gap: 40,
+              radius: 42,
+              rotation: 12,
+              twist: 10,
+              period: 56,
             },
-          },
-          {
-            pattern: 'gap-ring',
-            options: { spec: PETAL, count: 18, period: 42, rotation: -14, gap: 44 },
-            startAt: 21,
             difficulty: {
-              easy: { count: 12 },
-              hard: { count: 22, period: 36 },
-              lunatic: { count: 26, period: 33 },
+              easy: { count: 18, gap: 48, period: 70 },
+              hard: { count: 30, gap: 38, period: 50 },
+              lunatic: { count: 33, gap: 36, period: 46 },
             },
           },
           // One aimed volley per cycle, so standing in a gap is not free.
@@ -1603,16 +1619,25 @@ const bosses: PackContent['bosses'] = {
               lunatic: { arms: 6, period: 3 },
             },
           },
-          // Ring pressure arrives late, once the player has settled into reading
-          // the spiral, and is what actually makes the timer matter.
+          // The moving source carries its three crossings with it. This layer is
+          // present from the declaration, so the card's identity is never a late
+          // generic add-on after the spiral.
           {
-            pattern: 'gap-ring',
-            options: { spec: PETAL, count: 20, period: 90, rotation: 11, gap: 38 },
-            startAt: 240,
+            pattern: 'moon-gate',
+            options: {
+              spec: PETAL,
+              count: 24,
+              gates: 3,
+              gap: 38,
+              radius: 38,
+              rotation: 15,
+              twist: 12,
+              period: 86,
+            },
             difficulty: {
-              easy: { count: 14 },
-              hard: { count: 26, period: 78 },
-              lunatic: { count: 30, period: 72 },
+              easy: { count: 18, gap: 46, period: 104 },
+              hard: { count: 27, gap: 36, period: 76 },
+              lunatic: { count: 30, gap: 34, period: 70 },
             },
           },
           {
@@ -1647,7 +1672,19 @@ const bosses: PackContent['bosses'] = {
         motion: { r: 0 },
         patterns: [
           { pattern: 'spiral', options: { spec: NEEDLE, arms: 6, step: 11, period: 3 } },
-          { pattern: 'gap-ring', options: { spec: PETAL, count: 24, period: 66, rotation: 15, gap: 32 }, startAt: 40 },
+          {
+            pattern: 'moon-gate',
+            options: {
+              spec: PETAL,
+              count: 36,
+              gates: 3,
+              gap: 30,
+              radius: 48,
+              rotation: 19,
+              twist: 16,
+              period: 62,
+            },
+          },
           { pattern: 'alternating-fan', options: { spec: SHARD_TITHE, count: 7, spread: 38, swing: 14, period: 60 }, startAt: 90 },
         ],
       },
@@ -1791,8 +1828,9 @@ const bosses: PackContent['bosses'] = {
 
   /**
    * The stage-2 boss, closing the campaign's vertical corridor before stage 3
-   * begins recording the route. Four phases: the same three ideas the stage
-   * taught, then all at once. About fifty seconds, escalating 7/12/14/17. Phase
+   * begins recording the route. Four phases retain the stage's seekers, shells
+   * and beams, but every one is divided by the Magistrate's own field-wide
+   * `verdict-shear`. About fifty seconds, escalating 7/12/14/17. Phase
    * 3's clock is the tightest relative to its health — the last card should be
    * survivable, but not by standing still and waiting it out.
    */
@@ -1833,7 +1871,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'alternating-fan',
-            options: { spec: SPARK, count: 5, spread: 30, swing: 12, period: 44 },
+            options: { spec: SPARK_ARRAIGNMENT, count: 5, spread: 30, swing: 12, period: 44 },
             difficulty: {
               easy: { count: 3, period: 56 },
               hard: { count: 7, spread: 42, period: 38 },
@@ -1842,7 +1880,7 @@ const bosses: PackContent['bosses'] = {
           },
           {
             pattern: 'spiral',
-            options: { spec: SPARK, arms: 3, step: 14, period: 6 },
+            options: { spec: SPARK_ARRAIGNMENT, arms: 3, step: 14, period: 6 },
             startAt: 90,
             difficulty: {
               easy: { arms: 2, period: 8 },
@@ -1850,16 +1888,23 @@ const bosses: PackContent['bosses'] = {
               lunatic: { arms: 5, period: 4 },
             },
           },
-          // The stage's only other scatter. A non-spell phase is where randomness
-          // belongs: the cards below are shapes to be read.
+          // The first verdict is sampled across the whole field: the player's
+          // x at declaration becomes an appeal lane, and the two rulings shear
+          // inward before reversing on the next volley.
           {
-            pattern: 'spray',
-            options: { spec: SPARK, count: 2, period: 30, spread: 70 },
-            startAt: 40,
+            pattern: 'verdict-shear',
+            options: {
+              spec: SPARK_ARRAIGNMENT,
+              columns: 9,
+              gapWidth: 124,
+              shear: 4,
+              speed: 2,
+              period: 78,
+            },
             difficulty: {
-              easy: { count: 1, period: 40 },
-              hard: { count: 3, period: 24 },
-              lunatic: { count: 4, period: 20 },
+              easy: { columns: 7, gapWidth: 140, shear: 3, period: 92 },
+              hard: { columns: 11, gapWidth: 120, shear: 5, period: 68 },
+              lunatic: { columns: 13, gapWidth: 116, shear: 6, period: 60 },
             },
           },
         ],
@@ -1878,22 +1923,29 @@ const bosses: PackContent['bosses'] = {
           // all of them turn inward together.
           {
             pattern: 'gap-ring',
-            options: { spec: SEEKER_ESCROW, count: 14, period: 78, rotation: 13, gap: 40 },
+            options: { spec: SEEKER_PURSUIT, count: 14, period: 78, rotation: 13, gap: 40 },
             difficulty: {
               easy: { count: 9 },
               hard: { count: 18, period: 68 },
               lunatic: { count: 22, period: 62 },
             },
           },
-          // Wavering chaff so the gaps between seeker volleys are not empty.
+          // Escrow scales file a full-width ruling between seeker volleys. The
+          // lane is locked once, never homed after declaration.
           {
-            pattern: 'alternating-fan',
-            options: { spec: SPARK, count: 3, spread: 18, swing: 10, period: 54 },
-            startAt: 40,
+            pattern: 'verdict-shear',
+            options: {
+              spec: SEEKER_ESCROW,
+              columns: 9,
+              gapWidth: 132,
+              shear: 4,
+              speed: 1.8,
+              period: 88,
+            },
             difficulty: {
-              easy: { count: 1 },
-              hard: { count: 5, spread: 28 },
-              lunatic: { count: 7, spread: 32, period: 46 },
+              easy: { columns: 7, gapWidth: 144, shear: 3, period: 104 },
+              hard: { columns: 11, gapWidth: 126, shear: 5, period: 78 },
+              lunatic: { columns: 13, gapWidth: 120, shear: 6, period: 70 },
             },
           },
           // "Summary Judgment" — a homing salvo of judgment writs read against the
@@ -1933,16 +1985,21 @@ const bosses: PackContent['bosses'] = {
               lunatic: { count: 8, rotation: 21 },
             },
           },
-          // Shells during the gap between colonnades: the hang covers the beams'
-          // dead time.
+          // Assize scales hang as a divided ruling, then every row accelerates
+          // through the beam's dead time at once.
           {
-            pattern: 'gap-ring',
-            options: { spec: SHELL, count: 12, period: 132, rotation: 9, gap: 44 },
-            startAt: 66,
+            pattern: 'verdict-shear',
+            options: {
+              spec: SHELL_ASSIZE,
+              columns: 9,
+              gapWidth: 128,
+              shear: 3,
+              period: 132,
+            },
             difficulty: {
-              easy: { count: 8 },
-              hard: { count: 16, period: 120 },
-              lunatic: { count: 20, period: 112 },
+              easy: { columns: 7, gapWidth: 144, shear: 2, period: 150 },
+              hard: { columns: 11, gapWidth: 122, shear: 4, period: 120 },
+              lunatic: { columns: 13, gapWidth: 116, shear: 5, period: 112 },
             },
           },
         ],
@@ -1963,7 +2020,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'spiral',
-            options: { spec: SPARK, arms: 4, step: 12, period: 5 },
+            options: { spec: SPARK_ARRAIGNMENT, arms: 4, step: 12, period: 5 },
             difficulty: {
               easy: { arms: 2, period: 7 },
               hard: { arms: 5, period: 4 },
@@ -1972,7 +2029,7 @@ const bosses: PackContent['bosses'] = {
           },
           {
             pattern: 'gap-ring',
-            options: { spec: EMBER, count: 10, period: 90, rotation: 19, gap: 54 },
+            options: { spec: EMBER_VERDICT, count: 10, period: 90, rotation: 19, gap: 54 },
             startAt: 30,
             difficulty: {
               easy: { count: 7 },
@@ -1993,13 +2050,19 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'alternating-fan',
-            options: { spec: SEEKER, count: 3, spread: 24, swing: 12, period: 96 },
-            startAt: 240,
+            pattern: 'verdict-shear',
+            options: {
+              spec: SEEKER_PURSUIT,
+              columns: 9,
+              gapWidth: 128,
+              shear: 4,
+              speed: 1.9,
+              period: 96,
+            },
             difficulty: {
-              easy: { count: 1 },
-              hard: { count: 5, spread: 36 },
-              lunatic: { count: 7, spread: 42, period: 84 },
+              easy: { columns: 7, gapWidth: 144, shear: 3, period: 116 },
+              hard: { columns: 11, gapWidth: 122, shear: 5, period: 88 },
+              lunatic: { columns: 13, gapWidth: 116, shear: 6, period: 80 },
             },
           },
         ],
@@ -2017,13 +2080,11 @@ const bosses: PackContent['bosses'] = {
    * lane (aim speed, wall tightness, ring density, sweep rate), never whether the
    * lane exists. A Lunatic curtain is denser and never solid.
    *
-   * Three of the cards demonstrate composition-over-a-new-pattern, the "prefer
-   * composing the four before a fifth" resolution the round required: phase 2
-   * lays `spiral` over `aimed-fan`, phase 3 lays `ring` over the `orbit`
-   * behaviour, and phase 4 ("Sweeping Assay") lays a swept beam over a stream wall
-   * and a curtain — the laser round's showcase card. No new *pattern* is authored;
-   * the laser round adds exactly one new *behaviour* (`beam-sweep`), which this
-   * card and the `ray` trash enemy fire.
+   * Every phase now files the player's earlier crossing through `archive-trace`:
+   * parallel folio spines aim at a bounded, phase-local history sample. Existing
+   * spiral, seal and beam compositions remain, but the delayed record is the
+   * chancellor's unmistakable verb in all of them. "Sweeping Assay" still owns
+   * the laser round's one new behaviour (`beam-sweep`).
    */
   chancellor: {
     sprite: 'halo',
@@ -2062,12 +2123,19 @@ const bosses: PackContent['bosses'] = {
         ],
         patterns: [
           {
-            pattern: 'alternating-fan',
-            options: { spec: WRIT, count: 5, spread: 32, swing: 12, period: 52 },
+            pattern: 'archive-trace',
+            options: {
+              spec: WRIT_BRIEF,
+              delay: 48,
+              folios: 3,
+              spacing: 24,
+              stagger: 4,
+              period: 64,
+            },
             difficulty: {
-              easy: { count: 3, period: 64 },
-              hard: { count: 6, spread: 42, period: 44 },
-              lunatic: { count: 7, spread: 46, period: 40 },
+              easy: { folios: 3, spacing: 28, period: 78 },
+              hard: { folios: 5, spacing: 22, period: 56 },
+              lunatic: { folios: 7, spacing: 20, period: 50 },
             },
           },
           {
@@ -2109,12 +2177,19 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'alternating-fan',
-            options: { spec: WRIT, count: 5, spread: 34, swing: 13, period: 50 },
+            pattern: 'archive-trace',
+            options: {
+              spec: WRIT_BRIEF,
+              delay: 60,
+              folios: 5,
+              spacing: 22,
+              stagger: 4,
+              period: 58,
+            },
             difficulty: {
-              easy: { count: 3, period: 62 },
-              hard: { count: 6, spread: 44, period: 44 },
-              lunatic: { count: 7, spread: 48, period: 40 },
+              easy: { folios: 3, spacing: 26, period: 72 },
+              hard: { folios: 7, spacing: 20, period: 50 },
+              lunatic: { folios: 9, spacing: 18, period: 46 },
             },
           },
         ],
@@ -2125,8 +2200,8 @@ const bosses: PackContent['bosses'] = {
         // The safe pocket sits at the seal's rim — hug it through the stalled
         // window and it racks graze; a light aimed-fan keeps you honest. Tiers
         // change ring *count* only, so the rim lane tightens Easy->Lunatic but
-        // never closes. `ring` composed with the `orbit` behaviour — composition #2,
-        // and no fifth pattern.
+        // never closes. `ring` composed with the `orbit` behaviour remains the
+        // seal layer; `archive-trace` supplies this Boss's delayed record.
         name: 'Seal Sign "Wax and Witness"',
         hpSeconds: 13,
         isSpell: true,
@@ -2144,12 +2219,19 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'alternating-fan',
-            options: { spec: WRIT_BRIEF, count: 3, spread: 16, swing: 10, period: 64 },
+            pattern: 'archive-trace',
+            options: {
+              spec: WRIT_BRIEF,
+              delay: 72,
+              folios: 5,
+              spacing: 20,
+              stagger: 5,
+              period: 68,
+            },
             difficulty: {
-              easy: { count: 2, period: 80 },
-              hard: { count: 4, period: 54 },
-              lunatic: { count: 5, period: 48 },
+              easy: { folios: 3, spacing: 24, period: 84 },
+              hard: { folios: 7, spacing: 18, period: 60 },
+              lunatic: { folios: 9, spacing: 16, period: 54 },
             },
           },
           // The docket barrage — a homing salvo that denies the free rim-hug the
@@ -2176,8 +2258,8 @@ const bosses: PackContent['bosses'] = {
         // verb), is the lane you read; a wide `beam.v3.stream` wall blinks behind
         // it and a light `beam.stream` curtain falls beneath, so all three of
         // chancellor's stream/warm beams fire in one card while the rake stays the
-        // readable threat. Composition, not a new pattern: `aimed-fan` + `ring` +
-        // `aimed-fan`, laser specs in the slots. Sized in seconds via `hpSeconds`,
+        // readable threat. The three laser layers remain a composition while
+        // `archive-trace` files the route beneath them. Sized in seconds via `hpSeconds`,
         // measured against REFERENCE_DPS like every other card (balance.test.ts).
         name: 'Beam Sign "Sweeping Assay"',
         hpSeconds: 15,
@@ -2214,8 +2296,26 @@ const bosses: PackContent['bosses'] = {
               lunatic: { count: 9, rotation: 16 },
             },
           },
-          // A light curtain of streams under the rake, aimed so the lane below the
-          // sweep is never a free rest.
+          // The rake threatens the present line while filed briefs converge on
+          // the place the player occupied one second earlier.
+          {
+            pattern: 'archive-trace',
+            options: {
+              spec: WRIT_BRIEF,
+              delay: 66,
+              folios: 3,
+              spacing: 28,
+              stagger: 5,
+              period: 84,
+            },
+            difficulty: {
+              easy: { folios: 3, period: 104 },
+              hard: { folios: 5, spacing: 24, period: 76 },
+              lunatic: { folios: 7, spacing: 20, period: 68 },
+            },
+          },
+          // A light stream curtain keeps the laser skin reachable and gives the
+          // archived folios a slow luminous staff to be read against.
           {
             pattern: 'alternating-fan',
             options: { spec: STREAM, count: 3, spread: 34, swing: 14, period: 150 },
@@ -2229,9 +2329,9 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // Normal's final card. "You are barred from re-arguing." Dense
-        // multidirectional pressure that closes retreats, `spray` filling a pure
-        // ring's gaps — the tightest-feeling card relative to its health, still
+        // Normal's final card. "You are barred from re-arguing." A dense decree
+        // ring closes retreats while briefs converge on the player's filed
+        // position — the tightest-feeling card relative to its health, still
         // lane-carrying. Its name is the hinge the `spire` dialogue turns on.
         name: 'Sign "Estoppel"',
         hpSeconds: 14,
@@ -2242,7 +2342,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'gap-ring',
-            options: { spec: DECREE, count: 20, period: 46, rotation: 8, gap: 34 },
+            options: { spec: DECREE_LEDGER, count: 20, period: 46, rotation: 8, gap: 34 },
             difficulty: {
               easy: { count: 14, period: 58 },
               hard: { count: 24, period: 40 },
@@ -2250,12 +2350,19 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'spray',
-            options: { spec: WRIT, count: 4, spread: 360, period: 16 },
+            pattern: 'archive-trace',
+            options: {
+              spec: WRIT_BRIEF,
+              delay: 54,
+              folios: 5,
+              spacing: 20,
+              stagger: 3,
+              period: 48,
+            },
             difficulty: {
-              easy: { count: 2, period: 22 },
-              hard: { count: 5, period: 13 },
-              lunatic: { count: 6, period: 11 },
+              easy: { folios: 3, spacing: 24, period: 62 },
+              hard: { folios: 7, spacing: 18, period: 42 },
+              lunatic: { folios: 9, spacing: 16, period: 38 },
             },
           },
         ],
@@ -2264,8 +2371,8 @@ const bosses: PackContent['bosses'] = {
         // TIER-GATED, Lunatic only — the genre's extra card, gated exactly as
         // sentinel's "Total Eclipse" is, so on every other tier the fight ends on
         // 'Estoppel'. The decree the appeal is denied by: the full combination at
-        // once — spiral, aimed-fan and a rotating ring — but the authored lane
-        // never closes (readable at the 2000-bullet budget, never the 5000 soup).
+        // once — spiral, archived folios and a rotating ring — but the authored
+        // lane never closes (readable at the 2000-bullet budget, never the 5000 soup).
         // It lifts to its own drier, closer track for its duration, on the shared
         // 出神 scene `decree` (the seal draining, src/v4/backgrounds/decree.ts),
         // exactly as 'Total Eclipse' pairs `zenith`+`umbra`. `decree` is shared by
@@ -2279,9 +2386,19 @@ const bosses: PackContent['bosses'] = {
         background: 'decree',
         music: 'fiat',
         patterns: [
-          { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
-          { pattern: 'alternating-fan', options: { spec: WRIT, count: 7, spread: 40, swing: 14, period: 44 } },
-          { pattern: 'gap-ring', options: { spec: DECREE, count: 20, period: 60, rotation: 5, gap: 34 } },
+          { pattern: 'spiral', options: { spec: LEVY_DOCKET, arms: 4, step: 12, period: 2 } },
+          {
+            pattern: 'archive-trace',
+            options: {
+              spec: WRIT_BRIEF,
+              delay: 42,
+              folios: 7,
+              spacing: 18,
+              stagger: 4,
+              period: 60,
+            },
+          },
+          { pattern: 'gap-ring', options: { spec: DECREE_LEDGER, count: 20, period: 60, rotation: 5, gap: 34 } },
         ],
       },
     ],
@@ -2291,11 +2408,10 @@ const bosses: PackContent['bosses'] = {
    * The regent — the final authority, and the office's absent centre. Not another
    * officer in the sentinel -> warden -> magistrate -> chancellor line but the
    * vacancy they all enforced downward from: authority with no content but its own
-   * seal. Its SIX cards are the recapitulation — each quotes and escalates one
-   * prior boss, so the fight is a final exam of everything the campaign taught. No
-   * new danmaku primitive: a boss whose whole design is to quote its predecessors
-   * would be contradicted by a new verb, so every card composes existing patterns
-   * (the one allowed new-pattern slot is spent nowhere).
+   * seal. Its SIX cards still recapitulate earlier lessons, but every one now wears
+   * the player's own prior passage into `memory-groove`: a delayed wall opening
+   * keeps the direction of that old route. The final authority therefore quotes
+   * everything while turning the player's accumulated history into its own law.
    *
    * Wan gold — the chancellor's amber, a shade darker against the vault's
    * black-purple pressure. Cards move into `regnum`: an organic topographic field
@@ -2329,8 +2445,8 @@ const bosses: PackContent['bosses'] = {
     ...V4_BOSS_DIALOGUE.regent,
     phases: [
       {
-        // Baseline rhythm, and the difficulty-honesty opener: the aimed-fan and
-        // the spray both carry strict easy<normal<hard<lunatic blocks.
+        // Baseline rhythm, and the difficulty-honesty opener: present-tense aim
+        // and the delayed route wall both carry strict tier escalation.
         name: 'Session',
         hpSeconds: 8,
         isSpell: false,
@@ -2348,7 +2464,7 @@ const bosses: PackContent['bosses'] = {
         patterns: [
           {
             pattern: 'alternating-fan',
-            options: { spec: WRIT, count: 5, spread: 32, swing: 13, period: 50 },
+            options: { spec: REGENT_SESSION, count: 5, spread: 32, swing: 13, period: 50 },
             difficulty: {
               easy: { count: 3, period: 64 },
               hard: { count: 6, spread: 42, period: 42 },
@@ -2356,12 +2472,22 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'spray',
-            options: { spec: WRIT, count: 3, spread: 360, period: 18 },
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_SESSION,
+              delay: 40,
+              trail: 12,
+              columns: 9,
+              gapWidth: 104,
+              speed: 2,
+              driftScale: 2,
+              maxDrift: 10,
+              period: 64,
+            },
             difficulty: {
-              easy: { count: 2, period: 24 },
-              hard: { count: 4, period: 15 },
-              lunatic: { count: 5, period: 13 },
+              easy: { columns: 7, gapWidth: 124, period: 80 },
+              hard: { columns: 11, gapWidth: 96, maxDrift: 12, period: 56 },
+              lunatic: { columns: 13, gapWidth: 90, maxDrift: 14, period: 50 },
             },
           },
         ],
@@ -2395,14 +2521,32 @@ const bosses: PackContent['bosses'] = {
               lunatic: { count: 18 },
             },
           },
+          {
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_SESSION,
+              delay: 48,
+              trail: 14,
+              columns: 9,
+              gapWidth: 112,
+              speed: 1.8,
+              driftScale: 2,
+              maxDrift: 10,
+              period: 82,
+            },
+            difficulty: {
+              easy: { columns: 7, gapWidth: 132, period: 98 },
+              hard: { columns: 11, gapWidth: 102, maxDrift: 12, period: 72 },
+              lunatic: { columns: 13, gapWidth: 94, maxDrift: 14, period: 66 },
+            },
+          },
         ],
       },
       {
-        // WARDEN recalled, and the graze card: two rings of slow lattice bars at
-        // slightly different rotation form a wall whose safe lane SLIDES. The safe
-        // read passes deliberately close to the lattice edges — the designed
-        // reward. Tiers change ring count/period only, so the lane tightens
-        // Easy->Lunatic but never closes.
+        // WARDEN recalled, and the graze card: one authored lattice lane slides
+        // while a second wall reopens on the player's old route. The safe read
+        // passes deliberately close to both edges — the designed reward. Tiers
+        // tighten count/period and gap, but never remove the crossing.
         name: 'Beam Sign "Portcullis"',
         hpSeconds: 13,
         isSpell: true,
@@ -2428,20 +2572,22 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'lane-wall',
+            pattern: 'memory-groove',
             options: {
               spec: LATTICE,
+              delay: 42,
+              trail: 12,
               columns: 9,
-              gapColumn: 6,
-              gapWidth: 2,
-              shift: -1,
+              gapWidth: 92,
               speed: 1.6,
+              driftScale: 2.4,
+              maxDrift: 12,
               period: 54,
             },
             difficulty: {
-              easy: { columns: 7, gapWidth: 2, period: 66 },
-              hard: { columns: 11, gapWidth: 2, shift: -2, period: 46 },
-              lunatic: { columns: 13, gapWidth: 2, shift: -2, period: 42 },
+              easy: { columns: 7, gapWidth: 116, period: 66 },
+              hard: { columns: 11, gapWidth: 86, maxDrift: 14, period: 46 },
+              lunatic: { columns: 13, gapWidth: 80, maxDrift: 16, period: 42 },
             },
           },
         ],
@@ -2468,12 +2614,22 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'alternating-fan',
-            options: { spec: WRIT, count: 4, spread: 24, swing: 12, period: 58 },
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_SESSION,
+              delay: 48,
+              trail: 12,
+              columns: 9,
+              gapWidth: 106,
+              speed: 2.1,
+              driftScale: 2.2,
+              maxDrift: 12,
+              period: 62,
+            },
             difficulty: {
-              easy: { count: 3, period: 72 },
-              hard: { count: 5, spread: 34, period: 50 },
-              lunatic: { count: 6, spread: 38, period: 46 },
+              easy: { columns: 7, gapWidth: 126, period: 78 },
+              hard: { columns: 11, gapWidth: 98, maxDrift: 14, period: 54 },
+              lunatic: { columns: 13, gapWidth: 90, maxDrift: 16, period: 48 },
             },
           },
           // The regent's signature: one enormous slow homing edict per volley — the
@@ -2491,10 +2647,10 @@ const bosses: PackContent['bosses'] = {
         ],
       },
       {
-        // CHANCELLOR recalled: all three primitive curtains on the field at once —
-        // ring, spray and spiral, the full composition. Normal's final card;
-        // counts are capped so the peak stays a curtain-with-a-lane at the ~2000
-        // readable budget, never the soup.
+        // CHANCELLOR recalled: decree ring and spiral remain on the field while
+        // the Regent hardens the player's earlier route between them. Normal's
+        // final card; counts are capped so the peak stays a curtain-with-a-lane
+        // at the ~2000 readable budget, never the soup.
         name: 'Sign "Statute"',
         hpSeconds: 15,
         isSpell: true,
@@ -2512,17 +2668,27 @@ const bosses: PackContent['bosses'] = {
             },
           },
           {
-            pattern: 'spray',
-            options: { spec: WRIT, count: 3, spread: 360, period: 18 },
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_SESSION,
+              delay: 54,
+              trail: 14,
+              columns: 11,
+              gapWidth: 94,
+              speed: 2.2,
+              driftScale: 2.4,
+              maxDrift: 14,
+              period: 52,
+            },
             difficulty: {
-              easy: { count: 2, period: 24 },
-              hard: { count: 4, period: 15 },
-              lunatic: { count: 5, period: 13 },
+              easy: { columns: 7, gapWidth: 120, period: 68 },
+              hard: { columns: 13, gapWidth: 88, maxDrift: 16, period: 46 },
+              lunatic: { columns: 15, gapWidth: 82, maxDrift: 18, period: 42 },
             },
           },
           {
             pattern: 'spiral',
-            options: { spec: LEVY, arms: 3, step: 10, period: 3 },
+            options: { spec: REGENT_WEAR, arms: 3, step: 10, period: 3 },
             difficulty: {
               easy: { arms: 2, step: 8 },
               hard: { arms: 4, step: 11 },
@@ -2533,8 +2699,8 @@ const bosses: PackContent['bosses'] = {
       },
       {
         // LUNATIC-ONLY finale — the decree that never reconvenes. The composed
-        // maximum: spiral, aimed-fan and a rotating ring at once, with a designed
-        // lane. Gated exactly as the chancellor's 'Fiat "Sealed"' is, so on every
+        // maximum: spiral, retained route and rotating ring at once, with a
+        // designed lane. Gated exactly as the chancellor's 'Fiat "Sealed"' is, so on every
         // other tier the fight ends on 'Statute'. It is the terminal beat: the
         // seal comes unmoored to the shared 出神 scene `decree` — the same scene
         // the chancellor's 'Sealed' takes, one scene for the one `fiat` track —
@@ -2551,9 +2717,22 @@ const bosses: PackContent['bosses'] = {
         background: 'decree',
         music: 'fiat',
         patterns: [
-          { pattern: 'spiral', options: { spec: LEVY, arms: 4, step: 12, period: 2 } },
-          { pattern: 'alternating-fan', options: { spec: WRIT, count: 7, spread: 40, swing: 14, period: 44 } },
-          { pattern: 'gap-ring', options: { spec: DECREE, count: 22, period: 58, rotation: 5, gap: 32 } },
+          { pattern: 'spiral', options: { spec: REGENT_WEAR, arms: 4, step: 12, period: 2 } },
+          {
+            pattern: 'memory-groove',
+            options: {
+              spec: REGENT_SESSION,
+              delay: 42,
+              trail: 10,
+              columns: 15,
+              gapWidth: 80,
+              speed: 2.3,
+              driftScale: 2.8,
+              maxDrift: 20,
+              period: 44,
+            },
+          },
+          { pattern: 'gap-ring', options: { spec: DECREE_MANDAMUS, count: 22, period: 58, rotation: 5, gap: 32 } },
         ],
       },
     ],

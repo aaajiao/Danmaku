@@ -437,6 +437,10 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'petal.pyre': 'petal', // censer EMBER re-skin — lava bloom (Medium_lava)
   'orb.small.assay': 'orb.small', // bastion SHELL re-skin (elite) — warm orb (Massive_Red_Orange_Yellow)
   'scale.escrow': 'scale', // magistrate SEEKER re-skin — cyan dart (Tiny_Blue_cian)
+  'orb.small.arraignment': 'orb.small', // magistrate opening record — cyan verdict bead
+  'kunai.pursuit': 'kunai', // magistrate pursuing writ — split cyan blade
+  'scale.assize': 'scale', // magistrate colonnade/assize — rigid cyan scale
+  'petal.verdict': 'petal', // magistrate final verdict — opening cyan folio
   'orb.small.brief': 'orb.small', // chancellor WRIT re-skin — pink orb (Medium_tiny_Pink_Yellow)
   'orb.medium.ledger': 'orb.medium', // chancellor DECREE re-skin — pink orb, r6 (Pink_Medium_Big)
   'halo.witness': 'halo', // chancellor SEAL re-skin — pink seal, r8 (Pink_Medium_Big 2nd slice)
@@ -445,6 +449,8 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'orb.medium.tenure': 'orb.medium', // regent LATTICE re-skin — purple orb (Medium_tiny_Yellow_Purple)
   'orb.medium.mandamus': 'orb.medium', // regent DECREE re-skin — purple orb, r6 (Massive_purple_yellow)
   'halo.mandamus': 'halo', // regent CROWN re-skin — purple seal, r7 (Massive_purple_yellow)
+  'orb.small.session': 'orb.small', // regent opening session — retained purple memory
+  'spark.wear': 'spark', // regent concluding wear — abraded purple spark
 };
 
 /**
@@ -1252,6 +1258,146 @@ function bossIdentityStrip(kind: number, sheetY: number): FxStrip {
   };
 }
 
+/**
+ * Four phase-declaration gestures, each using the spatial verb of its Boss.
+ *
+ * They are intentionally not actor poses: a declaration is a short, view-only
+ * once strip that can overlap the body while its bullets begin.  Different
+ * frame geometry and cadence keep the sequences distinct even before colour.
+ */
+function bossCastStrip(
+  kind: 'sentinel' | 'magistrate' | 'chancellor' | 'regent',
+  sheetY: number,
+): FxStrip {
+  const geometry = {
+    sentinel: { frameW: 128, frameH: 128, frames: 12, ticksPerFrame: 2, extent: { w: 112, h: 112 } },
+    magistrate: { frameW: 144, frameH: 96, frames: 10, ticksPerFrame: 3, extent: { w: 136, h: 84 } },
+    chancellor: { frameW: 144, frameH: 128, frames: 16, ticksPerFrame: 2, extent: { w: 136, h: 116 } },
+    regent: { frameW: 144, frameH: 144, frames: 14, ticksPerFrame: 2, extent: { w: 136, h: 136 } },
+  } as const;
+  const g = geometry[kind];
+
+  return {
+    frameW: g.frameW,
+    frameH: g.frameH,
+    frames: g.frames,
+    ticksPerFrame: g.ticksPerFrame,
+    mode: 'once',
+    color: 'tinted',
+    sheetX: 0,
+    sheetY,
+    stride: g.frameW,
+    frameExtent: () => g.extent,
+    draw: (ctx, f, cx, cy) => {
+      const t = f / (g.frames - 1);
+      const rise = Math.max(0.08, Math.min(1, t * 2.4));
+      const release = Math.max(0, (t - 0.72) / 0.28);
+      ctx.save();
+      ctx.globalAlpha = rise * (1 - release * 0.72);
+      ctx.strokeStyle = 'white';
+      ctx.fillStyle = 'white';
+
+      if (kind === 'sentinel') {
+        // Three moon gates open at equal bearings, then leave a tidal echo.
+        const radius = 17 + 34 * rise + 3 * release;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          const bearing = i * Math.PI * 2 / 3 - 0.55 + t * 0.7;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius - i * 3, bearing, bearing + 0.92);
+          ctx.stroke();
+          const mx = cx + Math.cos(bearing + 0.46) * (radius - 8);
+          const my = cy + Math.sin(bearing + 0.46) * (radius - 8);
+          orb(ctx, mx, my, 2.1 - i * 0.25, 0.2);
+        }
+        ctx.globalAlpha *= 0.55;
+        ring(ctx, cx, cy, 8 + 18 * rise, 1);
+      } else if (kind === 'magistrate') {
+        // Two verdict planes shear around one deliberately untouched appeal lane.
+        const strike = t < 0.52 ? t / 0.52 : (1 - t) / 0.48;
+        const inset = 61 - 45 * Math.max(0, strike);
+        const shear = (t - 0.5) * 20;
+        ctx.lineWidth = 3;
+        for (const sign of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(cx + sign * inset, cy - 37 + sign * shear);
+          ctx.lineTo(cx + sign * (inset - 8), cy + 37 + sign * shear);
+          ctx.stroke();
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cx + sign * (inset + 9), cy - 30 + sign * shear);
+          ctx.lineTo(cx + sign * (inset + 1), cy + 30 + sign * shear);
+          ctx.stroke();
+          ctx.lineWidth = 3;
+        }
+        ctx.globalAlpha *= 0.72;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 18);
+        ctx.lineTo(cx, cy + 18);
+        ctx.stroke();
+        ring(ctx, cx, cy, 5 + 4 * rise, 1);
+      } else if (kind === 'chancellor') {
+        // Folios arrive at staggered ages; the late trace joins their old marks.
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 3; i++) {
+          const page = Math.max(i === 0 ? 0.12 : 0, Math.min(1, t * 3.2 - i * 0.42));
+          if (page <= 0) continue;
+          const ox = (i - 1) * (31 + 3 * page);
+          const top = cy - 43 + i * 5;
+          ctx.save();
+          ctx.globalAlpha *= page;
+          ctx.strokeRect(cx + ox - 10, top, 20, 76 - i * 4);
+          for (let row = 1; row <= 4; row++) {
+            const y = top + row * (13 - i);
+            const reveal = Math.max(0, Math.min(1, page * 2.1 - row * 0.18));
+            ctx.beginPath();
+            ctx.moveTo(cx + ox - 6, y);
+            ctx.lineTo(cx + ox - 6 + 12 * reveal, y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+        const trace = Math.max(0, Math.min(1, (t - 0.36) * 2.1));
+        ctx.globalAlpha *= 0.78 * trace;
+        ctx.beginPath();
+        ctx.moveTo(cx - 47, cy + 32);
+        ctx.bezierCurveTo(cx - 21, cy - 28, cx + 17, cy + 35, cx + 48 * trace, cy - 25);
+        ctx.stroke();
+        orb(ctx, cx + 48 * trace, cy - 25, 2, 0.2);
+      } else {
+        // Each worn contour stays visible while its successor grows through it.
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          const memory = Math.max(i === 0 ? 0.12 : 0, Math.min(1, t * 1.85 - i * 0.17));
+          if (memory <= 0) continue;
+          const radius = 17 + i * 9 + memory * 8;
+          ctx.save();
+          ctx.globalAlpha *= 0.82 - memory * 0.32;
+          ctx.beginPath();
+          ctx.arc(cx, cy + 7, radius, Math.PI + 0.16, Math.PI * 2 - 0.16);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - radius, cy + 3);
+          ctx.lineTo(cx - radius * 0.5, cy - radius * 0.48);
+          ctx.lineTo(cx, cy - 7 - i * 2);
+          ctx.lineTo(cx + radius * 0.5, cy - radius * 0.48);
+          ctx.lineTo(cx + radius, cy + 3);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - radius * 0.55, cy + 12);
+          ctx.quadraticCurveTo(cx - radius * 0.2, cy + radius * 0.55, cx - radius * 0.72, cy + radius);
+          ctx.moveTo(cx + radius * 0.55, cy + 12);
+          ctx.quadraticCurveTo(cx + radius * 0.2, cy + radius * 0.55, cx + radius * 0.72, cy + radius);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+    },
+  };
+}
+
 export const FX_STRIPS: Record<string, FxStrip> = {
   burst: {
     frameW: 64,
@@ -1497,6 +1643,10 @@ export const FX_STRIPS: Record<string, FxStrip> = {
   'boss.death.magistrate': bossIdentityStrip(2, 1176),
   'boss.death.chancellor': bossIdentityStrip(3, 1304),
   'boss.death.regent': bossIdentityStrip(4, 1432),
+  'boss.cast.sentinel': bossCastStrip('sentinel', 1752),
+  'boss.cast.magistrate': bossCastStrip('magistrate', 1880),
+  'boss.cast.chancellor': bossCastStrip('chancellor', 1976),
+  'boss.cast.regent': bossCastStrip('regent', 2104),
   // The three missile detonation tiers, on their own rows below `pulse`. Frame
   // counts match the BulletPack `Exp` files a reskin drops in (tiny carries the
   // MOST frames, 11; big the fewest, 8 — counter-intuitive, but the floor tracks

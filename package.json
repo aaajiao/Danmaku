@@ -14,7 +14,7 @@
     "test:assets": "PORT=3007 bun ./test/visual/asset-loading.html",
     "test:density": "PORT=3008 bun ./test/visual/density.html",
     "test:scenes": "PORT=3009 bun ./test/visual/scenes-compare.html",
-    "build": "bun tools/clean-dist.ts && bun build ./index.html --outdir=dist --production && bun tools/copy-packs.ts && bun tools/build-pwa.ts",
+    "build": "bun tools/clean-dist.ts && bun build ./index.html --outdir=dist --production && bun tools/copy-packs.ts && bun tools/relocate-v4-assets.ts && bun tools/build-pwa.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json"
   },

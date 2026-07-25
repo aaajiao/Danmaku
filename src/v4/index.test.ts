@@ -101,7 +101,7 @@ describe('v4 edition composition', () => {
   });
 
   test('pins the current data plus executable-danmaku replay identity', () => {
-    expect(CONTENT_FINGERPRINT).toBe('7ec721e82129');
+    expect(CONTENT_FINGERPRINT).toBe('6299ed3e66aa');
   });
 
   test('keeps the historical import facades live without a second registration', async () => {

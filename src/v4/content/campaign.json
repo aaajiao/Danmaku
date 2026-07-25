@@ -1894,7 +1894,7 @@
                 }
               },
               {
-                "pattern": "spray",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -1910,23 +1910,29 @@
                       "theta": 90
                     }
                   },
-                  "count": 2,
-                  "period": 30,
-                  "spread": 70
+                  "count": 15,
+                  "gates": 3,
+                  "gap": 34,
+                  "radius": 30,
+                  "rotation": 9,
+                  "twist": 7,
+                  "period": 72
                 },
-                "startAt": 120,
                 "difficulty": {
                   "easy": {
-                    "count": 1,
-                    "period": 40
+                    "count": 12,
+                    "gap": 40,
+                    "period": 88
                   },
                   "hard": {
-                    "count": 3,
-                    "period": 24
+                    "count": 18,
+                    "gap": 32,
+                    "period": 62
                   },
                   "lunatic": {
-                    "count": 4,
-                    "period": 20
+                    "count": 21,
+                    "gap": 30,
+                    "period": 54
                   }
                 }
               }
@@ -1943,7 +1949,7 @@
             },
             "patterns": [
               {
-                "pattern": "gap-ring",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -1962,62 +1968,29 @@
                       }
                     }
                   },
-                  "count": 18,
-                  "period": 42,
-                  "rotation": 9,
-                  "gap": 44
+                  "count": 27,
+                  "gates": 3,
+                  "gap": 40,
+                  "radius": 42,
+                  "rotation": 12,
+                  "twist": 10,
+                  "period": 56
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 12
+                    "count": 18,
+                    "gap": 48,
+                    "period": 70
                   },
                   "hard": {
-                    "count": 22,
-                    "period": 36
+                    "count": 30,
+                    "gap": 38,
+                    "period": 50
                   },
                   "lunatic": {
-                    "count": 26,
-                    "period": 33
-                  }
-                }
-              },
-              {
-                "pattern": "gap-ring",
-                "options": {
-                  "spec": {
-                    "style": {
-                      "sprite": "petal.corolla",
-                      "r": 1,
-                      "g": 0.55,
-                      "b": 0.8
-                    },
-                    "radius": 4,
-                    "motion": {
-                      "r": 4,
-                      "theta": 90,
-                      "ra": -0.06,
-                      "rrange": {
-                        "min": 0.5
-                      }
-                    }
-                  },
-                  "count": 18,
-                  "period": 42,
-                  "rotation": -14,
-                  "gap": 44
-                },
-                "startAt": 21,
-                "difficulty": {
-                  "easy": {
-                    "count": 12
-                  },
-                  "hard": {
-                    "count": 22,
-                    "period": 36
-                  },
-                  "lunatic": {
-                    "count": 26,
-                    "period": 33
+                    "count": 33,
+                    "gap": 36,
+                    "period": 46
                   }
                 }
               },
@@ -2127,7 +2100,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -2146,23 +2119,29 @@
                       }
                     }
                   },
-                  "count": 20,
-                  "period": 90,
-                  "rotation": 11,
-                  "gap": 38
+                  "count": 24,
+                  "gates": 3,
+                  "gap": 38,
+                  "radius": 38,
+                  "rotation": 15,
+                  "twist": 12,
+                  "period": 86
                 },
-                "startAt": 240,
                 "difficulty": {
                   "easy": {
-                    "count": 14
+                    "count": 18,
+                    "gap": 46,
+                    "period": 104
                   },
                   "hard": {
-                    "count": 26,
-                    "period": 78
+                    "count": 27,
+                    "gap": 36,
+                    "period": 76
                   },
                   "lunatic": {
                     "count": 30,
-                    "period": 72
+                    "gap": 34,
+                    "period": 70
                   }
                 }
               },
@@ -2247,7 +2226,7 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "moon-gate",
                 "options": {
                   "spec": {
                     "style": {
@@ -2266,12 +2245,14 @@
                       }
                     }
                   },
-                  "count": 24,
-                  "period": 66,
-                  "rotation": 15,
-                  "gap": 32
-                },
-                "startAt": 40
+                  "count": 36,
+                  "gates": 3,
+                  "gap": 30,
+                  "radius": 48,
+                  "rotation": 19,
+                  "twist": 16,
+                  "period": 62
+                }
               },
               {
                 "pattern": "alternating-fan",
@@ -2803,7 +2784,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.spark",
+                      "sprite": "orb.small.arraignment",
                       "r": 1,
                       "g": 0.72,
                       "b": 0.42
@@ -2847,7 +2828,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.spark",
+                      "sprite": "orb.small.arraignment",
                       "r": 1,
                       "g": 0.72,
                       "b": 0.42
@@ -2885,11 +2866,11 @@
                 }
               },
               {
-                "pattern": "spray",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.spark",
+                      "sprite": "orb.small.arraignment",
                       "r": 1,
                       "g": 0.72,
                       "b": 0.42
@@ -2906,23 +2887,30 @@
                       }
                     }
                   },
-                  "count": 2,
-                  "period": 30,
-                  "spread": 70
+                  "columns": 9,
+                  "gapWidth": 124,
+                  "shear": 4,
+                  "speed": 2,
+                  "period": 78
                 },
-                "startAt": 40,
                 "difficulty": {
                   "easy": {
-                    "count": 1,
-                    "period": 40
+                    "columns": 7,
+                    "gapWidth": 140,
+                    "shear": 3,
+                    "period": 92
                   },
                   "hard": {
-                    "count": 3,
-                    "period": 24
+                    "columns": 11,
+                    "gapWidth": 120,
+                    "shear": 5,
+                    "period": 68
                   },
                   "lunatic": {
-                    "count": 4,
-                    "period": 20
+                    "columns": 13,
+                    "gapWidth": 116,
+                    "shear": 6,
+                    "period": 60
                   }
                 }
               }
@@ -2943,7 +2931,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "scale.escrow",
+                      "sprite": "kunai.pursuit",
                       "r": 0.55,
                       "g": 1,
                       "b": 0.82,
@@ -2984,45 +2972,55 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.spark",
-                      "r": 1,
-                      "g": 0.72,
-                      "b": 0.42
+                      "sprite": "scale.escrow",
+                      "r": 0.55,
+                      "g": 1,
+                      "b": 0.82,
+                      "orientToHeading": true
                     },
                     "radius": 3,
+                    "blade": {
+                      "length": 26
+                    },
                     "motion": {
-                      "r": 2.3,
+                      "r": 2,
                       "theta": 90,
-                      "behaviour": "waver",
+                      "behaviour": "homing",
                       "options": {
-                        "amplitude": 12,
-                        "period": 64,
-                        "duration": 640
+                        "turnRate": 2.2,
+                        "delay": 18,
+                        "duration": 64
                       }
                     }
                   },
-                  "count": 3,
-                  "spread": 18,
-                  "swing": 10,
-                  "period": 54
+                  "columns": 9,
+                  "gapWidth": 132,
+                  "shear": 4,
+                  "speed": 1.8,
+                  "period": 88
                 },
-                "startAt": 40,
                 "difficulty": {
                   "easy": {
-                    "count": 1
+                    "columns": 7,
+                    "gapWidth": 144,
+                    "shear": 3,
+                    "period": 104
                   },
                   "hard": {
-                    "count": 5,
-                    "spread": 28
+                    "columns": 11,
+                    "gapWidth": 126,
+                    "shear": 5,
+                    "period": 78
                   },
                   "lunatic": {
-                    "count": 7,
-                    "spread": 32,
-                    "period": 46
+                    "columns": 13,
+                    "gapWidth": 120,
+                    "shear": 6,
+                    "period": 70
                   }
                 }
               },
@@ -3137,11 +3135,11 @@
                 }
               },
               {
-                "pattern": "gap-ring",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "scale.shell",
+                      "sprite": "scale.assize",
                       "r": 0.7,
                       "g": 0.82,
                       "b": 1,
@@ -3159,22 +3157,28 @@
                       }
                     }
                   },
-                  "count": 12,
-                  "period": 132,
-                  "rotation": 9,
-                  "gap": 44
+                  "columns": 9,
+                  "gapWidth": 128,
+                  "shear": 3,
+                  "period": 132
                 },
-                "startAt": 66,
                 "difficulty": {
                   "easy": {
-                    "count": 8
+                    "columns": 7,
+                    "gapWidth": 144,
+                    "shear": 2,
+                    "period": 150
                   },
                   "hard": {
-                    "count": 16,
+                    "columns": 11,
+                    "gapWidth": 122,
+                    "shear": 4,
                     "period": 120
                   },
                   "lunatic": {
-                    "count": 20,
+                    "columns": 13,
+                    "gapWidth": 116,
+                    "shear": 5,
                     "period": 112
                   }
                 }
@@ -3207,7 +3211,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.spark",
+                      "sprite": "orb.small.arraignment",
                       "r": 1,
                       "g": 0.72,
                       "b": 0.42
@@ -3248,7 +3252,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "petal.ember",
+                      "sprite": "petal.verdict",
                       "r": 1,
                       "g": 0.85,
                       "b": 0.5
@@ -3333,11 +3337,11 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "verdict-shear",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "kunai.seeker",
+                      "sprite": "kunai.pursuit",
                       "r": 0.55,
                       "g": 1,
                       "b": 0.82,
@@ -3358,24 +3362,30 @@
                       }
                     }
                   },
-                  "count": 3,
-                  "spread": 24,
-                  "swing": 12,
+                  "columns": 9,
+                  "gapWidth": 128,
+                  "shear": 4,
+                  "speed": 1.9,
                   "period": 96
                 },
-                "startAt": 240,
                 "difficulty": {
                   "easy": {
-                    "count": 1
+                    "columns": 7,
+                    "gapWidth": 144,
+                    "shear": 3,
+                    "period": 116
                   },
                   "hard": {
-                    "count": 5,
-                    "spread": 36
+                    "columns": 11,
+                    "gapWidth": 122,
+                    "shear": 5,
+                    "period": 88
                   },
                   "lunatic": {
-                    "count": 7,
-                    "spread": 42,
-                    "period": 84
+                    "columns": 13,
+                    "gapWidth": 116,
+                    "shear": 6,
+                    "period": 80
                   }
                 }
               }
@@ -3477,11 +3487,11 @@
             ],
             "patterns": [
               {
-                "pattern": "alternating-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.brief",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -3492,25 +3502,27 @@
                       "theta": 90
                     }
                   },
-                  "count": 5,
-                  "spread": 32,
-                  "swing": 12,
-                  "period": 52
+                  "delay": 48,
+                  "folios": 3,
+                  "spacing": 24,
+                  "stagger": 4,
+                  "period": 64
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 3,
-                    "period": 64
+                    "folios": 3,
+                    "spacing": 28,
+                    "period": 78
                   },
                   "hard": {
-                    "count": 6,
-                    "spread": 42,
-                    "period": 44
+                    "folios": 5,
+                    "spacing": 22,
+                    "period": 56
                   },
                   "lunatic": {
-                    "count": 7,
-                    "spread": 46,
-                    "period": 40
+                    "folios": 7,
+                    "spacing": 20,
+                    "period": 50
                   }
                 }
               },
@@ -3617,11 +3629,11 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.brief",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -3632,25 +3644,27 @@
                       "theta": 90
                     }
                   },
-                  "count": 5,
-                  "spread": 34,
-                  "swing": 13,
-                  "period": 50
+                  "delay": 60,
+                  "folios": 5,
+                  "spacing": 22,
+                  "stagger": 4,
+                  "period": 58
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 3,
-                    "period": 62
+                    "folios": 3,
+                    "spacing": 26,
+                    "period": 72
                   },
                   "hard": {
-                    "count": 6,
-                    "spread": 44,
-                    "period": 44
+                    "folios": 7,
+                    "spacing": 20,
+                    "period": 50
                   },
                   "lunatic": {
-                    "count": 7,
-                    "spread": 48,
-                    "period": 40
+                    "folios": 9,
+                    "spacing": 18,
+                    "period": 46
                   }
                 }
               }
@@ -3706,7 +3720,7 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
@@ -3721,23 +3735,27 @@
                       "theta": 90
                     }
                   },
-                  "count": 3,
-                  "spread": 16,
-                  "swing": 10,
-                  "period": 64
+                  "delay": 72,
+                  "folios": 5,
+                  "spacing": 20,
+                  "stagger": 5,
+                  "period": 68
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 2,
-                    "period": 80
+                    "folios": 3,
+                    "spacing": 24,
+                    "period": 84
                   },
                   "hard": {
-                    "count": 4,
-                    "period": 54
+                    "folios": 7,
+                    "spacing": 18,
+                    "period": 60
                   },
                   "lunatic": {
-                    "count": 5,
-                    "period": 48
+                    "folios": 9,
+                    "spacing": 16,
+                    "period": 54
                   }
                 }
               },
@@ -3908,6 +3926,45 @@
                 }
               },
               {
+                "pattern": "archive-trace",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small.brief",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "delay": 66,
+                  "folios": 3,
+                  "spacing": 28,
+                  "stagger": 5,
+                  "period": 84
+                },
+                "difficulty": {
+                  "easy": {
+                    "folios": 3,
+                    "period": 104
+                  },
+                  "hard": {
+                    "folios": 5,
+                    "spacing": 24,
+                    "period": 76
+                  },
+                  "lunatic": {
+                    "folios": 7,
+                    "spacing": 20,
+                    "period": 68
+                  }
+                }
+              },
+              {
                 "pattern": "alternating-fan",
                 "options": {
                   "spec": {
@@ -3972,7 +4029,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.medium.decree",
+                      "sprite": "orb.medium.ledger",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5
@@ -4004,11 +4061,11 @@
                 }
               },
               {
-                "pattern": "spray",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.brief",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4019,22 +4076,27 @@
                       "theta": 90
                     }
                   },
-                  "count": 4,
-                  "spread": 360,
-                  "period": 16
+                  "delay": 54,
+                  "folios": 5,
+                  "spacing": 20,
+                  "stagger": 3,
+                  "period": 48
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 2,
-                    "period": 22
+                    "folios": 3,
+                    "spacing": 24,
+                    "period": 62
                   },
                   "hard": {
-                    "count": 5,
-                    "period": 13
+                    "folios": 7,
+                    "spacing": 18,
+                    "period": 42
                   },
                   "lunatic": {
-                    "count": 6,
-                    "period": 11
+                    "folios": 9,
+                    "spacing": 16,
+                    "period": 38
                   }
                 }
               }
@@ -4056,7 +4118,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "spark.levy",
+                      "sprite": "spark.docket",
                       "r": 0.85,
                       "g": 0.75,
                       "b": 0.7,
@@ -4074,11 +4136,11 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "archive-trace",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.brief",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4089,10 +4151,11 @@
                       "theta": 90
                     }
                   },
-                  "count": 7,
-                  "spread": 40,
-                  "swing": 14,
-                  "period": 44
+                  "delay": 42,
+                  "folios": 7,
+                  "spacing": 18,
+                  "stagger": 4,
+                  "period": 60
                 }
               },
               {
@@ -4100,7 +4163,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.medium.decree",
+                      "sprite": "orb.medium.ledger",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5
@@ -4235,7 +4298,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.session",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4269,11 +4332,11 @@
                 }
               },
               {
-                "pattern": "spray",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.session",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4284,22 +4347,32 @@
                       "theta": 90
                     }
                   },
-                  "count": 3,
-                  "spread": 360,
-                  "period": 18
+                  "delay": 40,
+                  "trail": 12,
+                  "columns": 9,
+                  "gapWidth": 104,
+                  "speed": 2,
+                  "driftScale": 2,
+                  "maxDrift": 10,
+                  "period": 64
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 2,
-                    "period": 24
+                    "columns": 7,
+                    "gapWidth": 124,
+                    "period": 80
                   },
                   "hard": {
-                    "count": 4,
-                    "period": 15
+                    "columns": 11,
+                    "gapWidth": 96,
+                    "maxDrift": 12,
+                    "period": 56
                   },
                   "lunatic": {
-                    "count": 5,
-                    "period": 13
+                    "columns": 13,
+                    "gapWidth": 90,
+                    "maxDrift": 14,
+                    "period": 50
                   }
                 }
               }
@@ -4395,6 +4468,51 @@
                     "count": 18
                   }
                 }
+              },
+              {
+                "pattern": "memory-groove",
+                "options": {
+                  "spec": {
+                    "style": {
+                      "sprite": "orb.small.session",
+                      "r": 0.95,
+                      "g": 0.82,
+                      "b": 0.6
+                    },
+                    "radius": 5,
+                    "motion": {
+                      "r": 2.6,
+                      "theta": 90
+                    }
+                  },
+                  "delay": 48,
+                  "trail": 14,
+                  "columns": 9,
+                  "gapWidth": 112,
+                  "speed": 1.8,
+                  "driftScale": 2,
+                  "maxDrift": 10,
+                  "period": 82
+                },
+                "difficulty": {
+                  "easy": {
+                    "columns": 7,
+                    "gapWidth": 132,
+                    "period": 98
+                  },
+                  "hard": {
+                    "columns": 11,
+                    "gapWidth": 102,
+                    "maxDrift": 12,
+                    "period": 72
+                  },
+                  "lunatic": {
+                    "columns": 13,
+                    "gapWidth": 94,
+                    "maxDrift": 14,
+                    "period": 66
+                  }
+                }
               }
             ]
           },
@@ -4449,7 +4567,7 @@
                 }
               },
               {
-                "pattern": "lane-wall",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
@@ -4464,29 +4582,31 @@
                       "theta": 90
                     }
                   },
+                  "delay": 42,
+                  "trail": 12,
                   "columns": 9,
-                  "gapColumn": 6,
-                  "gapWidth": 2,
-                  "shift": -1,
+                  "gapWidth": 92,
                   "speed": 1.6,
+                  "driftScale": 2.4,
+                  "maxDrift": 12,
                   "period": 54
                 },
                 "difficulty": {
                   "easy": {
                     "columns": 7,
-                    "gapWidth": 2,
+                    "gapWidth": 116,
                     "period": 66
                   },
                   "hard": {
                     "columns": 11,
-                    "gapWidth": 2,
-                    "shift": -2,
+                    "gapWidth": 86,
+                    "maxDrift": 14,
                     "period": 46
                   },
                   "lunatic": {
                     "columns": 13,
-                    "gapWidth": 2,
-                    "shift": -2,
+                    "gapWidth": 80,
+                    "maxDrift": 16,
                     "period": 42
                   }
                 }
@@ -4548,11 +4668,11 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.session",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4563,25 +4683,32 @@
                       "theta": 90
                     }
                   },
-                  "count": 4,
-                  "spread": 24,
-                  "swing": 12,
-                  "period": 58
+                  "delay": 48,
+                  "trail": 12,
+                  "columns": 9,
+                  "gapWidth": 106,
+                  "speed": 2.1,
+                  "driftScale": 2.2,
+                  "maxDrift": 12,
+                  "period": 62
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 3,
-                    "period": 72
+                    "columns": 7,
+                    "gapWidth": 126,
+                    "period": 78
                   },
                   "hard": {
-                    "count": 5,
-                    "spread": 34,
-                    "period": 50
+                    "columns": 11,
+                    "gapWidth": 98,
+                    "maxDrift": 14,
+                    "period": 54
                   },
                   "lunatic": {
-                    "count": 6,
-                    "spread": 38,
-                    "period": 46
+                    "columns": 13,
+                    "gapWidth": 90,
+                    "maxDrift": 16,
+                    "period": 48
                   }
                 }
               },
@@ -4668,11 +4795,11 @@
                 }
               },
               {
-                "pattern": "spray",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.session",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4683,22 +4810,32 @@
                       "theta": 90
                     }
                   },
-                  "count": 3,
-                  "spread": 360,
-                  "period": 18
+                  "delay": 54,
+                  "trail": 14,
+                  "columns": 11,
+                  "gapWidth": 94,
+                  "speed": 2.2,
+                  "driftScale": 2.4,
+                  "maxDrift": 14,
+                  "period": 52
                 },
                 "difficulty": {
                   "easy": {
-                    "count": 2,
-                    "period": 24
+                    "columns": 7,
+                    "gapWidth": 120,
+                    "period": 68
                   },
                   "hard": {
-                    "count": 4,
-                    "period": 15
+                    "columns": 13,
+                    "gapWidth": 88,
+                    "maxDrift": 16,
+                    "period": 46
                   },
                   "lunatic": {
-                    "count": 5,
-                    "period": 13
+                    "columns": 15,
+                    "gapWidth": 82,
+                    "maxDrift": 18,
+                    "period": 42
                   }
                 }
               },
@@ -4707,7 +4844,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "spark.levy",
+                      "sprite": "spark.wear",
                       "r": 0.85,
                       "g": 0.75,
                       "b": 0.7,
@@ -4757,7 +4894,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "spark.levy",
+                      "sprite": "spark.wear",
                       "r": 0.85,
                       "g": 0.75,
                       "b": 0.7,
@@ -4775,11 +4912,11 @@
                 }
               },
               {
-                "pattern": "alternating-fan",
+                "pattern": "memory-groove",
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.writ",
+                      "sprite": "orb.small.session",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4790,9 +4927,13 @@
                       "theta": 90
                     }
                   },
-                  "count": 7,
-                  "spread": 40,
-                  "swing": 14,
+                  "delay": 42,
+                  "trail": 10,
+                  "columns": 15,
+                  "gapWidth": 80,
+                  "speed": 2.3,
+                  "driftScale": 2.8,
+                  "maxDrift": 20,
                   "period": 44
                 }
               },
@@ -4801,7 +4942,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.medium.decree",
+                      "sprite": "orb.medium.mandamus",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.5

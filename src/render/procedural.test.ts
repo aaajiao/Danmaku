@@ -254,6 +254,20 @@ describe('fx strip geometry', () => {
     for (const name of ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent']) {
       expect(FX_STRIPS[`boss.death.${name}`]?.mode).toBe('once');
     }
+    const casts = {
+      sentinel: [12, 2, 128, 128],
+      magistrate: [10, 3, 144, 96],
+      chancellor: [16, 2, 144, 128],
+      regent: [14, 2, 144, 144],
+    } as const;
+    for (const [name, contract] of Object.entries(casts)) {
+      const strip = FX_STRIPS[`boss.cast.${name}`];
+      expect(strip?.mode, name).toBe('once');
+      expect(
+        [strip?.frames, strip?.ticksPerFrame, strip?.frameW, strip?.frameH],
+        name,
+      ).toEqual([...contract]);
+    }
     // All tinted: the floor is recolourable (rule 9); colour comes from the tint.
     for (const s of Object.values(FX_STRIPS)) expect(s.color).toBe('tinted');
   });

@@ -35,6 +35,13 @@ describe('v4 actor ledger', () => {
     const deaths = Object.values(V4_BOSS_ACTORS).map((actor) => actor.deathStrip);
     expect(new Set(deaths).size).toBe(5);
     expect(deaths.every((name) => name?.startsWith('boss.death.'))).toBeTrue();
+
+    const casts = Object.entries(V4_BOSS_ACTORS)
+      .filter(([name]) => name !== 'warden')
+      .map(([, actor]) => actor.castStrip);
+    expect(new Set(casts).size).toBe(4);
+    expect(casts.every((name) => name?.startsWith('boss.cast.'))).toBeTrue();
+    expect(V4_BOSS_ACTORS.warden?.castStrip).toBeUndefined();
   });
 
   test('the shipped pack strip names exactly match the runtime actor ledger', async () => {

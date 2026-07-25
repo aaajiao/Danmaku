@@ -28,7 +28,12 @@ import {
   MISSILE_STRIPS,
   PICKUP_STRIPS,
 } from '../src/render/procedural';
-import { validateManifest, type PackManifest, type PackStrip } from '../src/packs/manifest';
+import {
+  validateManifest,
+  type PackBulletStrip,
+  type PackManifest,
+  type PackStrip,
+} from '../src/packs/manifest';
 import { ColourType, encodePng } from './png';
 import {
   V4_AUDIO_GENERATOR_VERSION,
@@ -472,9 +477,9 @@ export const V4_OWNER_PROJECTILES: Record<V4ProjectileOwner, readonly string[]> 
 
   'boss.sentinel': ['scale.shard', 'petal.corolla', 'needle.vigil', 'needle.tithe'],
   'boss.warden': ['orb.small.fee', 'orb.small.spark', 'missile.3', 'beam.heavy', 'cap.green', 'needle.lien', 'petal.ember', 'scale.shell'],
-  'boss.magistrate': ['orb.small.spark', 'scale.escrow', 'missile.4', 'beam.blue', 'cap.v3', 'scale.shell', 'petal.ember', 'beam.cyan', 'kunai.seeker'],
-  'boss.chancellor': ['orb.small.writ', 'orb.medium.ledger', 'spark.docket', 'halo.witness', 'orb.small.brief', 'missile.9', 'beam.warm', 'cap.yellow', 'beam.v3.stream', 'cap.v3', 'beam.stream', 'cap.green', 'orb.medium.decree', 'spark.levy'],
-  'boss.regent': ['orb.small.writ', 'halo.mandamus', 'halo.diadem', 'orb.medium.tenure', 'orb.medium.lattice', 'needle.warrant', 'missile.massive', 'orb.medium.mandamus', 'spark.levy', 'orb.medium.decree'],
+  'boss.magistrate': ['orb.small.arraignment', 'scale.escrow', 'missile.4', 'beam.blue', 'cap.v3', 'scale.assize', 'petal.verdict', 'beam.cyan', 'kunai.pursuit'],
+  'boss.chancellor': ['orb.medium.ledger', 'spark.docket', 'halo.witness', 'orb.small.brief', 'missile.9', 'beam.warm', 'cap.yellow', 'beam.v3.stream', 'cap.v3', 'beam.stream', 'cap.green'],
+  'boss.regent': ['orb.small.session', 'halo.mandamus', 'halo.diadem', 'orb.medium.tenure', 'orb.medium.lattice', 'needle.warrant', 'missile.massive', 'orb.medium.mandamus', 'spark.wear'],
 };
 
 function invertOwners(): Readonly<Record<string, readonly V4ProjectileOwner[]>> {
@@ -486,6 +491,46 @@ function invertOwners(): Readonly<Record<string, readonly V4ProjectileOwner[]>> 
 }
 
 export const V4_PROJECTILE_OWNERS = invertOwners();
+
+export type V4MainBossOwner =
+  | 'boss.sentinel'
+  | 'boss.magistrate'
+  | 'boss.chancellor'
+  | 'boss.regent';
+
+export interface V4BossBulletSequence {
+  readonly frameW: number;
+  readonly frameH: number;
+  readonly frames: number;
+  readonly ticksPerFrame: number;
+}
+
+/**
+ * The four campaign Bosses do not share the neutral four-frame cadence.  This
+ * table is presentation-only: the sim still names a projectile strip and the
+ * atlas decides how its pixels breathe.
+ */
+export const V4_BOSS_BULLET_SEQUENCES: Readonly<
+  Record<V4MainBossOwner, V4BossBulletSequence>
+> = {
+  'boss.sentinel': { frameW: 32, frameH: 32, frames: 8, ticksPerFrame: 3 },
+  'boss.magistrate': { frameW: 34, frameH: 32, frames: 6, ticksPerFrame: 4 },
+  'boss.chancellor': { frameW: 36, frameH: 34, frames: 10, ticksPerFrame: 5 },
+  'boss.regent': { frameW: 34, frameH: 36, frames: 12, ticksPerFrame: 2 },
+};
+
+const V4_MAIN_BOSS_OWNERS = new Set<V4ProjectileOwner>(
+  Object.keys(V4_BOSS_BULLET_SEQUENCES) as V4MainBossOwner[],
+);
+
+/** An identity sequence is reserved for a strip owned by exactly one main Boss.
+ * Shared resources and the Warden keep the common atlas cadence. */
+export function mainBossBulletOwner(name: string): V4MainBossOwner | undefined {
+  const owners = V4_PROJECTILE_OWNERS[name];
+  if (owners?.length !== 1) return undefined;
+  const owner = owners[0]!;
+  return V4_MAIN_BOSS_OWNERS.has(owner) ? owner as V4MainBossOwner : undefined;
+}
 
 export type V4ProjectileFaction = 'neutral' | 'player' | 'hostile' | 'shared';
 
@@ -528,9 +573,10 @@ export function paletteForProjectile(name: string): Palette {
   return sharedLineagePalette(owners);
 }
 
-/** Hostile silhouettes use a solid bone-white keyline; friendly silhouettes
- * use a solid owner-colour keyline. Neutral registry floors keep their original
- * painter colour, so tintable fallback cells retain their authored geometry. */
+/** Shared hostile silhouettes use a solid bone-white keyline; main-Boss
+ * dedicated painters bypass it so owner chroma can dominate, retaining only
+ * the stable threat core and east glint. Friendly silhouettes use owner colour.
+ * Neutral floors keep their original painter colour. */
 function bulletKeyline(p: Palette, faction: V4ProjectileFaction, fallback: Rgba): Rgba {
   if (faction === 'hostile') return p.bone;
   if (faction === 'player') return [p.surface[0], p.surface[1], p.surface[2], 255];
@@ -582,6 +628,7 @@ const BULLET_LAYER_OVERRIDES: Readonly<Partial<Record<string, V4AnatomyLayer>>> 
   // Mycelium: a tracking, wavering, spiralling or seeking relation.
   'orb.small.spark': 'mycelium',
   'orb.small.fee': 'mycelium',
+  'kunai.pursuit': 'mycelium',
   'kunai.seeker': 'mycelium',
   'needle.lien': 'mycelium',
   'needle.subpoena': 'mycelium',
@@ -598,11 +645,16 @@ const BULLET_LAYER_OVERRIDES: Readonly<Partial<Record<string, V4AnatomyLayer>>> 
   // Heart: concentrated power, authority and player shot growth.
   'orb.small.beacon': 'heart',
   'orb.small.assay': 'heart',
+  'orb.small.arraignment': 'heart',
+  'scale.assize': 'skeleton',
+  'petal.verdict': 'surface',
   'orb.medium.ledger': 'heart',
   'orb.medium.decree': 'heart',
   'orb.medium.lattice': 'heart',
   'orb.medium.tenure': 'heart',
   'orb.medium.mandamus': 'heart',
+  'orb.small.session': 'surface',
+  'spark.wear': 'heart',
   'glow.small.bolt': 'heart',
   'glow.medium.bolt': 'heart',
   'glow.large.bolt': 'heart',
@@ -801,41 +853,313 @@ function drawHostileThreatCore(
   over(image, cx, cy, p.heart);
 }
 
-function drawBulletFrame(image: Bitmap, x: number, y: number, name: string, frame: number): void {
-  const cx = x + 16;
-  const cy = y + 16;
+function bulletPaintReach(base: string): { x: number; y: number } {
+  switch (base) {
+    case 'orb.small': return { x: 5, y: 5 };
+    case 'orb.medium': return { x: 9, y: 9 };
+    case 'orb.large':
+    case 'ring':
+    case 'halo':
+    case 'glow.large':
+    case 'star': return { x: 13, y: 13 };
+    case 'glow.small': return { x: 6, y: 6 };
+    case 'glow.medium':
+    case 'spark': return { x: 10, y: 10 };
+    case 'kunai': return { x: 11, y: 4 };
+    case 'scale':
+    case 'petal': return { x: 9, y: 5 };
+    case 'shard': return { x: 12, y: 3 };
+    case 'needle': return { x: 12, y: 2 };
+    case 'mote': return { x: 4, y: 4 };
+    default: throw new Error(`no v4 bullet reach for "${base}"`);
+  }
+}
+
+function strokePolygon(image: Bitmap, points: readonly Point[], color: Rgba): void {
+  for (let index = 0; index < points.length; index++) {
+    const from = points[index]!;
+    const to = points[(index + 1) % points.length]!;
+    line(image, from[0], from[1], to[0], to[1], color);
+  }
+}
+
+const SENTINEL_CYAN: Rgba = [68, 196, 236, 238];
+const SENTINEL_MEMBRANE: Rgba = [126, 220, 246, 92];
+const MAGISTRATE_MAGENTA: Rgba = [244, 61, 155, 238];
+const MAGISTRATE_SEAL: Rgba = [255, 148, 210, 176];
+const CHANCELLOR_AMBER: Rgba = [247, 173, 45, 238];
+const CHANCELLOR_INDIGO: Rgba = [47, 50, 126, 210];
+const CHANCELLOR_GREEN: Rgba = [59, 191, 132, 232];
+const REGENT_PURPLE: Rgba = [154, 72, 230, 232];
+const REGENT_CRIMSON: Rgba = [244, 57, 119, 238];
+const REGENT_GOLD: Rgba = [255, 205, 76, 210];
+
+function drawSentinelBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const directional = base === 'needle' || base === 'shard' || base === 'scale' || base === 'petal';
+  if (directional) {
+    const tail = cx - reach.x;
+    const tip = cx + reach.x;
+    const aperture = frame % 4 < 2 ? Math.max(1, reach.y - 2) : reach.y;
+    const eye: Point[] = [
+      [tail, cy - 1],
+      [cx - 3, cy - aperture],
+      [tip, cy],
+      [cx - 3, cy + aperture],
+      [tail, cy + 1],
+    ];
+    convex(image, eye, SENTINEL_MEMBRANE);
+    strokePolygon(image, eye, SENTINEL_CYAN);
+    line(image, tail + 2, cy, tip - 2, cy, SENTINEL_CYAN);
+    const pupilX = cx - 3 + (frame % 4) * 2;
+    ellipse(image, pupilX, cy, 2, Math.max(1, aperture - 1), SENTINEL_CYAN);
+    over(image, pupilX, cy, p.heart);
+    // A migrating crescent notch makes each frame a genuinely different mask.
+    const notch = frame % 2 === 0 ? -1 : 1;
+    over(image, cx + notch * Math.max(2, Math.floor(reach.x / 2)), cy - aperture, p.mycelium);
+    over(image, tip, cy, p.bone);
+    return;
+  }
+  const radius = Math.min(reach.x, reach.y);
+  disc(image, cx, cy, Math.max(1, radius - 2), SENTINEL_MEMBRANE);
+  const opening = (frame % 4) * Math.PI / 2;
+  arcLine(image, cx, cy, radius, opening + 0.42, opening + Math.PI * 1.72, SENTINEL_CYAN);
+  arcLine(image, cx, cy, Math.max(2, radius - 2), opening + Math.PI, opening + Math.PI * 1.75, SENTINEL_CYAN);
+  ellipse(image, cx, cy, Math.max(2, radius - 2), Math.max(1, Math.floor(radius / 3)), SENTINEL_CYAN);
+  over(image, cx + reach.x, cy, p.bone);
+}
+
+function drawMagistrateBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const directional = base === 'kunai' || base === 'scale' || base === 'petal';
+  if (directional) {
+    const tail = cx - reach.x;
+    const tip = cx + reach.x;
+    const fork = frame % 3 === 1 ? 1 : 0;
+    const blade: Point[] = [
+      [tail, cy - 2],
+      [cx - 4, cy - reach.y],
+      [cx + 1, cy - Math.max(2, reach.y - fork)],
+      [tip, cy],
+      [cx + 1, cy + Math.max(2, reach.y - fork)],
+      [cx - 4, cy + reach.y],
+      [tail, cy + 2],
+    ];
+    convex(image, blade, [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 106]);
+    strokePolygon(image, blade, MAGISTRATE_MAGENTA);
+    line(image, tail + 2, cy, tip - 2, cy, MAGISTRATE_MAGENTA, 2);
+    const joint = cx - 4 + (frame % 3) * 3;
+    ring(image, joint, cy, 2, 1, MAGISTRATE_SEAL);
+    line(image, joint, cy - 2, joint + 2, cy - reach.y, MAGISTRATE_MAGENTA);
+    line(image, joint, cy + 2, joint + 2, cy + reach.y, MAGISTRATE_MAGENTA);
+    over(image, tip, cy, p.bone);
+    return;
+  }
+  const radius = Math.min(reach.x, reach.y);
+  const seal: Point[] = [
+    [cx, cy - radius],
+    [cx + radius, cy],
+    [cx, cy + radius],
+    [cx - radius, cy],
+  ];
+  strokePolygon(image, seal, MAGISTRATE_MAGENTA);
+  const inset = Math.max(1, radius - 3);
+  convex(image, [
+    [cx, cy - inset],
+    [cx + inset, cy],
+    [cx, cy + inset],
+    [cx - inset, cy],
+  ], [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 92]);
+  const quarter = frame % 4;
+  for (let arm = 0; arm < 4; arm++) {
+    const d = DIR8[(arm * 2 + quarter) % DIR8.length]!;
+    line(image, cx + Math.round(d[0] / 4), cy + Math.round(d[1] / 4),
+      cx + Math.round((d[0] * (radius - 1)) / 8),
+      cy + Math.round((d[1] * (radius - 1)) / 8), MAGISTRATE_MAGENTA);
+  }
+  ring(image, cx, cy, 2 + (frame % 2), 1, MAGISTRATE_SEAL);
+  over(image, cx + reach.x, cy, p.bone);
+}
+
+function drawChancellorBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const radius = Math.min(reach.x, reach.y);
+  const isSpark = base === 'spark' || base === 'star';
+  if (isSpark) {
+    const phase = frame % 2;
+    for (let ray = 0; ray < 8; ray++) {
+      const d = DIR8[(ray + phase) % DIR8.length]!;
+      const length = ray % 2 === 0 ? radius : Math.max(3, radius - 3);
+      line(image, cx, cy,
+        cx + Math.round((d[0] * length) / 8),
+        cy + Math.round((d[1] * length) / 8),
+        ray % 2 === 0 ? CHANCELLOR_AMBER : CHANCELLOR_GREEN);
+    }
+  } else {
+    const gap = (frame % 4) * 0.12;
+    arcLine(image, cx, cy, radius, 0.18 + gap, Math.PI - 0.24 + gap, CHANCELLOR_AMBER);
+    arcLine(image, cx, cy, radius, Math.PI + 0.35 + gap, Math.PI * 2 - 0.18 + gap, CHANCELLOR_GREEN);
+  }
+  const lid = Math.max(1, Math.floor(radius / 3) + (frame % 3 === 1 ? 1 : 0));
+  ellipse(image, cx, cy, Math.max(2, radius - 2), lid, CHANCELLOR_AMBER);
+  ellipse(image, cx, cy, Math.max(1, Math.floor(radius / 3)), Math.max(1, lid - 1), CHANCELLOR_INDIGO);
+  over(image, cx + (frame % 3) - 1, cy, CHANCELLOR_GREEN);
+
+  // The archived comet tail moves around the eye instead of merely recolouring it.
+  const d = DIR8[(frame + 4) % DIR8.length]!;
+  const tx = cx + Math.round((d[0] * Math.max(2, radius - 2)) / 8);
+  const ty = cy + Math.round((d[1] * Math.max(2, radius - 2)) / 8);
+  line(image, tx, ty,
+    cx + Math.round((d[0] * radius) / 8),
+    cy + Math.round((d[1] * radius) / 8), CHANCELLOR_GREEN);
+  // Preserve the exact east threat keyline even while the comet crosses it.
+  over(image, cx + reach.x, cy, p.bone);
+}
+
+function drawRegentBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  if (base === 'needle') {
+    const tail = cx - reach.x;
+    const tip = cx + reach.x;
+    const crystal: Point[] = [
+      [tail, cy - 1],
+      [cx - 5, cy - reach.y],
+      [cx + 4, cy - reach.y],
+      [tip, cy],
+      [cx + 4, cy + reach.y],
+      [cx - 5, cy + reach.y],
+      [tail, cy + 1],
+    ];
+    convex(image, crystal, [REGENT_PURPLE[0], REGENT_PURPLE[1], REGENT_PURPLE[2], 116]);
+    strokePolygon(image, crystal, REGENT_PURPLE);
+    line(image, tail + 2, cy, tip - 2, cy, REGENT_CRIMSON);
+    const fracture = cx - 4 + (frame % 4) * 3;
+    line(image, fracture, cy - reach.y, fracture + 2, cy, REGENT_GOLD);
+    line(image, fracture + 2, cy, fracture, cy + reach.y, REGENT_CRIMSON);
+    over(image, tip, cy, p.bone);
+    return;
+  }
+
+  const radius = Math.min(reach.x, reach.y);
+  const corners: Point[] = [
+    [cx, cy - radius],
+    [cx + radius, cy],
+    [cx, cy + radius],
+    [cx - radius, cy],
+  ];
+  strokePolygon(image, corners, REGENT_PURPLE);
+  const coreRadius = Math.max(2, radius - 4);
+  convex(image, [
+    [cx, cy - coreRadius],
+    [cx + coreRadius, cy],
+    [cx, cy + coreRadius],
+    [cx - coreRadius, cy],
+  ], [REGENT_PURPLE[0], REGENT_PURPLE[1], REGENT_PURPLE[2], 82]);
+  const wear = frame % 4;
+  const inner = Math.max(2, radius - 3);
+  arcLine(image, cx, cy, inner, wear * Math.PI / 2 + 0.3,
+    wear * Math.PI / 2 + Math.PI * 1.42, REGENT_CRIMSON);
+  const crownY = cy - Math.max(2, Math.floor(radius / 3));
+  line(image, cx - Math.max(2, Math.floor(radius / 2)), crownY,
+    cx, cy - inner, REGENT_GOLD);
+  line(image, cx, cy - inner,
+    cx + Math.max(2, Math.floor(radius / 2)), crownY, REGENT_GOLD);
+  const root = Math.max(2, Math.floor(radius / 2));
+  line(image, cx, cy + 1, cx - root, cy + inner, REGENT_CRIMSON);
+  line(image, cx, cy + 1, cx + root, cy + inner, REGENT_CRIMSON);
+  if (frame % 2 === 1) {
+    over(image, cx - root - 1, cy + inner, REGENT_PURPLE);
+    over(image, cx + root + 1, cy + inner, REGENT_PURPLE);
+  }
+  over(image, cx + reach.x, cy, p.bone);
+}
+
+function drawMainBossBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  owner: V4MainBossOwner,
+  p: Palette,
+): void {
+  switch (owner) {
+    case 'boss.sentinel': drawSentinelBullet(image, cx, cy, base, frame, p); break;
+    case 'boss.magistrate': drawMagistrateBullet(image, cx, cy, base, frame, p); break;
+    case 'boss.chancellor': drawChancellorBullet(image, cx, cy, base, frame, p); break;
+    case 'boss.regent': drawRegentBullet(image, cx, cy, base, frame, p); break;
+  }
+}
+
+function drawBulletFrame(image: Bitmap, x: number, y: number, spec: RowSpec, frame: number): void {
+  const name = spec.name;
+  const cx = x + Math.floor(spec.frameW / 2);
+  const cy = y + Math.floor(spec.frameH / 2);
   const base = baseBulletName(name);
   const p = paletteForProjectile(name);
   const layer = bulletAnatomyLayer(name);
   const faction = projectileFaction(name);
-  switch (base) {
-    case 'orb.small': drawRoundBullet(image, cx, cy, 5, frame, p, false, layer, faction); break;
-    case 'orb.medium': drawRoundBullet(image, cx, cy, 9, frame, p, false, layer, faction); break;
-    case 'orb.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer, faction); break;
-    case 'ring': drawRoundBullet(image, cx, cy, 13, frame, p, true, layer, faction); break;
-    case 'halo':
-      drawRoundBullet(image, cx, cy, 13, frame, p, true, layer, faction);
-      ring(image, cx, cy, 8, 1, p.mycelium);
-      break;
-    case 'glow.small': drawRoundBullet(image, cx, cy, 6, frame, p, false, layer, faction); break;
-    case 'glow.medium': drawRoundBullet(image, cx, cy, 10, frame, p, false, layer, faction); break;
-    case 'glow.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer, faction); break;
-    case 'kunai': drawDirectionalBullet(image, cx, cy, 11, 4, frame, p, layer, faction); break;
-    case 'scale': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, faction, true); break;
-    case 'shard': drawDirectionalBullet(image, cx, cy, 12, 3, frame, p, layer, faction); break;
-    case 'needle': drawDirectionalBullet(image, cx, cy, 12, 2, frame, p, layer, faction); break;
-    case 'petal': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, faction, true); break;
-    case 'star': drawCrystalBullet(image, cx, cy, 13, frame, p, layer, faction, 5); break;
-    case 'spark': drawCrystalBullet(image, cx, cy, 10, frame, p, layer, faction); break;
-    case 'mote': drawRoundBullet(image, cx, cy, 4, frame, p, false, layer, faction); break;
-    default: throw new Error(`no v4 bullet painter for "${base}"`);
+  const bossOwner = mainBossBulletOwner(name);
+  if (bossOwner !== undefined) {
+    drawMainBossBullet(image, cx, cy, base, frame, bossOwner, p);
+  } else {
+    switch (base) {
+      case 'orb.small': drawRoundBullet(image, cx, cy, 5, frame, p, false, layer, faction); break;
+      case 'orb.medium': drawRoundBullet(image, cx, cy, 9, frame, p, false, layer, faction); break;
+      case 'orb.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer, faction); break;
+      case 'ring': drawRoundBullet(image, cx, cy, 13, frame, p, true, layer, faction); break;
+      case 'halo':
+        drawRoundBullet(image, cx, cy, 13, frame, p, true, layer, faction);
+        ring(image, cx, cy, 8, 1, p.mycelium);
+        break;
+      case 'glow.small': drawRoundBullet(image, cx, cy, 6, frame, p, false, layer, faction); break;
+      case 'glow.medium': drawRoundBullet(image, cx, cy, 10, frame, p, false, layer, faction); break;
+      case 'glow.large': drawRoundBullet(image, cx, cy, 13, frame, p, false, layer, faction); break;
+      case 'kunai': drawDirectionalBullet(image, cx, cy, 11, 4, frame, p, layer, faction); break;
+      case 'scale': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, faction, true); break;
+      case 'shard': drawDirectionalBullet(image, cx, cy, 12, 3, frame, p, layer, faction); break;
+      case 'needle': drawDirectionalBullet(image, cx, cy, 12, 2, frame, p, layer, faction); break;
+      case 'petal': drawDirectionalBullet(image, cx, cy, 9, 5, frame, p, layer, faction, true); break;
+      case 'star': drawCrystalBullet(image, cx, cy, 13, frame, p, layer, faction, 5); break;
+      case 'spark': drawCrystalBullet(image, cx, cy, 10, frame, p, layer, faction); break;
+      case 'mote': drawRoundBullet(image, cx, cy, 4, frame, p, false, layer, faction); break;
+      default: throw new Error(`no v4 bullet painter for "${base}"`);
+    }
   }
   drawHostileThreatCore(image, cx, cy, p, faction);
 }
 
-/** Three variants are registry floors but are not named by the current base JSON. */
+/** Registry floors that are not named by the current base JSON. */
 export const UNREACHED_BULLET_VARIANTS = new Set([
-  'halo.seal', 'halo.crown', 'glow.small.beam',
+  'halo.seal', 'halo.crown', 'glow.small.beam', 'orb.medium.decree',
 ]);
 
 export const V4_BULLET_NAMES = [
@@ -843,38 +1167,81 @@ export const V4_BULLET_NAMES = [
   ...Object.keys(BULLET_VARIANTS).filter((name) => !UNREACHED_BULLET_VARIANTS.has(name)),
 ] as readonly string[];
 
-function buildBullets(): { bytes: Uint8Array; strips: NonNullable<Extract<NonNullable<PackManifest['assets']>['bullets'], object>['strips']> } {
-  const stripsPerRow = 8;
-  const frames = 4;
-  const frameW = 32;
-  const frameH = 32;
-  const stripW = frames * frameW;
-  const width = stripsPerRow * stripW;
-  const height = Math.ceil(V4_BULLET_NAMES.length / stripsPerRow) * frameH;
-  const image = bitmap(width, height);
-  const strips: Record<string, {
-    x: number; y: number; frameW: number; frameH: number; frames: number; stride: number;
-    ticksPerFrame: number; mode: 'loop'; color: 'tinted' | 'baked'; contentW: number; contentH: number;
-  }> = {};
+function bulletSequenceSpec(name: string): RowSpec {
+  const owner = mainBossBulletOwner(name);
+  const sequence = owner === undefined
+    ? { frameW: 32, frameH: 32, frames: 4, ticksPerFrame: 5 }
+    : V4_BOSS_BULLET_SEQUENCES[owner];
+  return {
+    name,
+    ...sequence,
+    mode: 'loop',
+    color: (BULLET_CELLS as readonly string[]).includes(name) ? 'tinted' : 'baked',
+  };
+}
 
-  V4_BULLET_NAMES.forEach((name, index) => {
-    const x = (index % stripsPerRow) * stripW;
-    const y = Math.floor(index / stripsPerRow) * frameH;
+function buildBulletRows(specs: readonly RowSpec[]): {
+  readonly bitmap: Bitmap;
+  readonly strips: Record<string, PackBulletStrip>;
+} {
+  const rows: BuiltRow[] = specs.map((spec) => {
+    const row = bitmap(spec.frameW * spec.frames, spec.frameH);
     const frameBounds: Bounds[] = [];
-    for (let frame = 0; frame < frames; frame++) {
-      drawBulletFrame(image, x + frame * frameW, y, name, frame);
-      frameBounds.push(alphaBounds(image, x + frame * frameW, y, frameW, frameH));
+    for (let frame = 0; frame < spec.frames; frame++) {
+      drawBulletFrame(row, frame * spec.frameW, 0, spec, frame);
+      frameBounds.push(alphaBounds(row, frame * spec.frameW, 0, spec.frameW, spec.frameH));
     }
-    const union = unionBounds(frameBounds);
-    const content = boundsSize(union);
-    strips[name] = {
-      x, y, frameW, frameH, frames, stride: frameW, ticksPerFrame: 5, mode: 'loop',
-      color: (BULLET_CELLS as readonly string[]).includes(name) ? 'tinted' : 'baked',
+    return { ...spec, bitmap: row, bounds: unionBounds(frameBounds) };
+  });
+  const width = Math.max(...rows.map((row) => row.bitmap.width));
+  const ordered = [...rows].sort((a, b) =>
+    b.frameH - a.frameH
+    || b.bitmap.width - a.bitmap.width
+    || a.name.localeCompare(b.name),
+  );
+  const shelves: { y: number; height: number; usedWidth: number }[] = [];
+  const placements = new Map<string, { x: number; y: number }>();
+  let height = 0;
+  for (const row of ordered) {
+    let shelf = shelves.find((candidate) =>
+      row.frameH <= candidate.height && candidate.usedWidth + row.bitmap.width <= width,
+    );
+    if (shelf === undefined) {
+      shelf = { y: height, height: row.frameH, usedWidth: 0 };
+      shelves.push(shelf);
+      height += row.frameH;
+    }
+    placements.set(row.name, { x: shelf.usedWidth, y: shelf.y });
+    shelf.usedWidth += row.bitmap.width;
+  }
+
+  const atlas = bitmap(width, height);
+  const strips: Record<string, PackBulletStrip> = {};
+  for (const row of rows) {
+    const placement = placements.get(row.name);
+    if (placement === undefined) throw new Error(`missing bullet placement for ${row.name}`);
+    copyBitmap(row.bitmap, atlas, placement.x, placement.y);
+    const content = boundsSize(row.bounds);
+    strips[row.name] = {
+      x: placement.x,
+      y: placement.y,
+      frameW: row.frameW,
+      frameH: row.frameH,
+      frames: row.frames,
+      stride: row.frameW,
+      ticksPerFrame: row.ticksPerFrame,
+      mode: 'loop',
+      color: row.color,
       contentW: content.width,
       contentH: content.height,
     };
-  });
-  return { bytes: encode(image), strips };
+  }
+  return { bitmap: atlas, strips };
+}
+
+function buildBullets(): { bytes: Uint8Array; strips: NonNullable<Extract<NonNullable<PackManifest['assets']>['bullets'], object>['strips']> } {
+  const packed = buildBulletRows(V4_BULLET_NAMES.map(bulletSequenceSpec));
+  return { bytes: encode(packed.bitmap), strips: packed.strips };
 }
 
 /** Shared presentation remains for the ship and legacy fallback strips. */
@@ -901,6 +1268,8 @@ export function paletteForEffect(name: string): Palette {
   if (optionOwner !== undefined) return V4_OWNER_PALETTES[optionOwner];
   const bombOwner = BOMB_EFFECT_OWNERS[name];
   if (bombOwner !== undefined) return V4_OWNER_PALETTES[bombOwner];
+  const castOwner = BOSS_CAST_EFFECT_OWNERS[name];
+  if (castOwner !== undefined) return V4_OWNER_PALETTES[castOwner];
   if (name.startsWith('player.') || name === 'boom.player') return V4_SHARED_PLAYER_PALETTE;
   if (name.startsWith('missile.pop.')) return V4_SHARED_MISSILE_FX_PALETTE;
   if (
@@ -931,6 +1300,13 @@ const BOMB_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> = {
   'player.bomb.hound-pack': 'player.hound',
   'player.bomb.spire-field': 'player.spire',
   'player.bomb.maw-devour': 'player.maw',
+};
+
+const BOSS_CAST_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> = {
+  'boss.cast.sentinel': 'boss.sentinel',
+  'boss.cast.magistrate': 'boss.magistrate',
+  'boss.cast.chancellor': 'boss.chancellor',
+  'boss.cast.regent': 'boss.regent',
 };
 
 function drawBurst(image: Bitmap, cx: number, cy: number, frame: number, frames: number, maxRadius: number, p: Palette): void {
@@ -1252,6 +1628,73 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
     line(image, cx - 2, cy + 3, cx + 3, cy + 10, p.mycelium);
     return;
   }
+  if (spec.name.startsWith('boss.cast.')) {
+    const t = frame / Math.max(1, spec.frames - 1);
+    const rise = Math.min(1, t * 2.4);
+    if (spec.name.endsWith('.sentinel')) {
+      const radius = 16 + Math.round(34 * rise);
+      for (let gate = 0; gate < 3; gate++) {
+        const bearing = -0.55 + gate * Math.PI * 2 / 3 + t * 0.7;
+        arcLine(image, cx, cy, radius - gate * 3, bearing, bearing + 0.92,
+          gate === 0 ? p.bone : gate === 1 ? p.surface : p.mycelium, 2);
+        const mid = bearing + 0.46;
+        disc(image, cx + Math.round(Math.cos(mid) * (radius - 8)),
+          cy + Math.round(Math.sin(mid) * (radius - 8)), 1, p.heart);
+      }
+      ring(image, cx, cy, 8 + Math.round(18 * rise), 1, p.mycelium);
+    } else if (spec.name.endsWith('.magistrate')) {
+      const strike = t < 0.52 ? t / 0.52 : (1 - t) / 0.48;
+      const inset = 58 - Math.round(42 * Math.max(0, strike));
+      const shear = Math.round((t - 0.5) * 12);
+      for (const sign of [-1, 1] as const) {
+        line(image, cx + sign * inset, cy - 37 + sign * shear,
+          cx + sign * (inset - 8), cy + 37 + sign * shear,
+          sign < 0 ? p.bone : p.surface, 2);
+        line(image, cx + sign * (inset + 9), cy - 30 + sign * shear,
+          cx + sign * (inset + 1), cy + 30 + sign * shear, p.mycelium);
+      }
+      line(image, cx, cy - 18, cx, cy + 18, p.bone);
+      ring(image, cx, cy, 5 + Math.round(4 * rise), 1, p.heart);
+    } else if (spec.name.endsWith('.chancellor')) {
+      for (let page = 0; page < 3; page++) {
+        const reveal = Math.max(0, Math.min(1, t * 3.2 - page * 0.42));
+        const ox = (page - 1) * (31 + Math.round(3 * reveal));
+        const top = cy - 43 + page * 5;
+        const bottom = top + 76 - page * 4;
+        line(image, cx + ox - 10, top, cx + ox + 10, top, p.bone);
+        line(image, cx + ox - 10, top, cx + ox - 10, bottom, p.surface);
+        line(image, cx + ox + 10, top, cx + ox + 10, bottom, p.surface);
+        line(image, cx + ox - 10, bottom, cx + ox + 10, bottom, p.mycelium);
+        for (let row = 1; row <= 4; row++) {
+          const writingY = top + row * (13 - page);
+          const length = Math.max(1, Math.round(12 * Math.max(0, Math.min(1, reveal * 2.1 - row * 0.18))));
+          line(image, cx + ox - 6, writingY, cx + ox - 6 + length, writingY,
+            row % 2 === 0 ? p.mycelium : p.bone);
+        }
+      }
+      const trace = Math.max(0, Math.min(1, (t - 0.36) * 2.1));
+      const endX = cx - 47 + Math.round(95 * trace);
+      line(image, cx - 47, cy + 32, cx - 18, cy - 18, p.mycelium);
+      line(image, cx - 18, cy - 18, endX, cy - 25, p.mycelium);
+      disc(image, endX, cy - 25, 1, p.heart);
+    } else {
+      for (let memory = 0; memory < 4; memory++) {
+        const retain = Math.max(0, Math.min(1, t * 1.85 - memory * 0.17));
+        const radius = 17 + memory * 9 + Math.round(retain * 8);
+        arcLine(image, cx, cy + 7, radius, Math.PI + 0.16, Math.PI * 2 - 0.16,
+          memory % 2 === 0 ? p.surface : p.mycelium);
+        line(image, cx - radius, cy + 3, cx, cy - 7 - memory * 2,
+          memory % 2 === 0 ? p.bone : p.surface);
+        line(image, cx, cy - 7 - memory * 2, cx + radius, cy + 3,
+          memory % 2 === 0 ? p.bone : p.surface);
+        line(image, cx - Math.round(radius * 0.55), cy + 12,
+          cx - Math.round(radius * 0.72), cy + radius, p.mycelium);
+        line(image, cx + Math.round(radius * 0.55), cy + 12,
+          cx + Math.round(radius * 0.72), cy + radius, p.mycelium);
+      }
+    }
+    return;
+  }
   if (spec.name.startsWith('boss.death.')) {
     const t = frame / Math.max(1, spec.frames - 1); const spread = 8 + Math.round(42 * t);
     if (spec.name.endsWith('.sentinel')) {
@@ -1310,6 +1753,7 @@ const NATIVE_EFFECT_NAMES = [
   'boss.distress.surface', 'boss.distress.skeleton', 'boss.distress.mycelium',
   'boss.distress.crack', 'boss.distress.heart', 'boss.break',
   'boss.death.sentinel', 'boss.death.warden', 'boss.death.magistrate', 'boss.death.chancellor', 'boss.death.regent',
+  'boss.cast.sentinel', 'boss.cast.magistrate', 'boss.cast.chancellor', 'boss.cast.regent',
   'missile.pop.tiny', 'missile.pop.mid', 'missile.pop.big',
   'boom.elite', 'boom.elite.spray', 'boom.boss.back', 'boom.boss.top', 'boom.player', 'debris',
 ] as const;
@@ -1429,6 +1873,49 @@ function drawLaserFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fram
   const cx = x + Math.floor(spec.frameW / 2);
   const cy = y + Math.floor(spec.frameH / 2);
   if (spec.name.startsWith('beam.')) {
+    if (spec.name === 'beam.blue') {
+      // A low-alpha appeal membrane separates two verdict rails without
+      // pretending the collision capsule's centre is safe. Every row fills x
+      // edge-to-edge, so the body also tiles without a longitudinal seam.
+      for (let py = cy - 7; py <= cy + 7; py++) {
+        const distance = Math.abs(py - cy);
+        const color = distance <= 1
+          ? [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 48] as const
+          : distance <= 3
+          ? (frame % 2 === 0 ? MAGISTRATE_SEAL : MAGISTRATE_MAGENTA)
+          : distance <= 5 ? MAGISTRATE_MAGENTA
+            : [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 92] as const;
+        for (let px = x; px < x + spec.frameW; px++) over(image, px, py, color);
+      }
+      return;
+    }
+    if (
+      spec.name === 'beam.warm'
+      || spec.name === 'beam.v3.stream'
+      || spec.name === 'beam.stream'
+    ) {
+      const half = spec.name === 'beam.v3.stream' ? 8 : 6;
+      for (let py = cy - half; py <= cy + half; py++) {
+        const distance = Math.abs(py - cy);
+        const writing = (distance + frame) % 4;
+        const color = spec.name === 'beam.warm'
+          ? distance === 3
+            ? [CHANCELLOR_INDIGO[0], CHANCELLOR_INDIGO[1], CHANCELLOR_INDIGO[2], 48] as const
+            : distance <= 1
+            ? (frame % 2 === 0 ? CHANCELLOR_AMBER : CHANCELLOR_GREEN)
+            : distance <= 4 ? CHANCELLOR_AMBER
+              : [CHANCELLOR_INDIGO[0], CHANCELLOR_INDIGO[1], CHANCELLOR_INDIGO[2], 112] as const
+          : distance <= 1
+          ? CHANCELLOR_AMBER
+          : writing === 0 ? CHANCELLOR_GREEN
+            : writing === 1 ? [CHANCELLOR_AMBER[0], CHANCELLOR_AMBER[1], CHANCELLOR_AMBER[2], 142] as const
+              : [CHANCELLOR_INDIGO[0], CHANCELLOR_INDIGO[1], CHANCELLOR_INDIGO[2], 112] as const;
+        // Page-spine and writing tracks run along the whole beam axis. Their
+        // temporal motion is cross-axis only, preserving exact tile edges.
+        for (let px = x; px < x + spec.frameW; px++) over(image, px, py, color);
+      }
+      return;
+    }
     const thick = spec.name.includes('heavy') || spec.name.includes('v3.stream') ? 16
       : spec.name.includes('slim') ? 8 : 12;
     const top = cy - Math.floor(thick / 2);
@@ -1473,6 +1960,41 @@ function drawMissileFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fr
   const tail = x + 3;
   const nose = x + spec.frameW - 3;
   const halfH = Math.max(3, Math.floor(spec.frameH / 2) - 3);
+  if (spec.name === 'missile.4') {
+    // A bifurcated verdict blade: two independently breathing points, an open
+    // appeal channel, and a seal joint instead of the shared heart-writ ribs.
+    const shear = frame % 3 - 1;
+    const shoulder = cx - 3;
+    line(image, tail + 2, cy, shoulder, cy - 3 - shear, MAGISTRATE_MAGENTA);
+    line(image, shoulder, cy - 3 - shear, nose, cy - 2, MAGISTRATE_SEAL);
+    line(image, tail + 2, cy, shoulder, cy + 3 + shear, MAGISTRATE_MAGENTA);
+    line(image, shoulder, cy + 3 + shear, nose, cy + 2, MAGISTRATE_SEAL);
+    line(image, tail + 5, cy - 1, tail, cy - 4 + shear, MAGISTRATE_MAGENTA);
+    line(image, tail + 5, cy + 1, tail, cy + 4 - shear, MAGISTRATE_MAGENTA);
+    ring(image, shoulder, cy, 2 + (frame % 2), 1, MAGISTRATE_MAGENTA);
+    over(image, shoulder, cy, p.heart);
+    over(image, nose, cy - 2, p.bone);
+    over(image, nose, cy + 2, p.bone);
+    return;
+  }
+  if (spec.name === 'missile.9') {
+    // A witness eye tows two archival page corners. Green/amber filaments carry
+    // the eye forward; there is no mechanical hull or exhaust.
+    const eyeX = cx + 5;
+    const lid = 2 + (frame % 2);
+    line(image, tail, cy - 3, cx - 3, cy - 3, CHANCELLOR_AMBER);
+    line(image, tail, cy - 3, tail, cy + 1, CHANCELLOR_GREEN);
+    line(image, tail, cy + 4, cx, cy + 4, CHANCELLOR_GREEN);
+    line(image, tail, cy + 4, tail + 3, cy + 1, CHANCELLOR_AMBER);
+    line(image, tail + 2, cy, eyeX - 3, cy - 2 + (frame % 3) - 1, CHANCELLOR_GREEN);
+    line(image, tail + 3, cy + 2, eyeX - 3, cy + 2 - (frame % 3) + 1, CHANCELLOR_AMBER);
+    ellipse(image, eyeX, cy, 4, lid, CHANCELLOR_AMBER);
+    ellipse(image, eyeX, cy, 2, 1, CHANCELLOR_INDIGO);
+    over(image, eyeX + (frame % 3) - 1, cy, CHANCELLOR_GREEN);
+    line(image, eyeX + 4, cy, nose, cy, CHANCELLOR_AMBER);
+    over(image, nose, cy, p.bone);
+    return;
+  }
   const massive = spec.name === 'missile.massive';
   const ribs = massive ? 6 : 3;
   const span = nose - tail - 9;
@@ -1637,7 +2159,7 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 
 | Surface | Count | File |
 |---|---:|---|
-| Native bullet names (16 neutral floors + 56 current base variants) | ${bulletCount} | \`bullets/bullets.png\` |
+| Native bullet names (${BULLET_CELLS.length} neutral floors + ${bulletCount - BULLET_CELLS.length} current base variants) | ${bulletCount} | \`bullets/bullets.png\` |
 | Native effects | ${NATIVE_EFFECT_NAMES.length} | \`effects/effects.png\` |
 | Player option / thrust / bomb effects | ${PLAYER_EFFECT_SPECS.length} | \`effects/effects.png\` |
 | Laser bodies + caps | ${V4_LASER_SPECS.length} | \`lasers/lasers.png\` |
@@ -1719,10 +2241,21 @@ heart core. They deliberately do not inherit the saturated enemy projectile
 palette. The five Boss death strips preserve identity as lunar fragments, a
 seal cage, twin blades, archive tablets with script, and a rooted crown/dome.
 
-Hostile bullets carry an opaque bone-white keyline and a five-pixel threat core;
-player bullets keep an opaque identity-colour keyline. This faction grammar is
-independent of the semantic anatomy above and remains readable against every
-stage palette.
+Shared hostile bullets carry an opaque bone-white keyline and a five-pixel
+threat core; player bullets keep an opaque identity-colour keyline. The four
+main-Boss families deliberately replace the all-white outline with owner-chroma
+silhouettes while preserving the same five-pixel threat core and one east glint:
+Sentinel opens silver-cyan membrane eyes and moon gates; Magistrate forks
+magenta verdict blades around diamond seals; Chancellor writes amber/indigo-green
+eye stamps and comet traces; Regent wears imperial-purple crystals, crimson
+roots and abraded crown rings.
+
+That shape lock continues through each Boss's unique heavy presentation:
+\`beam.blue\` is a twin verdict rail around a low-alpha appeal channel and \`missile.4\`
+is a bifurcated judgment blade; Chancellor's warm/stream beams are seamless
+amber-green page spines with moving writing rows and \`missile.9\` is a witness
+eye towing archival page corners. Shared \`beam.cyan\`, every cap and Regent's
+massive writ remain unchanged.
 
 All oriented bullet and missile art points east (+x), matching CLAUDE.md rule 7.
 Small bullets paint 6–14px, medium bullets 16–22px, large bullets 24–28px;
