@@ -5,7 +5,7 @@ A deterministic browser bullet-hell shooter built with three.js.
 **[Play online →](https://danmaku.t-h-e-s-p-a-c-e.com/)**
 · [Vercel mirror](https://danmaku-ebon.vercel.app/)
 
-**Input:** keyboard + mouse or standard controller / gamepad · touch controls are not implemented
+**Input:** keyboard + mouse, standard controller / gamepad, or touchscreen
 
 ![v4 Ghost-layer style lock: surface, skeleton, mycelium, and heart](./docs/art/v4/style-lock-ghost-layers.png)
 
@@ -56,17 +56,29 @@ be installed as an offline-capable PWA.
 
 ## Controls
 
-| Action | Keyboard | Mouse | Controller / gamepad |
-|---|---|---|---|
-| Move / navigate | Arrow keys | Move to a field position / click a menu row | Left stick / D-pad |
-| Shoot / confirm / advance dialogue | `Z` | — | A / Cross |
-| Bomb / cancel | `X` | — | B / Circle or X / Square |
-| Focus | `Shift` | — | Shoulder button / trigger |
-| Start / pause / confirm | `Space` | — | Start / Options |
-| Save screenshot | `C` | Pause menu: TAKE SCREENSHOT | — |
+| Action | Keyboard | Mouse | Controller / gamepad | Touchscreen |
+|---|---|---|---|---|
+| Move / navigate | Arrow keys | Move to a field position / click a menu row | Left stick / D-pad | Virtual stick / tap a menu row |
+| Shoot / confirm / advance dialogue | `Z` | — | A / Cross | `A` |
+| Bomb / cancel | `X` | — | B / Circle or X / Square | `B` |
+| Focus | `Shift` | — | Shoulder button / trigger | — |
+| Menu / pause / confirm | `Space` | — | Start / Options | Pause / menu seal |
+| Save screenshot | `C` | Pause menu: TAKE SCREENSHOT | — | Pause menu: TAKE SCREENSHOT |
 
-Focus slows movement, switches to the character's focused weapon, reveals the
-lethal hit point, and widens item pickup.
+Focus is a hold action, not a toggle. Hold either `Shift` key on a keyboard, or
+any shoulder button / trigger (`L1`, `R1`, `L2`, or `R2`) on a controller.
+While held, Focus slows movement, switches to the character's focused weapon,
+reveals the lethal hit point, and widens item pickup; releasing the button
+returns to normal movement and fire.
+
+Touch controls appear automatically on touch-first devices and after the first
+touch on a hybrid device. In portrait they occupy a dock below the play field;
+in landscape they move into the side gutters. The virtual stick follows the
+thumb visually and resolves to the same eight digital directions recorded by
+keyboard and controller play. The ornamental pause/menu seal has no visible
+text, but performs the controller Start / Options action. The touch layout
+intentionally does not expose Focus; keyboard and controller Focus remain
+unchanged.
 
 Mouse steering and keyboard actions can be used together. Cursor coordinates
 are converted to fixed-tick digital directions before they reach the game, so

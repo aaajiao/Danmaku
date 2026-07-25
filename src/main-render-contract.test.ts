@@ -3,6 +3,206 @@ import { Layer } from './render/stage';
 
 const mainSource = await Bun.file(new URL('./main.ts', import.meta.url)).text();
 const v4UiSource = await Bun.file(new URL('./render/v4-ui.ts', import.meta.url)).text();
+const htmlSource = await Bun.file(new URL('../index.html', import.meta.url)).text();
+const styleSource = await Bun.file(new URL('./style.css', import.meta.url)).text();
+
+function parentShellElementId(source: string, wanted: string): string | undefined {
+  const stack: (string | undefined)[] = [];
+  for (const match of source.matchAll(/<\/?(?:main|div)\b[^>]*>/g)) {
+    const tag = match[0];
+    if (tag.startsWith('</')) {
+      stack.pop();
+      continue;
+    }
+    const id = /\bid="([^"]+)"/.exec(tag)?.[1];
+    if (id === wanted) return stack.at(-1);
+    stack.push(id);
+  }
+  return undefined;
+}
+
+describe('touch controls remain a shell input source', () => {
+  test('stick, A, B, and Start join the existing tick-sampled mask', () => {
+    const start = mainSource.indexOf(
+      'const touchInput = new TouchInput(window)',
+    );
+    const end = mainSource.indexOf('input.attach();', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    const setup = mainSource.slice(start, end);
+    expect(setup).toContain('touchInput.attachStick(touchStick)');
+    expect(setup).toContain('touchInput.attachAction(touchA, Button.Shot)');
+    expect(setup).toContain('touchInput.attachAction(touchB, Button.Bomb)');
+    expect(setup).toContain('touchInput.attachAction(touchStart, Button.Start)');
+    expect(setup).toContain('touchInput,');
+    expect(setup).not.toContain('Button.Slow');
+  });
+
+  test('the authored frame scales inside its real slot rather than the viewport', () => {
+    const start = mainSource.indexOf('function fitStage(): void');
+    const end = mainSource.indexOf('let touchControlsEnabled', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    const fit = mainSource.slice(start, end);
+    expect(fit).toContain('stageSlot.getBoundingClientRect()');
+    expect(fit).toContain("setProperty('--stage-scale'");
+    expect(fit).not.toContain('style.transform');
+    expect(styleSource).toContain('margin-top: -320px');
+    expect(styleSource).toContain('margin-left: -240px');
+    expect(styleSource).toContain('transform: scale(var(--stage-scale))');
+  });
+
+  test('controls are a safe-area-aware sibling, never a child of the stage', () => {
+    expect(htmlSource).toContain('viewport-fit=cover');
+    expect(parentShellElementId(htmlSource, 'stage')).toBe('stage-slot');
+    expect(parentShellElementId(htmlSource, 'stage-slot')).toBe('game-shell');
+    expect(parentShellElementId(htmlSource, 'touch-controls')).toBe('game-shell');
+    expect(styleSource).toContain('#touch-controls[hidden]');
+    expect(styleSource).toContain('env(safe-area-inset-bottom');
+    expect(styleSource).toContain('touch-action: none');
+    expect(styleSource).toContain('@media (orientation: landscape)');
+  });
+
+  test('only four complete ornaments remain, including a real moving stick', () => {
+    const touchStart = htmlSource.indexOf('<div id="touch-controls"');
+    const touchEnd = htmlSource.indexOf('</main>', touchStart);
+    expect(touchStart).toBeGreaterThan(-1);
+    expect(touchEnd).toBeGreaterThan(touchStart);
+    const touchMarkup = htmlSource.slice(touchStart, touchEnd);
+
+    expect(htmlSource).toContain('id="touch-stick"');
+    expect(htmlSource).toContain('class="touch-stick-knob"');
+    expect(htmlSource).toContain('aria-label="Virtual movement stick"');
+    expect(htmlSource).not.toContain('touch-dpad');
+    expect(touchMarkup.match(/<button\b/g)?.length).toBe(3);
+    expect(touchMarkup).toContain('aria-label="Menu, pause, and confirm"');
+    expect(touchMarkup).toContain('class="touch-stick-well"');
+    expect(touchMarkup).toContain('class="touch-start-seal"');
+    expect(touchMarkup.match(/class="touch-action-letter"/g)?.length).toBe(2);
+    expect(touchMarkup).not.toContain('>START<');
+    expect(styleSource).not.toContain('touch-ritual');
+    expect(styleSource).not.toContain('touch-ritual-divider');
+    expect(styleSource).not.toContain('touch-ritual-bridge');
+
+    const stickStart = styleSource.indexOf('#touch-stick {');
+    const stickEnd = styleSource.indexOf('}', stickStart);
+    expect(stickStart).toBeGreaterThan(-1);
+    expect(stickEnd).toBeGreaterThan(stickStart);
+    expect(styleSource.slice(stickStart, stickEnd)).not.toContain('clip-path');
+
+    expect(styleSource).toContain(
+      'calc(-50% + var(--touch-stick-x))',
+    );
+    expect(styleSource).toContain(
+      'calc(-50% + var(--touch-stick-y))',
+    );
+    expect(mainSource).toContain(
+      "touchStick.style.setProperty('--touch-stick-x'",
+    );
+    expect(mainSource).toContain(
+      "touchStick.style.setProperty('--touch-stick-y'",
+    );
+    expect(mainSource).toContain('const distance = Math.hypot(x, y)');
+
+    // One atlas and palette serve all four established control ornaments.
+    expect(styleSource).toContain(
+      "--touch-ui-atlas: url('./assets/v4/ui-v4.png')",
+    );
+    expect(styleSource).toContain('--touch-ice: 211 225 235');
+    expect(styleSource).toContain('--touch-heart: 255 145 189');
+    expect(styleSource).toContain('#touch-stick,\n#touch-start,\n.touch-action');
+  });
+
+  test('real control contacts dim the chrome until every stream releases', () => {
+    expect(mainSource).toContain(
+      'const touchControlPointers = new Map<number, string>()',
+    );
+    expect(mainSource).toContain(
+      'const touchControlTouches = new Set<number>()',
+    );
+    expect(mainSource).toContain(
+      "touchControls.dataset.operating = 'true'",
+    );
+    expect(mainSource).toContain('delete touchControls.dataset.operating');
+    expect(mainSource).toContain(
+      "touchControls.addEventListener('pointerdown'",
+    );
+    expect(mainSource).toContain(
+      "touchControls.addEventListener('touchstart'",
+    );
+    expect(mainSource).toContain(
+      "window.addEventListener('pointerup', endTouchControlPointer",
+    );
+    expect(mainSource).toContain(
+      "window.addEventListener('touchend', endTouchControlTouch",
+    );
+    expect(mainSource.match(/resetTouchControlActivity\(\)/g)?.length)
+      .toBeGreaterThanOrEqual(4);
+
+    expect(styleSource).toContain(
+      "#touch-controls[data-operating='true']",
+    );
+    expect(styleSource).toContain('opacity: 0.44');
+    expect(styleSource).toContain('brightness(0.7) saturate(0.78)');
+    expect(styleSource).toContain(
+      'transition: opacity 120ms ease-out, filter 120ms ease-out',
+    );
+  });
+
+  test('valid user activation unlocks audio before touch cleanup can cancel it', () => {
+    const unlockStart = mainSource.indexOf(
+      'function unlockAudioFromUserActivation',
+    );
+    const unlockEnd = mainSource.indexOf(
+      'const touchInput = new TouchInput(window)',
+      unlockStart,
+    );
+    expect(unlockStart).toBeGreaterThan(-1);
+    expect(unlockEnd).toBeGreaterThan(unlockStart);
+    const unlock = mainSource.slice(unlockStart, unlockEnd);
+    expect(unlock).toContain('audioOutput.unlock()');
+    expect(unlock).toContain('audio.unlock()');
+    expect(unlock).toContain('music.unlock()');
+    expect(unlock).toContain(
+      "window.addEventListener('pointerup', unlockAudioFromUserActivation",
+    );
+    expect(unlock).toContain(
+      "window.addEventListener('touchend', unlockAudioFromUserActivation",
+    );
+    expect(unlock).toContain(
+      "window.addEventListener('click', unlockAudioFromUserActivation",
+    );
+    expect(unlock).toContain(
+      "window.addEventListener('keydown', unlockAudioFromUserActivation",
+    );
+    expect(unlock).not.toContain("addEventListener('pointerdown'");
+    expect(unlock).not.toContain("addEventListener('touchstart'");
+
+    const tick = mainSource.indexOf('const buttons = input.sample();');
+    const machineTick = mainSource.indexOf('machine.tick(buttons);', tick);
+    expect(tick).toBeGreaterThan(-1);
+    expect(machineTick).toBeGreaterThan(tick);
+    expect(mainSource.slice(tick, machineTick)).not.toContain(
+      'audioOutput.unlock()',
+    );
+  });
+
+  test('interruptions clear touch state', () => {
+    expect(mainSource.match(/touchInput\.reset\(\)/g)?.length)
+      .toBeGreaterThanOrEqual(3);
+    const tick = mainSource.indexOf('machine.tick(buttons);');
+    const transition = mainSource.indexOf(
+      'if (machine.current !== stateBeforeTick)',
+      tick,
+    );
+    expect(tick).toBeGreaterThan(-1);
+    expect(transition).toBeGreaterThan(tick);
+    expect(mainSource.slice(transition, transition + 500))
+      .not.toContain('touchInput.reset()');
+  });
+});
 
 describe('the shell honours baked strip colour', () => {
   test('the shared tint resolver makes baked art identity-white', () => {

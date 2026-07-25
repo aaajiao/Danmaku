@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <meta name="description" content="A deterministic bullet-hell shooter built with three.js." />
     <meta name="theme-color" content="#04070c" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -18,36 +21,92 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <!-- Two layers, one frame: WebGL for the play field, Canvas2D on top for
-         the HUD. The whole screen is the field — 480x640, the traditional 3:4
-         portrait — and the HUD composites over its edges; there is no sidebar.
-         Only the WebGL layer is three.js. -->
-    <div id="stage">
-      <canvas id="field" width="480" height="640"></canvas>
-      <canvas id="overlay" width="480" height="640"></canvas>
-      <!-- Canvas menus keep their authored rendering; these transparent DOM
-           buttons add direct pointer hit targets without changing game state
-           outside the fixed-tick digital input path. -->
-      <div id="menu-actions" aria-label="Game menu" hidden></div>
-      <!-- WebHID permission must be requested from a real DOM click. This
-           transparent shell action is positioned over a title-menu row drawn
-           by the canvas; it never enters the deterministic game-state menu. -->
-      <div id="controller-setup" hidden>
-        <button id="controller-connect" type="button">CONNECT CONTROLLER</button>
-        <output id="controller-status" aria-live="polite"></output>
+    <main id="game-shell">
+      <div id="stage-slot">
+        <!-- Two layers, one frame: WebGL for the play field, Canvas2D on top
+             for the HUD. The authored frame stays exactly 480x640; the shell
+             scales and centres it without letting touch controls cover it.
+             Only the WebGL layer is three.js. -->
+        <div id="stage">
+          <canvas id="field" width="480" height="640"></canvas>
+          <canvas id="overlay" width="480" height="640"></canvas>
+          <!-- Canvas menus keep their authored rendering; these transparent
+               DOM buttons add direct pointer hit targets without changing
+               game state outside the fixed-tick digital input path. -->
+          <div id="menu-actions" aria-label="Game menu" hidden></div>
+          <!-- WebHID permission must be requested from a real DOM click. This
+               transparent shell action is positioned over a title-menu row
+               drawn by the canvas; it never enters the deterministic
+               game-state menu. -->
+          <div id="controller-setup" hidden>
+            <button id="controller-connect" type="button">CONNECT CONTROLLER</button>
+            <output id="controller-status" aria-live="polite"></output>
+          </div>
+          <!-- Replay import must originate in a real DOM gesture. The authored
+               canvas row opens this hidden picker through its transparent
+               button. -->
+          <input
+            id="replay-import"
+            type="file"
+            accept=".json,application/json"
+            hidden
+          />
+          <!-- Browser-owned success/error feedback sits outside both capture
+               canvases, so screenshots contain only the authored game frame. -->
+          <output id="shell-status" aria-live="polite" hidden></output>
+        </div>
       </div>
-      <!-- Replay import must originate in a real DOM gesture. The authored
-           canvas row opens this hidden picker through its transparent button. -->
-      <input
-        id="replay-import"
-        type="file"
-        accept=".json,application/json"
-        hidden
-      />
-      <!-- Browser-owned success/error feedback sits outside both capture
-           canvases, so screenshots contain only the authored game frame. -->
-      <output id="shell-status" aria-live="polite" hidden></output>
-    </div>
+
+      <!-- One movement-stick surface supports drag-to-change-direction without
+           crossing child hit targets. A/B and the graphical menu seal remain
+           real buttons for accessibility and for the pointer events required
+           by the fixed-tick input shell. -->
+      <div id="touch-controls" role="group" aria-label="Touch controls" hidden>
+        <div
+          id="touch-stick"
+          role="group"
+          tabindex="0"
+          aria-label="Virtual movement stick"
+        >
+          <span class="touch-stick-well" aria-hidden="true"></span>
+          <span class="touch-stick-trace" aria-hidden="true"></span>
+          <span class="touch-stick-knob" aria-hidden="true">
+            <span class="touch-stick-heart"></span>
+          </span>
+        </div>
+        <button
+          id="touch-start"
+          type="button"
+          tabindex="0"
+          data-touch-button="start"
+          aria-label="Menu, pause, and confirm"
+        >
+          <span class="touch-start-seal" aria-hidden="true"></span>
+        </button>
+        <div class="touch-action-cluster" role="group" aria-label="Action buttons">
+          <button
+            id="touch-b"
+            class="touch-action"
+            type="button"
+            tabindex="0"
+            data-touch-button="bomb"
+            aria-label="Bomb and cancel"
+          >
+            <span class="touch-action-letter" aria-hidden="true">B</span>
+          </button>
+          <button
+            id="touch-a"
+            class="touch-action"
+            type="button"
+            tabindex="0"
+            data-touch-button="shot"
+            aria-label="Fire and confirm"
+          >
+            <span class="touch-action-letter" aria-hidden="true">A</span>
+          </button>
+        </div>
+      </div>
+    </main>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

@@ -22,11 +22,12 @@ import { Audio, overrideSound, soundNames } from './audio';
 import { Music, musicNames } from './audio/music';
 import { AudioOutput, type AudioCaptureLease } from './audio/output';
 import { MENU_MUSIC, V4_BOSS_MUSIC_NAMES, v4EventSound } from './v4/audio';
-import { Input } from './core/input';
+import { Button, Input } from './core/input';
 import {
   MenuPointerInput,
   PointerPositionInput,
 } from './core/pointer-input';
+import { TouchInput } from './core/touch-input';
 import {
   XboxWebHidInput,
   browserWebHid,
@@ -147,10 +148,17 @@ import {
 const FIELD_W = FIELD.width;
 const FIELD_H = FIELD.height;
 
+const gameShell = document.getElementById('game-shell') as HTMLElement;
+const stageSlot = document.getElementById('stage-slot') as HTMLDivElement;
 const stageElement = document.getElementById('stage') as HTMLDivElement;
 const field = document.getElementById('field') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLCanvasElement;
 const surface = overlay.getContext('2d')!;
+const touchControls = document.getElementById('touch-controls') as HTMLDivElement;
+const touchStick = document.getElementById('touch-stick') as HTMLDivElement;
+const touchA = document.getElementById('touch-a') as HTMLButtonElement;
+const touchB = document.getElementById('touch-b') as HTMLButtonElement;
+const touchStart = document.getElementById('touch-start') as HTMLButtonElement;
 const menuActions = document.getElementById('menu-actions') as HTMLDivElement;
 const controllerSetup = document.getElementById('controller-setup') as HTMLDivElement;
 const controllerConnect = document.getElementById('controller-connect') as HTMLButtonElement;
@@ -168,18 +176,97 @@ captureCanvas.height = FIELD_H;
 const frameCapture = new FrameCapture(captureCanvas);
 
 /**
- * Fit the fixed 480×640 logical frame to the viewport. Integer scales above
- * 1× keep the pixel art crisp (`image-rendering: pixelated` does the rest);
- * below 1× a fractional fit beats clipping. The sim never learns any of this —
- * scaling is CSS transform only, input is already digital bits (rule 4).
+ * Fit the fixed 480×640 logical frame to its available viewport slot.
+ *
+ * Touch portrait layout reserves a sibling controller deck below this slot;
+ * landscape puts controls in the side gutters. Measuring the slot rather than
+ * `innerWidth`/`innerHeight` handles both without teaching the stage or sim
+ * that a controller exists. Integer scales above 1× keep the pixel art crisp;
+ * below 1× a fractional fit beats clipping.
  */
 function fitStage(): void {
-  const raw = Math.min(innerWidth / FIELD_W, innerHeight / FIELD_H);
+  const rect = stageSlot.getBoundingClientRect();
+  const availableWidth = rect.width || innerWidth;
+  const availableHeight = rect.height || innerHeight;
+  const raw = Math.min(
+    availableWidth / FIELD_W,
+    availableHeight / FIELD_H,
+  );
   const scale = raw >= 1 ? Math.max(1, Math.floor(raw)) : raw;
-  stageElement.style.transform = `scale(${scale})`;
+  stageElement.style.setProperty('--stage-scale', `${Math.max(0, scale)}`);
 }
 addEventListener('resize', fitStage);
-fitStage();
+window.visualViewport?.addEventListener('resize', fitStage);
+if ('ResizeObserver' in window) {
+  new ResizeObserver(fitStage).observe(stageSlot);
+}
+
+let touchControlsEnabled = false;
+
+function enableTouchControls(): void {
+  if (touchControlsEnabled) return;
+  touchControlsEnabled = true;
+  gameShell.classList.add('touch-controls-enabled');
+  touchControls.hidden = false;
+  fitStage();
+}
+
+/**
+ * Coarse-primary devices receive controls before their first gesture. A hybrid
+ * laptop keeps the desktop layout until it actually sees a touch pointer, then
+ * retains the controller for this page session. Deferring that reveal until
+ * the gesture has ended avoids moving a canvas menu row between down and click.
+ */
+let touchRevealPending = false;
+const revealTouchControlsAfterGesture = (): void => {
+  if (!touchRevealPending) return;
+  touchRevealPending = false;
+  removeEventListener('pointerup', revealTouchControlsAfterGesture, true);
+  removeEventListener('pointercancel', revealTouchControlsAfterGesture, true);
+  removeEventListener('touchend', revealTouchControlsAfterGesture, true);
+  removeEventListener('touchcancel', revealTouchControlsAfterGesture, true);
+  requestAnimationFrame(enableTouchControls);
+};
+addEventListener('pointerdown', (event) => {
+  const pointer = event as PointerEvent;
+  if (
+    touchControlsEnabled
+    || touchRevealPending
+    || pointer.pointerType !== 'touch'
+  ) {
+    return;
+  }
+  touchRevealPending = true;
+  addEventListener('pointerup', revealTouchControlsAfterGesture, {
+    capture: true,
+    once: true,
+  });
+  addEventListener('pointercancel', revealTouchControlsAfterGesture, {
+    capture: true,
+    once: true,
+  });
+}, { capture: true });
+addEventListener('touchstart', () => {
+  if (touchControlsEnabled || touchRevealPending) return;
+  touchRevealPending = true;
+  addEventListener('touchend', revealTouchControlsAfterGesture, {
+    capture: true,
+    once: true,
+  });
+  addEventListener('touchcancel', revealTouchControlsAfterGesture, {
+    capture: true,
+    once: true,
+  });
+}, { capture: true, passive: true });
+
+if (
+  SEARCH.get('touch') === '1'
+  || matchMedia('(pointer: coarse)').matches
+) {
+  enableTouchControls();
+} else {
+  fitStage();
+}
 
 /**
  * Ticks a scene change takes. One second: long enough that entering a spell
@@ -318,12 +405,13 @@ function openReplayImport(): void {
   replayImportInput.click();
 }
 
-// Apply any sounds a pack replaced, BEFORE the first `audio.unlock()` in
-// the loop can fire. `Audio.unlock` pre-renders every registered sound's buffer
-// (see `audio/index.ts` `#start`), so a url swapped in after that first unlock
-// would never be decoded. This runs at module top level, before `loop.start()`,
-// which is what guarantees the ordering. `overrideSound` preserves any mix
-// fields a legacy string entry omitted, while object entries can tune them.
+// Apply any sounds a pack replaced, BEFORE the first user-gesture unlock.
+// `Audio.unlock` pre-renders every registered sound's buffer (see
+// `audio/index.ts` `#start`), so a url swapped in after that first unlock would
+// never be decoded. This runs at module top level, before the input shell is
+// attached, which is what guarantees the ordering. `overrideSound` preserves
+// any mix fields a legacy string entry omitted, while object entries can tune
+// them.
 for (const [name, spec] of Object.entries(packs.soundSpecs)) {
   overrideSound(name, spec);
 }
@@ -807,17 +895,225 @@ const directController = webHid === undefined
   : new XboxWebHidInput(webHid, showControllerStatus);
 const pointerPositionInput = new PointerPositionInput(FIELD_W, FIELD_H);
 const menuPointerInput = new MenuPointerInput();
+
+/**
+ * Start WebAudio only from events WebKit recognises as user activation.
+ *
+ * In particular, iOS does not reliably authorise WebAudio from `touchstart`.
+ * Starting there can leave `AudioContext.resume()` pending; a later valid
+ * `touchend` would then only reuse that poisoned in-flight attempt. These
+ * window-capture listeners are deliberately registered before TouchInput's
+ * own end listeners, which may prevent the event while releasing a contact.
+ */
+function unlockAudioFromUserActivation(): void {
+  void audioOutput.unlock();
+  void audio.unlock();
+  void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
+}
+window.addEventListener('pointerup', unlockAudioFromUserActivation, {
+  capture: true,
+});
+window.addEventListener('touchend', unlockAudioFromUserActivation, {
+  capture: true,
+  passive: true,
+});
+window.addEventListener('mousedown', unlockAudioFromUserActivation, {
+  capture: true,
+});
+window.addEventListener('click', unlockAudioFromUserActivation, {
+  capture: true,
+});
+window.addEventListener('keydown', unlockAudioFromUserActivation, {
+  capture: true,
+});
+
+const touchInput = new TouchInput(window);
+touchInput.attachStick(touchStick);
+touchInput.attachAction(touchA, Button.Shot);
+touchInput.attachAction(touchB, Button.Bomb);
+touchInput.attachAction(touchStart, Button.Start);
+
+/*
+ * Touch chrome stays fully legible while idle, then yields visual priority to
+ * the play field while any real pointer is operating one of its four controls.
+ * Pointer and legacy Touch Events are tracked independently because older
+ * iPhones may emit either stream (or both); neither count reaches game state.
+ */
+const touchControlPointers = new Map<number, string>();
+const touchControlTouches = new Set<number>();
+
+function syncTouchControlActivity(): void {
+  if (touchControlPointers.size > 0 || touchControlTouches.size > 0) {
+    touchControls.dataset.operating = 'true';
+  } else {
+    delete touchControls.dataset.operating;
+  }
+}
+
+function resetTouchControlActivity(): void {
+  touchControlPointers.clear();
+  touchControlTouches.clear();
+  syncTouchControlActivity();
+}
+
+touchControls.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  touchControlPointers.set(event.pointerId, event.pointerType);
+  syncTouchControlActivity();
+}, { capture: true });
+touchControls.addEventListener('touchstart', (event) => {
+  for (let index = 0; index < event.changedTouches.length; index++) {
+    const touch = event.changedTouches.item(index);
+    if (touch !== null) touchControlTouches.add(touch.identifier);
+  }
+  syncTouchControlActivity();
+}, { capture: true, passive: true });
+
+const endTouchControlPointer = (event: PointerEvent): void => {
+  const pointerType = touchControlPointers.get(event.pointerId);
+  if (pointerType === undefined) return;
+  touchControlPointers.delete(event.pointerId);
+  if (pointerType === 'touch' && touchControlPointers.size === 0) {
+    // A dual-stream browser may omit the matching legacy touch end.
+    touchControlTouches.clear();
+  }
+  syncTouchControlActivity();
+};
+const endTouchControlTouch = (event: TouchEvent): void => {
+  for (let index = 0; index < event.changedTouches.length; index++) {
+    const touch = event.changedTouches.item(index);
+    if (touch !== null) touchControlTouches.delete(touch.identifier);
+  }
+  if (event.touches.length === 0) {
+    // Preserve a simultaneous mouse press, but clear mirrored touch pointers.
+    for (const [id, type] of touchControlPointers) {
+      if (type === 'touch') touchControlPointers.delete(id);
+    }
+  }
+  syncTouchControlActivity();
+};
+window.addEventListener('pointerup', endTouchControlPointer, { capture: true });
+window.addEventListener('pointercancel', endTouchControlPointer, {
+  capture: true,
+});
+touchControls.addEventListener('lostpointercapture', endTouchControlPointer, {
+  capture: true,
+});
+window.addEventListener('touchend', endTouchControlTouch, { capture: true });
+window.addEventListener('touchcancel', endTouchControlTouch, { capture: true });
+
+/*
+ * The thumb follows continuous browser coordinates for presentation only.
+ * `TouchInput` independently quantizes the same gesture into eight digital
+ * sectors before the fixed tick samples it (CLAUDE.md, rule 4); these CSS
+ * offsets never enter game state, replay data, or simulation math.
+ */
+const stickVisualPointerIds = new Set<number>();
+const stickVisualTouchIds = new Set<number>();
+
+function moveTouchStickVisual(clientX: number, clientY: number): void {
+  const rect = touchStick.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  let x = clientX - (rect.left + rect.width / 2);
+  let y = clientY - (rect.top + rect.height / 2);
+  const limit = Math.min(rect.width, rect.height) * 0.24;
+  const distance = Math.hypot(x, y);
+  if (distance > limit && distance > 0) {
+    const scale = limit / distance;
+    x *= scale;
+    y *= scale;
+  }
+
+  touchStick.style.setProperty('--touch-stick-x', `${x}px`);
+  touchStick.style.setProperty('--touch-stick-y', `${y}px`);
+  touchStick.dataset.active = 'true';
+}
+
+function resetTouchStickVisual(): void {
+  stickVisualPointerIds.clear();
+  stickVisualTouchIds.clear();
+  touchStick.style.setProperty('--touch-stick-x', '0px');
+  touchStick.style.setProperty('--touch-stick-y', '0px');
+  delete touchStick.dataset.active;
+}
+
+touchStick.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  stickVisualPointerIds.add(event.pointerId);
+  moveTouchStickVisual(event.clientX, event.clientY);
+});
+touchStick.addEventListener('pointermove', (event) => {
+  if (!stickVisualPointerIds.has(event.pointerId)) return;
+  moveTouchStickVisual(event.clientX, event.clientY);
+});
+
+function moveTouchStickFromTouches(event: TouchEvent, start: boolean): void {
+  for (let index = 0; index < event.changedTouches.length; index++) {
+    const touch = event.changedTouches.item(index);
+    if (touch === null) continue;
+    if (start) stickVisualTouchIds.add(touch.identifier);
+    if (!stickVisualTouchIds.has(touch.identifier)) continue;
+    moveTouchStickVisual(touch.clientX, touch.clientY);
+  }
+}
+touchStick.addEventListener('touchstart', (event) => {
+  moveTouchStickFromTouches(event, true);
+}, { passive: true });
+touchStick.addEventListener('touchmove', (event) => {
+  moveTouchStickFromTouches(event, false);
+}, { passive: true });
+
+const endTouchStickPointer = (event: PointerEvent): void => {
+  if (!stickVisualPointerIds.has(event.pointerId)) return;
+  resetTouchStickVisual();
+};
+const endTouchStickTouch = (event: TouchEvent): void => {
+  for (let index = 0; index < event.changedTouches.length; index++) {
+    const touch = event.changedTouches.item(index);
+    if (touch !== null && stickVisualTouchIds.has(touch.identifier)) {
+      resetTouchStickVisual();
+      return;
+    }
+  }
+};
+window.addEventListener('pointerup', endTouchStickPointer, { capture: true });
+window.addEventListener('pointercancel', endTouchStickPointer, {
+  capture: true,
+});
+window.addEventListener('touchend', endTouchStickTouch, { capture: true });
+window.addEventListener('touchcancel', endTouchStickTouch, { capture: true });
+
 pointerPositionInput.attach(stageElement);
-window.addEventListener('blur', () => pointerPositionInput.clearTarget());
+window.addEventListener('blur', () => {
+  pointerPositionInput.clearTarget();
+  touchInput.reset();
+  resetTouchControlActivity();
+  resetTouchStickVisual();
+});
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) pointerPositionInput.clearTarget();
+  if (!document.hidden) return;
+  pointerPositionInput.clearTarget();
+  touchInput.reset();
+  resetTouchControlActivity();
+  resetTouchStickVisual();
+});
+window.addEventListener('pagehide', () => {
+  touchInput.reset();
+  resetTouchControlActivity();
+  resetTouchStickVisual();
 });
 const input = new Input([
   pointerPositionInput,
   menuPointerInput,
+  touchInput,
   ...(directController === undefined ? [] : [directController]),
 ]);
 input.attach();
+
+touchControls.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+});
 
 controllerConnect.addEventListener('click', () => {
   if (directController === undefined) return;
@@ -833,6 +1129,15 @@ controllerConnect.addEventListener('click', () => {
 const stopControllerKey = (event: Event): void => event.stopPropagation();
 controllerConnect.addEventListener('keydown', stopControllerKey);
 controllerConnect.addEventListener('keyup', stopControllerKey);
+const stopTouchButtonActivationKey = (event: KeyboardEvent): void => {
+  if (event.code === 'Space' || event.code === 'Enter') {
+    event.stopPropagation();
+  }
+};
+for (const button of [touchA, touchB, touchStart]) {
+  button.addEventListener('keydown', stopTouchButtonActivationKey);
+  button.addEventListener('keyup', stopTouchButtonActivationKey);
+}
 
 const menuActionButtons: HTMLButtonElement[] = [];
 
@@ -1097,9 +1402,6 @@ if (directController === undefined) {
   void directController.start();
 }
 
-/** Retry a refused audio unlock only on a fresh input gesture, never every held tick. */
-let lastUnlockButtons = 0;
-
 /**
  * Shell-side UI cues (`SHELL_CUES`), none of them a run event.
  *
@@ -1336,17 +1638,6 @@ const loop = new Loop({
 
     const buttons = input.sample();
 
-    const audioGesture = buttons !== 0 && lastUnlockButtons === 0;
-    lastUnlockButtons = buttons;
-    if (
-      audioGesture
-      && (!audio.unlocked || !music.unlocked || !audioOutput.unlocked)
-    ) {
-      void audioOutput.unlock();
-      void audio.unlock();
-      void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
-    }
-
     // The state about to tick, captured before the tick applies its transitions:
     // a menu confirm/cancel replaces this state, but its `.cue` field is set on
     // the object during the tick and survives the transition, so reading it here
@@ -1371,7 +1662,9 @@ const loop = new Loop({
     syncReplayExportAfterTick();
     if (machine.current !== stateBeforeTick) {
       // Do not let a menu hover target or an interrupted click sequence spill
-      // into the state that was just entered. A later pointermove starts fresh.
+      // into the state that was just entered. Touch holds intentionally survive:
+      // each state's Edges suppresses its first tick, and play should resume
+      // without requiring every finger to lift and press again.
       pointerPositionInput.clearTarget();
       menuPointerInput.reset();
     }

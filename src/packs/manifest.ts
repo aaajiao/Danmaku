@@ -20,6 +20,8 @@
  * as a unit while the procedural placeholders carry on unaffected.
  */
 
+import { sha256 } from './sha256';
+
 /** Formats this engine can load. A list from day one so format 2 slots in. */
 export const SUPPORTED_FORMATS: readonly number[] = [1];
 
@@ -2543,8 +2545,7 @@ export async function hashPack(
     offset += file.length;
   }
 
-  const digest = await crypto.subtle.digest('SHA-256', buffer);
-  const bytes = new Uint8Array(digest);
+  const bytes = await sha256(buffer);
   let hex = '';
   for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
   return hex.slice(0, 12);

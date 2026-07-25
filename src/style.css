@@ -1,20 +1,62 @@
 html,
 body {
   margin: 0;
+  width: 100%;
   height: 100%;
   background: #000;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*
+ * The shell owns the viewport and its safe areas. With touch controls hidden,
+ * the second grid row collapses completely; the stage slot therefore gets the
+ * same full safe viewport as the desktop layout.
+ */
+#game-shell {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  position: relative;
+  box-sizing: border-box;
   display: grid;
-  place-items: center;
+  grid-template: minmax(0, 1fr) auto / minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  padding:
+    var(--safe-area-top)
+    var(--safe-area-right)
+    var(--safe-area-bottom)
+    var(--safe-area-left);
+  overflow: hidden;
+  background: #000;
+}
+
+#stage-slot {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
-/* The frame IS the play field: 480x640 logical pixels, 3:4 portrait. main.ts
-   scales this element to fit the viewport (integer steps above 1x, fractional
-   below), so everything inside is authored at logical size and never knows. */
+/*
+ * The authored frame remains exactly 480x640 logical pixels. Positioning its
+ * unscaled centre with fixed negative margins keeps that centre pinned to the
+ * stage slot at every scale, including short landscape viewports.
+ */
 #stage {
-  position: relative;
+  --stage-scale: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 480px;
   height: 640px;
+  margin-top: -320px;
+  margin-left: -240px;
+  transform: scale(var(--stage-scale));
+  transform-origin: 50% 50%;
   image-rendering: pixelated;
 }
 
@@ -154,4 +196,511 @@ body {
 
 #shell-status[hidden] {
   display: none;
+}
+
+/*
+ * Touch controls occupy a separate portrait dock or guaranteed landscape
+ * gutters. These rules own only geometry, hit surfaces and input hygiene; the
+ * production-atlas block below is the sole visual skin.
+ */
+#touch-controls {
+  --touch-stick-size: clamp(112px, 32vw, 144px);
+  --touch-stick-knob-size: clamp(36px, 10vw, 46px);
+  --touch-action-size: clamp(58px, 18vw, 74px);
+  --touch-ice: 211 225 235;
+  --touch-dim: 97 113 129;
+  --touch-heart: 255 145 189;
+  --touch-blue: 140 235 255;
+  --touch-ink: 2 5 10;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  width: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+#touch-controls[hidden] {
+  display: none;
+}
+
+#touch-stick,
+#touch-start,
+.touch-action {
+  appearance: none;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--touch-ice) / 82%);
+  font-family:
+    'Hiragino Sans GB',
+    'Yu Gothic',
+    'Noto Sans CJK SC',
+    system-ui,
+    sans-serif;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  touch-action: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#touch-stick {
+  --touch-stick-x: 0px;
+  --touch-stick-y: 0px;
+  position: relative;
+  width: var(--touch-stick-size);
+  height: var(--touch-stick-size);
+  padding: 0;
+  cursor: grab;
+}
+
+#touch-stick:active {
+  cursor: grabbing;
+}
+
+.touch-stick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--touch-stick-knob-size);
+  height: var(--touch-stick-knob-size);
+  border-radius: 50%;
+  transform: translate(
+    calc(-50% + var(--touch-stick-x)),
+    calc(-50% + var(--touch-stick-y))
+  );
+  transition: border-color 60ms linear, filter 60ms linear;
+  will-change: transform;
+  pointer-events: none;
+}
+
+#touch-start {
+  position: relative;
+  isolation: isolate;
+  align-self: start;
+  justify-self: center;
+  min-width: 68px;
+  min-height: 48px;
+  padding: 0;
+  transition: translate 60ms linear;
+}
+
+.touch-action-cluster {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(8px, 2.5vw, 12px);
+  pointer-events: none;
+}
+
+.touch-action {
+  --touch-seal-accent: var(--touch-ice);
+  position: relative;
+  isolation: isolate;
+  width: var(--touch-action-size);
+  height: var(--touch-action-size);
+  padding: 0;
+  font-size: clamp(13px, 4vw, 15px);
+  line-height: 1;
+  transition: color 60ms linear, filter 60ms linear, translate 60ms linear;
+}
+
+.touch-action::before,
+.touch-action::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.touch-action::before {
+  z-index: -1;
+}
+
+#touch-a {
+  --touch-seal-accent: var(--touch-blue);
+}
+
+#touch-b {
+  --touch-seal-accent: var(--touch-heart);
+}
+
+#touch-stick:focus-visible,
+#touch-start:focus-visible,
+.touch-action:focus-visible {
+  outline: none;
+}
+
+@media (orientation: landscape) {
+  #game-shell {
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  }
+
+  #game-shell.touch-controls-enabled {
+    --touch-landscape-gutter: clamp(120px, 22vw, 240px);
+  }
+
+  #game-shell.touch-controls-enabled #stage-slot {
+    grid-area: 1 / 1;
+    margin-inline: var(--touch-landscape-gutter);
+  }
+
+  #game-shell.touch-controls-enabled #touch-controls:not([hidden]) {
+    --touch-stick-size: clamp(92px, 18vw, 132px);
+    --touch-stick-knob-size: clamp(32px, 6.2vw, 42px);
+    --touch-action-size: clamp(50px, 9.5vw, 72px);
+    position: relative;
+    grid-area: 1 / 1;
+    display: grid;
+    grid-template:
+      minmax(0, 1fr) /
+      var(--touch-landscape-gutter)
+      minmax(0, 1fr)
+      var(--touch-landscape-gutter);
+    width: auto;
+    height: auto;
+    padding: clamp(8px, 2.5vh, 18px) 0;
+  }
+
+  #game-shell.touch-controls-enabled #touch-stick {
+    grid-column: 1;
+    align-self: end;
+    justify-self: center;
+  }
+
+  #game-shell.touch-controls-enabled #touch-start {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    justify-self: center;
+  }
+
+  #game-shell.touch-controls-enabled .touch-action-cluster {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: end;
+    justify-self: center;
+  }
+}
+
+/*
+ * Final four-control v4 ornament skin. Each established atlas crop belongs to
+ * its own control; no deck-wide rail, divider, bridge or connector is present.
+ */
+#touch-controls {
+  --touch-ui-atlas: url('./assets/v4/ui-v4.png');
+  --touch-stick-size: clamp(116px, 34vw, 148px);
+  --touch-stick-knob-size: clamp(38px, 11vw, 48px);
+  --touch-action-size: clamp(62px, 19vw, 78px);
+  height: clamp(174px, 25dvh, 218px);
+  padding: 18px clamp(10px, 3vw, 22px) 12px;
+  isolation: isolate;
+  opacity: 1;
+  background:
+    radial-gradient(ellipse at 18% 82%, rgb(var(--touch-heart) / 7%), transparent 38%),
+    radial-gradient(ellipse at 82% 82%, rgb(var(--touch-blue) / 6%), transparent 38%),
+    linear-gradient(180deg, rgb(var(--touch-ink) / 2%), rgb(var(--touch-ink) / 82%));
+  filter: brightness(1) saturate(1);
+  transition: opacity 120ms ease-out, filter 120ms ease-out;
+}
+
+#touch-controls[data-operating='true'] {
+  opacity: 0.44;
+  filter: brightness(0.7) saturate(0.78);
+}
+
+#touch-controls::before,
+#touch-controls::after {
+  content: none;
+}
+
+.touch-stick-well,
+.touch-stick-trace,
+.touch-stick-heart,
+.touch-start-seal,
+.touch-action-letter {
+  pointer-events: none;
+}
+
+.touch-stick-well,
+.touch-stick-heart,
+.touch-start-seal,
+.touch-action::before {
+  background-image: var(--touch-ui-atlas);
+  background-repeat: no-repeat;
+  image-rendering: auto;
+}
+
+#touch-stick {
+  z-index: 1;
+  overflow: visible;
+}
+
+#touch-stick::before,
+#touch-stick::after {
+  content: none;
+}
+
+/* Circular portrait well from ui.dialogue.frame = (0, 256, 164 × 164). */
+.touch-stick-well {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 114%;
+  height: 114%;
+  border: 0;
+  background-color: transparent;
+  background-position: 0 42.384%;
+  background-size: 624.39% 468.293%;
+  box-shadow: none;
+  filter:
+    drop-shadow(0 0 3px rgb(var(--touch-heart) / 34%))
+    drop-shadow(0 0 12px rgb(var(--touch-ink) / 96%));
+  opacity: 0.84;
+  transform: translate(-50%, -50%);
+  translate: 0 -3px;
+  transition: filter 70ms linear, opacity 70ms linear;
+}
+
+.touch-stick-well::before,
+.touch-stick-well::after {
+  content: none;
+}
+
+/* Eight direction joints; no radar cross or concentric target. */
+.touch-stick-trace {
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 22deg,
+    rgb(var(--touch-ice) / 62%) 0deg 1.5deg,
+    transparent 1.5deg 45deg
+  );
+  -webkit-mask: radial-gradient(
+    circle,
+    transparent 0 72%,
+    #000 73% 84%,
+    transparent 85%
+  );
+  mask: radial-gradient(
+    circle,
+    transparent 0 72%,
+    #000 73% 84%,
+    transparent 85%
+  );
+}
+
+.touch-stick-trace::before,
+.touch-stick-trace::after {
+  content: none;
+}
+
+.touch-stick-knob {
+  z-index: 3;
+  border: 1px solid rgb(var(--touch-ice) / 68%);
+  background: rgb(var(--touch-ink) / 88%);
+  outline: 0;
+  box-shadow:
+    inset 0 0 0 4px rgb(var(--touch-ink) / 78%),
+    0 0 10px rgb(var(--touch-heart) / 24%);
+}
+
+.touch-stick-knob::before,
+.touch-stick-knob::after {
+  content: none;
+}
+
+/* ui.cursor = (368, 0, 24 × 24), used only as the moving stick heart. */
+.touch-stick-heart {
+  position: absolute;
+  inset: 21%;
+  display: block;
+  background-position: 36.8% 0;
+  background-size: 4266.667% 3200%;
+  color: transparent;
+  filter: drop-shadow(0 0 4px rgb(var(--touch-heart) / 80%));
+  font: 0/0 sans-serif;
+}
+
+.touch-stick-heart::before {
+  content: none;
+}
+
+#touch-start {
+  z-index: 2;
+  width: 72px;
+  min-width: 72px;
+  height: 68px;
+  min-height: 68px;
+  padding: 0;
+}
+
+#touch-start::before,
+#touch-start::after {
+  content: none;
+}
+
+/* ui.status.pause = (432, 80, 56 × 56): pure graphic, no visible text. */
+.touch-start-seal {
+  position: absolute;
+  inset: 6px 8px;
+  border: 0;
+  background-color: transparent;
+  background-position: 44.628% 11.236%;
+  background-size: 1828.571% 1371.429%;
+  box-shadow: none;
+  filter:
+    drop-shadow(0 0 4px rgb(var(--touch-blue) / 42%))
+    drop-shadow(0 0 8px rgb(var(--touch-heart) / 28%));
+  transition: filter 70ms linear, opacity 70ms linear, translate 70ms linear;
+}
+
+.touch-start-seal::before,
+.touch-start-seal::after,
+.touch-start-glyph {
+  content: none;
+  display: none;
+}
+
+.touch-action-cluster {
+  z-index: 1;
+  gap: clamp(5px, 1.8vw, 9px);
+}
+
+.touch-action {
+  z-index: 1;
+  padding: 0;
+  overflow: visible;
+  color: rgb(var(--touch-ice) / 94%);
+  filter: none;
+}
+
+.touch-action::before {
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+  transition: filter 70ms linear, opacity 70ms linear, translate 70ms linear;
+}
+
+/* ui.crest.scout / ui.crest.lance: cyan and pink production seals. */
+#touch-a::before,
+#touch-b::before {
+  background-size: 2133.333% 1600%;
+  background-position-y: 11.111%;
+}
+
+#touch-a::before {
+  background-position-x: 0;
+}
+
+#touch-b::before {
+  background-position-x: 4.918%;
+}
+
+.touch-action::after,
+#touch-a::after,
+#touch-b::after {
+  content: none;
+}
+
+#touch-b {
+  margin-bottom: 14px;
+}
+
+.touch-action-letter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 42%;
+  aspect-ratio: 1;
+  border: 1px solid rgb(var(--touch-ice) / 46%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgb(var(--touch-ink) / 98%) 0 54%, rgb(var(--touch-ink) / 70%) 72%, transparent 74%);
+  box-shadow:
+    0 0 0 2px rgb(var(--touch-ink) / 78%),
+    0 0 7px rgb(var(--touch-seal-accent) / 42%);
+  font-size: clamp(15px, 4.6vw, 20px);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 5px rgb(var(--touch-seal-accent) / 70%);
+  transform: translate(-50%, -50%);
+}
+
+#touch-stick:active .touch-stick-well,
+#touch-stick[data-active='true'] .touch-stick-well {
+  filter:
+    drop-shadow(0 0 6px rgb(var(--touch-heart) / 72%))
+    drop-shadow(0 0 12px rgb(var(--touch-ice) / 20%));
+  opacity: 1;
+}
+
+#touch-start:active,
+#touch-start[data-active='true'],
+.touch-action:active,
+.touch-action[data-active='true'] {
+  translate: 0 1px;
+}
+
+#touch-start:active .touch-start-seal,
+#touch-start[data-active='true'] .touch-start-seal {
+  filter:
+    drop-shadow(0 0 6px rgb(var(--touch-blue) / 70%))
+    drop-shadow(0 0 10px rgb(var(--touch-heart) / 46%));
+}
+
+.touch-action:active::before,
+.touch-action[data-active='true']::before {
+  filter:
+    drop-shadow(0 0 5px rgb(var(--touch-seal-accent) / 76%))
+    drop-shadow(0 0 9px rgb(var(--touch-heart) / 26%));
+}
+
+#touch-start:focus-visible .touch-start-seal,
+.touch-action:focus-visible::before,
+#touch-stick:focus-visible .touch-stick-well {
+  filter:
+    drop-shadow(0 0 3px rgb(var(--touch-ice) / 88%))
+    drop-shadow(0 0 8px rgb(var(--touch-heart) / 54%));
+}
+
+@media (orientation: landscape) {
+  #game-shell.touch-controls-enabled #touch-controls:not([hidden]) {
+    --touch-stick-size: clamp(96px, 18vw, 134px);
+    --touch-stick-knob-size: clamp(34px, 6.2vw, 44px);
+    --touch-action-size: clamp(54px, 9.5vw, 74px);
+    padding: clamp(8px, 2.5vh, 18px) 0;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--touch-ink) / 72%),
+      transparent 18% 82%,
+      rgb(var(--touch-ink) / 72%)
+    );
+  }
+
+  #game-shell.touch-controls-enabled #touch-start {
+    margin-top: 0;
+  }
+
+  #touch-b {
+    margin-bottom: 12px;
+  }
+
+  .touch-action-letter {
+    font-size: clamp(14px, 2.6vw, 18px);
+  }
 }
