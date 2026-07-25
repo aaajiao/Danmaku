@@ -65,6 +65,29 @@ describe('touch controls remain a shell input source', () => {
     expect(styleSource).toContain('@media (orientation: landscape)');
   });
 
+  test('every control wrapper remains in the iPhone hit-test tree', () => {
+    const controlsStart = styleSource.indexOf('#touch-controls {');
+    const controlsEnd = styleSource.indexOf('}', controlsStart);
+    const clusterStart = styleSource.indexOf('.touch-action-cluster {');
+    const clusterEnd = styleSource.indexOf('}', clusterStart);
+    expect(controlsStart).toBeGreaterThan(-1);
+    expect(clusterStart).toBeGreaterThan(-1);
+    expect(styleSource.slice(controlsStart, controlsEnd)).toContain(
+      'pointer-events: auto',
+    );
+    expect(styleSource.slice(clusterStart, clusterEnd)).toContain(
+      'pointer-events: auto',
+    );
+    const landscapeStageStart = styleSource.indexOf(
+      '#game-shell.touch-controls-enabled #stage-slot {',
+    );
+    const landscapeStageEnd = styleSource.indexOf('}', landscapeStageStart);
+    expect(landscapeStageStart).toBeGreaterThan(-1);
+    expect(
+      styleSource.slice(landscapeStageStart, landscapeStageEnd),
+    ).toContain('z-index: 2');
+  });
+
   test('only four complete ornaments remain, including a real moving stick', () => {
     const touchStart = htmlSource.indexOf('<div id="touch-controls"');
     const touchEnd = htmlSource.indexOf('</main>', touchStart);

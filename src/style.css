@@ -224,7 +224,12 @@ body {
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  pointer-events: none;
+  /*
+   * Keep the wrapper itself in WebKit's hit-test tree. Relying on a descendant
+   * `pointer-events: auto` to punch through a `none` ancestor works in Chromium
+   * but has proved unreliable for real iPhone touch dispatch.
+   */
+  pointer-events: auto;
 }
 
 #touch-controls[hidden] {
@@ -299,7 +304,7 @@ body {
   display: flex;
   align-items: flex-end;
   gap: clamp(8px, 2.5vw, 12px);
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .touch-action {
@@ -349,6 +354,12 @@ body {
   }
 
   #game-shell.touch-controls-enabled #stage-slot {
+    /*
+     * The controller wrapper is intentionally hit-testable for iOS. Keep the
+     * central stage above it so direct canvas/menu taps still work in landscape;
+     * the controls remain reachable in the uncovered side gutters.
+     */
+    z-index: 2;
     grid-area: 1 / 1;
     margin-inline: var(--touch-landscape-gutter);
   }
