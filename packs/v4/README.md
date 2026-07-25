@@ -10,10 +10,10 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 
 | Surface | Count | File |
 |---|---:|---|
-| Native bullet names (16 neutral floors + 61 current base variants) | 77 | `bullets/bullets.png` |
-| Native effects | 30 | `effects/effects.png` |
+| Native bullet names (16 neutral floors + 73 current base variants) | 89 | `bullets/bullets.png` |
+| Native effects (including 20 phase declarations) | 46 | `effects/effects.png` |
 | Player option / thrust / bomb effects | 19 | `effects/effects.png` |
-| Laser bodies + caps | 11 | `lasers/lasers.png` |
+| Laser bodies + caps | 12 | `lasers/lasers.png` |
 | Missile bodies | 13 | `missiles/missiles.png` |
 | Pickups + result-tally coins | 10 | `pickups/pickups.png` |
 | Five-bank heart-wing core | 1 strip / 5 frames | `player/ship.png` |
@@ -29,6 +29,13 @@ Every animation strip remains horizontally contiguous. The generated
 projectile/effect multi-strip sheets use a deterministic first-fit shelf
 layout, avoiding transparent full-width rows without changing frame order,
 names or sampling geometry.
+
+Each of the four main Bosses now changes its projectile anchor and declaration
+animation at every phase: 20 phase-specific silhouettes, material motions and
+full-cycle cadences are compiled from the shared v4 phase ledger. The
+Magistrate's final assize additionally owns a broad, collision-honest
+`beam.assize` sentencing plane; ordinary non-anchor Boss bullets retain their
+owner's default visual language.
 
 The Boss atlas is compiled from the isolated 25-pose master recorded in
 `docs/art/v4/originals-manifest.json` (SHA-256
@@ -68,9 +75,9 @@ this pack before the build turns green.
   through a filename fragment, stage guess or missile-number cycle.
 - A baked name shared by several people uses a declared multi-lineage scheme:
   first owner's surface, second owner's mycelium, final owner's heart, neutral
-  bone. It does not impersonate one claimant. The important remaining shared
-  enemy/player names are `beam.cyan` and `scale.satellite`; separating them
-  further requires a presentation-only per-firer skin seam in the renderer.
+  bone. It does not impersonate one claimant. The remaining shared enemy/player
+  name is `scale.satellite`; `beam.cyan` is player-only, while Magistrate's
+  final ruling owns the project-authored `beam.assize` skin.
 
 ## Four anatomical silhouettes
 
@@ -105,8 +112,8 @@ That shape lock continues through each Boss's unique heavy presentation:
 `beam.blue` is a twin verdict rail around a low-alpha appeal channel and `missile.4`
 is a bifurcated judgment blade; Chancellor's warm/stream beams are seamless
 amber-green page spines with moving writing rows and `missile.9` is a witness
-eye towing archival page corners. Shared `beam.cyan`, every cap and Regent's
-massive writ remain unchanged.
+eye towing archival page corners. Player-only `beam.cyan`, every cap and
+Regent's massive writ remain unchanged.
 
 All oriented bullet and missile art points east (+x), matching CLAUDE.md rule 7.
 Small bullets paint 6–14px, medium bullets 16–22px, large bullets 24–28px;

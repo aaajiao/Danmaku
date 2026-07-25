@@ -18,6 +18,7 @@ import { basename } from 'node:path';
 
 import { expect, test } from 'bun:test';
 
+import { V4_BOSS_PHASE_VISUALS } from '../src/v4/presentation/boss-phase-visuals';
 import {
   V4_CONTENT_FINGERPRINT_PATH,
   V4_CONTENT_PATH,
@@ -154,6 +155,45 @@ test('every main Boss carries one exclusive spatial verb through every phase', (
       spriteOwner.set(sprite!, bossName);
     }
     expect(phaseSignatures.size).toBe(boss.phases.length);
+  }
+});
+
+test('all 20 main Boss phases fire their unique presentation anchor', () => {
+  const pack = JSON.parse(buildV4ContentJson()) as {
+    content: {
+      bosses: Record<string, { phases: { name: string; patterns: PatternSlotProbe[] }[] }>;
+    };
+  };
+  const signatures = {
+    sentinel: 'moon-gate',
+    magistrate: 'verdict-shear',
+    chancellor: 'archive-trace',
+    regent: 'memory-groove',
+  } as const;
+
+  expect(V4_BOSS_PHASE_VISUALS).toHaveLength(20);
+  expect(new Set(V4_BOSS_PHASE_VISUALS.map((visual) => visual.projectile)).size).toBe(20);
+  expect(new Set(V4_BOSS_PHASE_VISUALS.map((visual) => visual.castStrip)).size).toBe(20);
+  expect(new Set(V4_BOSS_PHASE_VISUALS.map((visual) => (
+    `${visual.bulletSequence.frameW}x${visual.bulletSequence.frameH}/` +
+    `${visual.bulletSequence.frames}@${visual.bulletSequence.ticksPerFrame}`
+  ))).size).toBe(20);
+  expect(new Set(V4_BOSS_PHASE_VISUALS.map((visual) => (
+    `${visual.castSequence.frameW}x${visual.castSequence.frameH}/` +
+    `${visual.castSequence.frames}@${visual.castSequence.ticksPerFrame}`
+  ))).size).toBe(20);
+
+  for (const visual of V4_BOSS_PHASE_VISUALS) {
+    const phase = pack.content.bosses[visual.boss]?.phases[visual.phaseIndex];
+    expect(phase, `${visual.boss} phase ${visual.phaseIndex}`).toBeDefined();
+    const identity = phase!.patterns.filter(
+      (slot) => slot.pattern === signatures[visual.boss],
+    );
+    expect(identity, `${visual.boss}/${phase!.name}`).toHaveLength(1);
+    expect(
+      identity[0]?.options?.spec?.style?.sprite,
+      `${visual.boss}/${phase!.name}`,
+    ).toBe(visual.projectile);
   }
 });
 

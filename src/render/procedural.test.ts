@@ -35,6 +35,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
+import { V4_BOSS_PHASE_VISUALS } from '../v4/presentation/boss-phase-visuals';
 import {
   BULLET_CELLS,
   BULLET_COLUMNS,
@@ -254,19 +255,18 @@ describe('fx strip geometry', () => {
     for (const name of ['sentinel', 'warden', 'magistrate', 'chancellor', 'regent']) {
       expect(FX_STRIPS[`boss.death.${name}`]?.mode).toBe('once');
     }
-    const casts = {
-      sentinel: [12, 2, 128, 128],
-      magistrate: [10, 3, 144, 96],
-      chancellor: [16, 2, 144, 128],
-      regent: [14, 2, 144, 144],
-    } as const;
-    for (const [name, contract] of Object.entries(casts)) {
-      const strip = FX_STRIPS[`boss.cast.${name}`];
-      expect(strip?.mode, name).toBe('once');
+    for (const visual of V4_BOSS_PHASE_VISUALS) {
+      const strip = FX_STRIPS[visual.castStrip];
+      expect(strip?.mode, visual.castStrip).toBe('once');
       expect(
         [strip?.frames, strip?.ticksPerFrame, strip?.frameW, strip?.frameH],
-        name,
-      ).toEqual([...contract]);
+        visual.castStrip,
+      ).toEqual([
+        visual.castSequence.frames,
+        visual.castSequence.ticksPerFrame,
+        visual.castSequence.frameW,
+        visual.castSequence.frameH,
+      ]);
     }
     // All tinted: the floor is recolourable (rule 9); colour comes from the tint.
     for (const s of Object.values(FX_STRIPS)) expect(s.color).toBe('tinted');
@@ -306,10 +306,10 @@ describe('fx strip geometry', () => {
  * measures the real painted footprint.
  */
 describe('laser strip geometry', () => {
-  test('the sheet paints 8 bodies + 3 caps = 11 strips', () => {
-    expect(LASER_BODY_CELLS.length).toBe(8);
+  test('the sheet paints 9 bodies + 3 caps = 12 strips', () => {
+    expect(LASER_BODY_CELLS.length).toBe(9);
     expect(LASER_CAP_CELLS.length).toBe(3);
-    expect(LASER_STRIP_CELLS.length).toBe(11);
+    expect(LASER_STRIP_CELLS.length).toBe(12);
     expect(Object.keys(LASER_STRIPS).sort()).toEqual([...LASER_STRIP_CELLS].sort());
   });
 

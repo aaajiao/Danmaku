@@ -15,6 +15,7 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 |---|---|---|
 | Edition composition | [`index.ts`](./index.ts) | Browser boot in [`src/main.ts`](../main.ts) |
 | Danmaku definitions | [`gameplay/patterns.ts`](./gameplay/patterns.ts) | Registry and emitter primitives in [`src/content/pattern-registry.ts`](../content/pattern-registry.ts) |
+| Boss phase presentation contract | [`presentation/boss-phase-visuals.ts`](./presentation/boss-phase-visuals.ts) | Actor/cast lookup in [`src/render/v4-actors.ts`](../render/v4-actors.ts), fixed-tick FX lifetime in [`src/render/boss-cast-fx.ts`](../render/boss-cast-fx.ts), and event consumption in [`src/main.ts`](../main.ts) |
 | Motion definitions | [`gameplay/behaviours.ts`](./gameplay/behaviours.ts) | Registry, timelines and integration in [`src/sim/motion.ts`](../sim/motion.ts) |
 | Authored shader-driven scenes | [`backgrounds/`](./backgrounds), with fixed hybrid plates in [`src/assets/v4/backgrounds`](../assets/v4/backgrounds) | Registry, shared GLSL helpers, art preload, cross-fade and renderer in [`src/render/background.ts`](../render/background.ts) |
 | Campaign structure and simulation authoring | [`tools/make-v4-content.ts`](../../tools/make-v4-content.ts) | Pack schema and injector in [`src/packs/`](../packs) plus the enemy/boss/stage/player registries |
@@ -74,6 +75,12 @@ keep older imports working while ownership stays visible under this directory.
 - Pattern and behaviour changes are ordinary reviewed TypeScript under
   [`gameplay/`](./gameplay). They remain inside the deterministic and headless
   architecture scans.
+- The presentation-only projectile anchor, strip geometry, cadence and exact
+  phase declaration for all twenty main-Boss phases live in
+  [`presentation/boss-phase-visuals.ts`](./presentation/boss-phase-visuals.ts).
+  A `boss-phase` event already reports the authored phase index; the shell uses
+  that index only to select pixels after the simulation tick. Warden remains
+  outside this four-Boss contract.
 - Scene changes are made in [`backgrounds/`](./backgrounds), one fragment shader
   per file, and imported by its index. A scene may bind one fixed plate from
   [`src/assets/v4/backgrounds`](../assets/v4/backgrounds); composition and motion
@@ -133,11 +140,16 @@ compiled danmaku could change under an unchanged replay identity.
 The current Boss-identity revision is also intentional simulation drift. It adds
 `moon-gate`, `verdict-shear`, `archive-trace` and `memory-groove`; carries one
 exclusive verb through every phase of Sentinel, Magistrate, Chancellor and
-Regent; and regenerates all eight Normal/Lunatic traces. Their ordinary bullets
-also use four exclusive atlas cadences and dedicated V4-style painters—lunar
-eyes, verdict blades, archive eye-seals, and rooted crown crystals—rather than
-decorated generic floors; `boss-phase` raises four view-only declaration
-sequences. The resulting replay fingerprint is `6299ed3e66aa`.
+Regent; and regenerates all eight Normal/Lunatic traces. The later presentation
+pass keeps those four Boss properties but gives each of their twenty authored
+phases an exact projectile anchor, its own native sequence geometry/cadence and
+its own `boss.cast.<boss>.<phase>` once-strip. The shell resolves that strip from
+the existing `boss-phase` event's phase index, so this second pass changes pixels
+and fixed-tick presentation only; it does not add a simulation callback or alter
+movement, collision, damage, RNG or the numerical trace. Because the phase
+anchor sprite names live in generated campaign JSON, those presentation names
+still change replay compatibility identity; the content generator synchronizes
+the new fingerprint with that vocabulary.
 Player focus stances and five identity bombs remain part of the earlier
 intentional gameplay revision.
 

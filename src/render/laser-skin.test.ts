@@ -1,6 +1,6 @@
 /**
  * The laser skin ledger: every skin names strips the sheet actually paints, and
- * all 11 laser strips are consumed.
+ * all 12 laser strips are consumed.
  *
  * A beam names a skin (`b.style.sprite`); a skin names a body strip and a cap
  * strip on the laser atlas; the atlas paints exactly the strips `LASER_STRIPS`
@@ -9,9 +9,9 @@
  * throw, and caught here at build time, arithmetically, before a browser is
  * involved (`bun test` has no canvas, so the pixels are judged on `test:assets`).
  *
- * This is also the static half of "all 11 consumed": the 11 BulletPack laser
- * files map one-to-one onto 8 body strips + 3 cap strips, so the ledger below —
- * every body named exactly once, every cap named at least once, the union all 11
+ * This is also the static half of "all 12 consumed": the native laser
+ * vocabulary maps one-to-one onto 9 body strips + 3 cap strips, so the ledger below —
+ * every body named exactly once, every cap named at least once, the union all 12
  * — is the build-time proof that a reskin has a home for every file. The
  * reachability half (every body drawn lethal in a real run) lives in
  * `reachability.test.ts`; caps are render-only and proven here, not there.
@@ -26,11 +26,11 @@ const bodies = new Set<string>(LASER_BODY_CELLS);
 const caps = new Set<string>(LASER_CAP_CELLS);
 
 describe('every skin resolves to strips the sheet paints', () => {
-  test('the base campaign registered its eight beam skins', () => {
-    expect(laserSkinNames().length).toBe(8);
+  test('the base campaign registered its nine beam skins', () => {
+    expect(laserSkinNames().length).toBe(9);
   });
 
-  test('every skin body is one of the eight body strips', () => {
+  test('every skin body is one of the nine body strips', () => {
     const broken = laserSkinNames()
       .map((name) => ({ name, body: getLaserSkin(name)!.body }))
       .filter((s) => !bodies.has(s.body));
@@ -54,11 +54,11 @@ describe('every skin resolves to strips the sheet paints', () => {
   });
 });
 
-describe('all 11 laser strips are consumed (the static ledger)', () => {
-  test('the sheet paints exactly 8 bodies + 3 caps = 11 strips', () => {
-    expect(LASER_BODY_CELLS.length).toBe(8);
+describe('all 12 laser strips are consumed (the static ledger)', () => {
+  test('the sheet paints exactly 9 bodies + 3 caps = 12 strips', () => {
+    expect(LASER_BODY_CELLS.length).toBe(9);
     expect(LASER_CAP_CELLS.length).toBe(3);
-    expect(LASER_STRIP_CELLS.length).toBe(11);
+    expect(LASER_STRIP_CELLS.length).toBe(12);
     // The two role sets partition the whole sheet.
     expect([...LASER_STRIP_CELLS].sort()).toEqual([...LASER_BODY_CELLS, ...LASER_CAP_CELLS].sort());
   });
@@ -80,7 +80,7 @@ describe('all 11 laser strips are consumed (the static ledger)', () => {
     expect([...used].sort()).toEqual([...LASER_CAP_CELLS].sort());
   });
 
-  test('the union of every skin body and cap is all 11 strips', () => {
+  test('the union of every skin body and cap is all 12 strips', () => {
     const named = new Set<string>();
     for (const name of laserSkinNames()) {
       const skin = getLaserSkin(name)!;

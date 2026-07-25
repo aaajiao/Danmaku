@@ -34,6 +34,11 @@ import {
   type PackManifest,
   type PackStrip,
 } from '../src/packs/manifest';
+import {
+  V4_BOSS_PHASE_VISUALS,
+  type BossPhaseBoss,
+  type BossPhaseVisual,
+} from '../src/v4/presentation/boss-phase-visuals';
 import { ColourType, encodePng } from './png';
 import {
   V4_AUDIO_GENERATOR_VERSION,
@@ -448,6 +453,37 @@ export const V4_OWNER_PALETTES: Record<V4ProjectileOwner, Palette> = {
   'boss.regent': personPalette([147, 73, 225], [242, 65, 120], [255, 205, 73]),
 };
 
+const V4_PHASE_VISUAL_BY_PROJECTILE = new Map<string, BossPhaseVisual>(
+  V4_BOSS_PHASE_VISUALS.map((visual) => [visual.projectile, visual]),
+);
+
+const V4_PHASE_VISUAL_BY_CAST = new Map<string, BossPhaseVisual>(
+  V4_BOSS_PHASE_VISUALS.map((visual) => [visual.castStrip, visual]),
+);
+
+/** Exact phase lookup for the one projectile anchor each main Boss phase owns.
+ * Non-anchor projectiles deliberately return undefined and keep their owner's
+ * ordinary fallback sequence/painter. */
+export function bossPhaseBulletVisual(name: string): BossPhaseVisual | undefined {
+  return V4_PHASE_VISUAL_BY_PROJECTILE.get(name);
+}
+
+/** Exact phase lookup for declaration strips. There is no owner-level fallback:
+ * every shipped main-Boss phase names one native declaration of its own. */
+export function bossPhaseCastVisual(name: string): BossPhaseVisual | undefined {
+  return V4_PHASE_VISUAL_BY_CAST.get(name);
+}
+
+function phaseProjectiles(boss: BossPhaseBoss): readonly string[] {
+  return V4_BOSS_PHASE_VISUALS
+    .filter((visual) => visual.boss === boss)
+    .map((visual) => visual.projectile);
+}
+
+function uniqueNames(names: readonly string[]): readonly string[] {
+  return [...new Set(names)];
+}
+
 /** Runtime strip names each actual person can cause to draw. Laser caps are
  * included even though they are resolved by the render-side skin registry and
  * therefore never appear as `style.sprite` in the v4 campaign JSON. */
@@ -475,11 +511,26 @@ export const V4_OWNER_PROJECTILES: Record<V4ProjectileOwner, readonly string[]> 
   'enemy.marshal': ['orb.medium.bulwark', 'missile.10'],
   'enemy.notary': ['spark.levy', 'halo.signet'],
 
-  'boss.sentinel': ['scale.shard', 'petal.corolla', 'needle.vigil', 'needle.tithe'],
+  'boss.sentinel': uniqueNames([
+    'scale.shard', 'petal.corolla', 'needle.vigil', 'needle.tithe',
+    ...phaseProjectiles('sentinel'),
+  ]),
   'boss.warden': ['orb.small.fee', 'orb.small.spark', 'missile.3', 'beam.heavy', 'cap.green', 'needle.lien', 'petal.ember', 'scale.shell'],
-  'boss.magistrate': ['orb.small.arraignment', 'scale.escrow', 'missile.4', 'beam.blue', 'cap.v3', 'scale.assize', 'petal.verdict', 'beam.cyan', 'kunai.pursuit'],
-  'boss.chancellor': ['orb.medium.ledger', 'spark.docket', 'halo.witness', 'orb.small.brief', 'missile.9', 'beam.warm', 'cap.yellow', 'beam.v3.stream', 'cap.v3', 'beam.stream', 'cap.green'],
-  'boss.regent': ['orb.small.session', 'halo.mandamus', 'halo.diadem', 'orb.medium.tenure', 'orb.medium.lattice', 'needle.warrant', 'missile.massive', 'orb.medium.mandamus', 'spark.wear'],
+  'boss.magistrate': uniqueNames([
+    'orb.small.arraignment', 'scale.escrow', 'missile.4', 'beam.blue', 'cap.v3',
+    'scale.assize', 'petal.verdict', 'beam.assize', 'kunai.pursuit',
+    ...phaseProjectiles('magistrate'),
+  ]),
+  'boss.chancellor': uniqueNames([
+    'orb.medium.ledger', 'spark.docket', 'halo.witness', 'orb.small.brief',
+    'missile.9', 'beam.warm', 'cap.yellow', 'beam.v3.stream', 'cap.v3',
+    'beam.stream', 'cap.green', ...phaseProjectiles('chancellor'),
+  ]),
+  'boss.regent': uniqueNames([
+    'orb.small.session', 'halo.mandamus', 'halo.diadem', 'orb.medium.tenure',
+    'orb.medium.lattice', 'needle.warrant', 'missile.massive',
+    'orb.medium.mandamus', 'spark.wear', ...phaseProjectiles('regent'),
+  ]),
 };
 
 function invertOwners(): Readonly<Record<string, readonly V4ProjectileOwner[]>> {
@@ -506,9 +557,10 @@ export interface V4BossBulletSequence {
 }
 
 /**
- * The four campaign Bosses do not share the neutral four-frame cadence.  This
- * table is presentation-only: the sim still names a projectile strip and the
- * atlas decides how its pixels breathe.
+ * Ordinary projectiles exclusive to the four campaign Bosses do not share the
+ * neutral four-frame cadence. Exact phase anchors override these owner
+ * defaults through `V4_BOSS_PHASE_VISUALS`; the sim still only names a
+ * projectile strip and the atlas decides how its pixels breathe.
  */
 export const V4_BOSS_BULLET_SEQUENCES: Readonly<
   Record<V4MainBossOwner, V4BossBulletSequence>
@@ -550,8 +602,9 @@ export function projectileFaction(name: string): V4ProjectileFaction {
  * A baked shared strip cannot change colour per firer.  It therefore carries a
  * visible lineage: first owner's surface, second owner's mycelium, final owner's
  * heart, common bone.  This is deliberately neither one claimant's palette nor
- * an averaged mud colour. `beam.cyan` and `scale.satellite` consequently read as
- * dual heritage until the renderer grows a presentation-only per-owner skin.
+ * an averaged mud colour. `scale.satellite` consequently reads as dual heritage
+ * until the renderer grows a presentation-only per-owner skin. `beam.cyan` is
+ * now player-only; Magistrate's final ruling owns `beam.assize`.
  */
 function sharedLineagePalette(owners: readonly V4ProjectileOwner[]): Palette {
   const first = V4_OWNER_PALETTES[owners[0]!]!;
@@ -1102,6 +1155,345 @@ function drawRegentBullet(
   over(image, cx + reach.x, cy, p.bone);
 }
 
+function drawSentinelPhaseBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  phaseIndex: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const tail = cx - reach.x;
+  const tip = cx + reach.x;
+  switch (phaseIndex) {
+    case 0:
+      // Approach — a narrow scanning eye: the moving pupil scouts the opening
+      // before the larger lunar grammar declares itself.
+      drawSentinelBullet(image, cx, cy, base, frame, p);
+      over(image, tail + 2 + frame % 4, cy + (frame % 2 === 0 ? -2 : 2), SENTINEL_CYAN);
+      break;
+    case 1: {
+      // Tidal Corolla — three membrane lobes share one east-pointing petal.
+      const breathe = frame % 3 === 1 ? 1 : 0;
+      const petal: Point[] = [
+        [tail, cy - 1], [cx - 5, cy - reach.y], [cx - 1, cy - 2 - breathe],
+        [cx + 3, cy - reach.y + 1], [tip, cy],
+        [cx + 3, cy + reach.y - 1], [cx - 1, cy + 2 + breathe],
+        [cx - 5, cy + reach.y], [tail, cy + 1],
+      ];
+      convex(image, petal, SENTINEL_MEMBRANE);
+      strokePolygon(image, petal, SENTINEL_CYAN);
+      for (const ox of [-4, 0, 4]) {
+        const nodeY = cy + ((frame + ox + 8) % 3) - 1;
+        line(image, cx + ox - 2, cy, cx + ox, nodeY, p.mycelium);
+      }
+      break;
+    }
+    case 2: {
+      // Vigil Unbroken — a watch-lancet with two eyelids and a scanning bar.
+      const aperture = 2 + (frame % 4 === 2 ? 1 : 0);
+      const lancet: Point[] = [
+        [tail, cy - 1], [cx - 5, cy - aperture], [cx + 2, cy - reach.y],
+        [tip, cy], [cx + 2, cy + reach.y], [cx - 5, cy + aperture],
+        [tail, cy + 1],
+      ];
+      strokePolygon(image, lancet, SENTINEL_CYAN);
+      line(image, tail + 2, cy, tip - 1, cy, p.mycelium);
+      const scanX = cx - 5 + (frame % 6) * 2;
+      line(image, scanX, cy - aperture, scanX, cy + aperture, SENTINEL_CYAN);
+      disc(image, scanX, cy, 1, p.heart);
+      break;
+    }
+    case 3: {
+      // Total Eclipse — the eye closes into a dark moon, leaving a corona and
+      // two opposed tide notches rather than another open petal.
+      const close = frame % 4 < 2 ? 2 : 1;
+      const eclipse: Point[] = [
+        [tail, cy - close], [cx - 3, cy - reach.y], [cx + 4, cy - 3],
+        [tip, cy], [cx + 4, cy + 3], [cx - 3, cy + reach.y],
+        [tail, cy + close],
+      ];
+      convex(image, eclipse, [SENTINEL_CYAN[0], SENTINEL_CYAN[1], SENTINEL_CYAN[2], 74]);
+      strokePolygon(image, eclipse, SENTINEL_CYAN);
+      line(image, tail + 3, cy - 2, tip - 3, cy + 2, p.mycelium);
+      line(image, tail + 3, cy + 2, tip - 3, cy - 2, p.mycelium);
+      ring(image, cx + 1, cy, 2 + (frame % 2), 1, SENTINEL_CYAN);
+      break;
+    }
+    default:
+      throw new Error(`no Sentinel phase bullet painter for phase ${phaseIndex}`);
+  }
+  over(image, tip, cy, p.bone);
+}
+
+function drawMagistratePhaseBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  phaseIndex: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const tail = cx - reach.x;
+  const tip = cx + reach.x;
+  switch (phaseIndex) {
+    case 0: {
+      // Arraignment — a compact rotating indictment seal.
+      const radius = Math.min(reach.x, reach.y);
+      const inset = 2 + (frame % 2);
+      strokePolygon(image, [
+        [cx, cy - radius], [cx + radius, cy], [cx, cy + radius], [cx - radius, cy],
+      ], MAGISTRATE_MAGENTA);
+      strokePolygon(image, [
+        [cx, cy - inset], [cx + inset, cy], [cx, cy + inset], [cx - inset, cy],
+      ], MAGISTRATE_SEAL);
+      const d = DIR8[(frame * 2) % DIR8.length]!;
+      line(image, cx, cy,
+        cx + Math.round((d[0] * (radius - 1)) / 8),
+        cy + Math.round((d[1] * (radius - 1)) / 8), MAGISTRATE_MAGENTA);
+      break;
+    }
+    case 1: {
+      // Writ of Pursuit — hooked upper/lower rulings keep turning inward.
+      const hook = frame % 3 - 1;
+      const pursuit: Point[] = [
+        [tail, cy - 2], [cx - 4, cy - reach.y], [cx + 1, cy - 2],
+        [tip, cy], [cx + 1, cy + 2], [cx - 4, cy + reach.y],
+        [tail, cy + 2],
+      ];
+      convex(image, pursuit, [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 76]);
+      strokePolygon(image, pursuit, MAGISTRATE_MAGENTA);
+      line(image, tail + 3, cy - 1, cx - 1, cy - reach.y + 1 + hook, MAGISTRATE_SEAL);
+      line(image, tail + 3, cy + 1, cx - 1, cy + reach.y - 1 - hook, MAGISTRATE_SEAL);
+      ring(image, cx - 3 + frame % 4, cy, 2, 1, MAGISTRATE_MAGENTA);
+      break;
+    }
+    case 2: {
+      // Colonnade — three rigid rails and two crossbars make a filed column,
+      // visibly unlike Pursuit's hooks.
+      const column: Point[] = [
+        [tail, cy - 2], [cx - 5, cy - reach.y], [cx + 4, cy - reach.y],
+        [tip, cy], [cx + 4, cy + reach.y], [cx - 5, cy + reach.y],
+        [tail, cy + 2],
+      ];
+      strokePolygon(image, column, MAGISTRATE_MAGENTA);
+      for (const oy of [-2, 0, 2]) line(image, tail + 2, cy + oy, tip - 2, cy + oy, MAGISTRATE_SEAL);
+      const barX = cx - 4 + (frame % 3) * 3;
+      line(image, barX, cy - reach.y, barX, cy + reach.y, MAGISTRATE_MAGENTA);
+      line(image, barX + 2, cy - reach.y + 1, barX + 2, cy + reach.y - 1, MAGISTRATE_MAGENTA);
+      break;
+    }
+    case 3: {
+      // Assize — a final guillotine/scissor body closes around the appeal line.
+      const close = frame % 4 < 2 ? 1 : 0;
+      const assize: Point[] = [
+        [tail, cy - 1], [cx - 4, cy - reach.y], [cx + 2, cy - 2 - close],
+        [tip, cy], [cx + 2, cy + 2 + close], [cx - 4, cy + reach.y],
+        [tail, cy + 1],
+      ];
+      convex(image, assize, [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 92]);
+      strokePolygon(image, assize, MAGISTRATE_MAGENTA);
+      line(image, tail + 2, cy - 2, tip - 3, cy + 2, MAGISTRATE_SEAL, 2);
+      line(image, tail + 2, cy + 2, tip - 3, cy - 2, MAGISTRATE_SEAL, 2);
+      ring(image, cx - 2, cy, 2 + (frame % 2), 1, MAGISTRATE_MAGENTA);
+      break;
+    }
+    default:
+      throw new Error(`no Magistrate phase bullet painter for phase ${phaseIndex}`);
+  }
+  over(image, tip, cy, p.bone);
+}
+
+function drawChancellorPhaseBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  phaseIndex: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const radius = Math.min(reach.x, reach.y);
+  switch (phaseIndex) {
+    case 0:
+      // Appeal — a deliberately blank brief with one questioning eye.
+      ellipse(image, cx, cy, radius, Math.max(1, radius - 3), CHANCELLOR_AMBER);
+      line(image, cx - radius + 2, cy - 2, cx + 1, cy - 2, CHANCELLOR_GREEN);
+      over(image, cx - 2 + frame % 4, cy, CHANCELLOR_INDIGO);
+      break;
+    case 1: {
+      // Binding Precedent — two filed leaves linked by a moving staple.
+      const staple = cy - 2 + frame % 5;
+      line(image, cx - radius, cy - radius + 1, cx - 1, cy - radius + 1, CHANCELLOR_AMBER);
+      line(image, cx - radius, cy - radius + 1, cx - radius, cy + radius - 1, CHANCELLOR_GREEN);
+      line(image, cx + 1, cy + radius - 1, cx + radius, cy + radius - 1, CHANCELLOR_AMBER);
+      line(image, cx + radius, cy - radius + 1, cx + radius, cy + radius - 1, CHANCELLOR_GREEN);
+      line(image, cx - 1, staple, cx + 2, staple, CHANCELLOR_INDIGO);
+      break;
+    }
+    case 2: {
+      // Wax and Witness — a hot eye-seal with two wax drips.
+      ring(image, cx, cy, radius, 1, CHANCELLOR_AMBER);
+      ellipse(image, cx, cy - 1, Math.max(2, radius - 2), 1 + frame % 2, CHANCELLOR_INDIGO);
+      line(image, cx - 2, cy + 2, cx - 2, cy + radius - frame % 2, CHANCELLOR_AMBER);
+      line(image, cx + 2, cy + 2, cx + 3, cy + radius - 2 + frame % 2, CHANCELLOR_GREEN);
+      break;
+    }
+    case 3: {
+      // Sweeping Assay — three writing rows and a comet nib scan the page.
+      const nibX = cx - radius + 1 + (frame % Math.max(2, radius * 2 - 1));
+      for (let row = -2; row <= 2; row += 2) {
+        const shorten = row === 0 ? 0 : 2;
+        line(image, cx - radius + 1, cy + row, cx + radius - 1 - shorten, cy + row,
+          row === 0 ? CHANCELLOR_AMBER : CHANCELLOR_GREEN);
+      }
+      line(image, cx - radius, cy + radius - 1, nibX, cy - radius + 1, CHANCELLOR_INDIGO);
+      disc(image, nibX, cy - radius + 1, 1, CHANCELLOR_AMBER);
+      break;
+    }
+    case 4: {
+      // Estoppel — a barred ledger: its two crossbars deny re-entry.
+      strokePolygon(image, [
+        [cx - radius, cy - radius + 1], [cx + radius, cy - radius + 1],
+        [cx + radius, cy + radius - 1], [cx - radius, cy + radius - 1],
+      ], CHANCELLOR_INDIGO);
+      line(image, cx - radius, cy - 2, cx + radius, cy - 2, CHANCELLOR_AMBER);
+      line(image, cx - radius, cy + 2, cx + radius, cy + 2, CHANCELLOR_GREEN);
+      const lockX = cx - 2 + frame % 5;
+      line(image, lockX, cy - radius + 1, lockX, cy + radius - 1, CHANCELLOR_AMBER);
+      break;
+    }
+    case 5: {
+      // Fiat Sealed — the archive compacts into a closed diamond while its last
+      // line dissolves around the perimeter.
+      const inset = frame % 3;
+      convex(image, [
+        [cx, cy - radius], [cx + radius, cy], [cx, cy + radius], [cx - radius, cy],
+      ], [CHANCELLOR_INDIGO[0], CHANCELLOR_INDIGO[1], CHANCELLOR_INDIGO[2], 104]);
+      strokePolygon(image, [
+        [cx, cy - radius], [cx + radius, cy], [cx, cy + radius], [cx - radius, cy],
+      ], CHANCELLOR_AMBER);
+      line(image, cx - radius + 2 + inset, cy, cx + radius - 2, cy, CHANCELLOR_GREEN);
+      over(image, cx, cy - radius + 2 + inset, CHANCELLOR_AMBER);
+      break;
+    }
+    default:
+      throw new Error(`no Chancellor phase bullet painter for phase ${phaseIndex}`);
+  }
+  over(image, cx + reach.x, cy, p.bone);
+}
+
+function drawRegentPhaseBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  phaseIndex: number,
+  p: Palette,
+): void {
+  const reach = bulletPaintReach(base);
+  const radius = Math.min(reach.x, reach.y);
+  switch (phaseIndex) {
+    case 0:
+      // Session — one retained seed and its first incomplete contour.
+      arcLine(image, cx, cy, radius, 0.28, Math.PI * 1.72, REGENT_PURPLE);
+      line(image, cx - radius + 1, cy + 2, cx + radius - 2, cy - 2, REGENT_CRIMSON);
+      over(image, cx - 2 + frame % 4, cy - 1, REGENT_GOLD);
+      break;
+    case 1: {
+      // Corolla Regnant — two small counter-crowns share the retained seed.
+      const lift = frame % 2;
+      arcLine(image, cx, cy + 1, radius, Math.PI + 0.2, Math.PI * 2 - 0.2, REGENT_PURPLE);
+      line(image, cx - radius + 1, cy, cx - 2, cy - radius + 1 - lift, REGENT_GOLD);
+      line(image, cx - 2, cy - radius + 1 - lift, cx, cy - 1, REGENT_CRIMSON);
+      line(image, cx, cy - 1, cx + 2, cy - radius + 2 + lift, REGENT_GOLD);
+      line(image, cx + 2, cy - radius + 2 + lift, cx + radius - 1, cy, REGENT_CRIMSON);
+      break;
+    }
+    case 2: {
+      // Portcullis — the only medium anchor, a nine-cell crystalline lattice.
+      strokePolygon(image, [
+        [cx, cy - radius], [cx + radius, cy], [cx, cy + radius], [cx - radius, cy],
+      ], REGENT_PURPLE);
+      const shift = frame % 3 - 1;
+      for (const offset of [-4, 0, 4]) {
+        line(image, cx - radius + 2, cy + offset + shift,
+          cx + radius - 2, cy + offset + shift, REGENT_CRIMSON);
+        line(image, cx + offset - shift, cy - radius + 2,
+          cx + offset - shift, cy + radius - 2, REGENT_GOLD);
+      }
+      break;
+    }
+    case 3: {
+      // Attainder — a root warrant pierces upward through its own seal.
+      const sway = frame % 3 - 1;
+      strokePolygon(image, [
+        [cx, cy - radius], [cx + radius, cy + 1], [cx, cy + radius], [cx - radius, cy + 1],
+      ], REGENT_PURPLE);
+      line(image, cx, cy + radius - 1, cx + sway, cy - radius + 1, REGENT_GOLD);
+      line(image, cx, cy + 1, cx - radius + 1, cy + radius, REGENT_CRIMSON);
+      line(image, cx, cy + 1, cx + radius - 1, cy + radius, REGENT_CRIMSON);
+      break;
+    }
+    case 4: {
+      // Statute — a hard tablet whose engraving gains one retained stroke.
+      strokePolygon(image, [
+        [cx - radius + 1, cy - radius], [cx + radius - 1, cy - radius],
+        [cx + radius, cy + radius - 1], [cx - radius, cy + radius - 1],
+      ], REGENT_PURPLE);
+      line(image, cx - radius + 2, cy - 2, cx + radius - 2, cy - 2, REGENT_GOLD);
+      line(image, cx - radius + 2, cy + 1, cx + radius - 3, cy + 1, REGENT_CRIMSON);
+      const engraving = cx - radius + 2 + frame % Math.max(2, radius * 2 - 3);
+      line(image, engraving, cy - radius + 1, engraving, cy + radius - 2, REGENT_CRIMSON);
+      break;
+    }
+    case 5: {
+      // Sine Die — crown and contour unmoor in opposite directions.
+      const drift = frame % 3 - 1;
+      arcLine(image, cx + drift, cy + 1, radius, Math.PI + 0.35, Math.PI * 2 - 0.35, REGENT_PURPLE);
+      line(image, cx - radius, cy, cx - 2 + drift, cy - radius, REGENT_GOLD);
+      line(image, cx + 2 + drift, cy - radius + 1, cx + radius, cy, REGENT_CRIMSON);
+      line(image, cx - 2, cy + 1, cx - radius + 1, cy + radius, REGENT_CRIMSON);
+      line(image, cx + 2, cy + 1, cx + radius - 2, cy + radius - 1, REGENT_PURPLE);
+      break;
+    }
+    default:
+      throw new Error(`no Regent phase bullet painter for phase ${phaseIndex}`);
+  }
+  over(image, cx + reach.x, cy, p.bone);
+}
+
+function drawBossPhaseBullet(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  base: string,
+  frame: number,
+  visual: BossPhaseVisual,
+  p: Palette,
+): void {
+  switch (visual.boss) {
+    case 'sentinel':
+      drawSentinelPhaseBullet(image, cx, cy, base, frame, visual.phaseIndex, p);
+      break;
+    case 'magistrate':
+      drawMagistratePhaseBullet(image, cx, cy, base, frame, visual.phaseIndex, p);
+      break;
+    case 'chancellor':
+      drawChancellorPhaseBullet(image, cx, cy, base, frame, visual.phaseIndex, p);
+      break;
+    case 'regent':
+      drawRegentPhaseBullet(image, cx, cy, base, frame, visual.phaseIndex, p);
+      break;
+  }
+}
+
 function drawMainBossBullet(
   image: Bitmap,
   cx: number,
@@ -1128,7 +1520,10 @@ function drawBulletFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
   const layer = bulletAnatomyLayer(name);
   const faction = projectileFaction(name);
   const bossOwner = mainBossBulletOwner(name);
-  if (bossOwner !== undefined) {
+  const phaseVisual = bossPhaseBulletVisual(name);
+  if (phaseVisual !== undefined) {
+    drawBossPhaseBullet(image, cx, cy, base, frame, phaseVisual, p);
+  } else if (bossOwner !== undefined) {
     drawMainBossBullet(image, cx, cy, base, frame, bossOwner, p);
   } else {
     switch (base) {
@@ -1168,10 +1563,11 @@ export const V4_BULLET_NAMES = [
 ] as readonly string[];
 
 function bulletSequenceSpec(name: string): RowSpec {
+  const phaseVisual = bossPhaseBulletVisual(name);
   const owner = mainBossBulletOwner(name);
-  const sequence = owner === undefined
+  const sequence = phaseVisual?.bulletSequence ?? (owner === undefined
     ? { frameW: 32, frameH: 32, frames: 4, ticksPerFrame: 5 }
-    : V4_BOSS_BULLET_SEQUENCES[owner];
+    : V4_BOSS_BULLET_SEQUENCES[owner]);
   return {
     name,
     ...sequence,
@@ -1302,12 +1698,11 @@ const BOMB_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> = {
   'player.bomb.maw-devour': 'player.maw',
 };
 
-const BOSS_CAST_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> = {
-  'boss.cast.sentinel': 'boss.sentinel',
-  'boss.cast.magistrate': 'boss.magistrate',
-  'boss.cast.chancellor': 'boss.chancellor',
-  'boss.cast.regent': 'boss.regent',
-};
+const BOSS_CAST_EFFECT_OWNERS: Readonly<Record<string, V4ProjectileOwner>> =
+  Object.fromEntries(V4_BOSS_PHASE_VISUALS.map((visual) => [
+    visual.castStrip,
+    `boss.${visual.boss}` as V4ProjectileOwner,
+  ]));
 
 function drawBurst(image: Bitmap, cx: number, cy: number, frame: number, frames: number, maxRadius: number, p: Palette): void {
   const t = frames <= 1 ? 0 : frame / (frames - 1);
@@ -1328,6 +1723,392 @@ function drawBurst(image: Bitmap, cx: number, cy: number, frame: number, frames:
 function loopPulse(frame: number, frames: number): number {
   const half = frames / 2;
   return frame <= half ? frame / half : (frames - frame) / half;
+}
+
+function drawSentinelPhaseCast(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  frame: number,
+  visual: BossPhaseVisual,
+  p: Palette,
+): void {
+  const t = frame / Math.max(1, visual.castSequence.frames - 1);
+  const grow = Math.min(1, t * 1.65);
+  switch (visual.phaseIndex) {
+    case 0: {
+      // Approach: three scanning apertures establish the moon-gate grammar.
+      const radius = 18 + Math.round(24 * grow);
+      for (let gate = 0; gate < 3; gate++) {
+        const bearing = -0.72 + gate * Math.PI * 2 / 3 + t * 0.45;
+        arcLine(image, cx, cy, radius - gate * 3, bearing, bearing + 0.78,
+          gate === 0 ? p.surface : gate === 1 ? p.mycelium : p.bone, 2);
+        const scan = bearing + 0.18 + (frame % 4) * 0.12;
+        disc(image,
+          cx + Math.round(Math.cos(scan) * (radius - 6)),
+          cy + Math.round(Math.sin(scan) * (radius - 6)), 1, p.heart);
+      }
+      line(image, cx - 20, cy, cx + 20, cy, p.surface);
+      break;
+    }
+    case 1: {
+      // Tidal Corolla: six opening membrane petals around a dark centre.
+      const petalReach = 23 + Math.round(24 * grow);
+      for (let petal = 0; petal < 6; petal++) {
+        const a = petal * Math.PI / 3 + t * 0.36;
+        const inner = 10 + (petal % 2) * 3;
+        const ex = cx + Math.round(Math.cos(a) * petalReach);
+        const ey = cy + Math.round(Math.sin(a) * petalReach);
+        line(image,
+          cx + Math.round(Math.cos(a - 0.18) * inner),
+          cy + Math.round(Math.sin(a - 0.18) * inner),
+          ex, ey, petal % 2 === 0 ? p.surface : p.mycelium, 2);
+        line(image,
+          cx + Math.round(Math.cos(a + 0.18) * inner),
+          cy + Math.round(Math.sin(a + 0.18) * inner),
+          ex, ey, petal % 2 === 0 ? p.mycelium : p.surface);
+      }
+      ring(image, cx, cy, 8 + Math.round(8 * grow), 1, p.bone);
+      break;
+    }
+    case 2: {
+      // Vigil Unbroken: a watch eye crossed by a fixed lancet and moving scan.
+      const halfW = 27 + Math.round(24 * grow);
+      const halfH = 13 + Math.round(8 * grow);
+      const eye: Point[] = [
+        [cx - halfW, cy], [cx - 10, cy - halfH], [cx + halfW, cy],
+        [cx - 10, cy + halfH],
+      ];
+      strokePolygon(image, eye, p.surface);
+      line(image, cx - halfW + 4, cy, cx + halfW - 4, cy, p.bone, 2);
+      const scanX = cx - halfW + 8 + Math.round((halfW * 2 - 16) * t);
+      line(image, scanX, cy - halfH + 2, scanX, cy + halfH - 2, p.mycelium, 2);
+      ring(image, scanX, cy, 4 + frame % 2, 1, p.heart);
+      break;
+    }
+    case 3: {
+      // Total Eclipse: retained coronae close around an occluded core.
+      const radius = 22 + Math.round(28 * grow);
+      for (let corona = 0; corona < 3; corona++) {
+        const gap = 0.36 + corona * 0.08;
+        const turn = t * (corona % 2 === 0 ? 0.7 : -0.55);
+        arcLine(image, cx, cy, radius - corona * 6,
+          gap + turn, Math.PI * 2 - gap + turn,
+          corona === 0 ? p.bone : corona === 1 ? p.surface : p.mycelium, 2);
+      }
+      for (let ray = 0; ray < 8; ray += 2) {
+        const d = DIR8[(ray + frame) % DIR8.length]!;
+        line(image,
+          cx + Math.round((d[0] * (radius - 5)) / 8),
+          cy + Math.round((d[1] * (radius - 5)) / 8),
+          cx + Math.round((d[0] * (radius + 4)) / 8),
+          cy + Math.round((d[1] * (radius + 4)) / 8), p.mycelium);
+      }
+      disc(image, cx, cy, 6 + Math.round(5 * grow), p.shadow);
+      heart(image, cx, cy, 2, p.heart);
+      break;
+    }
+    default:
+      throw new Error(`no Sentinel cast painter for phase ${visual.phaseIndex}`);
+  }
+}
+
+function drawMagistratePhaseCast(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  frame: number,
+  visual: BossPhaseVisual,
+  p: Palette,
+): void {
+  const t = frame / Math.max(1, visual.castSequence.frames - 1);
+  const close = Math.min(1, t * 1.8);
+  switch (visual.phaseIndex) {
+    case 0: {
+      // Arraignment: nested indictment diamonds rotate their active arm.
+      const radius = 18 + Math.round(22 * close);
+      strokePolygon(image, [
+        [cx, cy - radius], [cx + radius, cy], [cx, cy + radius], [cx - radius, cy],
+      ], p.surface);
+      const inner = 8 + Math.round(11 * close);
+      strokePolygon(image, [
+        [cx, cy - inner], [cx + inner, cy], [cx, cy + inner], [cx - inner, cy],
+      ], p.mycelium);
+      const d = DIR8[(frame * 2) % DIR8.length]!;
+      line(image, cx, cy,
+        cx + Math.round((d[0] * radius) / 8),
+        cy + Math.round((d[1] * radius) / 8), p.bone, 2);
+      break;
+    }
+    case 1: {
+      // Writ of Pursuit: paired hooks shear inward around a moving seal.
+      const inset = 55 - Math.round(34 * close);
+      const hook = Math.round(8 * Math.sin(t * Math.PI));
+      for (const sign of [-1, 1] as const) {
+        line(image, cx + sign * inset, cy - 34,
+          cx + sign * (inset - 12), cy - 5 + sign * hook,
+          sign < 0 ? p.surface : p.mycelium, 2);
+        line(image, cx + sign * (inset - 12), cy - 5 + sign * hook,
+          cx + sign * (inset - 4), cy + 28, p.bone);
+        line(image, cx + sign * (inset - 4), cy + 28,
+          cx + sign * (inset - 16), cy + 20, p.mycelium);
+      }
+      ring(image, cx, cy, 6 + frame % 3, 1, p.heart);
+      break;
+    }
+    case 2: {
+      // Colonnade: six filed rails descend behind a central appeal slit.
+      const spread = 20 + Math.round(28 * close);
+      for (let column = -2; column <= 2; column++) {
+        const x = cx + Math.round((column * spread) / 2);
+        const top = cy - 34 + ((frame + column + 6) % 4);
+        const bottom = cy + 34 - ((frame - column + 6) % 3);
+        line(image, x, top, x, bottom, column === 0 ? p.bone : p.surface, column === 0 ? 2 : 1);
+        line(image, x - 4, top + 5, x + 4, top + 5, p.mycelium);
+        line(image, x - 4, bottom - 5, x + 4, bottom - 5, p.mycelium);
+      }
+      line(image, cx - spread - 8, cy, cx + spread + 8, cy, p.heart);
+      break;
+    }
+    case 3: {
+      // Assize: two guillotine blades close on a still appeal line.
+      const reach = 58 - Math.round(31 * close);
+      const lift = 30 - Math.round(11 * close);
+      for (const sign of [-1, 1] as const) {
+        const points: Point[] = [
+          [cx + sign * reach, cy - lift],
+          [cx + sign * (reach - 12), cy],
+          [cx + sign * reach, cy + lift],
+          [cx + sign * (reach + 8), cy],
+        ];
+        strokePolygon(image, points, sign < 0 ? p.surface : p.mycelium);
+        line(image, cx + sign * reach, cy - lift,
+          cx + sign * (reach - 12), cy + lift, p.bone, 2);
+      }
+      line(image, cx, cy - 35, cx, cy + 35, p.bone);
+      ring(image, cx, cy, 7 + Math.round(5 * close), 1, p.heart);
+      break;
+    }
+    default:
+      throw new Error(`no Magistrate cast painter for phase ${visual.phaseIndex}`);
+  }
+}
+
+function drawChancellorPhaseCast(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  frame: number,
+  visual: BossPhaseVisual,
+  p: Palette,
+): void {
+  const t = frame / Math.max(1, visual.castSequence.frames - 1);
+  const reveal = Math.min(1, t * 1.7);
+  const page = (
+    ox: number,
+    oy: number,
+    halfW: number,
+    halfH: number,
+    rows: number,
+    barred = false,
+  ): void => {
+    line(image, cx + ox - halfW, cy + oy - halfH, cx + ox + halfW, cy + oy - halfH, p.bone);
+    line(image, cx + ox - halfW, cy + oy - halfH, cx + ox - halfW, cy + oy + halfH, p.surface);
+    line(image, cx + ox + halfW, cy + oy - halfH, cx + ox + halfW, cy + oy + halfH, p.surface);
+    line(image, cx + ox - halfW, cy + oy + halfH, cx + ox + halfW, cy + oy + halfH, p.mycelium);
+    for (let row = 1; row <= rows; row++) {
+      const y = cy + oy - halfH + Math.round((row * halfH * 2) / (rows + 1));
+      const length = Math.max(2, Math.round((halfW * 2 - 8) * Math.min(1, reveal * 2 - row * 0.12)));
+      line(image, cx + ox - halfW + 4, y,
+        cx + ox - halfW + 4 + length, y,
+        barred || row % 2 === 0 ? p.mycelium : p.bone);
+    }
+  };
+
+  switch (visual.phaseIndex) {
+    case 0:
+      // Appeal: one mostly blank brief, with a questioning witness eye.
+      page(0, 0, 22 + Math.round(7 * reveal), 38, 2);
+      ellipse(image, cx, cy - 8, 9 + Math.round(4 * reveal), 3 + frame % 2, p.surface);
+      over(image, cx - 3 + frame % 7, cy - 8, p.heart);
+      break;
+    case 1:
+      // Binding Precedent: two leaves and a chain of binding staples.
+      page(-22, -3, 17, 35, 3);
+      page(22, 3, 17, 35, 3);
+      for (let staple = -2; staple <= 2; staple++) {
+        const y = cy + staple * 13;
+        line(image, cx - 6, y, cx + 6, y + (frame % 2), p.mycelium, 2);
+      }
+      break;
+    case 2:
+      // Wax and Witness: an ocular seal melts onto a short testimony.
+      ring(image, cx, cy - 7, 17 + Math.round(8 * reveal), 2, p.surface);
+      ellipse(image, cx, cy - 7, 12, 4 + frame % 3, p.bone);
+      over(image, cx - 4 + frame % 9, cy - 7, p.heart);
+      for (const dx of [-14, -5, 7, 15]) {
+        line(image, cx + dx, cy + 9, cx + dx + (dx % 2), cy + 31 + Math.round(8 * reveal),
+          dx % 2 === 0 ? p.surface : p.mycelium);
+      }
+      page(0, 26, 28, 13, 2);
+      break;
+    case 3: {
+      // Sweeping Assay: a scan bar exposes successively longer writing rows.
+      page(0, 0, 35, 43, 6);
+      const scanY = cy - 36 + Math.round(72 * t);
+      line(image, cx - 48, scanY, cx + 48, scanY, p.heart, 2);
+      line(image, cx - 44, scanY - 3, cx + 38, scanY - 3, p.mycelium);
+      disc(image, cx + 44, scanY, 2, p.bone);
+      break;
+    }
+    case 4:
+      // Estoppel: a closed ledger crossed by two permanent bars.
+      page(0, 0, 38, 43, 5, true);
+      line(image, cx - 49, cy - 14, cx + 49, cy - 14, p.bone, 2);
+      line(image, cx - 49, cy + 14, cx + 49, cy + 14, p.bone, 2);
+      line(image, cx - 8 + frame % 9, cy - 43, cx - 8 + frame % 9, cy + 43, p.heart);
+      break;
+    case 5: {
+      // Fiat Sealed: three files compact into a diamond and shed their last row.
+      const compact = 34 - Math.round(13 * reveal);
+      for (let file = -1; file <= 1; file++) {
+        page(file * compact, file * 4, 14, 38 - Math.abs(file) * 5, 4, true);
+      }
+      const radius = 15 + Math.round(22 * reveal);
+      strokePolygon(image, [
+        [cx, cy - radius], [cx + radius, cy], [cx, cy + radius], [cx - radius, cy],
+      ], p.heart);
+      const dissolveX = cx - 45 + Math.round(90 * t);
+      line(image, cx - 45, cy + 48, dissolveX, cy + 48, p.mycelium);
+      disc(image, dissolveX, cy + 48, 1, p.bone);
+      break;
+    }
+    default:
+      throw new Error(`no Chancellor cast painter for phase ${visual.phaseIndex}`);
+  }
+}
+
+function drawRegentPhaseCast(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  frame: number,
+  visual: BossPhaseVisual,
+  p: Palette,
+): void {
+  const t = frame / Math.max(1, visual.castSequence.frames - 1);
+  const harden = Math.min(1, t * 1.55);
+  switch (visual.phaseIndex) {
+    case 0: {
+      // Session: one old route is retained as a seed and incomplete contour.
+      const radius = 18 + Math.round(31 * harden);
+      arcLine(image, cx, cy + 5, radius, Math.PI + 0.2, Math.PI * 2 - 0.55, p.surface, 2);
+      line(image, cx - radius, cy + 4, cx + radius - 9, cy - 11, p.mycelium);
+      disc(image, cx - radius + 8 + Math.round((radius * 2 - 16) * t), cy - 4, 2, p.heart);
+      break;
+    }
+    case 1: {
+      // Corolla Regnant: two counter-crowns retain both earlier directions.
+      const radius = 22 + Math.round(27 * harden);
+      for (const sign of [-1, 1] as const) {
+        arcLine(image, cx, cy + sign * 5, radius - (sign < 0 ? 5 : 0),
+          sign < 0 ? Math.PI + 0.18 : 0.18,
+          sign < 0 ? Math.PI * 2 - 0.18 : Math.PI - 0.18,
+          sign < 0 ? p.surface : p.mycelium, 2);
+      }
+      for (let peak = -2; peak <= 2; peak++) {
+        line(image, cx + peak * 14, cy - 3,
+          cx + peak * 11, cy - 29 - (Math.abs(peak) % 2) * 6 + frame % 2, p.bone);
+      }
+      break;
+    }
+    case 2: {
+      // Portcullis: a crystal gate grows both axes but preserves one lane.
+      const spanX = 25 + Math.round(27 * harden);
+      const spanY = 24 + Math.round(25 * harden);
+      strokePolygon(image, [
+        [cx, cy - spanY], [cx + spanX, cy], [cx, cy + spanY], [cx - spanX, cy],
+      ], p.surface);
+      for (const offset of [-2, -1, 0, 1, 2]) {
+        if (offset === (frame % 3) - 1) continue;
+        const x = cx + offset * 10;
+        line(image, x, cy - spanY + 8, x, cy + spanY - 8,
+          offset % 2 === 0 ? p.bone : p.mycelium);
+      }
+      for (const offset of [-2, 0, 2]) {
+        line(image, cx - spanX + 8, cy + offset * 8,
+          cx + spanX - 8, cy + offset * 8, p.surface);
+      }
+      break;
+    }
+    case 3: {
+      // Attainder: a long warrant descends while roots seize both lower corners.
+      const reach = 25 + Math.round(23 * harden);
+      line(image, cx, cy - reach, cx, cy + 26, p.bone, 2);
+      strokePolygon(image, [
+        [cx, cy - reach], [cx + 12, cy - reach + 18],
+        [cx, cy - reach + 12], [cx - 12, cy - reach + 18],
+      ], p.surface);
+      const root = 25 + Math.round(20 * harden);
+      for (const sign of [-1, 1] as const) {
+        line(image, cx, cy + 18, cx + sign * 18, cy + 31, p.mycelium, 2);
+        line(image, cx + sign * 18, cy + 31,
+          cx + sign * root, cy + 47 - frame % 3, p.heart);
+      }
+      break;
+    }
+    case 4: {
+      // Statute: a tablet is engraved one retained contour at a time.
+      const halfW = 31 + Math.round(14 * harden);
+      const halfH = 37 + Math.round(10 * harden);
+      strokePolygon(image, [
+        [cx - halfW, cy - halfH], [cx + halfW, cy - halfH],
+        [cx + halfW, cy + halfH], [cx - halfW, cy + halfH],
+      ], p.surface);
+      for (let row = 0; row < 5; row++) {
+        const y = cy - 24 + row * 12;
+        const visible = Math.max(4, Math.round((halfW * 2 - 14) * Math.min(1, harden * 1.8 - row * 0.1)));
+        line(image, cx - halfW + 7, y, cx - halfW + 7 + visible, y,
+          row % 2 === 0 ? p.bone : p.mycelium);
+      }
+      const engrave = cx - halfW + 8 + Math.round((halfW * 2 - 16) * t);
+      line(image, engrave, cy - halfH + 6, engrave, cy + halfH - 6, p.heart);
+      break;
+    }
+    case 5: {
+      // Sine Die: crown, roots and retained contour separate instead of closing.
+      const drift = Math.round(18 * t);
+      const radius = 29 + Math.round(20 * harden);
+      arcLine(image, cx - drift, cy + 5, radius, Math.PI + 0.28, Math.PI * 1.48, p.surface, 2);
+      arcLine(image, cx + drift, cy + 5, radius, Math.PI * 1.52, Math.PI * 2 - 0.28, p.mycelium, 2);
+      line(image, cx - radius + drift, cy, cx - 7 - drift, cy - 36, p.bone);
+      line(image, cx + 7 + drift, cy - 36, cx + radius - drift, cy, p.bone);
+      for (const sign of [-1, 1] as const) {
+        line(image, cx + sign * 5, cy + 8,
+          cx + sign * (25 + drift), cy + 50, p.heart);
+      }
+      ring(image, cx, cy, 7 + frame % 4, 1, p.heart);
+      break;
+    }
+    default:
+      throw new Error(`no Regent cast painter for phase ${visual.phaseIndex}`);
+  }
+}
+
+function drawBossPhaseCast(
+  image: Bitmap,
+  cx: number,
+  cy: number,
+  frame: number,
+  visual: BossPhaseVisual,
+  p: Palette,
+): void {
+  switch (visual.boss) {
+    case 'sentinel': drawSentinelPhaseCast(image, cx, cy, frame, visual, p); break;
+    case 'magistrate': drawMagistratePhaseCast(image, cx, cy, frame, visual, p); break;
+    case 'chancellor': drawChancellorPhaseCast(image, cx, cy, frame, visual, p); break;
+    case 'regent': drawRegentPhaseCast(image, cx, cy, frame, visual, p); break;
+  }
 }
 
 function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, frame: number): void {
@@ -1628,71 +2409,9 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
     line(image, cx - 2, cy + 3, cx + 3, cy + 10, p.mycelium);
     return;
   }
-  if (spec.name.startsWith('boss.cast.')) {
-    const t = frame / Math.max(1, spec.frames - 1);
-    const rise = Math.min(1, t * 2.4);
-    if (spec.name.endsWith('.sentinel')) {
-      const radius = 16 + Math.round(34 * rise);
-      for (let gate = 0; gate < 3; gate++) {
-        const bearing = -0.55 + gate * Math.PI * 2 / 3 + t * 0.7;
-        arcLine(image, cx, cy, radius - gate * 3, bearing, bearing + 0.92,
-          gate === 0 ? p.bone : gate === 1 ? p.surface : p.mycelium, 2);
-        const mid = bearing + 0.46;
-        disc(image, cx + Math.round(Math.cos(mid) * (radius - 8)),
-          cy + Math.round(Math.sin(mid) * (radius - 8)), 1, p.heart);
-      }
-      ring(image, cx, cy, 8 + Math.round(18 * rise), 1, p.mycelium);
-    } else if (spec.name.endsWith('.magistrate')) {
-      const strike = t < 0.52 ? t / 0.52 : (1 - t) / 0.48;
-      const inset = 58 - Math.round(42 * Math.max(0, strike));
-      const shear = Math.round((t - 0.5) * 12);
-      for (const sign of [-1, 1] as const) {
-        line(image, cx + sign * inset, cy - 37 + sign * shear,
-          cx + sign * (inset - 8), cy + 37 + sign * shear,
-          sign < 0 ? p.bone : p.surface, 2);
-        line(image, cx + sign * (inset + 9), cy - 30 + sign * shear,
-          cx + sign * (inset + 1), cy + 30 + sign * shear, p.mycelium);
-      }
-      line(image, cx, cy - 18, cx, cy + 18, p.bone);
-      ring(image, cx, cy, 5 + Math.round(4 * rise), 1, p.heart);
-    } else if (spec.name.endsWith('.chancellor')) {
-      for (let page = 0; page < 3; page++) {
-        const reveal = Math.max(0, Math.min(1, t * 3.2 - page * 0.42));
-        const ox = (page - 1) * (31 + Math.round(3 * reveal));
-        const top = cy - 43 + page * 5;
-        const bottom = top + 76 - page * 4;
-        line(image, cx + ox - 10, top, cx + ox + 10, top, p.bone);
-        line(image, cx + ox - 10, top, cx + ox - 10, bottom, p.surface);
-        line(image, cx + ox + 10, top, cx + ox + 10, bottom, p.surface);
-        line(image, cx + ox - 10, bottom, cx + ox + 10, bottom, p.mycelium);
-        for (let row = 1; row <= 4; row++) {
-          const writingY = top + row * (13 - page);
-          const length = Math.max(1, Math.round(12 * Math.max(0, Math.min(1, reveal * 2.1 - row * 0.18))));
-          line(image, cx + ox - 6, writingY, cx + ox - 6 + length, writingY,
-            row % 2 === 0 ? p.mycelium : p.bone);
-        }
-      }
-      const trace = Math.max(0, Math.min(1, (t - 0.36) * 2.1));
-      const endX = cx - 47 + Math.round(95 * trace);
-      line(image, cx - 47, cy + 32, cx - 18, cy - 18, p.mycelium);
-      line(image, cx - 18, cy - 18, endX, cy - 25, p.mycelium);
-      disc(image, endX, cy - 25, 1, p.heart);
-    } else {
-      for (let memory = 0; memory < 4; memory++) {
-        const retain = Math.max(0, Math.min(1, t * 1.85 - memory * 0.17));
-        const radius = 17 + memory * 9 + Math.round(retain * 8);
-        arcLine(image, cx, cy + 7, radius, Math.PI + 0.16, Math.PI * 2 - 0.16,
-          memory % 2 === 0 ? p.surface : p.mycelium);
-        line(image, cx - radius, cy + 3, cx, cy - 7 - memory * 2,
-          memory % 2 === 0 ? p.bone : p.surface);
-        line(image, cx, cy - 7 - memory * 2, cx + radius, cy + 3,
-          memory % 2 === 0 ? p.bone : p.surface);
-        line(image, cx - Math.round(radius * 0.55), cy + 12,
-          cx - Math.round(radius * 0.72), cy + radius, p.mycelium);
-        line(image, cx + Math.round(radius * 0.55), cy + 12,
-          cx + Math.round(radius * 0.72), cy + radius, p.mycelium);
-      }
-    }
+  const phaseCast = bossPhaseCastVisual(spec.name);
+  if (phaseCast !== undefined) {
+    drawBossPhaseCast(image, cx, cy, frame, phaseCast, p);
     return;
   }
   if (spec.name.startsWith('boss.death.')) {
@@ -1748,15 +2467,36 @@ function drawEffectFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fra
   }
 }
 
-const NATIVE_EFFECT_NAMES = [
-  'burst', 'burst.big', 'material.surface', 'material.skeleton', 'material.mycelium', 'material.heart',
-  'boss.distress.surface', 'boss.distress.skeleton', 'boss.distress.mycelium',
-  'boss.distress.crack', 'boss.distress.heart', 'boss.break',
-  'boss.death.sentinel', 'boss.death.warden', 'boss.death.magistrate', 'boss.death.chancellor', 'boss.death.regent',
-  'boss.cast.sentinel', 'boss.cast.magistrate', 'boss.cast.chancellor', 'boss.cast.regent',
-  'missile.pop.tiny', 'missile.pop.mid', 'missile.pop.big',
-  'boom.elite', 'boom.elite.spray', 'boom.boss.back', 'boom.boss.top', 'boom.player', 'debris',
-] as const;
+const BOSS_PHASE_CAST_EFFECT_SPECS: readonly RowSpec[] = V4_BOSS_PHASE_VISUALS.map(
+  (visual): RowSpec => ({
+    name: visual.castStrip,
+    ...visual.castSequence,
+    mode: 'once',
+    color: 'baked',
+  }),
+);
+const BOSS_PHASE_CAST_EFFECT_SPEC_BY_NAME = new Map(
+  BOSS_PHASE_CAST_EFFECT_SPECS.map((spec) => [spec.name, spec]),
+);
+
+// Preserve the runtime fallback ledger's deterministic order while replacing
+// each phase declaration's procedural floor with the shared exact sequence.
+const NATIVE_EFFECT_NAMES = Object.keys(FX_STRIPS).filter((name) => name !== 'pulse');
+const NATIVE_EFFECT_SPECS: readonly RowSpec[] = NATIVE_EFFECT_NAMES.map((name): RowSpec => {
+  const phaseSpec = BOSS_PHASE_CAST_EFFECT_SPEC_BY_NAME.get(name);
+  if (phaseSpec !== undefined) return phaseSpec;
+  const floor = FX_STRIPS[name]!;
+  return {
+    name,
+    frameW: floor.frameW,
+    frameH: floor.frameH,
+    frames: floor.frames,
+    ticksPerFrame: floor.ticksPerFrame,
+    mode: floor.mode,
+    color: 'baked',
+  };
+});
+const NATIVE_EFFECT_COUNT = NATIVE_EFFECT_SPECS.length;
 
 const PLAYER_EFFECT_SPECS: readonly RowSpec[] = [
   { name: 'player.option', frameW: 24, frameH: 24, frames: 4, ticksPerFrame: 4, mode: 'loop', color: 'baked' },
@@ -1781,18 +2521,7 @@ const PLAYER_EFFECT_SPECS: readonly RowSpec[] = [
 ];
 
 export const V4_EFFECT_SPECS: readonly RowSpec[] = [
-  ...NATIVE_EFFECT_NAMES.map((name): RowSpec => {
-    const floor = FX_STRIPS[name]!;
-    return {
-      name,
-      frameW: floor.frameW,
-      frameH: floor.frameH,
-      frames: floor.frames,
-      ticksPerFrame: floor.ticksPerFrame,
-      mode: floor.mode,
-      color: 'baked',
-    };
-  }),
+  ...NATIVE_EFFECT_SPECS,
   ...PLAYER_EFFECT_SPECS,
 ];
 
@@ -1873,6 +2602,28 @@ function drawLaserFrame(image: Bitmap, x: number, y: number, spec: RowSpec, fram
   const cx = x + Math.floor(spec.frameW / 2);
   const cy = y + Math.floor(spec.frameH / 2);
   if (spec.name.startsWith('beam.')) {
+    if (spec.name === 'beam.assize') {
+      // Final assize is a broad sentencing plane: paired seal rails, a hard
+      // bone/magenta cutting edge and translucent outer membranes all occupy
+      // the collision span. The pigment varies only across y, so adjacent body
+      // tiles have byte-identical first/last columns and cannot reveal a seam.
+      for (let py = cy - 9; py <= cy + 9; py++) {
+        const distance = Math.abs(py - cy);
+        const color = distance <= 1
+          ? (frame % 2 === 0 ? p.bone : MAGISTRATE_MAGENTA)
+          : distance <= 3
+          ? MAGISTRATE_MAGENTA
+          : distance === 4
+          ? [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 62] as const
+          : distance <= 6
+          ? (frame % 2 === 0 ? MAGISTRATE_SEAL : MAGISTRATE_MAGENTA)
+          : distance === 7
+          ? [MAGISTRATE_SEAL[0], MAGISTRATE_SEAL[1], MAGISTRATE_SEAL[2], 70] as const
+          : [MAGISTRATE_MAGENTA[0], MAGISTRATE_MAGENTA[1], MAGISTRATE_MAGENTA[2], 104] as const;
+        for (let px = x; px < x + spec.frameW; px++) over(image, px, py, color);
+      }
+      return;
+    }
     if (spec.name === 'beam.blue') {
       // A low-alpha appeal membrane separates two verdict rails without
       // pretending the collision capsule's centre is safe. Every row fills x
@@ -2160,7 +2911,7 @@ branching mycelium and a warm heart core — authored at STG-native scales.
 | Surface | Count | File |
 |---|---:|---|
 | Native bullet names (${BULLET_CELLS.length} neutral floors + ${bulletCount - BULLET_CELLS.length} current base variants) | ${bulletCount} | \`bullets/bullets.png\` |
-| Native effects | ${NATIVE_EFFECT_NAMES.length} | \`effects/effects.png\` |
+| Native effects (including ${BOSS_PHASE_CAST_EFFECT_SPECS.length} phase declarations) | ${NATIVE_EFFECT_COUNT} | \`effects/effects.png\` |
 | Player option / thrust / bomb effects | ${PLAYER_EFFECT_SPECS.length} | \`effects/effects.png\` |
 | Laser bodies + caps | ${V4_LASER_SPECS.length} | \`lasers/lasers.png\` |
 | Missile bodies | ${V4_MISSILE_SPECS.length} | \`missiles/missiles.png\` |
@@ -2178,6 +2929,13 @@ Every animation strip remains horizontally contiguous. The generated
 projectile/effect multi-strip sheets use a deterministic first-fit shelf
 layout, avoiding transparent full-width rows without changing frame order,
 names or sampling geometry.
+
+Each of the four main Bosses now changes its projectile anchor and declaration
+animation at every phase: 20 phase-specific silhouettes, material motions and
+full-cycle cadences are compiled from the shared v4 phase ledger. The
+Magistrate's final assize additionally owns a broad, collision-honest
+\`beam.assize\` sentencing plane; ordinary non-anchor Boss bullets retain their
+owner's default visual language.
 
 The Boss atlas is compiled from the isolated 25-pose master recorded in
 \`docs/art/v4/originals-manifest.json\` (SHA-256
@@ -2217,9 +2975,9 @@ this pack before the build turns green.
   through a filename fragment, stage guess or missile-number cycle.
 - A baked name shared by several people uses a declared multi-lineage scheme:
   first owner's surface, second owner's mycelium, final owner's heart, neutral
-  bone. It does not impersonate one claimant. The important remaining shared
-  enemy/player names are \`beam.cyan\` and \`scale.satellite\`; separating them
-  further requires a presentation-only per-firer skin seam in the renderer.
+  bone. It does not impersonate one claimant. The remaining shared enemy/player
+  name is \`scale.satellite\`; \`beam.cyan\` is player-only, while Magistrate's
+  final ruling owns the project-authored \`beam.assize\` skin.
 
 ## Four anatomical silhouettes
 
@@ -2254,8 +3012,8 @@ That shape lock continues through each Boss's unique heavy presentation:
 \`beam.blue\` is a twin verdict rail around a low-alpha appeal channel and \`missile.4\`
 is a bifurcated judgment blade; Chancellor's warm/stream beams are seamless
 amber-green page spines with moving writing rows and \`missile.9\` is a witness
-eye towing archival page corners. Shared \`beam.cyan\`, every cap and Regent's
-massive writ remain unchanged.
+eye towing archival page corners. Player-only \`beam.cyan\`, every cap and
+Regent's massive writ remain unchanged.
 
 All oriented bullet and missile art points east (+x), matching CLAUDE.md rule 7.
 Small bullets paint 6–14px, medium bullets 16–22px, large bullets 24–28px;
@@ -2311,10 +3069,10 @@ export function buildV4Pack(): V4PackBuild {
   const manifest: PackManifest = {
     format: 1,
     name: 'v4',
-    version: '4.5.0',
+    version: '4.6.0',
     author: 'Danmaku project',
     license: 'LicenseRef-Danmaku-Project-Owned',
-    description: 'Original v4 Japanese-STG presentation pack: player, enemy, corrected Boss and dedicated high-resolution dialogue portrait atlases; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
+    description: 'Original v4 Japanese-STG presentation pack: player, enemy, corrected Boss and dedicated high-resolution dialogue portrait atlases; 20 phase-specific Boss projectile anchors and declaration effects; runtime-owner-linked surface, skeleton, mycelium and heart art; plus a project-generated 13-track score and 25-cue sound suite with per-stage architectures, one-shot boss intros, boss-entry identities and power-tier feedback. Existing background shaders remain engine-owned and unchanged.',
     assets: {
       bullets: { sheet: 'bullets/bullets.png', strips: bullets.strips },
       ship: {
@@ -2379,7 +3137,7 @@ if (import.meta.main) {
   const assets = build.manifest.assets!;
   const bullets = assets.bullets as Exclude<typeof assets.bullets, string | undefined>;
   console.log(`v4 pack: ${Object.keys(bullets.strips).length} bullets`);
-  console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (${NATIVE_EFFECT_NAMES.length} native + ${PLAYER_EFFECT_SPECS.length} player)`);
+  console.log(`v4 pack: ${Object.keys(assets.effects ?? {}).length} effects (${NATIVE_EFFECT_COUNT} native + ${PLAYER_EFFECT_SPECS.length} player)`);
   console.log(`v4 pack: ${Object.keys(assets.lasers ?? {}).length} lasers, ${Object.keys(assets.missiles ?? {}).length} missiles, ${Object.keys(assets.pickups ?? {}).length} pickups`);
   console.log('v4 pack: 5 player, 16 enemy, 5 Boss and 10 dialogue portrait actor strips');
   console.log(`v4 pack: ${V4_TRACK_SPECS.length} music tracks, ${V4_SOUND_SPECS.length} sound cues`);

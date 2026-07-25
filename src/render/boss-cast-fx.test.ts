@@ -36,13 +36,13 @@ describe('boss phase declaration queue', () => {
 
   test('visibility requires both the current Run and its current Boss', () => {
     const queue = [
-      cast(firstRun, 'sentinel', 'boss.cast.sentinel'),
-      cast(firstRun, 'magistrate', 'boss.cast.magistrate'),
+      cast(firstRun, 'sentinel', 'boss.cast.sentinel.tidal-corolla'),
+      cast(firstRun, 'magistrate', 'boss.cast.magistrate.colonnade'),
       cast(secondRun, 'sentinel', 'other-run'),
     ];
 
     expect(visibleBossCastFx(queue, firstRun, 'sentinel').map((item) => item.strip))
-      .toEqual(['boss.cast.sentinel']);
+      .toEqual(['boss.cast.sentinel.tidal-corolla']);
     expect(visibleBossCastFx(queue, firstRun, 'regent')).toEqual([]);
   });
 });

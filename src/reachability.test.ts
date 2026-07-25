@@ -883,7 +883,7 @@ describe('a real playthrough reaches', () => {
   });
 
   test('every registered laser body skin, fired by reachable content', () => {
-    // The reachability half of "all 11 laser files consumed": every registered
+    // The reachability half of "all 12 laser strips consumed": every registered
     // skin (`render/laser-skin.ts`) is put on the field by a real playthrough —
     // `LANCE`→beam.v3, the three `COLUMN` boss variants, `RAY_BEAM`→beam.slim,
     // the `chancellor` card's three stream/warm beams, and the player's

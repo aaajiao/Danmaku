@@ -2104,7 +2104,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "petal.corolla",
+                      "sprite": "petal.vigil",
                       "r": 1,
                       "g": 0.55,
                       "b": 0.8
@@ -2150,7 +2150,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "scale.shard",
+                      "sprite": "needle.vigil",
                       "r": 0.6,
                       "g": 0.85,
                       "b": 1,
@@ -2230,7 +2230,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "petal.corolla",
+                      "sprite": "petal.eclipse",
                       "r": 1,
                       "g": 0.55,
                       "b": 0.8
@@ -3296,7 +3296,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "beam.cyan",
+                      "sprite": "beam.assize",
                       "r": 0.55,
                       "g": 1,
                       "b": 1,
@@ -3341,7 +3341,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "kunai.pursuit",
+                      "sprite": "kunai.assize",
                       "r": 0.55,
                       "g": 1,
                       "b": 0.82,
@@ -3633,7 +3633,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.brief",
+                      "sprite": "orb.small.precedent",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -3724,7 +3724,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.brief",
+                      "sprite": "orb.small.wax",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -3930,7 +3930,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.brief",
+                      "sprite": "orb.small.assay-trace",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4065,7 +4065,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.brief",
+                      "sprite": "orb.small.estoppel",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4140,7 +4140,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.brief",
+                      "sprite": "orb.small.sealed",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4474,7 +4474,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.session",
+                      "sprite": "orb.small.corolla-regnant",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4672,7 +4672,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.session",
+                      "sprite": "orb.small.attainder",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4799,7 +4799,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.session",
+                      "sprite": "orb.small.statute",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6
@@ -4916,7 +4916,7 @@
                 "options": {
                   "spec": {
                     "style": {
-                      "sprite": "orb.small.session",
+                      "sprite": "orb.small.sine-die",
                       "r": 0.95,
                       "g": 0.82,
                       "b": 0.6

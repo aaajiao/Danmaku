@@ -265,15 +265,17 @@ Boss 的人物身份必须先于几何弹幕身份。五位 Boss 的服装从开
 | `chancellor` | 档案宰辅 | 卷轴和浮碑层叠，但脸与双手保持空 | idle / prepare / cast / expand / close | 96×96 |
 | `regent` | 穹顶摄政者 | 冠环与宽袖逐帧闭合成最后狭缝 | idle / prepare / cast / expand / close | 110×110 |
 
-Warden 是关内教学中 Boss；四个关底主 Boss 另外各占有一套不能交换的
-`pattern → 普通弹序列 → phase 宣告` 身份链：
+Warden 是关内教学中 Boss；四个关底主 Boss 另外各占有一条不能交换的
+`专属空间动词 → phase 弹体锚点 → phase 序列 → phase 宣告` 身份链。Boss
+属性是共同语法，不是把整场战斗压成一套循环：同一 Boss 的每个 phase 也必须
+凭首帧轮廓、材质和序列动作互相区分。
 
-| 主 Boss | 专属空间动词 | 普通弹序列 | phase 宣告 |
-|---|---|---|---|
-| `sentinel` | `moon-gate`：围绕身体生成三开口月轮，连续波次切向相反 | 32×32、8 帧、3 tick/帧；开口接缝沿弹体移动 | 三段月弧从身体外展开 |
-| `magistrate` | `verdict-shear`：按玩家当前 x 锁定申诉通道，两侧裁决面交替剪切 | 34×32、6 帧、4 tick/帧；双侧斜线交换闭合方向 | 双刃从场边压向中央未触碰线 |
-| `chancellor` | `archive-trace`：固定延迟读取 phase 内玩家旧坐标，多条卷脊向记录点汇合 | 36×34、10 帧、5 tick/帧；页角与书写行逐步保留 | 三册档案依次显影并复写旧轨迹 |
-| `regent` | `memory-groove`：旧 x 成为墙洞，更旧样本把当时移动方向保留成整体漂移 | 34×36、12 帧、2 tick/帧；旧等高线不消失，新轮廓磨过其上 | 多层磨损冠环与根系逐层固化 |
+| 主 Boss | 专属空间动词 | phase 数 | 整场不变量 |
+|---|---|---:|---|
+| `sentinel` | `moon-gate`：围绕身体生成三开口月轮，连续波次切向相反 | 4 | 银青膜眼与月缺；从观察、涨潮、不眠到食蚀逐步闭合 |
+| `magistrate` | `verdict-shear`：按玩家当前 x 锁定申诉通道，两侧裁决面交替剪切 | 4 | 菱封、判刃与申诉中线；从列罪、追诉、柱廊到终审逐步定形 |
+| `chancellor` | `archive-trace`：固定延迟读取 phase 内玩家旧坐标，多条卷脊向记录点汇合 | 6 | 琥珀/绿见证眼、页脊与书写行；从记录到封档再到过印溶解 |
+| `regent` | `memory-groove`：旧 x 成为墙洞，更旧样本把当时移动方向保留成整体漂移 | 6 | 帝紫晶格、绯红根心与 retained contour；从初痕积累到最终脱锚 |
 
 Boss 稳态不应把五帧当普通循环。最少需要三类展示状态：
 
@@ -347,11 +349,48 @@ HOUND 翡翠/黄绿/金橙，SPIRE 紫罗兰/电青/银白，MAW 朱橙/桃红/�
 | Chancellor | 琥珀/绿见证眼、彗尾种子、页脊 | 眼印、卷宗核、带旧轨迹的彗尾与多行书写流 | 页角出现，记录逐行累积，旧轨迹回写到 `archive-trace` 的延迟目标 |
 | Regent | 帝紫晶柱、绯红根心、磨损冠环 | 晶格、根化心核、冠轮与 retained contour | 旧轮廓保留，新轮廓错位磨过，与 `memory-groove` 的历史路线叠写 |
 
-上述主 Boss 普通弹在 native V4 pack 中直接进入各自 painter，不再先绘制通用
-`orb / scale / petal / needle` 后添加一层小标记。骨白只保留五像素危险核心、
-朝向 glint 和极少结构高光；身份色必须主导外轮廓与填充，使四套弹体在灰度看
-轮廓、彩色看材质时都能分辨。风格母版仍只作为形态与色彩依据，不直接裁切或
-缩放进运行 atlas。
+#### 6.2.1 二十阶段视觉矩阵
+
+下表是运行时的完整 phase 合同，不是概念候选。`8@3` 表示 8 帧、每帧 3 个
+固定 tick；“弹体锚点”是该 phase 专属空间动词携带的 exact sprite，不代表
+该卡不能再使用辅助弹、激光或导弹。每行同时拥有独立弹体序列和
+`boss.cast.<boss>.<id>` once-strip；背景即使沿用同一 Boss station，也不能
+代替这两层差异。
+
+| Boss / phase | 弹体锚点与序列 | 轮廓、材质与序列动作 | exact phase cast |
+|---|---|---|---|
+| Sentinel 0 `Approach` | `scale.shard` · 32×32 · `8@3` | 窄杏形观测眼鳞；膜只开一线，瞳孔横向扫描，月缺沿外缘试探 | `boss.cast.sentinel.approach` · 128×128 · `10@3`；三枚小月门依次睁开 |
+| Sentinel 1 `Sign "Tidal Corolla"` | `petal.corolla` · 32×32 · `10@3` | 半透明潮汐月瓣；涨潮鼓起、三瓣展开、退潮折回，圆润而非针刺 | `boss.cast.sentinel.tidal-corolla` · 128×128 · `12@2`；潮环由内向外开花 |
+| Sentinel 2 `Last Sign "Vigil Unbroken"` | `petal.vigil` · 32×32 · `12@2` | 完全张开的守望眼与细长月睫；短促收紧后再次锁定，轮廓转为锐长 | `boss.cast.sentinel.vigil-unbroken` · 128×128 · `14@2`；长针从三道开口同时定向 |
+| Sentinel 3 `Lunatic "Total Eclipse"` | `petal.eclipse` · 32×32 · `14@2` | 暗心食蚀盘、断月尾与冷青日冕；动作从开放反向遮蔽，最后只留危险芯 | `boss.cast.sentinel.total-eclipse` · 128×128 · `16@1`；三门闭合成一次全食 |
+| Magistrate 0 `Arraignment` | `orb.small.arraignment` · 34×32 · `6@4` | 小型四角列罪菱印；左右案号交替出现，保持未定罪的轻量空心状态 | `boss.cast.magistrate.arraignment` · 144×96 · `9@3`；两侧文书框出中央申诉线 |
+| Magistrate 1 `Seeker Sign "Writ of Pursuit"` | `scale.escrow` · 34×32 · `8@3` | 带菌丝牵引线的追诉钩刃；分叉、锁定、合刺，朝向轮廓始终清楚 | `boss.cast.magistrate.writ-of-pursuit` · 144×96 · `11@2`；左右判刃追入旧通道 |
+| Magistrate 2 `Beam Sign "Colonnade"` | `scale.assize` · 34×32 · `10@2` | 长方石印与柱头晶节；垂直压印后硬锁，成为全场最刚性的裁决材质 | `boss.cast.magistrate.colonnade` · 144×96 · `13@2`；平行柱廊逐列落下 |
+| Magistrate 3 `Last Word "Assize"` | `kunai.assize` · 34×32 · `12@2` | 终审剪刃与双头判枪；左闭、中央申诉线、右闭，最后整面斩落 | `boss.cast.magistrate.assize` · 144×96 · `15@1`；双刃合拢并盖下完整大印 |
+| Chancellor 0 `Appeal` | `orb.small.brief` · 36×34 · `10@5` | 空白上诉页与未闭合见证眼；绿色游标只写第一行，留下最大空白 | `boss.cast.chancellor.appeal` · 144×128 · `10@3`；一册空卷展开并开始记录 |
+| Chancellor 1 `Sign "Binding Precedent"` | `orb.small.precedent` · 36×34 · `12@4` | 页角和订书节点由绿线相连；散页逐条装订成不可单独移动的链结 | `boss.cast.chancellor.binding-precedent` · 144×128 · `12@3`；多页依次穿线收束 |
+| Chancellor 2 `Seal Sign "Wax and Witness"` | `orb.small.wax` · 36×34 · `14@3` | 不规则琥珀蜡环鼓起，绿色瞳孔被压入，边缘留下滴落与彗尾 | `boss.cast.chancellor.wax-and-witness` · 144×128 · `14@2`；熔蜡见证眼完成一次盖印 |
+| Chancellor 3 `Beam Sign "Sweeping Assay"` | `orb.small.assay-trace` · 36×34 · `16@2` | 页脊刻度与多行书写流；扫描行跨页移动并保留上一行的旧轨迹 | `boss.cast.chancellor.sweeping-assay` · 144×128 · `16@2`；长页脊展开后横向扫描 |
+| Chancellor 4 `Sign "Estoppel"` | `orb.small.estoppel` · 36×34 · `18@2` | 合页关闭、靛青删节杠与红蜡封条交叉锁死；动作与 `Appeal` 的展开相反 | `boss.cast.chancellor.estoppel` · 144×128 · `18@1`；档案合拢并被整面涂销 |
+| Chancellor 5 `Fiat "Sealed"` | `orb.small.sealed` · 36×34 · `20@1` | 多重盖印错位，页角碎裂，字行由琥珀转骨白后脱落；不是再一次普通 ledger | `boss.cast.chancellor.sealed` · 144×128 · `20@1`；过印堆满后从中心溶解 |
+| Regent 0 `Session` | `orb.small.session` · 34×36 · `12@2` | 一枚根心种子外留两层淡旧轮廓；新痕覆上但旧痕不消失，场面最空 | `boss.cast.regent.session` · 144×144 · `11@3`；第一道 retained contour 被磨出 |
+| Regent 1 `Seal Sign "Corolla Regnant"` | `orb.small.corolla-regnant` · 34×36 · `14@2` | 三齿内冠与五齿外冠错位磨损，绯根在两环间搏动，避免两环同形 | `boss.cast.regent.corolla-regnant` · 144×144 · `13@2`；双层根冠反向闭合 |
+| Regent 2 `Beam Sign "Portcullis"` | `orb.medium.lattice` · 34×36 · `16@2` | 方柱晶节、铰链和保留旧缝的横梁；节点逐个扣合，彻底离开圆弹轮廓 | `boss.cast.regent.portcullis` · 144×144 · `15@2`；晶格闸门沿旧路线落锁 |
+| Regent 3 `Writ Sign "Attainder"` | `orb.small.attainder` · 34×36 · `18@2` | 带倒钩的紫晶根矛与锁链记忆核；绯根拖尾先追索再突然收紧 | `boss.cast.regent.attainder` · 144×144 · `17@2`；根状 warrant 围住大型 writ |
+| Regent 4 `Sign "Statute"` | `orb.small.statute` · 34×36 · `20@1` | 多边刻文法轮与凿落的绯金碎屑；旧刻痕逐层加深而非只做旋转 | `boss.cast.regent.statute` · 144×144 · `19@1`；法轮被连续刻写至硬化 |
+| Regent 5 `Last Fiat "Sine Die"` | `orb.small.sine-die` · 34×36 · `22@1` | 冠环断开、根心反转为空洞，retained contour 逐层剥离；终局趋于脱锚而非更满 | `boss.cast.regent.sine-die` · 144×144 · `21@1`；根冠从外向内撤去，只剩空位 |
+
+上述 phase 锚点在 native V4 pack 中按 exact sprite 进入各自 recipe，不再先
+把同一 Boss 的所有名字压成一个 `orb / scale / petal / needle` 基形。辅助弹
+可以回声式复用 Boss 的共同语法，但不能让相邻 phase 的主轮廓和序列动作相同。
+骨白只保留五像素危险核心、朝向 glint 和极少结构高光；身份色必须主导外轮廓
+与填充，使二十套锚点在灰度看轮廓、彩色看材质时都能分辨。风格母版仍只作为
+形态与色彩依据，不直接裁切或缩放进运行 atlas。
+
+phase 宣告同样按 exact index 选择。`boss-phase` 事件已经携带实际
+`phaseIndex`；shell 只用它查询 `src/v4/presentation/boss-phase-visuals.ts`
+并播放对应 once-strip，不从动画回调发弹，也不把任何表现状态写回模拟。Warden
+是关内教学 Boss，不进入这二十条关底合同。
 
 ### 6.3 STG 实际尺寸
 
@@ -661,15 +700,15 @@ fallback。
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
 | shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；最终 Boss `regnum` 从唯一母版派生 16 帧、14 tick/帧的异步漆面错层，顶部 Boss 与底部玩家安全带不动，十四层 shader 保持在上方；独立 `wear-field` 也从唯一母版派生 16 帧，但只让多边磨损路径分段显影、错位、褪去并锁住文字区，服务 v4 三页终局；所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
-| 弹幕生成 | `src/v4/gameplay` 已拥有 12 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名；Warden 保留关内教学组合，四个主 Boss 则在每个阶段只携带自己的专属空间词，彼此不可互换；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认月门、裁决剪切、延迟归档与路线磨槽在 Normal/Lunatic 都保留连续安全缝 |
+| 弹幕生成 | `src/v4/gameplay` 已拥有 12 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名；Warden 保留关内教学组合，四个主 Boss 在每个阶段携带自己的专属空间词，并由共享 phase 视觉表把二十个实际 phase 分别绑定到 exact 弹体锚点；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认月门、裁决剪切、延迟归档与路线磨槽在 Normal/Lunatic 都保留连续安全缝，并盲分同 Boss 的相邻卡 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
-| 多帧 | 玩家 banking 已由默认 pack 的 `banking: five-way` 接通；敌人 attack/recover 与 Boss 五语义姿态读取真实成功发弹及 phase 事实；四主 Boss 的普通弹分别使用 `8@3`、`6@4`、`10@5`、`12@2` 的独占帧节奏，并直接进入月轮眼瓣、裁决枪刃、见证眼印、根心冠环四套 native painter；phase 开始另播放四套仅表现层的 `boss.cast.*` 宣告序列 | 浏览器确认 ×1 下无需依赖颜色即可区分四套外轮廓，身份色像素主导而骨白不重新吞没弹体，宣告 FX 位于 Boss 身体上方、敌弹下方 |
+| 多帧 | 玩家 banking 已由默认 pack 的 `banking: five-way` 接通；敌人 attack/recover 与 Boss 五语义姿态读取真实成功发弹及 phase 事实；四主 Boss 的二十个 phase 各自拥有 native 弹体帧数/节奏与 exact-name recipe，phase 开始按实际 phase index 播放二十套仅表现层的 `boss.cast.<boss>.<id>` 宣告序列 | 浏览器确认 ×1 下无需依赖颜色即可区分四个 Boss，也能在同 Boss 内凭锚点轮廓、材质与动作辨认当前卡；宣告 FX 位于 Boss 身体上方、敌弹下方 |
 | 命中材质 | 16 类敌人和 5 位 Boss 全部显式绑定 `surface/skeleton/mycelium/heart`；四套 8 帧反馈同时有 procedural floor 与 v4 native strip；Boss 接触显示统一限频但伤害逐 tick，重击仅改变姿态/局部层；最后三分之一血量固定 tick 收缩、开裂与双搏 | 浏览器逐材质确认膜纹、骨节、菌丝回缩和心核压缩在实战尺寸仍能区分 |
 | 对话头像 | 主角与五位 Boss 已从同一 Ghost 原画母版生成独立 256px 近景图集；旧包保留 field-actor crop，第三方 pack speaker 仍走其 portrait/fallback | 浏览器检查十张圆形裁切、脸、心核、黑边和姓名板在四种 shader 上均可读 |
 | 三层 glitch | 外表/骨相/菌丝+心脏已烘焙进所有人物动作帧 | 再拆 `surface/skeleton/mycelium+heart` 同 pivot 图层，接旧作式排列组合 |
 | 负空间反馈 | 人物透明孔洞、局部暗垫、读取实际 2.5px 半径并压住 FX 的 focus、真实 graze event 短弧已完成；结局只在表现层读取真实 stage-4 移动路径，并随三页递减撤去；UI 为局部透明面板 | 浏览器确认路径确实来自本次移动、不会伪装成安全指引，第三页完全退场 |
-| 原创 v4 包 | 默认包的 77 个 bullet 名、49 个 effect/player FX（含四套材质反馈、四套 Boss distress、破符 Break、四套主 Boss phase 宣告、五种最终身份消隐、五组专属 option 与五组专属 Bomb）、11 个 laser、13 个 missile、10 个 pickup、五档心翼与 HUD 均为项目自有像素；普通弹与其他分类图集均使用确定性 shelf packing，允许 strip 自有尺寸/帧数/节奏 | 浏览器逐关检查强弹层级、Boss 过渡/死亡身份和 Normal/Lunatic 密集弹幕负空间 |
+| 原创 v4 包 | 默认包的 bullet、effect/player FX、laser、missile、pickup、五档心翼与 HUD 均为项目自有像素；其 Boss 表现包含四套材质反馈、四套 distress、破符 Break、二十套 phase 宣告、五种最终身份消隐、五组专属 option 与五组专属 Bomb；普通弹与其他分类图集均使用确定性 shelf packing，允许 strip 自有尺寸/帧数/节奏 | 浏览器逐关检查强弹层级、Boss 过渡/死亡身份和 Normal/Lunatic 密集弹幕负空间 |
 | v4 UI | `1024×768` 图集保留原 32 cells，并从一张项目自有 `1086×1448` 绿幕母版生成 6 个 production-derived cells；Title/Difficulty/Character 使用开放式构图，菜单行、Character 身份框、Dialogue、Pause/Clear/Game Over/Ending 与 Boss 条均已消费，动态文字仍由 runtime 绘制 | 浏览器检查 CJK/第三方 fallback、6 个 ornament 的软边/裁切、三类选择界面的负空间、Boss 条和四种 shader 上的局部透明度 |
 | BulletPack 兼容参考 | 本地 importer 已完成 117/117 消费者、显式五档 banking、Bomb/结算的 entity/state-age 动画、laser 无缝 body 与 painted `contentW/contentH` 尺寸；输出已从项目移除，需要时临时再生成并用 `?pack=bulletpack` 显式选择 | 保持回归测试；不把购买 PNG 或生成包纳入版本库、发布包或 v4 默认视觉身份 |
 
@@ -719,10 +758,12 @@ v4 终局使用一张 wear-field 母版、三页递减合成与只读的真实 s
 
 - Normal 与 Lunatic 都能在不盯单颗弹的情况下看见连续安全缝隙。
 - Sentinel、Magistrate、Chancellor、Regent 的每个 phase 都能仅凭空间动词与
-  弹体序列辨认归属；四者不共享专属 pattern、普通弹节奏或 phase 宣告轮廓。
-- 四位主 Boss 的签名弹在首帧灰度剪影上即可盲分；一个周期至少两帧产生可见
-  外轮廓变化，而不是只改心核颜色或移动 1px 内部标记。身份色像素不得少于
-  骨白像素，骨白只承担危险核心、方向 glint 与局部结构高光。
+  弹体序列辨认 Boss 归属；四者不共享专属 pattern、主锚点或 phase 宣告轮廓。
+- 同一 Boss 的相邻 phase 也必须在首帧灰度剪影上盲分；二十个锚点分别拥有
+  exact sprite、帧数/节奏和宣告 once-strip，不能只复用 Boss-wide painter 后
+  改颜色或尺寸。每个周期至少两帧产生可见外轮廓变化，而不是只改心核颜色或
+  移动 1px 内部标记。身份色像素不得少于骨白像素，骨白只承担危险核心、方向
+  glint 与局部结构高光。
 - 背景不产生任何可误判为 6–28px 弹体的孤立亮结构。
 - 聚焦时判定点与角色身体尺寸的差异明确。
 - Graze 反馈诱导玩家靠近危险，但不遮住下一条逃生路径。

@@ -42,9 +42,11 @@ describe('boss feedback stays local and below bullet danger', () => {
     expect(mainSource).toContain('a: Math.max(0, 1 - identity.age / life)');
   });
 
-  test('a phase event queues the current Boss declaration and follows its live body', () => {
+  test('a phase event queues that exact Boss phase declaration and follows its live body', () => {
     expect(mainSource).toContain("if (event.type === 'boss-phase')");
-    expect(mainSource).toContain('V4_BOSS_ACTORS[activeBoss.name]?.castStrip');
+    expect(mainSource).toContain(
+      'v4BossPhaseCastStrip(activeBoss.name, event.count)',
+    );
     expect(mainSource).toContain('bossCastFx.push({');
     expect(mainSource).toContain('stepBossCastFx(bossCastFx');
     expect(mainSource).toContain('visibleBossCastFx(bossCastFx, run, boss.name)');

@@ -3,11 +3,13 @@ import {
   V4_BOSS_ACTORS,
   V4_ENEMY_ACTORS,
   V4_PLAYER_ACTORS,
+  v4BossPhaseCastStrip,
   v4BossPoseFrame,
   v4EnemyIdleFrame,
   v4EnemyPoseFrame,
   v4PlayerBankFrame,
 } from './v4-actors';
+import { V4_BOSS_PHASE_VISUALS } from '../v4/presentation/boss-phase-visuals';
 import {
   V4_BOSS_PORTRAIT_STRIPS,
   V4_PLAYER_PORTRAIT_STRIPS,
@@ -36,12 +38,25 @@ describe('v4 actor ledger', () => {
     expect(new Set(deaths).size).toBe(5);
     expect(deaths.every((name) => name?.startsWith('boss.death.'))).toBeTrue();
 
-    const casts = Object.entries(V4_BOSS_ACTORS)
-      .filter(([name]) => name !== 'warden')
-      .map(([, actor]) => actor.castStrip);
-    expect(new Set(casts).size).toBe(4);
+    const casts = Object.values(V4_BOSS_ACTORS)
+      .flatMap((actor) => actor.phaseCastStrips ?? []);
+    expect(casts).toEqual(V4_BOSS_PHASE_VISUALS.map((visual) => visual.castStrip));
+    expect(casts).toHaveLength(20);
+    expect(new Set(casts).size).toBe(20);
     expect(casts.every((name) => name?.startsWith('boss.cast.'))).toBeTrue();
-    expect(V4_BOSS_ACTORS.warden?.castStrip).toBeUndefined();
+    expect(V4_BOSS_ACTORS.warden?.phaseCastStrips).toBeUndefined();
+  });
+
+  test('phase declarations resolve the exact authored phase while Warden and guests stay empty', () => {
+    for (const visual of V4_BOSS_PHASE_VISUALS) {
+      expect(v4BossPhaseCastStrip(visual.boss, visual.phaseIndex))
+        .toBe(visual.castStrip);
+    }
+    expect(v4BossPhaseCastStrip('sentinel', -1)).toBeUndefined();
+    expect(v4BossPhaseCastStrip('sentinel', 4)).toBeUndefined();
+    expect(v4BossPhaseCastStrip('warden', 0)).toBeUndefined();
+    expect(v4BossPhaseCastStrip('guest-boss', 0)).toBeUndefined();
+    expect(v4BossPhaseCastStrip('regent', undefined)).toBeUndefined();
   });
 
   test('the shipped pack strip names exactly match the runtime actor ledger', async () => {

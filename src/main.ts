@@ -111,6 +111,7 @@ import {
   V4_ENEMY_ACTORS,
   V4_PLAYER_ACTORS,
   loadV4ActorAtlases,
+  v4BossPhaseCastStrip,
   v4BossPoseFrame,
   v4EnemyPoseFrame,
   v4PlayerBankFrame,
@@ -1469,11 +1470,12 @@ const loop = new Loop({
         if (event.type === 'boss-phase') {
           // `event.name` is the card just armed, not the Boss registry name.
           // Resolve the current Boss only after the sim has completed the phase
-          // transition, then retain just its identity and Run in this view queue.
+          // transition, then map the event's actual phase index to that card's
+          // exact declaration strip. The queue remains presentation-only.
           const activeBoss = run.boss.boss;
           const strip = activeBoss === undefined
             ? undefined
-            : V4_BOSS_ACTORS[activeBoss.name]?.castStrip;
+            : v4BossPhaseCastStrip(activeBoss.name, event.count);
           if (activeBoss !== undefined && strip !== undefined && fxAtlas.has(strip)) {
             bossCastFx.push({
               run,

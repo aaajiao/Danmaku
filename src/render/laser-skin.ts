@@ -16,7 +16,7 @@
  * shell falls back to the legacy stretched quad, so a beam is reskinned by
  * changing one string in its spec and nothing else.
  *
- * The base game's eight beam skins register at module load, below.
+ * The base game's nine beam skins register at module load, below.
  */
 
 export type LaserFit = 'tile' | 'stretch';
@@ -74,13 +74,13 @@ export function laserSkinNames(): readonly string[] {
 /* ------------------------------------------------------------------ */
 
 /**
- * The eight base skins, one per beam the campaign fires. Each names a body strip
+ * The nine base skins, one per beam the campaign fires. Each names a body strip
  * (also its own name — a skin and its body share a name, distinct namespaces)
  * and one of three shared cap strips. The strip names here are the atlas ledger
  * that `LASER_STRIPS` in `procedural.ts` must cover exactly; `laser-skin.test.ts`
  * cross-checks the two so a skin can never name a strip the sheet never paints.
  *
- * Fit is authored per beam: the whole-beam strips (`v3`, `blue`, `cyan`) stretch;
+ * Fit is authored per beam: the whole-beam strips (`v3`, `blue`, `cyan`, `assize`) stretch;
  * the tileable bodies (`slim`, `heavy`, `warm`, `stream`, `v3.stream`) tile.
  */
 export const BASE_LASER_SKINS: Record<string, LaserSkin> = {
@@ -89,6 +89,7 @@ export const BASE_LASER_SKINS: Record<string, LaserSkin> = {
   'beam.heavy': { body: 'beam.heavy', cap: 'cap.green', fit: 'tile', thickness: 28 },
   'beam.blue': { body: 'beam.blue', cap: 'cap.v3', fit: 'stretch', thickness: 22 },
   'beam.cyan': { body: 'beam.cyan', cap: 'cap.v3', fit: 'stretch', thickness: 20 },
+  'beam.assize': { body: 'beam.assize', cap: 'cap.v3', fit: 'stretch', thickness: 24 },
   'beam.warm': { body: 'beam.warm', cap: 'cap.yellow', fit: 'tile', thickness: 24 },
   'beam.stream': { body: 'beam.stream', cap: 'cap.green', fit: 'tile', thickness: 16 },
   'beam.v3.stream': { body: 'beam.v3.stream', cap: 'cap.v3', fit: 'tile', thickness: 30 },

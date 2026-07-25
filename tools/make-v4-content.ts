@@ -154,11 +154,10 @@ const LANCE = {
 
 /**
  * The boss's beam: slower to draw, longer lived, so a ring of them is a room.
- * One sim spec, three skins — the same beam wears a different laser skin per boss
- * so all three whole-beam BulletPack strips find a reachable firer (`beam.heavy`
- * warden, `beam.blue`/`beam.cyan` magistrate; the consumption map in the laser
- * round design §d). The variants override only `style` (sprite + floor tint),
- * which is presentation and never enters the golden trace, so the three fire the
+ * One sim spec, three Boss skins — the same beam wears `beam.heavy` for Warden,
+ * `beam.blue` for Magistrate's colonnade and the project-owned `beam.assize` for
+ * the final ruling. The variants override only `style` (sprite + floor tint),
+ * which is presentation and never enters the golden trace, so all three fire the
  * byte-identical beam and differ only in what they are painted with.
  */
 const COLUMN = {
@@ -181,10 +180,10 @@ const COLUMN_BLUE = {
   ...COLUMN,
   style: { ...COLUMN.style, sprite: 'beam.blue', r: 0.55, g: 0.72, b: 1 },
 };
-/** magistrate's assize beam — the cyan whole-beam strip (`beam.cyan`), shared with `spire`'s `GUN_BEAM`. */
-const COLUMN_CYAN = {
+/** Magistrate's final assize — a dedicated project-owned verdict beam skin. */
+const COLUMN_ASSIZE = {
   ...COLUMN,
-  style: { ...COLUMN.style, sprite: 'beam.cyan', r: 0.55, g: 1, b: 1 },
+  style: { ...COLUMN.style, sprite: 'beam.assize', r: 0.55, g: 1, b: 1 },
 };
 
 /**
@@ -718,6 +717,9 @@ const EDICT = {
  * skin's painted extent ≈ 2·radius of the bullet it lands on) is enforced by that
  * placement, re-checked on `bun run test:density` (no automated honesty test). */
 const SHARD_TITHE = { ...SHARD, style: { ...SHARD.style, sprite: 'needle.tithe' } };
+const SHARD_VIGIL = { ...SHARD, style: { ...SHARD.style, sprite: 'needle.vigil' } };
+const PETAL_VIGIL = { ...PETAL, style: { ...PETAL.style, sprite: 'petal.vigil' } };
+const PETAL_ECLIPSE = { ...PETAL, style: { ...PETAL.style, sprite: 'petal.eclipse' } };
 const ENEMY_BEACON = { ...ENEMY_SHOT, style: { ...ENEMY_SHOT.style, sprite: 'orb.small.beacon' } };
 const SEEKER_LIEN = { ...SEEKER, style: { ...SEEKER.style, sprite: 'needle.lien' } };
 const SPARK_FEE = { ...SPARK, style: { ...SPARK.style, sprite: 'orb.small.fee' } };
@@ -726,9 +728,15 @@ const SHELL_ASSAY = { ...SHELL, style: { ...SHELL.style, sprite: 'orb.small.assa
 const SEEKER_ESCROW = { ...SEEKER, style: { ...SEEKER.style, sprite: 'scale.escrow' } };
 const SPARK_ARRAIGNMENT = { ...SPARK, style: { ...SPARK.style, sprite: 'orb.small.arraignment' } };
 const SEEKER_PURSUIT = { ...SEEKER, style: { ...SEEKER.style, sprite: 'kunai.pursuit' } };
+const SEEKER_ASSIZE = { ...SEEKER_PURSUIT, style: { ...SEEKER_PURSUIT.style, sprite: 'kunai.assize' } };
 const SHELL_ASSIZE = { ...SHELL, style: { ...SHELL.style, sprite: 'scale.assize' } };
 const EMBER_VERDICT = { ...EMBER, style: { ...EMBER.style, sprite: 'petal.verdict' } };
 const WRIT_BRIEF = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.brief' } };
+const WRIT_PRECEDENT = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.precedent' } };
+const WRIT_WAX = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.wax' } };
+const WRIT_ASSAY_TRACE = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.assay-trace' } };
+const WRIT_ESTOPPEL = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.estoppel' } };
+const WRIT_SEALED = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.sealed' } };
 const DECREE_LEDGER = { ...DECREE, style: { ...DECREE.style, sprite: 'orb.medium.ledger' } };
 const SEAL_WITNESS = { ...SEAL, style: { ...SEAL.style, sprite: 'halo.witness' } };
 const LEVY_DOCKET = { ...LEVY, style: { ...LEVY.style, sprite: 'spark.docket' } };
@@ -737,6 +745,10 @@ const LATTICE_TENURE = { ...LATTICE, style: { ...LATTICE.style, sprite: 'orb.med
 const DECREE_MANDAMUS = { ...DECREE, style: { ...DECREE.style, sprite: 'orb.medium.mandamus' } };
 const CROWN_MANDAMUS = { ...CROWN_CW, style: { ...CROWN_CW.style, sprite: 'halo.mandamus' } };
 const REGENT_SESSION = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.session' } };
+const REGENT_COROLLA = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.corolla-regnant' } };
+const REGENT_ATTAINDER = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.attainder' } };
+const REGENT_STATUTE = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.statute' } };
+const REGENT_SINE_DIE = { ...WRIT, style: { ...WRIT.style, sprite: 'orb.small.sine-die' } };
 const REGENT_WEAR = { ...LEVY, style: { ...LEVY.style, sprite: 'spark.wear' } };
 
 /* ================================================================== */
@@ -1625,7 +1637,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'moon-gate',
             options: {
-              spec: PETAL,
+              spec: PETAL_VIGIL,
               count: 24,
               gates: 3,
               gap: 38,
@@ -1642,7 +1654,7 @@ const bosses: PackContent['bosses'] = {
           },
           {
             pattern: 'alternating-fan',
-            options: { spec: SHARD, count: 7, spread: 42, swing: 12, period: 75 },
+            options: { spec: SHARD_VIGIL, count: 7, spread: 42, swing: 12, period: 75 },
             startAt: 420,
             difficulty: {
               easy: { count: 4 },
@@ -1675,7 +1687,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'moon-gate',
             options: {
-              spec: PETAL,
+              spec: PETAL_ECLIPSE,
               count: 36,
               gates: 3,
               gap: 30,
@@ -2041,7 +2053,7 @@ const bosses: PackContent['bosses'] = {
           // mill in it, and the beams are the thing that must stay readable.
           {
             pattern: 'gap-ring',
-            options: { spec: COLUMN_CYAN, count: 4, period: 150, rotation: 26, gap: 62 },
+            options: { spec: COLUMN_ASSIZE, count: 4, period: 150, rotation: 26, gap: 62 },
             startAt: 120,
             difficulty: {
               easy: { count: 3 },
@@ -2052,7 +2064,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'verdict-shear',
             options: {
-              spec: SEEKER_PURSUIT,
+              spec: SEEKER_ASSIZE,
               columns: 9,
               gapWidth: 128,
               shear: 4,
@@ -2179,7 +2191,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'archive-trace',
             options: {
-              spec: WRIT_BRIEF,
+              spec: WRIT_PRECEDENT,
               delay: 60,
               folios: 5,
               spacing: 22,
@@ -2221,7 +2233,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'archive-trace',
             options: {
-              spec: WRIT_BRIEF,
+              spec: WRIT_WAX,
               delay: 72,
               folios: 5,
               spacing: 20,
@@ -2301,7 +2313,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'archive-trace',
             options: {
-              spec: WRIT_BRIEF,
+              spec: WRIT_ASSAY_TRACE,
               delay: 66,
               folios: 3,
               spacing: 28,
@@ -2352,7 +2364,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'archive-trace',
             options: {
-              spec: WRIT_BRIEF,
+              spec: WRIT_ESTOPPEL,
               delay: 54,
               folios: 5,
               spacing: 20,
@@ -2390,7 +2402,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'archive-trace',
             options: {
-              spec: WRIT_BRIEF,
+              spec: WRIT_SEALED,
               delay: 42,
               folios: 7,
               spacing: 18,
@@ -2524,7 +2536,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'memory-groove',
             options: {
-              spec: REGENT_SESSION,
+              spec: REGENT_COROLLA,
               delay: 48,
               trail: 14,
               columns: 9,
@@ -2616,7 +2628,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'memory-groove',
             options: {
-              spec: REGENT_SESSION,
+              spec: REGENT_ATTAINDER,
               delay: 48,
               trail: 12,
               columns: 9,
@@ -2670,7 +2682,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'memory-groove',
             options: {
-              spec: REGENT_SESSION,
+              spec: REGENT_STATUTE,
               delay: 54,
               trail: 14,
               columns: 11,
@@ -2721,7 +2733,7 @@ const bosses: PackContent['bosses'] = {
           {
             pattern: 'memory-groove',
             options: {
-              spec: REGENT_SESSION,
+              spec: REGENT_SINE_DIE,
               delay: 42,
               trail: 10,
               columns: 15,
@@ -3134,11 +3146,10 @@ const GUN_SEEKER = {
  * one emitter at every tier, so the nesting invariant holds by construction.
  */
 const GUN_BEAM = {
-  // `beam.cyan` — the player's beam wears the cyan whole-beam laser skin, shared
-  // with magistrate's `COLUMN_CYAN` (baked colour, and `faction` is a bullet
-  // field not a skin field, so one skin serves both a player and an enemy beam).
+  // `beam.cyan` — the player's dedicated cyan whole-beam laser skin. Magistrate
+  // now owns `beam.assize`, so the baked player colour never crosses factions.
   // This retires the old `glow.small.beam` bullet-cell name; its stale entry in
-  // `tools/bulletpack-map.json` is repointed in the same round (design §F).
+  // `tools/bulletpack-map.json` was repointed in the same round (design §F).
   style: { sprite: 'beam.cyan', r: 0.85, g: 0.7, b: 1, additive: true, orientToHeading: true },
   radius: 3,
   motion: { r: 0, theta: FORWARD },

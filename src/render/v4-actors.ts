@@ -17,13 +17,20 @@
  */
 
 import { loadAtlas, type Atlas } from './atlas';
+import {
+  V4_BOSS_PHASE_VISUALS,
+  type BossPhaseBoss,
+} from '../v4/presentation/boss-phase-visuals';
 
 export interface V4ActorSpec {
   readonly strip: string;
   /** Square display box in logical 480×640 pixels. */
   readonly size: number;
-  /** Optional v4-only phase-declaration strip on the shared FX atlas. */
-  readonly castStrip?: string;
+  /**
+   * Optional v4-only phase-declaration strips on the shared FX atlas, indexed
+   * by the Boss's actual zero-based phase index.
+   */
+  readonly phaseCastStrips?: readonly string[];
   /** Optional v4-only final-death identity strip on the shared FX atlas. */
   readonly deathStrip?: string;
 }
@@ -55,33 +62,58 @@ export const V4_ENEMY_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
   notary: { strip: 'actor.enemy.notary', size: 54 },
 };
 
+function phaseCastStrips(boss: BossPhaseBoss): readonly string[] {
+  return V4_BOSS_PHASE_VISUALS
+    .filter((visual) => visual.boss === boss)
+    .sort((left, right) => left.phaseIndex - right.phaseIndex)
+    .map((visual, index) => {
+      if (visual.phaseIndex !== index) {
+        throw new Error(
+          `v4 Boss "${boss}" phase cast ledger skips index ${index}`,
+        );
+      }
+      return visual.castStrip;
+    });
+}
+
 export const V4_BOSS_ACTORS: Readonly<Record<string, V4ActorSpec>> = {
   sentinel: {
     strip: 'actor.boss.sentinel',
     size: 88,
-    castStrip: 'boss.cast.sentinel',
+    phaseCastStrips: phaseCastStrips('sentinel'),
     deathStrip: 'boss.death.sentinel',
   },
   warden: { strip: 'actor.boss.warden', size: 88, deathStrip: 'boss.death.warden' },
   magistrate: {
     strip: 'actor.boss.magistrate',
     size: 95,
-    castStrip: 'boss.cast.magistrate',
+    phaseCastStrips: phaseCastStrips('magistrate'),
     deathStrip: 'boss.death.magistrate',
   },
   chancellor: {
     strip: 'actor.boss.chancellor',
     size: 96,
-    castStrip: 'boss.cast.chancellor',
+    phaseCastStrips: phaseCastStrips('chancellor'),
     deathStrip: 'boss.death.chancellor',
   },
   regent: {
     strip: 'actor.boss.regent',
     size: 110,
-    castStrip: 'boss.cast.regent',
+    phaseCastStrips: phaseCastStrips('regent'),
     deathStrip: 'boss.death.regent',
   },
 };
+
+/** Resolve one declaration by actual phase index; guests and Warden have none. */
+export function v4BossPhaseCastStrip(
+  bossName: string,
+  phaseIndex: number | undefined,
+): string | undefined {
+  if (phaseIndex === undefined || !Number.isInteger(phaseIndex) || phaseIndex < 0) {
+    return undefined;
+  }
+  return V4_BOSS_ACTORS[bossName]?.phaseCastStrips?.[phaseIndex];
+}
 
 export interface ActorStripInput {
   readonly x: number;

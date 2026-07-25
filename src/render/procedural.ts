@@ -34,6 +34,10 @@
  */
 
 import * as THREE from 'three';
+import {
+  V4_BOSS_PHASE_VISUALS,
+  type BossPhaseVisual,
+} from '../v4/presentation/boss-phase-visuals';
 import { Atlas, loadAtlas, loadTexture, type GridSpec, type StripColor, type StripMode } from './atlas';
 
 /** Every generated sheet uses this grid. The real art set must match it. */
@@ -357,6 +361,8 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'scale.heavy': 'scale', // HEAVY_SHOT — turret ring
   'scale.shard': 'scale', // SHARD — sentinel approach/vigil
   'petal.corolla': 'petal', // PETAL — sentinel "Tidal Corolla"
+  'petal.vigil': 'petal', // sentinel "Vigil Unbroken" phase anchor
+  'petal.eclipse': 'petal', // sentinel Lunatic "Total Eclipse" phase anchor
   'needle.vigil': 'needle', // NEEDLE — sentinel "Vigil Unbroken"
 
   /* -- stage-2 enemies + warden/magistrate -- */
@@ -439,9 +445,15 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'scale.escrow': 'scale', // magistrate SEEKER re-skin — cyan dart (Tiny_Blue_cian)
   'orb.small.arraignment': 'orb.small', // magistrate opening record — cyan verdict bead
   'kunai.pursuit': 'kunai', // magistrate pursuing writ — split cyan blade
+  'kunai.assize': 'kunai', // magistrate final verdict-shear phase anchor
   'scale.assize': 'scale', // magistrate colonnade/assize — rigid cyan scale
   'petal.verdict': 'petal', // magistrate final verdict — opening cyan folio
   'orb.small.brief': 'orb.small', // chancellor WRIT re-skin — pink orb (Medium_tiny_Pink_Yellow)
+  'orb.small.precedent': 'orb.small', // chancellor "Binding Precedent" trace
+  'orb.small.wax': 'orb.small', // chancellor "Wax and Witness" trace
+  'orb.small.assay-trace': 'orb.small', // chancellor "Sweeping Assay" trace
+  'orb.small.estoppel': 'orb.small', // chancellor "Estoppel" trace
+  'orb.small.sealed': 'orb.small', // chancellor Lunatic "Sealed" trace
   'orb.medium.ledger': 'orb.medium', // chancellor DECREE re-skin — pink orb, r6 (Pink_Medium_Big)
   'halo.witness': 'halo', // chancellor SEAL re-skin — pink seal, r8 (Pink_Medium_Big 2nd slice)
   'spark.docket': 'spark', // chancellor LEVY re-skin — pink spark (Medium_tiny_Pink_Puple_Yellow)
@@ -450,6 +462,10 @@ export const BULLET_VARIANTS: Record<string, BulletCell> = {
   'orb.medium.mandamus': 'orb.medium', // regent DECREE re-skin — purple orb, r6 (Massive_purple_yellow)
   'halo.mandamus': 'halo', // regent CROWN re-skin — purple seal, r7 (Massive_purple_yellow)
   'orb.small.session': 'orb.small', // regent opening session — retained purple memory
+  'orb.small.corolla-regnant': 'orb.small', // regent corolla memory groove
+  'orb.small.attainder': 'orb.small', // regent attainder memory groove
+  'orb.small.statute': 'orb.small', // regent statute memory groove
+  'orb.small.sine-die': 'orb.small', // regent Lunatic finale memory groove
   'spark.wear': 'spark', // regent concluding wear — abraded purple spark
 };
 
@@ -1259,23 +1275,27 @@ function bossIdentityStrip(kind: number, sheetY: number): FxStrip {
 }
 
 /**
- * Four phase-declaration gestures, each using the spatial verb of its Boss.
+ * One declaration gesture per main-Boss phase.
  *
  * They are intentionally not actor poses: a declaration is a short, view-only
- * once strip that can overlap the body while its bullets begin.  Different
- * frame geometry and cadence keep the sequences distinct even before colour.
+ * once strip that can overlap the body while its bullets begin. Boss anatomy
+ * supplies the common visual grammar; `phaseIndex` changes the construction
+ * inside it, while the shared presentation table owns each strip's geometry and
+ * fixed-tick cadence.
  */
 function bossCastStrip(
-  kind: 'sentinel' | 'magistrate' | 'chancellor' | 'regent',
+  visual: BossPhaseVisual,
   sheetY: number,
 ): FxStrip {
-  const geometry = {
-    sentinel: { frameW: 128, frameH: 128, frames: 12, ticksPerFrame: 2, extent: { w: 112, h: 112 } },
-    magistrate: { frameW: 144, frameH: 96, frames: 10, ticksPerFrame: 3, extent: { w: 136, h: 84 } },
-    chancellor: { frameW: 144, frameH: 128, frames: 16, ticksPerFrame: 2, extent: { w: 136, h: 116 } },
-    regent: { frameW: 144, frameH: 144, frames: 14, ticksPerFrame: 2, extent: { w: 136, h: 136 } },
+  const extents = {
+    sentinel: { w: 112, h: 112 },
+    magistrate: { w: 136, h: 84 },
+    chancellor: { w: 136, h: 116 },
+    regent: { w: 136, h: 136 },
   } as const;
-  const g = geometry[kind];
+  const kind = visual.boss;
+  const phase = visual.phaseIndex;
+  const g = visual.castSequence;
 
   return {
     frameW: g.frameW,
@@ -1287,7 +1307,7 @@ function bossCastStrip(
     sheetX: 0,
     sheetY,
     stride: g.frameW,
-    frameExtent: () => g.extent,
+    frameExtent: () => extents[kind],
     draw: (ctx, f, cx, cy) => {
       const t = f / (g.frames - 1);
       const rise = Math.max(0.08, Math.min(1, t * 2.4));
@@ -1298,37 +1318,53 @@ function bossCastStrip(
       ctx.fillStyle = 'white';
 
       if (kind === 'sentinel') {
-        // Three moon gates open at equal bearings, then leave a tidal echo.
-        const radius = 17 + 34 * rise + 3 * release;
+        // Successive cards accumulate crossings; Eclipse closes them to one
+        // occluding crescent instead of merely making the same wheel denser.
+        const gates = phase === 3 ? 1 : phase + 2;
+        const radius = 17 + 30 * rise + phase + 2 * release;
+        const arc = phase === 3 ? 2.45 : 0.72 + phase * 0.13;
         ctx.lineWidth = 2;
-        for (let i = 0; i < 3; i++) {
-          const bearing = i * Math.PI * 2 / 3 - 0.55 + t * 0.7;
+        for (let i = 0; i < gates; i++) {
+          const bearing = i * Math.PI * 2 / gates - 0.55 + t * (0.48 + phase * 0.1);
           ctx.beginPath();
-          ctx.arc(cx, cy, radius - i * 3, bearing, bearing + 0.92);
+          ctx.arc(cx, cy, radius - i * 2.5, bearing, bearing + arc);
           ctx.stroke();
-          const mx = cx + Math.cos(bearing + 0.46) * (radius - 8);
-          const my = cy + Math.sin(bearing + 0.46) * (radius - 8);
+          const mx = cx + Math.cos(bearing + arc / 2) * (radius - 8);
+          const my = cy + Math.sin(bearing + arc / 2) * (radius - 8);
           orb(ctx, mx, my, 2.1 - i * 0.25, 0.2);
         }
         ctx.globalAlpha *= 0.55;
-        ring(ctx, cx, cy, 8 + 18 * rise, 1);
+        ring(ctx, cx, cy, 8 + (12 + phase * 2) * rise, 1);
+        if (phase === 2) {
+          ctx.beginPath();
+          ctx.moveTo(cx - 34 * rise, cy);
+          ctx.lineTo(cx + 34 * rise, cy);
+          ctx.stroke();
+        } else if (phase === 3) {
+          ctx.globalAlpha *= 0.6;
+          orb(ctx, cx + 8 * rise, cy, 7 + 13 * rise, 0.75);
+        }
       } else if (kind === 'magistrate') {
-        // Two verdict planes shear around one deliberately untouched appeal lane.
+        // The appeal lane survives every ruling, while later cards add sealed
+        // parallel verdicts and finally close them into the Assize diamond.
         const strike = t < 0.52 ? t / 0.52 : (1 - t) / 0.48;
-        const inset = 61 - 45 * Math.max(0, strike);
-        const shear = (t - 0.5) * 20;
-        ctx.lineWidth = 3;
-        for (const sign of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(cx + sign * inset, cy - 37 + sign * shear);
-          ctx.lineTo(cx + sign * (inset - 8), cy + 37 + sign * shear);
-          ctx.stroke();
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(cx + sign * (inset + 9), cy - 30 + sign * shear);
-          ctx.lineTo(cx + sign * (inset + 1), cy + 30 + sign * shear);
-          ctx.stroke();
-          ctx.lineWidth = 3;
+        const inset = 61 - (42 + phase) * Math.max(0, strike);
+        const shear = (t - 0.5) * (10 + phase * 2);
+        const rulings = phase < 2 ? 1 : 2;
+        for (let ruling = 0; ruling < rulings; ruling++) {
+          ctx.lineWidth = ruling === 0 ? 3 : 1.5;
+          for (const sign of [-1, 1]) {
+            const offset = ruling * 8;
+            ctx.beginPath();
+            ctx.moveTo(cx + sign * (inset + offset), cy - 32 + sign * shear);
+            ctx.lineTo(cx + sign * (inset - 8 + offset), cy + 32 + sign * shear);
+            ctx.stroke();
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx + sign * (inset + 9 + offset), cy - 27 + sign * shear);
+            ctx.lineTo(cx + sign * (inset + 1 + offset), cy + 27 + sign * shear);
+            ctx.stroke();
+          }
         }
         ctx.globalAlpha *= 0.72;
         ctx.lineWidth = 1;
@@ -1337,14 +1373,27 @@ function bossCastStrip(
         ctx.lineTo(cx, cy + 18);
         ctx.stroke();
         ring(ctx, cx, cy, 5 + 4 * rise, 1);
+        if (phase === 1 || phase === 3) {
+          const seal = 10 + phase * 3;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - seal);
+          ctx.lineTo(cx + seal, cy);
+          ctx.lineTo(cx, cy + seal);
+          ctx.lineTo(cx - seal, cy);
+          ctx.closePath();
+          ctx.stroke();
+        }
       } else if (kind === 'chancellor') {
-        // Folios arrive at staggered ages; the late trace joins their old marks.
+        // Every appeal adds a different filing operation: binding, wax,
+        // diagonal assay, barred estoppel, then the closed final archive.
         ctx.lineWidth = 1.5;
-        for (let i = 0; i < 3; i++) {
+        const pages = 2 + (phase % 3);
+        const middle = (pages - 1) / 2;
+        for (let i = 0; i < pages; i++) {
           const page = Math.max(i === 0 ? 0.12 : 0, Math.min(1, t * 3.2 - i * 0.42));
           if (page <= 0) continue;
-          const ox = (i - 1) * (31 + 3 * page);
-          const top = cy - 43 + i * 5;
+          const ox = (i - middle) * (pages >= 4 ? 25 : 31 + 3 * page);
+          const top = cy - 43 + i * 4;
           ctx.save();
           ctx.globalAlpha *= page;
           ctx.strokeRect(cx + ox - 10, top, 20, 76 - i * 4);
@@ -1365,10 +1414,31 @@ function bossCastStrip(
         ctx.bezierCurveTo(cx - 21, cy - 28, cx + 17, cy + 35, cx + 48 * trace, cy - 25);
         ctx.stroke();
         orb(ctx, cx + 48 * trace, cy - 25, 2, 0.2);
+        ctx.globalAlpha = rise * (1 - release * 0.72) * 0.7;
+        if (phase === 1) {
+          for (const y of [-17, 0, 17]) {
+            ctx.beginPath(); ctx.moveTo(cx - 55 * rise, cy + y); ctx.lineTo(cx + 55 * rise, cy + y); ctx.stroke();
+          }
+        } else if (phase === 2) {
+          ring(ctx, cx, cy, 15 + 18 * rise, 2);
+          ring(ctx, cx, cy, 7 + 8 * rise, 1);
+        } else if (phase === 3) {
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(cx - 57, cy + 42); ctx.lineTo(cx + 57, cy - 42); ctx.stroke();
+        } else if (phase === 4) {
+          for (const sign of [-1, 1]) {
+            ctx.strokeRect(cx + sign * 35 - 8, cy - 48 * rise, 16, 96 * rise);
+          }
+        } else if (phase === 5) {
+          ctx.strokeRect(cx - 58 * rise, cy - 48 * rise, 116 * rise, 96 * rise);
+          ring(ctx, cx, cy, 12 + 16 * rise, 2);
+        }
       } else {
-        // Each worn contour stays visible while its successor grows through it.
+        // Each worn contour stays visible while its successor grows through it;
+        // later offices harden that memory into crown, gate, warrant and statute.
         ctx.lineWidth = 1.5;
-        for (let i = 0; i < 4; i++) {
+        const contours = Math.min(4, phase + 1);
+        for (let i = 0; i < contours; i++) {
           const memory = Math.max(i === 0 ? 0.12 : 0, Math.min(1, t * 1.85 - i * 0.17));
           if (memory <= 0) continue;
           const radius = 17 + i * 9 + memory * 8;
@@ -1392,11 +1462,64 @@ function bossCastStrip(
           ctx.stroke();
           ctx.restore();
         }
+        ctx.globalAlpha = rise * (1 - release * 0.72) * 0.74;
+        if (phase === 1) {
+          ctx.beginPath();
+          ctx.moveTo(cx - 40 * rise, cy - 3);
+          ctx.lineTo(cx - 20 * rise, cy - 31 * rise);
+          ctx.lineTo(cx, cy - 11);
+          ctx.lineTo(cx + 20 * rise, cy - 31 * rise);
+          ctx.lineTo(cx + 40 * rise, cy - 3);
+          ctx.stroke();
+        } else if (phase === 2) {
+          for (let x = -2; x <= 2; x++) {
+            ctx.beginPath();
+            ctx.moveTo(cx + x * 19, cy - 54 * rise);
+            ctx.lineTo(cx + x * 19, cy + 54 * rise);
+            ctx.stroke();
+          }
+        } else if (phase === 3) {
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx - 55 * rise, cy + 20);
+          ctx.lineTo(cx + 55 * rise, cy - 20);
+          ctx.stroke();
+          orb(ctx, cx + 48 * rise, cy - 17, 4, 0.18);
+        } else if (phase === 4) {
+          for (const y of [-29, -10, 10, 29]) {
+            ctx.beginPath();
+            ctx.moveTo(cx - 48 * rise, cy + y);
+            ctx.lineTo(cx + 48 * rise, cy + y);
+            ctx.stroke();
+          }
+        } else if (phase === 5) {
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy + 8, 52 * rise, Math.PI + 0.12, Math.PI * 2 - 0.12);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - 52 * rise, cy + 8);
+          ctx.lineTo(cx + 52 * rise, cy + 8);
+          ctx.stroke();
+        }
       }
       ctx.restore();
     },
   };
 }
+
+/** Pack the 20 fallback declarations into consecutive rows below Boss distress. */
+function bossPhaseCastStrips(firstSheetY: number): Record<string, FxStrip> {
+  const strips: Record<string, FxStrip> = {};
+  let sheetY = firstSheetY;
+  for (const visual of V4_BOSS_PHASE_VISUALS) {
+    strips[visual.castStrip] = bossCastStrip(visual, sheetY);
+    sheetY += visual.castSequence.frameH;
+  }
+  return strips;
+}
+
+const V4_BOSS_PHASE_CAST_STRIPS = bossPhaseCastStrips(1752);
 
 export const FX_STRIPS: Record<string, FxStrip> = {
   burst: {
@@ -1643,10 +1766,7 @@ export const FX_STRIPS: Record<string, FxStrip> = {
   'boss.death.magistrate': bossIdentityStrip(2, 1176),
   'boss.death.chancellor': bossIdentityStrip(3, 1304),
   'boss.death.regent': bossIdentityStrip(4, 1432),
-  'boss.cast.sentinel': bossCastStrip('sentinel', 1752),
-  'boss.cast.magistrate': bossCastStrip('magistrate', 1880),
-  'boss.cast.chancellor': bossCastStrip('chancellor', 1976),
-  'boss.cast.regent': bossCastStrip('regent', 2104),
+  ...V4_BOSS_PHASE_CAST_STRIPS,
   // The three missile detonation tiers, on their own rows below `pulse`. Frame
   // counts match the BulletPack `Exp` files a reskin drops in (tiny carries the
   // MOST frames, 11; big the fewest, 8 — counter-intuitive, but the floor tracks
@@ -2089,10 +2209,10 @@ function capStrip(): LaserStripGeo {
 }
 
 /**
- * The 11 laser strips — 8 bodies + 3 caps — mirroring the 11 BulletPack laser
+ * The 12 laser strips — 9 bodies + 3 caps. Eleven mirror the BulletPack laser
  * files a reskin supplies. The names are the atlas ledger the base skins in
  * `render/laser-skin.ts` reference; `laser-skin.test.ts` cross-checks that every
- * skin's `body`/`cap` is one of these and that all 11 are named.
+ * skin's `body`/`cap` is one of these and that all 12 are named.
  */
 export const LASER_STRIPS: Record<string, LaserStripGeo> = {
   'beam.v3': bodyStrip(),
@@ -2100,6 +2220,7 @@ export const LASER_STRIPS: Record<string, LaserStripGeo> = {
   'beam.heavy': bodyStrip(),
   'beam.blue': bodyStrip(),
   'beam.cyan': bodyStrip(),
+  'beam.assize': bodyStrip(),
   'beam.warm': bodyStrip(),
   'beam.stream': bodyStrip(),
   'beam.v3.stream': bodyStrip(),
@@ -2111,7 +2232,7 @@ export const LASER_STRIPS: Record<string, LaserStripGeo> = {
 /** Every laser strip name, `BULLET_CELLS`'s companion for the laser sheet. */
 export const LASER_STRIP_CELLS = Object.keys(LASER_STRIPS) as readonly string[];
 
-/** The body strip names (8) and cap strip names (3), for the skin-ledger test. */
+/** The body strip names (9) and cap strip names (3), for the skin-ledger test. */
 export const LASER_BODY_CELLS = Object.entries(LASER_STRIPS)
   .filter(([, s]) => s.role === 'body')
   .map(([name]) => name) as readonly string[];

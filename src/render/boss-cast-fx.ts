@@ -1,4 +1,4 @@
-/** Fixed-tick lifecycle helpers for the view-only v4 Boss phase declarations. */
+/** Fixed-tick lifecycle helpers for the exact, view-only v4 Boss phase declarations. */
 
 export interface BossCastFx<RunToken> {
   readonly run: RunToken;

@@ -17,9 +17,10 @@ be installed as an offline-capable PWA.
 ## Highlights
 
 - Four stages, sixteen enemy types, five bosses, and a complete ending.
-- Four stage-end Bosses with exclusive spatial patterns, native projectile
-  silhouettes and animation cadences: lunar eyes, verdict blades, archive
-  seals, and rooted crown crystals, plus distinct phase declarations.
+- Four stage-end Bosses with exclusive spatial patterns—lunar gates, verdict
+  shears, archive traces, and memory grooves. All twenty authored phases add
+  their own projectile anchor, animation cadence, and exact declaration
+  sequence instead of reusing one Boss-wide visual.
 - Five playable characters, each with a distinct shot, option formation, and
   identity bomb.
 - Easy, Normal, Hard, and Lunatic patterns, plus an explicit infinite-lives
