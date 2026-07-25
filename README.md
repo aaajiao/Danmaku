@@ -14,6 +14,28 @@ four-stage campaign built around reproducible runs and a negative-space visual
 language. It runs in a desktop browser with no installation and can optionally
 be installed as an offline-capable PWA.
 
+## Screenshots
+
+### Gameplay
+
+<p align="center">
+  <img src="./docs/screenshots/v0.15/01-gameplay-blue-curtain.png" width="31%" alt="Blue projectile curtain during a v0.15 stage">
+  <img src="./docs/screenshots/v0.15/02-boss-sweeping-assay.png" width="31%" alt="Beam Sign Sweeping Assay boss pattern">
+  <img src="./docs/screenshots/v0.15/03-boss-binding-precedent.png" width="31%" alt="Binding Precedent boss pattern">
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/v0.15/04-boss-attainder.png" width="31%" alt="Writ Sign Attainder boss pattern">
+  <img src="./docs/screenshots/v0.15/05-boss-statute.png" width="31%" alt="Sign Statute boss pattern">
+</p>
+
+### Story / ending
+
+<p align="center">
+  <img src="./docs/screenshots/v0.15/06-ending-bottom-of-descent.png" width="31%" alt="Ending scene at the bottom of the descent">
+  <img src="./docs/screenshots/v0.15/07-ending-crossing-traces.png" width="31%" alt="Ending scene showing the crossing traces">
+</p>
+
 ## Highlights
 
 - Four stages, sixteen enemy types, five bosses, and a complete ending.
