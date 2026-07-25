@@ -100,6 +100,13 @@ describe('authored ending pauses survive text layout', () => {
   });
 });
 
+describe('the ending prompt names its action', () => {
+  test('uses a device-neutral continuation label instead of raw button names', () => {
+    expect(mainSource).toContain("surface.fillText('CONTINUE', cx, 552)");
+    expect(mainSource).not.toContain("surface.fillText('SHOT / START'");
+  });
+});
+
 describe('the shell injects v4 ending data into the generic game context', () => {
   test('wires the edition map instead of relying on engine-owned prose', () => {
     expect(mainSource).toContain("import { CONTENT_FINGERPRINT, V4_ENDINGS } from './v4'");
@@ -323,6 +330,10 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     const titleSource = mainSource.slice(titleStart, characterStart);
     expect(titleSource).toContain("drawV4Ui(surface, v4Ui, 'ui.title.masthead'");
     expect(titleSource).toContain('drawViewLines(view.lines ?? []');
+    expect(mainSource).toContain("import { GAME_VERSION_LABEL } from './version'");
+    expect(titleSource).toContain(
+      'surface.fillText(GAME_VERSION_LABEL, FIELD_W - 12, FIELD_H - 12)',
+    );
   });
 
   test('the title menu and shell controller row stay bounded when the campaign list grows', () => {

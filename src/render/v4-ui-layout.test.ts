@@ -133,3 +133,25 @@ describe('v4 run-setup menu layout', () => {
     expect(setup.blurbY - (rows.at(-1)?.bottom ?? 0)).toBeGreaterThanOrEqual(64);
   });
 });
+
+describe('v4 dialogue copy layout', () => {
+  test('keeps every text baseline inside the ornament-free copy well', () => {
+    const { h, copy } = V4_UI_SCREEN.dialogue;
+
+    expect(copy).toEqual({
+      leftInset: 174,
+      rightInset: 40,
+      nameplateTop: 25,
+      headerBaseline: 46,
+      promptBaseline: 42,
+      bodyBaseline: 68,
+      footerBaseline: 130,
+    });
+    expect(copy.leftInset).toBeGreaterThanOrEqual(166);
+    expect(V4_UI_SCREEN.dialogue.w - copy.rightInset).toBeLessThanOrEqual(416);
+    expect(copy.headerBaseline).toBeGreaterThanOrEqual(copy.nameplateTop + 20);
+    expect(copy.bodyBaseline - copy.headerBaseline).toBeGreaterThanOrEqual(20);
+    expect(copy.promptBaseline).toBeGreaterThanOrEqual(40);
+    expect(h - copy.footerBaseline).toBeGreaterThanOrEqual(30);
+  });
+});

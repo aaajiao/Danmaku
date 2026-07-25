@@ -137,7 +137,25 @@ export const V4_UI_SCREEN = {
       safeBottom: 494,
     },
   },
-  dialogue: { x: 12, y: 464, w: 456, h: 164 },
+  dialogue: {
+    x: 12,
+    y: 464,
+    w: 456,
+    h: 164,
+    // The frame's top rail crosses y=18-24, the portrait-side thorns reach
+    // x=165, and its right/bottom ornaments begin around x=440/y=139. Keep
+    // every dialogue label inside this authored clear zone instead of letting
+    // the ornament strike through the glyphs.
+    copy: {
+      leftInset: 174,
+      rightInset: 40,
+      nameplateTop: 25,
+      headerBaseline: 46,
+      promptBaseline: 42,
+      bodyBaseline: 68,
+      footerBaseline: 130,
+    },
+  },
 } as const;
 
 export interface V4MenuRowGeometry {

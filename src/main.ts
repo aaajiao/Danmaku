@@ -10,6 +10,7 @@
 // Production registers the generated, content-addressed offline shell. This
 // import is presentation-only and is compiled away from the development path.
 import './pwa';
+import { GAME_VERSION_LABEL } from './version';
 
 // The compiled v4 edition installs its deterministic patterns and behaviours,
 // byte-pinned shaders, and four-stage campaign in dependency order. Arbitrary
@@ -2727,6 +2728,12 @@ function drawView(view: StateView): void {
     if (titleFirst + visibleTitleEntries.length < titleEntries.length) {
       surface.fillText('▼', cx, 246 + titleMenuH - 12);
     }
+    // Release identity stays visible without competing with the title or the
+    // variable-height menu. It is shell metadata, not deterministic game state.
+    surface.textAlign = 'right';
+    uiFont(9, 500);
+    surface.fillStyle = '#71808c';
+    surface.fillText(GAME_VERSION_LABEL, FIELD_W - 12, FIELD_H - 12);
     surface.restore();
     return;
   }
@@ -3023,7 +3030,7 @@ function drawEndingView(view: StateView): void {
   surface.textAlign = 'center';
   uiFont(10, 600);
   surface.fillStyle = `rgba(194, 206, 214, ${0.52 + appearance * 0.26})`;
-  surface.fillText('SHOT / START', cx, 552);
+  surface.fillText('CONTINUE', cx, 552);
 }
 
 /** Align the real WebHID click target with its canvas-authored menu row. */
@@ -3228,10 +3235,9 @@ function drawCoinTally(
  * `tickCount` drives the advance marker's blink — a tick counter, never a wall
  * clock, so the hint pulses identically on replay as it did live.
  */
-const DIALOG_PAD = 14;
+const DIALOG_PORTRAIT_PAD = 14;
 const DIALOG_PORTRAIT_MAX = 112;
 const DIALOG_PORTRAIT_INSET = 32;
-const DIALOG_TEXT_INSET = 152;
 
 /** Draw the v4 close-up, falling back to the field actor for older packs. */
 function drawV4Portrait(
@@ -3304,7 +3310,13 @@ function drawDialogue(
 ): void {
   // The layout contract owns the full composition; do not shadow it with a
   // second set of coincident constants in the shell.
-  const { x: boxX, y: boxY, w: boxW, h: boxH } = V4_UI_SCREEN.dialogue;
+  const {
+    x: boxX,
+    y: boxY,
+    w: boxW,
+    h: boxH,
+    copy,
+  } = V4_UI_SCREEN.dialogue;
   const playerIdentity = line.speaker === 'player'
     ? V4_CHARACTER_UI[characterName as keyof typeof V4_CHARACTER_UI]
     : undefined;
@@ -3316,12 +3328,15 @@ function drawDialogue(
     ? getCharacter(characterName).label
     : line.speaker;
 
-  const portraitSize = Math.min(DIALOG_PORTRAIT_MAX, boxH - DIALOG_PAD * 2);
+  const portraitSize = Math.min(
+    DIALOG_PORTRAIT_MAX,
+    boxH - DIALOG_PORTRAIT_PAD * 2,
+  );
   const pX = boxX + DIALOG_PORTRAIT_INSET;
   const pY = boxY + (boxH - portraitSize) / 2;
   const pCx = pX + portraitSize / 2;
   const pCy = pY + portraitSize / 2;
-  const textX = boxX + DIALOG_TEXT_INSET;
+  const textX = boxX + copy.leftInset;
 
   // Match the frame's round portrait well and rectangular copy well instead of
   // restoring a full-width generic panel. This local wash keeps live bullets as
@@ -3363,23 +3378,23 @@ function drawDialogue(
     drawV4Ui(surface, v4Ui, playerIdentity.crest, pX - 7, pY - 7, { width: 30, height: 30 });
   }
 
-  const textW = boxX + boxW - DIALOG_PAD - textX;
+  const textW = boxX + boxW - copy.rightInset - textX;
   surface.textAlign = 'left';
 
   // Name plate: tinted and bright, the speaking side's cue.
-  drawV4Ui(surface, v4Ui, 'ui.nameplate', textX - 7, boxY + 5, {
+  drawV4Ui(surface, v4Ui, 'ui.nameplate', textX - 7, boxY + copy.nameplateTop, {
     width: Math.min(248, textW + 7),
     height: 28,
     alpha: 0.72,
   });
   uiFont(12, 600);
   surface.fillStyle = `rgb(${Math.round(tint.r * 220)},${Math.round(tint.g * 220)},${Math.round(tint.b * 230)})`;
-  surface.fillText(speakerLabel, textX, boxY + DIALOG_PAD + 12);
+  surface.fillText(speakerLabel, textX, boxY + copy.headerBaseline);
 
   // Body: wrapped to the panel width, HUD-primary luminance.
   uiFont(12, 400);
   surface.fillStyle = '#9a9aa4';
-  let lineY = boxY + DIALOG_PAD + 34;
+  let lineY = boxY + copy.bodyBaseline;
   for (const row of wrapText(line.text, textW)) {
     surface.fillText(row, textX, lineY);
     lineY += 16;
@@ -3388,12 +3403,20 @@ function drawDialogue(
   // Line counter: dimmest register, low-right, like the HUD diagnostics.
   surface.fillStyle = '#66737e';
   surface.textAlign = 'right';
-  surface.fillText(`${line.index + 1} / ${line.count}`, boxX + boxW - DIALOG_PAD, boxY + boxH - DIALOG_PAD);
+  surface.fillText(
+    `${line.index + 1} / ${line.count}`,
+    boxX + boxW - copy.rightInset,
+    boxY + copy.footerBaseline,
+  );
 
   // Advance hint: the genre's small blinking marker, pulsed on the tick clock so
   // it is identical on replay. Shown for two-thirds of each second.
   if (Math.floor(tickCount / 20) % 3 !== 2) {
-    surface.fillText('▸ SHOT', boxX + boxW - DIALOG_PAD, boxY + DIALOG_PAD + 8);
+    surface.fillText(
+      '▸ SHOT',
+      boxX + boxW - copy.rightInset,
+      boxY + copy.promptBaseline,
+    );
   }
   surface.textAlign = 'left';
 }
