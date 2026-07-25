@@ -172,7 +172,7 @@ describe('the frame clock never reads a wall clock or loop.count', () => {
     expect(offences).toEqual([]);
   });
 
-  test('every stripFrame call in the shell clocks off an entity .age', async () => {
+  test('every stripFrame call in the shell views clocks off an entity .age', async () => {
     // The fx/bullet/item draw seams select frames with `stripFrame(strip, X)`.
     // X must be a run-relative entity age (`p.age`, `b.age`, `item.age`) — never
     // `loop.count`, never a wall clock. The `drawStrip` helper (asset-fidelity
@@ -182,12 +182,27 @@ describe('the frame clock never reads a wall clock or loop.count', () => {
     // surface that makes NO `stripFrame` call at all (the exact way the freeze
     // shipped) — is closed by the no-bare-name scan below. Proven by reading the
     // real call sites.
-    const source = await Bun.file(new URL('../main.ts', import.meta.url)).text();
-    const calls = [...source.matchAll(/stripFrame\(\s*[A-Za-z0-9_]+\s*,\s*([^)]+)\)/g)].map((m) =>
-      (m[1] ?? '').trim(),
-    );
+    const sources = [
+      ['main.ts', new URL('../main.ts', import.meta.url)],
+      ['shell/run-view.ts', new URL('../shell/run-view.ts', import.meta.url)],
+      ['shell/overlay-view.ts', new URL('../shell/overlay-view.ts', import.meta.url)],
+    ] as const;
+    const calls: { source: string; argument: string }[] = [];
+    for (const [label, url] of sources) {
+      const source = await Bun.file(url).text();
+      for (const match of source.matchAll(
+        /stripFrame\(\s*[A-Za-z0-9_]+\s*,\s*([^)]+)\)/g,
+      )) {
+        calls.push({
+          source: label,
+          argument: (match[1] ?? '').trim(),
+        });
+      }
+    }
     expect(calls.length).toBeGreaterThan(0);
-    const bad = calls.filter((arg) => !/\.age$/.test(arg) && arg !== 'age');
+    const bad = calls
+      .filter(({ argument }) => !/\.age$/.test(argument) && argument !== 'age')
+      .map(({ source, argument }) => `${source}: ${argument}`);
     expect(bad).toEqual([]);
   });
 
@@ -203,7 +218,9 @@ describe('the frame clock never reads a wall clock or loop.count', () => {
     // Strip comment lines first (via the same `codeLines` helper the wall-clock
     // scan uses), so a `drawStrip(…)` written inside a `//` example comment — the
     // latent-ship note does exactly that — is not mistaken for a real call site.
-    const src = (await codeLines(new URL('../main.ts', import.meta.url))).join('\n');
+    const src = (
+      await codeLines(new URL('../shell/run-view.ts', import.meta.url))
+    ).join('\n');
     // The 6th positional argument of every drawStrip CALL (not the `function
     // drawStrip` declaration), splitting the argument list at TOP-LEVEL commas so a
     // nested `{ … }` style object or a `(a ?? b)` expression does not miscount — the
@@ -263,8 +280,6 @@ describe('the frame clock never reads a wall clock or loop.count', () => {
  *
  * Exempt, keyed `<receiver>|<third-arg>`, each because it has no run-relative age
  * to clock from — animating it would be dishonest, not merely deferred:
- *  - `batches.options|optionSpec.sprite` — `Option` carries no `.age` (a sim
- *    change is needed first),
  *  - `batches.player|ship.sprite` — a 1-frame procedural silhouette,
  *  - `batch|b.style.sprite` — the legacy beam-body fallback, a length-driven
  *    stretched quad (Law of Geometry excludes laser bodies; Law of Animation
@@ -310,7 +325,6 @@ describe('no animated entity surface draws by bare name (the shipped blindness)'
     calls.filter((c) => /\.sprite$/.test(c.third));
 
   const EXEMPT = new Set([
-    'batches.options|optionSpec.sprite', // Option has no .age
     'batches.player|ship.sprite', // 1-frame procedural ship
     'batch|b.style.sprite', // legacy beam-body fallback (length-driven)
   ]);
@@ -335,8 +349,10 @@ describe('no animated entity surface draws by bare name (the shipped blindness)'
     expect(bareName(drawCalls(beam))).toEqual([{ receiver: 'batch', third: 'b.style.sprite' }]);
   });
 
-  test('every bare-name entity draw in main.ts is a documented-latent exemption', async () => {
-    const src = await Bun.file(new URL('../main.ts', import.meta.url)).text();
+  test('every bare-name entity draw in run-view.ts is a documented-latent exemption', async () => {
+    const src = await Bun.file(
+      new URL('../shell/run-view.ts', import.meta.url),
+    ).text();
     const offenders = bareName(drawCalls(src))
       .map((c) => `${c.receiver}|${c.third}`)
       .filter((key) => !EXEMPT.has(key));
@@ -344,12 +360,15 @@ describe('no animated entity surface draws by bare name (the shipped blindness)'
   });
 
   test('the frozen surfaces are actually routed through drawStrip (non-vacuous)', async () => {
-    const src = await Bun.file(new URL('../main.ts', import.meta.url)).text();
+    const src = await Bun.file(
+      new URL('../shell/run-view.ts', import.meta.url),
+    ).text();
     // Proof the routing landed: the batches that carried the frozen strips are now
     // passed to drawStrip, not bare-name drawn. (enemies = enemy + boss bodies.)
     expect(/drawStrip\(\s*batches\.enemies\b/.test(src)).toBe(true);
     expect(/drawStrip\(\s*batches\.items\b/.test(src)).toBe(true); // big-power item
     expect(/drawStrip\(\s*batches\.pickups\b/.test(src)).toBe(true); // coins/gems
+    expect(/drawStrip\(\s*batch,\s*atlas,\s*option\.x,\s*option\.y,\s*sprite,\s*option\.age\b/.test(src)).toBe(true);
   });
 });
 

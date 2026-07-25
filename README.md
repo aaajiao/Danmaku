@@ -191,7 +191,8 @@ src/content/       generic pattern primitives and content registries
 src/v4/            active edition gameplay, shaders, audio, and campaign data
 src/audio/         sound and music registries plus runtime synthesis
 src/packs/         data-pack validation, injection, and loading
-src/shell/         browser-only sizing, controls, menu chrome, and downloads
+src/shell/         browser-only sizing, controls, run/overlay views, menu chrome,
+                   and downloads
 packs/v4/          project-owned v4 presentation pack
 public/            PWA manifest, service-worker template, and generated icons
 test/visual/       checks that require a real framebuffer
