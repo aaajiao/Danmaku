@@ -30,6 +30,11 @@ and remains recoverable from Git history.
 - `background-vault-v4-master.png` — stage 4 black-violet pressure membrane;
   its 480×640 pixel derivative stays grid-locked while `vault`'s live domain
   field supplies the motion above it.
+- `background-regnum-v4-master.png` — the final Boss's charred-lacquer,
+  ash-rose and muted-pearl underpainting. Its deterministic sixteen-frame
+  sequence asynchronously misregisters three unequal off-axis strata at 14
+  ticks per frame, while the upper REGENT station and lower player band remain
+  byte-still and the live fourteen-level topographic shader stays above it.
 - `background-wear-field-v4-master.png` — the terminal ending's worn field:
   broad slate and muted-heart passages cross without converging on a pictured
   seat. Its deterministic sixteen-frame sequence reveals, misregisters and
@@ -56,24 +61,27 @@ Keep originals byte-for-byte.  Derive production assets into their runtime
 locations; do not overwrite these files with crops, transparency conversions or
 packed atlases.
 
-The five base files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
-derivatives of the four campaign-stage masters and the terminal wear field.
+The six base files under `src/assets/v4/backgrounds/` are 480×640 opaque RGB
+derivatives of the four campaign-stage masters, the final-Boss REGNUM field and
+the terminal wear field.
 `stratum` and `vault` sample their base files at runtime; the `expanse`,
-`undertow` and `wear-field` bases remain single-frame derived references while
-runtime samples their sequence atlases.
+`undertow`, `regnum` and `wear-field` bases remain single-frame derived
+references while runtime samples their sequence atlases.
 `bun run make:v4-backgrounds`
 deterministically area-reduces each master to 240×320, maps it to a
 scene-authored finite Ghost palette, removes single-pixel colour islands and
 undersized bright components, then nearest-neighbour expands it by exactly 2×.
-For `expanse`, `undertow` and `wear-field`, the same command also derives
+For `expanse`, `undertow`, `regnum` and `wear-field`, the same command also derives
 sixteen cleaned 240×320 frames and packs them 4×4 into a 960×1280 sequence
 atlas. They do not share a motion profile: `expanse` uses an irregular
 sectional lateral breath with independent material lift; `undertow` uses two
-faster descending wall crests plus asymmetric pressure; `wear-field` reveals,
-locally misregisters and fades pre-existing worn passages from three edges
-without moving its central copy area. The encoder writes no colour profile or
-inherited master metadata. These are project-owned, shader-coupled assets
-rather than replaceable pack skins.
+faster descending wall crests plus asymmetric pressure; `regnum` uses three
+asynchronously phased lacquer-registration shifts only through its middle
+field, keeping its upper Boss station and lower player band fixed; `wear-field`
+reveals, locally misregisters and fades pre-existing worn passages from three
+edges without moving its central copy area. The encoder writes no colour
+profile or inherited master metadata. These are project-owned, shader-coupled
+assets rather than replaceable pack skins.
 
 `packs/v4/actors/portraits.png` is one such derivative: its ten close-ups are
 rebuilt deterministically from the existing player cast and isolated Boss

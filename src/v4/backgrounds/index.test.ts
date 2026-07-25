@@ -69,7 +69,7 @@ const REVIEWED_BASELINE: Readonly<
   drift: { scrollSpeed: 0.6, bodySha256: 'cfd6c0401389ae6d7e544da6619a943e58a290a1fb6bd8a4f344240231884239', assembledSha256: 'ae507376fd29eedaf434558304066a524145027c0fdadd278a53f9e949ee0f7e' },
   expanse: { scrollSpeed: 0.7, bodySha256: 'ef3cbfa6e2c83d463cc41e875c4f27ceb8b402d28a194cf98e831583dd3e900d', assembledSha256: 'ff45c1c79449eed5a8d209cf820fa2b6851e8b968025c13fb1f1ff4359f35656' },
   intaglio: { scrollSpeed: 0.9, bodySha256: '6a0db83ff713031d2c69452e032d7ecd57f65364cce085a1e7baefbbdea814d8', assembledSha256: 'e962e85207947c714136e81c9a6ca67562431918504fa9f01a722dad5485a698' },
-  regnum: { scrollSpeed: 0.8, bodySha256: '115c53c2f28313575c97fac0063b52183d162f3ce87e94329faeb221639de8fe', assembledSha256: '874f1f3dc5f369b401f8af549088b3e8d144788d63bca877d07a61f5548ba7ff' },
+  regnum: { scrollSpeed: 0.8, bodySha256: 'a65a4b8171acfa048b1aee35e5dbcdeb3773c451252ca9298c31efa9328bdb40', assembledSha256: '29fcecb0796b9c07ee03599872d49454455730a5f97fe64d26290c4968d84527' },
   sable: { scrollSpeed: 0.6, bodySha256: 'f006266116b7c9608a564b88433013eeab0251d8983a38c40b21098f0568a355', assembledSha256: '1b0dda9b94ec5938a66d035166bdc57c2409f885ee887336bd06d2a652daaf83' },
   'signal-decay': { scrollSpeed: 1, bodySha256: '3bbb5fd5d907a9d85e982d0a2b83c5c7edb13a0b86a36618c0f1cf2f7e0918c8', assembledSha256: '8fee30d65e3315e57663c144301c131f0ef51b9539479145457fd4b451c7fdca' },
   signet: { scrollSpeed: 0.8, bodySha256: '1c9ed84ae695232dd716e3a931c9b879d3eaed5dfe626aca6134528a5e88e3fc', assembledSha256: 'af88df04ac6b39d715e5c9b083b5adf1a027bd003b4ad5d7c58956091262d970' },
@@ -113,6 +113,17 @@ const REVIEWED_ART = {
     height: 640,
     bytes: 29008,
     sha256: 'f3817c5b68a82aa5589627cf11ea6ef5d93d2a29266f70cf65306cd6d659a0b8',
+  },
+  regnum: {
+    file: new URL(
+      '../../assets/v4/backgrounds/regnum-v4-sequence.png',
+      import.meta.url,
+    ),
+    urlSuffix: '/regnum-v4-sequence.png',
+    width: 960,
+    height: 1280,
+    bytes: 179120,
+    sha256: 'd3d9947d1691027602faa7acd7707193a6f1d66c3aa9d9bada0eeeda8912d83e',
   },
   'wear-field': {
     file: new URL(
@@ -182,7 +193,12 @@ describe('the shipped scenes', () => {
       expect(fragment, name).toContain('uniform vec2 uArtRes;');
       expect(fragment, name).toContain('uniform float uArtMode;');
       expect(fragment, name).toContain('if (uArtMode < 0.5)');
-      if (name === 'expanse' || name === 'undertow' || name === 'wear-field') {
+      if (
+        name === 'expanse'
+        || name === 'undertow'
+        || name === 'regnum'
+        || name === 'wear-field'
+      ) {
         expect(fragment, name).toContain('floor(safeUv * frameRes) + 0.5');
         expect(fragment, name).toContain('texture2D(uArt, atlasUv)');
       } else {
@@ -208,6 +224,36 @@ describe('the shipped scenes', () => {
       expect(fragment, name).toContain('vec2(4.0, 4.0)');
       expect(fragment, name).not.toContain('performance.now');
     }
+  });
+
+  test('regnum keeps its scene-local lacquer sequence beneath the live topography', () => {
+    const fragment = getBackgroundSpec('regnum').fragment;
+    const production = fragment.slice(fragment.indexOf('vec3 background(vec2 uv)'));
+
+    expect(fragment).toContain('REGNUM_ART_FRAMES = 16.0');
+    expect(fragment).toContain('REGNUM_FRAME_TICKS = 14.0');
+    expect(fragment).toContain('REGNUM_ATLAS_GRID = vec2(4.0, 4.0)');
+    expect(fragment).toContain('float sceneTick = uScroll / 0.8;');
+    expect(fragment).toContain('0.022 * sin(REGNUM_TAU * travel)');
+    expect(fragment).toContain('regnumArtFrame(pixelUv, frame + 1.0)');
+    expect(fragment).not.toContain('uTick / REGNUM_FRAME_TICKS');
+    expect(fragment).not.toContain('performance.now');
+
+    const shaderOnly = production.indexOf(
+      'if (uArtMode < 0.5) return regnumShader(uv);',
+    );
+    const paintedSample = production.indexOf(
+      'vec3 painted = regnumArt(artPixelUv);',
+    );
+    expect(shaderOnly).toBeGreaterThanOrEqual(0);
+    expect(shaderOnly).toBeLessThan(paintedSample);
+    expect(production).toContain('vec3 hybrid = painted * underGain;');
+    expect(production).toContain(
+      'hybrid += shaderColor * (0.98 + paintedLuma * 0.08);',
+    );
+    expect(production.indexOf('vec3 hybrid = painted * underGain;'))
+      .toBeLessThan(production.indexOf('hybrid += shaderColor'));
+    expect(production).not.toContain('mix(painted, shaderColor');
   });
 
   test('expanse breath and undertow descent keep distinct motion profiles', () => {

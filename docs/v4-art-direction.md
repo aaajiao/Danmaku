@@ -417,9 +417,10 @@ replay 则继续证明这次有意变更之后的逐 tick 行为。
 
 现有 shader 是 v4 的动态底层：不删除、不烘焙、不被静态图替代，也不通过 UI
 铺设不透明全屏覆盖层。03–06 四个正式关卡各有一张项目自有绘制母版，由本场
-shader 分级并在逻辑像素网格上单 pass 合成；菜单、Boss 站、出神与中性
-GAME OVER 的 `signal-decay` 保持 shader-only。真实 v4 终局另由独立
-`wear-field` 场景采样第五张绘制母版，不能把这项叙事视觉泄漏给中性结算。
+shader 分级并在逻辑像素网格上单 pass 合成；菜单、前四个 Boss 站、出神与中性
+GAME OVER 的 `signal-decay` 保持 shader-only。最终 Boss 的 `regnum` 采样
+第五张绘制母版，实时十四层等高线保持在序列图上方；真实 v4 终局另由独立
+`wear-field` 场景采样第六张绘制母版，不能把这项叙事视觉泄漏给中性结算。
 15 个 authored scene 归档在 `src/v4/backgrounds/`；
 通用 registry、全屏 quad、uniform 与 60 tick 转场引擎仍在
 `src/render/background.ts`。每一场当前的 fragment SHA-256 与
@@ -485,19 +486,20 @@ atlas：旷野是开放门与月轮，竖井是长墙与封印，沉积是大块
 | Five stations | `cordon` | 原 `hologram-glitch` 的有机 rotated-FBM 体积与平滑横向错位保留；RGB 分色、扫描线、grain、亮 sweep 与噪块收束为连续靛青 Ghost 膜 |
 | Five stations | `intaglio` | 原 `bass-ripple` 鼓膜波推动柔性骨银蜂巢与三向棚拍反光；网格退为材质，行进形变和宽高光成为主体 |
 | Five stations | `sable` | 冷黑玻璃中的大型封存气泡保留宽软膜边与上升；生产 `×1` 可见，不重新加入亮点、细 rim 或爆泡 |
-| Five stations | `regnum` | 原 `topographic` 的四 octave 地形与十四层解析等高线完整展开；不插入空席、中央裂缝、脸或对称徽记，焦黑漆、灰烬玫瑰与暖骨珍珠随高程自然闭合，顶部为 REGENT 的根冠、骨相与心核保留低对比空间 |
+| Five stations | `regnum` | 原 `topographic` 的四 octave 地形与十四层解析等高线完整展开并位于绘制层上方；原创焦黑漆、灰烬玫瑰与低亮珍珠母版确定性派生 16 帧、4×4 序列，以 14 tick/帧让三块不等宽偏轴中段漆面异步错层，完整周期 224 tick；顶部 72 个工作像素的 REGENT 站位与自 y=220 起的底部玩家安全带逐帧保持不动，不插入空席、中央裂缝、脸或对称徽记 |
 | Trance | `umbra` | `Total Eclipse` 保留无独立星点的冷紫帷幕、漂移与遮蔽；生产 `×1` 提亮后仍不生成孤立亮点 |
 | Trance | `decree` | 四个原始环源继续生成 moiré；暖灰、受控琥珀与骨色由宽拍频主导，细四向乘积只作为低增益材质 |
 | Stage 2 transition | `surge` | Magistrate 的全难度开场 `Arraignment`：原 `ink-dissolve` 的内部双重 domain warp、漂移墨源与反应边把 `undertow` 的开放竖井收束成墨膜，再进入 `intaglio` 的裁决印记；不插入硬板或几何裂缝，总速度为原版 `110%` |
 
 `test/visual/scenes-compare.html` 同步改成 v4 场景总览：默认显示 production
 `hybrid ×1` 与真实 `V4StageStructure` 合成，`art / shader / hybrid` source
-与 `scene only / composite` 结构开关相互独立，03–06 四关标记绘制层。页面按 Shell、
+与 `scene only / composite` 结构开关相互独立，03–06 四关、10 `regnum` 与
+15 `wear-field` 标记绘制层。页面按 Shell、
 四关与对应守印站、Trance、Utility 的叙事顺序排列；每张卡另列“主线
 N/4、关卡位置与对应 Boss”，避免把 shader 资源编号误读成关卡号。时间由固定 60Hz
 accumulator 推进，单帧差分严格比较相邻 tick，fade lab 默认使用游戏真实的
-60 tick。`__measure` 固定读取 production source ×1（四关 hybrid，其余
-shader）；`__dump`、`__strips` 保持 shader-only ×1 兼容语义，composite
+60 tick。`__measure` 固定读取 production source ×1（六个绘制场 hybrid，
+其余 shader）；`__dump`、`__strips` 保持 shader-only ×1 兼容语义，composite
 导出固定为 production hybrid + structure。
 
 总览的亮度数字用于逐场比较最终输出，不用于倒推出一条统一的 shader
@@ -629,7 +631,7 @@ fallback。
 
 | 项目 | 当前状态 | 下一验收门 |
 |---|---|---|
-| shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；独立 `wear-field` 也从唯一母版派生 16 帧，但只让多边磨损路径分段显影、错位、褪去并锁住文字区，服务 v4 三页终局；所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
+| shader / 舞台 | 15 个 authored scene 已完成逐场生产审查并归 `src/v4/backgrounds`；四个正式关卡各接入与人物同源的 Ghost 像素膜层；`expanse/undertow` 从各自母版确定性派生 16 帧绘制序列，并分别使用分段横向呼吸与双波纵向下传，`stratum/vault` 保留 480×640 单帧材质；最终 Boss `regnum` 从唯一母版派生 16 帧、14 tick/帧的异步漆面错层，顶部 Boss 与底部玩家安全带不动，十四层 shader 保持在上方；独立 `wear-field` 也从唯一母版派生 16 帧，但只让多边磨损路径分段显影、错位、褪去并锁住文字区，服务 v4 三页终局；所有动态均由固定 tick 驱动；四关稀疏结构与背景共用 60-tick 转场；总览默认显示 hybrid 生产合成 | 浏览器逐关确认结构不伪装弹体、Boss 转场无残留，并逐页确认结局从沉积减到近空 |
 | 弹幕生成 | `src/v4/gameplay` 已拥有 8 个 pattern 与 5 个 behaviour；16 类敌人各有唯一 `pattern+弹体` 签名，5 位 Boss 每阶段至少两层弹幕且每位使用至少四类几何；campaign 与可执行 gameplay 共同进入 replay 指纹 | 浏览器逐关确认迁移缺口、交织线与通道墙在 Normal/Lunatic 都保留连续安全缝 |
 | 主角火力 | 五种 shot 的四个威力等级都具有独立的 loose/focus 弹种、阵型或节奏；五人各有唯一 option 阵型与 Bomb 规则，runtime 优先消费各自 option/Bomb strip | 浏览器逐人检查松开/聚焦切换、满火力可读性、Bomb 持续动画与实效范围一致 |
 | 角色名绑定 | 5 主角 / 16 敌人 / 5 Boss 已换入本章 Ghost 三层烘焙图集，并有独立 actor atlas 与 base 名映射 | 浏览器逐关检查 ×1 尺寸轮廓、pivot 与弹幕覆盖关系 |
@@ -653,8 +655,9 @@ v4 UI production ornaments，以及 BulletPack 的
 117/117 本地兼容审计。默认敌我弹的危险语言已分开，15 场背景已完成逐场
 生产审查，四关低频结构已接入并进入场景总览的默认合成；五位主角的
 loose/focus 火力、专属 option 与五种 Bomb
-也已接入；v4 终局使用一张 wear-field 母版、三页递减合成与只读的真实
-stage-4 path；分类图集减少透明上传，发布复制会过滤 `.DS_Store`、`Thumbs.db`、
+也已接入；最终 Boss `regnum` 已接入 16 帧异步漆面序列并保留上层动态等高线，
+v4 终局使用一张 wear-field 母版、三页递减合成与只读的真实 stage-4 path；
+分类图集减少透明上传，发布复制会过滤 `.DS_Store`、`Thumbs.db`、
 `desktop.ini` 与 `__MACOSX`。表现层仍不回写碰撞或 RNG；火力与 Bomb 的玩法
 变化则是有意的 simulation revision，并已更新 campaign 指纹与 golden replay。
 
@@ -697,6 +700,12 @@ stage-4 path；分类图集减少透明上传，发布复制会过滤 `.DS_Store
 - v4 UI 的生产原画保留在 `docs/art/v4/ui-production-ornaments-master.png`；
   `docs/art/v4/ui-screen-perimeter-master.png` 仅为已生成的外框方案研究存档，
   不进入运行资源。atlas 只能由前者通过 `bun run make:v4-ui` 派生，不手工修改。
+- 最终 Boss 只使用
+  `docs/art/v4/background-regnum-v4-master.png` 这一张 `1086×1448`
+  原创母版，并由 `bun run make:v4-backgrounds` 确定性派生 `480×640` 的
+  `regnum-v4.png` 与 16 帧、4×4、`960×1280` 的
+  `regnum-v4-sequence.png`；序列以 14 tick/帧运行，只错动中段漆面，顶部 Boss
+  与底部玩家安全带保持不动，实时十四层 shader 最后合成。
 - v4 终局只使用
   `docs/art/v4/background-wear-field-v4-master.png` 这一张 `1086×1448`
   原创母版，并由 `bun run make:v4-backgrounds` 确定性派生 16 帧、4×4、

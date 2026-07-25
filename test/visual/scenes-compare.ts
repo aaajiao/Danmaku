@@ -5,7 +5,7 @@
  * ×1, with `V4StageStructure` composited over the four campaign stage fields.
  * Source and structure are independent controls; raw structure mode and the
  * ×2–×4 gains are diagnostic views only. Metrics always measure the production
- * source at ×1 (hybrid for the five painted scenes, shader elsewhere); legacy raw PNG exports
+ * source at ×1 (hybrid for the six painted scenes, shader elsewhere); legacy raw PNG exports
  * remain shader-only ×1 so changing the view cannot change them.
  *
  * Automation surface (all on window):
@@ -173,7 +173,7 @@ const SCENE_META: Readonly<Record<string, SceneMeta>> = {
     role: 'FINAL BOSS',
     owner: 'regent',
     route: '主线 4/4 · 最终 BOSS · REGENT',
-    story: '原 topographic 的十四层自然地形完整展开；焦黑漆、灰烬玫瑰与暖骨珍珠随高程连成根系般的磨损场，顶部为 REGENT 的根冠、骨相与心核保留低对比空间。',
+    story: '原创焦黑漆、灰烬玫瑰与低亮珍珠母版派生 16 帧、14 tick/帧序列；三块不等宽偏轴中段漆面异步错层，224 tick 完整循环，顶部 REGENT 站位与底部玩家安全带保持静止。原 topographic 的十四层自然地形始终合成在序列图上方。',
   },
   umbra: {
     role: 'LUNATIC · 出神',

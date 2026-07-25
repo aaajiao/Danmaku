@@ -1843,12 +1843,18 @@ only preloads the exact texture. Shipped V4 assets are deterministically compile
 from accepted masters with `bun run make:v4-backgrounds`; do not resize them by
 hand. Sequence timing is part of scene identity, not a shared preset: the shipped
 `expanse` atlas rests between sectional lateral breaths, while `undertow` drives
-an asymmetrically phased travelling wave down its walls. The terminal
-`wear-field` instead hands off irregular sections of the master's existing
-left, right and lower worn paths, with only local two-pixel registration slips
-and no motion in the ending-copy rectangle. Do not give two scenes the same
-phase table, easing and frame cadence merely because their atlases share a 4×4
-layout.
+an asymmetrically phased travelling wave down its walls. The accepted
+`background-regnum-v4-master.png` compiles to the 480×640 `regnum-v4.png`
+reference and the sixteen-frame, 4×4 `regnum-v4-sequence.png` atlas. REGNUM uses
+a separate 14-tick cadence: three unequal off-axis middle strata shift their
+lacquer registration with different phases and tangents, while the top
+72-work-pixel Boss band and the lower band beginning at work y=220 remain
+byte-still; the live fourteen-level topographic shader is composed above that
+underpainting. The terminal `wear-field` instead hands off irregular sections of
+the master's existing left, right and lower worn paths, with only local
+two-pixel registration slips and no motion in the ending-copy rectangle. Do not
+give two scenes the same phase table, easing and frame cadence merely because
+their atlases share a 4×4 layout.
 
 Then add `import './ashfall';` to `src/v4/backgrounds/index.ts`.
 `index.test.ts` reads the directory and fails when a file is missing from that

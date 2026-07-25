@@ -505,11 +505,12 @@ vec3 background(vec2 uv)
 `uScroll`, `uRes`, `uIntensity` and `uAlpha`; `uTick` advances only in
 `Background.step()`. No wall clock may enter a scene.
 
-Shell, Boss-station, trance and neutral utility scenes remain shader-only,
-including the `signal-decay` scene used by GAME OVER. Each of the four campaign
-stages declares one project-owned opaque art texture: either a single plate or a
-scene-owned sequence atlas. The real v4 terminal ending declares a fifth texture
-through its independent `wear-field` scene; neutral results never inherit it.
+Shell, the four earlier Boss-station scenes, trance and neutral utility scenes
+remain shader-only, including the `signal-decay` scene used by GAME OVER. Each
+of the four campaign stages declares one project-owned opaque art texture:
+either a single plate or a scene-owned sequence atlas. The final-Boss `regnum`
+scene declares a fifth texture, and the real v4 terminal ending declares a sixth
+through its independent `wear-field` scene; neutral results never inherit either.
 
 ```ts
 import PLATE_URL from '../../assets/v4/backgrounds/example-v4.png';
@@ -540,9 +541,10 @@ The production hybrids are:
 | `undertow` | sixteen 240×320 indigo membrane frames in a 960×1280 atlas; two unequal descending crests, asymmetric wall pressure and a calm central shaft | grid-snapped fixed-tick domain warp and cold refraction |
 | `stratum` | 480×640 soot/slate sediment membranes with a quiet lower basin | grid-snapped fixed-tick moving centres and travelling-wave pressure |
 | `vault` | 480×640 black-violet Ghost membranes and broad graphite support strata | grid-snapped fixed-tick domain warp and pressure lighting |
+| `regnum` | sixteen 240×320 charred-lacquer, ash-rose and muted-pearl frames in a 960×1280 atlas; three unequal off-axis middle strata misregister asynchronously while the upper 72-work-pixel Boss station and lower band from work y=220 stay byte-still | the four-octave field and fourteen analytic contour levels remain at essentially full weight and are composed above the underpainting |
 | `wear-field` | sixteen 240×320 slate, bone-grey and muted-heart frames in a 960×1280 atlas; independent left/right/lower path sections reveal, misregister and fade around a still ending-copy zone | six fixed-tick signal ribbons and low-frequency floor fog; the v4 ending reduces the painted sequence contribution page by page at `0.30`, `0.16`, then `0.04` |
 
-Their five accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
+Their six accepted 1086×1448 generated masters live in `docs/art/v4/`; runtime
 derivatives live in `src/assets/v4/backgrounds/`. These are shader-coupled
 edition assets, not pack skins and not a route for guest code.
 
@@ -562,19 +564,24 @@ in frequency and quiet through the play corridor. The accepted 1086×1448 source
 is compiled by `bun run make:v4-backgrounds`: an integer area reduction,
 scene-owned finite Ghost palette, compact-highlight cleanup and exact 2× nearest
 expansion produce the 480×640 base plate. `stratum` and `vault` sample that file
-directly; the `expanse`, `undertow` and `wear-field` bases remain single-frame
-derived references while those scenes pack sixteen cleaned 240×320 frames into
-one 960×1280 atlas and import the atlas at runtime. `expanse` uses a 12-tick
-smoother lateral breath with sectional, material and left/right phase offsets;
-`undertow` uses a 10-tick descending wave with sixteen distinct push/drag
-cadences and an independent wall-pressure cycle. `wear-field` uses an 11-tick
-section hand-off: the left, right and two lower passages independently reveal,
-shift by at most two logical pixels and recede while its 124×128-work-pixel
-ending-copy rectangle remains byte-still. Their complete loops are 192, 160 and
-176 ticks respectively. Wear Field's runtime grade adds moderate exposure and
-luma-preserving chroma density rather than an additive white lift; its
-page-owned `uEndingArt` targets remain `0.30`, `0.16` and `0.04`.
-Their scene shaders interpolate adjacent frames from `uTick`. No stars,
+directly; the `expanse`, `undertow`, `regnum` and `wear-field` bases remain
+single-frame derived references while those scenes pack sixteen cleaned
+240×320 frames into one 960×1280 atlas and import the atlas at runtime.
+`expanse` uses a 12-tick smoother lateral breath with sectional, material and
+left/right phase offsets; `undertow` uses a 10-tick descending wave with sixteen
+distinct push/drag cadences and an independent wall-pressure cycle. `regnum`
+uses a 14-tick asynchronous lacquer-registration shift: three unequal off-axis
+middle strata use different phases and tangents while the full-width work rows
+above 72 and from 220 onward remain byte-still; its topographic shader is added
+last. `wear-field` uses an 11-tick section hand-off: the left, right and two
+lower passages independently reveal, shift by at most two logical pixels and
+recede while its 124×128-work-pixel ending-copy rectangle remains byte-still.
+Their complete loops are 192, 160, 224 and 176 ticks respectively. Wear Field's
+runtime grade adds moderate exposure and luma-preserving chroma density rather
+than an additive white lift; its page-owned `uEndingArt` targets remain `0.30`,
+`0.16` and `0.04`. Their scene shaders interpolate adjacent frames from the
+scene-local fixed-tick clock (`uTick`, or `uScroll` normalised by scroll speed
+for `regnum`). No stars,
 pinpoints, thin bright edges or isolated marks may counterfeit a projectile.
 The shader owns the clock and composition; dropping a PNG onto a generic
 scrolling plane is not a scene.

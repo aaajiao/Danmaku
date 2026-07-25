@@ -12,13 +12,27 @@
  * analytic iso-line technique derive from pbakaus/radiant `topographic` (MIT).
  */
 
+import REGNUM_ART_URL from '../../assets/v4/backgrounds/regnum-v4-sequence.png';
 import { defineBackground } from '../../render/background';
 
 defineBackground('regnum', {
   scrollSpeed: 0.8,
+  art: {
+    url: REGNUM_ART_URL,
+    width: 960,
+    height: 1280,
+  },
   fragment: /* glsl */ `
+    uniform sampler2D uArt;
+    uniform vec2 uArtRes;
+    uniform float uArtMode;  /* 0 shader, 1 painted plate, 2 production hybrid */
+
     /* Final-boss station: clearly present at ×1, still below actors and bullets. */
     const float EXPOSURE = 1.72;
+    const vec2 REGNUM_ATLAS_GRID = vec2(4.0, 4.0);
+    const float REGNUM_ART_FRAMES = 16.0;
+    const float REGNUM_FRAME_TICKS = 14.0;
+    const float REGNUM_TAU = 6.28318530718;
 
     /* Preserve the original renderer's defining fourteen elevations. */
     const float LEVELS = 14.0;
@@ -104,7 +118,61 @@ defineBackground('regnum', {
       return mix(LINE_HEART, LINE_PEARL, smoothstep(0.68, 0.96, height));
     }
 
-    vec3 background(vec2 uv) {
+    vec2 regnumScenePixelUv(vec2 uv) {
+      vec2 safeUv = clamp(
+        uv,
+        vec2(0.0),
+        vec2(1.0) - 0.5 / uRes
+      );
+      return (floor(safeUv * uRes) + 0.5) / uRes;
+    }
+
+    vec2 regnumArtPixelUv(vec2 uv) {
+      vec2 frameRes = uArtRes / REGNUM_ATLAS_GRID;
+      vec2 safeUv = clamp(
+        uv,
+        vec2(0.0),
+        vec2(1.0) - 0.5 / frameRes
+      );
+      return (floor(safeUv * frameRes) + 0.5) / frameRes;
+    }
+
+    vec3 regnumArtFrame(vec2 pixelUv, float frame) {
+      float wrapped = mod(frame, REGNUM_ART_FRAMES);
+      vec2 tile = vec2(
+        mod(wrapped, REGNUM_ATLAS_GRID.x),
+        floor(wrapped / REGNUM_ATLAS_GRID.x)
+      );
+      vec2 atlasUv = (tile + pixelUv) / REGNUM_ATLAS_GRID;
+      vec3 painted = texture2D(uArt, atlasUv).rgb;
+
+      /* The sequence is material, not a second light field. Lift its charred
+         lacquer and ash colour enough to survive hybrid weighting while keeping
+         the actor's true heart/bone tiers exclusive. */
+      painted = pow(max(painted, vec3(0.0)), vec3(1.06)) * 0.70;
+      float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
+      vec3 chroma = painted - vec3(paintedLuma);
+      painted = vec3(paintedLuma) + chroma * 1.18;
+      return min(max(painted, vec3(0.0)), vec3(0.25));
+    }
+
+    vec3 regnumArt(vec2 pixelUv) {
+      /* uScroll is scene-local and advances by 0.8/tick, so the atlas begins at
+         frame zero each time REGNUM enters without changing shader speed. */
+      float sceneTick = uScroll / 0.8;
+      float phase = mod(sceneTick / REGNUM_FRAME_TICKS, REGNUM_ART_FRAMES);
+      float frame = floor(phase);
+      float travel = fract(phase);
+      /* Monotone push/drag: no rest, no fifth-order breath, no wall descent. */
+      float blend = travel + 0.022 * sin(REGNUM_TAU * travel);
+      return mix(
+        regnumArtFrame(pixelUv, frame),
+        regnumArtFrame(pixelUv, frame + 1.0),
+        blend
+      );
+    }
+
+    vec3 regnumShader(vec2 uv) {
       float aspect = uRes.x / uRes.y;
       /* A non-integer fixed phase avoids value-noise's zero-derivative start.
          Scroll speed and morph rate remain unchanged. */
@@ -215,6 +283,30 @@ defineBackground('regnum', {
       col *= 1.0 - 0.22 * smoothstep(0.22, 0.58, length(vc));
 
       return col * EXPOSURE;
+    }
+
+    vec3 background(vec2 uv) {
+      if (uArtMode < 0.5) return regnumShader(uv);
+
+      vec2 scenePixelUv = regnumScenePixelUv(uv);
+      vec2 artPixelUv = regnumArtPixelUv(uv);
+      vec3 painted = regnumArt(artPixelUv);
+      if (uArtMode < 1.5) return painted;
+
+      /* The low-frequency plate is underpaint only. The live fourteen-level
+         topography stays at essentially full weight and is added last, so no
+         atlas frame can cover its motion or highlights. */
+      vec3 shaderColor = regnumShader(scenePixelUv);
+      float shaderLuma = dot(shaderColor, vec3(0.2126, 0.7152, 0.0722));
+      float paintedLuma = dot(painted, vec3(0.2126, 0.7152, 0.0722));
+      float topKey = smoothstep(0.045, 0.22, shaderLuma);
+      float stationCalm = mix(0.76, 1.0, smoothstep(0.20, 0.36, uv.y));
+      float playerCalm = 1.0 - 0.18 * smoothstep(0.62, 0.94, uv.y);
+      float underGain = mix(0.46, 0.28, topKey) * stationCalm * playerCalm;
+
+      vec3 hybrid = painted * underGain;
+      hybrid += shaderColor * (0.98 + paintedLuma * 0.08);
+      return hybrid / (vec3(1.0) + hybrid * 0.30);
     }
   `,
 });

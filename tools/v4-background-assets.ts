@@ -1,10 +1,10 @@
 /**
- * Compile the accepted v4 stage-background masters and terminal wear field into
- * runtime pixel plates. Expanse, Undertow and Wear Field additionally receive
- * deterministic sixteen-frame atlases: scene-specific integer deformation
- * derived from each accepted master, never independently generated frames, so
- * their painted silhouettes can move without visual drift or sharing one
- * motion language.
+ * Compile the accepted v4 stage-background masters, Regent station and terminal
+ * wear field into runtime pixel plates. Expanse, Undertow, Regnum and Wear Field
+ * additionally receive deterministic sixteen-frame atlases: scene-specific
+ * integer deformation derived from each accepted master, never independently
+ * generated frames, so their painted silhouettes can move without visual drift
+ * or sharing one motion language.
  *
  * The masters remain full-resolution composition references. Runtime art is
  * deliberately a different surface: an integer area reduction to 240×320,
@@ -46,12 +46,14 @@ export const V4_BACKGROUND_ASSET_NAMES = [
   'undertow',
   'stratum',
   'vault',
+  'regnum',
   'wear-field',
 ] as const;
 export type V4BackgroundAssetName = (typeof V4_BACKGROUND_ASSET_NAMES)[number];
 export const V4_BACKGROUND_SEQUENCE_NAMES = [
   'expanse',
   'undertow',
+  'regnum',
   'wear-field',
 ] as const;
 export type V4BackgroundSequenceName = (typeof V4_BACKGROUND_SEQUENCE_NAMES)[number];
@@ -161,6 +163,27 @@ export const V4_BACKGROUND_PALETTES = {
     [87, 51, 117],
     [105, 68, 132],
   ],
+  regnum: [
+    [3, 4, 7],
+    [7, 8, 12],
+    [12, 14, 20],
+    [18, 21, 28],
+    [26, 29, 37],
+    [35, 39, 48],
+    [46, 51, 61],
+    [59, 65, 75],
+    [74, 81, 91],
+    [18, 9, 14],
+    [30, 13, 20],
+    [44, 18, 28],
+    [59, 25, 38],
+    [76, 34, 49],
+    [94, 46, 62],
+    [47, 44, 48],
+    [63, 59, 64],
+    [80, 75, 80],
+    [98, 91, 96],
+  ],
   'wear-field': [
     [3, 6, 11],
     [7, 11, 18],
@@ -248,6 +271,26 @@ export const V4_BACKGROUND_ASSET_SPECS: Readonly<
     sourceSha256: '3c20a487fdab0c161c29164ecfe8a05e8bc9148f681396b27aa65f1d26bb7d86',
     palette: V4_BACKGROUND_PALETTES.vault,
     brightFloor: 106,
+    minimumBrightCluster: 6,
+    minimumBrightSpan: 24,
+  },
+  regnum: {
+    name: 'regnum',
+    master: join(ROOT, 'docs', 'art', 'v4', 'background-regnum-v4-master.png'),
+    output: join(ROOT, 'src', 'assets', 'v4', 'backgrounds', 'regnum-v4.png'),
+    sequenceOutput: join(
+      ROOT,
+      'src',
+      'assets',
+      'v4',
+      'backgrounds',
+      'regnum-v4-sequence.png',
+    ),
+    sourceWidth: 1086,
+    sourceHeight: 1448,
+    sourceSha256: '7ae4c4a50136da08eca99ea0710f50051ac471a852fc841dc35fe96e84fbfa20',
+    palette: V4_BACKGROUND_PALETTES.regnum,
+    brightFloor: 58,
     minimumBrightCluster: 6,
     minimumBrightSpan: 24,
   },
@@ -601,7 +644,7 @@ function encodeNearest2x(indices: Uint8Array, palette: readonly RGB[]): Uint8Arr
 }
 
 /**
- * The three sequenced plates deliberately do not share a motion loop.
+ * The four sequenced plates deliberately do not share a motion loop.
  *
  * Expanse is a slow lateral breath with a slightly uneven inhale/exhale. Its
  * phase is offset down the frame so the distant banks flex in sections rather
@@ -609,8 +652,10 @@ function encodeNearest2x(indices: Uint8Array, palette: readonly RGB[]): Uint8Arr
  * subtracting its phase down the wall makes the fold crest descend and wrap
  * through the sixteen-frame loop. Wear Field does not move either wall or
  * camera: independent path sections emerge, misregister by a few logical
- * pixels, then recede while the ending-copy rectangle stays byte-still. Every
- * curve closes without a duplicate frame.
+ * pixels, then recede while the ending-copy rectangle stays byte-still. Regnum
+ * shifts only its middle ash/pearl strata along three unequal tangents while
+ * the Boss station, dark lacquer and player band stay fixed. Every curve closes
+ * without a duplicate frame.
  */
 type SequenceCurve = readonly [
   number,
@@ -661,6 +706,16 @@ const WEAR_MISREGISTER_CURVE = [
   0, 2, -1, 1, 0, -2, 1, -1,
 ] as const satisfies SequenceCurve;
 
+const REGNUM_SHEAR_CURVE = [
+  0, 1, 3, 2, 3, 2, 1, 2,
+  0, -1, -3, -2, -3, -2, -1, -2,
+] as const satisfies SequenceCurve;
+
+const REGNUM_SETTLE_CURVE = [
+  0, 0, 2, 1, -1, -2, 0, 1,
+  2, 0, -2, -1, 1, 2, 0, -1,
+] as const satisfies SequenceCurve;
+
 export const V4_BACKGROUND_SEQUENCE_MOTION_PROFILES = {
   expanse: {
     primary: EXPANSE_BREATH_CURVE,
@@ -669,6 +724,10 @@ export const V4_BACKGROUND_SEQUENCE_MOTION_PROFILES = {
   undertow: {
     primary: UNDERTOW_FALL_CURVE,
     secondary: UNDERTOW_PRESSURE_CURVE,
+  },
+  regnum: {
+    primary: REGNUM_SHEAR_CURVE,
+    secondary: REGNUM_SETTLE_CURVE,
   },
   'wear-field': {
     primary: WEAR_REVEAL_CURVE,
@@ -923,6 +982,148 @@ function wearSequenceFrame(
   return cleaned;
 }
 
+const REGNUM_LACQUER_LAST = 8;
+const REGNUM_ASH_FIRST = 9;
+const REGNUM_ASH_LAST = 14;
+const REGNUM_PEARL_LAST = 18;
+const REGNUM_BOSS_QUIET_BOTTOM = 72;
+const REGNUM_PLAYER_QUIET_TOP = 220;
+const REGNUM_SECTION_JITTER = [
+  2, -5, 7, -1, 4, -7, 1, 6,
+  -3, 5, -6, 0, 7, -2, 3, -4,
+] as const satisfies SequenceCurve;
+
+function regnumSectionJitter(value: number, stride: number, phase: number): number {
+  const index = wrapSequencePhase(Math.floor(value / stride) + phase);
+  return REGNUM_SECTION_JITTER[index]!;
+}
+
+/**
+ * Split the moving middle material into three unequal, off-axis strata.
+ *
+ * The masks only select how already-authored pixels register; they never draw
+ * a visible edge. Full-width quiet bands above and below remain byte-identical
+ * to the accepted plate so neither REGENT nor the player lane gains a moving
+ * frame around it.
+ */
+function regnumStratum(x: number, y: number): number {
+  if (
+    y < REGNUM_BOSS_QUIET_BOTTOM
+    || y >= REGNUM_PLAYER_QUIET_TOP
+  ) return -1;
+
+  const upperRight = 144
+    - Math.floor((y - REGNUM_BOSS_QUIET_BOTTOM) / 6)
+    + regnumSectionJitter(y, 27, 2);
+  if (y < 166 && x >= upperRight) return 0;
+
+  const leftMiddle = 76
+    + Math.floor((y - REGNUM_BOSS_QUIET_BOTTOM) / 4)
+    + regnumSectionJitter(y, 31, 7);
+  if (x < leftMiddle) return 1;
+
+  return 2;
+}
+
+function regnumMaterialOffset(index: number, value: number): number {
+  if (index <= 2) return 0;
+  if (index <= REGNUM_LACQUER_LAST) return halfTowardZero(value);
+  if (index >= REGNUM_ASH_FIRST && index <= REGNUM_ASH_LAST) return value;
+  return halfTowardZero(value);
+}
+
+function shiftRegnumPaletteIndex(index: number, delta: number): number {
+  if (delta === 0 || index <= 2) return index;
+  if (index <= REGNUM_LACQUER_LAST) {
+    return Math.max(3, Math.min(REGNUM_LACQUER_LAST, index + delta));
+  }
+  if (index <= REGNUM_ASH_LAST) {
+    return Math.max(
+      REGNUM_ASH_FIRST,
+      Math.min(REGNUM_ASH_LAST, index + delta),
+    );
+  }
+  return Math.max(
+    REGNUM_ASH_LAST + 1,
+    Math.min(REGNUM_PEARL_LAST, index + delta),
+  );
+}
+
+/**
+ * REGNUM's painted layer performs an asynchronous stratum registration shift.
+ *
+ * Ash rose takes the full two/three-pixel tangent motion, muted pearl and the
+ * upper lacquer tiers follow at half distance, and the deepest lacquer stays
+ * fixed. Three coarse strata use different curve phases and tangents, so the
+ * plate does not breathe, descend, reveal edge routes or translate as a camera.
+ */
+function regnumSequenceFrame(
+  baseIndices: Uint8Array,
+  frame: number,
+  spec: V4BackgroundAssetSpec,
+): Uint8Array {
+  const staged = baseIndices.slice();
+
+  for (let y = REGNUM_BOSS_QUIET_BOTTOM; y < REGNUM_PLAYER_QUIET_TOP; y++) {
+    for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+      const at = y * V4_BACKGROUND_WORK_WIDTH + x;
+      const baseIndex = baseIndices[at]!;
+      const stratum = regnumStratum(x, y);
+      if (stratum < 0 || baseIndex <= 2) continue;
+
+      const primary = REGNUM_SHEAR_CURVE[
+        wrapSequencePhase(frame + stratum * 5)
+      ]!;
+      const secondary = REGNUM_SETTLE_CURVE[
+        wrapSequencePhase(frame + stratum * 3 + 2)
+      ]!;
+      const shift = regnumMaterialOffset(baseIndex, primary);
+      const settle = regnumMaterialOffset(baseIndex, secondary);
+
+      let sourceX = x;
+      let sourceY = y;
+      if (stratum === 0) {
+        sourceX += shift;
+        sourceY -= halfTowardZero(shift) + halfTowardZero(settle);
+      } else if (stratum === 1) {
+        sourceX += shift;
+        sourceY += halfTowardZero(settle);
+      } else {
+        sourceX += shift;
+        sourceY -= halfTowardZero(settle);
+      }
+      sourceX = Math.max(0, Math.min(V4_BACKGROUND_WORK_WIDTH - 1, sourceX));
+      sourceY = Math.max(
+        REGNUM_BOSS_QUIET_BOTTOM,
+        Math.min(REGNUM_PLAYER_QUIET_TOP - 1, sourceY),
+      );
+
+      const sampled = baseIndices[sourceY * V4_BACKGROUND_WORK_WIDTH + sourceX]!;
+      /*
+       * Never pull a dark void across a coloured material boundary. Keeping the
+       * destination there creates a restrained registration slip rather than a
+       * black tear or a new contour.
+       */
+      if (baseIndex >= REGNUM_ASH_FIRST && sampled <= REGNUM_LACQUER_LAST) {
+        continue;
+      }
+      const grade = secondary < 0 ? -1 : secondary > 0 ? 1 : 0;
+      staged[at] = shiftRegnumPaletteIndex(sampled, grade);
+    }
+  }
+
+  const cleaned = compileWorkIndices(workIndicesRgb(staged, spec.palette), spec);
+  for (let y = 0; y < V4_BACKGROUND_WORK_HEIGHT; y++) {
+    if (y >= REGNUM_BOSS_QUIET_BOTTOM && y < REGNUM_PLAYER_QUIET_TOP) continue;
+    const row = y * V4_BACKGROUND_WORK_WIDTH;
+    cleaned.set(
+      baseIndices.subarray(row, row + V4_BACKGROUND_WORK_WIDTH),
+      row,
+    );
+  }
+  return cleaned;
+}
+
 /**
  * Animate the authored membranes, not the camera.
  *
@@ -938,7 +1139,7 @@ function wearSequenceFrame(
  * corridor-boundary texels; the output test caps that residue explicitly.
  */
 function warpSequenceFrame(
-  name: V4BackgroundSequenceName,
+  name: 'expanse' | 'undertow',
   reducedRgb: Uint8Array,
   frame: number,
 ): Uint8Array {
@@ -1126,11 +1327,17 @@ export function buildV4BackgroundSequenceAsset(
   const baseIndices = compileWorkIndices(reduced, spec);
   const workFrames = Array.from(
     { length: V4_BACKGROUND_SEQUENCE_FRAMES },
-    (_, frame) => (
-      name === 'wear-field'
-        ? wearSequenceFrame(baseIndices, frame, spec)
-        : compileWorkIndices(warpSequenceFrame(name, reduced, frame), spec)
-    ),
+    (_, frame) => {
+      switch (name) {
+        case 'wear-field':
+          return wearSequenceFrame(baseIndices, frame, spec);
+        case 'regnum':
+          return regnumSequenceFrame(baseIndices, frame, spec);
+        case 'expanse':
+        case 'undertow':
+          return compileWorkIndices(warpSequenceFrame(name, reduced, frame), spec);
+      }
+    },
   );
   const bytes = encodeSequenceAtlas(workFrames, spec.palette);
   const verified = parsePng(bytes);

@@ -28,6 +28,62 @@ import { ColourType, parsePng } from './png';
 const NAMES: V4BackgroundAssetName[] = [...V4_BACKGROUND_ASSET_NAMES];
 const SEQUENCE_NAMES: V4BackgroundSequenceName[] = [...V4_BACKGROUND_SEQUENCE_NAMES];
 
+interface ChangeBand {
+  readonly minimum: number;
+  readonly maximum: number;
+}
+
+interface CadenceBand {
+  readonly average: ChangeBand;
+  readonly spread: ChangeBand;
+}
+
+/*
+ * These ranges describe four different kinds of authored material motion, not
+ * one generic "animated enough" floor. They are deliberately wider than a
+ * byte-exact fixture while still rejecting a static loop or a hard cut.
+ */
+const HALF_CYCLE_CHANGE_BANDS = {
+  expanse: { minimum: 0.20, maximum: 0.30 },
+  undertow: { minimum: 0.23, maximum: 0.29 },
+  regnum: { minimum: 0.09, maximum: 0.26 },
+  'wear-field': { minimum: 0.25, maximum: 0.31 },
+} as const satisfies Record<V4BackgroundSequenceName, ChangeBand>;
+
+const ADJACENT_CHANGE_BANDS = {
+  expanse: { minimum: 0.06, maximum: 0.28 },
+  undertow: { minimum: 0.27, maximum: 0.32 },
+  regnum: { minimum: 0.04, maximum: 0.23 },
+  'wear-field': { minimum: 0.28, maximum: 0.32 },
+} as const satisfies Record<V4BackgroundSequenceName, ChangeBand>;
+
+const CADENCE_BANDS = {
+  expanse: {
+    average: { minimum: 0.15, maximum: 0.19 },
+    spread: { minimum: 0.15, maximum: 0.22 },
+  },
+  undertow: {
+    average: { minimum: 0.28, maximum: 0.31 },
+    spread: { minimum: 0.02, maximum: 0.05 },
+  },
+  regnum: {
+    average: { minimum: 0.12, maximum: 0.14 },
+    spread: { minimum: 0.15, maximum: 0.19 },
+  },
+  'wear-field': {
+    average: { minimum: 0.29, maximum: 0.31 },
+    spread: { minimum: 0.01, maximum: 0.025 },
+  },
+} as const satisfies Record<V4BackgroundSequenceName, CadenceBand>;
+
+const REGNUM_BOSS_QUIET_BOTTOM = 72;
+const REGNUM_PLAYER_QUIET_TOP = 220;
+const REGNUM_MATERIAL_FAMILIES = {
+  lacquer: { first: 3, last: 8, minimumParticipation: 0.50 },
+  ash: { first: 9, last: 14, minimumParticipation: 0.10 },
+  pearl: { first: 15, last: 18, minimumParticipation: 0.30 },
+} as const;
+
 function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
@@ -58,6 +114,60 @@ function frameChangeRatio(current: Uint8Array, next: Uint8Array): number {
     if (current[pixel] !== next[pixel]) changed++;
   }
   return changed / current.length;
+}
+
+function rowBandChangeRatio(
+  current: Uint8Array,
+  next: Uint8Array,
+  top: number,
+  bottom: number,
+): number {
+  let changed = 0;
+  const first = top * V4_BACKGROUND_WORK_WIDTH;
+  const last = bottom * V4_BACKGROUND_WORK_WIDTH;
+  for (let pixel = first; pixel < last; pixel++) {
+    if (current[pixel] !== next[pixel]) changed++;
+  }
+  return changed / (last - first);
+}
+
+/**
+ * Find the uniform integer translation that explains the largest fraction of
+ * REGNUM's non-void middle material. The generator moves by at most three work
+ * pixels; if one such translation explains almost the whole frame, the intended
+ * asynchronous strata have silently collapsed into a camera move.
+ */
+function bestRegnumUniformTranslationMatch(
+  frame: Uint8Array,
+  base: Uint8Array,
+): number {
+  let best = 0;
+  for (let dy = -4; dy <= 4; dy++) {
+    for (let dx = -4; dx <= 4; dx++) {
+      let compared = 0;
+      let matching = 0;
+      for (let y = REGNUM_BOSS_QUIET_BOTTOM; y < REGNUM_PLAYER_QUIET_TOP; y++) {
+        for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+          const destination = y * V4_BACKGROUND_WORK_WIDTH + x;
+          // Indices 0..2 are the intentionally fixed near-void register.
+          if (base[destination]! <= 2) continue;
+          const sourceX = x + dx;
+          const sourceY = y + dy;
+          if (
+            sourceX < 0
+            || sourceX >= V4_BACKGROUND_WORK_WIDTH
+            || sourceY < REGNUM_BOSS_QUIET_BOTTOM
+            || sourceY >= REGNUM_PLAYER_QUIET_TOP
+          ) continue;
+          compared++;
+          const source = sourceY * V4_BACKGROUND_WORK_WIDTH + sourceX;
+          if (frame[destination] === base[source]) matching++;
+        }
+      }
+      best = Math.max(best, matching / compared);
+    }
+  }
+  return best;
 }
 
 function brightComponents(
@@ -320,16 +430,16 @@ describe('v4 background pixel assets', () => {
       const hashes = frames.map((frame) => sha256(frame));
       expect(new Set(hashes).size).toBe(V4_BACKGROUND_SEQUENCE_FRAMES);
 
-      const halfCycleFloor = name === 'expanse'
-        ? 0.20
-        : name === 'undertow'
-          ? 0.23
-          : 0.25;
+      const halfCycleBand = HALF_CYCLE_CHANGE_BANDS[name];
       for (let frame = 0; frame < frames.length / 2; frame++) {
-        expect(
-          frameChangeRatio(frames[frame]!, frames[frame + frames.length / 2]!),
-          `${name} frame ${frame} repeats its half-cycle partner`,
-        ).toBeGreaterThan(halfCycleFloor);
+        const ratio = frameChangeRatio(
+          frames[frame]!,
+          frames[frame + frames.length / 2]!,
+        );
+        expect(ratio, `${name} frame ${frame} repeats its half-cycle partner`)
+          .toBeGreaterThan(halfCycleBand.minimum);
+        expect(ratio, `${name} frame ${frame} hard-cuts to its half-cycle partner`)
+          .toBeLessThan(halfCycleBand.maximum);
       }
     },
   );
@@ -399,26 +509,23 @@ describe('v4 background pixel assets', () => {
     '%s sequence changes broad material on every edge of its seamless loop',
     (name) => {
       const frames = buildV4BackgroundSequenceAsset(name).workFrames;
-      const changeBand = name === 'expanse'
-        ? { minimum: 0.06, maximum: 0.28 }
-        : name === 'undertow'
-          ? { minimum: 0.27, maximum: 0.32 }
-          : { minimum: 0.28, maximum: 0.32 };
+      const changeBand = ADJACENT_CHANGE_BANDS[name];
       for (let frame = 0; frame < frames.length; frame++) {
         const current = frames[frame]!;
         const next = frames[(frame + 1) % frames.length]!;
         let changed = 0;
         let changedInCorridor = 0;
         let changedInEndingCopy = 0;
+        let changedInRegnumQuietBand = 0;
         for (let pixel = 0; pixel < current.length; pixel++) {
           if (current[pixel] === next[pixel]) continue;
           changed++;
           const x = pixel % V4_BACKGROUND_WORK_WIDTH;
           const y = Math.floor(pixel / V4_BACKGROUND_WORK_WIDTH);
-          const corridorThreshold = name === 'expanse' ? 80 : 72;
           if (
-            name !== 'wear-field'
-            && Math.abs(x * 2 - (V4_BACKGROUND_WORK_WIDTH - 1)) < corridorThreshold
+            (name === 'expanse' || name === 'undertow')
+            && Math.abs(x * 2 - (V4_BACKGROUND_WORK_WIDTH - 1))
+              < (name === 'expanse' ? 80 : 72)
           ) {
             changedInCorridor++;
           }
@@ -430,6 +537,12 @@ describe('v4 background pixel assets', () => {
             && y < 168
           ) {
             changedInEndingCopy++;
+          }
+          if (
+            name === 'regnum'
+            && (y < REGNUM_BOSS_QUIET_BOTTOM || y >= REGNUM_PLAYER_QUIET_TOP)
+          ) {
+            changedInRegnumQuietBand++;
           }
         }
         const ratio = changed / current.length;
@@ -447,17 +560,22 @@ describe('v4 background pixel assets', () => {
            * texels while keeping every moving source sample outside the shaft.
            */
           expect(changedInCorridor, corridorMessage).toBeLessThanOrEqual(10);
-        } else {
+        } else if (name === 'wear-field') {
           expect(
             changedInEndingCopy,
             `${name} ${frame}→${(frame + 1) % frames.length} moves the ending copy`,
+          ).toBe(0);
+        } else {
+          expect(
+            changedInRegnumQuietBand,
+            `${name} ${frame}→${(frame + 1) % frames.length} moves a quiet band`,
           ).toBe(0);
         }
       }
     },
   );
 
-  test('the three sequence atlases keep distinct material-change cadence', () => {
+  test('the four sequence atlases keep distinct material-change cadence', () => {
     const edgeChanges = (name: V4BackgroundSequenceName): number[] => {
       const frames = buildV4BackgroundSequenceAsset(name).workFrames;
       return frames.map((frame, index) => (
@@ -465,31 +583,136 @@ describe('v4 background pixel assets', () => {
       ));
     };
 
-    const breathEdges = edgeChanges('expanse');
-    const descentEdges = edgeChanges('undertow');
-    const wearEdges = edgeChanges('wear-field');
-    const breathChange = breathEdges.reduce((sum, value) => sum + value, 0)
-      / breathEdges.length;
-    const descentChange = descentEdges.reduce((sum, value) => sum + value, 0)
-      / descentEdges.length;
-    const wearChange = wearEdges.reduce((sum, value) => sum + value, 0)
-      / wearEdges.length;
-    expect(breathChange).toBeGreaterThan(0.15);
-    expect(breathChange).toBeLessThan(0.19);
-    expect(descentChange).toBeGreaterThan(0.28);
-    expect(descentChange).toBeLessThan(0.31);
-    expect(Math.max(...breathEdges) - Math.min(...breathEdges))
-      .toBeGreaterThan(0.15);
-    expect(Math.max(...descentEdges) - Math.min(...descentEdges))
-      .toBeGreaterThan(0.02);
-    expect(Math.max(...descentEdges) - Math.min(...descentEdges))
-      .toBeLessThan(0.05);
-    expect(descentChange - breathChange).toBeGreaterThan(0.12);
-    expect(wearChange).toBeGreaterThan(0.29);
-    expect(wearChange).toBeLessThan(0.31);
-    expect(Math.max(...wearEdges) - Math.min(...wearEdges))
-      .toBeLessThan(0.02);
-    expect(wearChange - breathChange).toBeGreaterThan(0.11);
+    const metrics = Object.fromEntries(SEQUENCE_NAMES.map((name) => {
+      const edges = edgeChanges(name);
+      return [
+        name,
+        {
+          average: edges.reduce((sum, value) => sum + value, 0) / edges.length,
+          spread: Math.max(...edges) - Math.min(...edges),
+        },
+      ];
+    })) as Record<
+      V4BackgroundSequenceName,
+      { readonly average: number; readonly spread: number }
+    >;
+
+    for (const name of SEQUENCE_NAMES) {
+      const expected = CADENCE_BANDS[name];
+      const actual = metrics[name];
+      expect(actual.average, `${name} cadence average is too static`)
+        .toBeGreaterThan(expected.average.minimum);
+      expect(actual.average, `${name} cadence average is too abrupt`)
+        .toBeLessThan(expected.average.maximum);
+      expect(actual.spread, `${name} cadence lost its authored variation`)
+        .toBeGreaterThan(expected.spread.minimum);
+      expect(actual.spread, `${name} cadence variation is unstable`)
+        .toBeLessThan(expected.spread.maximum);
+    }
+
+    expect(metrics.expanse.average - metrics.regnum.average).toBeGreaterThan(0.025);
+    expect(metrics.undertow.average - metrics.expanse.average).toBeGreaterThan(0.12);
+    expect(metrics['wear-field'].average - metrics.expanse.average)
+      .toBeGreaterThan(0.11);
+    expect(metrics.regnum.spread - metrics.undertow.spread).toBeGreaterThan(0.12);
+    expect(metrics.undertow.spread - metrics['wear-field'].spread)
+      .toBeGreaterThan(0.008);
+  });
+
+  test('regnum shears three material families while its Boss and player bands stay still', () => {
+    const frames = buildV4BackgroundSequenceAsset('regnum').workFrames;
+    const base = buildV4BackgroundAsset('regnum').workIndices;
+
+    for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
+      const frame = frames[frameIndex]!;
+      const bossQuietEnd =
+        REGNUM_BOSS_QUIET_BOTTOM * V4_BACKGROUND_WORK_WIDTH;
+      const playerQuietStart =
+        REGNUM_PLAYER_QUIET_TOP * V4_BACKGROUND_WORK_WIDTH;
+      expect(
+        frame.subarray(0, bossQuietEnd),
+        `regnum frame ${frameIndex} moves the Boss station`,
+      ).toEqual(base.subarray(0, bossQuietEnd));
+      expect(
+        frame.subarray(playerQuietStart),
+        `regnum frame ${frameIndex} moves the player band`,
+      ).toEqual(base.subarray(playerQuietStart));
+
+      const next = frames[(frameIndex + 1) % frames.length]!;
+      const middleChange = rowBandChangeRatio(
+        frame,
+        next,
+        REGNUM_BOSS_QUIET_BOTTOM,
+        REGNUM_PLAYER_QUIET_TOP,
+      );
+      expect(middleChange, `regnum frame ${frameIndex} leaves its middle static`)
+        .toBeGreaterThan(0.10);
+      expect(middleChange, `regnum frame ${frameIndex} hard-cuts its middle`)
+        .toBeLessThan(0.49);
+
+      expect(
+        bestRegnumUniformTranslationMatch(frame, base),
+        `regnum frame ${frameIndex} collapses its strata into one camera move`,
+      ).toBeLessThan(0.84);
+    }
+
+    const familyParticipation = Object.fromEntries(
+      Object.entries(REGNUM_MATERIAL_FAMILIES).map(([name, family]) => {
+        let population = 0;
+        let changed = 0;
+        let participatingFrames = 0;
+        for (
+          let y = REGNUM_BOSS_QUIET_BOTTOM;
+          y < REGNUM_PLAYER_QUIET_TOP;
+          y++
+        ) {
+          for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+            const pixel = y * V4_BACKGROUND_WORK_WIDTH + x;
+            const index = base[pixel]!;
+            if (index >= family.first && index <= family.last) population++;
+          }
+        }
+        for (const frame of frames) {
+          let frameChanged = 0;
+          for (
+            let y = REGNUM_BOSS_QUIET_BOTTOM;
+            y < REGNUM_PLAYER_QUIET_TOP;
+            y++
+          ) {
+            for (let x = 0; x < V4_BACKGROUND_WORK_WIDTH; x++) {
+              const pixel = y * V4_BACKGROUND_WORK_WIDTH + x;
+              const index = base[pixel]!;
+              if (
+                index >= family.first
+                && index <= family.last
+                && frame[pixel] !== index
+              ) {
+                changed++;
+                frameChanged++;
+              }
+            }
+          }
+          if (frameChanged > 0) participatingFrames++;
+        }
+        expect(population, `regnum has no ${name} material in its moving band`)
+          .toBeGreaterThan(0);
+        expect(participatingFrames, `regnum ${name} only appears in part of the loop`)
+          .toBe(V4_BACKGROUND_SEQUENCE_FRAMES);
+        const participation = changed / (population * frames.length);
+        expect(participation, `regnum ${name} material does not visibly move`)
+          .toBeGreaterThan(family.minimumParticipation);
+        return [name, participation];
+      }),
+    ) as Record<keyof typeof REGNUM_MATERIAL_FAMILIES, number>;
+
+    /*
+     * Material-dependent response is the distinguishing feature of this atlas.
+     * A uniform camera translation would not preserve these three wide tiers.
+     */
+    expect(familyParticipation.lacquer - familyParticipation.pearl)
+      .toBeGreaterThan(0.12);
+    expect(familyParticipation.pearl - familyParticipation.ash)
+      .toBeGreaterThan(0.12);
   });
 
   test('wear-field animates three worn edges while its ending-copy zone stays still', () => {
