@@ -54,6 +54,21 @@ be installed as an offline-capable PWA.
 - An installable production build that precaches the browser bundle and
   shippable pack tree for offline play.
 
+## Technology stack
+
+| Layer | Technology | Role |
+|---|---|---|
+| Language | TypeScript, strict ESM targeting ES2022 | Game logic, deterministic simulation, browser shell, and tooling |
+| Runtime and tooling | Bun | Package management, development server, production bundling, tests, and asset/content generation |
+| Rendering and UI | three.js r185, WebGL, GLSL, and Canvas 2D | Instanced play-field rendering, shader scenes, post-processing, HUD, and menus |
+| Browser platform | Web Audio, IndexedDB, MediaRecorder, Gamepad/WebHID, Pointer, and Touch APIs | Audio, replay persistence, video export, and multi-device input |
+| PWA | Web App Manifest, a repository-owned service worker, and Cache Storage | Installable offline builds, content-addressed precaching, and safe release updates |
+| Deployment | Static `dist/` output on Vercel | Production hosting from the GitHub `main` branch |
+
+The client deliberately has no UI framework or external state store. Bun builds
+the ESM entry directly without a Vite layer; the fixed-60 Hz state machine owns
+gameplay state, and the PWA lifecycle remains repository-owned code.
+
 ## Controls
 
 | Action | Keyboard | Mouse | Controller / gamepad | Touchscreen |
