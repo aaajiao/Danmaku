@@ -2,6 +2,18 @@ import { describe, expect, test } from 'bun:test';
 import { Layer } from './render/stage';
 
 const mainSource = await Bun.file(new URL('./main.ts', import.meta.url)).text();
+const controllerChromeSource = await Bun.file(
+  new URL('./shell/controller-chrome.ts', import.meta.url),
+).text();
+const menuActionsSource = await Bun.file(
+  new URL('./shell/menu-actions.ts', import.meta.url),
+).text();
+const stageFitSource = await Bun.file(
+  new URL('./shell/stage-fit.ts', import.meta.url),
+).text();
+const touchChromeSource = await Bun.file(
+  new URL('./shell/touch-chrome.ts', import.meta.url),
+).text();
 const v4UiSource = await Bun.file(new URL('./render/v4-ui.ts', import.meta.url)).text();
 const htmlSource = await Bun.file(new URL('../index.html', import.meta.url)).text();
 const styleSource = await Bun.file(new URL('./style.css', import.meta.url)).text();
@@ -40,15 +52,21 @@ describe('touch controls remain a shell input source', () => {
   });
 
   test('the authored frame scales inside its real slot rather than the viewport', () => {
-    const start = mainSource.indexOf('function fitStage(): void');
-    const end = mainSource.indexOf('let touchControlsEnabled', start);
+    const start = stageFitSource.indexOf('const fitStage = (): void =>');
+    const end = stageFitSource.indexOf(
+      "window.addEventListener('resize', fitStage)",
+      start,
+    );
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
 
-    const fit = mainSource.slice(start, end);
+    const fit = stageFitSource.slice(start, end);
     expect(fit).toContain('stageSlot.getBoundingClientRect()');
     expect(fit).toContain("setProperty('--stage-scale'");
     expect(fit).not.toContain('style.transform');
+    expect(mainSource).toContain(
+      'installStageFit(stageSlot, stageElement, FIELD_W, FIELD_H)',
+    );
     expect(styleSource).toContain('margin-top: -320px');
     expect(styleSource).toContain('margin-left: -240px');
     expect(styleSource).toContain('transform: scale(var(--stage-scale))');
@@ -121,13 +139,13 @@ describe('touch controls remain a shell input source', () => {
     expect(styleSource).toContain(
       'calc(-50% + var(--touch-stick-y))',
     );
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain(
       "touchStick.style.setProperty('--touch-stick-x'",
     );
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain(
       "touchStick.style.setProperty('--touch-stick-y'",
     );
-    expect(mainSource).toContain('const distance = Math.hypot(x, y)');
+    expect(touchChromeSource).toContain('const distance = Math.hypot(x, y)');
 
     // One atlas and palette serve all four established control ornaments.
     expect(styleSource).toContain(
@@ -145,24 +163,30 @@ describe('touch controls remain a shell input source', () => {
     expect(mainSource).toContain(
       'const touchControlTouches = new Set<number>()',
     );
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain(
       "touchControls.dataset.operating = 'true'",
     );
-    expect(mainSource).toContain('delete touchControls.dataset.operating');
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain('delete touchControls.dataset.operating');
+    expect(touchChromeSource).toContain(
       "touchControls.addEventListener('pointerdown'",
     );
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain(
       "touchControls.addEventListener('touchstart'",
     );
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain(
       "window.addEventListener('pointerup', endTouchControlPointer",
     );
-    expect(mainSource).toContain(
+    expect(touchChromeSource).toContain(
       "window.addEventListener('touchend', endTouchControlTouch",
     );
-    expect(mainSource.match(/resetTouchControlActivity\(\)/g)?.length)
-      .toBeGreaterThanOrEqual(4);
+    expect(touchChromeSource.match(/lifecycle\.resetChrome\(\)/g)?.length)
+      .toBe(3);
+    expect(mainSource).toContain(
+      'resetTouchControlActivity(touchControls, touchActivityState)',
+    );
+    expect(mainSource).toContain(
+      'resetTouchStickVisual(touchStick, touchStickVisualState)',
+    );
 
     expect(styleSource).toContain(
       "#touch-controls[data-operating='true']",
@@ -253,8 +277,8 @@ describe('touch controls remain a shell input source', () => {
   });
 
   test('a waiting PWA release activates only from the title tick', () => {
-    expect(mainSource).toContain(
-      "import { activateWaitingPwaUpdate } from './pwa'",
+    expect(mainSource).toMatch(
+      /import\s*{[^}]*activateWaitingPwaUpdate[^}]*}\s*from '\.\/pwa'/s,
     );
     const tick = mainSource.indexOf('const loop = new Loop({');
     const sample = mainSource.indexOf('const buttons = input.sample();', tick);
@@ -265,8 +289,11 @@ describe('touch controls remain a shell input source', () => {
   });
 
   test('interruptions clear touch state', () => {
-    expect(mainSource.match(/touchInput\.reset\(\)/g)?.length)
-      .toBeGreaterThanOrEqual(3);
+    expect(touchChromeSource.match(/lifecycle\.touchInput\.reset\(\)/g)?.length)
+      .toBe(3);
+    expect(mainSource).toContain(
+      'installTouchResetLifecycle(stageElement, {',
+    );
     const tick = mainSource.indexOf('machine.tick(buttons);');
     const transition = mainSource.indexOf(
       'if (machine.current !== stateBeforeTick)',
@@ -551,8 +578,24 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
       + '  ? undefined\n'
       + '  : new XboxWebHidInput(webHid, showControllerStatus);',
     );
-    expect(mainSource).toContain('SELECT A CONTROLLER IN THIS BROWSER');
-    expect(mainSource).toContain('ALLOW THIS BROWSER IN INPUT MONITORING');
+    const statusStart = mainSource.indexOf(
+      'function showControllerStatus(status: XboxWebHidStatus): void',
+    );
+    const statusEnd = mainSource.indexOf(
+      'const directController =',
+      statusStart,
+    );
+    expect(statusStart).toBeGreaterThan(-1);
+    expect(statusEnd).toBeGreaterThan(statusStart);
+    expect(mainSource.slice(statusStart, statusEnd)).toContain(
+      'presentControllerStatus(status, {',
+    );
+    expect(controllerChromeSource).toContain(
+      'SELECT A CONTROLLER IN THIS BROWSER',
+    );
+    expect(controllerChromeSource).toContain(
+      'ALLOW THIS BROWSER IN INPUT MONITORING',
+    );
   });
 
   test('title, difficulty and character selection use open compositions without outer panels', () => {
@@ -714,11 +757,38 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(mainSource.slice(rowStart, rowEnd)).toContain(
       'v4MenuRowGeometry(baseline, step)',
     );
-    expect(mainSource).toContain(
+    expect(menuActionsSource).toContain(
       'const row = v4MenuRowGeometry(\n'
       + '      firstBaseline + visibleIndex * step,\n'
       + '      step,\n'
       + '    );',
+    );
+    const menuBridgeStart = mainSource.indexOf(
+      'function layoutMenuClickTargets(',
+    );
+    const menuBridgeEnd = mainSource.indexOf(
+      '/**\n * The bloom toggle',
+      menuBridgeStart,
+    );
+    const menuBridge = mainSource.slice(menuBridgeStart, menuBridgeEnd);
+    expect(menuBridgeStart).toBeGreaterThan(-1);
+    expect(menuBridgeEnd).toBeGreaterThan(menuBridgeStart);
+    expect(menuBridge).toContain(
+      'layoutMenuClickTargetsInChrome(\n'
+      + '    menuActionChrome,\n'
+      + '    {\n'
+      + '      state,\n'
+      + '      entries,\n'
+      + '      selected,\n'
+      + '      count,\n'
+      + '      x,\n'
+      + '      firstBaseline,\n'
+      + '      width,\n'
+      + '      step,\n'
+      + '      indexOffset,\n'
+      + '      actions,\n'
+      + '    },\n'
+      + '  );',
     );
   });
 
@@ -798,8 +868,11 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
   });
 
   test('replay import keeps the file chooser inside a direct DOM gesture', () => {
-    expect(mainSource).toContain("button.dataset.action === 'import-replay'");
-    expect(mainSource).toContain('openReplayImport();');
+    expect(menuActionsSource).toContain(
+      "button.dataset.action === 'import-replay'",
+    );
+    expect(menuActionsSource).toContain('chrome.openReplayImport();');
+    expect(mainSource).toContain('openReplayImport,');
     expect(mainSource).toContain("}, { capture: true });");
     expect(mainSource).not.toContain('event.stopImmediatePropagation()');
     expect(mainSource).toContain('e.stopImmediatePropagation()');
@@ -810,7 +883,9 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     const errorStart = mainSource.indexOf('onReplayError:', deleteStart);
     const deleteSource = mainSource.slice(deleteStart, errorStart);
     expect(deleteStart).toBeGreaterThan(0);
-    expect(deleteSource).toContain('const deleted = replayLibrary.remove(session.id)');
+    expect(deleteSource).toContain(
+      'const deleted = holdPwaUpdateWhile(replayLibrary.remove(session.id))',
+    );
     expect(deleteSource.match(/context\.replaySessions = replayLibrary\.sessions/g))
       .toHaveLength(3);
     expect(deleteSource).toContain("showShellStatus('DELETE FAILED · SESSION KEPT', 'error')");

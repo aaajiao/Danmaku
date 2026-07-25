@@ -122,6 +122,22 @@ defineStage(RECORDING_PENULTIMATE_STAGE, {
   waves: [],
   next: RECORDING_FINAL_STAGE,
 });
+/**
+ * The ordinary playing-state fixture.
+ *
+ * `Run` deliberately defaults to the edition-owned `stage-1`, but this unit
+ * test does not import an edition composition root. Relying on another test to
+ * inject v4 made this file pass in the full suite and fail on its own. A long,
+ * empty local stage keeps pause/retry tests in flight, while the ending tests
+ * explicitly choose whether to fail or let its outro clear.
+ */
+const PLAY_STAGE = 'test-states-playing';
+defineStage(PLAY_STAGE, {
+  name: PLAY_STAGE,
+  waves: [],
+  outro: 600,
+  next: FINAL_STAGE,
+});
 
 /** Generic ending fixture: deliberately no v4 words or presentation names. */
 const TEST_CAMPAIGN_ENDINGS = {
@@ -190,6 +206,7 @@ function context(overrides: Partial<GameContext> = {}): GameContext {
     // any difference it sees is a real one rather than a new seed.
     nextSeed: () => 0x5747a1,
     campaignEndings: TEST_CAMPAIGN_ENDINGS,
+    stage: PLAY_STAGE,
     ...overrides,
   };
 }
@@ -486,7 +503,7 @@ describe('screens', () => {
   });
 
   test('with no campaigns the title menu is exactly START and steers nothing', () => {
-    const ctx = context();
+    const ctx = context({ stage: undefined });
     const title = new TitleState(ctx);
     open(ctx.machine, title);
     // Byte-identical to the single-row menu that shipped before campaigns.
@@ -525,7 +542,7 @@ describe('screens', () => {
     const campaigns = [
       { label: 'example/gauntlet', stage: 'example/gauntlet', packsData: 'example@abcdef012345' },
     ];
-    const ctx = context({ campaigns });
+    const ctx = context({ campaigns, stage: undefined });
     open(ctx.machine, new TitleState(ctx));
     // Row 0 without moving the cursor.
     press(ctx.machine, Button.Shot);
@@ -1623,19 +1640,22 @@ describe('playing', () => {
 /* ------------------------------------------------------------------ */
 
 describe('endings', () => {
-  /** Drive a run to its end through the machine, as the game actually would. */
-  function playToEnd(ctx: GameContext, playing: PlayingState): void {
-    for (let t = 0; t < 40000 && !playing.run.finished; t++) {
-      // Idle at the top of the field: the ship is hit, and hit again.
-      ctx.machine.tick(Button.Up);
+  /** Exhaust the fixture pilot, then let the machine observe the failed run. */
+  function failRun(ctx: GameContext, playing: PlayingState): void {
+    while (playing.run.player.alive) {
+      playing.run.player.invuln = 0;
+      playing.run.player.kill();
     }
-    ctx.machine.tick(Button.Up);
+    ctx.machine.tick(0);
+    // The failure card was pushed by the tick above; arm its edge detector the
+    // same way `open()` does for a state pushed outside the machine.
+    ctx.machine.tick(0);
   }
 
   test('a failed run raises game over, over the field it ended on', () => {
     const ctx = context();
     const playing = startPlaying(ctx);
-    playToEnd(ctx, playing);
+    failRun(ctx, playing);
 
     expect(playing.run.outcome).toBe('failed');
     expect(ctx.machine.current?.name).toBe('game-over');
@@ -1648,30 +1668,35 @@ describe('endings', () => {
       recordReplay: true,
       onReplay: (replay) => saved.push(replay),
     });
-    const playing = startPlaying(ctx);
-    playToEnd(ctx, playing);
+    const playing = new PlayingState(ctx, PILOT, { stage: REPLAY_STAGE });
+    ctx.machine.push(playing);
+    while (!playing.run.finished) ctx.machine.tick(0);
+    ctx.machine.tick(0);
 
     expect(saved.length).toBe(1);
     expect(saved[0]?.seed).toBe(ctx.nextSeed());
     expect(saved[0]?.length).toBe(playing.run.tickCount);
-    expect(saved[0]?.meta?.['outcome']).toBe('failed');
+    expect(saved[0]?.meta?.['outcome']).toBe('cleared');
     expect(playing.view().recording).toBe(false);
   });
 
   test('a naturally finished run is not retained while recording is off', () => {
     const saved: Replay[] = [];
     const ctx = context({ onReplay: (replay) => saved.push(replay) });
-    const playing = startPlaying(ctx);
-    playToEnd(ctx, playing);
+    const playing = new PlayingState(ctx, PILOT, { stage: REPLAY_STAGE });
+    ctx.machine.push(playing);
+    while (!playing.run.finished) ctx.machine.tick(0);
+    ctx.machine.tick(0);
 
     expect(playing.recordReplay).toBe(false);
+    expect(playing.run.outcome).toBe('cleared');
     expect(saved).toEqual([]);
   });
 
   test('game over reports what the run achieved', () => {
     const ctx = context();
     const playing = startPlaying(ctx);
-    playToEnd(ctx, playing);
+    failRun(ctx, playing);
 
     const view = (ctx.machine.current as GameOverState).view();
     expect(view.title).toBe('GAME OVER');
@@ -1681,7 +1706,7 @@ describe('endings', () => {
   test('retry from game over is a fresh run, not a reset of the old object', () => {
     const ctx = context();
     const playing = startPlaying(ctx);
-    playToEnd(ctx, playing);
+    failRun(ctx, playing);
 
     press(ctx.machine, Button.Shot);
     const restarted = ctx.machine.current as PlayingState;
@@ -1705,7 +1730,7 @@ describe('endings', () => {
     for (let t = 0; t < 300; t++) ctx.machine.tick(Button.Shot);
     const reference = summary(first.run);
 
-    playToEnd(ctx, first);
+    failRun(ctx, first);
     press(ctx.machine, Button.Shot);
     const second = ctx.machine.current as PlayingState;
     for (let t = 0; t < 300; t++) ctx.machine.tick(Button.Shot);
@@ -1716,7 +1741,7 @@ describe('endings', () => {
   test('title from game over empties the stack', () => {
     const ctx = context();
     const playing = startPlaying(ctx);
-    playToEnd(ctx, playing);
+    failRun(ctx, playing);
 
     tap(ctx.machine, Button.Down);
     press(ctx.machine, Button.Shot);
@@ -1728,13 +1753,13 @@ describe('endings', () => {
     const ctx = context();
     const playing = new PlayingState(ctx, PILOT);
     ctx.machine.push(playing);
-    // Shooting keeps the ship alive long enough for the stage to run out.
+    // Drive the local fixture through its authored outro.
     for (let t = 0; t < 40000 && !playing.run.finished; t++) {
       ctx.machine.tick(t % 8 === 0 ? 0 : Button.Shot);
     }
     ctx.machine.tick(0);
 
-    if (playing.run.outcome !== 'cleared') return; // pilot died; covered above
+    expect(playing.run.outcome).toBe('cleared');
     expect(ctx.machine.current?.name).toBe('cleared');
     expect((ctx.machine.current as ClearedState).view().title).toBe('STAGE CLEAR');
   });

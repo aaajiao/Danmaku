@@ -191,11 +191,12 @@ src/content/       generic pattern primitives and content registries
 src/v4/            active edition gameplay, shaders, audio, and campaign data
 src/audio/         sound and music registries plus runtime synthesis
 src/packs/         data-pack validation, injection, and loading
+src/shell/         browser-only sizing, controls, menu chrome, and downloads
 packs/v4/          project-owned v4 presentation pack
 public/            PWA manifest, service-worker template, and generated icons
 test/visual/       checks that require a real framebuffer
 tools/             content, art, audio, build, and fixture tooling
-src/main.ts        browser shell: input in, pixels out
+src/main.ts        browser shell composition root: input in, pixels out
 docs/              extension, asset, audio, and edition guides
 ```
 

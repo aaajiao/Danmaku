@@ -24,6 +24,9 @@ function scopeKey(scope) {
 const CACHE_PREFIX = `${CACHE_BASE}${scopeKey(self.registration.scope)}-`;
 const CACHE_NAME = `${CACHE_PREFIX}${BUILD_ID}`;
 const ROOT_URL = new URL("./", self.registration.scope).href;
+const RELEASE_URLS = new Set(PRECACHE_URLS.map(
+  (path) => new URL(path, self.registration.scope).href,
+));
 const LOCAL_DEVELOPMENT = (
   self.location.hostname === "localhost"
   || self.location.hostname === "127.0.0.1"
@@ -100,11 +103,24 @@ function cacheable(request, response) {
     && response.type !== "opaque";
 }
 
+function missingReleaseResponse() {
+  return new Response("Danmaku release cache is incomplete.", {
+    status: 503,
+    statusText: "Release Cache Incomplete",
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "text/plain; charset=utf-8",
+    },
+  });
+}
+
 /**
  * The generated cache is a release snapshot, so reads are cache-first. This is
  * intentional for navigations too: returning a newly deployed index through an
  * old active worker could combine new JS with old un-hashed pack files. The new
  * worker installs beside it and takes over after the old game tabs close.
+ * An evicted release entry therefore fails closed instead of being refilled
+ * from whatever deployment happens to be live at the time.
  */
 self.addEventListener("fetch", (event) => {
   const { request } = event;
@@ -125,10 +141,15 @@ self.addEventListener("fetch", (event) => {
     if (request.mode === "navigate") {
       const shell = await cache.match(ROOT_URL);
       if (shell !== undefined) return shell;
+      return missingReleaseResponse();
     }
 
     const cached = await cache.match(request);
     if (cached !== undefined) return cached;
+
+    if (RELEASE_URLS.has(url.href)) {
+      return missingReleaseResponse();
+    }
 
     const response = await fetch(request);
     if (cacheable(request, response)) {

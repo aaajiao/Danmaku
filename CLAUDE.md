@@ -24,7 +24,8 @@ src/packs/         drop-in packs: pure shape validation, content injector,
                    loader, and compatibility entry for bundled edition content
 src/v4/            compile-time edition root: gameplay definitions, authored
                    background shaders, and generated four-stage campaign data
-src/main.ts        the browser shell: input in, pixels out, nothing else
+src/shell/         browser-only stage sizing, controls, menu chrome and downloads
+src/main.ts        browser shell composition root: input in, pixels out
 docs/              asset specification, extension guide, pack format
 packs/             project-owned shipped art (`v4`) plus the README-only
                    `example` workspace; generated/imported packs are local

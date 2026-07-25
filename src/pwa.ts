@@ -18,6 +18,7 @@ export class PwaUpdateCoordinator {
   #registration: ServiceWorkerRegistration | undefined;
   #requested: ServiceWorker | undefined;
   #requestedAt = Number.NEGATIVE_INFINITY;
+  #updateHolds = 0;
 
   constructor(
     readonly now: () => number = () => performance.now(),
@@ -32,10 +33,42 @@ export class PwaUpdateCoordinator {
   }
 
   /**
+   * Keep a waiting worker from replacing this page while shell-owned durable
+   * work is unsettled.
+   *
+   * A write that leaves its value usable only in memory may retain the hold
+   * after rejection: reloading that page would otherwise turn a visible,
+   * downloadable replay into data loss. Ordinary failures release it.
+   */
+  holdUpdateWhile<T>(
+    pending: PromiseLike<T>,
+    options: {
+      readonly retainOnFailure?: boolean | ((error: unknown) => boolean);
+    } = {},
+  ): Promise<T> {
+    this.#updateHolds++;
+    return Promise.resolve(pending).then(
+      (value) => {
+        this.#updateHolds--;
+        return value;
+      },
+      (error: unknown) => {
+        const retention = options.retainOnFailure;
+        const retain = retention === true
+          || (typeof retention === 'function' && retention(error));
+        if (!retain) this.#updateHolds--;
+        throw error;
+      },
+    );
+  }
+
+  /**
    * Promote at a bounded cadence per waiting worker. The shell calls this only
    * while the title is current, so controllerchange reloads without losing a run.
    */
   activateWaiting(): boolean {
+    if (this.#updateHolds > 0) return false;
+
     const worker = this.#registration?.waiting;
     if (worker === null || worker === undefined) {
       return false;
@@ -65,6 +98,16 @@ const updates = new PwaUpdateCoordinator();
 /** Called from the shell's title-state reconcile; inert when no update waits. */
 export function activateWaitingPwaUpdate(): boolean {
   return updates.activateWaiting();
+}
+
+/** Hold an update around one shell-owned persistence operation. */
+export function holdPwaUpdateWhile<T>(
+  pending: PromiseLike<T>,
+  options?: {
+    readonly retainOnFailure?: boolean | ((error: unknown) => boolean);
+  },
+): Promise<T> {
+  return updates.holdUpdateWhile(pending, options);
 }
 
 /** Same small FNV-1a scope identity used by the worker's cache namespace. */

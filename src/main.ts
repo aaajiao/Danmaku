@@ -9,7 +9,10 @@
 
 // Production registers the generated, content-addressed offline shell. This
 // import is presentation-only and is compiled away from the development path.
-import { activateWaitingPwaUpdate } from './pwa';
+import {
+  activateWaitingPwaUpdate,
+  holdPwaUpdateWhile,
+} from './pwa';
 import { GAME_VERSION_LABEL } from './version';
 
 // The compiled v4 edition installs its deterministic patterns and behaviours,
@@ -54,10 +57,7 @@ import {
   ReplayLibrary,
   ReplaySessionPersistenceError,
 } from './replay/library';
-import {
-  serializeReplaySession,
-  type ReplaySession,
-} from './replay/session';
+import type { ReplaySession } from './replay/session';
 import { FIELD, getCharacter, type Run } from './game/run';
 import { loadPacks } from './packs/loader';
 import { Background, loadBackgroundArtAssets } from './render/background';
@@ -141,6 +141,34 @@ import {
   v4StatusMenuLayout,
   type V4UiCellName,
 } from './render/v4-ui';
+import {
+  downloadBlob,
+  downloadReplayFile,
+  videoFilename,
+} from './shell/downloads';
+import {
+  hasConnectedStandardController,
+  installControllerConnect,
+  presentControllerStatus,
+} from './shell/controller-chrome';
+import {
+  hideMenuClickTargets as hideMenuClickTargetsInChrome,
+  layoutMenuClickTargets as layoutMenuClickTargetsInChrome,
+  stopControllerActivationKey,
+  stopTouchButtonActivationKey,
+  type MenuActionChrome,
+} from './shell/menu-actions';
+import {
+  installStageFit,
+  installTouchControlReveal,
+} from './shell/stage-fit';
+import {
+  installTouchControlActivity,
+  installTouchResetLifecycle,
+  installTouchStickVisual,
+  resetTouchControlActivity,
+  resetTouchStickVisual,
+} from './shell/touch-chrome';
 
 // The sim's field constant, not a local copy: the whole screen is the play
 // field now (3:4, HUD composited over it), so the shell and the sim must mean
@@ -175,31 +203,7 @@ captureCanvas.width = FIELD_W;
 captureCanvas.height = FIELD_H;
 const frameCapture = new FrameCapture(captureCanvas);
 
-/**
- * Fit the fixed 480×640 logical frame to its available viewport slot.
- *
- * Touch portrait layout reserves a sibling controller deck below this slot;
- * landscape puts controls in the side gutters. Measuring the slot rather than
- * `innerWidth`/`innerHeight` handles both without teaching the stage or sim
- * that a controller exists. Integer scales above 1× keep the pixel art crisp;
- * below 1× a fractional fit beats clipping.
- */
-function fitStage(): void {
-  const rect = stageSlot.getBoundingClientRect();
-  const availableWidth = rect.width || innerWidth;
-  const availableHeight = rect.height || innerHeight;
-  const raw = Math.min(
-    availableWidth / FIELD_W,
-    availableHeight / FIELD_H,
-  );
-  const scale = raw >= 1 ? Math.max(1, Math.floor(raw)) : raw;
-  stageElement.style.setProperty('--stage-scale', `${Math.max(0, scale)}`);
-}
-addEventListener('resize', fitStage);
-window.visualViewport?.addEventListener('resize', fitStage);
-if ('ResizeObserver' in window) {
-  new ResizeObserver(fitStage).observe(stageSlot);
-}
+const fitStage = installStageFit(stageSlot, stageElement, FIELD_W, FIELD_H);
 
 let touchControlsEnabled = false;
 
@@ -211,53 +215,15 @@ function enableTouchControls(): void {
   fitStage();
 }
 
-/**
- * Coarse-primary devices receive controls before their first gesture. A hybrid
- * laptop keeps the desktop layout until it actually sees a touch pointer, then
- * retains the controller for this page session. Deferring that reveal until
- * the gesture has ended avoids moving a canvas menu row between down and click.
- */
 let touchRevealPending = false;
-const revealTouchControlsAfterGesture = (): void => {
-  if (!touchRevealPending) return;
-  touchRevealPending = false;
-  removeEventListener('pointerup', revealTouchControlsAfterGesture, true);
-  removeEventListener('pointercancel', revealTouchControlsAfterGesture, true);
-  removeEventListener('touchend', revealTouchControlsAfterGesture, true);
-  removeEventListener('touchcancel', revealTouchControlsAfterGesture, true);
-  requestAnimationFrame(enableTouchControls);
-};
-addEventListener('pointerdown', (event) => {
-  const pointer = event as PointerEvent;
-  if (
-    touchControlsEnabled
-    || touchRevealPending
-    || pointer.pointerType !== 'touch'
-  ) {
-    return;
-  }
-  touchRevealPending = true;
-  addEventListener('pointerup', revealTouchControlsAfterGesture, {
-    capture: true,
-    once: true,
-  });
-  addEventListener('pointercancel', revealTouchControlsAfterGesture, {
-    capture: true,
-    once: true,
-  });
-}, { capture: true });
-addEventListener('touchstart', () => {
-  if (touchControlsEnabled || touchRevealPending) return;
-  touchRevealPending = true;
-  addEventListener('touchend', revealTouchControlsAfterGesture, {
-    capture: true,
-    once: true,
-  });
-  addEventListener('touchcancel', revealTouchControlsAfterGesture, {
-    capture: true,
-    once: true,
-  });
-}, { capture: true, passive: true });
+installTouchControlReveal({
+  enabled: () => touchControlsEnabled,
+  pending: () => touchRevealPending,
+  setPending: (pending) => {
+    touchRevealPending = pending;
+  },
+  enable: enableTouchControls,
+});
 
 if (
   SEARCH.get('touch') === '1'
@@ -353,49 +319,8 @@ if (typeof indexedDB === 'undefined') {
   }
 }
 
-function downloadBlob(blob: Blob, filename: string): void {
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  anchor.hidden = true;
-  document.body.append(anchor);
-  anchor.click();
-  window.setTimeout(() => {
-    anchor.remove();
-    URL.revokeObjectURL(href);
-  }, 0);
-}
-
-function replayFilename(session: ReplaySession): string {
-  const stamp = session.createdAt
-    .replaceAll('-', '')
-    .replaceAll(':', '')
-    .replace('.000', '');
-  return `danmaku-replay-${stamp}.json`;
-}
-
-function videoFilename(
-  exporting: ReplayExportState,
-  extension: 'webm' | 'mp4',
-): string {
-  const stamp = exporting.session.createdAt
-    .replaceAll('-', '')
-    .replaceAll(':', '')
-    .replace('.000', '');
-  const stage = exporting.replay.meta?.['stage'];
-  const safeStage = (typeof stage === 'string' ? stage : `stage-${exporting.segmentIndex + 1}`)
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'stage';
-  return `danmaku-video-${stamp}-${safeStage}.${extension}`;
-}
-
 function downloadReplay(session: ReplaySession): void {
-  downloadBlob(
-    new Blob([serializeReplaySession(session)], { type: 'application/json' }),
-    replayFilename(session),
-  );
+  downloadReplayFile(session);
   showShellStatus('REPLAY DOWNLOAD READY');
 }
 
@@ -816,11 +741,6 @@ const machine = new StateMachine();
 const webHid = browserWebHid();
 let directControllerStatus: XboxWebHidStatus = { phase: 'idle' };
 
-function hasConnectedStandardController(): boolean {
-  const pads = navigator.getGamepads?.() ?? [];
-  return Array.from(pads).some((pad) => pad?.connected);
-}
-
 /**
  * The chooser is shell UI rather than a game state: WebHID requires a real
  * click, while game menus intentionally consume only the tick-sampled mask.
@@ -841,51 +761,13 @@ function syncControllerPanel(): void {
 
 function showControllerStatus(status: XboxWebHidStatus): void {
   directControllerStatus = status;
-  controllerSetup.dataset.phase = status.phase;
-  controllerConnect.hidden = false;
-
-  switch (status.phase) {
-    case 'idle':
-      controllerConnect.disabled = false;
-      controllerConnect.textContent = 'CONNECT CONTROLLER';
-      controllerStatusOutput.textContent = 'DIRECT INPUT FALLBACK';
-      break;
-    case 'selecting':
-      controllerConnect.disabled = true;
-      controllerConnect.textContent = 'SELECTING…';
-      controllerStatusOutput.textContent = 'SELECT A CONTROLLER IN THIS BROWSER';
-      break;
-    case 'opening':
-      controllerConnect.disabled = true;
-      controllerConnect.textContent = 'OPENING…';
-      controllerStatusOutput.textContent = 'OPENING CONTROLLER';
-      break;
-    case 'waiting':
-      controllerConnect.hidden = true;
-      controllerStatusOutput.textContent = 'PRESS A CONTROLLER BUTTON';
-      break;
-    case 'ready':
-      controllerConnect.hidden = true;
-      controllerStatusOutput.textContent = 'CONTROLLER READY';
-      break;
-    case 'disconnected':
-      controllerConnect.disabled = false;
-      controllerConnect.textContent = 'RECONNECT';
-      controllerStatusOutput.textContent = 'CONTROLLER DISCONNECTED';
-      break;
-    case 'error':
-      controllerConnect.disabled = false;
-      controllerConnect.textContent = 'RETRY';
-      controllerStatusOutput.textContent = (
-        typeof status.error === 'object'
-        && status.error !== null
-        && 'name' in status.error
-        && (status.error as { readonly name?: unknown }).name === 'NotAllowedError'
-      )
-        ? 'ALLOW THIS BROWSER IN INPUT MONITORING'
-        : 'CAN’T OPEN CONTROLLER · CLOSE OTHER MAPPERS';
-      console.warn('controller: WebHID fallback failed', status.error);
-      break;
+  presentControllerStatus(status, {
+    setup: controllerSetup,
+    connect: controllerConnect,
+    status: controllerStatusOutput,
+  });
+  if (status.phase === 'error') {
+    console.warn('controller: WebHID fallback failed', status.error);
   }
   syncControllerPanel();
 }
@@ -962,66 +844,11 @@ touchInput.attachAction(touchStart, Button.Start);
  */
 const touchControlPointers = new Map<number, string>();
 const touchControlTouches = new Set<number>();
-
-function syncTouchControlActivity(): void {
-  if (touchControlPointers.size > 0 || touchControlTouches.size > 0) {
-    touchControls.dataset.operating = 'true';
-  } else {
-    delete touchControls.dataset.operating;
-  }
-}
-
-function resetTouchControlActivity(): void {
-  touchControlPointers.clear();
-  touchControlTouches.clear();
-  syncTouchControlActivity();
-}
-
-touchControls.addEventListener('pointerdown', (event) => {
-  if (event.button !== 0) return;
-  touchControlPointers.set(event.pointerId, event.pointerType);
-  syncTouchControlActivity();
-}, { capture: true });
-touchControls.addEventListener('touchstart', (event) => {
-  for (let index = 0; index < event.changedTouches.length; index++) {
-    const touch = event.changedTouches.item(index);
-    if (touch !== null) touchControlTouches.add(touch.identifier);
-  }
-  syncTouchControlActivity();
-}, { capture: true, passive: true });
-
-const endTouchControlPointer = (event: PointerEvent): void => {
-  const pointerType = touchControlPointers.get(event.pointerId);
-  if (pointerType === undefined) return;
-  touchControlPointers.delete(event.pointerId);
-  if (pointerType === 'touch' && touchControlPointers.size === 0) {
-    // A dual-stream browser may omit the matching legacy touch end.
-    touchControlTouches.clear();
-  }
-  syncTouchControlActivity();
+const touchActivityState = {
+  pointers: touchControlPointers,
+  touches: touchControlTouches,
 };
-const endTouchControlTouch = (event: TouchEvent): void => {
-  for (let index = 0; index < event.changedTouches.length; index++) {
-    const touch = event.changedTouches.item(index);
-    if (touch !== null) touchControlTouches.delete(touch.identifier);
-  }
-  if (event.touches.length === 0) {
-    // Preserve a simultaneous mouse press, but clear mirrored touch pointers.
-    for (const [id, type] of touchControlPointers) {
-      if (type === 'touch') touchControlPointers.delete(id);
-    }
-  }
-  syncTouchControlActivity();
-};
-window.addEventListener('pointerup', endTouchControlPointer, { capture: true });
-window.addEventListener('pointercancel', endTouchControlPointer, {
-  capture: true,
-});
-touchControls.addEventListener('lostpointercapture', endTouchControlPointer, {
-  capture: true,
-});
-window.addEventListener('touchend', endTouchControlTouch, { capture: true });
-window.addEventListener('touchcancel', endTouchControlTouch, { capture: true });
+installTouchControlActivity(touchControls, touchActivityState);
 
 /*
  * The thumb follows continuous browser coordinates for presentation only.
@@ -1031,98 +858,18 @@ window.addEventListener('touchcancel', endTouchControlTouch, { capture: true });
  */
 const stickVisualPointerIds = new Set<number>();
 const stickVisualTouchIds = new Set<number>();
-
-function moveTouchStickVisual(clientX: number, clientY: number): void {
-  const rect = touchStick.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-
-  let x = clientX - (rect.left + rect.width / 2);
-  let y = clientY - (rect.top + rect.height / 2);
-  const limit = Math.min(rect.width, rect.height) * 0.24;
-  const distance = Math.hypot(x, y);
-  if (distance > limit && distance > 0) {
-    const scale = limit / distance;
-    x *= scale;
-    y *= scale;
-  }
-
-  touchStick.style.setProperty('--touch-stick-x', `${x}px`);
-  touchStick.style.setProperty('--touch-stick-y', `${y}px`);
-  touchStick.dataset.active = 'true';
-}
-
-function resetTouchStickVisual(): void {
-  stickVisualPointerIds.clear();
-  stickVisualTouchIds.clear();
-  touchStick.style.setProperty('--touch-stick-x', '0px');
-  touchStick.style.setProperty('--touch-stick-y', '0px');
-  delete touchStick.dataset.active;
-}
-
-touchStick.addEventListener('pointerdown', (event) => {
-  if (event.button !== 0) return;
-  stickVisualPointerIds.add(event.pointerId);
-  moveTouchStickVisual(event.clientX, event.clientY);
-});
-touchStick.addEventListener('pointermove', (event) => {
-  if (!stickVisualPointerIds.has(event.pointerId)) return;
-  moveTouchStickVisual(event.clientX, event.clientY);
-});
-
-function moveTouchStickFromTouches(event: TouchEvent, start: boolean): void {
-  for (let index = 0; index < event.changedTouches.length; index++) {
-    const touch = event.changedTouches.item(index);
-    if (touch === null) continue;
-    if (start) stickVisualTouchIds.add(touch.identifier);
-    if (!stickVisualTouchIds.has(touch.identifier)) continue;
-    moveTouchStickVisual(touch.clientX, touch.clientY);
-  }
-}
-touchStick.addEventListener('touchstart', (event) => {
-  moveTouchStickFromTouches(event, true);
-}, { passive: true });
-touchStick.addEventListener('touchmove', (event) => {
-  moveTouchStickFromTouches(event, false);
-}, { passive: true });
-
-const endTouchStickPointer = (event: PointerEvent): void => {
-  if (!stickVisualPointerIds.has(event.pointerId)) return;
-  resetTouchStickVisual();
+const touchStickVisualState = {
+  pointerIds: stickVisualPointerIds,
+  touchIds: stickVisualTouchIds,
 };
-const endTouchStickTouch = (event: TouchEvent): void => {
-  for (let index = 0; index < event.changedTouches.length; index++) {
-    const touch = event.changedTouches.item(index);
-    if (touch !== null && stickVisualTouchIds.has(touch.identifier)) {
-      resetTouchStickVisual();
-      return;
-    }
-  }
-};
-window.addEventListener('pointerup', endTouchStickPointer, { capture: true });
-window.addEventListener('pointercancel', endTouchStickPointer, {
-  capture: true,
-});
-window.addEventListener('touchend', endTouchStickTouch, { capture: true });
-window.addEventListener('touchcancel', endTouchStickTouch, { capture: true });
-
-pointerPositionInput.attach(stageElement);
-window.addEventListener('blur', () => {
-  pointerPositionInput.clearTarget();
-  touchInput.reset();
-  resetTouchControlActivity();
-  resetTouchStickVisual();
-});
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) return;
-  pointerPositionInput.clearTarget();
-  touchInput.reset();
-  resetTouchControlActivity();
-  resetTouchStickVisual();
-});
-window.addEventListener('pagehide', () => {
-  touchInput.reset();
-  resetTouchControlActivity();
-  resetTouchStickVisual();
+installTouchStickVisual(touchStick, touchStickVisualState);
+installTouchResetLifecycle(stageElement, {
+  pointerPositionInput,
+  touchInput,
+  resetChrome: () => {
+    resetTouchControlActivity(touchControls, touchActivityState);
+    resetTouchStickVisual(touchStick, touchStickVisualState);
+  },
 });
 const input = new Input([
   pointerPositionInput,
@@ -1136,78 +883,41 @@ touchControls.addEventListener('contextmenu', (event) => {
   event.preventDefault();
 });
 
-controllerConnect.addEventListener('click', () => {
-  if (directController === undefined) return;
-
-  // `requestDevice()` reaches Chrome's chooser synchronously before its first
-  // await, preserving this click's required user activation.
-  const request = directController.requestDevice();
-  controllerConnect.blur();
-  void audio.unlock();
-  void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
-  void request;
-});
-const stopControllerKey = (event: Event): void => event.stopPropagation();
-controllerConnect.addEventListener('keydown', stopControllerKey);
-controllerConnect.addEventListener('keyup', stopControllerKey);
-const stopTouchButtonActivationKey = (event: KeyboardEvent): void => {
-  if (event.code === 'Space' || event.code === 'Enter') {
-    event.stopPropagation();
-  }
-};
+if (directController !== undefined) {
+  installControllerConnect(controllerConnect, {
+    controller: directController,
+    unlockAudio: () => {
+      void audio.unlock();
+      void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
+    },
+  });
+}
+controllerConnect.addEventListener('keydown', stopControllerActivationKey);
+controllerConnect.addEventListener('keyup', stopControllerActivationKey);
 for (const button of [touchA, touchB, touchStart]) {
   button.addEventListener('keydown', stopTouchButtonActivationKey);
   button.addEventListener('keyup', stopTouchButtonActivationKey);
 }
 
 const menuActionButtons: HTMLButtonElement[] = [];
-
-function menuActionButton(index: number): HTMLButtonElement {
-  const existing = menuActionButtons[index];
-  if (existing !== undefined) return existing;
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'menu-action';
-  button.addEventListener('keydown', stopControllerKey);
-  button.addEventListener('keyup', stopControllerKey);
-  button.addEventListener('click', () => {
-    if (button.dataset.state !== machine.current?.name) return;
-
-    // File pickers must open synchronously inside the real click. Do not queue
-    // this through the fixed-tick menu mask, where user activation has expired.
-    if (button.dataset.action === 'import-replay') {
-      openReplayImport();
-      button.blur();
-      void audio.unlock();
-      void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
-      return;
-    }
-
-    const selected = Number(button.dataset.selected);
-    const target = Number(button.dataset.target);
-    const count = Number(button.dataset.count);
+const menuActionChrome: MenuActionChrome = {
+  container: menuActions,
+  buttons: menuActionButtons,
+  currentState: () => machine.current?.name,
+  openReplayImport,
+  queueSelection: (selected, target, count) => {
     menuPointerInput.queueSelection(selected, target, count);
-    button.blur();
-    // A direct row click is also the browser gesture that permits audio.
+  },
+  unlockAudio: () => {
     void audio.unlock();
     void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
-  });
-  menuActions.append(button);
-  menuActionButtons.push(button);
-  return button;
-}
+  },
+};
 
 function hideMenuClickTargets(): void {
-  menuActions.hidden = true;
-  for (const button of menuActionButtons) button.hidden = true;
+  hideMenuClickTargetsInChrome(menuActionChrome);
 }
 
-/**
- * Lay transparent DOM buttons over the rows the canvas just authored.
- * Clicking one queues ordinary edge-separated direction/Shot masks; it never
- * mutates a MenuState cursor directly (CLAUDE.md, rule 4).
- */
 function layoutMenuClickTargets(
   state: string,
   entries: readonly string[],
@@ -1220,35 +930,21 @@ function layoutMenuClickTargets(
   indexOffset = 0,
   actions?: readonly (string | undefined)[],
 ): void {
-  menuActions.hidden = entries.length === 0;
-  entries.forEach((entry, visibleIndex) => {
-    const button = menuActionButton(visibleIndex);
-    const target = indexOffset + visibleIndex;
-    const row = v4MenuRowGeometry(
-      firstBaseline + visibleIndex * step,
+  layoutMenuClickTargetsInChrome(
+    menuActionChrome,
+    {
+      state,
+      entries,
+      selected,
+      count,
+      x,
+      firstBaseline,
+      width,
       step,
-    );
-    button.hidden = false;
-    button.textContent = entry;
-    button.setAttribute('aria-label', entry);
-    if (target === selected) button.setAttribute('aria-current', 'true');
-    else button.removeAttribute('aria-current');
-    button.dataset.state = state;
-    button.dataset.selected = `${selected}`;
-    button.dataset.target = `${target}`;
-    button.dataset.count = `${count}`;
-    const action = actions?.[target];
-    if (action === undefined) delete button.dataset.action;
-    else button.dataset.action = action;
-    button.style.left = `${x}px`;
-    button.style.top = `${row.top}px`;
-    button.style.width = `${width}px`;
-    button.style.height = `${row.height}px`;
-  });
-
-  for (let index = entries.length; index < menuActionButtons.length; index++) {
-    menuActionButtons[index]!.hidden = true;
-  }
+      indexOffset,
+      actions,
+    },
+  );
 }
 
 /**
@@ -1354,7 +1050,10 @@ const context: GameContext = {
       : endReason === 'quit'
         ? 'PARTIAL REPLAY SAVED FOR THIS PAGE ONLY · QUIT'
         : 'REPLAY SAVED FOR THIS PAGE ONLY';
-    const saved = replayLibrary.append(id, replay);
+    const saved = holdPwaUpdateWhile(
+      replayLibrary.append(id, replay),
+      { retainOnFailure: true },
+    );
     // `append` updates memory before its first await, so result screens can
     // immediately resolve WATCH/DOWNLOAD even when IndexedDB is still writing.
     context.replaySessions = replayLibrary.sessions;
@@ -1377,7 +1076,7 @@ const context: GameContext = {
   },
   onDownloadReplay: downloadReplay,
   onDeleteReplaySession: (session) => {
-    const deleted = replayLibrary.remove(session.id);
+    const deleted = holdPwaUpdateWhile(replayLibrary.remove(session.id));
     // `remove` updates memory before its first await, so the library screen
     // reflects the approved action immediately.
     context.replaySessions = replayLibrary.sessions;
@@ -1399,7 +1098,16 @@ replayImportInput.addEventListener('change', () => {
   const file = replayImportInput.files?.[0];
   if (file === undefined) return;
 
-  void file.text().then((text) => replayLibrary.import(text)).then(() => {
+  void file.text().then(
+    (text) => holdPwaUpdateWhile(
+      replayLibrary.import(text),
+      {
+        retainOnFailure: (error) => (
+          error instanceof ReplaySessionPersistenceError
+        ),
+      },
+    ),
+  ).then(() => {
     context.replaySessions = replayLibrary.sessions;
     showShellStatus('REPLAY IMPORTED');
   }).catch((error) => {

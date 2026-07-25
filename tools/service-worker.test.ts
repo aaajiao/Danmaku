@@ -21,6 +21,7 @@ interface WorkerHarness {
   readonly added: string[];
   readonly deleted: string[];
   readonly fetches: string[];
+  readonly puts: string[];
   readonly claimed: { count: number };
   readonly skipped: { count: number };
   readonly installOrder: string[];
@@ -32,6 +33,7 @@ async function workerHarness(
     existingCaches?: string[];
     fetch?: FetchLike;
     cachedRoot?: boolean;
+    cachedUrls?: string[];
     precacheError?: Error;
     windowClients?: Array<{ id: string; url: string }>;
   } = {},
@@ -49,6 +51,7 @@ async function workerHarness(
   const added: string[] = [];
   const deleted: string[] = [];
   const fetches: string[] = [];
+  const puts: string[] = [];
   const claimed = { count: 0 };
   const skipped = { count: 0 };
   const installOrder: string[] = [];
@@ -63,12 +66,15 @@ async function workerHarness(
     },
     async match(key: Request | string): Promise<Response | undefined> {
       const url = typeof key === 'string' ? key : key.url;
-      return options.cachedRoot === true && url === scope
-        ? new Response('cached shell')
+      if (options.cachedRoot === true && url === scope) {
+        return new Response('cached shell');
+      }
+      return options.cachedUrls?.includes(url) === true
+        ? new Response(`cached ${url}`)
         : undefined;
     },
-    async put(): Promise<void> {
-      // Dynamic cache-fill behavior is outside these lifecycle assertions.
+    async put(request: Request): Promise<void> {
+      puts.push(request.url);
     },
   };
   const cacheStorage = {
@@ -138,6 +144,7 @@ async function workerHarness(
     added,
     deleted,
     fetches,
+    puts,
     claimed,
     skipped,
     installOrder,
@@ -269,6 +276,25 @@ describe('generated service-worker lifecycle', () => {
     expect(await (await localResponse)?.text()).toBe('development');
     expect(local.fetches).toEqual(['http://localhost:3000/']);
 
+    const localOffline = await workerHarness('http://localhost:3000/', {
+      cachedRoot: true,
+    });
+    let localOfflineResponse: Promise<Response> | undefined;
+    localOffline.listeners.get('fetch')?.({
+      request: {
+        method: 'GET',
+        mode: 'navigate',
+        url: 'http://localhost:3000/',
+        headers: new Headers(),
+      },
+      respondWith(value: Promise<Response>) {
+        localOfflineResponse = value;
+      },
+      waitUntil() {},
+    });
+    expect(await (await localOfflineResponse)?.text()).toBe('cached shell');
+    expect(localOffline.fetches).toEqual(['http://localhost:3000/']);
+
     const remote = await workerHarness('https://example.test/', {
       cachedRoot: true,
     });
@@ -287,5 +313,97 @@ describe('generated service-worker lifecycle', () => {
     });
     expect(await (await remoteResponse)?.text()).toBe('cached shell');
     expect(remote.fetches).toEqual([]);
+  });
+
+  test('a missing release resource fails closed without fetching the deployment', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => new Response('new deployment'),
+    });
+    let response: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: new Request('https://example.test/asset.js'),
+      respondWith(value: Promise<Response>) {
+        response = value;
+      },
+      waitUntil() {},
+    });
+
+    const result = await response;
+    expect(result?.status).toBe(503);
+    expect(result?.statusText).toBe('Release Cache Incomplete');
+    expect(await result?.text()).toBe('Danmaku release cache is incomplete.');
+    expect(worker.fetches).toEqual([]);
+    expect(worker.puts).toEqual([]);
+  });
+
+  test('a cached release resource is served from its snapshot', async () => {
+    const assetUrl = 'https://example.test/asset.js';
+    const worker = await workerHarness('https://example.test/', {
+      cachedUrls: [assetUrl],
+      fetch: async () => new Response('new deployment'),
+    });
+    let response: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: new Request(assetUrl),
+      respondWith(value: Promise<Response>) {
+        response = value;
+      },
+      waitUntil() {},
+    });
+
+    expect(await (await response)?.text()).toBe(`cached ${assetUrl}`);
+    expect(worker.fetches).toEqual([]);
+    expect(worker.puts).toEqual([]);
+  });
+
+  test('a missing navigation shell fails closed without fetching the deployment', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => new Response('new deployment'),
+    });
+    let response: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: {
+        method: 'GET',
+        mode: 'navigate',
+        url: 'https://example.test/play',
+        headers: new Headers(),
+      },
+      respondWith(value: Promise<Response>) {
+        response = value;
+      },
+      waitUntil() {},
+    });
+
+    const result = await response;
+    expect(result?.status).toBe(503);
+    expect(await result?.text()).toBe('Danmaku release cache is incomplete.');
+    expect(worker.fetches).toEqual([]);
+    expect(worker.puts).toEqual([]);
+  });
+
+  test('a same-origin GET outside the release inventory may use the network', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => new Response('live response'),
+    });
+    let response: Promise<Response> | undefined;
+    let cacheWrite: Promise<unknown> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: new Request('https://example.test/runtime-data.json'),
+      respondWith(value: Promise<Response>) {
+        response = value;
+      },
+      waitUntil(value: Promise<unknown>) {
+        cacheWrite = value;
+      },
+    });
+
+    expect(await (await response)?.text()).toBe('live response');
+    await cacheWrite;
+    expect(worker.fetches).toEqual([
+      'https://example.test/runtime-data.json',
+    ]);
+    expect(worker.puts).toEqual([
+      'https://example.test/runtime-data.json',
+    ]);
   });
 });

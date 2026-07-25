@@ -151,6 +151,114 @@ describe('production PWA registration', () => {
     expect(attempts).toBe(2);
   });
 
+  test('waits for every held persistence operation before promoting an update', async () => {
+    const messages: unknown[] = [];
+    const waiting = {
+      postMessage(value: unknown): void {
+        messages.push(value);
+      },
+    } as unknown as ServiceWorker;
+    const registration = {
+      waiting,
+    } as ServiceWorkerRegistration;
+    const coordinator = new PwaUpdateCoordinator();
+    coordinator.observe(registration);
+
+    let finishFirst: (() => void) | undefined;
+    let finishSecond: (() => void) | undefined;
+    const first = coordinator.holdUpdateWhile(new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    }));
+    const second = coordinator.holdUpdateWhile(new Promise<void>((resolve) => {
+      finishSecond = resolve;
+    }));
+
+    expect(coordinator.activateWaiting()).toBe(false);
+    finishFirst?.();
+    await first;
+    expect(coordinator.activateWaiting()).toBe(false);
+    finishSecond?.();
+    await second;
+
+    expect(coordinator.activateWaiting()).toBe(true);
+    expect(messages).toEqual(['danmaku:activate-update']);
+  });
+
+  test('a failed held operation releases the update gate', async () => {
+    const messages: unknown[] = [];
+    const waiting = {
+      postMessage(value: unknown): void {
+        messages.push(value);
+      },
+    } as unknown as ServiceWorker;
+    const registration = {
+      waiting,
+    } as ServiceWorkerRegistration;
+    const coordinator = new PwaUpdateCoordinator();
+    coordinator.observe(registration);
+
+    let fail: ((error: Error) => void) | undefined;
+    const pending = coordinator.holdUpdateWhile(new Promise<void>((_resolve, reject) => {
+      fail = reject;
+    }));
+    expect(coordinator.activateWaiting()).toBe(false);
+
+    fail?.(new Error('quota'));
+    await expect(pending).rejects.toThrow('quota');
+    expect(coordinator.activateWaiting()).toBe(true);
+    expect(messages).toEqual(['danmaku:activate-update']);
+  });
+
+  test('a page-only persistence failure can retain the update gate', async () => {
+    const messages: unknown[] = [];
+    const waiting = {
+      postMessage(value: unknown): void {
+        messages.push(value);
+      },
+    } as unknown as ServiceWorker;
+    const registration = {
+      waiting,
+    } as ServiceWorkerRegistration;
+    const coordinator = new PwaUpdateCoordinator();
+    coordinator.observe(registration);
+
+    const pending = coordinator.holdUpdateWhile(
+      Promise.reject(new Error('quota')),
+      { retainOnFailure: true },
+    );
+    await expect(pending).rejects.toThrow('quota');
+
+    expect(coordinator.activateWaiting()).toBe(false);
+    expect(messages).toEqual([]);
+  });
+
+  test('a retention predicate releases failures that kept no page-only data', async () => {
+    const messages: unknown[] = [];
+    const waiting = {
+      postMessage(value: unknown): void {
+        messages.push(value);
+      },
+    } as unknown as ServiceWorker;
+    const registration = {
+      waiting,
+    } as ServiceWorkerRegistration;
+    const coordinator = new PwaUpdateCoordinator();
+    coordinator.observe(registration);
+
+    const pending = coordinator.holdUpdateWhile(
+      Promise.reject(new TypeError('invalid replay')),
+      {
+        retainOnFailure: (error) => (
+          error instanceof Error && error.message === 'quota'
+        ),
+      },
+    );
+    await expect(pending).rejects.toThrow('invalid replay');
+
+    expect(coordinator.activateWaiting()).toBe(true);
+    expect(messages).toEqual(['danmaku:activate-update']);
+  });
+
   test('does not reload when the first worker claims an uncontrolled page', () => {
     const first = {} as ServiceWorker;
     const second = {} as ServiceWorker;
