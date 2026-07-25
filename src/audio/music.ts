@@ -542,7 +542,10 @@ export class Music {
    * `unlocked` stays false.
    */
   async unlock(): Promise<void> {
-    if (this.#unlocked) return;
+    if (this.#unlocked) {
+      if (this.#output.isCurrentContext(this.#ctx)) return;
+      this.#resetForOutputReplacement();
+    }
     const pending = this.#unlocking;
     if (pending) return pending;
 
@@ -735,7 +738,17 @@ export class Music {
   }
 
   get unlocked(): boolean {
-    return this.#unlocked;
+    return this.#unlocked && this.#output.isCurrentContext(this.#ctx);
+  }
+
+  /** Rebuild context-owned nodes after the shared output abandons a close. */
+  #resetForOutputReplacement(): void {
+    this.stopAll();
+    this.#ctx = undefined;
+    this.#master = undefined;
+    this.#unlocked = false;
+    this.#buffers.clear();
+    this.#inflight.clear();
   }
 
   /** The buffer for a track, generating or fetching it on first ask. */

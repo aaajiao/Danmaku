@@ -9,7 +9,7 @@
 
 // Production registers the generated, content-addressed offline shell. This
 // import is presentation-only and is compiled away from the development path.
-import './pwa';
+import { activateWaitingPwaUpdate } from './pwa';
 import { GAME_VERSION_LABEL } from './version';
 
 // The compiled v4 edition installs its deterministic patterns and behaviours,
@@ -897,21 +897,29 @@ const pointerPositionInput = new PointerPositionInput(FIELD_W, FIELD_H);
 const menuPointerInput = new MenuPointerInput();
 
 /**
- * Start WebAudio only from events WebKit recognises as user activation.
+ * Start WebAudio from every browser gesture that may carry user activation.
  *
- * In particular, iOS does not reliably authorise WebAudio from `touchstart`.
- * Starting there can leave `AudioContext.resume()` pending; a later valid
- * `touchend` would then only reuse that poisoned in-flight attempt. These
- * window-capture listeners are deliberately registered before TouchInput's
- * own end listeners, which may prevent the event while releasing a contact.
+ * A virtual-stick drag is not guaranteed to produce `click`, and WebKit builds
+ * disagree over whether the down or up half authorises WebAudio. The output's
+ * synchronous gesture path therefore pokes both halves and permits a later
+ * event to retry even while an earlier `resume()` is still pending. Capture
+ * listeners run before TouchInput prevents defaults for control hygiene.
  */
 function unlockAudioFromUserActivation(): void {
+  audioOutput.activateFromGesture();
   void audioOutput.unlock();
   void audio.unlock();
   void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
 }
+window.addEventListener('pointerdown', unlockAudioFromUserActivation, {
+  capture: true,
+});
 window.addEventListener('pointerup', unlockAudioFromUserActivation, {
   capture: true,
+});
+window.addEventListener('touchstart', unlockAudioFromUserActivation, {
+  capture: true,
+  passive: true,
 });
 window.addEventListener('touchend', unlockAudioFromUserActivation, {
   capture: true,
@@ -926,6 +934,19 @@ window.addEventListener('click', unlockAudioFromUserActivation, {
 window.addEventListener('keydown', unlockAudioFromUserActivation, {
   capture: true,
 });
+
+/**
+ * iOS may suspend an installed PWA's audio context while it is backgrounded.
+ * Page lifecycle events carry no user activation, so they only revalidate an
+ * already-created context. If WebKit leaves that attempt pending, the next
+ * real gesture above still starts an independent resume + wake-source poke.
+ */
+function resumeAudioAfterPageRestore(): void {
+  if (document.hidden) return;
+  void audioOutput.resumeIfStarted();
+}
+window.addEventListener('pageshow', resumeAudioAfterPageRestore);
+document.addEventListener('visibilitychange', resumeAudioAfterPageRestore);
 
 const touchInput = new TouchInput(window);
 touchInput.attachStick(touchStick);
@@ -1623,6 +1644,11 @@ document.addEventListener('visibilitychange', () => {
 
 const loop = new Loop({
   tick() {
+    // A waiting PWA release may replace this page only from the title. This
+    // keeps an active run on one JS + pack snapshot and makes the ensuing
+    // controllerchange reload a safe, progress-free transition.
+    if (machine.current?.name === 'title') activateWaitingPwaUpdate();
+
     const stateBeforeTick = machine.current;
     const exportPhaseBeforeTick = stateBeforeTick instanceof ReplayExportState
       ? stateBeforeTick.phase

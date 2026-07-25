@@ -22,6 +22,8 @@ interface WorkerHarness {
   readonly deleted: string[];
   readonly fetches: string[];
   readonly claimed: { count: number };
+  readonly skipped: { count: number };
+  readonly installOrder: string[];
 }
 
 async function workerHarness(
@@ -30,6 +32,8 @@ async function workerHarness(
     existingCaches?: string[];
     fetch?: FetchLike;
     cachedRoot?: boolean;
+    precacheError?: Error;
+    windowClients?: Array<{ id: string; url: string }>;
   } = {},
 ): Promise<WorkerHarness> {
   const template = await Bun.file(TEMPLATE_PATH).text();
@@ -46,9 +50,15 @@ async function workerHarness(
   const deleted: string[] = [];
   const fetches: string[] = [];
   const claimed = { count: 0 };
+  const skipped = { count: 0 };
+  const installOrder: string[] = [];
   const location = new URL(scope);
   const cache = {
     async addAll(requests: Request[]): Promise<void> {
+      installOrder.push('precache');
+      if (options.precacheError !== undefined) {
+        throw options.precacheError;
+      }
       added.push(...requests.map((request) => request.url));
     },
     async match(key: Request | string): Promise<Response | undefined> {
@@ -89,9 +99,16 @@ async function workerHarness(
     registration: { scope },
     location,
     clients: {
+      async matchAll(): Promise<Array<{ id: string; url: string }>> {
+        return options.windowClients ?? [{ id: 'only', url: scope }];
+      },
       async claim(): Promise<void> {
         claimed.count++;
       },
+    },
+    async skipWaiting(): Promise<void> {
+      installOrder.push('skip-waiting');
+      skipped.count++;
     },
     addEventListener(type: string, listener: WorkerListener): void {
       listeners.set(type, listener);
@@ -122,6 +139,8 @@ async function workerHarness(
     deleted,
     fetches,
     claimed,
+    skipped,
+    installOrder,
   };
 }
 
@@ -139,6 +158,23 @@ async function dispatchWaitUntil(
   await pending;
 }
 
+async function dispatchMessage(
+  listener: WorkerListener | undefined,
+  data: unknown,
+  source: { id: string } = { id: 'only' },
+): Promise<void> {
+  if (listener === undefined) throw new Error('worker listener is missing');
+  let pending: Promise<unknown> | undefined;
+  listener({
+    data,
+    source,
+    waitUntil(value: Promise<unknown>) {
+      pending = value;
+    },
+  });
+  if (pending !== undefined) await pending;
+}
+
 describe('generated service-worker lifecycle', () => {
   test('precache is exact and cache namespaces differ by scope', async () => {
     const root = await workerHarness('https://example.test/');
@@ -151,6 +187,48 @@ describe('generated service-worker lifecycle', () => {
       'https://example.test/',
       'https://example.test/asset.js',
     ]);
+    expect(root.skipped.count).toBe(0);
+    expect(root.installOrder).toEqual(['precache']);
+
+    await dispatchMessage(root.listeners.get('message'), 'another-app');
+    expect(root.skipped.count).toBe(0);
+    await dispatchMessage(
+      root.listeners.get('message'),
+      'danmaku:activate-update',
+    );
+    expect(root.skipped.count).toBe(1);
+    expect(root.installOrder).toEqual(['precache', 'skip-waiting']);
+  });
+
+  test('a title client cannot promote while another scoped window is alive', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      windowClients: [
+        { id: 'title', url: 'https://example.test/' },
+        { id: 'playing', url: 'https://example.test/?run=1' },
+      ],
+    });
+    await dispatchWaitUntil(worker.listeners.get('install'));
+    await dispatchMessage(
+      worker.listeners.get('message'),
+      'danmaku:activate-update',
+      { id: 'title' },
+    );
+
+    expect(worker.skipped.count).toBe(0);
+    expect(worker.installOrder).toEqual(['precache']);
+  });
+
+  test('failed precache deletes only its release cache and never advances', async () => {
+    const failed = await workerHarness('https://example.test/', {
+      precacheError: new Error('asset refused'),
+    });
+
+    await expect(
+      dispatchWaitUntil(failed.listeners.get('install')),
+    ).rejects.toThrow('asset refused');
+    expect(failed.skipped.count).toBe(0);
+    expect(failed.deleted).toEqual([failed.cacheName]);
+    expect(failed.installOrder).toEqual(['precache']);
   });
 
   test('activate deletes only older releases from its own scope', async () => {

@@ -174,7 +174,7 @@ describe('touch controls remain a shell input source', () => {
     );
   });
 
-  test('valid user activation unlocks audio before touch cleanup can cancel it', () => {
+  test('a drag can unlock audio without relying on click', () => {
     const unlockStart = mainSource.indexOf(
       'function unlockAudioFromUserActivation',
     );
@@ -185,11 +185,18 @@ describe('touch controls remain a shell input source', () => {
     expect(unlockStart).toBeGreaterThan(-1);
     expect(unlockEnd).toBeGreaterThan(unlockStart);
     const unlock = mainSource.slice(unlockStart, unlockEnd);
+    expect(unlock).toContain('audioOutput.activateFromGesture()');
     expect(unlock).toContain('audioOutput.unlock()');
     expect(unlock).toContain('audio.unlock()');
     expect(unlock).toContain('music.unlock()');
     expect(unlock).toContain(
+      "window.addEventListener('pointerdown', unlockAudioFromUserActivation",
+    );
+    expect(unlock).toContain(
       "window.addEventListener('pointerup', unlockAudioFromUserActivation",
+    );
+    expect(unlock).toContain(
+      "window.addEventListener('touchstart', unlockAudioFromUserActivation",
     );
     expect(unlock).toContain(
       "window.addEventListener('touchend', unlockAudioFromUserActivation",
@@ -200,8 +207,19 @@ describe('touch controls remain a shell input source', () => {
     expect(unlock).toContain(
       "window.addEventListener('keydown', unlockAudioFromUserActivation",
     );
-    expect(unlock).not.toContain("addEventListener('pointerdown'");
-    expect(unlock).not.toContain("addEventListener('touchstart'");
+    expect(unlock.indexOf('audioOutput.activateFromGesture()')).toBeLessThan(
+      unlock.indexOf('audioOutput.unlock()'),
+    );
+
+    // A cancelled/dragged touch may never synthesize click. Both halves reach
+    // the synchronous capture path before TouchInput prevents its defaults.
+    expect(
+      unlock.indexOf(
+        "window.addEventListener('pointerdown', unlockAudioFromUserActivation",
+      ),
+    ).toBeLessThan(
+      mainSource.indexOf('const touchInput = new TouchInput(window)'),
+    );
 
     const tick = mainSource.indexOf('const buttons = input.sample();');
     const machineTick = mainSource.indexOf('machine.tick(buttons);', tick);
@@ -209,6 +227,40 @@ describe('touch controls remain a shell input source', () => {
     expect(machineTick).toBeGreaterThan(tick);
     expect(mainSource.slice(tick, machineTick)).not.toContain(
       'audioOutput.unlock()',
+    );
+  });
+
+  test('page restore revalidates only an already-started audio output', () => {
+    const restoreStart = mainSource.indexOf(
+      'function resumeAudioAfterPageRestore',
+    );
+    const restoreEnd = mainSource.indexOf(
+      'const touchInput = new TouchInput(window)',
+      restoreStart,
+    );
+    expect(restoreStart).toBeGreaterThan(-1);
+    expect(restoreEnd).toBeGreaterThan(restoreStart);
+    const restore = mainSource.slice(restoreStart, restoreEnd);
+    expect(restore).toContain('if (document.hidden) return');
+    expect(restore).toContain('audioOutput.resumeIfStarted()');
+    expect(restore).toContain(
+      "window.addEventListener('pageshow', resumeAudioAfterPageRestore)",
+    );
+    expect(restore).toContain(
+      "document.addEventListener('visibilitychange', resumeAudioAfterPageRestore)",
+    );
+    expect(restore).not.toContain('audioOutput.activateFromGesture()');
+  });
+
+  test('a waiting PWA release activates only from the title tick', () => {
+    expect(mainSource).toContain(
+      "import { activateWaitingPwaUpdate } from './pwa'",
+    );
+    const tick = mainSource.indexOf('const loop = new Loop({');
+    const sample = mainSource.indexOf('const buttons = input.sample();', tick);
+    const beforeInput = mainSource.slice(tick, sample);
+    expect(beforeInput).toContain(
+      "if (machine.current?.name === 'title') activateWaitingPwaUpdate();",
     );
   });
 

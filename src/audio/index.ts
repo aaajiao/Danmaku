@@ -296,7 +296,10 @@ export class Audio {
    * is harmless: the engine simply stays silent and `unlocked` stays false.
    */
   async unlock(): Promise<void> {
-    if (this.#unlocked) return;
+    if (this.#unlocked) {
+      if (this.#output.isCurrentContext(this.#ctx)) return;
+      this.#resetForOutputReplacement();
+    }
 
     // One tap can deliver both a keydown and a pointerdown. Sharing the
     // in-flight promise stops the second one building a second context.
@@ -427,7 +430,21 @@ export class Audio {
   }
 
   get unlocked(): boolean {
-    return this.#unlocked;
+    return this.#unlocked && this.#output.isCurrentContext(this.#ctx);
+  }
+
+  /**
+   * A closed AudioContext cannot own live nodes in its replacement. This path
+   * runs only when the shared output has already abandoned that context, so
+   * normal suspension keeps every buffer, bus, and voice exactly as-is.
+   */
+  #resetForOutputReplacement(): void {
+    this.stopAll();
+    this.#ctx = undefined;
+    this.#master = undefined;
+    this.#unlocked = false;
+    this.#buffers.clear();
+    this.#inflight.clear();
   }
 
   /**

@@ -29,6 +29,15 @@ interface CaptureState {
   active: boolean;
 }
 
+interface ResumeRound {
+  readonly ctx: AudioContext;
+  readonly promise: Promise<AudioContext | undefined>;
+  readonly resolve: (ctx: AudioContext | undefined) => void;
+  discardOnFailure: boolean;
+  attempts: number;
+  settled: boolean;
+}
+
 /**
  * WebAudio is looked up at unlock time. Headless runtimes can therefore import
  * every audio module without installing DOM globals first.
@@ -52,58 +61,265 @@ function discard(ctx: AudioContext | undefined): void {
 
 export class AudioOutput {
   #ctx: AudioContext | undefined;
-  #unlocking: Promise<AudioContext | undefined> | undefined;
+  #resumeRound: ResumeRound | undefined;
+  #wakeBuffer:
+    | {
+      readonly ctx: AudioContext;
+      readonly buffer: AudioBuffer;
+    }
+    | undefined;
+  #needsWake = false;
   #buses = new Map<AudioBus, GainNode>();
   #capture: CaptureState | undefined;
 
   /**
    * Resume (or create and resume) the one context owned by this output.
    *
-   * Concurrent callers share the same attempt. A failed attempt is discarded
-   * and may be retried by a later user gesture. An existing context is checked
-   * every time: browsers may suspend it after the original unlock while a tab
-   * is backgrounded or system audio is interrupted.
+   * Ordinary concurrent callers share one round. `activateFromGesture` is the
+   * deliberate exception: every independent browser gesture starts another
+   * resume attempt on the same context. WebKit is allowed to leave a refused
+   * `resume()` promise pending forever, so a drag rejected on `pointerup` must
+   * not prevent a later trusted `touchend` or click from waking that context.
    */
   async unlock(): Promise<AudioContext | undefined> {
-    const pending = this.#unlocking;
-    if (pending) return pending;
-
-    this.#unlocking = this.#ctx === undefined
-      ? this.#start()
-      : this.#resume(this.#ctx);
-    try {
-      return await this.#unlocking;
-    } finally {
-      this.#unlocking = undefined;
-    }
+    const existing = this.#usableContext();
+    const ctx = existing ?? this.#createContext();
+    if (!ctx) return undefined;
+    return this.#awaitRunning(ctx, existing === undefined);
   }
 
-  async #resume(ctx: AudioContext): Promise<AudioContext | undefined> {
-    try {
-      if (ctx.state !== 'running') await ctx.resume();
-      return ctx.state === 'running' ? ctx : undefined;
-    } catch {
-      return undefined;
+  /**
+   * Synchronously poke WebAudio from a real input handler.
+   *
+   * The one-sample buffer is zero-filled by WebAudio and connects straight to
+   * the destination, so it cannot alter the mix. Starting a source in the
+   * gesture itself covers WebKit builds where `resume()` alone reports success
+   * without opening the device. No promise is awaited here: the whole wake-up
+   * operation remains on the browser's user-activation stack.
+   */
+  activateFromGesture(): void {
+    const existing = this.#usableContext();
+    const ctx = existing ?? this.#createContext();
+    if (!ctx) return;
+
+    if (ctx.state !== 'running' || this.#needsWake) this.#wake(ctx);
+    if (ctx.state === 'running') {
+      this.#settleRunning(ctx);
+      return;
     }
+
+    const round = this.#round(ctx, existing === undefined, true);
+    // Unlike `unlock`, never join a possibly poisoned attempt. Each real
+    // gesture gets one fresh call to `resume()` on the same AudioContext.
+    this.#attemptResume(round, true);
   }
 
-  async #start(): Promise<AudioContext | undefined> {
+  /**
+   * Revalidate an existing context after a page/PWA restore without creating
+   * WebAudio before the player has interacted with the game.
+   */
+  async resumeIfStarted(): Promise<AudioContext | undefined> {
+    const ctx = this.#usableContext();
+    if (!ctx) return undefined;
+    // A context can report `running` after iOS restores a PWA while the device
+    // route is still silent. The next real gesture supplies one fresh poke.
+    this.#needsWake = true;
+    return this.#awaitRunning(ctx, false);
+  }
+
+  /**
+   * Whether a consumer's nodes still belong to this output's live context.
+   *
+   * `Audio` and `Music` use this only at unlock boundaries. A closed context
+   * cannot be resumed, so reporting it as foreign lets both buses rebuild once
+   * on the replacement context created by the same later gesture.
+   */
+  isCurrentContext(ctx: AudioContext | undefined): boolean {
+    return ctx !== undefined && this.#usableContext() === ctx;
+  }
+
+  #usableContext(): AudioContext | undefined {
+    const ctx = this.#ctx;
+    if (ctx === undefined) return undefined;
+    if (ctx.state !== 'closed') return ctx;
+
+    this.#abandonContext(ctx);
+    return undefined;
+  }
+
+  #abandonContext(ctx: AudioContext): void {
+    if (this.#ctx !== ctx) return;
+
+    const round = this.#resumeRound;
+    if (round !== undefined && round.ctx === ctx && !round.settled) {
+      this.#settleRound(round, undefined);
+    }
+    const capture = this.#capture;
+    if (capture?.active) this.#releaseCapture(capture);
+    this.#buses.clear();
+    this.#wakeBuffer = undefined;
+    this.#needsWake = false;
+    this.#ctx = undefined;
+  }
+
+  #createContext(): AudioContext | undefined {
     const Ctor = audioContextCtor();
     if (!Ctor) return undefined;
 
-    let ctx: AudioContext | undefined;
     try {
-      ctx = new Ctor();
-      const running = await this.#resume(ctx);
-      if (running === undefined) {
-        discard(ctx);
-        return undefined;
-      }
+      const ctx = new Ctor();
       this.#ctx = ctx;
+      this.#needsWake = true;
       return ctx;
     } catch {
-      discard(ctx);
       return undefined;
+    }
+  }
+
+  #awaitRunning(
+    ctx: AudioContext,
+    fresh: boolean,
+  ): Promise<AudioContext | undefined> {
+    if (ctx.state === 'running') {
+      this.#settleRunning(ctx);
+      return Promise.resolve(ctx);
+    }
+
+    const round = this.#round(ctx, fresh);
+    if (round.attempts === 0) {
+      this.#attemptResume(round, round.discardOnFailure);
+    }
+    return round.promise;
+  }
+
+  #round(
+    ctx: AudioContext,
+    fresh: boolean,
+    discardOnFailure = false,
+  ): ResumeRound {
+    const active = this.#resumeRound;
+    if (active !== undefined && active.ctx === ctx && !active.settled) {
+      if (discardOnFailure) active.discardOnFailure = true;
+      return active;
+    }
+
+    let resolve!: (ctx: AudioContext | undefined) => void;
+    const promise = new Promise<AudioContext | undefined>((done) => {
+      resolve = done;
+    });
+    const round: ResumeRound = {
+      ctx,
+      promise,
+      resolve,
+      discardOnFailure: fresh || discardOnFailure,
+      attempts: 0,
+      settled: false,
+    };
+    this.#resumeRound = round;
+    return round;
+  }
+
+  #attemptResume(
+    round: ResumeRound,
+    discardOnFailure = false,
+  ): void {
+    if (round.settled || this.#ctx !== round.ctx) return;
+    round.attempts++;
+
+    let attempt: Promise<void>;
+    try {
+      attempt = round.ctx.resume();
+    } catch {
+      this.#completeResume(round, discardOnFailure);
+      return;
+    }
+
+    void attempt.then(
+      () => this.#completeResume(round, discardOnFailure),
+      () => this.#completeResume(round, discardOnFailure),
+    );
+  }
+
+  #completeResume(
+    round: ResumeRound,
+    discardOnFailure: boolean,
+  ): void {
+    round.attempts = Math.max(0, round.attempts - 1);
+    if (round.settled || this.#ctx !== round.ctx) return;
+
+    if (round.ctx.state === 'running') {
+      this.#settleRound(round, round.ctx);
+      return;
+    }
+    if (round.ctx.state === 'closed') {
+      this.#settleRound(round, undefined);
+      this.#abandonContext(round.ctx);
+      return;
+    }
+    // A definitive refusal from the newest real gesture is stronger evidence
+    // than an older resume promise that WebKit left pending forever. Rotate the
+    // context now instead of letting that poisoned attempt block every future
+    // touch. Its eventual callback is harmless after the round is settled.
+    if (discardOnFailure) {
+      this.#settleRound(round, undefined);
+      this.#abandonContext(round.ctx);
+      discard(round.ctx);
+      return;
+    }
+    // A pending sibling attempt may be the valid gesture. Do not discard its
+    // context merely because an earlier Pointer/Touch stream was refused.
+    if (round.attempts > 0) return;
+
+    this.#settleRound(round, undefined);
+    if (round.discardOnFailure && this.#ctx === round.ctx) {
+      this.#abandonContext(round.ctx);
+      discard(round.ctx);
+    }
+  }
+
+  #settleRunning(ctx: AudioContext): void {
+    const round = this.#resumeRound;
+    if (round !== undefined && round.ctx === ctx && !round.settled) {
+      this.#settleRound(round, ctx);
+    }
+  }
+
+  #settleRound(
+    round: ResumeRound,
+    result: AudioContext | undefined,
+  ): void {
+    if (round.settled) return;
+    round.settled = true;
+    round.resolve(result);
+    if (this.#resumeRound === round) this.#resumeRound = undefined;
+  }
+
+  #wake(ctx: AudioContext): void {
+    try {
+      let buffer = this.#wakeBuffer;
+      if (buffer === undefined || buffer.ctx !== ctx) {
+        buffer = {
+          ctx,
+          buffer: ctx.createBuffer(1, 1, ctx.sampleRate),
+        };
+        this.#wakeBuffer = buffer;
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer.buffer;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        try {
+          source.disconnect();
+        } catch {
+          // A closed context may have already torn down the compatibility node.
+        }
+      };
+      source.start(0);
+      this.#needsWake = false;
+    } catch {
+      // The resume attempt below remains the standards path. A partial WebAudio
+      // implementation refusing the compatibility poke may only stay silent.
     }
   }
 
@@ -115,11 +331,11 @@ export class AudioOutput {
    * into both instances creates the two independent masters on one context.
    */
   bus(channel: AudioBus): GainNode | undefined {
+    const ctx = this.#usableContext();
+    if (!ctx) return undefined;
+
     const existing = this.#buses.get(channel);
     if (existing) return existing;
-
-    const ctx = this.#ctx;
-    if (!ctx) return undefined;
 
     try {
       const bus = ctx.createGain();
@@ -151,7 +367,7 @@ export class AudioOutput {
    * `undefined` without disturbing speaker playback.
    */
   capture(): AudioCaptureLease | undefined {
-    const ctx = this.#ctx;
+    const ctx = this.#usableContext();
     if (!ctx || ctx.state !== 'running' || this.#capture?.active) {
       return undefined;
     }
@@ -205,7 +421,7 @@ export class AudioOutput {
   }
 
   get unlocked(): boolean {
-    return this.#ctx?.state === 'running';
+    return this.#usableContext()?.state === 'running';
   }
 
   #releaseCapture(state: CaptureState): void {

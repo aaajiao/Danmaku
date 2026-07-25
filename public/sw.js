@@ -9,6 +9,7 @@
 const BUILD_ID = "__BUILD_ID__";
 const PRECACHE_URLS = /* __PRECACHE_URLS__ */ [];
 const CACHE_BASE = "danmaku-shell-";
+const ACTIVATE_UPDATE = "danmaku:activate-update";
 
 /** CacheStorage is origin-wide, so each service-worker scope owns a namespace. */
 function scopeKey(scope) {
@@ -29,18 +30,53 @@ const LOCAL_DEVELOPMENT = (
   || self.location.hostname === "[::1]"
 );
 
-/**
- * No `skipWaiting()`: an update stays waiting until every page using the old
- * app shell closes. That keeps one play session on one atomic JS + pack set.
- */
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    const requests = PRECACHE_URLS.map((path) => new Request(
-      new URL(path, self.registration.scope),
-      { cache: "reload" },
-    ));
-    await cache.addAll(requests);
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const requests = PRECACHE_URLS.map((path) => new Request(
+        new URL(path, self.registration.scope),
+        { cache: "reload" },
+      ));
+      // A complete release waits beside the active one. The page promotes it
+      // only from a safe game state, so a live run stays on one atomic snapshot.
+      await cache.addAll(requests);
+    } catch (error) {
+      // A rejected install never reaches activate(), where old release caches
+      // are normally collected. Remove this build's failed cache here so
+      // repeated iOS update attempts cannot consume origin quota indefinitely.
+      try {
+        await caches.delete(CACHE_NAME);
+      } catch {
+        // Preserve the install error: cleanup failure must not make a broken
+        // release eligible to activate.
+      }
+      throw error;
+    }
+  })());
+});
+
+/**
+ * Promotion is page-coordinated rather than automatic. In particular, the
+ * bridge from releases without this protocol must stay waiting until that old
+ * client really closes; otherwise old JavaScript would fetch through a new
+ * worker after its cache had been deleted.
+ */
+self.addEventListener("message", (event) => {
+  if (event.data !== ACTIVATE_UPDATE) return;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    const scoped = windows.filter(
+      (client) => client.url.startsWith(self.registration.scope),
+    );
+    // One title page is known-safe. If a Safari tab or another installed
+    // window is also alive, leave the worker waiting rather than interrupting
+    // an unknown run in that client.
+    if (scoped.length !== 1 || scoped[0].id !== event.source?.id) return;
+    await self.skipWaiting();
   })());
 });
 

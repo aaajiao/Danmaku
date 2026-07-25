@@ -76,8 +76,13 @@ class FakeBufferSource extends FakeAudioNode {
   loopStart = 0;
   loopEnd = 0;
   onended: (() => void) | null = null;
+  starts = 0;
+  startWhen: number | undefined;
 
-  start(): void {}
+  start(when?: number): void {
+    this.starts++;
+    this.startWhen = when;
+  }
   stop(): void {}
 }
 
@@ -121,6 +126,7 @@ interface Settings {
   mediaTracks: number;
   mediaUnsupported: boolean;
   resumeGate?: Promise<void>;
+  resumeGates?: Promise<void>[];
 }
 
 let settings: Settings;
@@ -132,6 +138,7 @@ class FakeAudioContext {
   readonly sampleRate = 44100;
   readonly destination = new FakeAudioNode();
   readonly gains: FakeGainNode[] = [];
+  readonly sources: FakeBufferSource[] = [];
   readonly mediaDestinations: FakeMediaDestination[] = [];
   resumes = 0;
   closes = 0;
@@ -154,7 +161,9 @@ class FakeAudioContext {
   }
 
   createBufferSource(): FakeBufferSource {
-    return new FakeBufferSource();
+    const source = new FakeBufferSource();
+    this.sources.push(source);
+    return source;
   }
 
   createBuffer(channels: number, length: number, rate: number): FakeAudioBuffer {
@@ -173,7 +182,8 @@ class FakeAudioContext {
 
   async resume(): Promise<void> {
     this.resumes++;
-    if (settings.resumeGate) await settings.resumeGate;
+    const gate = settings.resumeGates?.shift() ?? settings.resumeGate;
+    if (gate) await gate;
     if (settings.failResume) throw new Error('resume refused');
     this.state = 'running';
   }
@@ -242,6 +252,183 @@ describe('AudioOutput', () => {
     music.masterVolume = 0.1;
     expect(sfxBus?.gain.value).toBe(0.2);
     expect(musicBus?.gain.value).toBe(0.1);
+  });
+
+  test('a later gesture bypasses one permanently pending resume on the same context', async () => {
+    const never = new Promise<void>(() => undefined);
+    settings.resumeGates = [never, Promise.resolve()];
+    const output = new AudioOutput();
+    const audio = new Audio({ output, masterVolume: 0.8 });
+    const music = new Music({ output, masterVolume: 0.4 });
+
+    // The down half of a drag starts one attempt that WebKit never settles.
+    output.activateFromGesture();
+    const graph = Promise.all([
+      output.unlock(),
+      audio.unlock(),
+      music.unlock(),
+    ]);
+
+    expect(contexts).toHaveLength(1);
+    const ctx = contexts[0] as FakeAudioContext;
+    expect(ctx.resumes).toBe(1);
+    expect(ctx.sources).toHaveLength(1);
+    expect(audio.unlocked).toBe(false);
+    expect(music.unlocked).toBe(false);
+
+    // Its independently dispatched up/end gesture must call resume again,
+    // rather than joining the poisoned promise above.
+    output.activateFromGesture();
+    await graph;
+
+    expect(contexts).toHaveLength(1);
+    expect(ctx.resumes).toBe(2);
+    expect(ctx.sources).toHaveLength(2);
+    expect(output.unlocked).toBe(true);
+    expect(audio.unlocked).toBe(true);
+    expect(music.unlocked).toBe(true);
+
+    // Both compatibility wake sources are one zero sample connected directly
+    // to the speaker. They create neither an audible value nor a third bus.
+    for (const source of ctx.sources) {
+      expect(source.starts).toBe(1);
+      expect(source.startWhen).toBe(0);
+      expect(source.outputs).toEqual([ctx.destination]);
+      expect(source.buffer?.length).toBe(1);
+      expect(source.buffer?.getChannelData()[0]).toBe(0);
+    }
+    const speakerBuses = ctx.gains.filter((gain) => (
+      gain.outputs.includes(ctx.destination)
+    ));
+    expect(speakerBuses).toHaveLength(2);
+  });
+
+  test('a rejected later gesture rotates past an older pending attempt', async () => {
+    const never = new Promise<void>(() => undefined);
+    settings.resumeGates = [never, Promise.resolve()];
+    const output = new AudioOutput();
+    const audio = new Audio({ output });
+    const music = new Music({ output });
+
+    output.activateFromGesture();
+    const poisonedGraph = Promise.all([
+      output.unlock(),
+      audio.unlock(),
+      music.unlock(),
+    ]);
+    const poisoned = contexts[0] as FakeAudioContext;
+    expect(poisoned.resumes).toBe(1);
+
+    settings.failResume = true;
+    output.activateFromGesture();
+    await poisonedGraph;
+    expect(poisoned.resumes).toBe(2);
+    expect(poisoned.closes).toBe(1);
+    expect(output.unlocked).toBe(false);
+
+    settings.failResume = false;
+    output.activateFromGesture();
+    await Promise.all([output.unlock(), audio.unlock(), music.unlock()]);
+
+    expect(contexts).toHaveLength(2);
+    const replacement = contexts[1] as FakeAudioContext;
+    expect(replacement.resumes).toBe(1);
+    expect(replacement.gains).toHaveLength(2);
+    expect(output.unlocked).toBe(true);
+    expect(audio.unlocked).toBe(true);
+    expect(music.unlocked).toBe(true);
+  });
+
+  test('page restore retries an existing context and the next gesture can finish it', async () => {
+    const output = new AudioOutput();
+    const audio = new Audio({ output });
+    const music = new Music({ output });
+    await Promise.all([audio.unlock(), music.unlock()]);
+
+    const ctx = contexts[0] as FakeAudioContext;
+    const buses = [...ctx.gains];
+    ctx.state = 'suspended';
+    const never = new Promise<void>(() => undefined);
+    settings.resumeGates = [never, Promise.resolve()];
+
+    const restored = output.resumeIfStarted();
+    expect(ctx.resumes).toBe(2);
+    expect(output.unlocked).toBe(false);
+
+    output.activateFromGesture();
+    expect(await restored).toBe(ctx as unknown as AudioContext);
+
+    expect(contexts).toHaveLength(1);
+    expect(ctx.resumes).toBe(3);
+    expect(output.unlocked).toBe(true);
+    expect(ctx.gains).toEqual(buses);
+    expect(ctx.sources).toHaveLength(1);
+  });
+
+  test('page restore stays inert before the first player gesture', async () => {
+    const output = new AudioOutput();
+
+    expect(await output.resumeIfStarted()).toBeUndefined();
+    expect(contexts).toHaveLength(0);
+  });
+
+  test('an explicitly refused restore gesture replaces the bad context', async () => {
+    const output = new AudioOutput();
+    const audio = new Audio({ output });
+    const music = new Music({ output });
+    await Promise.all([audio.unlock(), music.unlock()]);
+
+    const refused = contexts[0] as FakeAudioContext;
+    refused.state = 'suspended';
+    settings.failResume = true;
+
+    output.activateFromGesture();
+    expect(await output.unlock()).toBeUndefined();
+    expect(refused.closes).toBe(1);
+    expect(output.unlocked).toBe(false);
+
+    settings.failResume = false;
+    output.activateFromGesture();
+    await Promise.all([output.unlock(), audio.unlock(), music.unlock()]);
+
+    expect(contexts).toHaveLength(2);
+    const replacement = contexts[1] as FakeAudioContext;
+    expect(replacement.resumes).toBe(1);
+    expect(replacement.gains).toHaveLength(2);
+    expect(output.unlocked).toBe(true);
+    expect(audio.unlocked).toBe(true);
+    expect(music.unlocked).toBe(true);
+  });
+
+  test('a closed context is replaced once and both buses rebuild on it', async () => {
+    const output = new AudioOutput();
+    const audio = new Audio({ output, masterVolume: 0.8 });
+    const music = new Music({ output, masterVolume: 0.4 });
+    await Promise.all([audio.unlock(), music.unlock()]);
+
+    const closed = contexts[0] as FakeAudioContext;
+    expect(closed.gains).toHaveLength(2);
+    closed.state = 'closed';
+
+    // This mirrors main's synchronous gesture order: replace/wake the output,
+    // then let both consumers notice that their context-owned nodes are stale.
+    output.activateFromGesture();
+    await Promise.all([output.unlock(), audio.unlock(), music.unlock()]);
+
+    expect(contexts).toHaveLength(2);
+    const replacement = contexts[1] as FakeAudioContext;
+    expect(replacement.resumes).toBe(1);
+    expect(replacement.sources).toHaveLength(1);
+    expect(replacement.gains).toHaveLength(2);
+    expect(output.unlocked).toBe(true);
+    expect(audio.unlocked).toBe(true);
+    expect(music.unlocked).toBe(true);
+
+    // Mirrored Pointer + Touch streams after success only poke the same output.
+    output.activateFromGesture();
+    expect(contexts).toHaveLength(2);
+    expect(replacement.sources).toHaveLength(1);
+    expect(replacement.gains).toHaveLength(2);
   });
 
   test('a lease exposes exactly one mixed track and release preserves speakers', async () => {

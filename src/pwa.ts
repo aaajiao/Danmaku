@@ -11,6 +11,61 @@
 
 const CACHE_PREFIX = 'danmaku-shell-';
 const DEV_RESET_KEY = 'danmaku-pwa-dev-reset';
+const ACTIVATE_UPDATE = 'danmaku:activate-update';
+const UPDATE_RETRY_MS = 5_000;
+
+export class PwaUpdateCoordinator {
+  #registration: ServiceWorkerRegistration | undefined;
+  #requested: ServiceWorker | undefined;
+  #requestedAt = Number.NEGATIVE_INFINITY;
+
+  constructor(
+    readonly now: () => number = () => performance.now(),
+  ) {}
+
+  observe(registration: ServiceWorkerRegistration): void {
+    this.#registration = registration;
+    if (registration.waiting !== this.#requested) {
+      this.#requested = undefined;
+      this.#requestedAt = Number.NEGATIVE_INFINITY;
+    }
+  }
+
+  /**
+   * Promote at a bounded cadence per waiting worker. The shell calls this only
+   * while the title is current, so controllerchange reloads without losing a run.
+   */
+  activateWaiting(): boolean {
+    const worker = this.#registration?.waiting;
+    if (worker === null || worker === undefined) {
+      return false;
+    }
+    const at = this.now();
+    if (
+      worker === this.#requested
+      && at - this.#requestedAt < UPDATE_RETRY_MS
+    ) return false;
+
+    this.#requested = worker;
+    this.#requestedAt = at;
+    try {
+      worker.postMessage(ACTIVATE_UPDATE);
+      return true;
+    } catch {
+      // The waiting worker may have become redundant between the getter and
+      // postMessage. Keep the same bounded retry cadence; a replacement worker
+      // has a different identity and can still be contacted immediately.
+      return false;
+    }
+  }
+}
+
+const updates = new PwaUpdateCoordinator();
+
+/** Called from the shell's title-state reconcile; inert when no update waits. */
+export function activateWaitingPwaUpdate(): boolean {
+  return updates.activateWaiting();
+}
 
 /** Same small FNV-1a scope identity used by the worker's cache namespace. */
 function scopeKey(scope: string): string {
@@ -38,6 +93,50 @@ function isThisApp(registration: ServiceWorkerRegistration): boolean {
     if (worker === null) return false;
     return new URL(worker.scriptURL).pathname.endsWith('/sw.js');
   });
+}
+
+/**
+ * Reload exactly once when one active production worker hands the page to a
+ * newer one. A first install changes `controller` from null and must not
+ * reload: that page already came from the network as one coherent release.
+ */
+export function reloadOnControllerUpgrade(
+  serviceWorkers: ServiceWorkerContainer,
+  reload: () => void,
+): void {
+  let controller = serviceWorkers.controller;
+  let reloading = false;
+
+  serviceWorkers.addEventListener('controllerchange', () => {
+    const previous = controller;
+    controller = serviceWorkers.controller;
+    if (
+      reloading
+      || previous === null
+      || controller === null
+      || controller === previous
+    ) {
+      return;
+    }
+    reloading = true;
+    reload();
+  });
+}
+
+/** Register the root worker and bypass the browser's periodic update cadence. */
+export async function registerProductionWorker(
+  serviceWorkers: ServiceWorkerContainer,
+  observe: (registration: ServiceWorkerRegistration) => void = () => undefined,
+): Promise<void> {
+  const registration = await serviceWorkers.register('./sw.js', {
+    scope: './',
+    updateViaCache: 'none',
+  });
+  // Observe before update(): a pre-existing waiting worker is immediately
+  // promotable, and a newly installing worker appears through the same live
+  // registration object once it reaches `waiting`.
+  observe(registration);
+  await registration.update();
 }
 
 /**
@@ -76,15 +175,22 @@ async function clearDevelopmentWorker(): Promise<void> {
 }
 
 if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+  // Install this listener before `load`: a fast, already-downloaded update may
+  // otherwise claim the page before the deferred registration callback runs.
+  reloadOnControllerUpgrade(
+    navigator.serviceWorker,
+    () => location.reload(),
+  );
   addEventListener('load', () => {
-    void navigator.serviceWorker.register('./sw.js', {
-      scope: './',
-      updateViaCache: 'none',
-    }).catch((error: unknown) => {
-      // Offline support is an enhancement; a refused worker must never block
-      // the procedural asset floor or the game loop.
-      console.warn('pwa: service worker registration failed', error);
-    });
+    void registerProductionWorker(
+      navigator.serviceWorker,
+      (registration) => updates.observe(registration),
+    )
+      .catch((error: unknown) => {
+        // Offline support is an enhancement; a refused worker must never block
+        // the procedural asset floor or the game loop.
+        console.warn('pwa: service worker setup failed', error);
+      });
   }, { once: true });
 } else if ('serviceWorker' in navigator) {
   void clearDevelopmentWorker().catch((error: unknown) => {
