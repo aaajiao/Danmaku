@@ -17,11 +17,13 @@ import {
 } from '../render/v4-portrait';
 import {
   V4_CHARACTER_UI,
+  V4_COMBAT_UI,
   V4_DIFFICULTY_UI,
   V4_UI_CELLS,
   V4_UI_SCREEN,
   drawV4Ui,
   v4CharacterActorSource,
+  v4CombatHudBaseline,
   v4MenuRowGeometry,
   v4StatusMenuLayout,
   type V4UiCellName,
@@ -256,8 +258,15 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     const boss = run.boss.boss;
     const bossUp = boss?.alive === true;
 
-    const topY = bossUp ? 50 : 16;
-    drawV4Ui(surface, v4Ui, 'ui.hud.score', 8, topY - 12, { alpha: 0.9 });
+    const topY = v4CombatHudBaseline(bossUp);
+    drawV4Ui(
+      surface,
+      v4Ui,
+      'ui.hud.score',
+      8,
+      topY - V4_COMBAT_UI.hud.scoreGlyphTopOffset,
+      { alpha: 0.9 },
+    );
     surface.fillStyle = '#d6e1e8';
     surface.fillText(`${p.score.toString().padStart(9, '0')}`, 29, topY);
     drawV4Ui(surface, v4Ui, 'ui.hud.graze', 8, topY + 3, { alpha: 0.8 });
@@ -299,7 +308,7 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
    * A right-aligned HUD resource: a pack icon when supplied, the engine-owned
    * v4 glyph otherwise. Position, size, and alpha remain engine-owned.
    */
-  const HUD_ICON = 13;
+  const HUD_ICON = V4_COMBAT_UI.hud.resourceIconSize;
   const HUD_ICON_GAP = 3;
   const HUD_ICON_ALPHA = 0.85;
 
@@ -327,32 +336,43 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
   }
 
   function drawBossBar(boss: NonNullable<Run['boss']['boss']>): void {
+    const layout = V4_COMBAT_UI.boss;
     const spell = boss.phase.isSpell === true;
-    drawV4Ui(surface, v4Ui, 'ui.boss.ornament', 80, 0, {
-      width: 320,
-      height: 52,
-      alpha: 0.72,
+    drawV4Ui(surface, v4Ui, 'ui.boss.ornament', layout.ornament.x, layout.ornament.y, {
+      width: layout.ornament.w,
+      height: layout.ornament.h,
+      alpha: layout.ornament.alpha,
     });
     drawUiBarFill(
       spell ? 'ui.boss.fill.spell' : 'ui.boss.fill.normal',
-      110,
-      8,
+      layout.health.x,
+      layout.health.y,
       boss.phaseHpFraction,
-      260,
+      layout.health.w,
     );
 
     if (spell) {
-      drawUiBarFill('ui.boss.timer', 110, 20, 1 - boss.phaseTimeFraction, 260);
+      drawUiBarFill(
+        'ui.boss.timer',
+        layout.timer.x,
+        layout.timer.y,
+        1 - boss.phaseTimeFraction,
+        layout.timer.w,
+      );
     }
 
     const tint = tintFor(boss.name);
     surface.fillStyle = `rgb(${Math.round(tint.r * 215)},${Math.round(tint.g * 215)},${Math.round(tint.b * 225)})`;
     uiFont(9, 600);
     surface.textAlign = 'left';
-    surface.fillText(boss.name, 84, 61);
+    surface.fillText(boss.name, layout.labels.leftX, layout.labels.baseline);
     surface.fillStyle = spell ? '#edb8c8' : '#9caab5';
     surface.textAlign = 'right';
-    surface.fillText(spell ? `✧ ${boss.phase.name}` : boss.phase.name, FIELD_W - 84, 61);
+    surface.fillText(
+      spell ? `✧ ${boss.phase.name}` : boss.phase.name,
+      FIELD_W - layout.labels.rightInset,
+      layout.labels.baseline,
+    );
     surface.textAlign = 'left';
   }
 

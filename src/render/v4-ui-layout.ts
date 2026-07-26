@@ -98,6 +98,45 @@ export type V4UiCellName = keyof typeof V4_UI_CELLS;
 
 export const V4_UI_PANEL_CORNER = 12;
 
+/**
+ * Persistent combat HUD and Boss-header geometry.
+ *
+ * `boss.safeBottom` includes the ornament plus the name/card copy beneath it.
+ * The persistent HUD's highest pixel is derived from the taller of its two
+ * top-row glyph treatments, then placed below that boundary with a real gap.
+ * Keeping the relationship here prevents a production ornament from growing
+ * over score, life, or power while both are composited into the same canvas.
+ */
+export const V4_COMBAT_UI = {
+  hud: {
+    baseline: 16,
+    scoreGlyphTopOffset: 12,
+    resourceIconSize: 13,
+    bossGap: 3,
+  },
+  boss: {
+    ornament: { x: 80, y: 0, w: 320, h: 52, alpha: 0.72 },
+    health: { x: 110, y: 8, w: 260 },
+    timer: { x: 110, y: 20, w: 260 },
+    labels: { leftX: 84, rightInset: 84, baseline: 61 },
+    safeBottom: 64,
+  },
+} as const;
+
+/** Baseline for the persistent score/resources block in the current combat state. */
+export function v4CombatHudBaseline(bossActive: boolean): number {
+  if (!bossActive) return V4_COMBAT_UI.hud.baseline;
+  const upperExtent = Math.max(
+    V4_COMBAT_UI.hud.scoreGlyphTopOffset,
+    V4_COMBAT_UI.hud.resourceIconSize,
+  );
+  return (
+    V4_COMBAT_UI.boss.safeBottom
+    + V4_COMBAT_UI.hud.bossGap
+    + upperExtent
+  );
+}
+
 /** Fixed screen compositions, also in 480×640 logical pixels. */
 export const V4_UI_SCREEN = {
   menu: { x: 54, y: 116, w: 372, h: 458 },

@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import type { Region } from './atlas';
 import {
+  V4_COMBAT_UI,
   V4_UI_SCREEN,
   v4CharacterActorSource,
+  v4CombatHudBaseline,
   v4MenuRowGeometry,
   v4StatusMenuLayout,
 } from './v4-ui-layout';
@@ -153,5 +155,25 @@ describe('v4 dialogue copy layout', () => {
     expect(copy.bodyBaseline - copy.headerBaseline).toBeGreaterThanOrEqual(20);
     expect(copy.promptBaseline).toBeGreaterThanOrEqual(40);
     expect(h - copy.footerBaseline).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe('v4 combat HUD layout', () => {
+  test('keeps the persistent HUD wholly below the Boss header', () => {
+    const { boss, hud } = V4_COMBAT_UI;
+    const baseline = v4CombatHudBaseline(true);
+    const upperExtent = Math.max(
+      hud.scoreGlyphTopOffset,
+      hud.resourceIconSize,
+    );
+    const hudTop = baseline - upperExtent;
+
+    expect(boss.ornament.y + boss.ornament.h).toBeLessThanOrEqual(boss.safeBottom);
+    expect(boss.labels.baseline).toBeLessThan(boss.safeBottom);
+    expect(hudTop).toBe(boss.safeBottom + hud.bossGap);
+  });
+
+  test('keeps the ordinary no-Boss HUD on its historical top baseline', () => {
+    expect(v4CombatHudBaseline(false)).toBe(V4_COMBAT_UI.hud.baseline);
   });
 });

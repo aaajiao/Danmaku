@@ -142,9 +142,11 @@ export function drawV4UiPanel(
 
 export {
   V4_CHARACTER_UI,
+  V4_COMBAT_UI,
   V4_DIFFICULTY_UI,
   V4_UI_CELLS,
   V4_UI_SCREEN,
+  v4CombatHudBaseline,
   v4MenuRowGeometry,
   v4StatusMenuLayout,
   v4CharacterActorSource,
