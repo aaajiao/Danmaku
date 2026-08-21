@@ -1357,9 +1357,11 @@ const loop = new Loop({
     const exportRunTickBefore = stateBeforeTick instanceof ReplayExportState
       ? stateBeforeTick.run.tickCount
       : undefined;
-    const pointerRun = stateBeforeTick?.name === 'playing'
-      ? (stateBeforeTick as { readonly run?: Run }).run
-      : undefined;
+    // Live play, replay viewing and replay export all expose the Run they tick.
+    // Sampling that structural seam gives a session export's terminal Run the
+    // same real replay route used by the authored ending, without naming UI
+    // states inside the presentation-only trace recorder.
+    const pointerRun = (stateBeforeTick as { readonly run?: Run } | undefined)?.run;
     if (pointerRun === undefined) pointerPositionInput.clearOrigin();
     else pointerPositionInput.setOrigin(pointerRun.player.x, pointerRun.player.y);
 
@@ -1507,6 +1509,13 @@ const loop = new Loop({
           }
         }
       }
+
+      // A session replay/export state owns both its frozen terminal Run and the
+      // automatic ending declaration. Re-apply state declarations after the Run
+      // so the same-state override has the same precedence as a separate ending
+      // state stacked above live play.
+      if (override !== undefined) track = override;
+      if (sceneOverride !== undefined) scene = sceneOverride;
     }
 
     if (topRun === undefined) {
@@ -1549,12 +1558,18 @@ const loop = new Loop({
     // wrote — rather than falling back to the stage track the finished run
     // beneath it still reports (`run.music` resolves to `#stageMusic` once the
     // boss is dead, and a failed run never returns undefined). The `death` sound
-    // punctuates the cut. `GameOverState` is always the stack top while it is up
-    // (its confirm pops or clears the stack, never pushes over itself), so its
-    // name is the signal — read the same way the pause duck below reads the top.
+    // punctuates the cut. `GameOverState` names the ordinary signal. A session
+    // replay/export cannot replace its Run-owning state for the terminal card,
+    // so it exposes the equivalent plain `silenceMusic` declaration. Fold that
+    // declaration across the stack so opening replay pause over a failed card
+    // cannot accidentally restart the frozen stage track.
     // The `current !== undefined` guard makes the cut a one-shot; a RETRY pops
     // the card and the reconcile resumes on the next tick with no special case.
-    const gameOver = machine.stack[machine.stack.length - 1]?.name === 'game-over';
+    const topState = machine.stack[machine.stack.length - 1];
+    const gameOver = machine.stack.some((state) => (
+      state.name === 'game-over'
+      || (state as { readonly silenceMusic?: boolean }).silenceMusic === true
+    ));
     if (gameOver) {
       if (music.current !== undefined) music.stopAll();
     } else {
@@ -1578,7 +1593,7 @@ const loop = new Loop({
     // quieter. Pause is a non-transparent state on top of a run (`states.ts`);
     // the shell reads it off the stack the same way it folds `run.music` above,
     // since no `Run` exposes "am I paused" (the pause lives one level up).
-    const topName = machine.stack[machine.stack.length - 1]?.name;
+    const topName = topState?.name;
     const paused = topName === 'pause' || topName === 'replay-pause';
     music.masterVolume = paused ? MUSIC_PAUSE_LEVEL : MUSIC_LEVEL;
 

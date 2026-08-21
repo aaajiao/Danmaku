@@ -34,6 +34,10 @@ export function videoFilename(
     .replaceAll('-', '')
     .replaceAll(':', '')
     .replace('.000', '');
+  if (exporting.sessionWide) {
+    const scope = exporting.sessionKind === 'full-campaign' ? 'campaign' : 'attempt';
+    return `danmaku-${scope}-${stamp}.${extension}`;
+  }
   const stage = exporting.replay.meta?.['stage'];
   const safeStage = (
     typeof stage === 'string'

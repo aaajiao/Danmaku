@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { Layer } from './render/stage';
 
 const mainSource = await Bun.file(new URL('./main.ts', import.meta.url)).text();
+const statesSource = await Bun.file(new URL('./game/states.ts', import.meta.url)).text();
 const controllerChromeSource = await Bun.file(
   new URL('./shell/controller-chrome.ts', import.meta.url),
 ).text();
@@ -444,6 +445,34 @@ describe('the v4 ending removes information instead of covering it', () => {
       'tick: pointerRun.tickCount',
     );
     expect(mainSource).toContain('const endingTraceByRun = new WeakMap<Run, EndingTraceRecorder>()');
+  });
+
+  test('replay export samples the same Run trace and its ending override wins in-state', () => {
+    const pointer = mainSource.indexOf('const pointerRun =');
+    const sample = mainSource.indexOf('endingTraceRecorder(pointerRun).sample({', pointer);
+    const runTrack = mainSource.indexOf('track = run.music ?? track;', sample);
+    const endingTrack = mainSource.indexOf(
+      'if (override !== undefined) track = override;',
+      runTrack + 1,
+    );
+    const runScene = mainSource.indexOf('scene = run.scene ?? scene;', sample);
+    const endingScene = mainSource.indexOf(
+      'if (sceneOverride !== undefined) scene = sceneOverride;',
+      runScene + 1,
+    );
+
+    expect(pointer).toBeGreaterThan(-1);
+    expect(mainSource.slice(pointer, sample)).toContain(
+      '(stateBeforeTick as { readonly run?: Run } | undefined)?.run',
+    );
+    expect(mainSource.slice(pointer, sample)).not.toContain("name === 'playing'");
+    expect(endingTrack).toBeGreaterThan(runTrack);
+    expect(endingScene).toBeGreaterThan(runScene);
+    expect(statesSource).toContain('get silenceMusic(): boolean');
+    expect(mainSource).toContain(
+      '(state as { readonly silenceMusic?: boolean }).silenceMusic === true',
+    );
+    expect(mainSource).toContain('const gameOver = machine.stack.some((state) => (');
   });
 
   test('uses a local copy wash while the combat HUD yields to the real trace', () => {
@@ -955,6 +984,19 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(mainSource).toContain(
       "current.fail('video export: cancelled because the tab was hidden')",
     );
+  });
+
+  test('whole-session export switches Runs inside one recorder-owned state', () => {
+    const handoffStart = statesSource.indexOf('#tickStageHold(): void');
+    const handoffEnd = statesSource.indexOf('#beginTerminalPresentation(): void', handoffStart);
+    const handoff = statesSource.slice(handoffStart, handoffEnd);
+    expect(handoffStart).toBeGreaterThan(-1);
+    expect(handoffEnd).toBeGreaterThan(handoffStart);
+    expect(handoff).toContain('this.#run = nextRun;');
+    expect(handoff).toContain("this.#sequencePhase = 'gameplay';");
+    expect(handoff).not.toContain('machine.replace');
+    expect(statesSource).toContain('REPLAY_SESSION_ENDING_PAGE_TICKS');
+    expect(statesSource).toContain('REPLAY_SESSION_RESULT_HOLD_TICKS');
   });
 
   test('an encoder that ends before requested shutdown fails even with recorded data', () => {

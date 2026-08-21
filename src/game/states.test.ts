@@ -6,6 +6,8 @@ import { defineOptions } from '../sim/option';
 import type { Replay } from '../sim/replay';
 import { createReplaySession, type ReplaySession } from '../replay/session';
 import { defineStage } from '../content/stage';
+import '../content/patterns';
+import { defineEnemy } from '../sim/enemy';
 import { Edges, type GameState, StateMachine, type StateView } from './state';
 import {
   characterNames,
@@ -31,8 +33,13 @@ import {
   ReplayDeleteConfirmState,
   ReplayLibraryState,
   ReplayPlayingState,
+  ReplayStageState,
+  ReplayStagesState,
   replayExportPresentationAdvances,
   replayRunConfig,
+  REPLAY_SESSION_ENDING_PAGE_TICKS,
+  REPLAY_SESSION_EXPORT_TARGET,
+  REPLAY_SESSION_RESULT_HOLD_TICKS,
   REPLAY_SESSION_STAGE_HOLD_TICKS,
   ReplaySessionState,
   TitleState,
@@ -112,6 +119,33 @@ const PENULTIMATE_STAGE = 'test-ending-penultimate';
 defineStage(PENULTIMATE_STAGE, { name: PENULTIMATE_STAGE, waves: [], next: FINAL_STAGE });
 const REPLAY_STAGE = 'test-replay-stage';
 defineStage(REPLAY_STAGE, { name: REPLAY_STAGE, waves: [], outro: 18 });
+const FAILED_REPLAY_ENEMY = 'test-states-failed-replay-enemy';
+defineEnemy(FAILED_REPLAY_ENEMY, {
+  sprite: 'orb.large',
+  hp: 1_000_000,
+  radius: 8,
+  motion: { r: 0, theta: 90 },
+  patterns: [{
+    pattern: 'aimed-fan',
+    startAt: 0,
+    options: {
+      spec: {
+        style: { sprite: 'orb.small' },
+        radius: 4,
+        motion: { r: 0, theta: 90 },
+      },
+      count: 1,
+      spread: 0,
+      period: 1,
+    },
+  }],
+});
+const FAILED_REPLAY_STAGE = 'test-states-failed-replay-stage';
+defineStage(FAILED_REPLAY_STAGE, {
+  name: FAILED_REPLAY_STAGE,
+  waves: [{ at: 0, enemy: FAILED_REPLAY_ENEMY, x: 240, y: 560 }],
+  outro: 600,
+});
 const RECORDING_FINAL_STAGE = 'test-recording-final';
 defineStage(RECORDING_FINAL_STAGE, {
   name: RECORDING_FINAL_STAGE,
@@ -700,6 +734,13 @@ function replaySession(
   );
 }
 
+function campaignContext(overrides: Partial<GameContext> = {}): GameContext {
+  return context({
+    campaigns: [{ label: 'test campaign', stage: PENULTIMATE_STAGE, packsData: '' }],
+    ...overrides,
+  });
+}
+
 function recordPartialStage(
   ticks: number,
   endReason: ReplayEndReason = 'quit',
@@ -768,11 +809,11 @@ describe('replay library and viewer', () => {
     open(ctx.machine, new ReplaySessionState(ctx, session));
 
     const detail = ctx.machine.current as ReplaySessionState;
-    const deleteIndex = detail.view().menu?.indexOf('DELETE SESSION') ?? -1;
-    expect(deleteIndex).toBe(6);
+    const deleteIndex = detail.view().menu?.indexOf('DELETE') ?? -1;
+    expect(deleteIndex).toBeGreaterThan(-1);
     expect(detail.view().menu?.slice(-3)).toEqual([
-      'DOWNLOAD SESSION',
-      'DELETE SESSION',
+      'DOWNLOAD REPLAY DATA',
+      'DELETE',
       'BACK',
     ]);
 
@@ -817,6 +858,12 @@ describe('replay library and viewer', () => {
     }
 
     expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      'WATCH AGAIN',
+      'EXPORT VIDEO',
+      'DOWNLOAD REPLAY DATA',
+      'BACK',
+    ]);
     expect(viewer.matchesRecording()).toBe(true);
     // The playback run records the file's masks, not the live mask above.
     expect(viewer.run.finishRecording().inputs).toEqual(replay.inputs);
@@ -837,9 +884,9 @@ describe('replay library and viewer', () => {
     expect(viewer.matchesRecording()).toBe(true);
     expect(ctx.machine.current?.view?.().title).toBe('REPLAY ENDED · QUIT');
 
-    const detail = new ReplaySessionState(ctx, session);
-    expect(detail.view().menu?.[1]).toContain('QUIT');
-    expect(detail.view().menu?.[1]).toContain('00:00');
+    const detail = new ReplayStageState(ctx, session, 0);
+    expect(detail.view().lines?.[0]).toContain('QUIT');
+    expect(detail.view().lines?.[0]).toContain('00:00');
   });
 
   test('an intentional RETRIED prefix exports through the same exact matcher', () => {
@@ -928,6 +975,166 @@ describe('replay library and viewer', () => {
     expect(ctx.machine.current?.name).toBe('replay-export-result');
   });
 
+  test('one session export instance plays every stage, ending page, and ALL CLEAR hold', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 140);
+    const final = recordStage(FINAL_STAGE, 141, () => 0, first.run.carry);
+    const session = replaySession([first.replay, final.replay]);
+    const ctx = campaignContext({ replaySessions: [session] });
+    const preflight = preflightReplaySession(ctx, session);
+    expect(preflight.kind).toBe('full-campaign');
+    expect(new ReplaySessionState(ctx, session).view().menu?.slice(0, 2)).toEqual([
+      'WATCH FULL CAMPAIGN',
+      'EXPORT FULL CAMPAIGN VIDEO',
+    ]);
+
+    const exporting = new ReplayExportState(ctx, session, REPLAY_SESSION_EXPORT_TARGET);
+    open(ctx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+    expect(exporting.sessionWide).toBe(true);
+    expect(exporting.sessionKind).toBe('full-campaign');
+
+    for (let tick = 0; tick < first.replay.length + 2 && exporting.view().kind === 'playing'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current).toBe(exporting);
+    expect(exporting.segmentIndex).toBe(0);
+    expect(exporting.view()).toMatchObject({
+      kind: 'cleared',
+      title: 'STAGE CLEAR',
+      menu: [],
+      age: 0,
+    });
+    const frozen = exporting.run;
+    for (let tick = 1; tick < REPLAY_SESSION_STAGE_HOLD_TICKS; tick++) {
+      ctx.machine.tick(0);
+      expect(exporting.run).toBe(frozen);
+      expect(ctx.machine.current).toBe(exporting);
+    }
+    ctx.machine.tick(0);
+    expect(ctx.machine.current).toBe(exporting);
+    expect(exporting.segmentIndex).toBe(1);
+    expect(exporting.run.stageName).toBe(FINAL_STAGE);
+    expect(exporting.run.config.carry).toEqual(first.run.carry);
+
+    for (let tick = 0; tick < final.replay.length + 2 && exporting.view().kind === 'playing'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(exporting.phase).toBe('recording');
+    expect(exporting.view()).toMatchObject({
+      kind: 'ending',
+      lines: ['test opening one', 'test opening two'],
+      endingPage: { index: 0, count: 3, age: 0 },
+    });
+    expect(exporting.music).toBe('test-ending-music');
+    expect(exporting.scene).toBe('test-ending-scene');
+
+    for (let page = 0; page < 3; page++) {
+      for (let tick = 1; tick < REPLAY_SESSION_ENDING_PAGE_TICKS; tick++) {
+        ctx.machine.tick(0);
+        expect(ctx.machine.current).toBe(exporting);
+        expect(exporting.phase).toBe('recording');
+      }
+      ctx.machine.tick(0);
+      if (page < 2) {
+        expect(exporting.view().endingPage).toMatchObject({ index: page + 1, age: 0 });
+      }
+    }
+
+    expect(exporting.view()).toMatchObject({
+      kind: 'cleared',
+      title: 'ALL CLEAR',
+      menu: [],
+      age: 0,
+    });
+    expect(exporting.music).toBeUndefined();
+    expect(exporting.scene).toBeUndefined();
+    for (let tick = 1; tick < REPLAY_SESSION_RESULT_HOLD_TICKS; tick++) {
+      ctx.machine.tick(0);
+      expect(exporting.phase).toBe('recording');
+    }
+    ctx.machine.tick(0);
+    expect(exporting.phase).toBe('finished');
+    expect(ctx.machine.current).toBe(exporting);
+    expect(exporting.beginStopping()).toBe(true);
+    expect(exporting.complete('danmaku-campaign.webm')).toBe(true);
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Shot);
+    const again = ctx.machine.current as ReplayExportState;
+    expect(again).toBeInstanceOf(ReplayExportState);
+    expect(again.sessionWide).toBe(true);
+    expect(again.sessionKind).toBe('full-campaign');
+  });
+
+  test('a partial recorded attempt gets a deterministic non-ALL-CLEAR terminal card', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 142);
+    const partialRun = new Run({
+      seed: 143,
+      character: PILOT,
+      stage: FINAL_STAGE,
+      carry: first.run.carry,
+    });
+    const recorded = partialRun.finishRecording();
+    const partial: Replay = {
+      ...recorded,
+      meta: { ...recorded.meta, endReason: 'quit' },
+    };
+    const session = replaySession([first.replay, partial]);
+    const ctx = campaignContext();
+    expect(preflightReplaySession(ctx, session).kind).toBe('recorded-attempt');
+    expect(new ReplaySessionState(ctx, session).view().menu?.slice(0, 2)).toEqual([
+      'WATCH RECORDED ATTEMPT',
+      'EXPORT RECORDED ATTEMPT VIDEO',
+    ]);
+    const exporting = new ReplayExportState(ctx, session, REPLAY_SESSION_EXPORT_TARGET);
+    open(ctx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+
+    for (let tick = 0; tick < first.replay.length + REPLAY_SESSION_STAGE_HOLD_TICKS + 4; tick++) {
+      ctx.machine.tick(0);
+      if (exporting.segmentIndex === 1 && exporting.view().kind !== 'playing') break;
+    }
+
+    expect(exporting.view()).toMatchObject({
+      kind: 'replay-complete',
+      title: 'REPLAY ENDED · QUIT',
+      menu: [],
+      age: 0,
+    });
+    expect(exporting.view().title).not.toBe('ALL CLEAR');
+    expect(exporting.view().kind).not.toBe('ending');
+    for (let tick = 0; tick < REPLAY_SESSION_RESULT_HOLD_TICKS; tick++) ctx.machine.tick(0);
+    expect(exporting.phase).toBe('finished');
+  });
+
+  test('a failed recorded attempt uses the deterministic GAME OVER card and silence', () => {
+    const failed = recordStage(FAILED_REPLAY_STAGE, 144);
+    expect(failed.run.outcome).toBe('failed');
+    const session = replaySession([failed.replay]);
+    const ctx = context({
+      campaigns: [{ label: 'failed campaign', stage: FAILED_REPLAY_STAGE, packsData: '' }],
+    });
+    expect(preflightReplaySession(ctx, session).kind).toBe('recorded-attempt');
+    const exporting = new ReplayExportState(ctx, session, REPLAY_SESSION_EXPORT_TARGET);
+    open(ctx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+
+    for (let tick = 0; tick < failed.replay.length + 2 && exporting.view().kind === 'playing'; tick++) {
+      ctx.machine.tick(0);
+    }
+
+    expect(exporting.matchesRecording()).toBe(true);
+    expect(exporting.view()).toMatchObject({
+      kind: 'game-over',
+      title: 'GAME OVER',
+      menu: [],
+      age: 0,
+    });
+    expect(exporting.silenceMusic).toBe(true);
+    expect(exporting.scene).toBe('signal-decay');
+    for (let tick = 0; tick < REPLAY_SESSION_RESULT_HOLD_TICKS; tick++) ctx.machine.tick(0);
+    expect(exporting.phase).toBe('finished');
+  });
+
   test('presentation steps the final replay tick, then freezes its tail frame', () => {
     expect(replayExportPresentationAdvances(undefined, undefined)).toBe(true);
     expect(replayExportPresentationAdvances(undefined, 'preparing')).toBe(false);
@@ -939,7 +1146,7 @@ describe('replay library and viewer', () => {
     expect(replayExportPresentationAdvances('finished', 'stopping')).toBe(false);
   });
 
-  test('session menu exposes export per stage and live Start cancels it', () => {
+  test('session and STAGES menus keep whole-replay actions separate from per-stage export', () => {
     const { replay } = recordStage(REPLAY_STAGE, 115);
     const session = replaySession([replay]);
     const errors: string[] = [];
@@ -949,16 +1156,35 @@ describe('replay library and viewer', () => {
     });
     const detail = new ReplaySessionState(ctx, session);
     open(ctx.machine, detail);
-    expect(detail.view().menu?.[0]).toBe('WATCH SESSION');
-    expect(detail.view().menu?.[2]).toBe(
-      `EXPORT ${(replay.meta?.['stage'] as string).toUpperCase()} VIDEO`,
-    );
-    expect(detail.view().menu?.slice(-2)).toEqual(['DOWNLOAD SESSION', 'BACK']);
+    expect(detail.view().menu).toEqual([
+      'WATCH REPLAY',
+      'EXPORT REPLAY VIDEO',
+      'STAGES',
+      'DOWNLOAD REPLAY DATA',
+      'BACK',
+    ]);
 
     tap(ctx.machine, Button.Down, 2);
     press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStagesState);
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      expect.stringContaining((replay.meta?.['stage'] as string).toUpperCase()),
+      'BACK',
+    ]);
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStageState);
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      'WATCH STAGE',
+      'EXPORT STAGE VIDEO',
+      'BACK',
+    ]);
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
     const exporting = ctx.machine.current as ReplayExportState;
     expect(exporting).toBeInstanceOf(ReplayExportState);
+    expect(exporting.sessionWide).toBe(false);
     ctx.machine.tick(0);
     expect(exporting.arm()).toBe(true);
     tap(ctx.machine, Button.Start);
@@ -1068,8 +1294,189 @@ describe('replay library and viewer', () => {
     expect(next.run.stageName).toBe(FINAL_STAGE);
     expect(next.run.config.carry).toEqual(first.run.carry);
 
-    for (let tick = 0; tick < second.replay.length + 2; tick++) ctx.machine.tick(0);
+    for (let tick = 0; tick < second.replay.length + 2 && next.view().kind === 'playing'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(next.sessionKind).toBe('recorded-attempt');
+    expect(next.view()).toMatchObject({
+      kind: 'cleared',
+      title: 'STAGE CLEAR',
+      menu: [],
+      age: 0,
+    });
+    expect(next.view().title).not.toBe('ALL CLEAR');
+    for (let tick = 0; tick < REPLAY_SESSION_RESULT_HOLD_TICKS; tick++) {
+      ctx.machine.tick(0);
+    }
     expect(ctx.machine.current?.name).toBe('replay-complete');
+  });
+
+  test('WATCH FULL CAMPAIGN auto-pages its ending and keeps completion session-wide', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 145);
+    const final = recordStage(FINAL_STAGE, 146, () => 0, first.run.carry);
+    const session = replaySession([first.replay, final.replay]);
+    const ctx = campaignContext({ replaySessions: [session] });
+    open(ctx.machine, new ReplaySessionState(ctx, session));
+    press(ctx.machine, Button.Shot);
+
+    let finalViewer: ReplayPlayingState | undefined;
+    for (let tick = 0; tick < 2_000; tick++) {
+      const current = ctx.machine.current;
+      if (current instanceof ReplayPlayingState && current.view().kind === 'ending') {
+        finalViewer = current;
+        break;
+      }
+      ctx.machine.tick(0);
+    }
+    expect(finalViewer).toBeInstanceOf(ReplayPlayingState);
+    expect(finalViewer?.segmentIndex).toBe(1);
+    expect(finalViewer?.sessionKind).toBe('full-campaign');
+    expect(finalViewer?.view()).toMatchObject({
+      kind: 'ending',
+      lines: ['test opening one', 'test opening two'],
+      endingPage: { index: 0, count: 3, age: 0 },
+    });
+    expect(finalViewer?.music).toBe('test-ending-music');
+    expect(finalViewer?.scene).toBe('test-ending-scene');
+
+    for (let page = 0; page < 3; page++) {
+      for (let tick = 1; tick < REPLAY_SESSION_ENDING_PAGE_TICKS; tick++) {
+        ctx.machine.tick(0);
+        expect(ctx.machine.current).toBe(finalViewer);
+      }
+      ctx.machine.tick(0);
+      if (page < 2) {
+        expect(finalViewer?.view().endingPage).toMatchObject({ index: page + 1, age: 0 });
+      }
+    }
+
+    expect(finalViewer?.view()).toMatchObject({
+      kind: 'cleared',
+      title: 'ALL CLEAR',
+      menu: [],
+      age: 0,
+    });
+    for (let tick = 0; tick < REPLAY_SESSION_RESULT_HOLD_TICKS; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      'WATCH AGAIN',
+      'EXPORT FULL CAMPAIGN VIDEO',
+      'DOWNLOAD REPLAY DATA',
+      'BACK',
+    ]);
+
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Shot);
+    const restarted = ctx.machine.current as ReplayPlayingState;
+    expect(restarted).toBeInstanceOf(ReplayPlayingState);
+    expect(restarted.segmentIndex).toBe(0);
+    expect(restarted.run.stageName).toBe(PENULTIMATE_STAGE);
+    expect(restarted.sessionKind).toBe('full-campaign');
+
+    for (let tick = 0; tick < 2_000 && ctx.machine.current?.name !== 'replay-complete'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    const exporting = ctx.machine.current as ReplayExportState;
+    expect(exporting).toBeInstanceOf(ReplayExportState);
+    expect(exporting.target).toBe(REPLAY_SESSION_EXPORT_TARGET);
+    expect(exporting.sessionWide).toBe(true);
+  });
+
+  test('WATCH RECORDED ATTEMPT holds a partial card without an ending or ALL CLEAR', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 147);
+    const partialRun = new Run({
+      seed: 148,
+      character: PILOT,
+      stage: FINAL_STAGE,
+      carry: first.run.carry,
+    });
+    const recorded = partialRun.finishRecording();
+    const partial: Replay = {
+      ...recorded,
+      meta: { ...recorded.meta, endReason: 'quit' },
+    };
+    const session = replaySession([first.replay, partial]);
+    const ctx = campaignContext({ replaySessions: [session] });
+    open(ctx.machine, new ReplaySessionState(ctx, session));
+    press(ctx.machine, Button.Shot);
+
+    const observedKinds = new Set<string>();
+    const observedTitles = new Set<string>();
+    let finalViewer: ReplayPlayingState | undefined;
+    for (let tick = 0; tick < 1_000; tick++) {
+      const current = ctx.machine.current;
+      const view = current?.view?.();
+      if (view !== undefined) {
+        observedKinds.add(view.kind);
+        if (view.title !== undefined) observedTitles.add(view.title);
+      }
+      if (
+        current instanceof ReplayPlayingState
+        && view?.title === 'REPLAY ENDED · QUIT'
+      ) {
+        finalViewer = current;
+        break;
+      }
+      ctx.machine.tick(0);
+    }
+
+    expect(finalViewer).toBeInstanceOf(ReplayPlayingState);
+    expect(finalViewer?.sessionKind).toBe('recorded-attempt');
+    expect(finalViewer?.view()).toMatchObject({
+      kind: 'replay-complete',
+      title: 'REPLAY ENDED · QUIT',
+      menu: [],
+      age: 0,
+    });
+    expect(observedKinds).not.toContain('ending');
+    expect(observedTitles).not.toContain('ALL CLEAR');
+    for (let tick = 0; tick < REPLAY_SESSION_RESULT_HOLD_TICKS; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(ctx.machine.current?.view?.().menu).toContain('EXPORT RECORDED ATTEMPT VIDEO');
+  });
+
+  test('session pause restarts the whole session while single replay pause stays local', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 149);
+    const final = recordStage(FINAL_STAGE, 150, () => 0, first.run.carry);
+    const session = replaySession([first.replay, final.replay]);
+    const ctx = campaignContext();
+    const finalViewer = new ReplayPlayingState(ctx, session, 1, {
+      continuous: true,
+      carry: first.run.carry,
+    });
+    ctx.machine.push(finalViewer);
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      'RESUME',
+      'RESTART SESSION',
+      'EXIT REPLAY',
+    ]);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    const restarted = ctx.machine.current as ReplayPlayingState;
+    expect(restarted.segmentIndex).toBe(0);
+    expect(restarted.run.stageName).toBe(PENULTIMATE_STAGE);
+
+    const singleCtx = context();
+    const singleSession = replaySession([recordStage(REPLAY_STAGE, 151).replay]);
+    const single = new ReplayPlayingState(singleCtx, singleSession, 0);
+    singleCtx.machine.push(single);
+    singleCtx.machine.tick(0);
+    tap(singleCtx.machine, Button.Start);
+    expect(singleCtx.machine.current?.view?.().menu).toEqual([
+      'RESUME',
+      'RESTART REPLAY',
+      'EXIT REPLAY',
+    ]);
   });
 
   test('session preflight rejects a wrong stage edge and a changed stable field', () => {
@@ -1119,6 +1526,53 @@ describe('replay library and viewer', () => {
       context({ campaigns: [{ label: 'demo', stage: 'demo/entry', packsData: PACK_DATA }] }),
       replaySession([first.replay, changedPacksData]),
     )).toThrow(/segment 2 changes packsData/);
+  });
+
+  test('invalid multi-session main menu permits only STAGES and replay-data operations', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 144);
+    const final = recordStage(FINAL_STAGE, 145, () => 0, first.run.carry).replay;
+    const wrongStage = {
+      ...final,
+      meta: { ...final.meta, stage: UNAUTHORED_FINAL_STAGE },
+    };
+    const session = replaySession([first.replay, wrongStage]);
+    const ctx = context({ replaySessions: [session] });
+    const detail = new ReplaySessionState(ctx, session);
+    open(ctx.machine, detail);
+
+    expect(detail.view().menu).toEqual(['STAGES', 'DOWNLOAD REPLAY DATA', 'BACK']);
+    expect(detail.view().menu?.length).toBeLessThanOrEqual(8);
+    expect(detail.view().lines?.at(-1)).toMatch(/leads to/);
+    expect(() => new ReplayExportState(
+      ctx,
+      session,
+      REPLAY_SESSION_EXPORT_TARGET,
+    )).toThrow(/leads to/);
+
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStagesState);
+    expect(ctx.machine.current?.view?.().menu?.length).toBeLessThanOrEqual(8);
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStageState);
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      'WATCH STAGE',
+      'EXPORT STAGE VIDEO',
+      'BACK',
+    ]);
+  });
+
+  test('STAGES pagination never exposes more than eight menu rows', () => {
+    const replay = recordStage(REPLAY_STAGE, 146).replay;
+    const session = replaySession(Array.from({ length: 12 }, (_, index) => ({
+      ...replay,
+      seed: replay.seed + index,
+    })));
+    const ctx = context();
+    for (const page of [0, 1, 2]) {
+      const stages = new ReplayStagesState(ctx, session, page);
+      expect(stages.view().menu?.length).toBeLessThanOrEqual(8);
+    }
   });
 
   test('session preflight treats content pinning as stable attempt identity', () => {
@@ -1186,6 +1640,24 @@ describe('replay library and viewer', () => {
     expect(errors.at(-1)).toMatch(/cannot continue session.*carry/);
     expect(viewer.sequenceError).toMatch(/carry/);
     expect(ctx.machine.current?.view?.().title).toBe('REPLAY SESSION ERROR');
+
+    const exportErrors: string[] = [];
+    const exportCtx = campaignContext({
+      onReplayError: (message) => exportErrors.push(message),
+    });
+    const exporting = new ReplayExportState(
+      exportCtx,
+      session,
+      REPLAY_SESSION_EXPORT_TARGET,
+    );
+    open(exportCtx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+    for (let tick = 0; tick < first.replay.length + REPLAY_SESSION_STAGE_HOLD_TICKS + 4; tick++) {
+      exportCtx.machine.tick(0);
+      if (exportCtx.machine.current !== exporting) break;
+    }
+    expect(exportCtx.machine.current?.name).toBe('replay-export-result');
+    expect(exportErrors.at(-1)).toMatch(/cannot continue session.*carry/);
   });
 
   test('strict data-pack identity is checked against the running build', () => {
@@ -1914,6 +2386,37 @@ describe('endings', () => {
     press(ctx.machine, Button.Shot);
     expect(ctx.machine.current).toBeInstanceOf(PlayingState);
     expect((ctx.machine.current as PlayingState).run.stageName).toBe(PENULTIMATE_STAGE);
+  });
+
+  test('a complete terminal result offers whole-campaign watch and export', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 147);
+    const final = recordStage(FINAL_STAGE, 148, () => 0, first.run.carry);
+    const session = replaySession([first.replay, final.replay], 'complete-campaign');
+    const ctx = campaignContext({
+      recordReplay: true,
+      beginReplaySession: () => session.id,
+      replaySessions: [session],
+    });
+    const playing = new PlayingState(ctx, PILOT, {
+      stage: FINAL_STAGE,
+      recordReplay: true,
+      sessionId: session.id,
+    });
+    ctx.machine.push(playing);
+    const result = new ClearedState(ctx, playing);
+    open(ctx.machine, result);
+
+    expect(result.view().menu?.slice(0, 3)).toEqual([
+      'WATCH FULL CAMPAIGN',
+      'EXPORT FULL CAMPAIGN VIDEO',
+      'DOWNLOAD REPLAY DATA',
+    ]);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    const exporting = ctx.machine.current as ReplayExportState;
+    expect(exporting).toBeInstanceOf(ReplayExportState);
+    expect(exporting.sessionWide).toBe(true);
+    expect(exporting.sessionKind).toBe('full-campaign');
   });
 
   test('a cleared stage and later quit share one recorded campaign session', () => {
