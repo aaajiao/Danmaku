@@ -22,6 +22,8 @@ export const VIDEO_CAPTURE_FPS = 60;
 export const VIDEO_CAPTURE_TIMESLICE_MS = 1000;
 export const VIDEO_CAPTURE_BITRATE = 4_000_000;
 export const AUDIO_CAPTURE_BITRATE = 128_000;
+export const VIDEO_CAPTURE_MEMORY_LIMIT_BYTES = 128 * 1024 * 1024;
+export const VIDEO_CAPTURE_PENDING_WRITE_LIMIT_BYTES = 32 * 1024 * 1024;
 
 export const VIDEO_MIME_CANDIDATES = [
   'video/webm;codecs=vp9,opus',
@@ -53,6 +55,67 @@ export type VideoCaptureOutcome =
   | RecordedVideo
   | CancelledVideoCapture
   | FailedVideoCapture;
+
+/**
+ * Destination for the recorder's ordered `dataavailable` chunks.
+ *
+ * The capture controller serializes every call. Implementations may therefore
+ * stream each Blob to durable browser storage without retaining the complete
+ * recording in JavaScript memory. `discard` is idempotent and remains valid
+ * after `finalize`, so a caller can remove an artifact it later rejects.
+ */
+export interface VideoChunkSink {
+  readonly kind: 'memory' | 'opfs';
+  write(chunk: Blob): Promise<void>;
+  finalize(mimeType: string): Promise<Blob>;
+  discard(): Promise<void>;
+}
+
+/** Bounded fallback for browsers where origin-private file storage is absent. */
+export class MemoryVideoChunkSink implements VideoChunkSink {
+  readonly kind = 'memory' as const;
+
+  readonly #limitBytes: number;
+  #chunks: Blob[] = [];
+  #size = 0;
+  #terminal = false;
+
+  constructor(limitBytes = VIDEO_CAPTURE_MEMORY_LIMIT_BYTES) {
+    if (!Number.isFinite(limitBytes) || limitBytes <= 0) {
+      throw new Error('video capture: memory limit must be a positive finite number');
+    }
+    this.#limitBytes = Math.floor(limitBytes);
+  }
+
+  async write(chunk: Blob): Promise<void> {
+    if (this.#terminal) {
+      throw new Error('video capture: chunk sink is already closed');
+    }
+    if (chunk.size > this.#limitBytes - this.#size) {
+      throw new Error(
+        `video capture: recording exceeded the ${formatMemoryLimit(this.#limitBytes)} memory limit`,
+      );
+    }
+    this.#chunks.push(chunk);
+    this.#size += chunk.size;
+  }
+
+  async finalize(mimeType: string): Promise<Blob> {
+    if (this.#terminal) {
+      throw new Error('video capture: chunk sink is already closed');
+    }
+    this.#terminal = true;
+    const chunks = this.#chunks;
+    this.#chunks = [];
+    return new Blob(chunks, { type: mimeType });
+  }
+
+  async discard(): Promise<void> {
+    this.#terminal = true;
+    this.#chunks = [];
+    this.#size = 0;
+  }
+}
 
 /**
  * Convert a terminal recorder event that arrived before the caller requested
@@ -122,6 +185,10 @@ export interface VideoCaptureOptions {
   readonly timesliceMs?: number;
   readonly videoBitsPerSecond?: number;
   readonly audioBitsPerSecond?: number;
+  /** Maximum encoded bytes waiting for their sink writes to finish. */
+  readonly pendingWriteLimitBytes?: number;
+  /** Prepared chunk destination; ownership transfers to this capture attempt. */
+  readonly sink?: VideoChunkSink;
   readonly globals?: VideoCaptureGlobals;
 }
 
@@ -136,10 +203,11 @@ export class ReplayVideoCapture {
   readonly #timesliceMs: number;
   readonly #videoBitsPerSecond: number;
   readonly #audioBitsPerSecond: number;
+  readonly #pendingWriteLimitBytes: number;
+  readonly #sink: VideoChunkSink;
   readonly #globals: VideoCaptureGlobals;
 
   readonly #tracks = new Set<MediaStreamTrack>();
-  readonly #chunks: Blob[] = [];
 
   #resolveCompletion!: (outcome: VideoCaptureOutcome) => void;
   #state: VideoCaptureState = 'idle';
@@ -147,6 +215,12 @@ export class ReplayVideoCapture {
   #selectedMimeType: string | undefined;
   #intent: TerminalIntent | undefined;
   #settled: VideoCaptureOutcome | undefined;
+  #writeQueue: Promise<void> = Promise.resolve();
+  #writeError: Error | undefined;
+  #bytesReceived = 0;
+  #pendingWriteBytes = 0;
+  #lastChunkMimeType: string | undefined;
+  #terminalizing = false;
   #cleaned = false;
 
   constructor(
@@ -168,6 +242,11 @@ export class ReplayVideoCapture {
       options.audioBitsPerSecond,
       AUDIO_CAPTURE_BITRATE,
     );
+    this.#pendingWriteLimitBytes = positiveFinite(
+      options.pendingWriteLimitBytes,
+      VIDEO_CAPTURE_PENDING_WRITE_LIMIT_BYTES,
+    );
+    this.#sink = options.sink ?? new MemoryVideoChunkSink();
     this.#globals = options.globals ?? browserGlobals();
     this.completion = new Promise((resolve) => {
       this.#resolveCompletion = resolve;
@@ -233,16 +312,15 @@ export class ReplayVideoCapture {
       ]);
 
       const selected = this.#startRecorder(Recorder, output, audioTracks.length === 1);
-      if (this.#settled !== undefined) return false;
+      if (this.#settled !== undefined || this.#terminalizing) return false;
       this.#recorder = selected.recorder;
       this.#selectedMimeType = selected.mimeType;
       this.#state = 'recording';
       return true;
     } catch (error) {
-      this.#finish({
-        status: 'failed',
-        error: asError(error, 'video capture: could not start recording'),
-      });
+      this.#beginFailure(
+        asError(error, 'video capture: could not start recording'),
+      );
       return false;
     }
   }
@@ -252,8 +330,9 @@ export class ReplayVideoCapture {
    *
    * Resolution waits for MediaRecorder's `stop` event, which follows its final
    * `dataavailable`; resolving at the `stop()` call would silently drop that last
-   * chunk. Repeated stop/cancel calls return the same completion promise and the
-   * first terminal intent wins.
+   * chunk. Repeated stop/cancel calls return the same completion promise. A
+   * later cancel may supersede an in-flight successful stop until the artifact
+   * is settled, so leaving FINALIZING can still discard its OPFS file.
    */
   stop(): Promise<VideoCaptureOutcome> {
     this.#requestFinish('stop');
@@ -268,17 +347,21 @@ export class ReplayVideoCapture {
 
   #requestFinish(intent: TerminalIntent): void {
     if (this.#settled !== undefined) return;
+    if (intent === 'cancel' && this.#intent === 'stop') {
+      this.#intent = 'cancel';
+      return;
+    }
+    if (this.#terminalizing) return;
 
     if (this.#state === 'idle') {
       this.#intent = intent;
-      this.#finish(
-        intent === 'cancel'
-          ? { status: 'cancelled' }
-          : {
-              status: 'failed',
-              error: new Error('video capture: cannot stop before recording starts'),
-            },
-      );
+      if (intent === 'cancel') {
+        this.#beginCancellation();
+      } else {
+        this.#beginFailure(
+          new Error('video capture: cannot stop before recording starts'),
+        );
+      }
       return;
     }
     if (this.#state !== 'recording' || this.#intent !== undefined) return;
@@ -293,10 +376,9 @@ export class ReplayVideoCapture {
     try {
       recorder.stop();
     } catch (error) {
-      this.#finish({
-        status: 'failed',
-        error: asError(error, 'video capture: MediaRecorder.stop failed'),
-      });
+      this.#beginFailure(
+        asError(error, 'video capture: MediaRecorder.stop failed'),
+      );
     }
   }
 
@@ -338,8 +420,7 @@ export class ReplayVideoCapture {
         if (recorder !== undefined) this.#unbind(recorder);
         this.#recorder = undefined;
         this.#selectedMimeType = undefined;
-        this.#chunks.length = 0;
-        if (this.#settled !== undefined) throw error;
+        if (this.#settled !== undefined || this.#terminalizing) throw error;
         lastError = asError(error, 'MediaRecorder candidate failed');
       }
     }
@@ -363,44 +444,64 @@ export class ReplayVideoCapture {
   }
 
   #handleData = (event: { readonly data: Blob }): void => {
-    if (this.#settled !== undefined || event.data.size === 0) return;
-    this.#chunks.push(event.data);
-  };
-
-  #handleStop = (): void => {
-    if (this.#settled !== undefined) return;
-    if (this.#intent === 'cancel') {
-      this.#chunks.length = 0;
-      this.#finish({ status: 'cancelled' });
+    if (
+      this.#settled !== undefined
+      || this.#terminalizing
+      || this.#state === 'idle'
+      || this.#intent === 'cancel'
+      || this.#writeError !== undefined
+      || event.data.size === 0
+    ) {
       return;
     }
 
-    try {
-      const mimeType = this.#actualMimeType();
-      const extension = videoExtensionForMime(mimeType);
-      if (extension === undefined) {
-        throw new Error(`video capture: unsupported recorded MIME type "${mimeType}"`);
-      }
-      const blob = new Blob(this.#chunks, { type: mimeType });
-      if (blob.size === 0) {
-        throw new Error('video capture: recorder produced no video data');
-      }
-      this.#finish({
-        status: 'recorded',
-        blob,
-        mimeType,
-        extension,
-      });
-    } catch (error) {
-      this.#finish({
-        status: 'failed',
-        error: asError(error, 'video capture: could not assemble recording'),
-      });
+    if (event.data.size > this.#pendingWriteLimitBytes - this.#pendingWriteBytes) {
+      this.#failChunkStorage(new Error(
+        `video capture: pending encoded data exceeded the ${formatMemoryLimit(this.#pendingWriteLimitBytes)} limit`,
+      ));
+      return;
     }
+
+    this.#bytesReceived += event.data.size;
+    this.#pendingWriteBytes += event.data.size;
+    const type = event.data.type.trim();
+    if (type !== '') this.#lastChunkMimeType = type;
+    const chunk = event.data;
+    this.#writeQueue = this.#writeQueue.then(async () => {
+      try {
+        if (this.#writeError === undefined) await this.#sink.write(chunk);
+      } catch (error) {
+        const failure = asError(error, 'video capture: could not store encoded data');
+        this.#failChunkStorage(failure);
+      } finally {
+        this.#pendingWriteBytes -= chunk.size;
+      }
+    });
+  };
+
+  #failChunkStorage(error: Error): void {
+    if (this.#writeError !== undefined || this.#settled !== undefined) return;
+    this.#writeError = error;
+    this.#beginFailure(error);
+    const recorder = this.#recorder;
+    if (recorder === undefined || recorder.state === 'inactive') return;
+    try {
+      recorder.stop();
+    } catch {
+      // The storage failure remains authoritative; terminal cleanup is underway.
+    }
+  }
+
+  #handleStop = (): void => {
+    if (this.#settled !== undefined || this.#terminalizing) return;
+    this.#terminalizing = true;
+    this.#unbindRecorder();
+    this.#cleanup();
+    void this.#finishAfterRecorderStop();
   };
 
   #handleError = (event: Event): void => {
-    if (this.#settled !== undefined) return;
+    if (this.#settled !== undefined || this.#terminalizing) return;
     const raw = (event as Event & { readonly error?: unknown }).error;
     const error = raw === undefined
       ? new Error('video capture: MediaRecorder reported an error')
@@ -411,7 +512,7 @@ export class ReplayVideoCapture {
     // dispatch `stop` synchronously from `stop()` after an error; allowing that
     // callback to run first could incorrectly turn an encoder failure into a
     // successful recording.
-    this.#finish({ status: 'failed', error });
+    this.#beginFailure(error);
     try {
       if (shouldStop) recorder.stop();
     } catch {
@@ -420,15 +521,114 @@ export class ReplayVideoCapture {
   };
 
   #actualMimeType(): string {
-    for (let i = this.#chunks.length - 1; i >= 0; i--) {
-      const type = this.#chunks[i]?.type.trim();
-      if (type !== undefined && type !== '') return type;
-    }
+    if (this.#lastChunkMimeType !== undefined) return this.#lastChunkMimeType;
     const recorderType = this.#recorder?.mimeType.trim();
     if (recorderType !== undefined && recorderType !== '') return recorderType;
     const selected = this.#selectedMimeType?.trim();
     if (selected !== undefined && selected !== '') return selected;
     throw new Error('video capture: recorder did not report an output MIME type');
+  }
+
+  async #finishAfterRecorderStop(): Promise<void> {
+    await this.#writeQueue;
+
+    if (this.#intent === 'cancel') {
+      await this.#discardSink();
+      this.#finish({ status: 'cancelled' });
+      return;
+    }
+    if (this.#writeError !== undefined) {
+      await this.#discardSink();
+      this.#finish({ status: 'failed', error: this.#writeError });
+      return;
+    }
+    if (this.#intent !== 'stop') {
+      await this.#discardSink();
+      this.#finish({
+        status: 'failed',
+        error: new Error('video export: recorder stopped before replay completed'),
+      });
+      return;
+    }
+
+    try {
+      if (this.#bytesReceived === 0) {
+        throw new Error('video capture: recorder produced no video data');
+      }
+      const mimeType = this.#actualMimeType();
+      const extension = videoExtensionForMime(mimeType);
+      if (extension === undefined) {
+        throw new Error(`video capture: unsupported recorded MIME type "${mimeType}"`);
+      }
+      const blob = await this.#sink.finalize(mimeType);
+      if (this.#cancelRequested()) {
+        await this.#discardSink();
+        this.#finish({ status: 'cancelled' });
+        return;
+      }
+      if (blob.size !== this.#bytesReceived) {
+        throw new Error(
+          `video capture: stored ${blob.size} bytes, expected ${this.#bytesReceived}`,
+        );
+      }
+      this.#finish({
+        status: 'recorded',
+        blob,
+        mimeType,
+        extension,
+      });
+    } catch (error) {
+      await this.#discardSink();
+      if (this.#cancelRequested()) {
+        this.#finish({ status: 'cancelled' });
+        return;
+      }
+      this.#finish({
+        status: 'failed',
+        error: asError(error, 'video capture: could not assemble recording'),
+      });
+    }
+  }
+
+  #beginCancellation(): void {
+    if (this.#settled !== undefined || this.#terminalizing) return;
+    this.#terminalizing = true;
+    this.#state = 'cancelled';
+    this.#unbindRecorder();
+    this.#cleanup();
+    void this.#writeQueue.then(async () => {
+      await this.#discardSink();
+      this.#finish({ status: 'cancelled' });
+    });
+  }
+
+  #beginFailure(error: Error): void {
+    if (this.#settled !== undefined || this.#terminalizing) return;
+    this.#terminalizing = true;
+    this.#state = 'failed';
+    this.#unbindRecorder();
+    this.#cleanup();
+    void this.#writeQueue.then(async () => {
+      await this.#discardSink();
+      this.#finish({ status: 'failed', error });
+    });
+  }
+
+  async #discardSink(): Promise<void> {
+    try {
+      await this.#sink.discard();
+    } catch {
+      // Preserve the encoder/storage error or cancellation that caused cleanup.
+      // A later OPFS stale-file sweep gets another chance to remove the artifact.
+    }
+  }
+
+  #cancelRequested(): boolean {
+    return this.#intent === 'cancel';
+  }
+
+  #unbindRecorder(): void {
+    if (this.#recorder !== undefined) this.#unbind(this.#recorder);
   }
 
   #finish(outcome: VideoCaptureOutcome): void {
@@ -440,7 +640,7 @@ export class ReplayVideoCapture {
         : outcome.status === 'cancelled'
           ? 'cancelled'
           : 'failed';
-    if (this.#recorder !== undefined) this.#unbind(this.#recorder);
+    this.#unbindRecorder();
     this.#cleanup();
     this.#resolveCompletion(outcome);
   }
@@ -487,6 +687,11 @@ function positiveFinite(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isFinite(value) && value > 0
     ? value
     : fallback;
+}
+
+function formatMemoryLimit(bytes: number): string {
+  const mib = bytes / (1024 * 1024);
+  return `${Number.isInteger(mib) ? mib : mib.toFixed(1)} MiB`;
 }
 
 function asError(value: unknown, fallback: string): Error {

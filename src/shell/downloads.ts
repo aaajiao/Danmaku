@@ -4,6 +4,9 @@ import {
   type ReplaySession,
 } from '../replay/session';
 
+/** Keep disk-backed Blob URLs alive long enough for the browser to consume them. */
+export const DOWNLOAD_BLOB_URL_LIFETIME_MS = 60_000;
+
 export function downloadBlob(blob: Blob, filename: string): void {
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -12,10 +15,10 @@ export function downloadBlob(blob: Blob, filename: string): void {
   anchor.hidden = true;
   document.body.append(anchor);
   anchor.click();
+  anchor.remove();
   window.setTimeout(() => {
-    anchor.remove();
     URL.revokeObjectURL(href);
-  }, 0);
+  }, DOWNLOAD_BLOB_URL_LIFETIME_MS);
 }
 
 export function replayFilename(session: ReplaySession): string {

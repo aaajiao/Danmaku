@@ -2,10 +2,14 @@ import { describe, expect, test } from 'bun:test';
 
 import type { FrameCapture } from './capture';
 import {
+  MemoryVideoChunkSink,
   ReplayVideoCapture,
   VIDEO_CAPTURE_FPS,
+  VIDEO_CAPTURE_MEMORY_LIMIT_BYTES,
+  VIDEO_CAPTURE_PENDING_WRITE_LIMIT_BYTES,
   VIDEO_CAPTURE_TIMESLICE_MS,
   VIDEO_MIME_CANDIDATES,
+  type VideoChunkSink,
   type VideoCaptureGlobals,
   type VideoMediaRecorder,
   type VideoMediaRecorderConstructor,
@@ -205,7 +209,306 @@ function assertRecorded(
   }
 }
 
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  resolve(value: T): void;
+  reject(error: unknown): void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve;
+    reject = onReject;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushUntil(predicate: () => boolean): Promise<void> {
+  for (let turn = 0; turn < 20; turn++) {
+    if (predicate()) return;
+    await Promise.resolve();
+  }
+  throw new Error('test: promise chain did not advance');
+}
+
+class FakeChunkSink implements VideoChunkSink {
+  readonly kind = 'memory' as const;
+  readonly calls: string[] = [];
+  readonly chunks: Blob[] = [];
+  readonly writeWaits: Deferred<void>[] = [];
+  finalizeError: Error | undefined;
+  finalizeWait: Deferred<void> | undefined;
+  discardError: Error | undefined;
+  discards = 0;
+  writesStarted = 0;
+
+  async write(chunk: Blob): Promise<void> {
+    this.calls.push(`write:${++this.writesStarted}`);
+    const wait = this.writeWaits.shift();
+    if (wait !== undefined) await wait.promise;
+    this.chunks.push(chunk);
+  }
+
+  async finalize(mimeType: string): Promise<Blob> {
+    this.calls.push('finalize');
+    if (this.finalizeWait !== undefined) await this.finalizeWait.promise;
+    if (this.finalizeError !== undefined) throw this.finalizeError;
+    return new Blob(this.chunks, { type: mimeType });
+  }
+
+  async discard(): Promise<void> {
+    this.calls.push('discard');
+    this.discards++;
+    if (this.discardError !== undefined) throw this.discardError;
+    this.chunks.length = 0;
+  }
+}
+
 describe('ReplayVideoCapture', () => {
+  test('serializes writes and waits for the final chunk before finalizing', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const headWritten = deferred<void>();
+    const tailWritten = deferred<void>();
+    sink.writeWaits.push(headWritten, tailWritten);
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+
+    recorder.emitData(new Blob(['head'], { type: 'video/webm' }));
+    await Promise.resolve();
+    expect(sink.calls).toEqual(['write:1']);
+    recorder.emitData(new Blob(['tail'], { type: 'video/webm' }));
+    const completion = capture.stop();
+    recorder.emitStop();
+    await Promise.resolve();
+    expect(sink.calls).toEqual(['write:1']);
+
+    headWritten.resolve();
+    await flushUntil(() => sink.calls.length === 2);
+    expect(sink.calls).toEqual(['write:1', 'write:2']);
+    expect(capture.state).toBe('stopping');
+
+    tailWritten.resolve();
+    const outcome = await completion;
+    assertRecorded(outcome);
+    expect(await outcome.blob.text()).toBe('headtail');
+    expect(sink.calls).toEqual(['write:1', 'write:2', 'finalize']);
+    expect(sink.discards).toBe(0);
+  });
+
+  test('cancel ignores its final recorder chunk and waits for prior writes before discard', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const headWritten = deferred<void>();
+    sink.writeWaits.push(headWritten);
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+    recorder.emitData(new Blob(['keep-until-discard'], { type: 'video/webm' }));
+    await Promise.resolve();
+
+    const completion = capture.cancel();
+    recorder.emitData(new Blob(['ignored-final'], { type: 'video/webm' }));
+    recorder.emitStop();
+    await Promise.resolve();
+    expect(sink.calls).toEqual(['write:1']);
+
+    headWritten.resolve();
+    expect(await completion).toEqual({ status: 'cancelled' });
+    expect(sink.calls).toEqual(['write:1', 'discard']);
+    expect(sink.discards).toBe(1);
+  });
+
+  test('cancel supersedes a requested stop before the recorder stop event', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+    recorder.emitData(new Blob(['head'], { type: 'video/webm' }));
+
+    const completion = capture.stop();
+    expect(capture.cancel()).toBe(completion);
+    recorder.emitData(new Blob(['ignored-final'], { type: 'video/webm' }));
+    recorder.emitStop();
+
+    expect(await completion).toEqual({ status: 'cancelled' });
+    expect(sink.calls).toEqual(['write:1', 'discard']);
+    expect(sink.calls).not.toContain('finalize');
+  });
+
+  test('cancel during pending finalize discards the completed artifact', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const finalizeWait = deferred<void>();
+    sink.finalizeWait = finalizeWait;
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+    recorder.emitData(new Blob(['complete'], { type: 'video/webm' }));
+
+    const completion = capture.stop();
+    recorder.emitStop();
+    await flushUntil(() => sink.calls.includes('finalize'));
+    expect(capture.cancel()).toBe(completion);
+    finalizeWait.resolve();
+
+    expect(await completion).toEqual({ status: 'cancelled' });
+    expect(sink.calls).toEqual(['write:1', 'finalize', 'discard']);
+    expect(sink.discards).toBe(1);
+  });
+
+  test('a sink write failure stops the recorder, discards once, and wins over late events', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const refused = deferred<void>();
+    sink.writeWaits.push(refused);
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+    recorder.emitData(new Blob(['chunk'], { type: 'video/webm' }));
+    await Promise.resolve();
+    recorder.emitData(new Blob(['queued-after-failing-write'], { type: 'video/webm' }));
+    refused.reject(new Error('disk full'));
+
+    const outcome = await capture.completion;
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') expect(outcome.error.message).toBe('disk full');
+    expect(recorder.stops).toBe(1);
+    expect(sink.writesStarted).toBe(1);
+    expect(sink.discards).toBe(1);
+
+    recorder.emitData(new Blob(['late'], { type: 'video/webm' }));
+    recorder.emitStop();
+    recorder.emitError(new Error('late encoder error'));
+    expect(sink.discards).toBe(1);
+  });
+
+  test('bounds queued and in-flight encoded Blobs while preserving the exact boundary', async () => {
+    expect(VIDEO_CAPTURE_PENDING_WRITE_LIMIT_BYTES).toBe(32 * 1024 * 1024);
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const headWritten = deferred<void>();
+    sink.writeWaits.push(headWritten);
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+      pendingWriteLimitBytes: 8,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+
+    recorder.emitData(new Blob(['1234'], { type: 'video/webm' }));
+    await Promise.resolve();
+    recorder.emitData(new Blob(['5678'], { type: 'video/webm' }));
+    expect(recorder.stops).toBe(0);
+    recorder.emitData(new Blob(['9'], { type: 'video/webm' }));
+    expect(recorder.stops).toBe(1);
+    expect(sink.writesStarted).toBe(1);
+
+    headWritten.resolve();
+    const outcome = await capture.completion;
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') {
+      expect(outcome.error.message).toMatch(/pending encoded data exceeded/);
+    }
+    expect(sink.writesStarted).toBe(1);
+    expect(sink.discards).toBe(1);
+  });
+
+  test('a finalize failure discards the stored chunks and returns the original error', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    sink.finalizeError = new Error('close refused');
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+    recorder.emitData(new Blob(['chunk'], { type: 'video/webm' }));
+    const completion = capture.stop();
+    recorder.emitStop();
+
+    const outcome = await completion;
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') expect(outcome.error.message).toBe('close refused');
+    expect(sink.calls).toEqual(['write:1', 'finalize', 'discard']);
+    expect(sink.discards).toBe(1);
+  });
+
+  test('an unexpected recorder stop fails directly and never finalizes a partial file', async () => {
+    const harness = recorderHarness();
+    const sink = new FakeChunkSink();
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+    expect(capture.start()).toBe(true);
+    const recorder = lastRecorder(harness);
+    recorder.emitData(new Blob(['partial'], { type: 'video/webm' }));
+    recorder.emitStop();
+
+    const outcome = await capture.completion;
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') {
+      expect(outcome.error.message).toMatch(/stopped before replay completed/);
+    }
+    expect(sink.calls).toEqual(['write:1', 'discard']);
+    expect(sink.calls).not.toContain('finalize');
+  });
+
+  test('a start failure discards its prepared sink exactly once', async () => {
+    const sink = new FakeChunkSink();
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: {},
+      sink,
+    });
+
+    expect(capture.start()).toBe(false);
+    const outcome = await capture.completion;
+    expect(outcome.status).toBe('failed');
+    expect(sink.calls).toEqual(['discard']);
+  });
+
+  test('MediaRecorder.start exhaustion also discards its prepared sink once', async () => {
+    const sink = new FakeChunkSink();
+    const harness = recorderHarness({
+      failStart: new Set<string | undefined>([
+        ...VIDEO_MIME_CANDIDATES,
+        undefined,
+      ]),
+    });
+    const capture = new ReplayVideoCapture(canvasFixture().frame, {
+      globals: harness.globals,
+      sink,
+    });
+
+    expect(capture.start()).toBe(false);
+    const outcome = await capture.completion;
+    expect(outcome.status).toBe('failed');
+    expect(harness.attempts).toHaveLength(VIDEO_MIME_CANDIDATES.length + 1);
+    expect(sink.discards).toBe(1);
+  });
+
   test('records the composited canvas plus one mixed audio track at 60fps', async () => {
     const canvas = canvasFixture();
     const audio = new FakeTrack('audio');
@@ -366,9 +669,11 @@ describe('ReplayVideoCapture', () => {
     const canvas = canvasFixture();
     const audio = new FakeTrack('audio');
     const harness = recorderHarness();
+    const sink = new FakeChunkSink();
     const capture = new ReplayVideoCapture(canvas.frame, {
       audioStream: streamOf([audio]),
       globals: harness.globals,
+      sink,
     });
     expect(capture.start()).toBe(true);
     const recorder = lastRecorder(harness);
@@ -385,6 +690,7 @@ describe('ReplayVideoCapture', () => {
       expect(outcome.error.message).toBe('encoder vanished');
     }
     expect(capture.state).toBe('failed');
+    expect(sink.discards).toBe(1);
     expect(canvas.video.stops).toBe(1);
     expect(audio.stops).toBe(1);
 
@@ -481,6 +787,27 @@ describe('ReplayVideoCapture', () => {
       expect(outcome.error.message).toMatch(/unsupported recorded MIME type/);
     }
     expect(canvas.video.stops).toBe(1);
+  });
+});
+
+describe('MemoryVideoChunkSink', () => {
+  test('accepts the exact hard boundary and preserves chunk order', async () => {
+    const sink = new MemoryVideoChunkSink(8);
+    await sink.write(new Blob(['head']));
+    await sink.write(new Blob(['tail']));
+    const blob = await sink.finalize('video/webm');
+    expect(blob.size).toBe(8);
+    expect(blob.type).toBe('video/webm');
+    expect(await blob.text()).toBe('headtail');
+  });
+
+  test('rejects the first chunk beyond the configured memory limit', async () => {
+    expect(VIDEO_CAPTURE_MEMORY_LIMIT_BYTES).toBe(128 * 1024 * 1024);
+    const sink = new MemoryVideoChunkSink(4);
+    await sink.write(new Blob(['1234']));
+    await expect(sink.write(new Blob(['5']))).rejects.toThrow(/memory limit/);
+    await sink.discard();
+    await sink.discard();
   });
 });
 

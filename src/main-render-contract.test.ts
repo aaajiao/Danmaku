@@ -986,6 +986,42 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     );
   });
 
+  test('video storage is prepared beside audio and has one owner across cancellation', () => {
+    const prepareStart = mainSource.indexOf('function prepareReplayExport(');
+    const prepareEnd = mainSource.indexOf(
+      'function startReplayExportRecording(',
+      prepareStart,
+    );
+    const prepare = mainSource.slice(prepareStart, prepareEnd);
+    expect(prepare).toContain('prepareVideoChunkSink({');
+    expect(prepare).toContain('expectedTicks: state.estimatedTicks');
+    expect(prepare).toContain(
+      'Promise.all([preloadReplayExportAudio(), sinkReady])',
+    );
+    expect(prepare).toContain('void sink.discard();');
+
+    const disposeStart = mainSource.indexOf('function disposeReplayExport(');
+    const disposeEnd = mainSource.indexOf('function failReplayExport(', disposeStart);
+    const dispose = mainSource.slice(disposeStart, disposeEnd);
+    expect(dispose).toContain(
+      'active.video === undefined ? active.sink?.discard() : undefined',
+    );
+
+    const start = mainSource.slice(
+      mainSource.indexOf('function startReplayExportRecording('),
+      mainSource.indexOf(
+        'function stopReplayExport(',
+        mainSource.indexOf('function startReplayExportRecording('),
+      ),
+    );
+    expect(start).toContain('sink,');
+    expect(start).toContain('|| active.video !== undefined');
+    expect(start).toContain('active.sink = undefined;');
+    expect(start.indexOf('active.sink = undefined;')).toBeLessThan(
+      start.indexOf('active.video = video;'),
+    );
+  });
+
   test('whole-session export switches Runs inside one recorder-owned state', () => {
     const handoffStart = statesSource.indexOf('#tickStageHold(): void');
     const handoffEnd = statesSource.indexOf('#beginTerminalPresentation(): void', handoffStart);

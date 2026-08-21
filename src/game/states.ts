@@ -1570,6 +1570,8 @@ export const REPLAY_SESSION_STAGE_HOLD_TICKS = 60;
 /** Three seconds per authored page, then two seconds on the terminal card. */
 export const REPLAY_SESSION_ENDING_PAGE_TICKS = 180;
 export const REPLAY_SESSION_RESULT_HOLD_TICKS = 120;
+/** One second retained after the deterministic presentation for the audio decay. */
+export const REPLAY_EXPORT_TAIL_TICKS = 60;
 
 export const REPLAY_SESSION_EXPORT_TARGET = { kind: 'session' } as const;
 export type ReplayExportTarget = number | typeof REPLAY_SESSION_EXPORT_TARGET;
@@ -1690,6 +1692,7 @@ export class ReplayExportState implements GameState {
   readonly #session: ReplaySession;
   readonly #target: ReplayExportTarget;
   readonly #preflight: ReplaySessionPreflight | undefined;
+  readonly #estimatedTicks: number;
   readonly #edges = new Edges();
 
   #segmentIndex: number;
@@ -1719,6 +1722,26 @@ export class ReplayExportState implements GameState {
     this.#session = session;
     this.#target = target;
     this.#preflight = preflight;
+    const gameplayTicks = sessionWide
+      ? session.segments.reduce(
+          (total, segment) => total + Math.max(1, segment.length),
+          0,
+        )
+      : Math.max(1, replay.length);
+    const stageHoldTicks = sessionWide
+      ? Math.max(0, session.segments.length - 1) * REPLAY_SESSION_STAGE_HOLD_TICKS
+      : 0;
+    const terminal = preflight?.segments.at(-1);
+    const endingPageTicks = preflight?.kind === 'full-campaign'
+      && terminal !== undefined
+      ? (ctx.campaignEndings?.[terminal.stage]?.pages.length ?? 0)
+        * REPLAY_SESSION_ENDING_PAGE_TICKS
+      : 0;
+    this.#estimatedTicks = gameplayTicks
+      + stageHoldTicks
+      + endingPageTicks
+      + (sessionWide ? REPLAY_SESSION_RESULT_HOLD_TICKS : 0)
+      + REPLAY_EXPORT_TAIL_TICKS;
     this.#segmentIndex = segmentIndex;
     this.#replay = replay;
     this.#run = new Run(replayRunConfig(ctx, replay));
@@ -1937,6 +1960,11 @@ export class ReplayExportState implements GameState {
 
   get sessionKind(): ReplaySessionKind | undefined {
     return this.#preflight?.kind;
+  }
+
+  /** Planned recorder lifetime, including deterministic cards and the audio tail. */
+  get estimatedTicks(): number {
+    return this.#estimatedTicks;
   }
 
   /** Same-state presentation override; the shell applies it after frozen Run declarations. */

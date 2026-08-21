@@ -37,6 +37,7 @@ import {
   ReplayStagesState,
   replayExportPresentationAdvances,
   replayRunConfig,
+  REPLAY_EXPORT_TAIL_TICKS,
   REPLAY_SESSION_ENDING_PAGE_TICKS,
   REPLAY_SESSION_EXPORT_TARGET,
   REPLAY_SESSION_RESULT_HOLD_TICKS,
@@ -895,6 +896,7 @@ describe('replay library and viewer', () => {
     const ctx = context({ replaySessions: [session] });
     const exporting = new ReplayExportState(ctx, session, 0);
     open(ctx.machine, exporting);
+    expect(exporting.estimatedTicks).toBe(replay.length + REPLAY_EXPORT_TAIL_TICKS);
     expect(exporting.arm()).toBe(true);
 
     for (
@@ -924,6 +926,7 @@ describe('replay library and viewer', () => {
     const exportCtx = context({ replaySessions: [session] });
     const exporting = new ReplayExportState(exportCtx, session, 0);
     open(exportCtx.machine, exporting);
+    expect(exporting.estimatedTicks).toBe(1 + REPLAY_EXPORT_TAIL_TICKS);
     expect(exporting.arm()).toBe(true);
     exportCtx.machine.tick(0);
     expect(exporting.phase).toBe('finished');
@@ -992,6 +995,14 @@ describe('replay library and viewer', () => {
     expect(exporting.arm()).toBe(true);
     expect(exporting.sessionWide).toBe(true);
     expect(exporting.sessionKind).toBe('full-campaign');
+    expect(exporting.estimatedTicks).toBe(
+      first.replay.length
+      + final.replay.length
+      + REPLAY_SESSION_STAGE_HOLD_TICKS
+      + 3 * REPLAY_SESSION_ENDING_PAGE_TICKS
+      + REPLAY_SESSION_RESULT_HOLD_TICKS
+      + REPLAY_EXPORT_TAIL_TICKS,
+    );
 
     for (let tick = 0; tick < first.replay.length + 2 && exporting.view().kind === 'playing'; tick++) {
       ctx.machine.tick(0);
@@ -1088,6 +1099,13 @@ describe('replay library and viewer', () => {
     const exporting = new ReplayExportState(ctx, session, REPLAY_SESSION_EXPORT_TARGET);
     open(ctx.machine, exporting);
     expect(exporting.arm()).toBe(true);
+    expect(exporting.estimatedTicks).toBe(
+      first.replay.length
+      + Math.max(1, partial.length)
+      + REPLAY_SESSION_STAGE_HOLD_TICKS
+      + REPLAY_SESSION_RESULT_HOLD_TICKS
+      + REPLAY_EXPORT_TAIL_TICKS,
+    );
 
     for (let tick = 0; tick < first.replay.length + REPLAY_SESSION_STAGE_HOLD_TICKS + 4; tick++) {
       ctx.machine.tick(0);

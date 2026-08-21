@@ -103,15 +103,23 @@ Turn **RECORD REPLAY** on from **RUN SETUP** before choosing a character to save
 that attempt locally under **REPLAYS** on the title screen. The switch defaults
 to off. When it is on, natural clears and failures save full stages; quitting or
 retrying from the pause menu saves the exact partial run as **QUIT** or
-**RETRIED**. A replay session keeps every stage of one campaign attempt
-together; sessions can be watched stage by stage, downloaded as JSON, or
-imported from an existing session or legacy single-run replay file. A saved
-session can also be permanently deleted from its detail screen after a
-confirmation step. Each saved stage offers
-**EXPORT … VIDEO**: the game replays that stage in real time and downloads a
-480×640 recording with its mixed music and sound effects. The browser chooses
-WebM or MP4 from the codecs it actually supports; keep the tab visible until
-the one-second audio tail has finalized.
+**RETRIED**. A replay session keeps every stage of one campaign attempt together.
+Its detail screen can watch or export the complete recorded session as one
+continuous sequence, including fixed stage-clear hand-offs, the authored ending
+and **ALL CLEAR** for a full campaign. **STAGES** keeps individual watching and
+video export available; the same session can also be downloaded as JSON,
+imported from an existing session or legacy single-run replay file, or deleted
+after confirmation.
+
+**EXPORT … VIDEO** replays its stage or complete session in real time and then
+downloads one 480×640 recording with mixed music and sound effects. A ten-minute
+campaign therefore takes about ten minutes to export. The browser chooses WebM
+or MP4 from the codecs it actually supports and streams encoded chunks to its
+origin-private temporary storage when available. If that storage is unavailable,
+only recordings estimated to fit the 128 MiB memory fallback can start; a larger
+session asks you to export its stages separately. Keep the tab visible until the
+final frame and one-second audio tail have finalized and the download-ready
+message appears.
 
 On macOS, browsers that provide WebHID offer **CONNECT CONTROLLER** on the title
 screen whenever no ordinary Gamepad API controller is already connected. It is

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import type { ReplayExportState, ReplaySessionKind } from '../game/states';
 import { createReplaySession } from '../replay/session';
 import type { Replay } from '../sim/replay';
-import { videoFilename } from './downloads';
+import { DOWNLOAD_BLOB_URL_LIFETIME_MS, videoFilename } from './downloads';
 
 const REPLAY: Replay = {
   version: 1,
@@ -32,6 +32,10 @@ function exporting(
 }
 
 describe('videoFilename', () => {
+  test('keeps disk-backed download URLs alive beyond the click task', () => {
+    expect(DOWNLOAD_BLOB_URL_LIFETIME_MS).toBe(60_000);
+  });
+
   test('keeps the historical stage-scoped name for one-segment export', () => {
     expect(videoFilename(exporting(false), 'webm')).toBe(
       'danmaku-video-20260724T102030Z-stage-1.webm',

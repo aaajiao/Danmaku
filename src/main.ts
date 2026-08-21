@@ -38,6 +38,7 @@ import {
 } from './core/xbox-webhid';
 import { Loop } from './core/loop';
 import {
+  REPLAY_EXPORT_TAIL_TICKS,
   ReplayExportState,
   TitleState,
   replayExportPresentationAdvances,
@@ -94,6 +95,7 @@ import {
 } from './render/capture';
 import {
   ReplayVideoCapture,
+  type VideoChunkSink,
   unexpectedVideoCaptureEndError,
 } from './render/video-capture';
 import {
@@ -113,6 +115,7 @@ import {
   downloadReplayFile,
   videoFilename,
 } from './shell/downloads';
+import { prepareVideoChunkSink } from './shell/video-storage';
 import {
   hasConnectedStandardController,
   installControllerConnect,
@@ -1106,7 +1109,7 @@ const GRAZE_UI_TICKS = 16;
 const bossIdentityFx: BossIdentityFx<Run>[] = [];
 const bossCastFx: BossCastFx<Run>[] = [];
 
-const REPLAY_EXPORT_TAIL_MS = 1000;
+const REPLAY_EXPORT_TAIL_MS = REPLAY_EXPORT_TAIL_TICKS * (1000 / 60);
 
 interface ActiveReplayExport {
   readonly state: ReplayExportState;
@@ -1115,6 +1118,7 @@ interface ActiveReplayExport {
   stopping: boolean;
   disposed: boolean;
   audioLease?: AudioCaptureLease;
+  sink?: VideoChunkSink;
   video?: ReplayVideoCapture;
 }
 
@@ -1130,8 +1134,11 @@ function disposeReplayExport(active: ActiveReplayExport): void {
   if (active.disposed) return;
   active.disposed = true;
   const cancellation = active.video?.cancel();
+  const sinkDiscard = active.video === undefined ? active.sink?.discard() : undefined;
+  active.sink = undefined;
   active.audioLease?.release();
   if (cancellation !== undefined) void cancellation;
+  if (sinkDiscard !== undefined) void sinkDiscard;
 }
 
 function failReplayExport(active: ActiveReplayExport, error: unknown): void {
@@ -1160,11 +1167,28 @@ function prepareReplayExport(state: ReplayExportState): void {
     disposed: false,
   };
   activeReplayExport = active;
-  showShellStatus('PREPARING VIDEO · LOADING AUDIO', 'info', 0);
+  showShellStatus('PREPARING VIDEO · AUDIO / STORAGE', 'info', 0);
 
-  void preloadReplayExportAudio().then(() => {
+  const sinkReady = prepareVideoChunkSink({
+    expectedTicks: state.estimatedTicks,
+  }).then((sink) => {
     if (
-      activeReplayExport !== active
+      active.disposed
+      || activeReplayExport !== active
+      || machine.current !== state
+      || state.phase !== 'preparing'
+    ) {
+      void sink.discard();
+      return undefined;
+    }
+    active.sink = sink;
+    return sink;
+  });
+
+  void Promise.all([preloadReplayExportAudio(), sinkReady]).then(([, sink]) => {
+    if (
+      sink === undefined
+      || activeReplayExport !== active
       || machine.current !== state
       || state.phase !== 'preparing'
     ) {
@@ -1180,6 +1204,7 @@ function startReplayExportRecording(active: ActiveReplayExport): void {
     || machine.current !== active.state
     || active.state.phase !== 'preparing'
     || !active.ready
+    || active.video !== undefined
   ) {
     return;
   }
@@ -1200,10 +1225,18 @@ function startReplayExportRecording(active: ActiveReplayExport): void {
   }
   active.audioLease = audioLease;
 
+  const sink = active.sink;
+  if (sink === undefined) {
+    failReplayExport(active, new Error('video export: chunk storage was not prepared'));
+    return;
+  }
+
   const video = new ReplayVideoCapture(frameCapture, {
     audioStream: audioLease.stream,
     requireAudio: true,
+    sink,
   });
+  active.sink = undefined;
   active.video = video;
   void video.completion.then((outcome) => {
     if (activeReplayExport !== active || active.stopping) return;
