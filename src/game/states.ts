@@ -415,6 +415,106 @@ function replayStatus(replay: Replay | undefined): string {
   return stringMeta(replay, 'outcome') ?? 'recorded';
 }
 
+interface ReplaySessionStableIdentity {
+  readonly character: string;
+  readonly difficulty: Difficulty;
+  readonly infiniteLives: boolean;
+  readonly packsData: string;
+  readonly content: string | undefined;
+}
+
+interface ReplaySessionSegmentPreflight {
+  readonly stage: string;
+  readonly identity: ReplaySessionStableIdentity;
+}
+
+const REPLAY_SESSION_STABLE_FIELDS = [
+  'character',
+  'difficulty',
+  'infiniteLives',
+  'packsData',
+  'content',
+] as const satisfies readonly (keyof ReplaySessionStableIdentity)[];
+
+/**
+ * Refuse a wrapper that cannot describe one coherent campaign attempt.
+ *
+ * Every nested Replay is reconstructed through the same current-build path the
+ * viewer uses. The wrapper itself deliberately stays a thin persistence format;
+ * campaign reachability and stable attempt identity belong here, where the live
+ * stage and character registries are available. This is a structural preflight:
+ * exact per-tick reproduction is still checked when each segment actually plays.
+ */
+export function preflightReplaySession(
+  ctx: GameContext,
+  session: ReplaySession,
+): void {
+  if (session.segments.length === 0) {
+    throw new Error('replay session: cannot play an empty session');
+  }
+
+  const segments: ReplaySessionSegmentPreflight[] = session.segments.map(
+    (replay, index) => {
+      let run: Run;
+      try {
+        run = new Run(replayRunConfig(ctx, replay));
+      } catch (error) {
+        throw new Error(
+          `replay session: segment ${index + 1} cannot be rebuilt in this build `
+          + `(${(error as Error).message})`,
+        );
+      }
+      return {
+        stage: run.stageName,
+        identity: {
+          character: run.characterName,
+          difficulty: run.difficulty,
+          infiniteLives: run.config.infiniteLives === true,
+          packsData: run.config.packsData ?? '',
+          // Unlike the normalized live config above, absence is meaningful here:
+          // a legacy unpinned segment and a pinned segment are not one stable
+          // attempt even when both happen to reconstruct under today's build.
+          content: stringMeta(replay, 'content'),
+        },
+      };
+    },
+  );
+
+  const first = segments[0];
+  if (first === undefined) return;
+  for (let index = 1; index < segments.length; index++) {
+    const segment = segments[index]!;
+    for (const field of REPLAY_SESSION_STABLE_FIELDS) {
+      if (segment.identity[field] === first.identity[field]) continue;
+      throw new Error(
+        `replay session: segment ${index + 1} changes ${field} from `
+        + `${JSON.stringify(first.identity[field])} to ${JSON.stringify(segment.identity[field])}`,
+      );
+    }
+  }
+
+  for (let index = 0; index + 1 < segments.length; index++) {
+    const replay = session.segments[index]!;
+    const current = segments[index]!;
+    const next = segments[index + 1]!;
+    if (
+      replayEndReason(replay) !== undefined
+      || stringMeta(replay, 'outcome') !== 'cleared'
+    ) {
+      throw new Error(
+        `replay session: segment ${index + 1} must be a natural clear before segment ${index + 2}`,
+      );
+    }
+    const declaredNext = getStage(current.stage).next;
+    if (declaredNext !== next.stage) {
+      throw new Error(
+        `replay session: ${current.stage} leads to ${JSON.stringify(declaredNext)}, `
+        + `not segment ${index + 2} stage ${JSON.stringify(next.stage)}`,
+      );
+    }
+  }
+}
+
 function replayDuration(ticks: number): string {
   const seconds = Math.floor(Math.max(0, ticks) / 60);
   const minutes = Math.floor(seconds / 60);
@@ -1244,6 +1344,15 @@ export function replayExportPresentationAdvances(
 }
 
 /**
+ * Frames retained between verified stages during WATCH SESSION.
+ *
+ * This is a presentation clock, but it is deliberately fixed-tick rather than a
+ * wall-clock timeout: replay playback and a future whole-session export must see
+ * the same frozen hand-off regardless of display refresh rate (CLAUDE.md rule 1).
+ */
+export const REPLAY_SESSION_STAGE_HOLD_TICKS = 60;
+
+/**
  * Replay-driven source for a single-stage video export.
  *
  * This state owns only the deterministic part: rebuilding the Run and advancing
@@ -1398,13 +1507,24 @@ export class ReplayPlayingState implements GameState {
   readonly #entryCarry: PlayerCarry | undefined;
   readonly #edges = new Edges();
   #completed = false;
+  #stageHoldAge: number | undefined;
+  #sequenceError: string | undefined;
 
   constructor(
     ctx: GameContext,
     session: ReplaySession,
     segmentIndex: number,
-    options: { readonly continuous?: boolean; readonly carry?: PlayerCarry } = {},
+    options: {
+      readonly continuous?: boolean;
+      readonly carry?: PlayerCarry;
+      /** Internal hand-off: the first continuous state already checked the wrapper. */
+      readonly sessionPreflighted?: boolean;
+    } = {},
   ) {
+    const continuous = options.continuous ?? false;
+    if (continuous && options.sessionPreflighted !== true) {
+      preflightReplaySession(ctx, session);
+    }
     const replay = session.segments[segmentIndex];
     if (replay === undefined) {
       throw new Error(`replay viewer: session has no segment ${segmentIndex}`);
@@ -1413,7 +1533,7 @@ export class ReplayPlayingState implements GameState {
     this.#session = session;
     this.#segmentIndex = segmentIndex;
     this.#replay = replay;
-    this.#continuous = options.continuous ?? false;
+    this.#continuous = continuous;
     this.#entryCarry = options.carry;
     this.run = new Run(replayRunConfig(ctx, replay, options.carry));
   }
@@ -1426,6 +1546,25 @@ export class ReplayPlayingState implements GameState {
     }
     if (this.#edges.pressed(Button.Bomb)) {
       this.#ctx.machine.replace(this.back());
+      return;
+    }
+
+    if (this.#stageHoldAge !== undefined) {
+      this.#stageHoldAge++;
+      if (this.#stageHoldAge < REPLAY_SESSION_STAGE_HOLD_TICKS) return;
+
+      try {
+        const next = this.next();
+        if (next === undefined) {
+          throw new Error('verified session has no next replay segment');
+        }
+        this.#ctx.machine.replace(next);
+      } catch (error) {
+        this.#stageHoldAge = undefined;
+        this.#sequenceError = `replay viewer: cannot continue session (${(error as Error).message})`;
+        this.#ctx.onReplayError?.(this.#sequenceError);
+        this.#ctx.machine.push(new ReplayCompleteState(this.#ctx, this));
+      }
       return;
     }
 
@@ -1444,7 +1583,15 @@ export class ReplayPlayingState implements GameState {
           `replay viewer: ${this.run.stageName} did not reproduce the recorded outcome`,
         );
       }
-      this.#ctx.machine.push(new ReplayCompleteState(this.#ctx, this));
+      if (this.hasNext) {
+        // Retain the verified terminal Run for the whole fixed-tick interstage
+        // card. Besides making WATCH SESSION genuinely hands-free, keeping the
+        // old object alive lets the shell drain its final events before the next
+        // Run replaces it.
+        this.#stageHoldAge = 0;
+      } else {
+        this.#ctx.machine.push(new ReplayCompleteState(this.#ctx, this));
+      }
     }
   }
 
@@ -1452,6 +1599,7 @@ export class ReplayPlayingState implements GameState {
     return new ReplayPlayingState(this.#ctx, this.#session, this.#segmentIndex, {
       continuous: this.#continuous,
       ...(this.#entryCarry === undefined ? {} : { carry: this.#entryCarry }),
+      ...(this.#continuous ? { sessionPreflighted: true } : {}),
     });
   }
 
@@ -1463,12 +1611,14 @@ export class ReplayPlayingState implements GameState {
     return new ReplayPlayingState(this.#ctx, this.#session, nextIndex, {
       continuous: true,
       carry: this.run.carry,
+      sessionPreflighted: true,
     });
   }
 
   get hasNext(): boolean {
     return (
       this.#continuous
+      && this.#sequenceError === undefined
       && this.matchesRecording()
       && replayEndReason(this.#replay) === undefined
       && stringMeta(this.#replay, 'outcome') === 'cleared'
@@ -1496,7 +1646,25 @@ export class ReplayPlayingState implements GameState {
     return replayMatchesRun(this.#replay, this.run);
   }
 
+  get sequenceError(): string | undefined {
+    return this.#sequenceError;
+  }
+
   view(): StateView {
+    if (this.#stageHoldAge !== undefined) {
+      const next = this.#session.segments[this.#segmentIndex + 1];
+      const nextStage = stringMeta(next, 'stage') ?? `stage ${this.#segmentIndex + 2}`;
+      return {
+        kind: 'cleared',
+        title: 'STAGE CLEAR',
+        lines: [
+          `${this.run.stageName} replay verified`,
+          `continuing to ${nextStage}`,
+        ],
+        menu: [],
+        age: this.#stageHoldAge,
+      };
+    }
     // `playing` makes the shell skip a second menu overlay while still finding
     // this state's public `run` for the ordinary field/HUD renderer.
     return { kind: 'playing', run: this.run };
@@ -1608,9 +1776,12 @@ class ReplayCompleteState extends MenuState {
     const run = this.#playing.run;
     const matches = this.#playing.matchesRecording();
     const status = replayStatus(replay).toUpperCase();
+    const sequenceError = this.#playing.sequenceError;
     return {
       kind: 'replay-complete',
-      title: matches
+      title: sequenceError !== undefined
+        ? 'REPLAY SESSION ERROR'
+        : matches
         ? replayEndReason(replay) === undefined
           ? 'REPLAY COMPLETE'
           : `REPLAY ENDED · ${status}`
@@ -1618,6 +1789,7 @@ class ReplayCompleteState extends MenuState {
       lines: [
         `${run.stageName} · ${run.tickCount} / ${replay.length} ticks`,
         ...(matches ? [] : ['recorded outcome did not reproduce exactly']),
+        ...(sequenceError === undefined ? [] : [sequenceError]),
       ],
       menu: this.entries,
       selected: this.selected,
@@ -1926,7 +2098,11 @@ export class ClearedState extends EndingState {
   }
 
   protected override get entries(): readonly string[] {
-    return this.#hasNext ? ['NEXT STAGE', ...super.entries] : super.entries;
+    // An intermediate clear still owns an active campaign attempt. WATCH/EXPORT
+    // would replace its finished Run with a viewer and strand the only route to
+    // `advance()`, so replay actions stay on terminal result screens and in the
+    // title library. The live hand-off keeps only decisions about this campaign.
+    return this.#hasNext ? ['NEXT STAGE', 'RETRY', 'TITLE'] : super.entries;
   }
 
   protected override confirm(index: number): void {
@@ -1934,11 +2110,14 @@ export class ClearedState extends EndingState {
       super.confirm(index);
       return;
     }
-    if (index > 0) {
-      // The base class numbers its own entries from zero; this screen prepended
-      // one, so shift before delegating. Passing the raw index would make TITLE
-      // retry and RETRY advance.
-      super.confirm(index - 1);
+    if (index === 1) {
+      this.ctx.machine.pop();
+      this.ctx.machine.replace(this.playing.restart());
+      return;
+    }
+    if (index > 1) {
+      this.ctx.machine.clear();
+      this.ctx.machine.push(new TitleState(this.ctx));
       return;
     }
 

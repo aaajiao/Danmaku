@@ -25,6 +25,7 @@ import {
   type GameContext,
   PauseState,
   PlayingState,
+  preflightReplaySession,
   ReplayExportState,
   type ReplayEndReason,
   ReplayDeleteConfirmState,
@@ -32,6 +33,7 @@ import {
   ReplayPlayingState,
   replayExportPresentationAdvances,
   replayRunConfig,
+  REPLAY_SESSION_STAGE_HOLD_TICKS,
   ReplaySessionState,
   TitleState,
 } from './states';
@@ -882,18 +884,17 @@ describe('replay library and viewer', () => {
     expect(exporting.matchesRecording()).toBe(true);
   });
 
-  test('an early-ended segment is terminal even if a file appends another stage', () => {
+  test('session preflight refuses an early-ended segment before an appended stage', () => {
     const partial = recordPartialStage(5, 'quit', 120).replay;
     const natural = recordStage(FINAL_STAGE, 121).replay;
     const session = replaySession([partial, natural]);
     const ctx = context({ replaySessions: [session] });
-    const viewer = new ReplayPlayingState(ctx, session, 0, { continuous: true });
-    ctx.machine.push(viewer);
-    for (let tick = 0; tick < partial.length + 2; tick++) ctx.machine.tick(0);
-
-    expect(viewer.matchesRecording()).toBe(true);
-    expect(viewer.hasNext).toBe(false);
-    expect(ctx.machine.current?.view?.().menu).not.toContain('NEXT STAGE');
+    expect(() => preflightReplaySession(ctx, session)).toThrow(
+      /segment 1 must be a natural clear before segment 2/,
+    );
+    expect(() => new ReplayPlayingState(ctx, session, 0, { continuous: true })).toThrow(
+      /segment 1 must be a natural clear before segment 2/,
+    );
   });
 
   test('single-stage export freezes while preparing and advances only recorded input once armed', () => {
@@ -1033,24 +1034,158 @@ describe('replay library and viewer', () => {
     expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
   });
 
-  test('continuous watch verifies and carries the actual prior-stage resources', () => {
+  test('WATCH SESSION holds the verified clear, then advances without a press using actual carry', () => {
     const first = recordStage(PENULTIMATE_STAGE, 105);
     const second = recordStage(FINAL_STAGE, 106, () => 0, first.run.carry);
     const session = replaySession([first.replay, second.replay]);
     const ctx = context({ replaySessions: [session] });
-    ctx.machine.push(new ReplayPlayingState(ctx, session, 0, { continuous: true }));
+    open(ctx.machine, new ReplaySessionState(ctx, session));
+    press(ctx.machine, Button.Shot);
+    const firstViewer = ctx.machine.current as ReplayPlayingState;
+    expect(firstViewer).toBeInstanceOf(ReplayPlayingState);
 
-    for (let tick = 0; tick < 100 && ctx.machine.current?.name === 'replay-playing'; tick++) {
+    for (let tick = 0; tick < first.replay.length + 2 && firstViewer.view().kind === 'playing'; tick++) {
       ctx.machine.tick(0);
     }
-    expect(ctx.machine.current?.name).toBe('replay-complete');
-    ctx.machine.tick(0);
-    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBe(firstViewer);
+    expect(firstViewer.view()).toMatchObject({
+      kind: 'cleared',
+      title: 'STAGE CLEAR',
+      menu: [],
+      age: 0,
+    });
+    const frozenTick = firstViewer.run.tickCount;
+    for (let tick = 1; tick < REPLAY_SESSION_STAGE_HOLD_TICKS; tick++) {
+      ctx.machine.tick(0);
+      expect(ctx.machine.current).toBe(firstViewer);
+      expect(firstViewer.run.tickCount).toBe(frozenTick);
+    }
 
+    // The final hold tick swaps in stage two without any live Shot/Start input.
+    ctx.machine.tick(0);
     const next = ctx.machine.current as ReplayPlayingState;
     expect(next.name).toBe('replay-playing');
     expect(next.run.stageName).toBe(FINAL_STAGE);
     expect(next.run.config.carry).toEqual(first.run.carry);
+
+    for (let tick = 0; tick < second.replay.length + 2; tick++) ctx.machine.tick(0);
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+  });
+
+  test('session preflight rejects a wrong stage edge and a changed stable field', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 125);
+    const final = recordStage(FINAL_STAGE, 126, () => 0, first.run.carry).replay;
+    const wrongStage = {
+      ...final,
+      meta: { ...final.meta, stage: UNAUTHORED_FINAL_STAGE },
+    };
+    expect(() => preflightReplaySession(
+      context(),
+      replaySession([first.replay, wrongStage]),
+    )).toThrow(/leads to .*test-ending-final.*not segment 2 stage .*test-ending-unowned/);
+
+    const changedDifficulty = {
+      ...final,
+      meta: { ...final.meta, difficulty: 'hard' },
+    };
+    expect(() => preflightReplaySession(
+      context(),
+      replaySession([first.replay, changedDifficulty]),
+    )).toThrow(/segment 2 changes difficulty from "normal" to "hard"/);
+
+    const changedCharacter = {
+      ...final,
+      meta: { ...final.meta, character: PACK_CHARACTER },
+    };
+    expect(() => preflightReplaySession(
+      context(),
+      replaySession([first.replay, changedCharacter]),
+    )).toThrow(/segment 2 changes character/);
+
+    const changedAssist = {
+      ...final,
+      meta: { ...final.meta, infiniteLives: 'true' },
+    };
+    expect(() => preflightReplaySession(
+      context(),
+      replaySession([first.replay, changedAssist]),
+    )).toThrow(/segment 2 changes infiniteLives from false to true/);
+
+    const changedPacksData = {
+      ...final,
+      meta: { ...final.meta, packsData: PACK_DATA },
+    };
+    expect(() => preflightReplaySession(
+      context({ campaigns: [{ label: 'demo', stage: 'demo/entry', packsData: PACK_DATA }] }),
+      replaySession([first.replay, changedPacksData]),
+    )).toThrow(/segment 2 changes packsData/);
+  });
+
+  test('session preflight treats content pinning as stable attempt identity', () => {
+    const fingerprint = 'test-content-fingerprint';
+    const first = recordStage(PENULTIMATE_STAGE, 127);
+    const final = recordStage(FINAL_STAGE, 128, () => 0, first.run.carry).replay;
+    const pinnedFinal = {
+      ...final,
+      meta: { ...final.meta, content: fingerprint },
+    };
+    expect(() => preflightReplaySession(
+      context({ contentFingerprint: fingerprint }),
+      replaySession([first.replay, pinnedFinal]),
+    )).toThrow(/segment 2 changes content from undefined to "test-content-fingerprint"/);
+  });
+
+  test('session preflight keeps legacy single-stage recordings watchable', () => {
+    const recorded = recordStage(REPLAY_STAGE, 132).replay;
+    const {
+      difficulty: _difficulty,
+      packsData: _packsData,
+      content: _content,
+      ...legacyMeta
+    } = recorded.meta ?? {};
+    const legacy = { ...recorded, meta: legacyMeta };
+    const session = replaySession([legacy]);
+    const ctx = context({ replaySessions: [session] });
+
+    expect(() => preflightReplaySession(ctx, session)).not.toThrow();
+    expect(() => new ReplayPlayingState(ctx, session, 0, {
+      continuous: true,
+    })).not.toThrow();
+  });
+
+  test('session preflight does not make presentation-only pack drift strict', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 133);
+    const final = recordStage(FINAL_STAGE, 134, () => 0, first.run.carry).replay;
+    const reskinnedFinal = {
+      ...final,
+      meta: { ...final.meta, packs: 'different-skin@abcdef012345' },
+    };
+
+    expect(() => preflightReplaySession(
+      context(),
+      replaySession([first.replay, reskinnedFinal]),
+    )).not.toThrow();
+  });
+
+  test('continuous hand-off refuses a next replay whose recorded carry is not the actual prior result', () => {
+    const first = recordStage(PENULTIMATE_STAGE, 130);
+    const wrongCarry = { ...first.run.carry, lives: first.run.carry.lives + 1 };
+    const second = recordStage(FINAL_STAGE, 131, () => 0, wrongCarry);
+    const session = replaySession([first.replay, second.replay]);
+    const errors: string[] = [];
+    const ctx = context({ onReplayError: (message) => errors.push(message) });
+    const viewer = new ReplayPlayingState(ctx, session, 0, { continuous: true });
+    ctx.machine.push(viewer);
+
+    for (let tick = 0; tick < first.replay.length + REPLAY_SESSION_STAGE_HOLD_TICKS + 4; tick++) {
+      ctx.machine.tick(0);
+      if (ctx.machine.current?.name === 'replay-complete') break;
+    }
+
+    expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(errors.at(-1)).toMatch(/cannot continue session.*carry/);
+    expect(viewer.sequenceError).toMatch(/carry/);
+    expect(ctx.machine.current?.view?.().title).toBe('REPLAY SESSION ERROR');
   });
 
   test('strict data-pack identity is checked against the running build', () => {
@@ -1176,7 +1311,7 @@ describe('replay library and viewer', () => {
     expect(viewer.matchesRecording()).toBe(false);
   });
 
-  test('a bad next segment stays on the completion card and reports its error', () => {
+  test('session preflight refuses an unbuildable later segment before playback', () => {
     const first = recordStage(PENULTIMATE_STAGE, 109);
     const invalidNext: Replay = {
       ...first.replay,
@@ -1184,20 +1319,9 @@ describe('replay library and viewer', () => {
       meta: { ...first.replay.meta, stage: 'missing/replay-stage' },
     };
     const session = replaySession([first.replay, invalidNext]);
-    const errors: string[] = [];
-    const ctx = context({
-      replaySessions: [session],
-      onReplayError: (message) => errors.push(message),
-    });
-    ctx.machine.push(new ReplayPlayingState(ctx, session, 0, { continuous: true }));
-    for (let tick = 0; tick < 100 && ctx.machine.current?.name === 'replay-playing'; tick++) {
-      ctx.machine.tick(0);
-    }
-    expect(ctx.machine.current?.name).toBe('replay-complete');
-    ctx.machine.tick(0);
-    press(ctx.machine, Button.Shot);
-    expect(ctx.machine.current?.name).toBe('replay-complete');
-    expect(errors.at(-1)).toMatch(/missing\/replay-stage|content-pack identity/);
+    expect(() => preflightReplaySession(context(), session)).toThrow(
+      /segment 2 cannot be rebuilt.*missing\/replay-stage/,
+    );
   });
 });
 
@@ -1762,6 +1886,34 @@ describe('endings', () => {
     expect(playing.run.outcome).toBe('cleared');
     expect(ctx.machine.current?.name).toBe('cleared');
     expect((ctx.machine.current as ClearedState).view().title).toBe('STAGE CLEAR');
+  });
+
+  test('an intermediate live clear keeps only campaign actions even when its replay is saved', () => {
+    const saved = recordStage(PENULTIMATE_STAGE, 129).replay;
+    const session = replaySession([saved], 'active-campaign');
+    const ctx = context({
+      recordReplay: true,
+      beginReplaySession: () => session.id,
+      replaySessions: [session],
+    });
+    const playing = new PlayingState(ctx, PILOT, { stage: PENULTIMATE_STAGE });
+    ctx.machine.push(playing);
+    for (let tick = 0; tick < 20 && !playing.run.finished; tick++) ctx.machine.tick(0);
+
+    expect(ctx.machine.current).toBeInstanceOf(ClearedState);
+    const menu = ctx.machine.current?.view?.().menu;
+    expect(menu).toEqual(['NEXT STAGE', 'RETRY', 'TITLE']);
+    expect(menu).not.toContain('WATCH REPLAY');
+    expect(menu).not.toContain('EXPORT VIDEO');
+    expect(menu).not.toContain('DOWNLOAD REPLAY');
+
+    // The compact menu's second row is the live RETRY action, not the replay
+    // action that occupied this index before intermediate clears were tightened.
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(PlayingState);
+    expect((ctx.machine.current as PlayingState).run.stageName).toBe(PENULTIMATE_STAGE);
   });
 
   test('a cleared stage and later quit share one recorded campaign session', () => {
