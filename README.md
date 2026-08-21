@@ -104,6 +104,11 @@ that attempt locally under **REPLAYS** on the title screen. The switch defaults
 to off. When it is on, natural clears and failures save full stages; quitting or
 retrying from the pause menu saves the exact partial run as **QUIT** or
 **RETRIED**. A replay session keeps every stage of one campaign attempt together.
+Each segment enters the library and begins writing to local browser storage when
+that stage ends; the game does not hold the whole session until the final clear.
+Library rows use a compact UTC time, pilot, stage count, outcome, and stable short
+code; long libraries can be navigated with arrows, pointer wheel, touch, or
+assistive technology without losing the selected row.
 Its detail screen can watch or export the complete recorded session as one
 continuous sequence, including fixed stage-clear hand-offs, the authored ending
 and **ALL CLEAR** for a full campaign. **STAGES** keeps individual watching and
@@ -118,8 +123,9 @@ or MP4 from the codecs it actually supports and streams encoded chunks to its
 origin-private temporary storage when available. If that storage is unavailable,
 only recordings estimated to fit the 128 MiB memory fallback can start; a larger
 session asks you to export its stages separately. Keep the tab visible until the
-final frame and one-second audio tail have finalized and the download-ready
-message appears.
+final frame and one-second audio tail have finalized. Press Start / Bomb or use
+the on-screen **CANCEL EXPORT** control to stop without saving a video. Success,
+failure, and cancellation each finish on a distinct result card.
 
 On macOS, browsers that provide WebHID offer **CONNECT CONTROLLER** on the title
 screen whenever no ordinary Gamepad API controller is already connected. It is
