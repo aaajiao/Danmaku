@@ -13,9 +13,24 @@ type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+interface MemoryCacheStorage {
+  readonly names: Set<string>;
+  readonly entries: Map<string, Map<string, string>>;
+}
+
+function memoryCacheStorage(
+  existingCaches: readonly string[] = [],
+): MemoryCacheStorage {
+  return {
+    names: new Set(existingCaches),
+    entries: new Map(),
+  };
+}
+
 interface WorkerHarness {
   readonly cacheName: string;
   readonly cachePrefix: string;
+  readonly trustUrl: string;
   readonly listeners: Map<string, WorkerListener>;
   readonly opened: string[];
   readonly added: string[];
@@ -34,7 +49,11 @@ async function workerHarness(
     fetch?: FetchLike;
     cachedRoot?: boolean;
     cachedUrls?: string[];
+    match?: (cacheName: string, url: string) => Promise<void>;
+    precache?: (requests: readonly Request[]) => Promise<void>;
     precacheError?: Error;
+    storage?: MemoryCacheStorage;
+    trusted?: boolean;
     windowClients?: Array<{ id: string; url: string }>;
   } = {},
 ): Promise<WorkerHarness> {
@@ -56,38 +75,80 @@ async function workerHarness(
   const skipped = { count: 0 };
   const installOrder: string[] = [];
   const location = new URL(scope);
-  const cache = {
-    async addAll(requests: Request[]): Promise<void> {
-      installOrder.push('precache');
-      if (options.precacheError !== undefined) {
-        throw options.precacheError;
+  const initialEntries = new Map<string, string>();
+  for (const url of options.cachedUrls ?? []) {
+    initialEntries.set(url, `cached ${url}`);
+  }
+  if (options.cachedRoot === true) initialEntries.set(scope, 'cached shell');
+  const storage = options.storage
+    ?? memoryCacheStorage(options.existingCaches);
+  for (const name of options.existingCaches ?? []) storage.names.add(name);
+  let currentCacheName: string | undefined;
+  let currentTrustUrl: string | undefined;
+  let currentSeeded = false;
+
+  function cacheFor(name: string) {
+    let entries = storage.entries.get(name);
+    if (entries === undefined) {
+      const seed = name === currentCacheName && !currentSeeded
+        ? initialEntries
+        : new Map<string, string>();
+      entries = new Map(seed);
+      if (name === currentCacheName) {
+        currentSeeded = true;
+        const hasSeed = initialEntries.size > 0;
+        if (
+          (options.trusted ?? hasSeed)
+          && currentTrustUrl !== undefined
+        ) entries.set(currentTrustUrl, 'test-build');
       }
-      added.push(...requests.map((request) => request.url));
-    },
-    async match(key: Request | string): Promise<Response | undefined> {
-      const url = typeof key === 'string' ? key : key.url;
-      if (options.cachedRoot === true && url === scope) {
-        return new Response('cached shell');
-      }
-      return options.cachedUrls?.includes(url) === true
-        ? new Response(`cached ${url}`)
-        : undefined;
-    },
-    async put(request: Request): Promise<void> {
-      puts.push(request.url);
-    },
-  };
+      storage.entries.set(name, entries);
+      storage.names.add(name);
+    }
+    return {
+      async addAll(requests: Request[]): Promise<void> {
+        installOrder.push('precache');
+        if (options.precacheError !== undefined) {
+          throw options.precacheError;
+        }
+        await options.precache?.(requests);
+        added.push(...requests.map((request) => request.url));
+        for (const request of requests) {
+          entries.set(
+            request.url,
+            request.url === scope ? 'cached shell' : `cached ${request.url}`,
+          );
+        }
+      },
+      async match(key: Request | string): Promise<Response | undefined> {
+        const url = typeof key === 'string' ? key : key.url;
+        await options.match?.(name, url);
+        const body = entries.get(url);
+        return body === undefined ? undefined : new Response(body);
+      },
+      async put(request: Request | string, response: Response): Promise<void> {
+        const url = typeof request === 'string' ? request : request.url;
+        puts.push(url);
+        entries.set(url, await response.text());
+      },
+      async delete(request: Request | string): Promise<boolean> {
+        const url = typeof request === 'string' ? request : request.url;
+        return entries.delete(url);
+      },
+    };
+  }
   const cacheStorage = {
-    async open(name: string): Promise<typeof cache> {
+    async open(name: string) {
       opened.push(name);
-      return cache;
+      return cacheFor(name);
     },
     async keys(): Promise<string[]> {
-      return options.existingCaches ?? [];
+      return [...storage.names];
     },
     async delete(name: string): Promise<boolean> {
       deleted.push(name);
-      return true;
+      storage.entries.delete(name);
+      return storage.names.delete(name);
     },
   };
   const fetchImpl: FetchLike = async (input, init) => {
@@ -122,7 +183,7 @@ async function workerHarness(
   };
 
   const result = runInNewContext(
-    `${source}\n({ cacheName: CACHE_NAME, cachePrefix: CACHE_PREFIX });`,
+    `${source}\n({ cacheName: CACHE_NAME, cachePrefix: CACHE_PREFIX, trustUrl: TRUST_URL });`,
     {
       self,
       caches: cacheStorage,
@@ -135,7 +196,9 @@ async function workerHarness(
       Math,
       TypeError,
     },
-  ) as { cacheName: string; cachePrefix: string };
+  ) as { cacheName: string; cachePrefix: string; trustUrl: string };
+  currentCacheName = result.cacheName;
+  currentTrustUrl = result.trustUrl;
 
   return {
     ...result,
@@ -182,6 +245,33 @@ async function dispatchMessage(
   if (pending !== undefined) await pending;
 }
 
+async function dispatchFetch(
+  listener: WorkerListener | undefined,
+  request: Request | {
+    readonly method: string;
+    readonly mode: string;
+    readonly url: string;
+    readonly headers: Headers;
+  },
+): Promise<Response> {
+  if (listener === undefined) throw new Error('worker listener is missing');
+  let response: Promise<Response> | undefined;
+  const pending: Promise<unknown>[] = [];
+  listener({
+    request,
+    respondWith(value: Promise<Response>) {
+      response = value;
+    },
+    waitUntil(value: Promise<unknown>) {
+      pending.push(value);
+    },
+  });
+  if (response === undefined) throw new Error('fetch listener did not respond');
+  const result = await response;
+  await Promise.all(pending);
+  return result;
+}
+
 describe('generated service-worker lifecycle', () => {
   test('precache is exact and cache namespaces differ by scope', async () => {
     const root = await workerHarness('https://example.test/');
@@ -194,6 +284,7 @@ describe('generated service-worker lifecycle', () => {
       'https://example.test/',
       'https://example.test/asset.js',
     ]);
+    expect(root.puts).toEqual([root.trustUrl]);
     expect(root.skipped.count).toBe(0);
     expect(root.installOrder).toEqual(['precache']);
 
@@ -315,9 +406,9 @@ describe('generated service-worker lifecycle', () => {
     expect(remote.fetches).toEqual([]);
   });
 
-  test('a missing release resource fails closed without fetching the deployment', async () => {
+  test('a missing release resource rejects a different deployment', async () => {
     const worker = await workerHarness('https://example.test/', {
-      fetch: async () => new Response('new deployment'),
+      fetch: async () => new Response('const BUILD_ID = "new-build";'),
     });
     let response: Promise<Response> | undefined;
     worker.listeners.get('fetch')?.({
@@ -332,8 +423,309 @@ describe('generated service-worker lifecycle', () => {
     expect(result?.status).toBe(503);
     expect(result?.statusText).toBe('Release Cache Incomplete');
     expect(await result?.text()).toBe('Danmaku release cache is incomplete.');
-    expect(worker.fetches).toEqual([]);
+    expect(worker.fetches).toEqual(['https://example.test/sw.js']);
+    expect(worker.added).toEqual([]);
     expect(worker.puts).toEqual([]);
+  });
+
+  test('a newer deployment leaves other cached snapshot entries trusted', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      cachedRoot: true,
+      fetch: async () => new Response('const BUILD_ID = "new-build";'),
+    });
+
+    const asset = await dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request('https://example.test/asset.js'),
+    );
+    expect(asset.status).toBe(503);
+
+    const navigation = await dispatchFetch(worker.listeners.get('fetch'), {
+      method: 'GET',
+      mode: 'navigate',
+      url: 'https://example.test/',
+      headers: new Headers(),
+    });
+    expect(await navigation.text()).toBe('cached shell');
+    expect(worker.fetches).toEqual(['https://example.test/sw.js']);
+  });
+
+  test('an evicted cache refills the complete matching release before serving', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => new Response('const BUILD_ID = "test-build";'),
+    });
+    let navigation: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: {
+        method: 'GET',
+        mode: 'navigate',
+        url: 'https://example.test/play',
+        headers: new Headers(),
+      },
+      respondWith(value: Promise<Response>) {
+        navigation = value;
+      },
+      waitUntil() {},
+    });
+
+    expect(await (await navigation)?.text()).toBe('cached shell');
+    expect(worker.added).toEqual([
+      'https://example.test/',
+      'https://example.test/asset.js',
+    ]);
+    expect(worker.fetches).toEqual([
+      'https://example.test/sw.js',
+      'https://example.test/sw.js',
+    ]);
+
+    let asset: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: new Request('https://example.test/asset.js'),
+      respondWith(value: Promise<Response>) {
+        asset = value;
+      },
+      waitUntil() {},
+    });
+    expect(await (await asset)?.text()).toBe(
+      'cached https://example.test/asset.js',
+    );
+    expect(worker.fetches).toHaveLength(2);
+  });
+
+  test('a failed matching-release refill remains fail-closed', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => new Response('const BUILD_ID = "test-build";'),
+      precacheError: new Error('asset refused'),
+    });
+    let response: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: new Request('https://example.test/asset.js'),
+      respondWith(value: Promise<Response>) {
+        response = value;
+      },
+      waitUntil() {},
+    });
+
+    expect((await response)?.status).toBe(503);
+    expect(worker.fetches).toEqual(['https://example.test/sw.js']);
+    expect(worker.added).toEqual([]);
+    expect(worker.puts).toEqual([worker.trustUrl]);
+    expect(worker.deleted).toEqual([]);
+  });
+
+  test('an atomic refill rejection preserves prior trusted entries', async () => {
+    const worker = await workerHarness('https://example.test/', {
+      cachedRoot: true,
+      fetch: async () => new Response('const BUILD_ID = "test-build";'),
+      precacheError: new Error('asset refused'),
+    });
+
+    const asset = await dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request('https://example.test/asset.js'),
+    );
+    expect(asset.status).toBe(503);
+
+    const navigation = await dispatchFetch(worker.listeners.get('fetch'), {
+      method: 'GET',
+      mode: 'navigate',
+      url: 'https://example.test/',
+      headers: new Headers(),
+    });
+    expect(await navigation.text()).toBe('cached shell');
+    expect(worker.fetches).toEqual(['https://example.test/sw.js']);
+    expect(worker.puts).toEqual([worker.trustUrl, worker.trustUrl]);
+  });
+
+  test('a concurrent cached hit survives a failed refill that restores trust', async () => {
+    const assetUrl = 'https://example.test/asset.js';
+    let rejectRefill!: () => void;
+    let refillStarted!: () => void;
+    const refillGate = new Promise<void>((_resolve, reject) => {
+      rejectRefill = () => reject(new Error('asset refused'));
+    });
+    const refillReady = new Promise<void>((resolve) => {
+      refillStarted = resolve;
+    });
+    const worker = await workerHarness('https://example.test/', {
+      cachedUrls: [assetUrl],
+      fetch: async () => new Response('const BUILD_ID = "test-build";'),
+      precache: async () => {
+        refillStarted();
+        await refillGate;
+      },
+    });
+
+    const navigation = dispatchFetch(worker.listeners.get('fetch'), {
+      method: 'GET',
+      mode: 'navigate',
+      url: 'https://example.test/',
+      headers: new Headers(),
+    });
+    await refillReady;
+    const asset = dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request(assetUrl),
+    );
+
+    rejectRefill();
+    expect((await navigation).statusText).toBe('Repairing Release Cache');
+    expect(await (await asset).text()).toBe(`cached ${assetUrl}`);
+  });
+
+  test('a deployment switch during refill discards the uncertain cache', async () => {
+    let checks = 0;
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => new Response(
+        checks++ === 0
+          ? 'const BUILD_ID = "test-build";'
+          : 'const BUILD_ID = "new-build";',
+      ),
+    });
+    let response: Promise<Response> | undefined;
+    worker.listeners.get('fetch')?.({
+      request: new Request('https://example.test/asset.js'),
+      respondWith(value: Promise<Response>) {
+        response = value;
+      },
+      waitUntil() {},
+    });
+
+    expect((await response)?.status).toBe(503);
+    expect(worker.deleted).toEqual([]);
+  });
+
+  test('a post-refill failure stays poisoned across a worker restart', async () => {
+    let checks = 0;
+    const storage = memoryCacheStorage();
+    const worker = await workerHarness('https://example.test/', {
+      storage,
+      fetch: async () => {
+        if (checks++ === 0) {
+          return new Response('const BUILD_ID = "test-build";');
+        }
+        throw new TypeError('offline');
+      },
+    });
+
+    const first = await dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request('https://example.test/asset.js'),
+    );
+    expect(first.status).toBe(503);
+    expect(worker.deleted).toEqual([]);
+    expect(storage.entries.get(worker.cacheName)?.get(worker.trustUrl)).toBe(
+      'untrusted',
+    );
+
+    const restarted = await workerHarness('https://example.test/', {
+      storage,
+      fetch: async () => new Response('const BUILD_ID = "new-build";'),
+    });
+    const second = await dispatchFetch(
+      restarted.listeners.get('fetch'),
+      new Request('https://example.test/asset.js'),
+    );
+    expect(second.status).toBe(503);
+    expect(await second.text()).toBe('Danmaku release cache is incomplete.');
+    expect(restarted.added).toEqual([]);
+  });
+
+  test('concurrent hits wait until a refill passes its second identity check', async () => {
+    let checks = 0;
+    let releaseSecondCheck!: () => void;
+    let secondCheckStarted!: () => void;
+    const secondCheck = new Promise<void>((resolve) => {
+      releaseSecondCheck = resolve;
+    });
+    const secondCheckReady = new Promise<void>((resolve) => {
+      secondCheckStarted = resolve;
+    });
+    const worker = await workerHarness('https://example.test/', {
+      fetch: async () => {
+        checks++;
+        if (checks === 2) {
+          secondCheckStarted();
+          await secondCheck;
+        }
+        return new Response('const BUILD_ID = "test-build";');
+      },
+    });
+
+    const first = dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request('https://example.test/asset.js'),
+    );
+    await secondCheckReady;
+
+    let secondSettled = false;
+    const second = dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request('https://example.test/asset.js'),
+    ).then((response) => {
+      secondSettled = true;
+      return response;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(secondSettled).toBe(false);
+
+    releaseSecondCheck();
+    expect(await (await first).text()).toBe(
+      'cached https://example.test/asset.js',
+    );
+    expect(await (await second).text()).toBe(
+      'cached https://example.test/asset.js',
+    );
+    expect(worker.fetches).toHaveLength(2);
+    expect(worker.added).toHaveLength(2);
+  });
+
+  test('a match already in flight cannot expose a failed provisional refill', async () => {
+    const assetUrl = 'https://example.test/asset.js';
+    let releaseAssetMatch!: () => void;
+    let assetMatchStarted!: () => void;
+    let blockAssetMatch = true;
+    const assetMatch = new Promise<void>((resolve) => {
+      releaseAssetMatch = resolve;
+    });
+    const assetMatchReady = new Promise<void>((resolve) => {
+      assetMatchStarted = resolve;
+    });
+    let checks = 0;
+    const worker = await workerHarness('https://example.test/', {
+      cachedUrls: [assetUrl],
+      match: async (_cacheName, url) => {
+        if (url !== assetUrl || !blockAssetMatch) return;
+        blockAssetMatch = false;
+        assetMatchStarted();
+        await assetMatch;
+      },
+      fetch: async () => new Response(
+        checks++ === 0
+          ? 'const BUILD_ID = "test-build";'
+          : 'const BUILD_ID = "new-build";',
+      ),
+    });
+
+    const pendingAsset = dispatchFetch(
+      worker.listeners.get('fetch'),
+      new Request(assetUrl),
+    );
+    await assetMatchReady;
+
+    const navigation = await dispatchFetch(worker.listeners.get('fetch'), {
+      method: 'GET',
+      mode: 'navigate',
+      url: 'https://example.test/',
+      headers: new Headers(),
+    });
+    expect(navigation.statusText).toBe('Repairing Release Cache');
+
+    releaseAssetMatch();
+    const asset = await pendingAsset;
+    expect(asset.status).toBe(503);
+    expect(await asset.text()).toBe('Danmaku release cache is incomplete.');
   });
 
   test('a cached release resource is served from its snapshot', async () => {
@@ -356,9 +748,9 @@ describe('generated service-worker lifecycle', () => {
     expect(worker.puts).toEqual([]);
   });
 
-  test('a missing navigation shell fails closed without fetching the deployment', async () => {
+  test('a different deployment returns a self-contained recovery shell', async () => {
     const worker = await workerHarness('https://example.test/', {
-      fetch: async () => new Response('new deployment'),
+      fetch: async () => new Response('const BUILD_ID = "new-build";'),
     });
     let response: Promise<Response> | undefined;
     worker.listeners.get('fetch')?.({
@@ -376,8 +768,19 @@ describe('generated service-worker lifecycle', () => {
 
     const result = await response;
     expect(result?.status).toBe(503);
-    expect(await result?.text()).toBe('Danmaku release cache is incomplete.');
-    expect(worker.fetches).toEqual([]);
+    expect(result?.statusText).toBe('Repairing Release Cache');
+    expect(result?.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    const body = await result?.text();
+    expect(body).toContain('Repairing the Danmaku release cache');
+    expect(body).toContain('danmaku:activate-update');
+    expect(body).toContain('installing.state === "redundant"');
+    expect(body).toContain('activation will retry automatically');
+    expect(body).not.toContain('<script src=');
+    const script = body?.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    expect(script).toBeDefined();
+    expect(() => new Function(script ?? '')).not.toThrow();
+    expect(worker.fetches).toEqual(['https://example.test/sw.js']);
+    expect(worker.added).toEqual([]);
     expect(worker.puts).toEqual([]);
   });
 
