@@ -117,11 +117,17 @@ import {
 } from './shell/downloads';
 import { prepareVideoChunkSink } from './shell/video-storage';
 import {
+  ACCESSIBLE_TITLE_LIMIT,
+  boundedAccessibleText,
+  joinAccessibleDetails,
+} from './shell/accessible-text';
+import {
   hasConnectedStandardController,
   installControllerConnect,
   presentControllerStatus,
 } from './shell/controller-chrome';
 import {
+  finishMenuClickTargets as finishMenuClickTargetsInChrome,
   hideMenuClickTargets as hideMenuClickTargetsInChrome,
   layoutMenuClickTargets as layoutMenuClickTargetsInChrome,
   stopControllerActivationKey,
@@ -164,6 +170,16 @@ const touchA = document.getElementById('touch-a') as HTMLButtonElement;
 const touchB = document.getElementById('touch-b') as HTMLButtonElement;
 const touchStart = document.getElementById('touch-start') as HTMLButtonElement;
 const menuActions = document.getElementById('menu-actions') as HTMLDivElement;
+const accessibleView = document.getElementById('accessible-view') as HTMLElement;
+const accessibleViewTitle = document.getElementById(
+  'accessible-view-title',
+) as HTMLHeadingElement;
+const accessibleViewLines = document.getElementById(
+  'accessible-view-lines',
+) as HTMLParagraphElement;
+const replayExportCancel = document.getElementById(
+  'replay-export-cancel',
+) as HTMLButtonElement;
 const controllerSetup = document.getElementById('controller-setup') as HTMLDivElement;
 const controllerConnect = document.getElementById('controller-connect') as HTMLButtonElement;
 const controllerStatusOutput = document.getElementById('controller-status') as HTMLOutputElement;
@@ -268,6 +284,7 @@ function showShellStatus(
   if (shellStatusTimer !== undefined) window.clearTimeout(shellStatusTimer);
   shellStatus.textContent = message;
   shellStatus.dataset.tone = tone;
+  delete shellStatus.dataset.owner;
   shellStatus.hidden = false;
   shellStatusTimer = undefined;
   if (hideAfterMs > 0) {
@@ -276,6 +293,19 @@ function showShellStatus(
       shellStatusTimer = undefined;
     }, hideAfterMs);
   }
+}
+
+function showReplayExportStatus(message: string): void {
+  showShellStatus(message, 'info', 0);
+  shellStatus.dataset.owner = 'replay-export';
+}
+
+function hideReplayExportStatus(): void {
+  if (shellStatus.dataset.owner !== 'replay-export') return;
+  if (shellStatusTimer !== undefined) window.clearTimeout(shellStatusTimer);
+  shellStatusTimer = undefined;
+  shellStatus.hidden = true;
+  delete shellStatus.dataset.owner;
 }
 
 let replayLibrary: ReplayLibrary;
@@ -884,6 +914,9 @@ const menuActionChrome: MenuActionChrome = {
   queueSelection: (selected, target, count) => {
     menuPointerInput.queueSelection(selected, target, count);
   },
+  queueNavigation: (selected, target, count) => {
+    menuPointerInput.queueNavigation(selected, target, count);
+  },
   unlockAudio: () => {
     void audio.unlock();
     void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
@@ -894,10 +927,58 @@ function hideMenuClickTargets(): void {
   hideMenuClickTargetsInChrome(menuActionChrome);
 }
 
+function finishMenuClickTargets(): void {
+  finishMenuClickTargetsInChrome(menuActionChrome);
+}
+
 function layoutMenuClickTargets(
   layout: MenuActionLayout,
 ): void {
   layoutMenuClickTargetsInChrome(menuActionChrome, layout);
+}
+
+let accessibleViewSignature = '';
+
+/** Mirror state-owned canvas copy without announcing fixed-tick animation age. */
+function syncAccessibleView(view: StateView | undefined): void {
+  if (view === undefined) {
+    accessibleView.hidden = true;
+    accessibleViewSignature = '';
+    return;
+  }
+  const title = boundedAccessibleText(
+    view.title ?? view.kind.replaceAll('-', ' ').toUpperCase(),
+    ACCESSIBLE_TITLE_LIMIT,
+  );
+  const lines = joinAccessibleDetails([
+    ...(view.lines ?? []),
+    ...(view.accessibleDetails ?? []),
+  ]);
+  const signature = `${view.kind}\u0000${title}\u0000${lines}`;
+  accessibleView.hidden = false;
+  if (signature === accessibleViewSignature) return;
+  accessibleViewSignature = signature;
+  accessibleViewTitle.textContent = title;
+  accessibleViewLines.textContent = lines;
+}
+
+replayExportCancel.addEventListener('keydown', stopControllerActivationKey);
+replayExportCancel.addEventListener('keyup', stopControllerActivationKey);
+replayExportCancel.addEventListener('click', () => {
+  if (!(machine.current instanceof ReplayExportState)) return;
+  // The browser gesture becomes one Start edge sampled by the ordinary fixed
+  // tick input merger; it never calls the export state directly (rule 4).
+  menuPointerInput.queueButton(Button.Start);
+  void audio.unlock();
+});
+
+function syncReplayExportCancelAction(): void {
+  const current = machine.current;
+  replayExportCancel.hidden = !(
+    current instanceof ReplayExportState
+    && current.phase !== 'done'
+    && current.phase !== 'cancelled'
+  );
 }
 
 /**
@@ -1133,6 +1214,7 @@ function disposeReplayExport(active: ActiveReplayExport): void {
   if (activeReplayExport === active) activeReplayExport = undefined;
   if (active.disposed) return;
   active.disposed = true;
+  hideReplayExportStatus();
   const cancellation = active.video?.cancel();
   const sinkDiscard = active.video === undefined ? active.sink?.discard() : undefined;
   active.sink = undefined;
@@ -1167,7 +1249,7 @@ function prepareReplayExport(state: ReplayExportState): void {
     disposed: false,
   };
   activeReplayExport = active;
-  showShellStatus('PREPARING VIDEO · AUDIO / STORAGE', 'info', 0);
+  showReplayExportStatus('PREPARING VIDEO · AUDIO / STORAGE');
 
   const sinkReady = prepareVideoChunkSink({
     expectedTicks: state.estimatedTicks,
@@ -1252,7 +1334,7 @@ function startReplayExportRecording(active: ActiveReplayExport): void {
     disposeReplayExport(active);
     return;
   }
-  showShellStatus('RECORDING VIDEO · START / BOMB TO CANCEL', 'info', 0);
+  showReplayExportStatus('RECORDING VIDEO · START / BOMB / CLICK TO CANCEL');
 }
 
 function stopReplayExport(active: ActiveReplayExport): void {
@@ -1270,7 +1352,7 @@ function stopReplayExport(active: ActiveReplayExport): void {
   }
 
   active.stopping = true;
-  showShellStatus('FINALIZING VIDEO', 'info', 0);
+  showReplayExportStatus('FINALIZING VIDEO');
   void video.stop().then((outcome) => {
     active.audioLease?.release();
     active.disposed = true;
@@ -1281,21 +1363,17 @@ function stopReplayExport(active: ActiveReplayExport): void {
       return;
     }
     activeReplayExport = undefined;
+    hideReplayExportStatus();
 
     if (outcome.status === 'recorded') {
       const filename = videoFilename(active.state, outcome.extension);
       downloadBlob(outcome.blob, filename);
-      if (active.state.complete(filename)) {
-        showShellStatus('VIDEO DOWNLOAD READY');
-      }
+      active.state.complete(filename);
       return;
     }
 
-    active.state.fail(
-      outcome.status === 'failed'
-        ? outcome.error.message
-        : 'video export: recording was cancelled',
-    );
+    if (outcome.status === 'failed') active.state.fail(outcome.error.message);
+    else active.state.cancel();
   }).catch((error) => failReplayExport(active, error));
 }
 
@@ -1320,7 +1398,7 @@ document.addEventListener('visibilitychange', () => {
   const current = machine.current;
   const active = activeReplayExport;
   if (current instanceof ReplayExportState) {
-    current.fail('video export: cancelled because the tab was hidden');
+    current.cancel();
   }
   if (active !== undefined) disposeReplayExport(active);
 });
@@ -1347,7 +1425,9 @@ const overlayView = createOverlayView({
   endingTraceByRun,
   tallyCoinIcons,
   hideMenuClickTargets,
+  finishMenuClickTargets,
   layoutMenuClickTargets,
+  syncAccessibleView,
   controllerAction: {
     isVisible: () => !controllerSetup.hidden,
     label: () => controllerConnect.textContent ?? 'CONNECT CONTROLLER',
@@ -1660,6 +1740,7 @@ const loop = new Loop({
     for (const batch of Object.values(batches)) batch.end();
 
     post.render();
+    syncReplayExportCancelAction();
     overlayView.draw({ run: hud, views, endingMix });
     let frameComposed = false;
     const exporting = activeReplayExport;

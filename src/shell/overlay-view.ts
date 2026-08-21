@@ -31,6 +31,17 @@ import {
 import type { V4EndingMix } from '../v4/ending/presentation';
 import type { EndingTraceRecorder } from '../v4/ending/trace';
 import type { MenuActionLayout } from './menu-actions';
+import {
+  boundedCanvasText,
+  fittingCanvasPrefixLength,
+  truncateCanvasText,
+  type CanvasTextTruncation,
+} from './canvas-text';
+import {
+  REPLAY_UI_LAYOUT,
+  replayMenuScope,
+  replayMenuWindow,
+} from './replay-ui-layout';
 
 export interface OverlayGrazePulse {
   readonly run: Run;
@@ -72,7 +83,9 @@ export interface OverlayViewDependencies {
   readonly endingTraceByRun: WeakMap<Run, EndingTraceRecorder>;
   readonly tallyCoinIcons: Map<string, HTMLCanvasElement>;
   readonly hideMenuClickTargets: () => void;
+  readonly finishMenuClickTargets: () => void;
   readonly layoutMenuClickTargets: (layout: MenuActionLayout) => void;
+  readonly syncAccessibleView: (view: StateView | undefined) => void;
   readonly controllerAction: OverlayControllerAction;
 }
 
@@ -113,16 +126,29 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     endingTraceByRun,
     tallyCoinIcons,
     hideMenuClickTargets,
+    finishMenuClickTargets,
     layoutMenuClickTargets,
+    syncAccessibleView,
     controllerAction,
   } = deps;
 
   /** CJK-capable fallback stack: guest-pack labels remain verbatim Unicode. */
   const UI_FONT = '"Hiragino Sans GB", "Yu Gothic", "Noto Sans CJK SC", system-ui, sans-serif';
+  // Imported metadata is not allowed to turn a render frame into an unbounded
+  // text-layout job. These limits cover far more than the authored cards can
+  // display; the accessible DOM owns a separate, larger text budget.
+  const CANVAS_TEXT_CHAR_LIMIT = 2048;
+  const CANVAS_TEXT_ROW_LIMIT = 64;
+  const TEXT_LAYOUT_CACHE_LIMIT = 64;
+  const TEXT_TRUNCATE_CACHE_LIMIT = 128;
+  const textLayoutCache = new Map<string, readonly string[]>();
+  const textTruncateCache = new Map<string, string>();
 
   function uiFont(size: number, weight: 400 | 500 | 600 = 400): void {
     surface.font = `${weight} ${size}px ${UI_FONT}`;
   }
+
+  const measureUiText = (value: string): number => surface.measureText(value).width;
 
   function drawGrazeFeedback(run: Run): void {
     for (const pulse of grazeUiPulses) {
@@ -214,6 +240,15 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
   }: OverlayViewFrame): void {
     surface.clearRect(0, 0, canvas.width, canvas.height);
     hideMenuClickTargets();
+    let accessibleView: StateView | undefined;
+    for (let index = views.length - 1; index >= 0; index--) {
+      const candidate = views[index];
+      if (candidate !== undefined && candidate.kind !== 'playing') {
+        accessibleView = candidate;
+        break;
+      }
+    }
+    syncAccessibleView(accessibleView);
     const recordingReplay = views.some((view) => view.recording === true);
 
     if (endingMix !== undefined) {
@@ -235,6 +270,7 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
       if (view.kind === 'playing') continue;
       drawView(view);
     }
+    finishMenuClickTargets();
   }
 
   /**
@@ -445,6 +481,7 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
       drawMenuRows(visibleTitleEntries, titleSelected - titleFirst, 74, 302, 332, 44, age);
       layoutMenuClickTargets({
         state: view.kind,
+        scope: replayMenuScope(view.kind, view.title, view.lines?.[0]),
         entries: visibleTitleEntries,
         selected: titleSelected,
         count: titleEntries.length,
@@ -610,37 +647,53 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     }
 
     if (view.kind === 'replay-library' || view.kind === 'replay-session') {
-      drawScreenHeading(view.title ?? 'REPLAYS', 76);
-      drawViewLines(view.lines ?? [], cx, 118, 336, '#8d9da8');
+      const replayLayout = REPLAY_UI_LAYOUT;
+      drawScreenHeading(view.title ?? 'REPLAYS', replayLayout.headingBaseline);
+      drawViewLines(
+        view.lines ?? [],
+        cx,
+        replayLayout.summaryBaseline,
+        replayLayout.summaryWidth,
+        '#8d9da8',
+        {
+          fontSize: replayLayout.summaryFontSize,
+          lineHeight: replayLayout.summaryLineHeight,
+          maxRows: replayLayout.summaryRows,
+        },
+      );
       const entries = view.menu ?? [];
       const selected = Math.max(0, Math.min(entries.length - 1, view.selected ?? 0));
-      const visibleRows = 8;
-      const first = Math.max(
-        0,
-        Math.min(
-          selected - Math.floor(visibleRows / 2),
-          entries.length - visibleRows,
-        ),
+      const window = replayMenuWindow(entries.length, selected);
+      const visible = entries.slice(window.first, window.first + window.visibleCount);
+      drawMenuRows(
+        visible,
+        window.selected,
+        replayLayout.menuX,
+        replayLayout.menuFirstBaseline,
+        replayLayout.menuWidth,
+        replayLayout.menuStep,
+        age,
+        { fontSize: replayLayout.menuFontSize, truncate: 'middle' },
       );
-      const visible = entries.slice(first, first + visibleRows);
-      drawMenuRows(visible, selected - first, 64, 208, 352, 48, age);
       layoutMenuClickTargets({
         state: view.kind,
+        scope: replayMenuScope(view.kind, view.title, view.lines?.[0]),
         entries: visible,
         selected,
         count: entries.length,
-        x: 64,
-        firstBaseline: 208,
-        width: 352,
-        step: 48,
-        indexOffset: first,
+        x: replayLayout.menuX,
+        firstBaseline: replayLayout.menuFirstBaseline,
+        width: replayLayout.menuWidth,
+        step: replayLayout.menuStep,
+        indexOffset: window.first,
         actions: view.menuActions,
+        wheelNavigation: true,
       });
       surface.textAlign = 'center';
       uiFont(9, 500);
       surface.fillStyle = '#71808c';
-      if (first > 0) surface.fillText('▲', cx, 176);
-      if (first + visible.length < entries.length) surface.fillText('▼', cx, 612);
+      if (window.first > 0) surface.fillText('▲', cx, 176);
+      if (window.first + visible.length < entries.length) surface.fillText('▼', cx, 612);
       surface.restore();
       return;
     }
@@ -676,13 +729,18 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
       ? 'ui.status.result'
       : sealByKind[view.kind] ?? 'ui.status.result';
     drawV4Ui(surface, v4Ui, statusSeal, cx - 28, 132, {});
-    if (view.title !== undefined) drawScreenHeading(view.title, 224);
+    if (view.title !== undefined) drawScreenHeading(view.title, 224, statusW - 48);
     drawV4Ui(surface, v4Ui, 'ui.divider', 110, 242, {
       width: 260,
       alpha: 0.68,
     });
     let y = view.title === undefined ? 230 : 274;
-    y = drawViewLines(view.lines ?? [], cx, y, 270, '#9cabb6');
+    y = drawViewLines(view.lines ?? [], cx, y, 270, '#9cabb6', {
+      // Imported error strings and generated filenames are untrusted lengths.
+      // Five baselines keep status copy above its bounded menu window; the full
+      // source remains in the accessible DOM mirror.
+      maxRows: 5,
+    });
     if (view.tally && view.tally.length > 0) {
       y += 8;
       drawCoinTally(view.tally, cx, y, age);
@@ -779,13 +837,15 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     drawViewLines(view.lines ?? [], cx, copyY, 306, '#aab8c2');
     surface.restore();
 
-    drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 536, {
-      alpha: 0.34 + appearance * 0.32,
-    });
-    surface.textAlign = 'center';
-    uiFont(10, 600);
-    surface.fillStyle = `rgba(194, 206, 214, ${0.52 + appearance * 0.26})`;
-    surface.fillText('CONTINUE', cx, 552);
+    if (page?.interactive !== false) {
+      drawV4Ui(surface, v4Ui, 'ui.prompt', cx - 56, 536, {
+        alpha: 0.34 + appearance * 0.32,
+      });
+      surface.textAlign = 'center';
+      uiFont(10, 600);
+      surface.fillStyle = `rgba(194, 206, 214, ${0.52 + appearance * 0.26})`;
+      surface.fillText('CONTINUE', cx, 552);
+    }
   }
 
   /** Align the real WebHID click target with its canvas-authored menu row. */
@@ -804,9 +864,17 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     });
   }
 
-  function drawScreenHeading(title: string, baseline: number): void {
+  function drawScreenHeading(title: string, baseline: number, maxWidth?: number): void {
     surface.textAlign = 'center';
-    uiFont(20, 600);
+    let fontSize = 20;
+    uiFont(fontSize, 600);
+    if (maxWidth !== undefined) {
+      const measured = surface.measureText(title).width;
+      if (measured > maxWidth) {
+        fontSize = Math.max(15, Math.floor(fontSize * maxWidth / measured));
+        uiFont(fontSize, 600);
+      }
+    }
     surface.fillStyle = '#e0eaf0';
     surface.fillText(title, FIELD_W / 2, baseline);
   }
@@ -819,6 +887,10 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     width: number,
     step: number,
     age: number,
+    options: {
+      readonly fontSize?: number;
+      readonly truncate?: 'end' | 'middle';
+    } = {},
   ): void {
     entries.forEach((entry, index) => {
       const active = index === selected;
@@ -832,10 +904,21 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
         });
       }
       surface.textAlign = 'center';
-      uiFont(12, active ? 600 : 400);
+      uiFont(options.fontSize ?? 12, active ? 600 : 400);
       surface.fillStyle = active ? '#e1ebf1' : '#697783';
-      // Draw the source string verbatim: pack labels may be namespaced or Unicode.
-      surface.fillText(entry, x + width / 2, baseline, width - 34);
+      // Ordinary pack labels remain verbatim. Replay identity rows opt into an
+      // ellipsis instead of Canvas2D's horizontal compression; their complete
+      // text remains on the matching accessible DOM button.
+      const availableWidth = width - 34;
+      if (options.truncate === undefined) {
+        surface.fillText(entry, x + width / 2, baseline, availableWidth);
+      } else {
+        surface.fillText(
+          truncateText(entry, availableWidth, options.truncate),
+          x + width / 2,
+          baseline,
+        );
+      }
     });
   }
 
@@ -860,23 +943,121 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     startY: number,
     maxWidth: number,
     colour: string,
+    options: {
+      readonly fontSize?: number;
+      readonly lineHeight?: number;
+      readonly maxRows?: number;
+    } = {},
   ): number {
     surface.textAlign = 'center';
-    uiFont(11, 400);
+    uiFont(options.fontSize ?? 11, 400);
     surface.fillStyle = colour;
+    const lineHeight = options.lineHeight ?? 17;
+    const maxRows = Math.min(
+      CANVAS_TEXT_ROW_LIMIT,
+      options.maxRows === undefined
+        ? CANVAS_TEXT_ROW_LIMIT
+        : Math.max(0, Math.floor(options.maxRows)),
+    );
+    const visibleRows = layoutTextRows(lines, maxWidth, maxRows);
     let y = startY;
-    for (const value of lines) {
-      // An authored empty line is vertical punctuation, not absent data.
-      if (value === '') {
-        y += 17;
-        continue;
-      }
-      for (const row of wrapText(value, maxWidth)) {
-        surface.fillText(row, cx, y);
-        y += 17;
-      }
+    for (const row of visibleRows) {
+      if (row !== '') surface.fillText(row, cx, y);
+      y += lineHeight;
     }
     return y;
+  }
+
+  /** Ellipsize without CanvasRenderingContext2D's horizontal text squashing. */
+  function truncateText(
+    text: string,
+    maxWidth: number,
+    mode: CanvasTextTruncation = 'end',
+  ): string {
+    const source = boundedCanvasText(text, mode, CANVAS_TEXT_CHAR_LIMIT);
+    const key = `${surface.font}\u0000${maxWidth}\u0000${mode}\u0000${source}`;
+    const cached = textTruncateCache.get(key);
+    if (cached !== undefined) return cached;
+    const result = truncateCanvasText(
+      text,
+      maxWidth,
+      mode,
+      measureUiText,
+      CANVAS_TEXT_CHAR_LIMIT,
+    );
+    rememberTextCache(textTruncateCache, key, result, TEXT_TRUNCATE_CACHE_LIMIT);
+    return result;
+  }
+
+  function layoutTextRows(
+    lines: readonly string[],
+    maxWidth: number,
+    maxRows: number,
+  ): readonly string[] {
+    if (maxRows <= 0) return [];
+    const boundedLines: string[] = [];
+    let remainingChars = CANVAS_TEXT_CHAR_LIMIT;
+    let clipped = false;
+    let lineIndex = 0;
+    for (; lineIndex < lines.length && boundedLines.length < maxRows; lineIndex++) {
+      const value = lines[lineIndex] ?? '';
+      if (remainingChars <= 0) {
+        clipped = true;
+        break;
+      }
+      const bounded = value.slice(0, remainingChars);
+      boundedLines.push(bounded);
+      remainingChars -= bounded.length;
+      if (bounded.length < value.length) {
+        clipped = true;
+        break;
+      }
+    }
+    if (lineIndex < lines.length) clipped = true;
+
+    const key = `${surface.font}\u0000${maxWidth}\u0000${maxRows}\u0000${clipped}`
+      + `\u0000${boundedLines.join('\u0001')}`;
+    const cached = textLayoutCache.get(key);
+    if (cached !== undefined) return cached;
+
+    const rows: string[] = [];
+    for (let index = 0; index < boundedLines.length; index++) {
+      if (rows.length >= maxRows) {
+        clipped = true;
+        break;
+      }
+      const value = boundedLines[index] ?? '';
+      // An authored empty line is vertical punctuation, not absent data.
+      if (value === '') {
+        rows.push('');
+        continue;
+      }
+      const wrapped = wrapTextLimited(value, maxWidth, maxRows - rows.length);
+      rows.push(...wrapped.rows);
+      if (wrapped.overflow) {
+        clipped = true;
+        break;
+      }
+    }
+    if (clipped && rows.length > 0) {
+      const last = rows.length - 1;
+      rows[last] = truncateText(`${rows[last] ?? ''}…`, maxWidth);
+    }
+    rememberTextCache(textLayoutCache, key, rows, TEXT_LAYOUT_CACHE_LIMIT);
+    return rows;
+  }
+
+  function rememberTextCache<T>(
+    cache: Map<string, T>,
+    key: string,
+    value: T,
+    limit: number,
+  ): void {
+    if (cache.has(key)) cache.delete(key);
+    cache.set(key, value);
+    if (cache.size <= limit) return;
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
   }
 
   /**
@@ -1155,7 +1336,7 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
     uiFont(12, 400);
     surface.fillStyle = '#9a9aa4';
     let lineY = boxY + copy.bodyBaseline;
-    for (const row of wrapText(line.text, textW)) {
+    for (const row of wrapText(line.text, textW, 6)) {
       surface.fillText(row, textX, lineY);
       lineY += 16;
     }
@@ -1182,39 +1363,60 @@ export function createOverlayView(deps: OverlayViewDependencies): OverlayView {
    * Greedy word-wrap against the current font. A lone token wider than the
    * column breaks at the character level so guest-pack text cannot escape.
    */
-  function wrapText(text: string, maxWidth: number): string[] {
-    const words = text.split(' ');
-    const rows: string[] = [];
-    let row = '';
-    for (const word of words) {
-      const candidate = row === '' ? word : `${row} ${word}`;
-      if (
-        row !== ''
-        && surface.measureText(candidate).width > maxWidth
-      ) {
-        rows.push(row);
-        row = word;
-      } else {
-        row = candidate;
-      }
-      while (
-        row.length > 1
-        && surface.measureText(row).width > maxWidth
-      ) {
-        let cut = 1;
-        while (
-          cut < row.length
-          && surface.measureText(row.slice(0, cut + 1)).width <= maxWidth
-        ) {
-          cut++;
-        }
-        rows.push(row.slice(0, cut));
-        row = row.slice(cut);
-      }
+  function wrapText(
+    text: string,
+    maxWidth: number,
+    maxRows = CANVAS_TEXT_ROW_LIMIT,
+  ): readonly string[] {
+    const source = boundedCanvasText(text, 'end', CANVAS_TEXT_CHAR_LIMIT);
+    const rowLimit = Math.min(
+      CANVAS_TEXT_ROW_LIMIT,
+      Math.max(0, Math.floor(maxRows)),
+    );
+    const key = `${surface.font}\u0000wrap\u0000${maxWidth}\u0000${rowLimit}\u0000${source}`;
+    const cached = textLayoutCache.get(key);
+    if (cached !== undefined) return cached;
+    const wrapped = wrapTextLimited(source, maxWidth, rowLimit);
+    const rows = [...wrapped.rows];
+    if ((wrapped.overflow || source.length < text.length) && rows.length > 0) {
+      const last = rows.length - 1;
+      rows[last] = truncateText(`${rows[last] ?? ''}…`, maxWidth);
     }
-    if (row !== '') rows.push(row);
+    rememberTextCache(textLayoutCache, key, rows, TEXT_LAYOUT_CACHE_LIMIT);
     return rows;
   }
+
+  function wrapTextLimited(
+    text: string,
+    maxWidth: number,
+    maxRows: number,
+  ): { readonly rows: readonly string[]; readonly overflow: boolean } {
+    if (maxRows <= 0) return { rows: [], overflow: text.length > 0 };
+    const source = text.slice(0, CANVAS_TEXT_CHAR_LIMIT);
+    const rows: string[] = [];
+    let offset = 0;
+    while (offset < source.length && rows.length < maxRows) {
+      const fit = fittingCanvasPrefixLength(
+        source,
+        maxWidth,
+        measureUiText,
+        offset,
+      );
+      let end = Math.min(source.length, offset + Math.max(1, fit));
+      if (end < source.length) {
+        const localBreak = source.slice(offset, end).lastIndexOf(' ');
+        if (localBreak > 0) end = offset + localBreak;
+      }
+      rows.push(source.slice(offset, end));
+      offset = end;
+      while (source[offset] === ' ') offset++;
+    }
+    return {
+      rows,
+      overflow: offset < source.length || source.length < text.length,
+    };
+  }
+
 
   return { draw: drawOverlay };
 }

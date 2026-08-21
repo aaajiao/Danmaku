@@ -49,6 +49,14 @@ export interface StateView {
   readonly title?: string;
   /** Free-form label lines, drawn in order. */
   readonly lines?: readonly string[];
+  /**
+   * Bounded semantic detail exposed to assistive technology but not painted.
+   *
+   * Error cards keep their visible copy short enough for the playfield while
+   * preserving the actionable reconstruction reason in the DOM accessibility
+   * layer.
+   */
+  readonly accessibleDetails?: readonly string[];
   /** Selectable entries, if this state is a menu. */
   readonly menu?: readonly string[];
   /** Index into `menu`. */
@@ -77,6 +85,14 @@ export interface StateView {
     readonly index: number;
     readonly count: number;
     readonly age: number;
+    /**
+     * Whether this page waits for a player confirm.
+     *
+     * Live campaign endings are interactive; replay-session playback and video
+     * export advance on fixed presentation ticks and must not render a false
+     * CONTINUE affordance.
+     */
+    readonly interactive?: boolean;
   };
   /**
    * Character registry name selected by a roster view. A string across the

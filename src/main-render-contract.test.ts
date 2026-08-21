@@ -406,7 +406,7 @@ describe('authored ending pauses survive text layout', () => {
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     expect(source).toContain("if (value === '')");
-    expect(source).toContain('y += 17');
+    expect(source).toContain('y += lineHeight');
   });
 });
 
@@ -414,6 +414,81 @@ describe('the ending prompt names its action', () => {
   test('uses a device-neutral continuation label instead of raw button names', () => {
     expect(overlaySource).toContain("surface.fillText('CONTINUE', cx, 552)");
     expect(overlaySource).not.toContain("surface.fillText('SHOT / START'");
+  });
+
+  test('does not promise interaction while Replay playback advances automatically', () => {
+    expect(overlaySource).toContain("if (page?.interactive !== false)");
+    expect(statesSource).toContain('interactive: false');
+    expect(statesSource).toContain('interactive: true');
+  });
+});
+
+describe('Replay shell UI remains bounded and accessible', () => {
+  test('clips canvas summaries and status copy while retaining full semantic text', () => {
+    expect(overlaySource).toContain('REPLAY_UI_LAYOUT');
+    expect(overlaySource).toContain('maxRows: replayLayout.summaryRows');
+    expect(overlaySource).toContain("{ fontSize: replayLayout.menuFontSize, truncate: 'middle' }");
+    expect(overlaySource).toContain('maxRows: 5');
+    expect(overlaySource).toContain('const visibleRows = layoutTextRows(');
+    expect(overlaySource).toContain('const textLayoutCache = new Map<');
+    expect(overlaySource).toContain('wrapTextLimited(value, maxWidth, maxRows - rows.length)');
+    expect(htmlSource).toContain('id="accessible-view-title"');
+    expect(htmlSource).toContain('id="accessible-view-lines"');
+    expect(htmlSource).toContain('aria-labelledby="accessible-view-title"');
+    expect(mainSource).toContain('function syncAccessibleView(view: StateView | undefined)');
+    expect(mainSource).toContain('...(view.accessibleDetails ?? [])');
+    expect(mainSource).toContain('joinAccessibleDetails([');
+    expect(mainSource).not.toContain('`${view.age}');
+    expect(styleSource).toContain('.visually-hidden {');
+  });
+
+  test('keeps focused rows mounted and moves wheel/focus through digital input', () => {
+    const begin = menuActionsSource.slice(
+      menuActionsSource.indexOf('export function hideMenuClickTargets('),
+      menuActionsSource.indexOf('export function finishMenuClickTargets('),
+    );
+    expect(begin).not.toContain('button.hidden = true');
+    expect(menuActionsSource).toContain("button.dataset.layoutPresent = 'true'");
+    expect(menuActionsSource).toContain("button.addEventListener('focus'");
+    expect(menuActionsSource).toContain("button.addEventListener('wheel'");
+    expect(menuActionsSource).toContain('chrome.queueNavigation(selected, target, count)');
+    expect(menuActionsSource).toContain('candidate.dataset.layoutScope === scope');
+    expect(menuActionsSource).toContain("event.code !== 'ArrowUp'");
+    expect(menuActionsSource).toContain('button.focus({ preventScroll: true })');
+    const wheelStart = menuActionsSource.indexOf("button.addEventListener('wheel'");
+    const wheelEnd = menuActionsSource.indexOf("button.addEventListener('click'", wheelStart);
+    const wheelSource = menuActionsSource.slice(wheelStart, wheelEnd);
+    expect(wheelStart).toBeGreaterThan(-1);
+    expect(wheelEnd).toBeGreaterThan(wheelStart);
+    expect(wheelSource).toContain(
+      'pendingMenuFocus.set(chrome.container, { scope, target })',
+    );
+    expect(wheelSource.indexOf('pendingMenuFocus.set(')).toBeLessThan(
+      wheelSource.indexOf('chrome.queueNavigation('),
+    );
+    expect(mainSource).toContain('menuPointerInput.queueNavigation(selected, target, count)');
+    expect(overlaySource).toContain('wheelNavigation: true');
+    expect(overlaySource).toContain(
+      'scope: replayMenuScope(view.kind, view.title, view.lines?.[0])',
+    );
+  });
+
+  test('offers a pointer cancel action without bypassing fixed-tick input', () => {
+    expect(htmlSource).toContain('id="replay-export-cancel"');
+    expect(styleSource).toContain('#replay-export-cancel {');
+    expect(mainSource).toContain('menuPointerInput.queueButton(Button.Start)');
+    expect(mainSource).toContain('current.cancel();');
+    expect(mainSource).not.toContain('onReplayExportCancelled');
+    expect(mainSource).toContain("shellStatus.dataset.owner = 'replay-export'");
+    expect(mainSource).toContain('hideReplayExportStatus();');
+    expect(mainSource).not.toContain("showShellStatus('VIDEO DOWNLOAD READY')");
+  });
+
+  test('visually clips shell errors without trimming their live-region text', () => {
+    expect(styleSource).toContain('max-height: 55px');
+    expect(styleSource).toContain('overflow-wrap: anywhere');
+    expect(styleSource).toContain('-webkit-line-clamp: 3');
+    expect(mainSource).toContain('shellStatus.textContent = message');
   });
 });
 
@@ -887,6 +962,7 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(drawViewSource).toContain('statusMenu.firstBaseline');
     expect(drawViewSource).toContain('statusMenu.step');
     expect(drawViewSource).toContain('statusMenu.first,');
+    expect(drawViewSource).toContain('drawScreenHeading(view.title, 224, statusW - 48)');
 
     const rowStart = overlaySource.indexOf('function drawMenuRows(');
     const rowEnd = overlaySource.indexOf('function drawViewLines(', rowStart);
@@ -981,9 +1057,7 @@ describe('v4 UI presentation stays event- and tick-driven', () => {
     expect(mainSource).toContain(
       '(!audio.unlocked || !music.unlocked || !audioOutput.unlocked)',
     );
-    expect(mainSource).toContain(
-      "current.fail('video export: cancelled because the tab was hidden')",
-    );
+    expect(mainSource).toContain('if (current instanceof ReplayExportState) {\n    current.cancel();');
   });
 
   test('video storage is prepared beside audio and has one owner across cancellation', () => {

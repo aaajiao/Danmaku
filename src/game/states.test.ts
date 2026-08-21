@@ -765,6 +765,17 @@ function recordPartialStage(
 }
 
 describe('replay library and viewer', () => {
+  test('empty library keeps import and back available with a clear empty state', () => {
+    const library = new ReplayLibraryState(context());
+
+    expect(library.view()).toMatchObject({
+      title: 'REPLAYS',
+      lines: ['no saved runs — import a replay file'],
+      menu: ['IMPORT REPLAY', 'BACK'],
+      menuActions: ['import-replay', undefined],
+    });
+  });
+
   test('title exposes a replay library whose import row carries a shell action', () => {
     const { replay } = recordStage(REPLAY_STAGE, 101);
     const session = replaySession([replay]);
@@ -794,6 +805,62 @@ describe('replay library and viewer', () => {
     tap(ctx.machine, Button.Down);
     press(ctx.machine, Button.Shot);
     expect(imports).toBe(1);
+  });
+
+  test('library and delete confirmation use a stable case-sensitive full-id code', () => {
+    const replay = recordStage(REPLAY_STAGE, 100).replay;
+    const first = createReplaySession(
+      { id: 'session-fallback-alpha', now: '2026-07-24T10:20:30.000Z' },
+      [replay],
+    );
+    const second = createReplaySession(
+      { id: 'session-fallback-Alpha', now: '2026-07-24T10:20:30.000Z' },
+      [replay],
+    );
+    const ctx = context({ replaySessions: [first, second] });
+    const library = new ReplayLibraryState(ctx);
+    const entries = library.view().menu ?? [];
+
+    expect(entries[0]).toMatch(
+      /^260724·102030Z TEST-PILOT 1 CLEARED #[0-9A-Z]{6}$/,
+    );
+    expect(entries[1]).toMatch(
+      /^260724·102030Z TEST-PILOT 1 CLEARED #[0-9A-Z]{6}$/,
+    );
+    expect(entries[0]).not.toBe(entries[1]);
+    expect(new ReplayLibraryState(ctx).view().menu?.slice(0, 2)).toEqual(
+      entries.slice(0, 2),
+    );
+
+    const confirmation = new ReplayDeleteConfirmState(ctx, second).view();
+    expect(confirmation.lines?.[0]).toBe(entries[1]);
+    expect(confirmation.lines?.at(-1)).toBe('this cannot be undone');
+    expect(confirmation.accessibleDetails).toEqual([
+      'Full session id: session-fallback-Alpha',
+    ]);
+  });
+
+  test('library and STAGES labels bound untrusted replay metadata before rendering', () => {
+    const replay = recordStage(REPLAY_STAGE, 99).replay;
+    const huge = 'x'.repeat(50_000);
+    const hostile: Replay = {
+      ...replay,
+      meta: {
+        ...replay.meta,
+        character: `pilot-${huge}`,
+        stage: `stage-${huge}`,
+        outcome: `status-${huge}`,
+      },
+    };
+    const session = replaySession([hostile], 'session-hostile-metadata');
+    const ctx = context({ replaySessions: [session] });
+    const libraryLabel = new ReplayLibraryState(ctx).view().menu?.[0] ?? '';
+    const stageLabel = new ReplayStagesState(ctx, session).view().menu?.[0] ?? '';
+
+    expect(libraryLabel.length).toBeLessThan(80);
+    expect(libraryLabel).toContain('PILOT-XXXXX…XXXXXX');
+    expect(stageLabel.length).toBeLessThan(80);
+    expect(stageLabel).toContain('STAGE-XXXXXXXXX…XXXXXX');
   });
 
   test('deleting a session requires a cancel-first confirmation', () => {
@@ -861,7 +928,7 @@ describe('replay library and viewer', () => {
     expect(ctx.machine.current?.name).toBe('replay-complete');
     expect(ctx.machine.current?.view?.().menu).toEqual([
       'WATCH AGAIN',
-      'EXPORT VIDEO',
+      'EXPORT STAGE VIDEO',
       'DOWNLOAD REPLAY DATA',
       'BACK',
     ]);
@@ -976,6 +1043,38 @@ describe('replay library and viewer', () => {
     expect(exporting.beginStopping()).toBe(true);
     expect(exporting.complete('danmaku-stage.webm')).toBe(true);
     expect(ctx.machine.current?.name).toBe('replay-export-result');
+    expect(ctx.machine.current?.view?.()).toMatchObject({
+      title: 'VIDEO EXPORTED',
+      lines: ['danmaku-stage.webm'],
+      menu: ['EXPORT AGAIN', 'BACK'],
+    });
+  });
+
+  test('cancelling during finalization stays neutral and cannot be relabelled failed', () => {
+    const replay = recordStage(REPLAY_STAGE, 171).replay;
+    const session = replaySession([replay]);
+    const errors: string[] = [];
+    const ctx = context({
+      onReplayError: (message) => errors.push(message),
+    });
+    const exporting = new ReplayExportState(ctx, session, 0);
+    open(ctx.machine, exporting);
+    expect(exporting.arm()).toBe(true);
+    for (let tick = 0; tick < replay.length + 4 && exporting.phase === 'recording'; tick++) {
+      ctx.machine.tick(0);
+    }
+    expect(exporting.phase).toBe('finished');
+    expect(exporting.beginStopping()).toBe(true);
+
+    expect(exporting.cancel()).toBe(true);
+    expect(exporting.phase).toBe('cancelled');
+    expect(exporting.fail('late recorder failure')).toBe(false);
+    expect(errors).toEqual([]);
+    expect(ctx.machine.current?.view?.()).toMatchObject({
+      title: 'VIDEO EXPORT CANCELLED',
+      lines: ['no video was saved'],
+      menu: ['EXPORT AGAIN', 'BACK'],
+    });
   });
 
   test('one session export instance plays every stage, ending page, and ALL CLEAR hold', () => {
@@ -1034,7 +1133,7 @@ describe('replay library and viewer', () => {
     expect(exporting.view()).toMatchObject({
       kind: 'ending',
       lines: ['test opening one', 'test opening two'],
-      endingPage: { index: 0, count: 3, age: 0 },
+      endingPage: { index: 0, count: 3, age: 0, interactive: false },
     });
     expect(exporting.music).toBe('test-ending-music');
     expect(exporting.scene).toBe('test-ending-scene');
@@ -1207,7 +1306,13 @@ describe('replay library and viewer', () => {
     expect(exporting.arm()).toBe(true);
     tap(ctx.machine, Button.Start);
     expect(ctx.machine.current?.name).toBe('replay-export-result');
-    expect(errors.at(-1)).toBe('video export cancelled');
+    expect(exporting.phase).toBe('cancelled');
+    expect(errors).toEqual([]);
+    expect(ctx.machine.current?.view?.()).toMatchObject({
+      title: 'VIDEO EXPORT CANCELLED',
+      lines: ['no video was saved'],
+      menu: ['EXPORT AGAIN', 'BACK'],
+    });
   });
 
   test('video export discards a replay whose recorded result does not reproduce', () => {
@@ -1234,7 +1339,39 @@ describe('replay library and viewer', () => {
       ctx.machine.tick(0);
     }
     expect(ctx.machine.current?.name).toBe('replay-export-result');
+    expect(errors).toEqual([]);
+    expect(ctx.machine.current?.view?.()).toMatchObject({
+      title: 'VIDEO EXPORT FAILED',
+      lines: [expect.stringMatching(/did not reproduce/)],
+    });
+  });
+
+  test('a mismatch completion permits data recovery but not doomed watch or export actions', () => {
+    const replay = recordStage(REPLAY_STAGE, 166).replay;
+    const mismatch: Replay = {
+      ...replay,
+      meta: {
+        ...replay.meta,
+        score: ((replay.meta?.['score'] as number | undefined) ?? 0) + 1,
+      },
+    };
+    const session = replaySession([mismatch]);
+    const errors: string[] = [];
+    const ctx = context({ onReplayError: (message) => errors.push(message) });
+    const viewer = new ReplayPlayingState(ctx, session, 0);
+    open(ctx.machine, viewer);
+
+    for (let tick = 0; tick < mismatch.length + 4; tick++) ctx.machine.tick(0);
+
     expect(errors.at(-1)).toMatch(/did not reproduce/);
+    expect(ctx.machine.current?.view?.()).toMatchObject({
+      title: 'REPLAY MISMATCH',
+      lines: [
+        `${REPLAY_STAGE} · ${mismatch.length} / ${mismatch.length} ticks`,
+        'recorded outcome did not reproduce exactly',
+      ],
+      menu: ['DOWNLOAD REPLAY DATA', 'BACK'],
+    });
   });
 
   test('a Start bit inside the recording does not open the viewer pause menu', () => {
@@ -1273,6 +1410,30 @@ describe('replay library and viewer', () => {
 
     press(ctx.machine, Button.Start);
     expect(ctx.machine.current?.name).toBe('replay-playing');
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
+  });
+
+  test('a held Bomb that dismisses replay pause does not also exit playback', () => {
+    const { replay } = recordStage(REPLAY_STAGE, 172);
+    const session = replaySession([replay]);
+    const ctx = context({ replaySessions: [session] });
+    const viewer = new ReplayPlayingState(ctx, session, 0);
+    open(ctx.machine, viewer);
+
+    press(ctx.machine, Button.Start);
+    expect(ctx.machine.current?.name).toBe('replay-pause');
+    ctx.machine.tick(0);
+
+    // The same touch/controller contact spans the pause-dismiss tick and the
+    // first resumed tick. It must resume once, not become a second screen action.
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBe(viewer);
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBe(viewer);
+
+    // Releasing and pressing again is a genuinely new viewer exit request.
     ctx.machine.tick(0);
     press(ctx.machine, Button.Bomb);
     expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
@@ -1352,7 +1513,7 @@ describe('replay library and viewer', () => {
     expect(finalViewer?.view()).toMatchObject({
       kind: 'ending',
       lines: ['test opening one', 'test opening two'],
-      endingPage: { index: 0, count: 3, age: 0 },
+      endingPage: { index: 0, count: 3, age: 0, interactive: false },
     });
     expect(finalViewer?.music).toBe('test-ending-music');
     expect(finalViewer?.scene).toBe('test-ending-scene');
@@ -1378,6 +1539,10 @@ describe('replay library and viewer', () => {
       ctx.machine.tick(0);
     }
     expect(ctx.machine.current?.name).toBe('replay-complete');
+    expect(ctx.machine.views().map((view) => view.kind)).toEqual([
+      'playing',
+      'replay-complete',
+    ]);
     expect(ctx.machine.current?.view?.().menu).toEqual([
       'WATCH AGAIN',
       'EXPORT FULL CAMPAIGN VIDEO',
@@ -1484,6 +1649,12 @@ describe('replay library and viewer', () => {
     expect(restarted.segmentIndex).toBe(0);
     expect(restarted.run.stageName).toBe(PENULTIMATE_STAGE);
 
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    tap(ctx.machine, Button.Down, 2);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplaySessionState);
+
     const singleCtx = context();
     const singleSession = replaySession([recordStage(REPLAY_STAGE, 151).replay]);
     const single = new ReplayPlayingState(singleCtx, singleSession, 0);
@@ -1560,7 +1731,13 @@ describe('replay library and viewer', () => {
 
     expect(detail.view().menu).toEqual(['STAGES', 'DOWNLOAD REPLAY DATA', 'BACK']);
     expect(detail.view().menu?.length).toBeLessThanOrEqual(8);
-    expect(detail.view().lines?.at(-1)).toMatch(/leads to/);
+    expect(detail.view().lines?.at(-1)).toBe(
+      'session playback is unavailable in this build',
+    );
+    expect(detail.view().accessibleDetails?.[0]).toMatch(
+      /^Session reconstruction detail: .*leads to/,
+    );
+    expect(detail.view().accessibleDetails?.[0]?.length).toBeLessThanOrEqual(240);
     expect(() => new ReplayExportState(
       ctx,
       session,
@@ -1580,6 +1757,102 @@ describe('replay library and viewer', () => {
     ]);
   });
 
+  test('an individually unbuildable stage gates watch and export with one stable line', () => {
+    const replay = recordStage(REPLAY_STAGE, 167).replay;
+    const missingIdentity = `missing@${'a'.repeat(400)}`;
+    const unavailable: Replay = {
+      ...replay,
+      meta: { ...replay.meta, packsData: missingIdentity },
+    };
+    const session = replaySession([unavailable]);
+    const errors: string[] = [];
+    const ctx = context({ onReplayError: (message) => errors.push(message) });
+    const detail = new ReplayStageState(ctx, session, 0);
+    open(ctx.machine, detail);
+
+    expect(detail.view()).toMatchObject({
+      title: 'STAGE 1',
+      lines: [
+        expect.stringContaining(REPLAY_STAGE.toUpperCase()),
+        'this stage cannot be rebuilt in this build',
+      ],
+      menu: ['BACK'],
+    });
+    expect(detail.view().accessibleDetails?.[0]).toMatch(
+      /^Stage reconstruction detail: replay viewer: recorded packsData/,
+    );
+    expect(detail.view().accessibleDetails?.[0]).toMatch(/is not loaded$/);
+    expect(detail.view().accessibleDetails?.[0]?.length).toBe(240);
+    expect(errors).toEqual([]);
+
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStagesState);
+  });
+
+  test('stage playback exits to its exact detail and preserves the STAGES page', () => {
+    const replay = recordStage(REPLAY_STAGE, 168).replay;
+    const session = replaySession(Array.from({ length: 7 }, (_, index) => ({
+      ...replay,
+      seed: replay.seed + index,
+    })));
+    const ctx = context();
+    open(ctx.machine, new ReplayStageState(ctx, session, 6, 1));
+
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayPlayingState);
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStageState);
+    expect(ctx.machine.current?.view?.().title).toBe('STAGE 7');
+
+    ctx.machine.tick(0);
+    press(ctx.machine, Button.Bomb);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStagesState);
+    expect(ctx.machine.current?.view?.().lines).toEqual(['stages 6–7 of 7']);
+  });
+
+  test('stage pause EXIT and completion BACK return to the originating detail', () => {
+    const replay = recordStage(REPLAY_STAGE, 169).replay;
+    const session = replaySession([replay]);
+
+    const pauseCtx = context();
+    open(pauseCtx.machine, new ReplayStageState(pauseCtx, session, 0));
+    press(pauseCtx.machine, Button.Shot);
+    pauseCtx.machine.tick(0);
+    tap(pauseCtx.machine, Button.Start);
+    expect(pauseCtx.machine.current?.name).toBe('replay-pause');
+    tap(pauseCtx.machine, Button.Down, 2);
+    press(pauseCtx.machine, Button.Shot);
+    expect(pauseCtx.machine.current).toBeInstanceOf(ReplayStageState);
+
+    const completeCtx = context();
+    open(completeCtx.machine, new ReplayStageState(completeCtx, session, 0));
+    press(completeCtx.machine, Button.Shot);
+    for (let tick = 0; tick < replay.length + 4; tick++) completeCtx.machine.tick(0);
+    expect(completeCtx.machine.current?.name).toBe('replay-complete');
+    tap(completeCtx.machine, Button.Down, 3);
+    press(completeCtx.machine, Button.Shot);
+    expect(completeCtx.machine.current).toBeInstanceOf(ReplayStageState);
+  });
+
+  test('stage export result BACK returns to the originating detail', () => {
+    const replay = recordStage(REPLAY_STAGE, 170).replay;
+    const session = replaySession([replay]);
+    const ctx = context();
+    open(ctx.machine, new ReplayStageState(ctx, session, 0));
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    const exporting = ctx.machine.current as ReplayExportState;
+    expect(exporting).toBeInstanceOf(ReplayExportState);
+    ctx.machine.tick(0);
+    expect(exporting.arm()).toBe(true);
+    tap(ctx.machine, Button.Start);
+    expect(ctx.machine.current?.view?.().title).toBe('VIDEO EXPORT CANCELLED');
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayStageState);
+  });
+
   test('STAGES pagination never exposes more than eight menu rows', () => {
     const replay = recordStage(REPLAY_STAGE, 146).replay;
     const session = replaySession(Array.from({ length: 12 }, (_, index) => ({
@@ -1591,6 +1864,32 @@ describe('replay library and viewer', () => {
       const stages = new ReplayStagesState(ctx, session, page);
       expect(stages.view().menu?.length).toBeLessThanOrEqual(8);
     }
+  });
+
+  test('STAGES next and previous rows navigate between real pages', () => {
+    const replay = recordStage(REPLAY_STAGE, 147).replay;
+    const session = replaySession(Array.from({ length: 12 }, (_, index) => ({
+      ...replay,
+      seed: replay.seed + index,
+    })));
+    const ctx = context();
+    const stages = new ReplayStagesState(ctx, session);
+    open(ctx.machine, stages);
+
+    const nextIndex = stages.view().menu?.indexOf('NEXT PAGE') ?? -1;
+    expect(nextIndex).toBeGreaterThan(-1);
+    tap(ctx.machine, Button.Down, nextIndex);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBe(stages);
+    expect(stages.view().lines).toEqual(['stages 6–10 of 12']);
+    expect(stages.view().selected).toBe(0);
+
+    const previousIndex = stages.view().menu?.indexOf('PREVIOUS PAGE') ?? -1;
+    expect(previousIndex).toBeGreaterThan(-1);
+    tap(ctx.machine, Button.Down, previousIndex);
+    press(ctx.machine, Button.Shot);
+    expect(stages.view().lines).toEqual(['stages 1–5 of 12']);
+    expect(stages.view().selected).toBe(0);
   });
 
   test('session preflight treats content pinning as stable attempt identity', () => {
@@ -1658,6 +1957,17 @@ describe('replay library and viewer', () => {
     expect(errors.at(-1)).toMatch(/cannot continue session.*carry/);
     expect(viewer.sequenceError).toMatch(/carry/);
     expect(ctx.machine.current?.view?.().title).toBe('REPLAY SESSION ERROR');
+    expect(ctx.machine.current?.view?.().lines?.at(-1)).toBe(
+      'session playback stopped before completion',
+    );
+    expect(ctx.machine.current?.view?.().menu).toEqual([
+      'DOWNLOAD REPLAY DATA',
+      'BACK',
+    ]);
+    expect(ctx.machine.current?.view?.().accessibleDetails?.[0]).toMatch(
+      /^Session playback detail: .*carry/,
+    );
+    expect(ctx.machine.current?.view?.().accessibleDetails?.[0]?.length).toBeLessThanOrEqual(240);
 
     const exportErrors: string[] = [];
     const exportCtx = campaignContext({
@@ -1675,7 +1985,10 @@ describe('replay library and viewer', () => {
       if (exportCtx.machine.current !== exporting) break;
     }
     expect(exportCtx.machine.current?.name).toBe('replay-export-result');
-    expect(exportErrors.at(-1)).toMatch(/cannot continue session.*carry/);
+    expect(exportErrors).toEqual([]);
+    expect(exportCtx.machine.current?.view?.().lines?.[0]).toMatch(
+      /cannot continue session.*carry/,
+    );
   });
 
   test('strict data-pack identity is checked against the running build', () => {
@@ -2556,13 +2869,19 @@ describe('the ending', () => {
     expect(opening.endingPage?.index).toBe(0);
     expect(opening.endingPage?.count).toBe(3);
     expect(opening.endingPage?.age).toBe(opening.age);
+    expect(opening.endingPage?.interactive).toBe(true);
 
     // Page age is reset on the exact press tick. This is the deterministic
     // starting point for a renderer's page-to-page transition.
     press(ctx.machine, Button.Shot);
     const middle = (ctx.machine.current as EndingScreenState).view();
     expect(middle.lines).toEqual(['test pilot coda']);
-    expect(middle.endingPage).toEqual({ index: 1, count: 3, age: 0 });
+    expect(middle.endingPage).toEqual({
+      index: 1,
+      count: 3,
+      age: 0,
+      interactive: true,
+    });
     ctx.machine.tick(0);
 
     press(ctx.machine, Button.Shot);
@@ -2572,7 +2891,12 @@ describe('the ending', () => {
       '',
       'test closing two',
     ]);
-    expect(closing.endingPage).toEqual({ index: 2, count: 3, age: 0 });
+    expect(closing.endingPage).toEqual({
+      index: 2,
+      count: 3,
+      age: 0,
+      interactive: true,
+    });
     ctx.machine.tick(0);
 
     // The last page's CONFIRM replaces the ending with the results card — still a

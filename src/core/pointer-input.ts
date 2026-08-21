@@ -134,7 +134,7 @@ export class PointerPositionInput implements DigitalInputSource {
  * A zero tick separates repeated directions because menus act on press edges.
  * The shortest wrapping path is used; ties move forward.
  */
-export function menuPointerSequence(
+export function menuPointerNavigationSequence(
   selected: number,
   target: number,
   count: number,
@@ -160,8 +160,49 @@ export function menuPointerSequence(
   for (let step = 0; step < steps; step++) {
     sequence.push(direction, 0);
   }
-  sequence.push(Button.Shot);
   return sequence;
+}
+
+export function menuPointerSequence(
+  selected: number,
+  target: number,
+  count: number,
+): readonly Buttons[] {
+  const navigation = menuPointerNavigationSequence(selected, target, count);
+  if (
+    navigation.length === 0
+    && (
+      !Number.isInteger(selected)
+      || !Number.isInteger(target)
+      || !Number.isInteger(count)
+      || count <= 0
+      || selected < 0
+      || selected >= count
+      || target < 0
+      || target >= count
+    )
+  ) {
+    return [];
+  }
+  return [...navigation, Button.Shot];
+}
+
+/** One wrapping menu step for DOM focus/arrow navigation. */
+export function adjacentMenuTarget(
+  selected: number,
+  count: number,
+  direction: -1 | 1,
+): number | undefined {
+  if (
+    !Number.isInteger(selected)
+    || !Number.isInteger(count)
+    || count <= 0
+    || selected < 0
+    || selected >= count
+  ) {
+    return undefined;
+  }
+  return (selected + direction + count) % count;
 }
 
 /** Event-fed queue used by transparent DOM hit targets over canvas menu rows. */
@@ -171,6 +212,18 @@ export class MenuPointerInput implements DigitalInputSource {
 
   queueSelection(selected: number, target: number, count: number): void {
     this.#queue = [...menuPointerSequence(selected, target, count)];
+    this.#next = 0;
+  }
+
+  /** Focus and wheel move the canvas cursor without confirming the row. */
+  queueNavigation(selected: number, target: number, count: number): void {
+    this.#queue = [...menuPointerNavigationSequence(selected, target, count)];
+    this.#next = 0;
+  }
+
+  /** A shell action still enters the state machine as one latched digital edge. */
+  queueButton(button: Buttons): void {
+    this.#queue = [button, 0];
     this.#next = 0;
   }
 

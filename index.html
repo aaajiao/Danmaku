@@ -33,7 +33,37 @@
           <!-- Canvas menus keep their authored rendering; these transparent
                DOM buttons add direct pointer hit targets without changing
                game state outside the fixed-tick digital input path. -->
-          <div id="menu-actions" aria-label="Game menu" hidden></div>
+          <div
+            id="menu-actions"
+            aria-label="Game menu"
+            aria-labelledby="accessible-view-title"
+            aria-describedby="accessible-view-lines"
+            hidden
+          ></div>
+          <!-- Canvas copy is mirrored here only for assistive technology. The
+               shell updates this region when semantic view data changes, not
+               on every animation frame. Full Replay errors and filenames stay
+               available even when authored canvas copy is safely ellipsized. -->
+          <section
+            id="accessible-view"
+            class="visually-hidden"
+            aria-live="polite"
+            aria-atomic="true"
+            hidden
+          >
+            <h1 id="accessible-view-title"></h1>
+            <p id="accessible-view-lines"></p>
+          </section>
+          <!-- The export state still consumes this as a tick-sampled Start
+               edge. The DOM owns only the browser pointer gesture. -->
+          <button
+            id="replay-export-cancel"
+            type="button"
+            aria-label="Cancel video export"
+            hidden
+          >
+            CANCEL EXPORT
+          </button>
           <!-- WebHID permission must be requested from a real DOM click. This
                transparent shell action is positioned over a title-menu row
                drawn by the canvas; it never enters the deterministic

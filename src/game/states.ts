@@ -369,22 +369,64 @@ export class TitleState extends MenuState {
 /* Replay library                                                      */
 /* ------------------------------------------------------------------ */
 
+const SESSION_LABEL_CACHE = new WeakMap<ReplaySession, string>();
+
+/** Stable, case-sensitive short code derived from every UTF-16 unit in the id. */
+function sessionIdentityCode(id: string): string {
+  // Two independently mixed 32-bit lanes keep even a deliberately huge imported
+  // id linear-time; BigInt multiplication here made the library itself a denial-
+  // of-service surface. The immutable session caches the resulting display label.
+  let first = 0xdeadbeef ^ id.length;
+  let second = 0x41c6ce57 ^ id.length;
+  for (let index = 0; index < id.length; index++) {
+    const unit = id.charCodeAt(index);
+    first = Math.imul(first ^ unit, 2_654_435_761);
+    second = Math.imul(second ^ unit, 1_597_334_677);
+  }
+  first = (
+    Math.imul(first ^ (first >>> 16), 2_246_822_507)
+    ^ Math.imul(second ^ (second >>> 13), 3_266_489_909)
+  ) >>> 0;
+  second = (
+    Math.imul(second ^ (second >>> 16), 2_246_822_507)
+    ^ Math.imul(first ^ (first >>> 13), 3_266_489_909)
+  ) >>> 0;
+  return `${first.toString(36).padStart(7, '0')}${second.toString(36).padStart(7, '0')}`
+    .toUpperCase()
+    .slice(-6);
+}
+
+function compactReplayValue(value: string, maxLength = 18): string {
+  if (value.length <= maxLength) return value.replace(/\s+/g, ' ').toUpperCase();
+  const tailLength = 6;
+  const headLength = maxLength - tailLength - 1;
+  return `${value.slice(0, headLength)}…${value.slice(-tailLength)}`
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
 function sessionLabel(session: ReplaySession): string {
+  const cached = SESSION_LABEL_CACHE.get(session);
+  if (cached !== undefined) return cached;
   const first = session.segments[0];
   const last = session.segments.at(-1);
   const character = stringMeta(first, 'character') ?? 'UNKNOWN';
   const count = session.segments.length;
-  const date = session.createdAt.slice(0, 10);
+  const timestamp = `${session.createdAt.slice(2, 10).replaceAll('-', '')}·`
+    + `${session.createdAt.slice(11, 19).replaceAll(':', '')}Z`;
   const status = replayStatus(last);
-  return `${date}  ${character.toUpperCase()}  ${count} STAGE${count === 1 ? '' : 'S'}`
-    + `  ${status.toUpperCase()}`;
+  const label = `${timestamp} ${compactReplayValue(character)} ${count}`
+    + ` ${compactReplayValue(status)} #${sessionIdentityCode(session.id)}`;
+  SESSION_LABEL_CACHE.set(session, label);
+  return label;
 }
 
 function segmentLabel(replay: Replay, index: number): string {
   const stage = stringMeta(replay, 'stage') ?? `STAGE ${index + 1}`;
   const difficulty = stringMeta(replay, 'difficulty') ?? DEFAULT_DIFFICULTY;
   const status = replayStatus(replay);
-  return `${stage.toUpperCase()}  ${difficulty.toUpperCase()}  ${status.toUpperCase()}`
+  return `${compactReplayValue(stage, 22)}  ${compactReplayValue(difficulty, 10)}`
+    + `  ${compactReplayValue(status, 12)}`
     + `  ${replayDuration(replay.length)}`;
 }
 
@@ -543,6 +585,53 @@ export function preflightReplaySession(
 interface ReplaySessionInspection {
   readonly preflight?: ReplaySessionPreflight;
   readonly error?: string;
+}
+
+const REPLAY_SESSION_UNAVAILABLE_MESSAGE = 'session playback is unavailable in this build';
+const REPLAY_STAGE_UNAVAILABLE_MESSAGE = 'this stage cannot be rebuilt in this build';
+const REPLAY_ACTION_FAILED_MESSAGE = 'replay action could not be started';
+const REPLAY_ACCESSIBLE_DETAIL_MAX_LENGTH = 240;
+const REPLAY_ACCESSIBLE_DETAIL_TAIL_LENGTH = 64;
+
+function boundedReplayDetail(scope: string, reason: string): string {
+  // Normalize only a bounded head/tail. A hostile metadata value may be
+  // megabytes long, while this semantic recovery hint has a 240-character card.
+  const rawLimit = REPLAY_ACCESSIBLE_DETAIL_MAX_LENGTH * 4;
+  const raw = reason.length <= rawLimit
+    ? reason
+    : `${reason.slice(0, rawLimit - REPLAY_ACCESSIBLE_DETAIL_TAIL_LENGTH)}`
+      + ` ... ${reason.slice(-REPLAY_ACCESSIBLE_DETAIL_TAIL_LENGTH)}`;
+  const detail = `${scope}: ${raw.replace(/\s+/g, ' ').trim()}`;
+  if (detail.length <= REPLAY_ACCESSIBLE_DETAIL_MAX_LENGTH) return detail;
+  const separator = ' ... ';
+  const headLength = REPLAY_ACCESSIBLE_DETAIL_MAX_LENGTH
+    - separator.length
+    - REPLAY_ACCESSIBLE_DETAIL_TAIL_LENGTH;
+  return `${detail.slice(0, headLength)}${separator}`
+    + detail.slice(-REPLAY_ACCESSIBLE_DETAIL_TAIL_LENGTH);
+}
+
+function replayAccessibleDetails(
+  ...details: readonly (readonly [scope: string, reason: string | undefined])[]
+): readonly string[] | undefined {
+  const bounded = details.flatMap(([scope, reason]) => (
+    reason === undefined ? [] : [boundedReplayDetail(scope, reason)]
+  ));
+  return bounded.length === 0 ? undefined : bounded;
+}
+
+interface ReplaySegmentInspection {
+  readonly rebuildable: boolean;
+  readonly error?: string;
+}
+
+function inspectReplaySegment(ctx: GameContext, replay: Replay): ReplaySegmentInspection {
+  try {
+    new Run(replayRunConfig(ctx, replay));
+    return { rebuildable: true };
+  } catch (error) {
+    return { rebuildable: false, error: (error as Error).message };
+  }
 }
 
 function inspectReplaySession(
@@ -721,15 +810,22 @@ export class ReplaySessionState extends MenuState {
 
   view(): StateView {
     const first = this.#session.segments[0];
-    const character = stringMeta(first, 'character') ?? 'unknown pilot';
+    const character = compactReplayValue(
+      stringMeta(first, 'character') ?? 'unknown pilot',
+    );
+    const accessibleDetails = replayAccessibleDetails(
+      ['Session reconstruction detail', this.#inspection.error],
+      ['Replay action detail', this.#error],
+    );
     return {
       kind: 'replay-session',
       title: 'REPLAY SESSION',
       lines: [
         `${character} · ${this.#session.segments.length} recorded stage${this.#session.segments.length === 1 ? '' : 's'}`,
-        ...(this.#inspection.error === undefined ? [] : [this.#inspection.error]),
-        ...(this.#error === undefined ? [] : [this.#error]),
+        ...(this.#inspection.error === undefined ? [] : [REPLAY_SESSION_UNAVAILABLE_MESSAGE]),
+        ...(this.#error === undefined ? [] : [REPLAY_ACTION_FAILED_MESSAGE]),
       ],
+      ...(accessibleDetails === undefined ? {} : { accessibleDetails }),
       menu: this.entries,
       selected: this.selected,
       age: this.age,
@@ -789,7 +885,7 @@ export class ReplayStagesState extends MenuState {
     const action = this.#actions()[index];
     if (action?.kind === 'stage' && action.segmentIndex !== undefined) {
       this.ctx.machine.replace(
-        new ReplayStageState(this.ctx, this.#session, action.segmentIndex),
+        new ReplayStageState(this.ctx, this.#session, action.segmentIndex, this.#page),
       );
       return;
     }
@@ -830,40 +926,55 @@ export class ReplayStageState extends MenuState {
   readonly name = 'replay-session';
   readonly #session: ReplaySession;
   readonly #segmentIndex: number;
+  readonly #stagesPage: number;
+  readonly #inspection: ReplaySegmentInspection;
   #error: string | undefined;
 
-  constructor(ctx: GameContext, session: ReplaySession, segmentIndex: number) {
+  constructor(
+    ctx: GameContext,
+    session: ReplaySession,
+    segmentIndex: number,
+    stagesPage = Math.floor(segmentIndex / REPLAY_STAGE_PAGE_SIZE),
+  ) {
     super(ctx);
     if (session.segments[segmentIndex] === undefined) {
       throw new Error(`replay session: no stage ${segmentIndex + 1}`);
     }
     this.#session = session;
     this.#segmentIndex = segmentIndex;
+    this.#stagesPage = stagesPage;
+    this.#inspection = inspectReplaySegment(ctx, session.segments[segmentIndex]!);
   }
 
   protected get entries(): readonly string[] {
-    return ['WATCH STAGE', 'EXPORT STAGE VIDEO', 'BACK'];
+    return [
+      ...(this.#inspection.rebuildable ? ['WATCH STAGE', 'EXPORT STAGE VIDEO'] : []),
+      'BACK',
+    ];
   }
 
   protected confirm(index: number): void {
+    if (!this.#inspection.rebuildable || index === this.entries.length - 1) {
+      this.#backToStages();
+      return;
+    }
     try {
       if (index === 0) {
         this.ctx.machine.replace(
-          new ReplayPlayingState(this.ctx, this.#session, this.#segmentIndex),
+          new ReplayPlayingState(this.ctx, this.#session, this.#segmentIndex, {
+            origin: this.#origin(),
+          }),
         );
         return;
       }
       if (index === 1) {
         this.ctx.machine.replace(
-          new ReplayExportState(this.ctx, this.#session, this.#segmentIndex),
+          new ReplayExportState(this.ctx, this.#session, this.#segmentIndex, {
+            origin: this.#origin(),
+          }),
         );
         return;
       }
-      this.ctx.machine.replace(new ReplayStagesState(
-        this.ctx,
-        this.#session,
-        Math.floor(this.#segmentIndex / REPLAY_STAGE_PAGE_SIZE),
-      ));
     } catch (error) {
       this.#error = (error as Error).message;
       this.ctx.onReplayError?.(this.#error);
@@ -871,19 +982,40 @@ export class ReplayStageState extends MenuState {
   }
 
   protected override cancel(): void {
+    this.#backToStages();
+  }
+
+  #origin(): ReplayNavigationOrigin {
+    return {
+      kind: 'stage-detail',
+      segmentIndex: this.#segmentIndex,
+      stagesPage: this.#stagesPage,
+    };
+  }
+
+  #backToStages(): void {
     this.ctx.machine.replace(new ReplayStagesState(
       this.ctx,
       this.#session,
-      Math.floor(this.#segmentIndex / REPLAY_STAGE_PAGE_SIZE),
+      this.#stagesPage,
     ));
   }
 
   view(): StateView {
     const replay = this.#session.segments[this.#segmentIndex]!;
+    const accessibleDetails = replayAccessibleDetails(
+      ['Stage reconstruction detail', this.#inspection.error],
+      ['Replay action detail', this.#error],
+    );
     return {
       kind: 'replay-session',
       title: `STAGE ${this.#segmentIndex + 1}`,
-      lines: [segmentLabel(replay, this.#segmentIndex), ...(this.#error ? [this.#error] : [])],
+      lines: [
+        segmentLabel(replay, this.#segmentIndex),
+        ...(this.#inspection.rebuildable ? [] : [REPLAY_STAGE_UNAVAILABLE_MESSAGE]),
+        ...(this.#error ? [REPLAY_ACTION_FAILED_MESSAGE] : []),
+      ],
+      ...(accessibleDetails === undefined ? {} : { accessibleDetails }),
       menu: this.entries,
       selected: this.selected,
       age: this.age,
@@ -926,14 +1058,18 @@ export class ReplayDeleteConfirmState extends MenuState {
 
   view(): StateView {
     const first = this.#session.segments[0];
-    const character = stringMeta(first, 'character') ?? 'unknown pilot';
+    const character = compactReplayValue(
+      stringMeta(first, 'character') ?? 'unknown pilot',
+    );
     return {
       kind: 'replay-delete-confirm',
       title: 'DELETE SESSION?',
       lines: [
+        sessionLabel(this.#session),
         `${character} · ${this.#session.segments.length} recorded stage${this.#session.segments.length === 1 ? '' : 's'}`,
         'this cannot be undone',
       ],
+      accessibleDetails: [`Full session id: ${this.#session.id}`],
       menu: this.entries,
       selected: this.selected,
       age: this.age,
@@ -1537,6 +1673,7 @@ export type ReplayExportPhase =
   | 'recording'
   | 'finished'
   | 'stopping'
+  | 'cancelled'
   | 'done';
 
 /**
@@ -1575,6 +1712,32 @@ export const REPLAY_EXPORT_TAIL_TICKS = 60;
 
 export const REPLAY_SESSION_EXPORT_TARGET = { kind: 'session' } as const;
 export type ReplayExportTarget = number | typeof REPLAY_SESSION_EXPORT_TARGET;
+
+/** The replay-library screen an action must return to after it finishes. */
+export type ReplayNavigationOrigin =
+  | { readonly kind: 'session' }
+  | {
+      readonly kind: 'stage-detail';
+      readonly segmentIndex: number;
+      readonly stagesPage: number;
+    };
+
+const REPLAY_SESSION_ORIGIN: ReplayNavigationOrigin = { kind: 'session' };
+
+function replayOriginState(
+  ctx: GameContext,
+  session: ReplaySession,
+  origin: ReplayNavigationOrigin,
+): ReplaySessionState | ReplayStageState {
+  return origin.kind === 'stage-detail'
+    ? new ReplayStageState(
+        ctx,
+        session,
+        origin.segmentIndex,
+        origin.stagesPage,
+      )
+    : new ReplaySessionState(ctx, session);
+}
 
 type ReplayExportSequencePhase = 'gameplay' | 'stage-hold' | 'ending' | 'result';
 type ReplaySessionTerminalPhase = 'gameplay' | 'ending' | 'result';
@@ -1646,6 +1809,7 @@ function replaySessionEndingView(
       index: page,
       count: pages.length,
       age,
+      interactive: false,
     },
   };
 }
@@ -1693,6 +1857,7 @@ export class ReplayExportState implements GameState {
   readonly #target: ReplayExportTarget;
   readonly #preflight: ReplaySessionPreflight | undefined;
   readonly #estimatedTicks: number;
+  readonly #origin: ReplayNavigationOrigin;
   readonly #edges = new Edges();
 
   #segmentIndex: number;
@@ -1710,6 +1875,7 @@ export class ReplayExportState implements GameState {
     ctx: GameContext,
     session: ReplaySession,
     target: ReplayExportTarget,
+    options: { readonly origin?: ReplayNavigationOrigin } = {},
   ) {
     const sessionWide = typeof target !== 'number';
     const preflight = sessionWide ? preflightReplaySession(ctx, session) : undefined;
@@ -1721,6 +1887,7 @@ export class ReplayExportState implements GameState {
     this.#ctx = ctx;
     this.#session = session;
     this.#target = target;
+    this.#origin = options.origin ?? REPLAY_SESSION_ORIGIN;
     this.#preflight = preflight;
     const gameplayTicks = sessionWide
       ? session.segments.reduce(
@@ -1757,7 +1924,7 @@ export class ReplayExportState implements GameState {
       this.#edges.pressed(Button.Start)
       || this.#edges.pressed(Button.Bomb)
     ) {
-      this.fail('video export cancelled');
+      this.cancel();
       return;
     }
 
@@ -1906,22 +2073,45 @@ export class ReplayExportState implements GameState {
     this.#phase = 'done';
     this.#ctx.machine.replace(
       new ReplayExportResultState(this.#ctx, this.#session, this.#target, {
+        status: 'succeeded',
         filename,
-      }),
+      }, this.#origin),
     );
     return true;
   }
 
   fail(message: string): boolean {
-    if (this.#ctx.machine.current !== this || this.#phase === 'done') {
+    if (
+      this.#ctx.machine.current !== this
+      || this.#phase === 'done'
+      || this.#phase === 'cancelled'
+    ) {
       return false;
     }
     this.#phase = 'done';
-    this.#ctx.onReplayError?.(message);
     this.#ctx.machine.replace(
       new ReplayExportResultState(this.#ctx, this.#session, this.#target, {
+        status: 'failed',
         error: message,
-      }),
+      }, this.#origin),
+    );
+    return true;
+  }
+
+  /** Player cancellation is a neutral outcome, distinct from recorder failure. */
+  cancel(): boolean {
+    if (
+      this.#ctx.machine.current !== this
+      || this.#phase === 'done'
+      || this.#phase === 'cancelled'
+    ) {
+      return false;
+    }
+    this.#phase = 'cancelled';
+    this.#ctx.machine.replace(
+      new ReplayExportResultState(this.#ctx, this.#session, this.#target, {
+        status: 'cancelled',
+      }, this.#origin),
     );
     return true;
   }
@@ -1952,6 +2142,10 @@ export class ReplayExportState implements GameState {
 
   get target(): ReplayExportTarget {
     return this.#target;
+  }
+
+  get origin(): ReplayNavigationOrigin {
+    return this.#origin;
   }
 
   get sessionWide(): boolean {
@@ -2027,6 +2221,7 @@ export class ReplayPlayingState implements GameState {
   readonly #continuous: boolean;
   readonly #preflight: ReplaySessionPreflight | undefined;
   readonly #entryCarry: PlayerCarry | undefined;
+  readonly #origin: ReplayNavigationOrigin;
   readonly #edges = new Edges();
   #completed = false;
   #stageHoldAge: number | undefined;
@@ -2037,6 +2232,7 @@ export class ReplayPlayingState implements GameState {
   #endingPages: readonly (readonly string[])[] = [];
   #endingPage = 0;
   #resultCard: ReplaySessionResultCard | undefined;
+  #resultPresentationComplete = false;
 
   constructor(
     ctx: GameContext,
@@ -2047,6 +2243,8 @@ export class ReplayPlayingState implements GameState {
       readonly carry?: PlayerCarry;
       /** Internal hand-off: the first continuous state already checked the wrapper. */
       readonly sessionPreflight?: ReplaySessionPreflight;
+      /** Replay-library screen this action was launched from. */
+      readonly origin?: ReplayNavigationOrigin;
     } = {},
   ) {
     const continuous = options.continuous ?? false;
@@ -2064,6 +2262,7 @@ export class ReplayPlayingState implements GameState {
     this.#continuous = continuous;
     this.#preflight = preflight;
     this.#entryCarry = options.carry;
+    this.#origin = options.origin ?? REPLAY_SESSION_ORIGIN;
     this.run = new Run(replayRunConfig(ctx, replay, options.carry));
   }
 
@@ -2136,6 +2335,18 @@ export class ReplayPlayingState implements GameState {
     }
   }
 
+  /**
+   * Re-arm viewer-only controls when an opaque pause reveals this reused state.
+   *
+   * The Bomb press that dismisses the pause can remain held across several
+   * fixed ticks, especially on touch. Without a fresh first-update suppression,
+   * that same contact becomes a new Bomb edge here and immediately exits the
+   * replay instead of resuming it (CLAUDE.md rule 4).
+   */
+  resumeFromPause(): void {
+    this.#edges.reset();
+  }
+
   #beginTerminalPresentation(): void {
     if (this.#preflight?.kind === 'full-campaign') {
       let presentation: ReplaySessionEndingPresentation | undefined;
@@ -2183,6 +2394,10 @@ export class ReplayPlayingState implements GameState {
   #tickResult(): void {
     this.#presentationAge++;
     if (this.#presentationAge >= REPLAY_SESSION_RESULT_HOLD_TICKS) {
+      // The completion menu is pushed over this state. Retain the frozen Run
+      // for the field/HUD, but stop declaring the terminal card so the renderer
+      // never composes it beneath ReplayCompleteState's own result card.
+      this.#resultPresentationComplete = true;
       this.#ctx.machine.push(new ReplayCompleteState(this.#ctx, this));
     }
   }
@@ -2198,6 +2413,7 @@ export class ReplayPlayingState implements GameState {
       continuous: this.#continuous,
       ...(this.#entryCarry === undefined ? {} : { carry: this.#entryCarry }),
       ...(this.#preflight === undefined ? {} : { sessionPreflight: this.#preflight }),
+      origin: this.#origin,
     });
   }
 
@@ -2206,6 +2422,7 @@ export class ReplayPlayingState implements GameState {
     return new ReplayPlayingState(this.#ctx, this.#session, 0, {
       continuous: true,
       sessionPreflight: this.#preflight,
+      origin: this.#origin,
     });
   }
 
@@ -2218,6 +2435,7 @@ export class ReplayPlayingState implements GameState {
       continuous: true,
       carry: this.run.carry,
       sessionPreflight: this.#preflight,
+      origin: this.#origin,
     });
   }
 
@@ -2232,8 +2450,8 @@ export class ReplayPlayingState implements GameState {
     );
   }
 
-  back(): ReplaySessionState {
-    return new ReplaySessionState(this.#ctx, this.#session);
+  back(): ReplaySessionState | ReplayStageState {
+    return replayOriginState(this.#ctx, this.#session, this.#origin);
   }
 
   get replay(): Replay {
@@ -2260,6 +2478,10 @@ export class ReplayPlayingState implements GameState {
     return this.sessionWide ? REPLAY_SESSION_EXPORT_TARGET : this.#segmentIndex;
   }
 
+  get origin(): ReplayNavigationOrigin {
+    return this.#origin;
+  }
+
   matchesRecording(): boolean {
     return replayMatchesRun(this.#replay, this.run);
   }
@@ -2284,6 +2506,9 @@ export class ReplayPlayingState implements GameState {
   }
 
   view(): StateView {
+    if (this.#resultPresentationComplete) {
+      return { kind: 'playing', run: this.run };
+    }
     if (this.sessionWide && this.#terminalPhase === 'ending') {
       return replaySessionEndingView(
         this.run,
@@ -2335,7 +2560,7 @@ class ReplayPauseState extends MenuState {
 
   protected confirm(index: number): void {
     if (index === 0) {
-      this.ctx.machine.pop();
+      this.#resume();
       return;
     }
     this.ctx.machine.pop();
@@ -2343,13 +2568,18 @@ class ReplayPauseState extends MenuState {
   }
 
   protected override cancel(): void {
-    this.ctx.machine.pop();
+    this.#resume();
   }
 
   protected override intercept(): boolean {
     if (!this.edges.pressed(Button.Start)) return false;
-    this.ctx.machine.pop();
+    this.#resume();
     return true;
+  }
+
+  #resume(): void {
+    this.#playing.resumeFromPause();
+    this.ctx.machine.pop();
   }
 
   view(): StateView {
@@ -2373,21 +2603,40 @@ class ReplayCompleteState extends MenuState {
     this.#playing = playing;
   }
 
-  protected get entries(): readonly string[] {
+  readonly #actions = (): readonly {
+    readonly label: string;
+    readonly kind: 'next' | 'watch' | 'export' | 'download' | 'back';
+  }[] => {
     const sessionKind = this.#playing.sessionKind;
+    const reproducible = this.#playing.sequenceError === undefined
+      && this.#playing.matchesRecording();
     return [
-      ...(this.#playing.hasNext ? ['NEXT STAGE'] : []),
-      'WATCH AGAIN',
-      this.#playing.sessionWide && sessionKind !== undefined
-        ? replaySessionExportLabel(sessionKind)
-        : 'EXPORT VIDEO',
-      'DOWNLOAD REPLAY DATA',
-      'BACK',
+      ...(this.#playing.hasNext
+        ? [{ label: 'NEXT STAGE', kind: 'next' as const }]
+        : []),
+      ...(reproducible
+        ? [
+            { label: 'WATCH AGAIN', kind: 'watch' as const },
+            {
+              label: this.#playing.sessionWide && sessionKind !== undefined
+                ? replaySessionExportLabel(sessionKind)
+                : 'EXPORT STAGE VIDEO',
+              kind: 'export' as const,
+            },
+          ]
+        : []),
+      { label: 'DOWNLOAD REPLAY DATA', kind: 'download' },
+      { label: 'BACK', kind: 'back' },
     ];
+  };
+
+  protected get entries(): readonly string[] {
+    return this.#actions().map((action) => action.label);
   }
 
   protected confirm(index: number): void {
-    if (this.#playing.hasNext && index === 0) {
+    const action = this.#actions()[index];
+    if (action?.kind === 'next') {
       try {
         const next = this.#playing.next();
         if (next === undefined) return;
@@ -2398,23 +2647,28 @@ class ReplayCompleteState extends MenuState {
       }
       return;
     }
-    if (this.#playing.hasNext) index -= 1;
-    if (index === 1) {
+    if (action?.kind === 'watch') {
+      this.ctx.machine.pop();
+      this.ctx.machine.replace(this.#playing.replayAgain());
+      return;
+    }
+    if (action?.kind === 'export') {
       const exporting = new ReplayExportState(
         this.ctx,
         this.#playing.session,
         this.#playing.exportTarget,
+        { origin: this.#playing.origin },
       );
       this.ctx.machine.pop();
       this.ctx.machine.replace(exporting);
       return;
     }
-    if (index === 2) {
+    if (action?.kind === 'download') {
       this.ctx.onDownloadReplay?.(this.#playing.session);
       return;
     }
     this.ctx.machine.pop();
-    this.ctx.machine.replace(index === 0 ? this.#playing.replayAgain() : this.#playing.back());
+    this.ctx.machine.replace(this.#playing.back());
   }
 
   protected override cancel(): void {
@@ -2428,6 +2682,9 @@ class ReplayCompleteState extends MenuState {
     const matches = this.#playing.matchesRecording();
     const status = replayStatus(replay).toUpperCase();
     const sequenceError = this.#playing.sequenceError;
+    const accessibleDetails = replayAccessibleDetails(
+      ['Session playback detail', sequenceError],
+    );
     return {
       kind: 'replay-complete',
       title: sequenceError !== undefined
@@ -2440,8 +2697,9 @@ class ReplayCompleteState extends MenuState {
       lines: [
         `${run.stageName} · ${run.tickCount} / ${replay.length} ticks`,
         ...(matches ? [] : ['recorded outcome did not reproduce exactly']),
-        ...(sequenceError === undefined ? [] : [sequenceError]),
+        ...(sequenceError === undefined ? [] : ['session playback stopped before completion']),
       ],
+      ...(accessibleDetails === undefined ? {} : { accessibleDetails }),
       menu: this.entries,
       selected: this.selected,
       age: this.age,
@@ -2449,27 +2707,30 @@ class ReplayCompleteState extends MenuState {
   }
 }
 
-interface ReplayExportResult {
-  readonly filename?: string;
-  readonly error?: string;
-}
+type ReplayExportResult =
+  | { readonly status: 'succeeded'; readonly filename: string }
+  | { readonly status: 'failed'; readonly error: string }
+  | { readonly status: 'cancelled' };
 
 class ReplayExportResultState extends MenuState {
   readonly name = 'replay-export-result';
   readonly #session: ReplaySession;
   readonly #target: ReplayExportTarget;
   readonly #result: ReplayExportResult;
+  readonly #origin: ReplayNavigationOrigin;
 
   constructor(
     ctx: GameContext,
     session: ReplaySession,
     target: ReplayExportTarget,
     result: ReplayExportResult,
+    origin: ReplayNavigationOrigin,
   ) {
     super(ctx);
     this.#session = session;
     this.#target = target;
     this.#result = result;
+    this.#origin = origin;
   }
 
   protected get entries(): readonly string[] {
@@ -2479,23 +2740,32 @@ class ReplayExportResultState extends MenuState {
   protected confirm(index: number): void {
     this.ctx.machine.replace(
       index === 0
-        ? new ReplayExportState(this.ctx, this.#session, this.#target)
-        : new ReplaySessionState(this.ctx, this.#session),
+        ? new ReplayExportState(this.ctx, this.#session, this.#target, {
+            origin: this.#origin,
+          })
+        : replayOriginState(this.ctx, this.#session, this.#origin),
     );
   }
 
   protected override cancel(): void {
-    this.ctx.machine.replace(new ReplaySessionState(this.ctx, this.#session));
+    this.ctx.machine.replace(replayOriginState(this.ctx, this.#session, this.#origin));
   }
 
   view(): StateView {
-    const error = this.#result.error;
+    const title = this.#result.status === 'succeeded'
+      ? 'VIDEO EXPORTED'
+      : this.#result.status === 'cancelled'
+        ? 'VIDEO EXPORT CANCELLED'
+        : 'VIDEO EXPORT FAILED';
+    const line = this.#result.status === 'succeeded'
+      ? this.#result.filename
+      : this.#result.status === 'cancelled'
+        ? 'no video was saved'
+        : this.#result.error;
     return {
       kind: 'replay-export-result',
-      title: error === undefined ? 'VIDEO EXPORTED' : 'VIDEO EXPORT FAILED',
-      lines: [
-        error ?? this.#result.filename ?? 'video download ready',
-      ],
+      title,
+      lines: [line],
       menu: this.entries,
       selected: this.selected,
       age: this.age,
@@ -2920,6 +3190,7 @@ export class EndingScreenState extends MenuState {
         index: this.#page,
         count: this.#pages.length,
         age: this.age,
+        interactive: true,
       },
     };
   }

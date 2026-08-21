@@ -4,6 +4,7 @@ import {
   MenuPointerInput,
   POINTER_TARGET_DEADZONE,
   PointerPositionInput,
+  adjacentMenuTarget,
   menuPointerSequence,
   type PointerSurface,
 } from './pointer-input';
@@ -131,6 +132,13 @@ describe('pointer position steering', () => {
 });
 
 describe('menu pointer queue', () => {
+  test('arrow focus wraps across the complete menu, not its visible window', () => {
+    expect(adjacentMenuTarget(7, 14, 1)).toBe(8);
+    expect(adjacentMenuTarget(0, 14, -1)).toBe(13);
+    expect(adjacentMenuTarget(13, 14, 1)).toBe(0);
+    expect(adjacentMenuTarget(0, 0, 1)).toBeUndefined();
+  });
+
   test('clicking the selected row confirms directly', () => {
     expect(menuPointerSequence(2, 2, 5)).toEqual([Button.Shot]);
   });
@@ -166,6 +174,24 @@ describe('menu pointer queue', () => {
 
     menu.queueSelection(1, 1, 4);
     expect(menu.consume()).toBe(Button.Shot);
+    expect(menu.consume()).toBe(0);
+  });
+
+  test('focus and wheel navigate without confirming', () => {
+    const menu = new MenuPointerInput();
+    menu.queueNavigation(0, 2, 4);
+    expect(menu.consume()).toBe(Button.Down);
+    expect(menu.consume()).toBe(0);
+    expect(menu.consume()).toBe(Button.Down);
+    expect(menu.consume()).toBe(0);
+    expect(menu.consume()).toBe(0);
+  });
+
+  test('a shell action is latched as one digital edge', () => {
+    const menu = new MenuPointerInput();
+    menu.queueButton(Button.Start);
+    expect(menu.consume()).toBe(Button.Start);
+    expect(menu.consume()).toBe(0);
     expect(menu.consume()).toBe(0);
   });
 
