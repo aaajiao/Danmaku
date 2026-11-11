@@ -30,6 +30,7 @@ import { GamepadRumble } from './haptics/gamepad-rumble';
 import { HapticMixer } from './haptics/mixer';
 import { HapticOutput } from './haptics/output';
 import { Rumble } from './shell/rumble';
+import { PadAudioUnlock } from './shell/pad-audio-unlock';
 import { Button, Input } from './core/input';
 import {
   MenuPointerInput,
@@ -835,6 +836,20 @@ window.addEventListener('keydown', unlockAudioFromUserActivation, {
 });
 
 /**
+ * The controller's way in. A gamepad button is user activation in Chromium
+ * and Firefox, but it dispatches none of the events above, so the tick asks
+ * `padAudioUnlock` after each input poll whether to try (`shell/
+ * pad-audio-unlock.ts` has the rule). The output is resumed without the
+ * gesture-only wake poke and without rotating the context on a refusal.
+ */
+const padAudioUnlock = new PadAudioUnlock();
+function unlockAudioFromPadActivation(): void {
+  audioOutput.resumeFromActivation();
+  void audio.unlock();
+  void music.unlock().then(() => music.preload(V4_BOSS_MUSIC_NAMES));
+}
+
+/**
  * iOS may suspend an installed PWA's audio context while it is backgrounded.
  * Page lifecycle events carry no user activation, so they only revalidate an
  * already-created context. If WebKit leaves that attempt pending, the next
@@ -1529,6 +1544,14 @@ const loop = new Loop({
     else pointerPositionInput.setOrigin(pointerRun.player.x, pointerRun.player.y);
 
     const buttons = input.sample();
+
+    // After the poll, never before it: in Chromium the poll itself is what
+    // turns a held pad button into user activation.
+    if (padAudioUnlock.step({
+      ready: audioOutput.unlocked && audio.unlocked && music.unlocked,
+      padActive: input.activeGamepad !== undefined,
+      activation: navigator.userActivation?.isActive === true,
+    })) unlockAudioFromPadActivation();
 
     // The state about to tick, captured before the tick applies its transitions:
     // a menu confirm/cancel replaces this state, but its `.cue` field is set on

@@ -115,6 +115,44 @@ export class AudioOutput {
   }
 
   /**
+   * Try to start WebAudio from OUTSIDE an input handler, when the browser
+   * itself reports user activation that no DOM event announced.
+   *
+   * That is a gamepad button. Chromium grants activation inside
+   * `navigator.getGamepads()` when a button is down, and Firefox on the press
+   * itself; neither dispatches an event a listener could hang an unlock on, so
+   * a game that unlocks only from pointer and key handlers stays silent for a
+   * player who never touches either. The shell calls this from the tick, after
+   * the input poll, when `navigator.userActivation.isActive` says so.
+   *
+   * It is deliberately weaker than `activateFromGesture`. That method treats a
+   * refusal as the verdict of a real gesture and rotates the context; this one
+   * is not a gesture, so a refusal here proves nothing and destroys nothing —
+   * the context is left exactly as it was for the next real gesture to wake.
+   * It always issues its own `resume()` rather than joining a round, because a
+   * `resume()` made before activation existed can stay pending forever.
+   */
+  resumeFromActivation(): void {
+    const ctx = this.#usableContext() ?? this.#createContext();
+    if (!ctx) return;
+    if (ctx.state === 'running') {
+      this.#settleRunning(ctx);
+      return;
+    }
+
+    let attempt: Promise<void>;
+    try {
+      attempt = ctx.resume();
+    } catch {
+      return;
+    }
+    const settle = (): void => {
+      if (this.#ctx === ctx && ctx.state === 'running') this.#settleRunning(ctx);
+    };
+    void attempt.then(settle, settle);
+  }
+
+  /**
    * Revalidate an existing context after a page/PWA restore without creating
    * WebAudio before the player has interacted with the game.
    */

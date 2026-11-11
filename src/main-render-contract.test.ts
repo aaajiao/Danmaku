@@ -1234,3 +1234,35 @@ describe('rumble wiring hands the controller the facts it decides from', () => {
     expect(mainSource).not.toMatch(/\bhapticMixer\b|\bhapticOutput\b|\bgamepadRumble\b/);
   });
 });
+
+/**
+ * Audio unlock for a controller-only session. The rule is tested in
+ * `shell/pad-audio-unlock.test.ts`; what only this file can see is that the
+ * shell asks it AFTER the input poll (in Chromium the poll is what grants the
+ * activation) and hands it the three facts it decides from.
+ */
+describe('a controller alone can start audio', () => {
+  test('the shell asks after the input poll, with the facts the rule needs', () => {
+    const poll = mainSource.indexOf('const buttons = input.sample();');
+    const ask = mainSource.indexOf('if (padAudioUnlock.step({');
+    expect(poll).toBeGreaterThan(-1);
+    expect(ask).toBeGreaterThan(poll);
+    const facts = mainSource.slice(ask, mainSource.indexOf('})) unlockAudioFromPadActivation();', ask));
+    expect(facts).toContain('ready: audioOutput.unlocked && audio.unlocked && music.unlocked,');
+    expect(facts).toContain('padActive: input.activeGamepad !== undefined,');
+    expect(facts).toContain('activation: navigator.userActivation?.isActive === true,');
+    expect(mainSource.split('padAudioUnlock.step(').length - 1).toBe(1);
+  });
+
+  test('the pad path resumes without posing as a gesture', () => {
+    const at = mainSource.indexOf('function unlockAudioFromPadActivation(): void {');
+    expect(at).toBeGreaterThan(-1);
+    const body = mainSource.slice(at, mainSource.indexOf('\n}\n', at));
+    expect(body).toContain('audioOutput.resumeFromActivation();');
+    expect(body).toContain('void audio.unlock();');
+    expect(body).toContain('void music.unlock()');
+    // `activateFromGesture` rotates the context on a refusal: only a real
+    // gesture's refusal means anything.
+    expect(body).not.toContain('activateFromGesture');
+  });
+});

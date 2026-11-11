@@ -83,6 +83,21 @@ Three layers, and the seam for real art is in the middle one.
    total: `play` on an unknown name is a no-op, a refused context leaves the game
    silent rather than stopped, and nothing it does may throw into the game loop.
 
+   **A controller counts as that first input.** The unlock listeners hear
+   pointer, touch and key events, and a gamepad dispatches none of them — yet
+   Chromium grants user activation for a pad button (inside
+   `navigator.getGamepads()`, which `Input.sample()` calls every tick, when a
+   button reads above 0.9) and Firefox grants it on the press. So after each
+   input poll the shell asks `PadAudioUnlock` (`src/shell/pad-audio-unlock.ts`)
+   whether to try: the pad must be the device in the player's hands, and
+   `navigator.userActivation.isActive` must be true. A stick push grants no
+   activation and tries nothing. The attempt goes through
+   `AudioOutput.resumeFromActivation()`, which is deliberately weaker than the
+   gesture path — no compatibility wake source, and a refusal never rotates the
+   context, because a refusal outside a real gesture proves nothing. Safari
+   grants no activation for a pad press, so there a controller-only player
+   still needs one click or key.
+
    `Audio.preload` and `Music.preload` follow the same total contract but never
    start a voice. Concurrent calls await the same in-flight URL decode.
    After that first gesture the shell warms only v4's five Boss tracks, so their
@@ -258,8 +273,9 @@ added, it joins `SHELL_CUES`, not `EVENT_SOUNDS`.
 The title's first confirm is also the gesture that unlocks WebAudio. `Audio`
 keeps a bounded queue only while that unlock is in flight and replays the cue
 once the context resumes; a failed unlock drops it rather than leaking a stale
-confirm into a later retry. The shell retries unlock from later non-zero input
-until both audio buses report ready.
+confirm into a later retry. Every later gesture — and every later pad press the
+browser counts as activation — retries the unlock until both audio buses report
+ready.
 
 ### Authoring constraints
 

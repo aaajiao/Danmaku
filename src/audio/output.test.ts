@@ -303,6 +303,69 @@ describe('AudioOutput', () => {
     expect(speakerBuses).toHaveLength(2);
   });
 
+  test('activation with no DOM event starts the graph from outside a handler', async () => {
+    // A gamepad button: the browser grants activation, no listener fires.
+    const output = new AudioOutput();
+    const audio = new Audio({ output, masterVolume: 0.8 });
+    const music = new Music({ output, masterVolume: 0.4 });
+
+    output.resumeFromActivation();
+    await Promise.all([audio.unlock(), music.unlock()]);
+
+    expect(contexts).toHaveLength(1);
+    expect(output.unlocked).toBe(true);
+    expect(audio.unlocked).toBe(true);
+    expect(music.unlocked).toBe(true);
+    // Not a gesture: no compatibility wake source is started.
+    expect((contexts[0] as FakeAudioContext).sources).toHaveLength(0);
+  });
+
+  test('a refused non-gesture resume destroys nothing, and a real gesture still works', async () => {
+    settings.failResume = true;
+    const output = new AudioOutput();
+
+    output.resumeFromActivation();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Unlike a refused gesture, the context is neither closed nor replaced.
+    expect(contexts).toHaveLength(1);
+    const ctx = contexts[0] as FakeAudioContext;
+    expect(ctx.closes).toBe(0);
+    expect(output.unlocked).toBe(false);
+
+    settings.failResume = false;
+    output.activateFromGesture();
+    await output.unlock();
+    expect(contexts).toHaveLength(1);
+    expect(output.unlocked).toBe(true);
+  });
+
+  test('a non-gesture resume bypasses an older attempt that never settles', async () => {
+    // Chrome leaves a resume() made before activation pending forever.
+    const never = new Promise<void>(() => undefined);
+    settings.resumeGates = [never, Promise.resolve()];
+    const output = new AudioOutput();
+    const early = output.unlock();
+
+    output.resumeFromActivation();
+    // The stuck round is settled by the attempt that actually ran.
+    expect(await early).toBe(contexts[0] as unknown as AudioContext);
+    expect(contexts).toHaveLength(1);
+    expect((contexts[0] as FakeAudioContext).resumes).toBe(2);
+    expect(output.unlocked).toBe(true);
+  });
+
+  test('a non-gesture resume on a running context is a no-op', async () => {
+    const output = new AudioOutput();
+    await output.unlock();
+    const ctx = contexts[0] as FakeAudioContext;
+    const resumes = ctx.resumes;
+    output.resumeFromActivation();
+    expect(ctx.resumes).toBe(resumes);
+    expect(contexts).toHaveLength(1);
+  });
+
   test('a rejected later gesture rotates past an older pending attempt', async () => {
     const never = new Promise<void>(() => undefined);
     settings.resumeGates = [never, Promise.resolve()];

@@ -452,11 +452,13 @@ These are real, and some cannot be fixed from the page.
   (RESUME, TAKE SCREENSHOT, RETRY/SAVE + RETRY, QUIT/SAVE + QUIT) and a fifth
   would not fit; the setting is reachable from the title menu only. Pausing
   still silences the pad (§2).
-- **Real-device questions remain open.** Whether CoreHaptics rumbles behind the
-  PWA app shim, and how each envelope actually feels — the bomb cues, the boss
-  swell, whether `graze` reads as a tap or a tickle — cannot be answered by any
-  test. They are answered on a pad, by the RUMBLE row and by
-  `bun run test:haptics`.
+- **Rumble in the installed PWA is confirmed on one device.** The owner felt it
+  in the installed PWA on macOS (Chrome 157, a Bluetooth Xbox One S pad, v0.19):
+  the standard Gamepad API's actuator works behind the app shim. Other pads,
+  other operating systems and other browsers have not been tried.
+- **How each envelope feels is still a judgement.** The bomb cues, the boss
+  swell, whether `graze` reads as a tap or a tickle — no test answers that. It
+  is answered on a pad, by play and by `bun run test:haptics`.
 - **Some failures are quiet by design.** The Gamepad API resolves
   `playEffect` with `"invalid-parameter"` or `"not-supported"` instead of
   rejecting, and rejects with an `undefined` reason when a pad is gone.
