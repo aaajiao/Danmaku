@@ -6,5 +6,5 @@
  * Keep the authored value here so the shell has one source for every surface
  * that may expose the human-facing release.
  */
-export const GAME_VERSION = '0.19';
+export const GAME_VERSION = '0.20';
 export const GAME_VERSION_LABEL = `v${GAME_VERSION}`;

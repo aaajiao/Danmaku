@@ -96,7 +96,9 @@ Three layers, and the seam for real art is in the middle one.
    gesture path — no compatibility wake source, and a refusal never rotates the
    context, because a refusal outside a real gesture proves nothing. Safari
    grants no activation for a pad press, so there a controller-only player
-   still needs one click or key.
+   still needs one click or key. Confirmed on one device: the installed PWA on
+   macOS (Chrome 157, a Bluetooth Xbox One S pad) starts music on the first
+   button press with no mouse or keyboard input.
 
    `Audio.preload` and `Music.preload` follow the same total contract but never
    start a voice. Concurrent calls await the same in-flight URL decode.
