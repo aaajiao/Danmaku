@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>haptics tuning</title>
+    <style>
+      body { margin: 0; background: #000; color: #ddd; font: 13px monospace; padding: 12px; }
+      h1 { font-size: 14px; font-weight: normal; color: #fff; margin: 0 0 4px; }
+      h2 { font-size: 12px; font-weight: normal; color: #8cf; margin: 16px 0 6px; }
+      p.note { color: #888; max-width: 760px; margin: 0 0 8px; }
+      button { font: inherit; background: #222; color: #ddd; border: 1px solid #444; padding: 4px 8px; margin: 2px; cursor: pointer; }
+      button.on { background: #357; border-color: #8cf; color: #fff; }
+      #pads, #level, #log { white-space: pre; background: #111; border: 1px solid #333; padding: 8px; }
+      #log { height: 220px; overflow-y: auto; }
+      label { display: block; margin: 4px 0; }
+      input[type="range"] { width: 240px; vertical-align: middle; }
+    </style>
+  </head>
+  <body>
+    <h1>haptics tuning</h1>
+    <p class="note">
+      Drives the real HapticMixer / HapticOutput / GamepadRumble from a fixed 60 Hz
+      accumulator. Press a pad button first so the browser exposes the pad. This
+      page cannot prove the installed PWA works: that is a different origin, and
+      the in-app RUMBLE row is the acceptance check.
+    </p>
+
+    <h2>pads</h2>
+    <div id="pads">no pads</div>
+    <label>target pad <select id="target"></select></label>
+
+    <h2>master gain</h2>
+    <div id="gains"></div>
+
+    <h2>cues</h2>
+    <div id="cues"></div>
+
+    <h2>live level written to the mixer / sink</h2>
+    <div id="level"></div>
+
+    <h2>raw send (bypasses the mixer)</h2>
+    <label>strong <input id="rawStrong" type="range" min="0" max="1" step="0.01" value="0.5" /> <span id="rawStrongV"></span></label>
+    <label>weak <input id="rawWeak" type="range" min="0" max="1" step="0.01" value="0.5" /> <span id="rawWeakV"></span></label>
+    <label>duration ms <input id="rawDur" type="range" min="0" max="5000" step="50" value="600" /> <span id="rawDurV"></span></label>
+    <button id="rawSend">send raw</button>
+
+    <h2>hazards</h2>
+    <button id="block">block main thread 3 s</button>
+    <button id="stop">stop</button>
+
+    <h2>playEffect log</h2>
+    <div id="log"></div>
+
+    <script type="module" src="./haptics.ts"></script>
+  </body>
+</html>

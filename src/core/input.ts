@@ -35,7 +35,24 @@ export type Buttons = number;
 export interface DigitalInputSource {
   consume(): Buttons;
   reset(): void;
+  /**
+   * True when this source is a game controller read by another path (the
+   * WebHID Xbox reader). It never changes the mask; it only stops this
+   * source's activity from counting as "the player's hands left the pad"
+   * for `Input.activeGamepad`, because the same physical pad can arrive
+   * through WebHID and the standard Gamepad API at once.
+   */
+  readonly isGamepad?: boolean;
 }
+
+/**
+ * How many consecutive samples the standard pads must contribute nothing
+ * before keyboard or non-pad source input counts as the player having moved
+ * off the pad (half a second at 60 Hz). A hysteresis, so one stray mouse nudge
+ * or key brush mid-fight cannot hand rumble away from the pad in the player's
+ * hands. Presentation only: it affects `activeGamepad`, never the mask.
+ */
+export const PAD_HANDOVER_SAMPLES = 30;
 
 /** Below this magnitude a stick reads as centred. Fixed — never make it a setting. */
 export const STICK_DEADZONE = 0.5;
@@ -102,6 +119,23 @@ export class Input {
   #current: Buttons = 0;
   #previous: Buttons = 0;
 
+  /*
+   * Which pad the player is holding — for rumble output, never for the sim.
+   *
+   * None of this is simulation state: nothing in the mask, the latch or the
+   * edges reads it, `reset()` leaves it alone and `override()` never touches
+   * it. It is derived ONLY from values `sample()` already computes, so
+   * tracking it cannot add a `consume()`, a `getGamepads()` call or a
+   * reordering to the replay-relevant path (CLAUDE.md, rule 4).
+   */
+  #lastGamepad: number | undefined;
+  /** Set by `#pollPads()`: did any standard pad contribute a non-zero mask this sample? */
+  #padContributed = false;
+  /** Consecutive samples, the current one included, in which no standard pad contributed. */
+  #padIdleSamples = 0;
+  /** Keyboard / non-pad input arrived after the pad had been idle long enough. */
+  #handedOver = false;
+
   constructor(sources: readonly DigitalInputSource[] = []) {
     this.#sources = [...sources];
   }
@@ -138,16 +172,25 @@ export class Input {
    */
   sample(): Buttons {
     let sourced = 0;
-    for (const source of this.#sources) sourced |= source.consume();
+    // Bits from sources that are NOT a game controller (pointer, touch). The
+    // per-source result is captured from the one existing `consume()` call;
+    // it only feeds `activeGamepad`, never the mask.
+    let offPad = 0;
+    for (const source of this.#sources) {
+      const bits = source.consume();
+      sourced |= bits;
+      if (source.isGamepad !== true) offPad |= bits;
+    }
 
     this.#previous = this.#current;
-    this.#current = (
-      this.#keys
-      | this.#latched
-      | sourced
-      | this.#pollPads()
-    );
+    // Same operands, same evaluation order as a single expression: keys,
+    // latch, sources, then the pad poll.
+    const keyed = this.#keys | this.#latched;
+    const padded = this.#pollPads();
+    this.#current = keyed | sourced | padded;
     this.#latched = 0;
+
+    this.#trackHandover(keyed | offPad);
     return this.#current;
   }
 
@@ -157,19 +200,75 @@ export class Input {
     const pads = navigator.getGamepads?.() ?? [];
     let mask = 0;
 
-    for (const pad of pads) {
-      if (!pad?.connected) continue;
+    // Array position, counted rather than read from `pad.index`: the two are
+    // equal in the Gamepad API, and counting works for every iterable this
+    // loop already accepts. Every slot is still visited, in order.
+    let slot = -1;
+    let contributor: number | undefined;
+    let lastStillConnected = false;
 
+    for (const pad of pads) {
+      slot++;
+      if (!pad?.connected) continue;
+      if (slot === this.#lastGamepad) lastStillConnected = true;
+
+      let padMask = 0;
       for (const [index, bit] of PAD_BUTTON_MAP) {
-        if (pad.buttons[index]?.pressed) mask |= bit;
+        if (pad.buttons[index]?.pressed) padMask |= bit;
       }
 
       // Left stick → digital directions. Quantized, so analog precision never
       // reaches the sim and a replay can reproduce it exactly.
-      mask |= quantizeStick(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
+      padMask |= quantizeStick(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
+
+      mask |= padMask;
+      // Two pads contributing in one sample: the later slot wins.
+      if (padMask !== 0) contributor = slot;
     }
 
+    if (!lastStillConnected) this.#lastGamepad = undefined;
+    if (contributor !== undefined) this.#lastGamepad = contributor;
+    this.#padContributed = contributor !== undefined;
+
     return mask;
+  }
+
+  /**
+   * Hysteresis for `activeGamepad`. `offPad` is keyboard (held | latched)
+   * plus every non-`isGamepad` source's bits for this sample.
+   */
+  #trackHandover(offPad: Buttons): void {
+    if (this.#padContributed) {
+      this.#padIdleSamples = 0;
+      this.#handedOver = false;
+      return;
+    }
+    if (this.#padIdleSamples < PAD_HANDOVER_SAMPLES) this.#padIdleSamples++;
+    if (offPad !== 0 && this.#padIdleSamples >= PAD_HANDOVER_SAMPLES) {
+      this.#handedOver = true;
+    }
+  }
+
+  /**
+   * Array position in `navigator.getGamepads()` of the standard pad that most
+   * recently contributed a non-zero mask to `sample()`. Cleared only when that
+   * slot is empty or disconnected at a later sample. Presentation only — the
+   * rumble target, never read by the simulation.
+   */
+  get lastGamepad(): number | undefined {
+    return this.#lastGamepad;
+  }
+
+  /**
+   * `lastGamepad`, unless the player's hands have moved elsewhere: keyboard or
+   * a non-`isGamepad` source produced input after the pads had contributed
+   * nothing for at least `PAD_HANDOVER_SAMPLES` consecutive samples (the
+   * current one included). It returns to the pad the next time any standard
+   * pad contributes. An `isGamepad` source (the WebHID mirror of the same pad)
+   * never hands it away.
+   */
+  get activeGamepad(): number | undefined {
+    return this.#handedOver ? undefined : this.#lastGamepad;
   }
 
   /** State as of the last `sample()`. */
@@ -204,6 +303,10 @@ export class Input {
    * events, so nothing else clears them. `#previous` is cleared too, so the
    * tick after a reset cannot read a spurious `pressed`/`released` edge
    * against whatever was true before the reset.
+   *
+   * `lastGamepad` / `activeGamepad` are deliberately NOT cleared: they are
+   * not simulation state, and the pad in the player's hands is the same one
+   * after a restart.
    */
   reset(): void {
     this.#keys = 0;

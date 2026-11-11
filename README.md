@@ -134,6 +134,12 @@ a direct Bluetooth fallback for the Xbox One S Wireless Controller
 controller button to confirm input. The ordinary Gamepad API remains the
 default and supports other compatible controllers without this fallback.
 
+Controllers rumble in browsers that support the Gamepad API's `playEffect`
+(Chromium, and desktop Safari 16.4+ per MDN; Firefox does not). The title
+menu's **RUMBLE** row cycles OFF, LOW and FULL; it appears the first time a
+controller that can rumble is seen, which is after its first button press.
+Rumble is presentation only: it never affects a run or a replay.
+
 ## Local development
 
 [Bun](https://bun.sh/) is required; this repository uses `bun.lock`.
@@ -174,6 +180,7 @@ bun run test:visual    # layer ordering by pixel readback
 bun run test:assets    # atlas loading, padding, and sprite geometry
 bun run test:density   # bullet readability under load
 bun run test:scenes    # every background scene and cross-fade
+bun run test:haptics   # rumble envelopes on a physical controller
 ```
 
 ## Deployment
@@ -219,6 +226,7 @@ src/render/        three.js rendering, atlases, layers, backgrounds, post FX
 src/content/       generic pattern primitives and content registries
 src/v4/            active edition gameplay, shaders, audio, and campaign data
 src/audio/         sound and music registries plus runtime synthesis
+src/haptics/       gamepad rumble cues, mixer, and paced device output
 src/packs/         data-pack validation, injection, and loading
 src/shell/         browser-only sizing, controls, run/overlay views, menu chrome,
                    and downloads
@@ -239,6 +247,7 @@ docs/              extension, asset, audio, and edition guides
 | Build data-only presentation and content packs | [`docs/packs.md`](./docs/packs.md) |
 | Author images, atlases, animation strips, and other visual assets | [`docs/assets.md`](./docs/assets.md) |
 | Work on sound, music, mixing, or runtime audio | [`docs/audio.md`](./docs/audio.md) |
+| Work on gamepad rumble cues, pacing, or the RUMBLE setting | [`docs/haptics.md`](./docs/haptics.md) |
 | Understand the compiled-edition / runtime-pack boundary | [`src/v4/README.md`](./src/v4/README.md) |
 | Inspect the shipped v4 presentation pack | [`packs/v4/README.md`](./packs/v4/README.md) |
 | Follow the v4 visual direction | [`docs/v4-art-direction.md`](./docs/v4-art-direction.md) |

@@ -87,6 +87,13 @@ import {
   V4_EVENT_SOUND_NAMES,
   v4EventSound,
 } from './v4/audio';
+// Rumble is resolved here exactly as `main.ts` resolves it: the v4 per-bomb
+// table first, the generic event table after it, behind the same gate. This
+// file is the shell's layer, so it may read `src/haptics` the way main.ts does
+// (the headless trees may not — architecture.test.ts).
+import { hapticNames } from './haptics';
+import { V4_EVENT_HAPTIC_NAMES, v4EventHaptic } from './v4/haptics';
+import { EVENT_HAPTICS, SHELL_HAPTICS, shouldPlayRunEventHaptic } from './game/haptic-cues';
 import { bombNames } from './sim/bomb';
 import { enemyNames } from './sim/enemy';
 import { itemNames } from './sim/item';
@@ -168,6 +175,12 @@ interface Coverage {
   events: Set<RunEventType>;
   /** Sound names the composed v4 event resolver actually selected. */
   sounds: Set<string>;
+  /**
+   * Rumble cue names the composed resolver actually selected —
+   * `v4EventHaptic(event) ?? EVENT_HAPTICS[event.type]`, counted only when
+   * `shouldPlayRunEventHaptic` lets the cue through, as `main.ts` plays it.
+   */
+  haptics: Set<string>;
   scenes: Set<string>;
   /** Music tracks a real run actually asked for, via `run.music`. */
   music: Set<string>;
@@ -292,6 +305,7 @@ function playThroughGame(
     effects: new Set(),
     events: new Set(),
     sounds: new Set(),
+    haptics: new Set(),
     scenes: new Set(),
     music: new Set(),
     characters: new Set(),
@@ -471,10 +485,26 @@ function playThroughGame(
       for (const enemy of run.enemies.enemies) cover.enemies.add(enemy.name);
       for (const item of run.items.items) cover.items.add(item.name);
       for (const particle of run.effects.particles) cover.effects.add(particle.spec.sprite);
-      for (const event of run.drainEvents()) {
+      // Drained once into a local, because the rumble gate reads the whole
+      // batch (`boss-arriving` anywhere in it holds graze back). The buffer is
+      // reused by the next tick, so it is read here and never kept.
+      const events = run.drainEvents();
+      // `main.ts`'s gate inputs. `playerInvulnerable` is read after the pilot
+      // above has forced `invuln = 999` past MORTAL_TICKS, so a graze counts
+      // only in a naturally vulnerable window — stricter than real play, never
+      // looser, which is the safe direction for a reachability claim.
+      const hapticGate = {
+        bossArrivingInBatch: events.some((e) => e.type === 'boss-arriving'),
+        playerInvulnerable: run.player.invuln > 0,
+      };
+      for (const event of events) {
         cover.events.add(event.type);
         const sound = v4EventSound(event) ?? EVENT_SOUNDS[event.type];
         if (sound !== undefined) cover.sounds.add(sound);
+        if (shouldPlayRunEventHaptic(event.type, hapticGate)) {
+          const haptic = v4EventHaptic(event) ?? EVENT_HAPTICS[event.type];
+          if (haptic !== null) cover.haptics.add(haptic);
+        }
       }
 
       // Beams. A laser is a `Bullet` carrying a `LaserSpec`, so it lives in the
@@ -566,6 +596,7 @@ const COVER: Coverage = {
   effects: union(RUNS, (c) => c.effects),
   events: union(RUNS, (c) => c.events),
   sounds: union(RUNS, (c) => c.sounds),
+  haptics: union(RUNS, (c) => c.haptics),
   scenes: union(RUNS, (c) => c.scenes),
   music: union(RUNS, (c) => c.music),
   characters: union(RUNS, (c) => c.characters),
@@ -1039,6 +1070,51 @@ describe('a real playthrough reaches', () => {
     for (const name of SHELL_CUES) {
       expect(`${name} played: ${UI_CUES.has(name)}`).toBe(`${name} played: true`);
     }
+  });
+
+  test('every registered haptic cue, via an event something raises', () => {
+    // The sound test's shape, for the tactile channel. A cue registered and
+    // named by no reachable event is a motor envelope someone tuned and no
+    // player will ever feel — the failure this file exists for.
+    //
+    // Two exemptions, each argued and each checked rather than merely listed:
+    //
+    //  - `SHELL_HAPTICS` (`ui-test`): the pulse the shell plays when the RUMBLE
+    //    setting changes to a non-off level. No run event is behind it, exactly
+    //    as `SHELL_CUES` have none, so no playthrough can reach it.
+    //  - the floor `bomb`: every v4 character's bomb resolves to its own
+    //    `bomb.<name>` cue first, so the generic row is reachable only by a
+    //    guest pack's bomb. That is asserted below, not assumed: if a v4 bomb
+    //    ever fell through to the floor, `bomb` would show up as reached and
+    //    the exemption would be lying.
+    const FLOOR_BOMB = 'bomb';
+    const exempt = new Set<string>([...SHELL_HAPTICS, FLOOR_BOMB]);
+
+    // Left column: every cue the resolution can select is registered.
+    const cued = new Set<string>([
+      ...Object.values(EVENT_HAPTICS).filter((n): n is string => n !== null),
+      ...V4_EVENT_HAPTIC_NAMES,
+      ...SHELL_HAPTICS,
+    ]);
+    for (const name of cued) {
+      expect(`${name} is registered: ${hapticNames().includes(name)}`).toBe(
+        `${name} is registered: true`,
+      );
+    }
+    // Right column: every registered cue is named by some table.
+    expect([...cued].sort()).toEqual(content(hapticNames()).sort());
+
+    // Every other registered cue is actually selected by a real playthrough,
+    // gated exactly as the shell gates it. First, so a stranded cue is named
+    // by its own failure rather than hidden behind the floor check below.
+    for (const name of content(hapticNames()).filter((n) => !exempt.has(n))) {
+      expect(`${name} reachable: ${COVER.haptics.has(name)}`).toBe(`${name} reachable: true`);
+    }
+
+    // The floor bomb's exemption holds: no v4 bomb fell through to it.
+    expect(`${FLOOR_BOMB} reached by the bundled edition: ${COVER.haptics.has(FLOOR_BOMB)}`).toBe(
+      `${FLOOR_BOMB} reached by the bundled edition: false`,
+    );
   });
 
   test('every registered bomb, actually detonated', () => {

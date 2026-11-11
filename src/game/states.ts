@@ -25,6 +25,7 @@ import { getStage } from '../content/stage';
 import type { ReplaySession } from '../replay/session';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES, type Difficulty } from '../sim/difficulty';
 import type { Replay } from '../sim/replay';
+import { nextRumbleSetting, rumbleLabel, type RumbleSetting } from './haptic-cues';
 import { Edges, type GameState, type StateMachine, type StateView } from './state';
 import {
   characterNames,
@@ -196,6 +197,20 @@ export interface GameContext {
    * and offers IMPORT/BACK even before the first run has been saved.
    */
   replaySessions?: readonly ReplaySession[];
+  /**
+   * The player's rumble level, shown as the last title-menu row.
+   *
+   * Shell presentation, like `recordReplay`: it decides how hard the shell
+   * drives a gamepad's motors and never enters `RunConfig`, a replay, or the
+   * simulation. `undefined` means this shell has no rumble surface (no
+   * `playEffect` in this browser, a test, a headless probe) and NO row is
+   * shown — exactly like `replaySessions`. The title row writes the new value
+   * back here and then calls `onRumbleChange`, so the shell persists it and
+   * plays the test pulse; the state machine never learns a motor exists.
+   */
+  rumble?: RumbleSetting;
+  /** Called once per RUMBLE-row press, with the setting just written to `rumble`. */
+  onRumbleChange?(setting: RumbleSetting): void;
   /** A fresh attempt/campaign id. Advanced stages keep the same id. */
   beginReplaySession?(): string;
   /** Handed the recording when a run ends, with its shell-owned session id. */
@@ -312,6 +327,34 @@ abstract class MenuState implements GameState {
 /* Title                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One title-menu row and what confirming it does.
+ *
+ * Rows are resolved from a list rather than by index arithmetic. The old
+ * dispatch tested `index === campaigns.length + 1` for REPLAYS and sent every
+ * other index down the campaign/START branch, so any row appended after
+ * REPLAYS would have started a run. A list keeps each row's meaning attached
+ * to the row, so a new row cannot fall through to another row's action.
+ */
+type TitleRow =
+  | { readonly kind: 'start' }
+  | { readonly kind: 'campaign'; readonly campaign: Campaign }
+  | { readonly kind: 'replays' }
+  | { readonly kind: 'rumble'; readonly setting: RumbleSetting };
+
+function titleRowLabel(row: TitleRow): string {
+  switch (row.kind) {
+    case 'start':
+      return 'START';
+    case 'campaign':
+      return row.campaign.label;
+    case 'replays':
+      return 'REPLAYS';
+    case 'rumble':
+      return rumbleLabel(row.setting);
+  }
+}
+
 export class TitleState extends MenuState {
   readonly name = 'title';
 
@@ -319,33 +362,55 @@ export class TitleState extends MenuState {
     super(ctx);
   }
 
-  protected get entries(): readonly string[] {
-    // START, then one row per campaign. An empty (or unset) list spreads to
-    // nothing, so a built-in-only build renders `['START']` byte-identically.
+  /**
+   * START, then one row per campaign, then REPLAYS and RUMBLE when the shell
+   * offers them. An empty (or unset) list spreads to nothing, so a built-in-only
+   * build with neither surface renders `['START']` byte-identically.
+   */
+  private get rows(): readonly TitleRow[] {
     return [
-      'START',
-      ...(this.ctx.campaigns ?? []).map((c) => c.label),
-      ...(this.ctx.replaySessions === undefined ? [] : ['REPLAYS']),
+      { kind: 'start' },
+      ...(this.ctx.campaigns ?? []).map((campaign) => ({ kind: 'campaign' as const, campaign })),
+      ...(this.ctx.replaySessions === undefined ? [] : [{ kind: 'replays' as const }]),
+      ...(this.ctx.rumble === undefined
+        ? []
+        : [{ kind: 'rumble' as const, setting: this.ctx.rumble }]),
     ];
   }
 
-  protected confirm(index: number): void {
-    const campaigns = this.ctx.campaigns ?? [];
-    if (this.ctx.replaySessions !== undefined && index === campaigns.length + 1) {
-      this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
-      return;
-    }
+  protected get entries(): readonly string[] {
+    return this.rows.map(titleRowLabel);
+  }
 
-    // Row 0 is START: it steers nothing, so `ctx.stage`/`ctx.packsData` are
-    // left exactly as they were and a built-in run records `packsData: ''`.
-    // Every later row is a campaign (index - 1 into the list); selecting one
-    // arms both the qualified stage and the entering pack's identity before the
-    // normal character-select flow, the same way a boss override is left on the
-    // context to steer the run that starts later.
-    const campaign = campaigns[index - 1];
-    if (campaign !== undefined) {
-      this.ctx.stage = campaign.stage;
-      this.ctx.packsData = campaign.packsData;
+  protected confirm(index: number): void {
+    const row = this.rows[index];
+    // No row under the cursor can only mean the shell withdrew a surface while
+    // it was selected; doing nothing is safer than starting a run unasked.
+    if (row === undefined) return;
+    switch (row.kind) {
+      case 'replays':
+        this.ctx.machine.replace(new ReplayLibraryState(this.ctx));
+        return;
+      case 'rumble': {
+        // A value edited in place, like the RUN SETUP toggles: write it, tell
+        // the shell once (persist, set gain, test pulse), and stay on the title.
+        const next = nextRumbleSetting(row.setting);
+        this.ctx.rumble = next;
+        this.ctx.onRumbleChange?.(next);
+        return;
+      }
+      case 'campaign':
+        // Selecting a campaign arms both the qualified stage and the entering
+        // pack's identity before the normal character-select flow, the same way
+        // a boss override is left on the context to steer the run that starts
+        // later.
+        this.ctx.stage = row.campaign.stage;
+        this.ctx.packsData = row.campaign.packsData;
+        break;
+      case 'start':
+        // START steers nothing, so `ctx.stage`/`ctx.packsData` are left exactly
+        // as they were and a built-in run records `packsData: ''`.
+        break;
     }
     // The tier screen sits between here and character select — the genre's
     // order — and applies to campaign rows as much as to START, since it steers

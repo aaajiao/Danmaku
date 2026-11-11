@@ -184,6 +184,7 @@ function errorName(error: unknown): string | undefined {
  * observes it exactly once through `Input.sample()` → `consume()`.
  */
 export class XboxWebHidInput implements DigitalInputSource {
+  readonly isGamepad = true;
   readonly #hid: WebHidApi;
   readonly #onStatus: XboxWebHidStatusListener;
   #device: WebHidDevice | undefined;

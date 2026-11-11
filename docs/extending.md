@@ -39,6 +39,7 @@ GLSL.
 | A particle effect | `defineEffect` | `src/sim/effects.ts` |
 | A sound | `defineSound` | `src/audio/index.ts` |
 | A music track | `defineMusic` | `src/audio/music.ts` |
+| A rumble cue | `defineHaptic` | `src/haptics/index.ts` (v4 cues: `src/v4/haptics/`) |
 | A background scene | `defineBackground` | engine API: `src/render/background.ts`; v4 scenes: `src/v4/backgrounds/` |
 | A dialogue portrait | `definePortrait` | `src/render/portrait.ts` |
 | A sprite region | `Atlas.define` / `Atlas.defineGrid` | `src/render/atlas.ts` |
@@ -1671,6 +1672,20 @@ voices can never play, which is a typo rather than an intent. `throttleMs` is
 audio has no tick (`src/audio/index.ts:185-188`). Synthesis noise comes from
 `fx`, never `sim`. `Audio.unlock()` must be called from a user gesture; calling
 it where WebAudio does not exist is harmless.
+
+### A rumble cue, the tactile sibling
+
+A gamepad rumble cue is registered with `defineHaptic(name, { segments, throttleTicks? })`
+(`src/haptics/index.ts`), where each segment holds a `strong`/`weak` level
+(0..1) for a number of **ticks**. Like a sound, it plays nothing on its own: name
+it in `EVENT_HAPTICS` (`src/game/haptic-cues.ts`, a total table over every
+`RunEventType`), in `v4EventHaptic` for edition detail, or in `SHELL_HAPTICS` for
+a shell-only pulse, and `reachability.test.ts` fails the build for a cue nothing
+selects. A v4 bomb gets its own cue in `src/v4/haptics/index.ts`, exactly as long
+as its `duration`. The strong motor is the left grip under the stick thumb, so
+a cue that lands while the player is still dodging keeps `strong <= 0.35`.
+Rumble is presentation only and never reaches the sim, an RNG or a replay.
+Depth, the event table, the limits and verification: [`docs/haptics.md`](./haptics.md).
 
 ---
 

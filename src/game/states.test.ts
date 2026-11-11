@@ -17,6 +17,7 @@ import {
   type PlayerCarry,
 } from './run';
 import { DEFAULT_DIFFICULTY, DIFFICULTIES } from '../sim/difficulty';
+import type { RumbleSetting } from './haptic-cues';
 import {
   CharacterSelectState,
   ClearedState,
@@ -2958,3 +2959,174 @@ function summary(run: Run): Record<string, number> {
     enemies: run.enemies.count,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Rumble setting row                                                  */
+/* ------------------------------------------------------------------ */
+
+describe('title RUMBLE row', () => {
+  /** A context with a rumble surface, recording every change the shell is told of. */
+  function rumbleContext(
+    overrides: Partial<GameContext> = {},
+  ): { ctx: GameContext; changes: RumbleSetting[] } {
+    const changes: RumbleSetting[] = [];
+    const ctx = context({
+      rumble: 'off',
+      onRumbleChange: (setting) => changes.push(setting),
+      ...overrides,
+    });
+    return { ctx, changes };
+  }
+
+  test('no rumble surface means no row: the menu is exactly what it was', () => {
+    // The central guarantee for every existing shell, test and probe that never
+    // sets `rumble` — including `reachability.test.ts`'s menu pilots.
+    const bare = context();
+    const title = new TitleState(bare);
+    open(bare.machine, title);
+    expect(title.view().menu).toEqual(['START']);
+
+    const withReplays = context({ replaySessions: [] });
+    const replaysTitle = new TitleState(withReplays);
+    open(withReplays.machine, replaysTitle);
+    expect(replaysTitle.view().menu).toEqual(['START', 'REPLAYS']);
+  });
+
+  test('the row is appended last and labels the current setting', () => {
+    const campaigns = [{ label: 'example/gauntlet', stage: 'example/gauntlet', packsData: 'example@abc' }];
+    for (const [setting, label] of [
+      ['off', 'RUMBLE  OFF'],
+      ['low', 'RUMBLE  LOW'],
+      ['full', 'RUMBLE  FULL'],
+    ] as const) {
+      const { ctx } = rumbleContext({ rumble: setting, campaigns, replaySessions: [] });
+      const title = new TitleState(ctx);
+      open(ctx.machine, title);
+      expect(title.view().menu).toEqual(['START', 'example/gauntlet', 'REPLAYS', label]);
+    }
+  });
+
+  test('confirming cycles off → low → full → off, staying on the title', () => {
+    const { ctx, changes } = rumbleContext();
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    expect(title.view().menu).toEqual(['START', 'RUMBLE  OFF']);
+
+    tap(ctx.machine, Button.Down);
+    const seen: (string | undefined)[] = [];
+    for (const expected of ['low', 'full', 'off'] as const) {
+      press(ctx.machine, Button.Shot);
+      // The confirm cue is set on the state that ticked, which is still the title.
+      expect(title.cue).toBe('ui-confirm');
+      expect(ctx.machine.current).toBe(title);
+      expect(ctx.machine.current?.name).toBe('title');
+      expect(ctx.rumble).toBe(expected);
+      seen.push(title.view().menu?.at(-1));
+      ctx.machine.tick(0);
+    }
+
+    expect(seen).toEqual(['RUMBLE  LOW', 'RUMBLE  FULL', 'RUMBLE  OFF']);
+    // Exactly one call per press, each with the value just written.
+    expect(changes).toEqual(['low', 'full', 'off']);
+    // The row steers nothing a run reads.
+    expect(ctx.stage).toBe(PLAY_STAGE);
+    expect(ctx.packsData).toBeUndefined();
+  });
+
+  test('a held confirm changes the setting once, not every tick', () => {
+    const { ctx, changes } = rumbleContext();
+    open(ctx.machine, new TitleState(ctx));
+    tap(ctx.machine, Button.Down);
+    for (let t = 0; t < 20; t++) ctx.machine.tick(Button.Shot);
+    expect(changes).toEqual(['low']);
+    expect(ctx.rumble).toBe('low');
+  });
+
+  test('the row works with no change callback, and still stays', () => {
+    const ctx = context({ rumble: 'full' });
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.rumble).toBe('off');
+    expect(ctx.machine.current).toBe(title);
+  });
+
+  test('Up from START wraps to RUMBLE', () => {
+    const { ctx, changes } = rumbleContext({ replaySessions: [] });
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    tap(ctx.machine, Button.Up);
+    expect(title.view().selected).toBe(2);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBe(title);
+    expect(changes).toEqual(['low']);
+  });
+
+  test('with both surfaces, REPLAYS still opens the library and RUMBLE is untouched', () => {
+    const { ctx, changes } = rumbleContext({ replaySessions: [] });
+    open(ctx.machine, new TitleState(ctx));
+    tap(ctx.machine, Button.Down);
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBeInstanceOf(ReplayLibraryState);
+    expect(changes).toEqual([]);
+    expect(ctx.rumble).toBe('off');
+  });
+
+  test('START and campaign rows behave exactly as before beside the row', () => {
+    const campaigns = [
+      { label: 'example/gauntlet', stage: 'example/gauntlet', packsData: 'example@abcdef012345' },
+    ];
+
+    const start = rumbleContext({ campaigns, replaySessions: [], stage: undefined });
+    open(start.ctx.machine, new TitleState(start.ctx));
+    press(start.ctx.machine, Button.Shot);
+    expect(start.ctx.machine.current?.name).toBe('difficulty-select');
+    expect(start.ctx.stage).toBeUndefined();
+    expect(start.ctx.packsData).toBeUndefined();
+    expect(start.changes).toEqual([]);
+
+    const campaign = rumbleContext({ campaigns, replaySessions: [] });
+    open(campaign.ctx.machine, new TitleState(campaign.ctx));
+    tap(campaign.ctx.machine, Button.Down);
+    press(campaign.ctx.machine, Button.Shot);
+    expect(campaign.ctx.machine.current?.name).toBe('difficulty-select');
+    expect(campaign.ctx.stage).toBe('example/gauntlet');
+    expect(campaign.ctx.packsData).toBe('example@abcdef012345');
+    expect(campaign.changes).toEqual([]);
+  });
+
+  test('a row the shell withdrew while selected does nothing on confirm', () => {
+    // If the shell drops its rumble surface (e.g. haptics disabled after a
+    // device error) with the cursor on the row, confirm must not fall through
+    // to START and deal the player a run they did not choose.
+    const { ctx, changes } = rumbleContext();
+    const title = new TitleState(ctx);
+    open(ctx.machine, title);
+    tap(ctx.machine, Button.Down);
+    ctx.rumble = undefined;
+    press(ctx.machine, Button.Shot);
+    expect(ctx.machine.current).toBe(title);
+    expect(changes).toEqual([]);
+  });
+
+  test('the setting never reaches the run config', () => {
+    const ctx = context({ rumble: 'low' });
+    const playing = new PlayingState(ctx, PILOT);
+    expect(Object.keys(playing.run.config)).not.toContain('rumble');
+  });
+});
+
+describe('pause menu and rumble', () => {
+  test('the pause menu carries no RUMBLE row (layout budget; see the haptics report)', () => {
+    // The shipped shell already fills the status card's four visible rows
+    // (RESUME, TAKE SCREENSHOT, RETRY, QUIT). A fifth would scroll the pause
+    // card, so the row lives on the title only.
+    const ctx = context({ rumble: 'full', onScreenshot: () => {} });
+    startPlaying(ctx);
+    ctx.machine.tick(0);
+    tap(ctx.machine, Button.Start);
+    const pause = ctx.machine.current as PauseState;
+    expect(pause.view().menu).toEqual(['RESUME', 'TAKE SCREENSHOT', 'RETRY', 'QUIT']);
+  });
+});

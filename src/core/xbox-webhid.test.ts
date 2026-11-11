@@ -184,6 +184,13 @@ describe('Xbox WebHID device lifecycle', () => {
     expect(XBOX_BLUETOOTH_PRODUCT_IDS).toEqual([0x02fd]);
   });
 
+  // The same physical pad can arrive here and through the standard Gamepad
+  // API at once; the flag keeps this mirror from handing rumble away from it.
+  test('declares itself a gamepad source', () => {
+    const { input } = driver(new FakeHid());
+    expect(input.isGamepad).toBe(true);
+  });
+
   test('an already-granted controller opens without a chooser', async () => {
     const hid = new FakeHid();
     const device = new FakeHidDevice();

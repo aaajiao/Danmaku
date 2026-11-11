@@ -25,6 +25,11 @@ import { Audio, overrideSound, soundNames } from './audio';
 import { Music, musicNames } from './audio/music';
 import { AudioOutput, type AudioCaptureLease } from './audio/output';
 import { MENU_MUSIC, V4_BOSS_MUSIC_NAMES, v4EventSound } from './v4/audio';
+import { v4EventHaptic } from './v4/haptics';
+import { GamepadRumble } from './haptics/gamepad-rumble';
+import { HapticMixer } from './haptics/mixer';
+import { HapticOutput } from './haptics/output';
+import { Rumble } from './shell/rumble';
 import { Button, Input } from './core/input';
 import {
   MenuPointerInput,
@@ -50,6 +55,11 @@ import {
   resolveMusicTransition,
   shouldPlayRunEventSound,
 } from './game/cues';
+import {
+  EVENT_HAPTICS,
+  parseRumbleSetting,
+  shouldPlayRunEventHaptic,
+} from './game/haptic-cues';
 import type { Replay } from './sim/replay';
 import {
   IndexedDbReplaySessionStore,
@@ -126,6 +136,7 @@ import {
   installControllerConnect,
   presentControllerStatus,
 } from './shell/controller-chrome';
+import { RUMBLE_SETTING_KEY, loadSetting, saveSetting } from './shell/settings';
 import {
   finishMenuClickTargets as finishMenuClickTargetsInChrome,
   hideMenuClickTargets as hideMenuClickTargetsInChrome,
@@ -1033,6 +1044,28 @@ window.addEventListener('keydown', (e) => {
 (globalThis as { __background?: Background }).__background = background;
 
 /**
+ * Rumble: the tactile sibling of the audio reactions, and presentation only.
+ *
+ * It is mapped from the same drained `Run` events as sound and never reaches
+ * the simulation, an RNG or the input mask; a replay neither records nor
+ * replays it. Cue envelopes run on the tick clock (the mixer steps once per
+ * tick); only the output driver reads a wall clock, to pace device writes.
+ *
+ * Every decision — which pad, what pause and a hidden page do, what a throw
+ * at the device boundary costs — is in `shell/rumble.ts`, where a test can
+ * reach it. This file only hands it facts.
+ */
+const RUMBLE_SUPPORTED = GamepadRumble.supported();
+const STORED_RUMBLE = parseRumbleSetting(loadSetting(RUMBLE_SETTING_KEY), 'full');
+const rumble = new Rumble({
+  mixer: new HapticMixer(),
+  output: new HapticOutput({ now: () => performance.now() }),
+  pads: new GamepadRumble(),
+  supported: RUMBLE_SUPPORTED,
+  setting: STORED_RUMBLE,
+});
+
+/**
  * Seeds come from the wall clock, which is fine: a seed is chosen once, before
  * a run starts, and is then recorded. Nothing inside the simulation ever reads
  * a clock — see CLAUDE.md rule 1.
@@ -1126,6 +1159,15 @@ const context: GameContext = {
   },
   onReplayError: (message) => showShellStatus(message.toUpperCase(), 'error'),
   onScreenshot: requestScreenshot,
+  // `undefined` hides the RUMBLE row: nobody is offered a switch that does
+  // nothing. It stays hidden on a browser with no `playEffect` (Firefox) and
+  // on a device with no controller (a phone on touch controls); the tick
+  // below reveals it the first time a pad with a working actuator is seen.
+  rumble: undefined,
+  onRumbleChange: (setting) => {
+    saveSetting(RUMBLE_SETTING_KEY, setting);
+    rumble.change(setting);
+  },
 };
 
 replayImportInput.addEventListener('change', () => {
@@ -1403,6 +1445,14 @@ document.addEventListener('visibilitychange', () => {
   if (active !== undefined) disposeReplayExport(active);
 });
 
+// rAF stops while the page is hidden, so the tick that would end a cue never
+// runs — and Chromium stops a motor only from this page's own main thread.
+// Stop synchronously here; `pagehide` is the last chance when the window closes.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) rumble.silence();
+});
+window.addEventListener('pagehide', () => rumble.silence());
+
 // Presentation caches and queues remain owned by the composition root. The
 // overlay receives their references but cannot replace them or create game
 // state of its own.
@@ -1579,12 +1629,23 @@ const loop = new Loop({
       // This assignment follows `topRun`: a higher run in the stack replaces
       // both the wanted track and the arrival occurrence that qualifies it.
       bossArrivingForTrack = bossArriving;
+      // Rumble follows the pilot, not the viewer: a replay or an export drains
+      // the same events, and neither may shake a pad nobody is flying with.
+      const rumbleLive = rumble.enabled && !run.playingBack;
+      const hapticGate = {
+        bossArrivingInBatch: bossArriving,
+        playerInvulnerable: run.player.invuln > 0,
+      };
 
       for (const event of events) {
         const sound = shouldPlayRunEventSound(event.type, bossArriving)
           ? v4EventSound(event) ?? EVENT_SOUNDS[event.type]
           : undefined;
         if (sound) audio.play(sound);
+        if (rumbleLive && shouldPlayRunEventHaptic(event.type, hapticGate)) {
+          const cue = v4EventHaptic(event) ?? EVENT_HAPTICS[event.type];
+          if (cue) rumble.play(cue);
+        }
         if (event.type === 'graze') {
           grazeUiPulses.push({
             run,
@@ -1715,6 +1776,18 @@ const loop = new Loop({
     // same signal the duck above reads; no run event, no trace touched.
     if (paused && !wasPaused) audio.play('ui-pause');
     wasPaused = paused;
+
+    // Rumble is reconciled like the scene and the track: the controller is
+    // told what is true this tick and decides what the pad should be doing.
+    rumble.step({
+      liveRun: topRun !== undefined && !topRun.playingBack ? topRun : undefined,
+      paused,
+      hidden: document.hidden,
+      activePad: input.activeGamepad,
+      lastPad: input.lastGamepad,
+    });
+    // The RUMBLE row appears once there is a pad to feel it on, and stays.
+    if (context.rumble === undefined && rumble.surface) context.rumble = rumble.setting;
   },
 
   render() {

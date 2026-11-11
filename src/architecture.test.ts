@@ -230,3 +230,168 @@ describe('the packs scanner detects what it claims to', () => {
     expect(packsImports(`import { thing } from './unpacks/util';`)).toEqual([]);
   });
 });
+
+/**
+ * `src/haptics` is browser presentation and its boundary is **total**, like
+ * `src/packs`.
+ *
+ * Rumble is an output channel the shell drives from drained `RunEvent`s,
+ * beside audio. Its registry and mixer are pure, but its driver holds a wall
+ * clock and its sinks call `GamepadHapticActuator` — and the property that
+ * matters is not "would it run headless" but that nothing the simulation
+ * computes can come to depend on whether a motor exists. So no headless tree
+ * may import it, not even a type: the shapes `src/game` needs (`RumbleSetting`,
+ * the event→cue table) are declared in `src/game/haptic-cues.ts` as plain
+ * strings and numbers, and the shell resolves the names against the registry.
+ * A cue crosses the boundary as a name, exactly as a scene does.
+ *
+ * The match is on a whole path segment named `haptics` — the bare directory
+ * (`'../haptics'`, which resolves to its index) as well as any module inside
+ * it — so `./haptic-cues` and a sibling such as `v4-haptics` are not hits.
+ * A headless tree importing `src/v4/haptics` is caught too, correctly: that
+ * module registers cues into `src/haptics`.
+ *
+ * Unlike the two scanners above, this one reads **statements, not lines**. A
+ * per-line scan cannot see the house style for a long import —
+ *
+ *     import {
+ *       HapticMixer,
+ *       type HapticLevel,
+ *     } from '../haptics/mixer';
+ *
+ * — because the line that starts with `import` names no module and the line
+ * that names the module starts with `}`. A boundary that calls itself total
+ * has to see the form an offence would most likely be written in, and a
+ * dynamic `import('../haptics')` as well.
+ *
+ * `src/core` is scanned too, though it is not in `HEADLESS_TREES` (it
+ * legitimately touches DOM input APIs, so the render rule does not bind it):
+ * `core/input.ts` computes the one mask the simulation reads, and now also
+ * the pad-in-use bookkeeping rumble targets. Nothing there has a reason to
+ * know a motor exists.
+ */
+const HAPTICS_SPEC = String.raw`['"]((?:[^'"]*\/)?haptics(?:\/[^'"]*)?)['"]`;
+/**
+ * A static import/export whose module is a haptics path. The statement must
+ * START a line, so prose (` * import … from '../haptics'`, `// import …`)
+ * never anchors a match; `[^;'"]*?` may cross newlines but stops at the first
+ * string or semicolon, so it cannot run on into a later statement.
+ */
+const STATIC_HAPTICS = new RegExp(
+  String.raw`^[ \t]*(?:(?:import|export)\b[^;'"]*?\bfrom\s*|import\s*)` + HAPTICS_SPEC,
+  'gm',
+);
+const DYNAMIC_HAPTICS = new RegExp(String.raw`\bimport\s*\(\s*` + HAPTICS_SPEC, 'g');
+
+/** Each offence, whitespace-normalised to one line. */
+function hapticsImports(source: string): string[] {
+  const out = [...source.matchAll(STATIC_HAPTICS)].map((m) => m[0].replace(/\s+/g, ' ').trim());
+  for (const line of source.split('\n')) {
+    const text = line.trim();
+    // Prose that mentions `import('../haptics')` is not a dynamic import.
+    if (/^(\/\/|\/\*|\*)/.test(text)) continue;
+    for (const m of text.matchAll(DYNAMIC_HAPTICS)) out.push(m[0]);
+  }
+  return out;
+}
+
+const HAPTICS_FREE_TREES = [...HEADLESS_TREES, 'core'];
+
+describe('the simulation does not depend on haptics', () => {
+  test.each(HAPTICS_FREE_TREES)('src/%s imports nothing from src/haptics', (tree) => {
+    const offences: string[] = [];
+
+    for (const path of sourceFiles(`${ROOT}${tree}`)) {
+      const source = readFileSync(path, 'utf8');
+      for (const line of hapticsImports(source)) {
+        offences.push(`${path.slice(ROOT.length)}: ${line}`);
+      }
+    }
+
+    expect(offences).toEqual([]);
+  });
+});
+
+describe('the haptics scanner detects what it claims to', () => {
+  test('a value import of the haptics index is an offence', () => {
+    expect(hapticsImports(`import { defineHaptic } from '../haptics';`)).toHaveLength(1);
+    expect(hapticsImports(`import { defineHaptic } from "../../haptics";`)).toHaveLength(1);
+  });
+
+  test('an import of a module inside haptics is an offence', () => {
+    expect(hapticsImports(`import { HapticMixer } from '../haptics/mixer';`)).toHaveLength(1);
+  });
+
+  test('a type-only import is an offence too, because the boundary is total', () => {
+    expect(hapticsImports(`import type { HapticLevel } from '../haptics/types';`)).toHaveLength(1);
+    expect(hapticsImports(`import { type HapticSink } from '../haptics';`)).toHaveLength(1);
+  });
+
+  test('a re-export and a side-effect import are offences', () => {
+    expect(hapticsImports(`export { getHaptic } from '../haptics';`)).toHaveLength(1);
+    expect(hapticsImports(`import '../v4/haptics';`)).toHaveLength(1);
+  });
+
+  test('the game-side cue table is not matched', () => {
+    expect(hapticsImports(`import { EVENT_HAPTICS } from './haptic-cues';`)).toEqual([]);
+    expect(hapticsImports(`import type { RumbleSetting } from '../game/haptic-cues';`)).toEqual([]);
+  });
+
+  test('an unrelated path that merely contains the letters is not matched', () => {
+    expect(hapticsImports(`import { thing } from './v4-haptics';`)).toEqual([]);
+    expect(hapticsImports(`import { thing } from './haptics-old/util';`)).toEqual([]);
+  });
+
+  test('prose naming the path is not an import', () => {
+    expect(hapticsImports(` * the shell owns src/haptics/output.ts`)).toEqual([]);
+    expect(hapticsImports(`// see '../haptics' for the registry`)).toEqual([]);
+    expect(hapticsImports(` * import { HapticMixer } from '../haptics/mixer';`)).toEqual([]);
+    expect(hapticsImports(`// const m = await import('../haptics');`)).toEqual([]);
+  });
+
+  test('a multi-line import is an offence: the form a per-line scan cannot see', () => {
+    const source = [
+      `import {`,
+      `  HapticMixer,`,
+      `  type HapticLevel,`,
+      `} from '../haptics/mixer';`,
+    ].join('\n');
+    expect(hapticsImports(source)).toEqual([
+      `import { HapticMixer, type HapticLevel, } from '../haptics/mixer'`,
+    ]);
+  });
+
+  test('a multi-line re-export is an offence', () => {
+    expect(hapticsImports(`export {\n  defineHaptic,\n} from '../haptics';`)).toHaveLength(1);
+  });
+
+  test('a dynamic import is an offence', () => {
+    expect(hapticsImports(`const m = await import('../haptics');`)).toHaveLength(1);
+    expect(hapticsImports(`void import( "../haptics/mixer" );`)).toHaveLength(1);
+  });
+
+  test('a multi-line import of something else does not swallow a later string', () => {
+    // The lazy run stops at the first string, so './run' ends the statement
+    // and the unrelated literal after it is never read as its module.
+    const source = [
+      `import {`,
+      `  characterNames,`,
+      `} from './run';`,
+      `const where = '../haptics';`,
+      `export const label = 'haptics';`,
+    ].join('\n');
+    expect(hapticsImports(source)).toEqual([]);
+  });
+
+  test('the scan would catch a real offence in a headless tree file', () => {
+    // End to end over a fabricated source, as the per-tree loop reads one.
+    const source = [
+      `import { Button } from '../core/input';`,
+      `import type { HapticLevel } from '../haptics/types';`,
+      `import { EVENT_HAPTICS } from './haptic-cues';`,
+    ].join('\n');
+    expect(hapticsImports(source)).toEqual([
+      `import type { HapticLevel } from '../haptics/types'`,
+    ]);
+  });
+});

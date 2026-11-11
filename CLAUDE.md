@@ -20,12 +20,13 @@ src/content/       generic pattern registry/primitives, shot and stage registrie
                    plus compatibility facades for the active edition
 src/game/          run rules, state machine, screens — all game logic, no three.js
 src/audio/         sound registry and runtime synthesis
+src/haptics/       gamepad rumble: cue registry, tick-clocked mixer, paced device output
 src/packs/         drop-in packs: pure shape validation, content injector,
                    loader, and compatibility entry for bundled edition content
 src/v4/            compile-time edition root: gameplay definitions, authored
                    background shaders, and generated four-stage campaign data
 src/shell/         browser-only sizing, controls, run/overlay views, menu chrome,
-                   and downloads
+                   downloads, and the rumble controller
 src/main.ts        browser shell composition root: input in, pixels out
 docs/              asset specification, extension guide, pack format
 packs/             project-owned shipped art (`v4`) plus the README-only
@@ -94,6 +95,11 @@ the only one that ever survived here was in a test, and it survived precisely
 because a test importing the renderer looks harmless. It is not — it spends the
 exact property the rule buys. `src/architecture.test.ts` now enforces this; until
 it was written the rule had been convention-only for the life of the project.
+
+`src/haptics/` is banned from those trees **totally** — and from `src/core`
+as well — type-only, multi-line and dynamic imports included. Rumble is an
+output channel the shell drives; the game names a cue as a string
+(`src/game/haptic-cues.ts`) and never learns a motor exists.
 
 If you need a value from the renderer, the design is wrong, not the rule. Invert
 the dependency: have content name the thing as a **string** and let the shell
@@ -297,6 +303,7 @@ engine. Every extension point is a registry:
 | Dialogue portraits | `definePortrait` | `src/render/portrait.ts` |
 | Sounds | `defineSound` | `src/audio/index.ts` |
 | Music tracks | `defineMusic` | `src/audio/music.ts` |
+| Rumble cues | `defineHaptic` | `src/haptics/index.ts` |
 | Sprite regions (and animation strips) | `Atlas.define` / `defineGrid` / `defineStrip` | `src/render/atlas.ts` |
 | Render layers | `Layer` constants | `src/render/stage.ts` |
 | Asset packs (reskins + content) | drop a folder in `packs/` | `docs/packs.md` |
@@ -653,14 +660,20 @@ field actually draws. The rendering bugs found so far — reversed winding, an i
 `renderOrder`, a spatial-hash collision — were all invisible to the type checker
 and silent in the console.
 
-Three checks need a real framebuffer and so cannot live in `bun test`. Each is a
-page you open by hand:
+Three checks need a real framebuffer and so cannot live in `bun test`, and a
+fourth needs a physical controller. Each is a page you open by hand:
 
 ```
 bun run test:visual     # → http://localhost:3006   layer ordering
 bun run test:assets     # → http://localhost:3007   atlas loading, and cell padding
 bun run test:density    # → http://localhost:3008   readability under bullet load
+bun run test:haptics    # → http://localhost:3010   rumble envelopes on a physical pad
 ```
+
+`test:haptics` is for tuning rumble envelopes in a tab: it drives the real mixer,
+output driver and Gamepad sinks and shows every `playEffect` result, so it needs
+a physical pad. It cannot test the installed PWA; the in-app RUMBLE row is that
+check. See `docs/haptics.md`.
 
 `test:visual` draws two overlapping quads on known layers, reads the pixel where
 they cross, and then repeats the measurement with `sortObjects` forced off to

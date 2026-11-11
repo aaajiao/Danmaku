@@ -7,6 +7,18 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "stg-dev",
       "port": 5173
+    },
+    {
+      "name": "danmaku-dev",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "danmaku-haptics",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "test:haptics"],
+      "port": 3010
     }
   ]
 }

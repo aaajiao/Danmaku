@@ -3,8 +3,8 @@
  *
  * This is compiled, reviewed project code rather than a downloadable asset
  * pack. It installs the deterministic danmaku vocabulary, authored background
- * shaders, v4 fallback score, four-stage campaign and its narrative in dependency
- * order.
+ * shaders, v4 fallback score, per-bomb rumble cues, four-stage campaign and its
+ * narrative in dependency order.
  * `packs/v4` remains the data-only release presentation selected by the loader.
  */
 
@@ -12,6 +12,7 @@ import './gameplay/behaviours';
 import './gameplay/patterns';
 import './backgrounds';
 import './audio';
+import './haptics';
 import './content';
 
 export { CONTENT_FINGERPRINT, V4_ENDINGS } from './content';

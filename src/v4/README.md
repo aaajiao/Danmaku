@@ -25,6 +25,7 @@ JavaScript or GLSL. Loading that pack paints v4; it does not install v4's rules.
 | Compiled edition images | [`src/assets/v4`](../assets/v4) | Bun resolves imports; [`tools/relocate-v4-assets.ts`](../../tools/relocate-v4-assets.ts) closes the production inventory inside the presentation-pack boundary at `dist/packs/v4/assets/` |
 | Raster and HUD art | [`packs/v4`](../../packs/v4) via [`tools/make-v4-pack.ts`](../../tools/make-v4-pack.ts) | Runtime pack loader, atlas renderer and procedural fallback |
 | Audio identity and release assets | [`audio/`](./audio), [`docs/v4-audio-direction.md`](../../docs/v4-audio-direction.md), and generated release audio in [`packs/v4`](../../packs/v4) | Sound/music registries, synthesis and WebAudio playback in [`src/audio`](../audio) |
+| Rumble identity (one cue per character bomb) | [`haptics/`](./haptics) | Cue registry, generic floor cues, tick-clocked mixer and Gamepad API output in [`src/haptics`](../haptics); the event→cue table in [`src/game/haptic-cues.ts`](../game/haptic-cues.ts) |
 
 The distinction is ownership, not duplication. `src/v4` supplies one edition's
 definitions to generic registries; the registries, simulation and renderer do
@@ -38,7 +39,8 @@ not become v4-specific.
 2. deterministic danmaku patterns;
 3. authored background shaders and their optional project-owned painted plates;
 4. v4 audio identity and fallback score;
-5. generated campaign data and the stage-keyed v4 ending.
+5. v4 rumble cues, one per character bomb, over the generic floor cues;
+6. generated campaign data and the stage-keyed v4 ending.
 
 [`src/main.ts`](../main.ts) imports that root before it calls the runtime pack
 loader. Campaign injection can therefore resolve every pattern, behaviour,
@@ -88,6 +90,11 @@ keep older imports working while ownership stays visible under this directory.
   scene-free.
 - Track identity and the emergency score floor belong in [`audio/`](./audio);
   release samples are generated into `packs/v4` under the v4 audio direction.
+- Per-bomb rumble cues belong in [`haptics/`](./haptics). A cue's length is
+  its bomb's `duration` and [`haptics/index.test.ts`](./haptics/index.test.ts)
+  pins that, so retuning a bomb in the content generator means retuning its
+  cue. Rumble is presentation: it never enters campaign bytes or replay
+  identity.
 - Replaceable sprite/HUD art changes belong to the independent `packs/v4`
   generator and manifest. Shader-coupled background plates belong to
   `src/assets/v4/backgrounds` and are compiled with the edition. Neither path may

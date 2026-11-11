@@ -1177,3 +1177,60 @@ describe('native projectile paint contains its collision geometry', () => {
     expect(runViewSource).not.toContain("onMissile\n      ? { width: b.style.width, height: b.style.height }");
   });
 });
+
+/**
+ * Rumble's decisions live in `shell/rumble.ts` and are tested there on their
+ * behaviour. What is left in `main.ts` is the handing-over of facts, and each
+ * fact is a wire nothing else can see: a review once removed the replay gate,
+ * the pause stop, the pad targeting and both page-lifecycle stops in one go,
+ * and every other test stayed green. These pins are that review's regression.
+ */
+describe('rumble wiring hands the controller the facts it decides from', () => {
+  test('a replay or an export never plays a cue', () => {
+    expect(mainSource).toContain('const rumbleLive = rumble.enabled && !run.playingBack;');
+    const loop = mainSource.slice(mainSource.indexOf('for (const event of events)'));
+    const body = loop.slice(0, 700);
+    expect(body).toContain('if (rumbleLive && shouldPlayRunEventHaptic(event.type, hapticGate))');
+    expect(body).toContain('if (cue) rumble.play(cue);');
+  });
+
+  test('the step is told the live run, the pause, the page and both pad answers', () => {
+    const at = mainSource.indexOf('rumble.step({');
+    expect(at).toBeGreaterThan(-1);
+    const frame = mainSource.slice(at, mainSource.indexOf('});', at));
+    expect(frame).toContain(
+      'liveRun: topRun !== undefined && !topRun.playingBack ? topRun : undefined,',
+    );
+    expect(frame).toContain('paused,');
+    expect(frame).toContain('hidden: document.hidden,');
+    expect(frame).toContain('activePad: input.activeGamepad,');
+    expect(frame).toContain('lastPad: input.lastGamepad,');
+  });
+
+  test('the step runs once per tick, after that tick\'s events were played', () => {
+    expect(mainSource.split('rumble.step(').length - 1).toBe(1);
+    expect(mainSource.indexOf('if (cue) rumble.play(cue);')).toBeLessThan(
+      mainSource.indexOf('rumble.step({'),
+    );
+  });
+
+  test('a hidden or closing page stops the motors synchronously', () => {
+    expect(mainSource).toContain('if (document.hidden) rumble.silence();');
+    expect(mainSource).toContain("window.addEventListener('pagehide', () => rumble.silence());");
+  });
+
+  test('the RUMBLE row waits for a pad that can rumble', () => {
+    expect(mainSource).toContain('rumble: undefined,');
+    expect(mainSource).toContain(
+      'if (context.rumble === undefined && rumble.surface) context.rumble = rumble.setting;',
+    );
+  });
+
+  test('no haptics module is driven from main.ts except through the controller', () => {
+    // Constructed here, handed over, and never touched again.
+    for (const name of ['HapticMixer', 'HapticOutput', 'GamepadRumble']) {
+      expect(mainSource.split(`new ${name}(`).length - 1).toBe(1);
+    }
+    expect(mainSource).not.toMatch(/\bhapticMixer\b|\bhapticOutput\b|\bgamepadRumble\b/);
+  });
+});
